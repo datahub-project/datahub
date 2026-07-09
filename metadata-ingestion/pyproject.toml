@@ -154,6 +154,10 @@ azure-data-factory = [
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
 ]
 
+bigid = [
+    "requests>=2.28.0,<3.0",
+]
+
 bigquery = [
     "cachetools<6.0.0",
     "google-cloud-bigquery<4.0.0",
@@ -568,6 +572,7 @@ glue = [
     "cachetools<6.0.0",
     "patchy==2.8.0",
     "sqlglot[c]==30.8.0",
+    "sqlparse<0.6.0",
     "urllib3>=1.26,<3.0",
 ]
 
@@ -716,6 +721,12 @@ matillion-dpc = [
 ]
 
 metabase = [
+    "patchy==2.8.0",
+    "requests<3.0.0",
+    "sqlglot[c]==30.8.0",
+]
+
+microstrategy = [
     "patchy==2.8.0",
     "requests<3.0.0",
     "sqlglot[c]==30.8.0",
@@ -1855,6 +1866,7 @@ azure-ad = "datahub.ingestion.source.identity.azure_ad:AzureADSource"
 azure-data-factory = "datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource"
 fabric-onelake = "datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource"
 fabric-data-factory = "datahub.ingestion.source.fabric.data_factory.source:FabricDataFactorySource"
+bigid = "datahub.ingestion.source.bigid.bigid_source:BigIDSource"
 bigquery = "datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source"
 bigquery-queries = "datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource"
 clickhouse = "datahub.ingestion.source.sql.clickhouse:ClickHouseSource"
@@ -1920,6 +1932,7 @@ preset = "datahub.ingestion.source.preset:PresetSource"
 tableau = "datahub.ingestion.source.tableau.tableau:TableauSource"
 openapi = "datahub.ingestion.source.openapi:OpenApiSource"
 metabase = "datahub.ingestion.source.metabase:MetabaseSource"
+microstrategy = "datahub.ingestion.source.microstrategy.source:MicroStrategySource"
 teradata = "datahub.ingestion.source.sql.teradata:TeradataSource"
 starrocks = "datahub.ingestion.source.sql.starrocks:StarRocksSource"
 thoughtspot = "datahub.ingestion.source.thoughtspot.source:ThoughtSpotSource"

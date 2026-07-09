@@ -35,7 +35,6 @@ export class DomainEntityPage extends BasePage {
   readonly descriptionViewer: Locator;
   readonly addRelatedButton: Locator;
   readonly addLinkMenuItem: Locator;
-  readonly linkLabel: Locator;
   readonly sidebarCollapseTab: Locator;
   readonly addOwnersButton: Locator;
   readonly addOwnersSelect: Locator;
@@ -72,7 +71,6 @@ export class DomainEntityPage extends BasePage {
     this.descriptionViewer = page.getByTestId('description-viewer');
     this.addRelatedButton = page.getByTestId('add-related-button');
     this.addLinkMenuItem = page.getByTestId('menu-item-add-link');
-    this.linkLabel = page.getByTestId('link-label');
     this.sidebarCollapseTab = page.getByTestId('entity-sidebar-collapse-tab');
     this.addOwnersButton = page.getByTestId('add-owners-button');
     this.addOwnersSelect = page.getByTestId('add-owners-select');
@@ -191,7 +189,9 @@ export class DomainEntityPage extends BasePage {
     await this.labelInput.fill(label);
     await this.linkFormSubmitButton.click();
 
-    await expect(this.linkLabel.getByText(label)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    // Links render as a ResourceLinkPill whose dataTestId is `${url}-${label}`.
+    // .first() because the same pill can also appear in the sidebar (same testid).
+    await expect(this.page.getByTestId(`${url}-${label}`).first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
   async addOwner(displayName: string): Promise<void> {
