@@ -2220,34 +2220,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         # Iterate over the dbt nodes in topological order.
         # This ensures that we process upstream nodes before downstream nodes.
-        all_node_order = list(
-            topological_sort(
-                list(all_nodes_map.keys()),
-                edges=list(
-                    (upstream, node.dbt_name)
-                    for node in all_nodes_map.values()
-                    for upstream in node.upstream_nodes
-                    if upstream in all_nodes_map
-                ),
-            )
+        all_node_order = topological_sort(
+            list(all_nodes_map.keys()),
+            edges=list(
+                (upstream, node.dbt_name)
+                for node in all_nodes_map.values()
+                for upstream in node.upstream_nodes
+                if upstream in all_nodes_map
+            ),
         )
         schema_required_nodes, cll_required_nodes = self._determine_cll_required_nodes(
             all_nodes_map
         )
 
-        total_nodes = len(all_node_order)
-        logger.info(
-            f"Starting schema inference and column-level lineage for {total_nodes} nodes"
-        )
-        for i, dbt_name in enumerate(all_node_order):
+        for dbt_name in all_node_order:
+            if dbt_name not in schema_required_nodes:
+                logger.debug(
+                    f"Skipping {dbt_name} because it is filtered out by patterns"
+                )
+                continue
+
             node = all_nodes_map[dbt_name]
             try:
-                if dbt_name not in schema_required_nodes:
-                    logger.debug(
-                        f"Skipping {dbt_name} because it is filtered out by patterns"
-                    )
-                    continue
-
                 logger.debug(f"Processing CLL/schemas for {self._node_context(node)}")
 
                 target_node_urn = None
@@ -2470,19 +2464,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     message="Failed to infer schema or column-level lineage for this model; it will keep whatever columns/lineage it already had.",
                     kind="cll",
                 )
-            finally:
-                # In a `finally` block (rather than after the try/except, and
-                # covering the pattern-filter skip too) so a node landing on a
-                # milestone index never silently skips this log line, whether
-                # it was filtered out, failed, or processed successfully.
-                if (i + 1) % 1000 == 0:
-                    logger.info(
-                        f"Processed {i + 1}/{total_nodes} models for schema+lineage"
-                    )
-
-        logger.info(
-            f"Completed schema inference and column-level lineage for {total_nodes} nodes"
-        )
 
     def _parse_cll(
         self,
