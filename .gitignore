@@ -119,6 +119,9 @@ skills-lock.json
 !.claude/commands/
 !.claude/agents/
 !.claude/settings.json
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/deny-git-no-verify.sh
 **/.claude/settings.local.json
 
 # Kiro Ignores
