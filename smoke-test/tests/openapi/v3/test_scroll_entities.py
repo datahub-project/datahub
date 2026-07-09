@@ -1,6 +1,5 @@
 """Smoke tests for the scroll_entities DataHubGraph method."""
 
-import logging
 from typing import cast
 
 import pytest
@@ -11,8 +10,6 @@ from datahub.ingestion.graph.filters import RawSearchFilter
 from datahub.ingestion.graph.openapi import SortCriterionDict
 from datahub.metadata.schema_classes import DatasetKeyClass
 from tests.utils import with_test_retry
-
-logger = logging.getLogger(__name__)
 
 PLATFORM = "urn:li:dataPlatform:scrolltest"
 ALPHA = "urn:li:dataset:(urn:li:dataPlatform:scrolltest,alpha,PROD)"
@@ -53,9 +50,6 @@ def test_scroll_entities_basic(graph_client: DataHubGraph) -> None:
     assert len(result.entities) == 5
     assert result.scroll_id is not None
     assert isinstance(result.entities, dict)
-    logger.info(
-        f"scroll_entities basic: total_count={result.total_count}, returned={len(result.entities)}"
-    )
 
 
 def test_scroll_entities_aspects_none_returns_urns_only(
@@ -72,9 +66,6 @@ def test_scroll_entities_aspects_none_returns_urns_only(
     assert set(result.entities.keys()) == ALL_DATASET_URNS
     assert all(aspects == {} for aspects in result.entities.values()), (
         f"aspects=None should return no aspects, got: {result.entities}"
-    )
-    logger.info(
-        f"scroll_entities aspects=None: {len(result.entities)} urn-only entities"
     )
 
 
@@ -95,7 +86,6 @@ def test_scroll_entities_aspects_empty_returns_all_aspects(
         assert "datasetProperties" in aspects, (
             f"datasetProperties missing for {urn}: {aspects}"
         )
-    logger.info("scroll_entities aspects=[]: all aspects returned for each dataset")
 
 
 def test_scroll_entities_aspects_single_returns_only_that_aspect(
@@ -113,9 +103,6 @@ def test_scroll_entities_aspects_single_returns_only_that_aspect(
         assert set(aspects.keys()) == {"datasetProperties"}, (
             f"Expected only datasetProperties for {urn}, got: {set(aspects.keys())}"
         )
-    logger.info(
-        "scroll_entities aspects=['datasetProperties']: only that aspect returned"
-    )
 
 
 def test_scroll_entities_by_entity_type(graph_client: DataHubGraph) -> None:
@@ -145,11 +132,6 @@ def test_scroll_entities_by_entity_type(graph_client: DataHubGraph) -> None:
     for urn in models.entities:
         assert urn.startswith("urn:li:mlModel:")
 
-    logger.info(
-        f"scroll_entities by entity type: {len(datasets.entities)} datasets, "
-        f"{len(models.entities)} ML models"
-    )
-
 
 def test_scroll_entities_by_multiple_entity_types(graph_client: DataHubGraph) -> None:
     """Requesting entity_names=["dataset","mlModel"] with the shared platform filter should
@@ -163,10 +145,6 @@ def test_scroll_entities_by_multiple_entity_types(graph_client: DataHubGraph) ->
     assert set(result.entities.keys()) == ALL_DATASET_URNS | ALL_MODEL_URNS
     for urn in result.entities:
         assert urn.startswith("urn:li:dataset:") or urn.startswith("urn:li:mlModel:")
-    logger.info(
-        f"scroll_entities multiple types: {len(result.entities)} scrolltest entities "
-        f"({len(ALL_DATASET_URNS)} datasets + {len(ALL_MODEL_URNS)} ML models)"
-    )
 
 
 def test_scroll_entities_filter_is_applied(graph_client: DataHubGraph) -> None:
@@ -195,9 +173,6 @@ def test_scroll_entities_filter_is_applied(graph_client: DataHubGraph) -> None:
     assert result.total_count == 0, (
         f"Impossible filter should return no results, got {result.total_count}"
     )
-    logger.info(
-        "scroll_entities filter is applied: impossible filter returned 0 results"
-    )
 
 
 def test_scroll_entities_pagination(graph_client: DataHubGraph) -> None:
@@ -222,9 +197,6 @@ def test_scroll_entities_pagination(graph_client: DataHubGraph) -> None:
         "Second page should return different URNs than the first"
     )
     assert set(first.entities) | set(second.entities) == ALL_DATASET_URNS
-    logger.info(
-        "scroll_entities pagination: two pages of 3 cover all 6 scrolltest URNs"
-    )
 
 
 def test_scroll_entities_with_sort_criteria(graph_client: DataHubGraph) -> None:
@@ -239,9 +211,6 @@ def test_scroll_entities_with_sort_criteria(graph_client: DataHubGraph) -> None:
     assert set(result.entities.keys()) == ALL_DATASET_URNS
     urns = list(result.entities)
     assert urns == sorted(urns), "Results should be sorted ascending by URN"
-    logger.info(
-        f"scroll_entities sort_criteria: {len(urns)} scrolltest datasets in URN order"
-    )
 
 
 def test_scroll_entities_with_query(graph_client: DataHubGraph) -> None:
@@ -261,9 +230,6 @@ def test_scroll_entities_with_query(graph_client: DataHubGraph) -> None:
         assert ALPHA in result.entities, (
             f"ALPHA should appear in query='alpha' results, got: {set(result.entities)}"
             f"\ntotal_count={result.total_count}"
-        )
-        logger.info(
-            f"scroll_entities with_query: query='alpha' returned {result.total_count} result(s)"
         )
 
     _assert()
@@ -285,9 +251,6 @@ def test_scroll_entities_with_system_metadata(graph_client: DataHubGraph) -> Non
             f"system_metadata should be populated for {urn} when with_system_metadata=True"
         )
         assert sys_meta.runId, f"system_metadata.runId should be set for {urn}"
-    logger.info(
-        "scroll_entities with_system_metadata: all aspects have system metadata"
-    )
 
 
 def test_scroll_entities_parallel_slicing(graph_client: DataHubGraph) -> None:
@@ -315,8 +278,4 @@ def test_scroll_entities_parallel_slicing(graph_client: DataHubGraph) -> None:
     )
     assert combined == ALL_DATASET_URNS, (
         f"Union of all slices should equal ALL_DATASET_URNS, got: {combined}"
-    )
-    logger.info(
-        f"scroll_entities parallel_slicing: slice0={len(slice0.entities)}, "
-        f"slice1={len(slice1.entities)}, combined={len(combined)}"
     )
