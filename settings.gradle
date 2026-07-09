@@ -229,8 +229,8 @@ def installPrePushHook() {
         println("Skipping pre-push hook in git worktree")
         return
     }
-    def src = new File(rootDir, ".githooks/pre-push")
-    def hooksDir = new File(rootDir, ".git/hooks")
+    def src = new File(rootDir, ".githooks/pre-push-oss")
+    def hooksDir = new File(rootDir, ".git/hooks/")
     if (!src.exists() || !hooksDir.isDirectory()) {
         return
     }
