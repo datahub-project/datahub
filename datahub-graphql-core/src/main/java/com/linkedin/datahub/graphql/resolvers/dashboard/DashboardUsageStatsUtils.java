@@ -316,54 +316,131 @@ public class DashboardUsageStatsUtils {
     return new GroupingBucket[] {timestampBucket};
   }
 
+  /** Builds a per-URN usage filter; see {@link #buildUsageFilter} for shared logic. */
   public static Filter createUsageFilter(
       String dashboardUrn, Long startTime, Long endTime, boolean byBucket) {
-    Filter filter = new Filter();
-    final ArrayList<Criterion> criteria = new ArrayList<>();
-
-    // Add filter for urn == dashboardUrn
-    Criterion dashboardUrnCriterion = buildCriterion(ES_FIELD_URN, Condition.EQUAL, dashboardUrn);
-    criteria.add(dashboardUrnCriterion);
-
-    if (startTime != null) {
-      // Add filter for start time
-      Criterion startTimeCriterion =
-          buildCriterion(
-              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, Long.toString(startTime));
-      criteria.add(startTimeCriterion);
-    }
-
-    if (endTime != null) {
-      // Add filter for end time
-      Criterion endTimeCriterion =
-          buildCriterion(
-              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, Long.toString(endTime));
-      criteria.add(endTimeCriterion);
-    }
-
-    if (byBucket) {
-      // Add filter for presence of eventGranularity - only consider bucket stats and not absolute
-      // stats
-      // since unit is mandatory, we assume if eventGranularity contains unit, then it is not null
-      Criterion onlyTimeBucketsCriterion =
-          buildCriterion(ES_FIELD_EVENT_GRANULARITY, Condition.CONTAIN, "unit");
-      criteria.add(onlyTimeBucketsCriterion);
-    } else {
-      // Add filter for absence of eventGranularity - only consider absolute stats
-      Criterion excludeTimeBucketsCriterion = buildIsNullCriterion(ES_FIELD_EVENT_GRANULARITY);
-      criteria.add(excludeTimeBucketsCriterion);
-    }
-
-    filter.setOr(
-        new ConjunctiveCriterionArray(
-            ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
-    return filter;
+    return buildUsageFilter(dashboardUrn, startTime, endTime, byBucket);
   }
 
   public static Long timeMinusOneMonth(long time) {
     final long oneHourMillis = 60 * 60 * 1000;
     final long oneDayMillis = 24 * oneHourMillis;
     return time - (31 * oneDayMillis + 1);
+  }
+
+  /**
+   * Builds a usage filter without a per-URN criterion; see {@link #buildUsageFilter} for shared
+   * logic. Use this when calling batch APIs that add URN filtering internally.
+   */
+  public static Filter buildSharedUsageFilter(
+      @Nullable Long startTime, @Nullable Long endTime, boolean byBucket) {
+    return buildUsageFilter(null, startTime, endTime, byBucket);
+  }
+
+  private static Filter buildUsageFilter(
+      @Nullable String dashboardUrn,
+      @Nullable Long startTime,
+      @Nullable Long endTime,
+      boolean byBucket) {
+    final ArrayList<Criterion> criteria = new ArrayList<>();
+
+    if (dashboardUrn != null) {
+      // Add filter for urn == dashboardUrn
+      criteria.add(buildCriterion(ES_FIELD_URN, Condition.EQUAL, dashboardUrn));
+    }
+
+    if (startTime != null) {
+      // Add filter for start time
+      criteria.add(
+          buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, Long.toString(startTime)));
+    }
+
+    if (endTime != null) {
+      // Add filter for end time
+      criteria.add(
+          buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, Long.toString(endTime)));
+    }
+
+    if (byBucket) {
+      // Add filter for presence of eventGranularity - only consider bucket stats and not absolute
+      // stats
+      // since unit is mandatory, we assume if eventGranularity contains unit, then it is not null
+      criteria.add(buildCriterion(ES_FIELD_EVENT_GRANULARITY, Condition.CONTAIN, "unit"));
+    } else {
+      // Add filter for absence of eventGranularity - only consider absolute stats
+      criteria.add(buildIsNullCriterion(ES_FIELD_EVENT_GRANULARITY));
+    }
+
+    Filter filter = new Filter();
+    filter.setOr(
+        new ConjunctiveCriterionArray(
+            ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
+    return filter;
+  }
+
+  /** Returns aggregation specs for counting distinct users via HyperLogLog cardinality. */
+  public static AggregationSpec[] getUniqueUserCountAggSpecs() {
+    return new AggregationSpec[] {
+      new AggregationSpec()
+          .setAggregationType(AggregationType.CARDINALITY)
+          .setFieldPath("userCounts.user")
+    };
+  }
+
+  /**
+   * Returns a STRING grouping bucket for {@code userCounts.user} capped at {@code size}, ordered by
+   * the first aggregation spec descending. ES returns exactly {@code size} buckets already ranked
+   * by metric — no client-side sort needed.
+   */
+  public static GroupingBucket[] getTopUsersGroupingBuckets(int size) {
+    return new GroupingBucket[] {
+      new GroupingBucket()
+          .setKey("userCounts.user")
+          .setType(GroupingBucketType.STRING_GROUPING_BUCKET)
+          .setSize(size)
+          .setOrderByMetric(true)
+          .setAscending(false)
+    };
+  }
+
+  /** Returns aggregation specs for summing per-user usage counts (used for top-N ordering). */
+  public static AggregationSpec[] getTopUsersSumAggSpecs() {
+    return new AggregationSpec[] {
+      new AggregationSpec()
+          .setAggregationType(AggregationType.SUM)
+          .setFieldPath("userCounts.usageCount")
+    };
+  }
+
+  /**
+   * Parses a {@link GenericTable} from a STRING-grouped top-users batch aggregation result into a
+   * list of {@link CorpUser}s. Expected column 0: userCounts.user URN. ES returns rows already
+   * ordered by metric descending (via {@code orderByMetric=true}), so no client-side sort is
+   * needed.
+   */
+  public static List<CorpUser> buildTopUsersFromBatchAggResult(@Nonnull GenericTable table) {
+    return table.getRows().stream()
+        .filter(row -> row.size() > 0 && !ES_NULL_VALUE.equals(row.get(0)))
+        .map(
+            row -> {
+              CorpUser user = new CorpUser();
+              user.setUrn(row.get(0));
+              return user;
+            })
+        .collect(Collectors.toList());
+  }
+
+  private static long parseCountOrZero(@Nullable String value) {
+    if (value == null || ES_NULL_VALUE.equals(value)) {
+      return 0L;
+    }
+    try {
+      return Long.parseLong(value);
+    } catch (NumberFormatException e) {
+      return 0L;
+    }
   }
 
   private DashboardUsageStatsUtils() {}

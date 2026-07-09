@@ -4,12 +4,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Closed vocabulary of agent classifications used for billing rollup bucketing.
+ * Closed vocabulary of agent classifications used for usage rollup bucketing.
  *
  * <p>The UAA parser emits free-form strings; rollup keys must be drawn from this fixed enum so that
- * downstream billable-metric filters can be configured against stable values. Any parser output
- * that does not map to a known value falls through to {@link #UNKNOWN}. {@link #SYSTEM} is reserved
- * for ingestion paths with no request context (e.g., internal system operations, consumer replays).
+ * downstream metric filters can be configured against stable values. Any parser output that does
+ * not map to a known value falls through to {@link #UNKNOWN}. {@link #SYSTEM} is reserved for
+ * ingestion paths with no request context (e.g., internal system operations, consumer replays).
  */
 public enum AgentClass {
   BROWSER(true),
@@ -36,11 +36,9 @@ public enum AgentClass {
   }
 
   /**
-   * Render this value as a metric/billable-metric label. Compact, lowercase, no separators —
-   * preserves the legacy raw-UAA-string label format (e.g. {@code "Mobile App"} → {@code
-   * "mobileapp"}, {@code "Email Client"} → {@code "emailclient"}) so existing dashboards, alerts,
-   * and Metronome billable-metric filters continue to match. Used by both the request-counter
-   * Micrometer metric and the rolled-up usage event sent to the billing provider.
+   * Render this value as a metric label. Compact, lowercase, no separators — preserves the legacy
+   * raw-UAA-string label format (e.g. {@code "Mobile App"} → {@code "mobileapp"}, {@code "Email
+   * Client"} → {@code "emailclient"}) so existing dashboards and alerts continue to match.
    */
   @Nonnull
   public String toMetricLabel() {
