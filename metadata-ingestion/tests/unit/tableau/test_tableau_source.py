@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
 from unittest import mock
 
 import pytest
@@ -1317,13 +1317,19 @@ def _make_site_source() -> TableauSiteSource:
         )
 
 
-def _tsc_project(id: str, name: str, parent_id: Optional[str]) -> mock.MagicMock:
+class ProjectSpec(NamedTuple):
+    id: str
+    name: str
+    parent_id: Optional[str]
+
+
+def _tsc_project(spec: ProjectSpec) -> mock.MagicMock:
     """Minimal stand-in for a tableauserverclient ProjectItem, as returned by the
     projects Pager."""
     project = mock.MagicMock()
-    project.id = id
-    project.name = name
-    project.parent_id = parent_id
+    project.id = spec.id
+    project.name = spec.name
+    project.parent_id = spec.parent_id
     project.description = None
     return project
 
@@ -1367,14 +1373,14 @@ class TestProjectContainerHierarchy:
 
     @staticmethod
     def _run(
-        projects: List[Tuple[str, str, Optional[str]]],
+        projects: List[ProjectSpec],
         *,
         allow: Optional[List[str]] = None,
         deny: Optional[List[str]] = None,
         extract_project_hierarchy: bool = True,
     ) -> Tuple[TableauSiteSource, Dict[str, Dict[str, Optional[str]]]]:
-        """Feed ``projects`` (id, name, parent_id) through the real projects Pager
-        and run filtering + registry building + container emission.
+        """Feed ``projects`` through the real projects Pager and run filtering +
+        registry building + container emission.
 
         Returns (source, tree), where tree is {project_id: {name, parent}} and a
         root project's parent resolves to the "site" sentinel (its container nests
@@ -1405,7 +1411,7 @@ class TestProjectContainerHierarchy:
                 server=mock.MagicMock(),
             )
 
-        project_items = [_tsc_project(*p) for p in projects]
+        project_items = [_tsc_project(p) for p in projects]
 
         def fake_pager(endpoint: Any, **kwargs: Any) -> Any:
             # Only the projects endpoint has data; the datasource/workbook registries
@@ -1433,10 +1439,10 @@ class TestProjectContainerHierarchy:
         """
         _, tree = self._run(
             projects=[
-                ("p1", "Project_1", None),
-                ("p2", "Project_2", "p1"),
-                ("p3", "Project_3", "p2"),
-                ("p4", "Project_4", "p3"),
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
+                ProjectSpec("p4", "Project_4", "p3"),
             ],
             allow=["^Project_4$"],
         )
@@ -1462,12 +1468,12 @@ class TestProjectContainerHierarchy:
         """
         _, tree = self._run(
             projects=[
-                ("p1", "Project_1", None),
-                ("p2", "Project_2", "p1"),
-                ("p3", "Project_3", "p2"),
-                ("p4", "Project_4", "p3"),
-                ("p5", "Project_5", "p2"),
-                ("p6", "Project_6", "p5"),
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
+                ProjectSpec("p4", "Project_4", "p3"),
+                ProjectSpec("p5", "Project_5", "p2"),
+                ProjectSpec("p6", "Project_6", "p5"),
             ],
             allow=["^Project_4$", "^Project_6$"],
         )
@@ -1494,9 +1500,9 @@ class TestProjectContainerHierarchy:
         """
         source, tree = self._run(
             projects=[
-                ("p1", "Project_1", None),
-                ("p2", "Project_2", "p1"),
-                ("p3", "Project_3", "p2"),
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
             ],
             allow=["^Project_2$"],
         )
@@ -1514,9 +1520,9 @@ class TestProjectContainerHierarchy:
         path container so the matched descendant's path stays unbroken."""
         source, tree = self._run(
             projects=[
-                ("p1", "Project_1", None),
-                ("p2", "Project_2", "p1"),
-                ("p3", "Project_3", "p2"),
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
             ],
             allow=["^Project_3$"],
             deny=["^Project_1$"],
@@ -1543,9 +1549,9 @@ class TestProjectContainerHierarchy:
         """
         source, tree = self._run(
             projects=[
-                ("p1", "Project_1", None),
-                ("p2", "Project_2", "p1"),
-                ("p3", "Project_3", "p1"),
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p1"),
             ],
             allow=["^Project_1$"],
             deny=["^Project_3$"],
@@ -1564,9 +1570,9 @@ class TestProjectContainerHierarchy:
         ancestor path is still reconstructed."""
         source, tree = self._run(
             projects=[
-                ("p1", "Project_1", None),
-                ("p2", "Project_2", "p1"),
-                ("p3", "Project_3", "p2"),
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
             ],
             allow=["^Project_3$"],
             extract_project_hierarchy=False,
@@ -1579,6 +1585,36 @@ class TestProjectContainerHierarchy:
         assert tree["p3"]["parent"] == "p2"
         assert tree["p2"]["parent"] == "p1"
         assert tree["p1"]["parent"] == "site"
+
+    def test_ancestor_absent_from_map_is_reparented_to_site(self) -> None:
+        """An ancestor entirely absent from the fetched project map (e.g. the API
+        omits it because of insufficient permissions) has no entry to recurse into.
+        _get_all_project nulls the dangling parent_id, so the orphaned project is
+        reparented under the site instead of dangling -- and container emission must
+        not fail looking up the missing ancestor.
+
+            Site
+            (Project_1)          NOT fetched -- absent from the map
+                └── Project_2    orphaned -> reparented under site
+                    └── Project_3    MATCHES (leaf)
+        """
+        source, tree = self._run(
+            # Project_1, the parent of Project_2, is intentionally not fetched.
+            projects=[
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
+            ],
+            allow=["^Project_3$"],
+        )
+
+        # The missing ancestor never emits a container...
+        assert "p1" not in tree
+        # ...and its orphaned child is reparented directly under the site.
+        assert set(tree) == {"p2", "p3"}
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "site"
+        # The dangling parent reference is surfaced to operators, not swallowed.
+        assert "Incomplete project hierarchy" in source.report.as_string()
 
 
 class TestNullApiResponseHandling:

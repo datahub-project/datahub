@@ -4245,25 +4245,13 @@ class TableauSiteSource:
                 # Go to the parent project as we need to generate container first for parent
                 parent_project_key = self.gen_project_key(project_.parent_id)
 
-                # Fall back to all_project_map when the parent was filtered out of the
-                # registry, so we recurse to the root. Such ancestors become path-only
-                # containers (no content, since they're absent from the content registry).
-                parent_tableau_project: Optional[TableauProject] = (
-                    self.tableau_project_registry.get(project_.parent_id)
-                    or all_project_map.get(project_.parent_id)
-                )
-
-                if parent_tableau_project is None:
-                    # Parent unreachable (e.g. permissions); _get_all_project already
-                    # warned. Emit a single-level container and stop the upward walk.
-                    parent_tableau_project = TableauProject(
-                        id=project_.parent_id,
-                        name=project_.parent_name or project_.parent_id,
-                        description=None,
-                        parent_id=None,
-                        parent_name=None,
-                        path=[],
-                    )
+                # Resolve from the full project map, not tableau_project_registry, so
+                # we recurse to the root even through filtered-out ancestors (emitted as
+                # path-only containers). _get_all_project nulls out any parent_id absent
+                # from the map, so a non-None parent_id always resolves here.
+                parent_tableau_project: TableauProject = all_project_map[
+                    project_.parent_id
+                ]
 
                 yield from emit_project_in_topological_order(parent_tableau_project)
 
