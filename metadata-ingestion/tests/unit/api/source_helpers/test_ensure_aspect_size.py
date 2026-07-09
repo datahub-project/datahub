@@ -1245,6 +1245,11 @@ def test_ensure_query_properties_reports_when_untruncatable(processor_ctx):
     warning = next(iter(processor.ctx.source_report.warnings))
     assert warning.title is not None
     assert "could not be truncated" in warning.title.lower()
+    # context carries structured key=value pairs (not prose sentences).
+    context = next(iter(warning.context))
+    assert "entity_urn=urn:li:query:stuck" in context
+    assert "serialized_size=" in context
+    assert "budget=2000" in context
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)

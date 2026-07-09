@@ -35,6 +35,12 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
+# queryProperties gets its own (tighter) cap than the generic 16MB aspect
+# limit because these MCPs are also emitted over Kafka on the async path,
+# where Kafka's producer `max.request.size` is 5MB by default. Sizing this
+# under that bound keeps the guard useful for both REST and Kafka emit
+# paths. GMS's server-side AspectSizePayloadValidator (16MB) is not the
+# binding limit here, so we don't align with it.
 DEFAULT_QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = 5 * 1024 * 1024  # 5MB
 QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = int(
     os.environ.get(
@@ -523,24 +529,26 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         # Re-verify: if another field (e.g. a large customProperties) still keeps
         # the aspect over the limit, don't claim a successful truncation — warn
         # instead so the likely GMS 400 is visible rather than silent.
-        if self._query_properties_serialized_size(query_properties) >= max_payload_size:
+        final_size = self._query_properties_serialized_size(query_properties)
+        if final_size >= max_payload_size:
             self.ctx.source_report.warning(
                 title="Query properties could not be truncated below size constraint",
-                message="Query properties remained too large after truncation and may be rejected by GMS",
+                message="Query properties remained too large after truncating the statement and dropping name/description; the aspect may be rejected by GMS",
                 context=(
-                    f"Query properties for {entity_urn} still exceed the "
-                    f"{max_payload_size} byte limit after truncating the statement "
-                    f"and dropping name/description"
+                    f"entity_urn={entity_urn}, "
+                    f"serialized_size={final_size}, "
+                    f"budget={max_payload_size}"
                 ),
             )
             return
 
         context = (
-            f"Query statement was truncated from {original_statement_size} to "
-            f"{retained_length} characters for {entity_urn} due to aspect size constraints"
+            f"entity_urn={entity_urn}, "
+            f"original_size={original_statement_size}, "
+            f"retained_size={retained_length}"
         )
         if dropped_fields:
-            context += f"; also dropped fields {', '.join(dropped_fields)}"
+            context += f", dropped_fields={','.join(dropped_fields)}"
         self.ctx.source_report.warning(
             title="Query properties truncated due to size constraint",
             message="Query properties contained too much data and would have caused ingestion to fail",
