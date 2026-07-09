@@ -45,7 +45,10 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
 )
-from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.data_lake_common.path_spec import (
+    SUPPORTED_FILE_TYPES,
+    PathSpec,
+)
 from datahub.ingestion.source.data_lake_common.zip_utils import (
     read_first_supported_zip_entry,
 )
@@ -611,9 +614,10 @@ class SparkProfiler:
 
         return SparkSession.builder.config(conf=conf).getOrCreate()
 
-    _SPARK_SUPPORTED_EXTS = frozenset(
-        {".parquet", ".csv", ".tsv", ".json", ".jsonl", ".avro"}
-    )
+    # Single source of truth: the extensions we extract from a zip for profiling
+    # are exactly the dataset file types recognized elsewhere (schema inference,
+    # path specs), so the two can never drift apart.
+    _SPARK_SUPPORTED_EXTS = frozenset(f".{ext}" for ext in SUPPORTED_FILE_TYPES)
 
     def _extract_zip_to_tmp(
         self, full_path: str, max_entry_size: int

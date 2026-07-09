@@ -85,6 +85,46 @@ def test_extract_zip_to_tmp_no_supported_entry(tmp_path):
     assert profiler.report.warnings
 
 
+def test_zip_profiling_respects_disabled_compression(monkeypatch):
+    # With enable_compression=False the .zip must be handed to Spark untouched
+    # (no extraction), matching the schema-inference path. Spark then rejects the
+    # .zip extension, which surfaces as a warning.
+    profiler = _profiler()
+
+    extract_calls = []
+    monkeypatch.setattr(
+        profiler,
+        "_extract_zip_to_tmp",
+        lambda *a, **k: extract_calls.append(a),
+    )
+
+    spark_calls = []
+    monkeypatch.setattr(
+        profiler,
+        "read_file_spark",
+        lambda path, ext: spark_calls.append((path, ext)),
+    )
+
+    table_data = SimpleNamespace(
+        full_path="s3://bucket/t/data.csv.zip",
+        table_path="s3://bucket/t",
+        partitions=None,
+        display_name="t",
+    )
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.csv.zip", enable_compression=False
+    )
+
+    workunits = list(
+        profiler.get_table_profile(table_data, "urn:li:dataset:test", path_spec)
+    )
+
+    assert workunits == []
+    assert extract_calls == []  # extraction skipped when compression disabled
+    assert spark_calls == [("s3://bucket/t/data.csv.zip", ".zip")]
+    assert profiler.report.warnings
+
+
 def test_partitioned_zip_profiling_is_skipped_with_warning():
     # Spark cannot read a partitioned dataset whose files are .zip archives, so
     # profiling should skip it with a clear warning rather than silently failing.
