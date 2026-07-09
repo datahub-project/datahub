@@ -1,59 +1,45 @@
 import { SelectOption } from '@components';
-import deDE from 'antd/lib/locale/de_DE';
-import enUS from 'antd/lib/locale/en_US';
-import esES from 'antd/lib/locale/es_ES';
-import frFR from 'antd/lib/locale/fr_FR';
-import itIT from 'antd/lib/locale/it_IT';
-import ptBR from 'antd/lib/locale/pt_BR';
-import svSE from 'antd/lib/locale/sv_SE';
 
 import { LocaleConfig, SupportedLanguage } from '@app/i18n/types';
 
 export const EN_LOCALE_CONFIG: LocaleConfig = {
     lang: 'en',
-    antd: enUS,
     dayjs: 'en',
     label: 'English',
 };
 
 export const DE_LOCALE_CONFIG: LocaleConfig = {
     lang: 'de',
-    antd: deDE,
     dayjs: 'de',
     label: 'Deutsch',
 };
 
 export const ES_LOCALE_CONFIG: LocaleConfig = {
     lang: 'es',
-    antd: esES,
     dayjs: 'es',
     label: 'Español (Beta)',
 };
 
 export const PT_BR_LOCALE_CONFIG: LocaleConfig = {
     lang: 'pt-BR',
-    antd: ptBR,
     dayjs: 'pt-br',
     label: 'Português (Brasil) (Beta)',
 };
 
 export const FR_LOCALE_CONFIG: LocaleConfig = {
     lang: 'fr',
-    antd: frFR,
     dayjs: 'fr',
     label: 'Français (Beta)',
 };
 
 export const IT_LOCALE_CONFIG: LocaleConfig = {
     lang: 'it',
-    antd: itIT,
     dayjs: 'it',
     label: 'Italiano (Beta)',
 };
 
 export const SV_LOCALE_CONFIG: LocaleConfig = {
     lang: 'sv',
-    antd: svSE,
     dayjs: 'sv',
     label: 'Svenska (Beta)',
 };
