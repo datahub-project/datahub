@@ -29,10 +29,9 @@ Languages marked _Beta_ are still being refined and may have untranslated string
 ## Enabling Multi-Language Support
 
 Multi-language support is on by default. On first visit, DataHub picks each user's language
-from their browser locale ([#18282](https://github.com/datahub-project/datahub/pull/18282)),
-falling back to English when no matching translation is available. Each user can override this
-under **Settings → Preferences**. To turn multi-language support off entirely, set the
-`I18N_ENABLED` environment variable to `false` on GMS and restart.
+from their browser locale, falling back to English when no matching translation is available.
+Each user can override this under **Settings → Preferences**. To turn multi-language support
+off entirely, set the `I18N_ENABLED` environment variable to `false` on GMS and restart.
 
 ## Contributing a New Language
 
