@@ -41,11 +41,11 @@ from datahub.ingestion.source.sql.teradata import (
     _jittered_backoff,
     _should_retry,
     _should_retry_connect,
+    _view_definition_key,
     get_schema_columns,
     get_schema_foreign_keys,
     get_schema_pk_constraints,
     optimized_get_columns,
-    optimized_get_view_definition,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
@@ -491,10 +491,14 @@ class TestTeradataSource:
                     create_timestamp=datetime(2024, 1, 1),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
             source._table_creator_cache[("db1", "t1")] = "owner"
+
+            # Spy on the disk-backed view-definition store's close() so we can
+            # assert the temporary SQLite file is torn down promptly on close.
+            mock_view_definitions_close = MagicMock()
+            source._view_definitions.close = mock_view_definitions_close  # type: ignore[method-assign]
 
             with patch(
                 "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
@@ -508,6 +512,10 @@ class TestTeradataSource:
                 # sequential recipe runs in the same process (OOM fix for #7602).
                 assert len(source._tables_cache) == 0
                 assert len(source._table_creator_cache) == 0
+
+                # The disk-backed view-definition store must be closed so its
+                # temporary SQLite file is removed rather than leaking until GC.
+                mock_view_definitions_close.assert_called_once()
 
                 # Module-level LRU caches must also be cleared between recipe runs.
                 assert get_schema_columns.cache_info().currsize == 0
@@ -788,7 +796,6 @@ class TestConcurrencySupport:
                 create_timestamp=datetime.now(),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=None,
             )
             source._tables_cache["test_schema"] = [test_table]
 
@@ -2526,7 +2533,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2561,7 +2567,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2595,7 +2600,6 @@ class TestIncrementalColumnExtraction:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }
@@ -2719,7 +2723,6 @@ class TestDbcColumnsForViews:
             create_timestamp=datetime.now(),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text=None,
         )
 
     def test_uses_dbc_columns_when_all_types_present(self) -> None:
@@ -2983,8 +2986,14 @@ class TestCacheCaseInsensitivity:
             create_timestamp=datetime(2024, 1, 1),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text="SELECT 1" if object_type == "View" else None,
         )
+
+    def test_view_definition_key_lowercases_view_name(self) -> None:
+        """Guards the documented invariant: both schema AND view name are folded to
+        lower case so writes (keyed from Teradata's stored case) and reads (keyed from
+        config/query case) always match. Varying only the view name here catches a
+        regression that stopped lowercasing it — the other tests keep the name fixed."""
+        assert _view_definition_key("MY_DB", "My_View") == "my_db.my_view"
 
     def test_cache_write_lowercases_database_key(self) -> None:
         """Teradata returns uppercase DataBaseName; the cache stores it lowercased."""
@@ -3000,6 +3009,94 @@ class TestCacheCaseInsensitivity:
 
         assert "my_db" in source._tables_cache
         assert "MY_DB" not in source._tables_cache
+
+    def test_view_definition_offloaded_to_file_backed_dict(self) -> None:
+        """View SQL text is spilled to the disk-backed dict (keyed by lowercased
+        schema), not held on the in-memory TeradataTable."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [
+                _create_mock_table_entry(
+                    "MY_DB",
+                    "MY_VIEW",
+                    object_type="View",
+                    request_text="SELECT * FROM MY_DB.MY_TABLE",
+                )
+            ]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        # The view SQL text lives only in the disk-backed store now, not on the
+        # in-memory TeradataTable.
+        assert (
+            source._view_definitions[_view_definition_key("MY_DB", "MY_VIEW")]
+            == "SELECT * FROM MY_DB.MY_TABLE"
+        )
+
+    def test_table_does_not_populate_view_definitions(self) -> None:
+        """Only views contribute SQL text; tables must not create entries."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [_create_mock_table_entry("MY_DB", "MY_TABLE", object_type="Table")]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        assert _view_definition_key("MY_DB", "MY_TABLE") not in source._view_definitions
+
+    def test_view_definition_write_failure_reports_warning(self) -> None:
+        """A disk-backed store write failure must surface as a report warning and
+        not abort the (single-threaded) caching phase for the remaining objects."""
+        source = _create_source_patched()
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = _mock_execute_result(
+            [
+                _create_mock_table_entry(
+                    "MY_DB",
+                    "MY_VIEW",
+                    object_type="View",
+                    request_text="SELECT * FROM MY_DB.MY_TABLE",
+                )
+            ]
+        )
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        failing_store = MagicMock()
+        failing_store.__setitem__.side_effect = RuntimeError("disk full")
+        source._view_definitions = failing_store
+
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        warning_titles = [w.title for w in source.report.warnings]
+        assert "Failed to store view definition" in warning_titles
+
+    def test_view_definition_read_failure_reports_warning(self) -> None:
+        """A disk-backed store read failure must surface as a report warning and
+        omit the view definition rather than crash the view-processing thread."""
+        source = _create_source_patched()
+        entry = self._make_table("MY_DB", "MY_TABLE", object_type="View")
+        source._tables_cache["my_db"] = [entry]
+
+        failing_store = MagicMock()
+        failing_store.get.side_effect = RuntimeError("sqlite locked")
+        source._view_definitions = failing_store
+
+        _, properties, _ = source.cached_get_table_properties(
+            MagicMock(), "my_db", "MY_TABLE"
+        )
+
+        assert "view_definition" not in properties
+        warning_titles = [w.title for w in source.report.warnings]
+        assert "Failed to read view definition" in warning_titles
 
     def test_cached_loop_tables_finds_uppercase_entries_with_lowercase_schema(
         self,
@@ -3045,6 +3142,9 @@ class TestCacheCaseInsensitivity:
         entry = self._make_table("MY_DB", "MY_TABLE", object_type="View")
         entry.description = "promo mart"
         source._tables_cache["my_db"] = [entry]
+        # View SQL text now lives in the disk-backed dict, keyed with a lowercased
+        # schema; the lookup must hit it even when the query uses a different case.
+        source._view_definitions[_view_definition_key("MY_DB", "MY_TABLE")] = "SELECT 1"
 
         description, properties, _ = source.cached_get_table_properties(
             MagicMock(), "my_db", "MY_TABLE"
@@ -3072,25 +3172,6 @@ class TestCacheCaseInsensitivity:
 
         # Reaches column extraction only if the cache lookup hits.
         mock_dialect.get_schema_columns.assert_called_once()
-
-    def test_optimized_get_view_definition_lowercases_schema_lookup(self) -> None:
-        mock_dialect = MagicMock()
-        mock_dialect.default_schema_name = "MY_DB"
-        mock_dialect.normalize_name = lambda s: s
-
-        tables_cache: Dict[str, List[TeradataTable]] = {
-            "my_db": [self._make_table("MY_DB", "MY_VIEW", object_type="View")]
-        }
-
-        view_def = optimized_get_view_definition(
-            mock_dialect,
-            MagicMock(),
-            "MY_VIEW",
-            "MY_DB",
-            tables_cache=tables_cache,
-        )
-
-        assert view_def == "SELECT 1"
 
     def test_creator_cache_lookup_is_case_insensitive_on_database(self) -> None:
         """extract_ownership: True + lowercase databases must still find creators."""
@@ -3185,7 +3266,6 @@ class TestConfiguredDatabasesValidation:
                 create_timestamp=datetime(2024, 1, 1),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=None,
             )
         ]
 
@@ -5933,7 +6013,6 @@ class TestCharPaddingFixes:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=None,
                 )
             ]
         }

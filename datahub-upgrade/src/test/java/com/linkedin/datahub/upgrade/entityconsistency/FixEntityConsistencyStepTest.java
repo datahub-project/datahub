@@ -97,6 +97,7 @@ public class FixEntityConsistencyStepTest {
 
     // Setup entity registry mocks for annotation-based entity type validation
     setupEntityRegistryMocks();
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
 
     // Create checks for registry - add mock checks for assertion entity type
     // All checks are non-on-demand to match test expectations
@@ -191,6 +192,8 @@ public class FixEntityConsistencyStepTest {
     when(assertionEntitySpec.getAspectSpec(ASSERTION_INFO_ASPECT_NAME))
         .thenReturn(assertionInfoAspectSpec);
     when(mockEntityRegistry.getEntitySpec(ASSERTION_ENTITY_NAME)).thenReturn(assertionEntitySpec);
+    when(mockEntityRegistry.getEntitySpecs())
+        .thenReturn(Map.of(ASSERTION_ENTITY_NAME, assertionEntitySpec));
 
     // Setup monitor entity spec with monitorKey aspect
     EntitySpec monitorEntitySpec = mock(EntitySpec.class);
@@ -1270,5 +1273,187 @@ public class FixEntityConsistencyStepTest {
     // With limit=5 and 6 entities returned, should only process until limit
     // The report should reflect this
     verify(mockReport).addLine(contains("Processed"));
+  }
+
+  @Test
+  public void testOrphanCheckNotDueWhenUnconfigured() {
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(
+            mockOpContext,
+            mockEntityService,
+            consistencyService,
+            createTestConfig(false, 10, 0, 0, false));
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    Upgrade mockUpgrade = mock(Upgrade.class);
+    when(mockContext.upgrade()).thenReturn(mockUpgrade);
+    when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
+
+    assertFalse(step.isOrphanCheckDue(mockContext));
+  }
+
+  @Test
+  public void testOrphanCheckDueWhenConfiguredAndNeverRun() {
+    EntityConsistencyConfiguration config = createTestConfig(false, 10, 0, 0, false);
+    EntityConsistencyConfiguration.CheckRunConfig orphan =
+        new EntityConsistencyConfiguration.CheckRunConfig();
+    orphan.setMode("active");
+    orphan.setSchedule("monthly");
+    config.setChecks(Map.of("orphan-index-document", orphan));
+
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(mockOpContext, mockEntityService, consistencyService, config);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    Upgrade mockUpgrade = mock(Upgrade.class);
+    when(mockContext.upgrade()).thenReturn(mockUpgrade);
+    when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
+
+    assertTrue(step.isOrphanCheckDue(mockContext));
+  }
+
+  @Test
+  public void testOrphanCheckNotDueWhenCompletedThisMonth() {
+    EntityConsistencyConfiguration config = createTestConfig(false, 10, 0, 0, false);
+    EntityConsistencyConfiguration.CheckRunConfig orphan =
+        new EntityConsistencyConfiguration.CheckRunConfig();
+    orphan.setMode("active");
+    orphan.setSchedule("monthly");
+    config.setChecks(Map.of("orphan-index-document", orphan));
+
+    java.time.Clock fixed =
+        java.time.Clock.fixed(
+            java.time.Instant.parse("2026-07-15T12:00:00Z"), java.time.ZoneOffset.UTC);
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(
+            mockOpContext, mockEntityService, consistencyService, config, fixed);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    Upgrade mockUpgrade = mock(Upgrade.class);
+    when(mockContext.upgrade()).thenReturn(mockUpgrade);
+
+    DataHubUpgradeResult prev = mock(DataHubUpgradeResult.class);
+    when(prev.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
+    StringMap savedState = new StringMap();
+    savedState.put(
+        "lastCompletedTime",
+        String.valueOf(java.time.Instant.parse("2026-07-05T00:00:00Z").toEpochMilli()));
+    when(prev.getResult()).thenReturn(savedState);
+    when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.of(prev));
+
+    assertFalse(step.isOrphanCheckDue(mockContext));
+  }
+
+  @Test
+  public void testOrphanCheckDueWhenExplicitCheckId() {
+    EntityConsistencyConfiguration config =
+        createTestConfig(false, 10, 0, 0, false, null, List.of("orphan-index-document"));
+    // Mode defaults to dry-run when unset, but explicit checkIds still force due
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(mockOpContext, mockEntityService, consistencyService, config);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    assertTrue(step.isOrphanCheckDue(mockContext));
+  }
+
+  @Test
+  public void testResolveEffectiveCheckIdsIncludesOrphanWhenDue() {
+    EntityConsistencyConfiguration config = createTestConfig(false, 10, 0, 0, false);
+    EntityConsistencyConfiguration.CheckRunConfig orphan =
+        new EntityConsistencyConfiguration.CheckRunConfig();
+    orphan.setMode("active");
+    orphan.setSchedule("monthly");
+    config.setChecks(Map.of("orphan-index-document", orphan));
+
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(mockOpContext, mockEntityService, consistencyService, config);
+
+    List<String> ids = step.resolveEffectiveCheckIds(true);
+    assertTrue(ids.contains("orphan-index-document"));
+  }
+
+  @Test
+  public void testResolveEffectiveCheckIdsExcludesOrphanWhenNotDue() {
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(
+            mockOpContext,
+            mockEntityService,
+            consistencyService,
+            createTestConfig(false, 10, 0, 0, false));
+
+    List<String> ids = step.resolveEffectiveCheckIds(false);
+    assertFalse(ids.contains("orphan-index-document"));
+  }
+
+  @Test
+  public void testSkipDoesNotSkipWhenOrphanDue() {
+    EntityConsistencyConfiguration config = createTestConfig(false, 10, 0, 0, false);
+    EntityConsistencyConfiguration.CheckRunConfig orphan =
+        new EntityConsistencyConfiguration.CheckRunConfig();
+    orphan.setMode("active");
+    orphan.setSchedule("monthly");
+    config.setChecks(Map.of("orphan-index-document", orphan));
+    EntityConsistencyConfiguration.SystemMetadataFilterConfig filterConfig =
+        new EntityConsistencyConfiguration.SystemMetadataFilterConfig();
+    filterConfig.setGePitEpochMs(1000L);
+    config.setSystemMetadataFilterConfig(filterConfig);
+
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(mockOpContext, mockEntityService, consistencyService, config);
+
+    UpgradeContext mockContext = mock(UpgradeContext.class);
+    Upgrade mockUpgrade = mock(Upgrade.class);
+    when(mockContext.upgrade()).thenReturn(mockUpgrade);
+
+    // Overall upgrade already succeeded (would normally skip for targeted), but orphan never run
+    DataHubUpgradeResult overall = mock(DataHubUpgradeResult.class);
+    when(overall.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
+    when(mockUpgrade.getUpgradeResult(any(), any(Urn.class), any()))
+        .thenAnswer(
+            invocation -> {
+              Urn urn = invocation.getArgument(1);
+              if (urn.toString().contains("orphan-index-document")) {
+                return Optional.empty();
+              }
+              return Optional.of(overall);
+            });
+
+    assertFalse(step.skip(mockContext), "Orphan due should prevent skip on targeted success");
+  }
+
+  @Test
+  public void testResolveEntityTypesUsesConfiguredList() {
+    EntityConsistencyConfiguration config =
+        createTestConfig(
+            false, 10, 0, 0, false, List.of("dataset", "dashboard", "query", "schemaField"), null);
+
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(mockOpContext, mockEntityService, consistencyService, config);
+
+    Set<String> types = step.resolveEntityTypes(true);
+    assertEquals(types.size(), 4);
+    assertTrue(types.contains("dataset"));
+    assertTrue(types.contains("query"));
+    assertTrue(types.contains("schemaField"));
+  }
+
+  @Test
+  public void testResolveEntityTypesUsesSystemMetadataFilterListWhenOrphanDue() {
+    EntityConsistencyConfiguration config = createTestConfig(false, 10, 0, 0, false);
+    EntityConsistencyConfiguration.SystemMetadataFilterConfig filterConfig =
+        new EntityConsistencyConfiguration.SystemMetadataFilterConfig();
+    filterConfig.setEntityTypes(List.of("dataset", "query", "schemaField", "dataProcessInstance"));
+    config.setSystemMetadataFilterConfig(filterConfig);
+
+    FixEntityConsistencyStep step =
+        new FixEntityConsistencyStep(mockOpContext, mockEntityService, consistencyService, config);
+
+    Set<String> orphanTypes = step.resolveEntityTypes(true);
+    assertEquals(orphanTypes.size(), 4);
+    assertTrue(orphanTypes.contains("dataProcessInstance"));
+
+    // Non-orphan pass ignores SM filter entityTypes and uses default checks' types
+    Set<String> defaultTypes = step.resolveEntityTypes(false);
+    assertFalse(defaultTypes.contains("dataProcessInstance"));
   }
 }

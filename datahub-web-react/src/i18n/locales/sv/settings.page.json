@@ -1,0 +1,20 @@
+{
+    "logOut": "Logga ut",
+    "nav.access": "Åtkomst",
+    "nav.accessTokens": "Åtkomsttoken",
+    "nav.appearance": "Utseende",
+    "nav.developer": "Utvecklare",
+    "nav.features": "Funktioner",
+    "nav.homePage": "Startsida",
+    "nav.manage": "Hantera",
+    "nav.myNotifications": "Mina aviseringar",
+    "nav.mySubscriptions": "Mina prenumerationer",
+    "nav.ownershipTypes": "Owner-typer",
+    "nav.permissions": "Behörigheter",
+    "nav.personal": "Personligt",
+    "nav.preferences": "Preferenser",
+    "nav.usersGroups": "Användare och grupper",
+    "nav.views": "Vyer",
+    "subTitle": "Hantera dina inställningar",
+    "title": "Inställningar"
+}

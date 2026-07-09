@@ -15,6 +15,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -211,12 +212,101 @@ public class UsageMetricsSessionEnricherTest {
     graphqlEnricher.completeResponse(null);
     graphqlEnricher.recordResponseWithBytes(sessionContext, 256L);
 
-    Assert.assertEquals(responseBytes.size(), 2);
-    Assert.assertNull(responseBytes.get(0));
-    Assert.assertEquals(responseBytes.get(1), Long.valueOf(256L));
+    Assert.assertEquals(responseBytes, Arrays.asList(null, 256L));
     long positiveByteCalls =
         responseBytes.stream().filter(bytes -> bytes != null && bytes > 0).count();
     Assert.assertEquals(positiveByteCalls, 1);
+  }
+
+  @Test
+  public void testGraphqlAsyncPath_crossThread_outputBytesRecordedOnce() throws Exception {
+    List<Long> responseBytes = new ArrayList<>();
+    UsageAggregationStore trackingStore =
+        new UsageAggregationStore() {
+          @Override
+          public boolean recordRequest(@Nonnull OperationContext opContext) {
+            return true;
+          }
+
+          @Override
+          public void recordResponse(
+              @Nonnull OperationContext opContext, @Nullable Long outputBytes) {
+            synchronized (responseBytes) {
+              responseBytes.add(outputBytes);
+            }
+          }
+
+          @Override
+          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+        };
+    UsageMetricsSessionEnricher graphqlEnricher =
+        new UsageMetricsSessionEnricher(trackingStore, true);
+
+    OperationContext sessionContext = graphqlSession();
+    graphqlEnricher.onSessionReady(sessionContext);
+
+    CountDownLatch workerStarted = new CountDownLatch(1);
+    Thread worker =
+        new Thread(
+            () -> {
+              workerStarted.countDown();
+              graphqlEnricher.recordResponseWithBytes(sessionContext, 256L);
+            });
+    worker.start();
+    workerStarted.await();
+    worker.join();
+
+    graphqlEnricher.completeResponse(256L);
+
+    long positiveByteCalls =
+        responseBytes.stream().filter(bytes -> bytes != null && bytes > 0).count();
+    Assert.assertEquals(positiveByteCalls, 1);
+    Assert.assertEquals(
+        responseBytes.stream().filter(bytes -> bytes != null && bytes > 0).findFirst().get(),
+        Long.valueOf(256L));
+  }
+
+  @Test
+  public void testSyncPath_unaffectedWhenOtherSessionMarkedAsync() throws Exception {
+    List<Long> responseBytes = new ArrayList<>();
+    UsageAggregationStore trackingStore =
+        new UsageAggregationStore() {
+          @Override
+          public boolean recordRequest(@Nonnull OperationContext opContext) {
+            return true;
+          }
+
+          @Override
+          public void recordResponse(
+              @Nonnull OperationContext opContext, @Nullable Long outputBytes) {
+            responseBytes.add(outputBytes);
+          }
+
+          @Override
+          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+        };
+    UsageMetricsSessionEnricher enricherUnderTest =
+        new UsageMetricsSessionEnricher(trackingStore, true);
+
+    OperationContext graphqlContext = graphqlSession();
+    enricherUnderTest.recordResponseWithBytes(graphqlContext, 128L);
+
+    Authentication syncAuthentication =
+        new Authentication(new Actor(ActorType.USER, "syncuser"), "Basic test");
+    RequestContext syncRequestContext =
+        openapiBuilder()
+            .usageOperation(UsageOperation.METADATA_READ.key())
+            .usageIdentity("urn:li:corpuser:syncuser")
+            .authChannel(AuthChannel.SESSION)
+            .build();
+    OperationContext syncContext =
+        TestOperationContexts.systemContextNoValidate().toBuilder()
+            .requestContext(syncRequestContext)
+            .build(syncAuthentication, true);
+    enricherUnderTest.onSessionReady(syncContext);
+    enricherUnderTest.completeResponse(512L);
+
+    Assert.assertEquals(responseBytes, Arrays.asList(128L, 512L));
   }
 
   @Test
@@ -270,11 +360,13 @@ public class UsageMetricsSessionEnricherTest {
 
     OperationContext sessionContext = graphqlSession();
     riskEnricher.onSessionReady(sessionContext);
-    riskEnricher.completeResponse(128L);
     riskEnricher.recordResponseWithBytes(sessionContext, 128L);
+    riskEnricher.completeResponse(128L);
 
-    Assert.assertEquals(responseBytes.size(), 2);
-    Assert.assertEquals(responseBytes, Arrays.asList(128L, 128L));
+    Assert.assertEquals(responseBytes, Arrays.asList(128L, null));
+    long positiveByteCalls =
+        responseBytes.stream().filter(bytes -> bytes != null && bytes > 0).count();
+    Assert.assertEquals(positiveByteCalls, 1);
   }
 
   private static OperationContext session(String usageOperation) throws Exception {
