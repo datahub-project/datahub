@@ -357,24 +357,24 @@ class TestABSOpenZipEntry:
         zip_path.write_bytes(_make_zip({"data.csv": csv_bytes}))
 
         source = _make_abs_source()
-        file, ext = source._open_zip_entry(
+        entry = source._open_zip_entry(
             _table_data(str(zip_path)), None, PathSpec(include=_ABS_ZIP_INCLUDE)
         )
 
-        assert file is not None
-        assert ext == ".csv"
-        assert file.read() == csv_bytes
+        assert entry is not None
+        assert entry.suffix == ".csv"
+        assert entry.data == csv_bytes
 
     def test_no_supported_files_returns_none(self, tmp_path):
         zip_path = tmp_path / "data.zip"
         zip_path.write_bytes(_make_zip({"README.txt": b"nothing here"}))
 
         source = _make_abs_source()
-        file, ext = source._open_zip_entry(
+        entry = source._open_zip_entry(
             _table_data(str(zip_path)), None, PathSpec(include=_ABS_ZIP_INCLUDE)
         )
 
-        assert file is None
+        assert entry is None
         assert source.report.warnings
 
     def test_bad_zip_returns_none(self, tmp_path):
@@ -382,11 +382,11 @@ class TestABSOpenZipEntry:
         bad_zip.write_bytes(b"not a zip")
 
         source = _make_abs_source()
-        file, ext = source._open_zip_entry(
+        entry = source._open_zip_entry(
             _table_data(str(bad_zip)), None, PathSpec(include=_ABS_ZIP_INCLUDE)
         )
 
-        assert file is None
+        assert entry is None
         assert source.report.warnings
 
 

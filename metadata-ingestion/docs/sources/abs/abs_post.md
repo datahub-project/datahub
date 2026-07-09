@@ -209,6 +209,19 @@ If you are ingesting datasets from AWS S3, we recommend running the ingestion on
 
 :::
 
+#### Compressed files
+
+When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types. Supported compression formats are `.gz`, `.bz2`, and `.zip`.
+
+For `.zip` archives:
+
+- Only the **first entry with a supported extension** is read. If an archive contains more than one supported entry, a warning is emitted and only the first is processed.
+- The inner file's extension determines how the content is parsed (for example `data.csv.zip` or a zip containing `data.csv` is treated as CSV).
+- Only the bytes needed (the central directory and the selected entry) are downloaded from Azure Blob Storage via range requests, so large archives are not fully downloaded for schema inference.
+- To guard against zip-bomb archives, an entry whose **uncompressed** size exceeds `path_spec.max_zip_entry_size` (default 512 MiB) is skipped with a warning. Increase this value if you need to read larger entries.
+
+Set `path_spec.enable_compression` to `false` to treat compressed files as opaque and skip this handling.
+
 #### Compatibility
 
 Profiles are computed with PyDeequ, which relies on PySpark. Therefore, for computing profiles, we currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` and `SPARK_VERSION` environment variables to be set. The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).

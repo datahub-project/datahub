@@ -14,6 +14,9 @@ from wcmatch import pathlib
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    DEFAULT_MAX_ZIP_ENTRY_SIZE,
+)
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 # hide annoying debug errors from py4j
@@ -120,6 +123,14 @@ class PathSpec(ConfigModel):
         description="Enable or disable processing compressed files. Supported formats: .gz, .bz2, and .zip. "
         "For .zip archives, only the first file with a supported extension is read; archives containing "
         "multiple files will emit a warning and process only the first matching entry.",
+    )
+
+    max_zip_entry_size: int = Field(
+        DEFAULT_MAX_ZIP_ENTRY_SIZE,
+        description="Maximum uncompressed size (in bytes) of a single entry read from a .zip archive. "
+        "Protects against zip-bomb archives that expand to far more than their compressed size and "
+        "could exhaust worker memory. Entries larger than this are skipped with a warning. "
+        "Defaults to 512 MiB.",
     )
 
     sample_files: bool = Field(

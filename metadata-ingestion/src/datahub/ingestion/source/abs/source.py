@@ -6,7 +6,6 @@ import os
 import pathlib
 import re
 import time
-import zipfile
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import PurePath
@@ -55,6 +54,10 @@ from datahub.ingestion.source.data_lake_common.path_spec import (
     SUPPORTED_COMPRESSIONS,
     SUPPORTED_FILE_TYPES,
 )
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    ZipEntry,
+    read_first_supported_zip_entry,
+)
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -83,7 +86,7 @@ PAGE_SIZE = 1000
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
 
 
-class SeekableABSFile:
+class SeekableABSFile(io.RawIOBase):
     """Seekable file-like wrapper around an Azure Blob Storage object.
 
     zipfile.ZipFile requires random access (seek + tell) because the central
@@ -98,6 +101,7 @@ class SeekableABSFile:
         container_name: str,
         blob_name: str,
     ) -> None:
+        super().__init__()
         self._blob_client = blob_service_client.get_blob_client(
             container=container_name, blob=blob_name
         )
@@ -236,20 +240,20 @@ class ABSSource(StatefulIngestionSourceBase):
         table_data: TableData,
         blob_service_client: Optional[BlobServiceClient],
         path_spec: PathSpec,
-    ) -> Tuple[Optional[IO[bytes]], str]:
-        """Open the first supported entry inside a .zip archive.
+    ) -> Optional[ZipEntry]:
+        """Read the first supported entry inside a .zip archive.
 
         For ABS paths a seekable range-request wrapper is used so that only the
         bytes actually needed are downloaded (central directory + chosen entry).
         For local paths the file is already seekable so zipfile works directly.
 
-        Returns (file_like_object, inner_extension) or (None, "") when no
-        supported entry is found.
+        Returns the extracted entry, or None when no supported entry is found.
         """
         if (
             blob_service_client is not None
             and self.source_config.azure_config is not None
         ):
+            # typeshed's RawIOBase is not an IO[bytes] subtype, hence the ignore.
             zip_file: IO[bytes] = SeekableABSFile(  # type: ignore[assignment]
                 blob_service_client,
                 self.source_config.azure_config.container_name,
@@ -259,43 +263,15 @@ class ABSSource(StatefulIngestionSourceBase):
             zip_file = open(table_data.full_path, "rb")
 
         try:
-            zf = zipfile.ZipFile(zip_file)
-        except zipfile.BadZipFile as e:
-            self.report.report_warning(
-                table_data.full_path, f"could not open zip archive: {e}"
+            return read_first_supported_zip_entry(
+                zip_file,
+                context=table_data.full_path,
+                report=self.report,
+                supported_suffixes=[f".{ext}" for ext in SUPPORTED_FILE_TYPES],
+                max_entry_size=path_spec.max_zip_entry_size,
             )
+        finally:
             zip_file.close()
-            return None, ""
-
-        members = zf.namelist()
-        supported = [
-            m
-            for m in members
-            if pathlib.Path(m).suffix.lstrip(".") in SUPPORTED_FILE_TYPES
-        ]
-
-        if not supported:
-            self.report.report_warning(
-                table_data.full_path,
-                f"zip archive contains no files with a supported extension "
-                f"({SUPPORTED_FILE_TYPES}); found: {members}",
-            )
-            zf.close()
-            zip_file.close()
-            return None, ""
-
-        if len(members) > 1:
-            logger.warning(
-                f"zip archive {table_data.full_path} contains {len(members)} files; "
-                f"using first supported entry: {supported[0]}"
-            )
-
-        entry_name = supported[0]
-        inner_extension = pathlib.Path(entry_name).suffix
-        entry_bytes = zf.read(entry_name)
-        zf.close()
-        zip_file.close()
-        return io.BytesIO(entry_bytes), inner_extension
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
         blob_service_client: Optional[BlobServiceClient] = None
@@ -311,11 +287,11 @@ class ABSSource(StatefulIngestionSourceBase):
 
         if path_spec.enable_compression and extension[1:] in SUPPORTED_COMPRESSIONS:
             if extension[1:] == "zip":
-                file, extension = self._open_zip_entry(
-                    table_data, blob_service_client, path_spec
-                )
-                if file is None:
+                entry = self._open_zip_entry(table_data, blob_service_client, path_spec)
+                if entry is None:
                     return []
+                file = io.BytesIO(entry.data)
+                extension = entry.suffix
             else:
                 # .gz / .bz2 — smart_open decompresses transparently
                 if (

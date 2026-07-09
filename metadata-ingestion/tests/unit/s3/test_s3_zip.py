@@ -129,25 +129,25 @@ class TestOpenZipEntry:
         zip_path.write_bytes(_make_zip({"data.csv": csv_bytes}))
 
         source = _make_local_source()
-        file, ext = source._open_zip_entry(
+        entry = source._open_zip_entry(
             str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
         )
 
-        assert file is not None
-        assert ext == ".csv"
-        assert file.read() == csv_bytes
+        assert entry is not None
+        assert entry.suffix == ".csv"
+        assert entry.data == csv_bytes
 
     def test_single_json_entry(self, tmp_path):
         zip_path = tmp_path / "data.json.zip"
         zip_path.write_bytes(_make_zip({"data.json": b'[{"name": "Alice"}]'}))
 
         source = _make_local_source()
-        file, ext = source._open_zip_entry(
+        entry = source._open_zip_entry(
             str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
         )
 
-        assert file is not None
-        assert ext == ".json"
+        assert entry is not None
+        assert entry.suffix == ".json"
 
     def test_multi_file_zip_warns_and_uses_first_supported(self, tmp_path, caplog):
         zip_path = tmp_path / "multi.zip"
@@ -163,24 +163,57 @@ class TestOpenZipEntry:
 
         source = _make_local_source()
         with caplog.at_level("WARNING"):
-            file, ext = source._open_zip_entry(
+            entry = source._open_zip_entry(
                 str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
             )
 
-        assert file is not None
-        assert ext == ".csv"
-        assert any("3 files" in r.message for r in caplog.records)
+        assert entry is not None
+        assert entry.suffix == ".csv"
+        # Warning is based on the count of *supported* entries (2 csvs), not the
+        # 3 total members — a README should not inflate the count.
+        assert any("2 files" in r.message for r in caplog.records)
+
+    def test_single_supported_entry_with_readme_does_not_warn(self, tmp_path, caplog):
+        zip_path = tmp_path / "single.zip"
+        zip_path.write_bytes(
+            _make_zip({"README.txt": b"readme", "data.csv": b"x,y\n1,2\n"})
+        )
+
+        source = _make_local_source()
+        with caplog.at_level("WARNING"):
+            entry = source._open_zip_entry(
+                str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
+            )
+
+        assert entry is not None
+        assert entry.suffix == ".csv"
+        assert not any("supported extension" in r.message for r in caplog.records)
+
+    def test_entry_over_size_limit_is_skipped(self, tmp_path):
+        zip_path = tmp_path / "bomb.csv.zip"
+        # Compresses to a few KB but declares ~2 MiB uncompressed.
+        zip_path.write_bytes(_make_zip({"bomb.csv": b"0" * (2 * 1024 * 1024)}))
+
+        source = _make_local_source()
+        entry = source._open_zip_entry(
+            str(zip_path),
+            None,
+            PathSpec(include="s3://bucket/*.zip", max_zip_entry_size=1024),
+        )
+
+        assert entry is None
+        assert source.report.warnings
 
     def test_no_supported_extension_returns_none(self, tmp_path):
         zip_path = tmp_path / "data.zip"
         zip_path.write_bytes(_make_zip({"README.txt": b"nothing here"}))
 
         source = _make_local_source()
-        file, ext = source._open_zip_entry(
+        entry = source._open_zip_entry(
             str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
         )
 
-        assert file is None
+        assert entry is None
         assert source.report.warnings
 
     def test_bad_zip_returns_none(self, tmp_path):
@@ -188,11 +221,11 @@ class TestOpenZipEntry:
         bad_zip.write_bytes(b"this is not a zip file")
 
         source = _make_local_source()
-        file, ext = source._open_zip_entry(
+        entry = source._open_zip_entry(
             str(bad_zip), None, PathSpec(include="s3://bucket/*.zip")
         )
 
-        assert file is None
+        assert entry is None
         assert source.report.warnings
 
 

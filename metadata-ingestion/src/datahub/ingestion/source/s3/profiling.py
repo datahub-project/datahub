@@ -1,14 +1,13 @@
 import dataclasses
-import io
 import logging
 import os
 import pathlib
 import tempfile
-import zipfile
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import IO, Any, Dict, Iterable, List, Optional
 
 from pandas import DataFrame
+from pydantic import BaseModel
 from pydeequ.analyzers import (
     AnalysisRunBuilder,
     AnalysisRunner,
@@ -47,6 +46,10 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    read_first_supported_zip_entry,
+)
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
@@ -75,6 +78,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 def null_str(value: Any) -> Optional[str]:
     # str() with a passthrough for None.
     return str(value) if value is not None else None
+
+
+class ExtractedZipFile(BaseModel):
+    """A zip entry extracted to a temp file on the local filesystem."""
+
+    path: str
+    # Inner file extension including the leading dot, e.g. ".csv".
+    suffix: str
 
 
 @dataclasses.dataclass
@@ -604,59 +615,57 @@ class SparkProfiler:
         {".parquet", ".csv", ".tsv", ".json", ".jsonl", ".avro"}
     )
 
-    def _extract_zip_to_tmp(self, full_path: str) -> Optional[Tuple[str, str]]:
+    def _extract_zip_to_tmp(
+        self, full_path: str, max_entry_size: int
+    ) -> Optional[ExtractedZipFile]:
         """Extract the first supported entry from a zip to a temp file.
 
-        Inner extension is detected from the entry name, not the outer filename.
-        Returns (temp_path, inner_ext) or None on error; caller must delete the file.
+        For S3 archives a seekable range-request wrapper is used so only the
+        bytes actually needed are downloaded (central directory + chosen entry),
+        matching the schema-inference path and avoiding a full in-memory load.
+        The inner extension is detected from the entry name, not the outer
+        filename. Returns None on error; the caller must delete the file.
         """
+        zip_file: Optional[IO[bytes]] = None
         try:
             if "s3://" in full_path and self.aws_config is not None:
+                # Local import to avoid importing the S3 source module for non-S3 profiling.
+                from datahub.ingestion.source.s3.source import SeekableS3File
+
                 s3 = self.aws_config.get_s3_client()
-                buf = io.BytesIO()
-                s3.download_fileobj(
+                # typeshed's RawIOBase is not an IO[bytes] subtype, hence the ignore.
+                zip_file = SeekableS3File(  # type: ignore[assignment]
+                    s3,
                     get_bucket_name(full_path),
                     get_bucket_relative_path(full_path),
-                    buf,
                 )
-                buf.seek(0)
-                zip_source: Union[io.BytesIO, str] = buf
             else:
-                zip_source = full_path
+                zip_file = open(full_path, "rb")
 
-            with zipfile.ZipFile(zip_source) as zf:
-                members = zf.namelist()
-                entry = next(
-                    (
-                        m
-                        for m in members
-                        if pathlib.Path(m).suffix in self._SPARK_SUPPORTED_EXTS
-                    ),
-                    None,
-                )
-                if entry is None:
-                    self.report.report_warning(
-                        full_path,
-                        f"zip archive contains no entry with a supported extension "
-                        f"({sorted(self._SPARK_SUPPORTED_EXTS)}); found: {members}",
-                    )
-                    return None
-                if len(members) > 1:
-                    logger.warning(
-                        f"zip archive {full_path} contains {len(members)} entries; "
-                        f"profiling only the first supported entry: {entry}"
-                    )
-                inner_ext = pathlib.Path(entry).suffix
-                data = zf.read(entry)
+            assert zip_file is not None
+            result = read_first_supported_zip_entry(
+                zip_file,
+                context=full_path,
+                report=self.report,
+                supported_suffixes=self._SPARK_SUPPORTED_EXTS,
+                max_entry_size=max_entry_size,
+            )
+            if result is None:
+                return None
 
-            with tempfile.NamedTemporaryFile(suffix=inner_ext, delete=False) as tmp:
-                tmp.write(data)
-                return tmp.name, inner_ext
+            with tempfile.NamedTemporaryFile(suffix=result.suffix, delete=False) as tmp:
+                tmp.write(result.data)
+            return ExtractedZipFile(path=tmp.name, suffix=result.suffix)
         except Exception as e:
             self.report.report_warning(
-                full_path, f"failed to extract zip entry for profiling: {e}"
+                title="Zip extraction for profiling failed",
+                message="Failed to extract zip entry for profiling",
+                context=f"{full_path}: {e}",
             )
             return None
+        finally:
+            if zip_file is not None:
+                zip_file.close()
 
     def read_file_spark(self, file: str, ext: str) -> Optional["SparkDataFrame"]:
         from pyspark.sql.utils import AnalysisException
@@ -714,7 +723,7 @@ class SparkProfiler:
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_profile(
-        self, table_data: Any, dataset_urn: str
+        self, table_data: Any, dataset_urn: str, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
         # Importing here to avoid Deequ dependency for non profiling use cases
         from pydeequ.analyzers import AnalyzerContext
@@ -722,11 +731,15 @@ class SparkProfiler:
         raw_ext = pathlib.Path(table_data.full_path).suffix
         tmp_path: Optional[str] = None
         try:
-            if raw_ext == ".zip":
-                result = self._extract_zip_to_tmp(table_data.full_path)
-                if result is None:
+            # Respect enable_compression like the schema-inference path does.
+            if raw_ext == ".zip" and path_spec.enable_compression:
+                extracted = self._extract_zip_to_tmp(
+                    table_data.full_path, path_spec.max_zip_entry_size
+                )
+                if extracted is None:
                     return
-                tmp_path, ext = result
+                tmp_path = extracted.path
+                ext = extracted.suffix
                 spark_path = tmp_path
             else:
                 spark_path = table_data.full_path
