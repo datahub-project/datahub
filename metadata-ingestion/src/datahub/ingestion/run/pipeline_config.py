@@ -164,9 +164,10 @@ class FlagsConfig(ConfigModel):
         description=(
             "Experimental: before emitting lineage, reconcile the casing of upstream "
             "warehouse URN references (table- and column-level) against the casing "
-            "stored in DataHub, so casing mismatches between sources (e.g. an uppercase "
-            "Snowflake table referenced as lowercase by a BI tool, or vice versa) don't "
-            "produce two disconnected lineage nodes. Unlike `convert_urns_to_lowercase`, "
+            "stored in DataHub, so casing mismatches between sources (e.g. a "
+            "lowercase-stored warehouse table referenced in a different casing by a BI "
+            "tool) don't produce two disconnected lineage nodes. Unlike "
+            "`convert_urns_to_lowercase`, "
             "which lowercases every URN, this resolves references to the casing of the "
             "entity that already exists, preserving the warehouse's original casing. "
             "Requires a DataHub backend connection (no-op for offline/file-only "
