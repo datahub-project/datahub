@@ -147,6 +147,7 @@ import com.linkedin.datahub.graphql.resolvers.lifecycle.StatusLifecycleStageReso
 import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.load.DashboardStatsSummaryBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
@@ -930,6 +931,10 @@ public class GmsGraphQLEngine {
             TimeseriesAspectBatchLoader.LOADER_NAME,
             context ->
                 TimeseriesAspectBatchLoader.createDataLoader(timeseriesAspectService, context))
+        .addDataLoader(
+            DashboardStatsSummaryBatchLoader.LOADER_NAME,
+            context ->
+                DashboardStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
         .setGraphQLConfiguration(graphQLConfiguration)
         .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
@@ -2381,7 +2386,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
                 .dataFetcher(
-                    "statsSummary", new DashboardStatsSummaryResolver(timeseriesAspectService))
+                    "statsSummary",
+                    new DashboardStatsSummaryResolver(timeseriesAspectService, featureFlags))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher(
@@ -3162,6 +3168,7 @@ public class GmsGraphQLEngine {
             this.graphClient,
             entityRegistry,
             this.timelineService,
+            this.viewService,
             this.documentImportService)
         .configureResolvers(builder);
   }

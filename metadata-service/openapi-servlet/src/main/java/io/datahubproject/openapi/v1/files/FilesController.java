@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.aws.S3Util;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -145,7 +146,8 @@ public class FilesController {
     return OperationContext.asSession(
         systemOperationContext,
         RequestContext.builder()
-            .buildOpenapi(authentication.getActor().toUrnStr(), request, action, entityNames),
+            .buildOpenapi(authentication.getActor().toUrnStr(), request, action, entityNames)
+            .withUsageOperation(UsageOperation.METADATA_READ),
         authorizationChain,
         authentication,
         true);

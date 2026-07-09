@@ -1,9 +1,13 @@
-import { ShareAltOutlined } from '@ant-design/icons';
+import { ShareNetwork } from '@phosphor-icons/react/dist/csr/ShareNetwork';
 import { Dropdown } from 'antd';
 import React from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import {
+    ActionMenuItem,
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import ShareButtonMenu from '@app/shared/share/v2/ShareButtonMenu';
 import { StyledMenu } from '@app/shared/share/v2/styledComponents';
 
@@ -28,7 +32,7 @@ export default function ShareMenuAction() {
                     </StyledMenu>
                 }
             >
-                <ShareAltOutlined style={{ display: 'flex' }} />
+                <ShareNetwork size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </Dropdown>
         </ActionMenuItem>
     );

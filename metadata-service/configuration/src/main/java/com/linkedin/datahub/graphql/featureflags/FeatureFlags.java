@@ -65,4 +65,5 @@ public class FeatureFlags {
   private boolean aspectMigrationMutatorEnabled = false;
   private boolean i18nEnabled = false;
   private boolean timeseriesAspectBatchLoadEnabled = true;
+  private boolean timeseriesAspectAggBatchLoadEnabled = true;
 }

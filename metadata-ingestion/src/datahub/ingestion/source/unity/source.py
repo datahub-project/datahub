@@ -1,4 +1,5 @@
 import dataclasses
+import itertools
 import json
 import logging
 import re
@@ -726,6 +727,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
+            # Views (VIEW / MATERIALIZED_VIEW / HIVE_VIEW) are honored via
+            # include_views + view_pattern, mirroring SQL-based sources. Metric
+            # views are not is_view and keep their dedicated filtering below.
+            if table.is_view and (
+                not self.config.include_views
+                or not self.config.view_pattern.allowed(table.ref.qualified_table_name)
+            ):
+                self.report.tables.dropped(table.id, f"view ({table.table_type})")
+                continue
+
             if (
                 table.is_metric_view
                 and self.config.include_metric_views
@@ -735,6 +746,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 self.report.metric_views.dropped(table.id)
+                continue
+
+            # Regular tables (neither view nor metric view) are honored via
+            # include_tables; views and metric views keep their own toggles above.
+            if (
+                not table.is_view
+                and not table.is_metric_view
+                and not self.config.include_tables
+            ):
+                self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
             if (
@@ -894,8 +915,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def process_ml_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
-        for ml_model in self.unity_catalog_api_proxy.ml_models(
-            schema=schema, max_results=self.config.ml_model_max_results
+        if not self.config.include_ml_models:
+            return
+        # ml_model_max_results is a hard cap on models ingested per schema, not
+        # just an API page size. islice stops pulling once the cap is reached
+        # (so a cap of 0 makes no API call at all).
+        for ml_model in itertools.islice(
+            self.unity_catalog_api_proxy.ml_models(
+                schema=schema, max_results=self.config.ml_model_max_results
+            ),
+            self.config.ml_model_max_results,
         ):
             yield from self.process_ml_model(ml_model, schema)
             ml_model_urn = self.gen_ml_model_urn(ml_model.id)
@@ -959,6 +988,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=ml_model_version.description,
             model_group=ml_model_urn,
             platform=self.platform,
+            env=self.config.env,
             last_modified=ml_model_version.updated_at,
             training_metrics=cast(
                 Optional[Dict[str, Optional[str]]], ml_model_version.run_details.metrics

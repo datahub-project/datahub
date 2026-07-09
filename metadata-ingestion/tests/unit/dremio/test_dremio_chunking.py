@@ -11,6 +11,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 
 class TestDremioChunking:
@@ -114,7 +115,6 @@ class TestDremioChunking:
                 "COLUMN_SIZE": 255,
                 "RESOURCE_ID": "res1",
                 "LOCATION_ID": "loc1",
-                "VIEW_DEFINITION": None,
                 "OWNER": "user1",
                 "OWNER_TYPE": "USER",
                 "CREATED": "2024-01-01",
@@ -125,10 +125,22 @@ class TestDremioChunking:
         dremio_api._get_all_tables_global_chunked = Mock(
             return_value=iter(mock_results)
         )
+        view_definitions: FileBackedDict[str] = FileBackedDict()
+        view_definitions["source.schema.table1"] = "SELECT 1"
+        dremio_api._get_view_definitions = Mock(return_value=view_definitions)
 
         tables = list(dremio_api.get_all_tables_and_columns())
 
         dremio_api._get_all_tables_global_chunked.assert_called_once()
+        dremio_api._get_view_definitions.assert_called_once()
+        # The separately-fetched view definitions must be threaded through to the
+        # fetch so they can be merged back by path.
+        assert (
+            dremio_api._get_all_tables_global_chunked.call_args.kwargs[
+                "view_definitions"
+            ]
+            is view_definitions
+        )
         assert len(tables) == 1
 
     def test_get_all_tables_global_chunked_single_chunk(self, dremio_api):
@@ -148,7 +160,6 @@ class TestDremioChunking:
                 "COLUMN_SIZE": 255,
                 "RESOURCE_ID": "res1",
                 "LOCATION_ID": "loc1",
-                "VIEW_DEFINITION": None,
                 "OWNER": None,
                 "OWNER_TYPE": None,
                 "CREATED": None,
@@ -163,6 +174,7 @@ class TestDremioChunking:
                 DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL,
                 "",
                 "",
+                {},
             )
         )
 
@@ -194,7 +206,6 @@ class TestDremioChunking:
                 "COLUMN_SIZE": 255,
                 "RESOURCE_ID": f"res-{table}",
                 "LOCATION_ID": f"loc-{table}",
-                "VIEW_DEFINITION": None,
                 "OWNER": None,
                 "OWNER_TYPE": None,
                 "CREATED": None,
@@ -216,6 +227,7 @@ class TestDremioChunking:
                 DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL,
                 "",
                 "",
+                {},
             )
         )
 
@@ -240,14 +252,15 @@ class TestDremioChunking:
                 DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL,
                 "",
                 "",
+                {},
             )
         )
 
         assert len(tables) == 0
-        dremio_api.report.report_warning.assert_called_once()
-        warning_call = dremio_api.report.report_warning.call_args
-        assert "Dremio crash detected" in warning_call[0][0]
-        assert warning_call[1]["context"] == "global_dataset_fetch"
+        # A dropped chunk must be reported as a failure, not silently swallowed.
+        dremio_api.report.failure.assert_called_once()
+        failure_call = dremio_api.report.failure.call_args
+        assert "'rows'" in failure_call.kwargs["context"]
 
     def test_extract_all_queries_uses_chunking(self, dremio_api):
         dremio_api.edition = DremioEdition.ENTERPRISE

@@ -537,6 +537,17 @@ def _shorten_change_line(line: str) -> str:
     return line
 
 
+def _slice_debt_key(entry: dict) -> Optional[str]:
+    """Stable identity for a per-PR slice when tracking schemaVersion debt.
+
+    Prefers the commit `sha` (always present in real audits, and unique even
+    for commits with no PR), falling back to the PR number. Keying on this
+    rather than the PR number alone lets a cumulative catch-up bump reconcile
+    debt introduced by a no-PR commit.
+    """
+    return entry.get("sha") or entry.get("pr")
+
+
 def _apply_catchup_reclassification(entries: list[dict]) -> list[dict]:
     """Reconcile schemaVersion debt across PRs chronologically.
 
@@ -548,35 +559,51 @@ def _apply_catchup_reclassification(entries: list[dict]) -> list[dict]:
     `bump_spurious`.
 
     Mutates entries in place; the new keys are `bump_status` (possibly
-    flipped from BUMP_SPURIOUS to BUMP_DONE) and `catch_up_for_prs` (list of
-    PRs whose unbumped changes this slice's bump covered). Returns the same
-    list for chaining.
+    flipped from BUMP_SPURIOUS to BUMP_DONE), `catch_up_shas` (the slice shas
+    whose unbumped changes this bump covered — the reconciliation unit), and
+    `catch_up_for_prs` (the PR-number subset of those, for display). Returns
+    the same list for chaining.
+
+    Debt is tracked by commit `sha`, not PR number: a change can arrive on a
+    commit with no PR (a direct push / release-catch-up commit), and a single
+    cumulative schemaVersion bump still covers it. Keying on PR number dropped
+    such no-PR debt entirely, so a later catch-up bump never reconciled it and
+    the file leaked a false `bump_needed` (e.g. AssertionRunEvent's transitive
+    BoundsValueSpace change, committed without a PR).
     """
     if not entries:
         return entries
     sorted_entries = sorted(
         entries,
-        key=lambda e: (e.get("date") or "", e.get("pr") or ""),
+        key=lambda e: (e.get("date") or "", e.get("pr") or "", e.get("sha") or ""),
     )
-    pending_prs: list[str] = []
+    # pending: list of (sha, pr) for unbumped changes awaiting a catch-up bump.
+    pending: list[tuple[str, Optional[str]]] = []
+
+    def _record_and_clear(e: dict) -> None:
+        e["catch_up_shas"] = [s for s, _ in pending]
+        # PR subset only — keeps the "catch-up for #N" display text clean and
+        # free of raw shas for no-PR debt.
+        e["catch_up_for_prs"] = [p for _, p in pending if p]
+
     for e in sorted_entries:
         status = e.get("bump_status")
         if status == BUMP_NEEDED:
-            pr = e.get("pr")
-            if pr and pr not in pending_prs:
-                pending_prs.append(pr)
+            key = _slice_debt_key(e)
+            if key and key not in [s for s, _ in pending]:
+                pending.append((key, e.get("pr")))
         elif status == BUMP_SPURIOUS:
-            if pending_prs:
+            if pending:
                 e["bump_status"] = BUMP_DONE
-                e["catch_up_for_prs"] = list(pending_prs)
-                pending_prs = []
+                _record_and_clear(e)
+                pending = []
             # else: stays BUMP_SPURIOUS — no debt to pay
         elif status == BUMP_DONE:
             # The slice's own change + own bump implicitly clears prior debt
             # (one bump covers all pending changes).
-            if pending_prs:
-                e["catch_up_for_prs"] = list(pending_prs)
-            pending_prs = []
+            if pending:
+                _record_and_clear(e)
+            pending = []
     return entries
 
 
@@ -1791,9 +1818,11 @@ def _aggregate_per_pr_verdict(entries: list[dict]) -> str:
     honoring catch-up reconciliation.
 
     Priority order (highest wins): bump_needed > bump_spurious > bump_done >
-    bump_not_needed. A BUMP_NEEDED entry is **ignored** when its PR appears
-    in any later slice's `catch_up_for_prs` — that NEEDED slice has already
-    been reconciled by a catch-up bump and is no longer an unpaid debt.
+    bump_not_needed. A BUMP_NEEDED entry is **ignored** when its sha appears
+    in any later slice's `catch_up_shas` — that NEEDED slice has already been
+    reconciled by a catch-up bump and is no longer an unpaid debt. Reconciling
+    by sha (not PR number) covers debt from no-PR commits, which a cumulative
+    bump still pays down.
 
     An *unreconciled* BUMP_NEEDED outranks BUMP_SPURIOUS: a needed bump is a
     release-blocking, silent-migration hazard, whereas a spurious bump is only
@@ -1808,13 +1837,21 @@ def _aggregate_per_pr_verdict(entries: list[dict]) -> str:
 
     The cumulative bucket therefore follows the per-PR truth.
     """
-    paid_prs: set[str] = set()
+    # Reconcile by commit sha (every slice has one), not PR number — a no-PR
+    # change still incurs debt that a later cumulative bump can pay down.
+    # Paid debt is keyed by `catch_up_shas` (sha-or-pr, the reconciliation unit);
+    # also union in `catch_up_for_prs` so a slice keyed only by PR number is still
+    # recognized as reconciled.
+    paid: set[str] = set()
     for e in entries:
-        for pr in e.get("catch_up_for_prs") or []:
-            paid_prs.add(pr)
+        for key in (e.get("catch_up_shas") or []):
+            paid.add(key)
+        for pr in (e.get("catch_up_for_prs") or []):
+            paid.add(pr)
     has_spurious = any(e["bump_status"] == BUMP_SPURIOUS for e in entries)
     has_unreconciled_needed = any(
-        e["bump_status"] == BUMP_NEEDED and e.get("pr") not in paid_prs for e in entries
+        e["bump_status"] == BUMP_NEEDED and _slice_debt_key(e) not in paid
+        for e in entries
     )
     has_done = any(e["bump_status"] == BUMP_DONE for e in entries)
     if has_unreconciled_needed:
