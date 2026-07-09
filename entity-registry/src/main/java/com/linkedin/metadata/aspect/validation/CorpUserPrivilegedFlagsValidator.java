@@ -78,8 +78,12 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
         continue;
       }
 
-      CorpUserInfo actorInfo =
-          loadCorpUserInfo(operationContext, aspectRetriever, operationContext.getActor());
+      Urn authActor = resolveAuthorizingActor(item, operationContext);
+      if (isIntrinsicSystemActor(authActor)) {
+        continue;
+      }
+
+      CorpUserInfo actorInfo = loadCorpUserInfo(operationContext, aspectRetriever, authActor);
       if (actorInfo == null) {
         exceptions.addException(
             authFailure(item, "Unauthorized to modify privileged CorpUserInfo flags."));
@@ -98,6 +102,30 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
     }
 
     return exceptions.streamAllExceptions();
+  }
+
+  /**
+   * Session actor that initiated the write (audit stamp), not {@link
+   * OperationFingerprint#getActor()} which may reflect system escalation when {@code
+   * allowSystemAuthentication} is enabled on the operation context.
+   */
+  @Nonnull
+  private static Urn resolveAuthorizingActor(
+      @Nonnull BatchItem item, @Nonnull OperationFingerprint operationContext) {
+    AuditStamp itemAudit = item.getAuditStamp();
+    if (itemAudit != null && itemAudit.hasActor()) {
+      return itemAudit.getActor();
+    }
+    AuditStamp contextAudit = operationContext.getAuditStamp();
+    if (contextAudit != null && contextAudit.hasActor()) {
+      return contextAudit.getActor();
+    }
+    return operationContext.getActor();
+  }
+
+  /** Service principal {@link Constants#SYSTEM_ACTOR} has no {@link CorpUserInfo} aspect. */
+  private static boolean isIntrinsicSystemActor(@Nonnull Urn authActor) {
+    return SYSTEM_ACTOR.equals(authActor.toString());
   }
 
   @Override

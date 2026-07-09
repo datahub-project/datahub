@@ -7,6 +7,7 @@ import re
 import urllib.parse
 from typing import Dict, List, Optional
 
+import requests
 import tenacity
 
 from tests.utilities.metadata_operations import get_prometheus_metrics
@@ -335,6 +336,50 @@ def can_provision_native_users(auth_session) -> bool:
         "query { me { platformPrivileges { manageIdentities } } }",
     )
     return bool(privileges["data"]["me"]["platformPrivileges"]["manageIdentities"])
+
+
+def set_corpuser_is_support_user(
+    admin_session, corp_user_urn: str, *, is_support_user: bool
+) -> None:
+    """Set CorpUserInfo.isSupportUser (requires admin with system/support privileges)."""
+    from tests.consistency_utils import wait_for_writes_to_sync
+
+    encoded = urllib.parse.quote(corp_user_urn, safe="")
+    gms_url = admin_session.gms_url()
+    get_resp = admin_session.get(f"{gms_url}/openapi/v3/entity/corpuser/{encoded}")
+    get_resp.raise_for_status()
+    info = dict(get_resp.json().get("corpUserInfo", {}).get("value", {}))
+    info["isSupportUser"] = is_support_user
+    post_resp = admin_session.post(
+        f"{gms_url}/openapi/v3/entity/corpuser/{encoded}/corpUserInfo",
+        params={"createIfNotExists": "false"},
+        json={"value": info},
+    )
+    if not post_resp.ok:
+        raise requests.HTTPError(
+            f"{post_resp.status_code} setting isSupportUser on {corp_user_urn}: "
+            f"{post_resp.text}",
+            response=post_resp,
+        )
+    wait_for_writes_to_sync()
+
+
+def make_support_actor_user(admin_session, name: str):
+    """Provision a native user with actor_class=support for isolated usage metrics."""
+    from tests.utilities.multi_user import make_step_actor_user
+    from tests.utils import TestSessionWrapper, get_admin_credentials, login_as
+
+    user_urn, user_session = make_step_actor_user(admin_session, name)
+    # create_user re-authenticates as admin; use a fresh wrapper so GMS PAT calls stay valid.
+    admin_user, admin_pass = get_admin_credentials()
+    refreshed_admin = TestSessionWrapper(login_as(admin_user, admin_pass))
+    set_corpuser_is_support_user(refreshed_admin, user_urn, is_support_user=True)
+    actor_class = resolve_usage_actor_class(user_session)
+    if actor_class != "support":
+        raise AssertionError(
+            f"Expected actor_class=support for {user_urn}, got {actor_class!r}"
+        )
+    return user_urn, user_session
 
 
 def corpuser_entity_exists(auth_session, corp_user_urn: str) -> bool:
