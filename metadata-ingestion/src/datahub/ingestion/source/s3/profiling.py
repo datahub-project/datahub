@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import IO, Any, Dict, Iterable, List, Optional
 
 from pandas import DataFrame
-from pydantic import BaseModel
 from pydeequ.analyzers import (
     AnalysisRunBuilder,
     AnalysisRunner,
@@ -80,7 +79,8 @@ def null_str(value: Any) -> Optional[str]:
     return str(value) if value is not None else None
 
 
-class ExtractedZipFile(BaseModel):
+@dataclasses.dataclass
+class ExtractedZipFile:
     """A zip entry extracted to a temp file on the local filesystem."""
 
     path: str

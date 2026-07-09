@@ -1,9 +1,8 @@
+import dataclasses
 import logging
 import pathlib
 import zipfile
 from typing import IO, Iterable, Optional
-
-from pydantic import BaseModel
 
 from datahub.ingestion.api.source import SourceReport
 
@@ -15,7 +14,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 DEFAULT_MAX_ZIP_ENTRY_SIZE: int = 512 * 1024 * 1024  # 512 MiB
 
 
-class ZipEntry(BaseModel):
+@dataclasses.dataclass
+class ZipEntry:
     """A single file extracted from a zip archive."""
 
     data: bytes
