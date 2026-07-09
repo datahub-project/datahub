@@ -9,6 +9,7 @@ handling the schema-inference tests cannot reach.
 import io
 import os
 import zipfile
+from types import SimpleNamespace
 
 import pytest
 
@@ -18,6 +19,7 @@ os.environ.setdefault("SPARK_VERSION", "3.5")
 pytest.importorskip("pyspark")
 pytest.importorskip("pydeequ")
 
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.profiling import SparkProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 
@@ -80,4 +82,26 @@ def test_extract_zip_to_tmp_no_supported_entry(tmp_path):
     )
 
     assert result is None
+    assert profiler.report.warnings
+
+
+def test_partitioned_zip_profiling_is_skipped_with_warning():
+    # Spark cannot read a partitioned dataset whose files are .zip archives, so
+    # profiling should skip it with a clear warning rather than silently failing.
+    profiler = _profiler()
+    table_data = SimpleNamespace(
+        full_path="s3://bucket/t/year=2022/data.csv.zip",
+        table_path="s3://bucket/t",
+        partitions=[object()],
+        display_name="t",
+    )
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.csv.zip", enable_compression=True
+    )
+
+    workunits = list(
+        profiler.get_table_profile(table_data, "urn:li:dataset:test", path_spec)
+    )
+
+    assert workunits == []
     assert profiler.report.warnings

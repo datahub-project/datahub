@@ -142,9 +142,6 @@ class SeekableS3File(io.RawIOBase):
     def readable(self) -> bool:
         return True
 
-    def close(self) -> None:
-        pass
-
 
 # config flags to emit telemetry for
 config_options_to_report = [

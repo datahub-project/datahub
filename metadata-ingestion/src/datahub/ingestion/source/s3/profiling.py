@@ -626,7 +626,6 @@ class SparkProfiler:
         The inner extension is detected from the entry name, not the outer
         filename. Returns None on error; the caller must delete the file.
         """
-        zip_file: Optional[IO[bytes]] = None
         try:
             if "s3://" in full_path and self.aws_config is not None:
                 # Local import to avoid importing the S3 source module for non-S3 profiling.
@@ -634,7 +633,7 @@ class SparkProfiler:
 
                 s3 = self.aws_config.get_s3_client()
                 # typeshed's RawIOBase is not an IO[bytes] subtype, hence the ignore.
-                zip_file = SeekableS3File(  # type: ignore[assignment]
+                zip_file: IO[bytes] = SeekableS3File(  # type: ignore[assignment]
                     s3,
                     get_bucket_name(full_path),
                     get_bucket_relative_path(full_path),
@@ -642,20 +641,22 @@ class SparkProfiler:
             else:
                 zip_file = open(full_path, "rb")
 
-            assert zip_file is not None
-            result = read_first_supported_zip_entry(
-                zip_file,
-                context=full_path,
-                report=self.report,
-                supported_suffixes=self._SPARK_SUPPORTED_EXTS,
-                max_entry_size=max_entry_size,
-            )
-            if result is None:
-                return None
+            with zip_file:
+                result = read_first_supported_zip_entry(
+                    zip_file,
+                    context=full_path,
+                    report=self.report,
+                    supported_suffixes=self._SPARK_SUPPORTED_EXTS,
+                    max_entry_size=max_entry_size,
+                )
+                if result is None:
+                    return None
 
-            with tempfile.NamedTemporaryFile(suffix=result.suffix, delete=False) as tmp:
-                tmp.write(result.data)
-            return ExtractedZipFile(path=tmp.name, suffix=result.suffix)
+                with tempfile.NamedTemporaryFile(
+                    suffix=result.suffix, delete=False
+                ) as tmp:
+                    tmp.write(result.data)
+                return ExtractedZipFile(path=tmp.name, suffix=result.suffix)
         except Exception as e:
             self.report.report_warning(
                 title="Zip extraction for profiling failed",
@@ -663,9 +664,6 @@ class SparkProfiler:
                 context=f"{full_path}: {e}",
             )
             return None
-        finally:
-            if zip_file is not None:
-                zip_file.close()
 
     def read_file_spark(self, file: str, ext: str) -> Optional["SparkDataFrame"]:
         from pyspark.sql.utils import AnalysisException
@@ -733,6 +731,17 @@ class SparkProfiler:
         try:
             # Respect enable_compression like the schema-inference path does.
             if raw_ext == ".zip" and path_spec.enable_compression:
+                # Partitioned profiling reads from table_path (the partition
+                # folder), which Spark cannot parse as a .zip. Extracting a single
+                # entry would not represent the partitioned dataset, so skip it.
+                if table_data.partitions:
+                    self.report.report_warning(
+                        title="Partitioned zip profiling not supported",
+                        message="Skipping profiling for a partitioned dataset backed "
+                        "by .zip archives; Spark cannot read partitioned zip inputs",
+                        context=table_data.display_name,
+                    )
+                    return
                 extracted = self._extract_zip_to_tmp(
                     table_data.full_path, path_spec.max_zip_entry_size
                 )

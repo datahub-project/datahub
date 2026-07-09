@@ -1,4 +1,5 @@
 import io
+import logging
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -10,8 +11,13 @@ from moto import mock_aws
 from mypy_boto3_s3 import S3Client
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.data_lake_common import zip_utils
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.source import S3Source, SeekableS3File, TableData
+
+# The multi-entry warning is emitted by the shared zip_utils helper, so caplog
+# must capture that logger's namespace (not the s3 source module's).
+_ZIP_UTILS_LOGGER = zip_utils.logger.name
 
 BUCKET = "zip-unit-test-bucket"
 KEY = "data/content.bin"
@@ -162,7 +168,7 @@ class TestOpenZipEntry:
         )
 
         source = _make_local_source()
-        with caplog.at_level("WARNING"):
+        with caplog.at_level(logging.WARNING, logger=_ZIP_UTILS_LOGGER):
             entry = source._open_zip_entry(
                 str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
             )
@@ -180,7 +186,7 @@ class TestOpenZipEntry:
         )
 
         source = _make_local_source()
-        with caplog.at_level("WARNING"):
+        with caplog.at_level(logging.WARNING, logger=_ZIP_UTILS_LOGGER):
             entry = source._open_zip_entry(
                 str(zip_path), None, PathSpec(include="s3://bucket/*.zip")
             )
