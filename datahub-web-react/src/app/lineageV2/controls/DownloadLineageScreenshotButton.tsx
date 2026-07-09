@@ -1,17 +1,15 @@
-import { Camera } from '@phosphor-icons/react/dist/csr/Camera';
+import { CameraOutlined } from '@ant-design/icons';
 import { toPng } from 'html-to-image';
 import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getRectOfNodes, getTransformForBounds, useReactFlow } from 'reactflow';
 import { useTheme } from 'styled-components';
 
-import LineageControlIcon from '@app/lineage/controls/LineageControlIcon';
 import { LineageNodesContext } from '@app/lineageV2/common';
 import { StyledPanelButton } from '@app/lineageV2/controls/StyledPanelButton';
 
 type Props = {
     showExpandedText: boolean;
-    isExpanded: boolean;
 };
 
 function downloadImage(dataUrl: string, name?: string) {
@@ -33,7 +31,7 @@ function downloadImage(dataUrl: string, name?: string) {
     a.click();
 }
 
-export default function DownloadLineageScreenshotButton({ showExpandedText, isExpanded }: Props) {
+export default function DownloadLineageScreenshotButton({ showExpandedText }: Props) {
     const { t } = useTranslation('lineage');
     const themeConfig = useTheme();
     const { getNodes } = useReactFlow();
@@ -67,12 +65,12 @@ export default function DownloadLineageScreenshotButton({ showExpandedText, isEx
 
     return (
         <StyledPanelButton
-            $showText={isExpanded}
+            type="text"
             onClick={() => {
                 getPreviewImage();
             }}
         >
-            <LineageControlIcon icon={Camera} color="icon" />
+            <CameraOutlined />
             {showExpandedText ? t('controls.screenshotButton.label') : null}
         </StyledPanelButton>
     );

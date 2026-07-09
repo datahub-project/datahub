@@ -1,6 +1,6 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { Button, Space } from 'antd';
+import { Button, Space, Typography } from 'antd';
 import i18next from 'i18next';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,25 +13,6 @@ import type { Dayjs } from '@utils/dayjs';
 const { RangePicker } = DatePicker;
 
 export type Datetime = Dayjs | null;
-
-const TimeRangeTrigger = styled.button`
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    border: none;
-    background: none;
-    padding: 0;
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 16px;
-    color: ${(props) => props.theme.colors.text};
-    cursor: pointer;
-`;
-
-const TriggerCaret = styled(CaretDownOutlined)`
-    font-size: 10px;
-    color: ${(props) => props.theme.colors.icon};
-`;
 
 const ConfirmButtonWrapper = styled.div`
     position: absolute;
@@ -106,13 +87,15 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
 
     return (
         <>
-            {showText ? (
+            {showText ? ( // Conditionally render All Time selection
                 <Tooltip title={t('timeSelector.filterTooltip')} placement="topLeft" showArrow={false}>
-                    <TimeRangeTrigger type="button" onClick={() => handleOpenChange(true)}>
+                    <Button type="text" onClick={() => handleOpenChange(true)}>
                         <CalendarOutlined style={{ marginRight: '4px' }} />
-                        {getTimeRangeDescription(startDate, endDate)}
-                        <TriggerCaret />
-                    </TimeRangeTrigger>
+                        <Typography.Text>
+                            <b>{getTimeRangeDescription(startDate, endDate)}</b>
+                        </Typography.Text>
+                        <CaretDownOutlined style={{ fontSize: '10px' }} />
+                    </Button>
                 </Tooltip>
             ) : (
                 <Space direction="vertical" size={12}>

@@ -4,7 +4,6 @@ import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, Nod
 import 'reactflow/dist/style.css';
 import styled, { useTheme } from 'styled-components';
 
-import LineageEmptyGraphNudge from '@app/lineage/LineageEmptyGraphNudge';
 import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from '@app/lineageV2/LineageEdge/LineageTableEdge';
 import TentativeEdge, { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
 import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV2/LineageEntityNode/LineageEntityNode';
@@ -16,7 +15,7 @@ import LineageTransformationNode, {
 } from '@app/lineageV2/LineageTransformationNode/LineageTransformationNode';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import { LineageVisualizationNode } from '@app/lineageV2/NodeBuilder';
-import { LineageDisplayContext, LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV2/common';
+import { LineageDisplayContext, TRANSITION_DURATION_MS } from '@app/lineageV2/common';
 import LineageControls from '@app/lineageV2/controls/LineageControls';
 import SearchControl from '@app/lineageV2/controls/SearchControl';
 import ZoomControls from '@app/lineageV2/controls/ZoomControls';
@@ -107,7 +106,6 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 <ZoomControls />
                 <SearchControl />
                 <LineageControls />
-                <LineageEmptyGraphNudgePanel />
                 <MiniMap
                     position="bottom-right"
                     ariaLabel={null}
@@ -148,18 +146,4 @@ function useHandleKeyboardDeselect(setSelectedColumn: (value: string | null) => 
             document.removeEventListener('keydown', handleKeyPress);
         };
     }, [setSelectedColumn]);
-}
-
-function LineageEmptyGraphNudgePanel() {
-    const { rootUrn, adjacencyList, nodes, showGhostEntities, setShowGhostEntities } = useContext(LineageNodesContext);
-
-    return (
-        <LineageEmptyGraphNudge
-            rootUrn={rootUrn}
-            adjacencyList={adjacencyList}
-            nodes={nodes}
-            showGhostEntities={showGhostEntities}
-            setShowGhostEntities={setShowGhostEntities}
-        />
-    );
 }

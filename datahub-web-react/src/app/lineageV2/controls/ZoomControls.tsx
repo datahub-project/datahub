@@ -1,16 +1,12 @@
-import { Button } from '@components';
-import { MagnifyingGlassMinus } from '@phosphor-icons/react/dist/csr/MagnifyingGlassMinus';
-import { MagnifyingGlassPlus } from '@phosphor-icons/react/dist/csr/MagnifyingGlassPlus';
+import { ZoomInOutlined, ZoomOutOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import React from 'react';
 import { Panel, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
 
-import LineageControlIcon from '@app/lineage/controls/LineageControlIcon';
 import { TRANSITION_DURATION_MS } from '@app/lineageV2/common';
 
-const StyledZoomButton = styled(Button).attrs({
-    variant: 'outline',
-})`
+const StyledZoomButton = styled(Button)`
     border-radius: 8px;
     border: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bg};
@@ -39,10 +35,10 @@ const ZoomControls: React.FC = () => {
     return (
         <Panel position="bottom-left">
             <StyledZoomButton tabIndex={-1} onClick={() => zoomIn({ duration: TRANSITION_DURATION_MS })}>
-                <LineageControlIcon icon={MagnifyingGlassPlus} color="icon" />
+                <ZoomInOutlined />
             </StyledZoomButton>
             <StyledZoomButton tabIndex={-1} onClick={() => zoomOut({ duration: TRANSITION_DURATION_MS })}>
-                <LineageControlIcon icon={MagnifyingGlassMinus} color="icon" />
+                <ZoomOutOutlined />
             </StyledZoomButton>
         </Panel>
     );

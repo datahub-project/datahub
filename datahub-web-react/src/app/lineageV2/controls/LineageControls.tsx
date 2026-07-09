@@ -1,16 +1,17 @@
-import { ArrowsIn } from '@phosphor-icons/react/dist/csr/ArrowsIn';
-import { ArrowsOut } from '@phosphor-icons/react/dist/csr/ArrowsOut';
-import { CalendarBlank } from '@phosphor-icons/react/dist/csr/CalendarBlank';
-import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
-import { House } from '@phosphor-icons/react/dist/csr/House';
-import { SidebarSimple } from '@phosphor-icons/react/dist/csr/SidebarSimple';
+import {
+    ArrowsAltOutlined,
+    CalendarOutlined,
+    FilterOutlined,
+    HomeOutlined,
+    ShrinkOutlined,
+    VerticalLeftOutlined,
+} from '@ant-design/icons';
+import { Button, Divider } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Panel, useReactFlow } from 'reactflow';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import LineageControlIcon from '@app/lineage/controls/LineageControlIcon';
-import { isLineageFilterActive } from '@app/lineage/controls/lineageControlsUtils';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV2/common';
 import DownloadLineageScreenshotButton from '@app/lineageV2/controls/DownloadLineageScreenshotButton';
@@ -30,15 +31,32 @@ const StyledPanel = styled(Panel)`
 
 const StyledControlsPanel = styled(ControlPanel)<{ isExpanded: boolean }>`
     padding: 2px;
-    width: ${({ isExpanded }) => (isExpanded ? '200px' : '50px')};
+    width: ${({ isExpanded }) => (isExpanded ? '150px' : '50px')};
     transition: width ${TRANSITION_DURATION_MS}ms ease-in-out;
 `;
 
-const StyledDivider = styled.div`
+const StyledExpandContractButton = styled(Button)`
+    border-radius: 8px;
+    height: 56px;
+    width: 56px;
+    margin-top: 8px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.icon};
+    border-color: ${(props) => props.theme.colors.border};
+
+    &:hover {
+        color: ${(props) => props.theme.colors.iconHover};
+        border-color: ${(props) => props.theme.colors.borderHover};
+    }
+`;
+
+const StyledDivider = styled(Divider)`
     margin-top: 1px;
     margin-bottom: 1px;
-    height: 1px;
-    background-color: ${(props) => props.theme.colors.border};
 `;
 
 const ControlsColumn = styled.div``;
@@ -47,6 +65,7 @@ type PanelType = 'filters' | 'timeRange';
 
 export default function LineageControls() {
     const { t } = useTranslation('lineage');
+    const theme = useTheme();
     const { rootUrn, hideTransformations, showDataProcessInstances, showGhostEntities } =
         useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
@@ -60,70 +79,73 @@ export default function LineageControls() {
     const [showExpandedText, setShowExpandedText] = useState(false);
     useEffect(() => {
         if (isExpanded) {
-            const timeout = setTimeout(() => {
-                setShowExpandedText(true);
-            }, TRANSITION_DURATION_MS);
-            return () => clearTimeout(timeout);
+            setShowExpandedText(true);
+            return () => {};
         }
-        setShowExpandedText(false);
-        return () => {};
+        const timeout = setTimeout(() => {
+            setShowExpandedText(false);
+        }, TRANSITION_DURATION_MS);
+        return () => clearTimeout(timeout);
     }, [isExpanded]);
-
-    const isFilterActive = isLineageFilterActive({ hideTransformations, showDataProcessInstances, showGhostEntities });
 
     return (
         <StyledPanel position="top-left">
             <ControlsColumn>
                 <StyledControlsPanel isExpanded={isExpanded}>
-                    <StyledPanelButton $showText={isExpanded} onClick={() => setIsExpanded(!isExpanded)}>
-                        <LineageControlIcon icon={SidebarSimple} rotate={isExpanded ? '180' : '0'} color="icon" />
+                    <StyledPanelButton type="text" onClick={() => setIsExpanded(!isExpanded)}>
+                        <VerticalLeftOutlined rotate={isExpanded ? 180 : 0} />
                         {showExpandedText ? t('controls.hideMenu.label') : null}
                     </StyledPanelButton>
                     <StyledDivider />
                     <StyledPanelButton
-                        $showText={isExpanded}
+                        type="text"
                         onClick={() => {
                             fitView({ duration: 1000, nodes: [{ id: rootUrn }], maxZoom: 1 });
                         }}
                     >
-                        <LineageControlIcon icon={House} color="icon" />
+                        <HomeOutlined />
                         {showExpandedText ? t('controls.focusOnHome.label') : null}
                     </StyledPanelButton>
                     <StyledDivider />
                     <StyledPanelButton
-                        $showText={isExpanded}
+                        type="text"
                         onClick={() =>
                             visiblePanel === 'filters' ? setVisiblePanel(null) : setVisiblePanel('filters')
                         }
                     >
-                        <LineageControlIcon icon={Funnel} color={isFilterActive ? 'iconSelected' : 'icon'} />
+                        <FilterOutlined
+                            style={{
+                                color:
+                                    hideTransformations || !showDataProcessInstances || showGhostEntities
+                                        ? theme.colors.iconSelected
+                                        : undefined,
+                            }}
+                        />
                         {showExpandedText ? t('controls.filter.label') : null}
                     </StyledPanelButton>
                     <StyledPanelButton
-                        $showText={isExpanded}
+                        type="text"
                         onClick={() =>
                             visiblePanel === 'timeRange' ? setVisiblePanel(null) : setVisiblePanel('timeRange')
                         }
                     >
-                        <LineageControlIcon
-                            icon={CalendarBlank}
-                            color={isLineageTimeUnchanged ? 'icon' : 'iconBrand'}
+                        <CalendarOutlined
+                            style={{ color: isLineageTimeUnchanged ? undefined : theme.colors.textInformation }}
                         />
                         {showExpandedText ? t('controls.timeRangeLabel') : null}
                     </StyledPanelButton>
                     <StyledDivider />
-                    <DownloadLineageScreenshotButton showExpandedText={showExpandedText} isExpanded={isExpanded} />
-                    {setTabFullsize && (
-                        <>
-                            <StyledDivider />
-                            <StyledPanelButton $showText={isExpanded} onClick={() => setTabFullsize((v) => !v)}>
-                                <LineageControlIcon icon={isTabFullsize ? ArrowsIn : ArrowsOut} color="icon" />
-                                {showExpandedText &&
-                                    (isTabFullsize ? t('controls.contractView.label') : t('controls.expandView.label'))}
-                            </StyledPanelButton>
-                        </>
-                    )}
+                    <DownloadLineageScreenshotButton showExpandedText={showExpandedText} />
                 </StyledControlsPanel>
+                {setTabFullsize && (
+                    <StyledExpandContractButton onClick={() => setTabFullsize((v) => !v)}>
+                        {isTabFullsize ? (
+                            <ShrinkOutlined style={{ fontSize: '150%' }} />
+                        ) : (
+                            <ArrowsAltOutlined style={{ fontSize: '150%' }} />
+                        )}
+                    </StyledExpandContractButton>
+                )}
             </ControlsColumn>
             {visiblePanel === 'filters' && <LineageSearchFilters />}
             {visiblePanel === 'timeRange' && <LineageTimeRangeControls />}

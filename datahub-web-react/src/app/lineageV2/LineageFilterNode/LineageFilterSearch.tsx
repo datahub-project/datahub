@@ -1,6 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Input, Text } from '@components';
-import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Spin } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,22 +16,20 @@ import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 import { useSearchAcrossLineageNamesQuery } from '@graphql/lineage.generated';
 import { EntityType } from '@types';
 
-const SearchWrapper = styled.div`
-    margin-top: 6px;
-    width: 100%;
+const SearchLine = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 2px;
 `;
 
-const SearchLine = styled.div`
-    position: relative;
-    width: 100%;
+const SearchInput = styled(Input)`
+    height: 2em;
 `;
 
 const LoadingWrapper = styled.div`
-    pointer-events: none;
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
+    min-width: 20px;
 `;
 
 const SearchMatchesText = styled(Text)``;
@@ -105,12 +102,11 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
     });
 
     return (
-        <SearchWrapper>
+        <>
             <SearchLine>
-                <Input
+                <SearchInput
                     label=""
                     placeholder={t('filter.search.placeholder')}
-                    icon={{ icon: MagnifyingGlass, weight: 'regular', color: 'icon' }}
                     error={!!inputValue && inputValue.length < 3 ? t('filter.search.minCharsError') : undefined}
                     errorOnHover
                     value={inputValue}
@@ -119,11 +115,11 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
                 />
                 <LoadingWrapper>{loading && <Spin indicator={<LoadingOutlined />} />}</LoadingWrapper>
             </SearchLine>
-            <SearchMatchesText type="div" size="xs" color="textTertiary" data-testid="matches">
+            <SearchMatchesText type="div" size="xs" data-testid="matches">
                 {searchQuery.length >= 3 &&
                     (!loading || !!numMatches) &&
                     t('filter.search.matchCount', { count: numMatches })}
             </SearchMatchesText>
-        </SearchWrapper>
+        </>
     );
 }

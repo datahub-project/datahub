@@ -39,7 +39,7 @@ const Button = styled.div`
     align-items: center;
     border-radius: 20px;
     background-color: ${(props) => props.theme.colors.bg};
-    color: ${(props) => props.theme.colors.textBrand};
+    color: ${(props) => props.theme.colors.text};
     cursor: pointer;
     display: flex;
     font-size: 10px;
