@@ -39,7 +39,7 @@ Core metadata is stored in the `semanticModelInfo` aspect:
   model uses an inline SQL query with no backing table.
 - **`relationships`** — optional array of `SemanticModelRelationship` records describing join
   paths between the logical datasets in this model (from-table, to-table, join columns, optional
-  name, and AI context).
+  name, optional cardinality reusing `ERModelRelationshipCardinality`, and AI context).
 - **`aiContext`** — optional hints for AI/LLM consumers: synonyms, natural-language instructions,
   few-shot examples, and custom instructions.
 

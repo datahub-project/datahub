@@ -1,5 +1,6 @@
 namespace com.linkedin.semanticmodel
 
+import com.linkedin.ermodelrelation.ERModelRelationshipCardinality
 import com.linkedin.metric.AiContext
 
 /**
@@ -37,5 +38,10 @@ record SemanticModelRelationship {
    * AI-specific context for improved disambiguation and retrieval.
    */
   aiContext: optional AiContext
+
+  /**
+   * Cardinality of this join. 
+   */
+  cardinality: optional ERModelRelationshipCardinality
 
 }
