@@ -184,6 +184,36 @@ _DISPLAY_NAME_MAX_LEN = 255
 _SYNONYMS_MAX_COUNT = 10
 _SYNONYM_MAX_LEN = 255
 
+# Databricks external lineage can return object-storage paths with a trailing
+# partition-set component in brace-list syntax, e.g.
+#   s3://bucket/topics/event/{20260410,20260411,20260412}
+# The braces and (crucially) the commas are illegal in a DataHub dataset URN
+# name segment — the comma is the URN field delimiter — so such a path yields a
+# URN that GMS rejects. These characters only ever appear in the partition
+# component, so we drop every path component from the first offending one
+# onward, pointing lineage at the parent table path.
+_S3_PARTITION_ILLEGAL_CHARS = re.compile(r"[{},]")
+
+
+def _strip_s3_partition_from_path(path: str) -> str:
+    """Drop a trailing partition-set component (and anything after it) from an
+    object-storage path so the resulting URN is well-formed.
+
+    Returns the path unchanged when it has no offending component."""
+    scheme, sep, remainder = path.partition("://")
+    if not sep:
+        return path
+    cleaned = []
+    for component in remainder.split("/"):
+        if _S3_PARTITION_ILLEGAL_CHARS.search(component):
+            break
+        if component:
+            cleaned.append(component)
+    if not cleaned:
+        return path
+    return f"{scheme}://{'/'.join(cleaned)}"
+
+
 # Known format subkeys per type, from the agent-metadata spec
 _FORMAT_NUMERIC_SUBKEYS = frozenset(
     {"decimal_places", "hide_group_separator", "abbreviation", "currency_code"}
@@ -1168,10 +1198,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         f"Lacking permissions for external file upstream on {table.ref}"
                     )
                 elif external_ref.path.startswith("s3://"):
+                    normalized_path = _strip_s3_partition_from_path(external_ref.path)
+                    if normalized_path != external_ref.path:
+                        self.report.num_external_upstreams_partition_stripped += 1
                     upstreams.append(
                         UpstreamClass(
                             dataset=make_s3_urn_for_lineage(
-                                external_ref.path, self.config.env
+                                normalized_path, self.config.env
                             ),
                             type=DatasetLineageTypeClass.COPY,
                         )
