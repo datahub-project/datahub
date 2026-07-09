@@ -140,6 +140,7 @@
     "searchBar.noResults.clearView": "clear selected view",
     "searchBar.noResults.defaultMessage": "Try adjusting your search to find what you're looking for",
     "searchBar.noResults.orClearSuggestion": ", or <clickable>{{clearText}}</clickable>.",
+    "searchBar.placeholder": "Find tables, dashboards, people, and more",
     "searchBar.placeholder.description": "Search through your data catalog to find datasets, schemas, and metadata",
     "searchBar.placeholder.startSearching": "Start searching",
     "searchBar.sections.bestMatches": "Best Matches",

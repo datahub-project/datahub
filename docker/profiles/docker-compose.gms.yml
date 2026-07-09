@@ -51,10 +51,14 @@ x-kafka-env: &kafka-env
 x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-quickstart}
   DATAHUB_TELEMETRY_ENABLED: ${DATAHUB_TELEMETRY_ENABLED:-true}
+  # OSS usage aggregation + Micrometer flush export
+  USAGE_AGGREGATION_ENABLED: ${USAGE_AGGREGATION_ENABLED:-true}
 
 x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-dev}
   DATAHUB_TELEMETRY_ENABLED: ${DATAHUB_TELEMETRY_ENABLED:-true}
+  # OSS usage aggregation + Micrometer flush export
+  USAGE_AGGREGATION_ENABLED: ${USAGE_AGGREGATION_ENABLED:-true}
 
 x-localstack-env: &localstack-env
   AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
@@ -722,7 +726,7 @@ services:
   datahub-mae-consumer-quickstart-postgres-cdc:
     <<: *datahub-mae-consumer-service
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}
@@ -796,7 +800,7 @@ services:
   datahub-mce-consumer-quickstart-postgres-consumers-cdc:
     <<: *datahub-mce-consumer-service
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}

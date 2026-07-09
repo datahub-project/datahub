@@ -1,9 +1,12 @@
 package io.datahubproject.metadata.services;
 
-import static com.linkedin.metadata.Constants.DATAHUB_ACTOR;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.aspect.SystemAspect;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.AgentClass;
 import io.datahubproject.metadata.context.OperationContext;
@@ -306,7 +309,30 @@ public class SecretService {
       return false;
     }
     String actorUrnStr = actorUrn.toString();
-    return SYSTEM_ACTOR.equals(actorUrnStr) || DATAHUB_ACTOR.equals(actorUrnStr);
+    if (SYSTEM_ACTOR.equals(actorUrnStr)) {
+      return true;
+    }
+    return isSystemCorpUser(opContext, actorUrn);
+  }
+
+  private boolean isSystemCorpUser(@Nonnull OperationContext opContext, @Nonnull Urn corpUserUrn) {
+    if (!CORP_USER_ENTITY_NAME.equals(corpUserUrn.getEntityType())) {
+      return false;
+    }
+    try {
+      SystemAspect systemAspect =
+          opContext
+              .getAspectRetriever()
+              .getLatestSystemAspect(opContext, corpUserUrn, CORP_USER_INFO_ASPECT_NAME);
+      if (systemAspect == null) {
+        return false;
+      }
+      CorpUserInfo info = systemAspect.getAspect(CorpUserInfo.class);
+      return info != null && info.isSystem();
+    } catch (Exception e) {
+      log.debug("Failed to load CorpUserInfo for {} — deny decrypt", corpUserUrn, e);
+      return false;
+    }
   }
 
   /** Generates a URL-safe token. */

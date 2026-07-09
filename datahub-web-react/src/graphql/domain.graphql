@@ -9,6 +9,9 @@ query getDomain($urn: String!) {
             createdOn {
                 time
             }
+            customProperties {
+                ...customPropertiesFields
+            }
         }
         parentDomains {
             ...parentDomainsFields
@@ -33,6 +36,9 @@ query getDomain($urn: String!) {
         displayProperties {
             ...displayPropertiesFields
         }
+        deprecation {
+            ...deprecationFields
+        }
         ...domainEntitiesFields
         ...notes
         settings {
@@ -48,6 +54,9 @@ fragment ListDomain on Domain {
     properties {
         name
         description
+        customProperties {
+            ...customPropertiesFields
+        }
     }
     parentDomains {
         ...parentDomainsFields
@@ -57,6 +66,9 @@ fragment ListDomain on Domain {
     }
     displayProperties {
         ...displayPropertiesFields
+    }
+    deprecation {
+        ...deprecationFields
     }
     ...domainEntitiesFields
     institutionalMemory {

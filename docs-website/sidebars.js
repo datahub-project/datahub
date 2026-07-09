@@ -304,9 +304,31 @@ module.exports = {
           ],
         },
         {
-          label: "Data Access Workflows",
-          type: "doc",
-          id: "docs/managed-datahub/workflows/access-workflows",
+          label: "Workflows",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Data Access Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/access-workflows",
+            },
+            {
+              label: "Action Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows",
+            },
+            {
+              label: "Workflow Tutorial",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-tutorial",
+            },
+            {
+              label: "Workflow Reference",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-reference",
+            },
+          ],
         },
         {
           label: "Data Access Roles",
@@ -523,6 +545,11 @@ module.exports = {
           id: "docs/features/feature-guides/mcp",
         },
         {
+          label: "Multi-Language Support",
+          type: "doc",
+          id: "docs/features/feature-guides/multi-language-support",
+        },
+        {
           label: "Ownership",
           type: "doc",
           id: "docs/ownership/ownership-types",
@@ -577,6 +604,12 @@ module.exports = {
           label: "Subscriptions & Notifications",
           type: "doc",
           id: "docs/managed-datahub/subscription-and-notification",
+          className: "saasOnly",
+        },
+        {
+          label: "SMTP Email Notifications",
+          type: "doc",
+          id: "docs/managed-datahub/smtp-email",
           className: "saasOnly",
         },
         {

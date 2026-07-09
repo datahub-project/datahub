@@ -91,6 +91,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
 )
 from datahub.utilities.global_warning_util import add_global_warning
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.str_enum import StrEnum
@@ -102,6 +103,13 @@ NOT_CASESPECIFIC_PATTERN = re.compile(r"\(not casespecific\)", re.IGNORECASE)
 
 # Teradata uses a two-tier database.table naming approach without default database prefixing
 DEFAULT_NO_DATABASE_TERADATA = None
+
+# Upper bound on the number of audit rows we buffer when reconstructing a single
+# multi-row query. Teradata caps a request's SQL text at ~1 MB and each SqlRowNo
+# fragment holds up to ~31 KB, so a well-formed query needs only a few dozen rows.
+# A query_id accumulating far more than that means malformed/corrupt audit data;
+# capping the buffer keeps one bad query_id from growing memory without bound.
+MAX_QUERY_PARTS = 10000
 
 # Common excluded databases used in multiple places
 EXCLUDED_DATABASES = [
@@ -327,8 +335,8 @@ class ViewErrorCategory(StrEnum):
     UNKNOWN = "unknown"
 
 
-def _categorize_view_error(exc: BaseException) -> ViewErrorCategory:
-    """Classify a view-processing exception for report error-breakdown counters.
+def _categorize_teradata_error(exc: BaseException) -> ViewErrorCategory:
+    """Classify a Teradata exception for report error-breakdown counters.
 
     Returns one of the ``ViewErrorCategory`` enum members:
         ``TIMEOUT``    — pool exhaustion, I/O timeout, or query timeout.
@@ -656,7 +664,23 @@ class TeradataTable:
     create_timestamp: datetime
     last_alter_name: Optional[str]
     last_alter_timestamp: Optional[datetime]
-    request_text: Optional[str]
+    # NOTE: View SQL text is intentionally NOT stored here. On large installations
+    # (thousands of views) keeping every view's RequestText resident drove the
+    # cache to hundreds of MB. View definitions now live in a disk-backed
+    # FileBackedDict (TeradataSource._view_definitions), keyed by
+    # _view_definition_key(schema, name).
+
+
+def _view_definition_key(schema: str, view_name: str) -> str:
+    """Build the FileBackedDict key for a view's SQL text.
+
+    The entire key is lowercased so that writes (keyed from dbc.TablesV, in
+    Teradata's stored case) and reads (keyed from config- or query-supplied
+    names, in whatever case the caller used) always match. Both schema and view
+    name are folded to lower case — do not "preserve" the view-name case here or
+    the read/write keys will silently diverge.
+    """
+    return f"{schema}.{view_name}".lower()
 
 
 # Bounded cache so multiple schemas stay resident across sequential database processing.
@@ -793,6 +817,27 @@ def _strip_padded_autoincrement(row: Any, col_info: Dict[str, Any]) -> None:
         col_info["autoincrement"] = val in ("GA", "GD")
 
 
+def _report_table_missing_from_cache(self: Any, schema: str, table_name: str) -> None:
+    """Record a table that was discovered but absent from the cache at column
+    extraction time, so the run report shows a count and the affected names
+    rather than a silent log line."""
+    if hasattr(self, "report"):
+        self.report.increment_tables_missing_from_cache()
+        self.report.warning(
+            title="Table missing from cache during column extraction",
+            message=(
+                "Table was not found in the cache when extracting columns, "
+                "likely dropped after table discovery. The dataset is emitted "
+                "without columns."
+            ),
+            context=f"{schema}.{table_name}",
+        )
+    else:
+        logger.warning(
+            f"Table {table_name} not found in cache for schema {schema}, not getting columns"
+        )
+
+
 def optimized_get_columns(
     self: Any,
     connection: Connection,
@@ -830,9 +875,10 @@ def optimized_get_columns(
             break
 
     if td_table is None:
-        logger.warning(
-            f"Table {table_name} not found in cache for schema {schema}, not getting columns"
-        )
+        # The table was listed during caching but is no longer in the cache at
+        # column-extraction time (e.g. dropped between the two phases). We still
+        # emit the dataset, just without columns.
+        _report_table_missing_from_cache(self, schema, table_name)
         return []
 
     res: List[Any] = []
@@ -1005,29 +1051,6 @@ def optimized_get_foreign_keys(self, connection, table_name, schema=None, **kw):
     return fk_dicts
 
 
-def optimized_get_view_definition(
-    self: Any,
-    connection: Connection,
-    view_name: str,
-    schema: Optional[str] = None,
-    tables_cache: Optional[MutableMapping[str, List[TeradataTable]]] = None,
-    **kw: Dict[str, Any],
-) -> Optional[str]:
-    tables_cache = tables_cache or {}
-    if schema is None:
-        schema = self.default_schema_name
-
-    schema_key = schema.lower()
-    if schema_key not in tables_cache:
-        return None
-
-    for table in tables_cache[schema_key]:
-        if table.name == view_name:
-            return self.normalize_name(table.request_text)
-
-    return None
-
-
 @dataclass
 class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Column extraction metrics
@@ -1035,6 +1058,11 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     num_column_extraction_failures: int = 0
     num_primary_keys_processed: int = 0
     column_extraction_duration_seconds: float = 0.0
+
+    # Tables that were listed during caching but were no longer present in the
+    # cache at column-extraction time (e.g. dropped between the two phases).
+    # Their datasets are still emitted, but without columns.
+    num_tables_missing_from_cache: int = 0
 
     # View processing metrics (actively used)
     num_views_processed: int = 0
@@ -1075,17 +1103,26 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Audit query processing statistics
     num_audit_query_entries_processed: int = 0
 
+    # Number of reconstructed queries whose row count exceeded MAX_QUERY_PARTS and
+    # were truncated to protect memory (malformed/corrupt audit data).
+    num_queries_truncated: int = 0
+
     # Retry statistics
     num_db_retries: int = 0
 
     # Per-phase error breakdown for self-service diagnostics; categories align
-    # with _categorize_view_error() so support can pinpoint root cause quickly.
+    # with _categorize_teradata_error() so support can pinpoint root cause quickly.
     schema_discovery_failures: int = 0
     historical_lineage_check_failures: int = 0
     view_timeout_errors: int = 0
     view_parse_errors: int = 0
     view_permission_errors: int = 0
     view_unknown_errors: int = 0
+
+    # Permission denials hit while sizing tables for profiling (DBC.TableSizeV).
+    # Tracked separately so a missing grant on the sizing view is visible in the
+    # report rather than buried in the generic profiling-failure warning.
+    profiling_permission_errors: int = 0
 
     # Single internal lock — not serialised, not compared.  Protects all report
     # fields that are mutated from ThreadPoolExecutor worker threads.
@@ -1121,6 +1158,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
         with self._lock:
             self.num_column_extraction_failures += 1
 
+    def increment_tables_missing_from_cache(self) -> None:
+        with self._lock:
+            self.num_tables_missing_from_cache += 1
+
     def increment_primary_keys_processed(self) -> None:
         with self._lock:
             self.num_primary_keys_processed += 1
@@ -1128,6 +1169,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def add_column_extraction_duration(self, seconds: float) -> None:
         with self._lock:
             self.column_extraction_duration_seconds += seconds
+
+    def increment_profiling_permission_error(self) -> None:
+        with self._lock:
+            self.profiling_permission_errors += 1
 
     def increment_view_error(self, category: ViewErrorCategory) -> None:
         with self._lock:
@@ -1734,6 +1779,15 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         # record of user intent across sequential recipe runs.
         self._effective_max_workers: int = config.max_workers
 
+        # View SQL text is offloaded to a temporary SQLite-backed dict instead of
+        # being held in `_tables_cache`. On large installations the resident view
+        # text dominated memory (e.g. thousands of views at ~100KB each). Keyed by
+        # _view_definition_key(schema, view_name). FileBackedDict mutates its
+        # in-memory LRU on read, so reads (which happen on parallel view-processing
+        # worker threads) must be guarded by `_view_definitions_lock`.
+        self._view_definitions: FileBackedDict[str] = FileBackedDict()
+        self._view_definitions_lock = Lock()
+
         self.schema_resolver = self._init_schema_resolver()
 
         # Initialize SqlParsingAggregator for modern lineage processing
@@ -1800,6 +1854,17 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             _use_qvci = self.config.use_qvci
             _use_dbc_columns_for_views = self.config.use_dbc_columns_for_views
             _tables_needing_extraction = self._tables_needing_column_extraction
+
+            # The patched dialect functions below run with a TeradataDialect instance
+            # as `self` (SQLAlchemy calls them via Inspector -> dialect), not this
+            # source. They read `self.report` to record run-level metrics (columns
+            # processed, extraction failures, tables missing from cache, column
+            # extraction duration, etc.). The dialect has no report of its own, so
+            # without this attach those `getattr/hasattr(self, "report")` checks are
+            # always False and the metrics silently stay at 0. Attach the source's
+            # report to the dialect class so the metrics are actually populated.
+            setattr(TeradataDialect, "report", self.report)  # noqa: B010
+
             setattr(  # noqa: B010
                 TeradataDialect,
                 "get_columns",
@@ -1846,14 +1911,10 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 ),
             )
 
-            # Disabling the below because the cached view definition is not the view definition the column in tablesv actually holds the last statement executed against the object... not necessarily the view definition
-            # setattr(
-            #   TeradataDialect,
-            #    "get_view_definition",
-            #   lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
-            #        self, connection, view_name, schema, tables_cache=tables_cache, **kw
-            #    ),
-            # )
+            # get_view_definition is intentionally not overridden: the cached text
+            # from dbc.TablesV is the last statement executed against the object,
+            # not necessarily the true view DDL. See the removed
+            # optimized_get_view_definition (git history) for the disabled path.
 
             setattr(  # noqa: B010
                 TeradataDialect,
@@ -2149,8 +2210,24 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         for entry in cache_entries:
             if entry.name == table:
                 description = entry.description
-                if entry.object_type == "View" and entry.request_text:
-                    properties["view_definition"] = entry.request_text
+                if entry.object_type == "View":
+                    # View text lives in the disk-backed dict; reads run on parallel
+                    # worker threads and FileBackedDict mutates its LRU on read, so
+                    # the lookup must be serialized.
+                    try:
+                        with self._view_definitions_lock:
+                            request_text = self._view_definitions.get(
+                                _view_definition_key(schema, table)
+                            )
+                        if request_text:
+                            properties["view_definition"] = request_text
+                    except Exception as e:
+                        self.report.warning(
+                            title="Failed to read view definition",
+                            message="A view's SQL definition could not be read from the disk-backed store and will be omitted from the schema.",
+                            context=f"{schema}.{table}",
+                            exc=e,
+                        )
                 break
         return description, properties, location
 
@@ -2400,7 +2477,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                 except Exception as e:
-                    _error_category = _categorize_view_error(e)
+                    _error_category = _categorize_teradata_error(e)
                     self.report.increment_view_error(_error_category)
                     logger.error(
                         f"Failed to process view {schema}.{view_name}: {str(e)}",
@@ -2471,7 +2548,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             # here, so skip increment_view_error.
                             pass
                         except Exception as e:
-                            _error_category = _categorize_view_error(e)
+                            _error_category = _categorize_teradata_error(e)
                             self._warn_view_error(schema, view_name, _error_category, e)
                             # fut.result() can raise for infrastructure-level exceptions
                             # (e.g. concurrent.futures internals) that are NOT caught by
@@ -2644,7 +2721,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                     except Exception as e:
-                        _error_category = _categorize_view_error(e)
+                        _error_category = _categorize_teradata_error(e)
                         self.report.increment_view_error(_error_category)
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}",
@@ -2764,11 +2841,6 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                                 create_timestamp=entry.CreateTimeStamp,
                                 last_alter_name=entry.LastAlterName,
                                 last_alter_timestamp=entry.LastAlterTimeStamp,
-                                request_text=(
-                                    entry.RequestText.strip()
-                                    if entry.object_type == "View" and entry.RequestText
-                                    else None
-                                ),
                             )
 
                             # Count objects per database for metrics
@@ -2776,6 +2848,23 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                                 database_counts[table.database]["views"] += 1
                             else:
                                 database_counts[table.database]["tables"] += 1
+
+                            # Offload view SQL text to disk rather than holding it in
+                            # the in-memory cache. This loop is single-threaded, so the
+                            # write does not need `_view_definitions_lock` (only the
+                            # concurrent reads later do).
+                            if table.object_type == "View" and entry.RequestText:
+                                try:
+                                    self._view_definitions[
+                                        _view_definition_key(table.database, table.name)
+                                    ] = entry.RequestText.strip()
+                                except Exception as e:
+                                    self.report.warning(
+                                        title="Failed to store view definition",
+                                        message="A view's SQL definition could not be written to the disk-backed store and will be omitted from the schema.",
+                                        context=f"{table.database}.{table.name}",
+                                        exc=e,
+                                    )
 
                             with self._tables_cache_lock:
                                 # Cache key is lowercased so lookups by schema name from
@@ -2824,8 +2913,9 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         by concatenating rows with the same query_id.
         """
         current_query_id = None
-        current_query_parts = []
+        current_query_parts: List[str] = []
         current_query_metadata = None
+        current_query_truncated = False
 
         for entry in entries:
             # Count each audit query entry processed
@@ -2845,10 +2935,24 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 current_query_id = query_id
                 current_query_parts = [query_text] if query_text else []
                 current_query_metadata = entry
+                current_query_truncated = False
             else:
-                # Same query - append the text
-                if query_text:
+                # Same query - append the text, unless we've already hit the safety cap.
+                if query_text and len(current_query_parts) < MAX_QUERY_PARTS:
                     current_query_parts.append(query_text)
+                elif query_text and not current_query_truncated:
+                    # Warn once per query, then keep draining the remaining rows for
+                    # this query_id without buffering them.
+                    current_query_truncated = True
+                    self.report.num_queries_truncated += 1
+                    self.report.warning(
+                        title="Truncated oversized reconstructed query",
+                        message=(
+                            "A query spanned more audit rows than expected and was "
+                            "truncated to protect memory. Its lineage may be incomplete."
+                        ),
+                        context=f"query_id={current_query_id}, kept {MAX_QUERY_PARTS} parts",
+                    )
 
         # Yield the last query if it exists
         if current_query_id is not None and current_query_parts:
@@ -3398,7 +3502,34 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             )
 
                     if queries_processed == 0:
-                        logger.info("No lineage entries found")
+                        # No queries made it into the aggregator, but that can mean two
+                        # very different things. num_audit_query_entries_processed counts
+                        # raw DBC.QryLogV rows; queries_processed counts queries that
+                        # survived reconstruction. If rows arrived but reconstructed to
+                        # nothing, pointing the operator at grants/scope would be wrong —
+                        # so branch the guidance on which stage actually came up empty.
+                        rows_fetched = self.report.num_audit_query_entries_processed
+                        if rows_fetched > 0:
+                            message = (
+                                f"Fetched {rows_fetched} audit-log row(s) but reconstructed 0 "
+                                "queries, so no lineage was produced. This usually means the rows "
+                                "lacked a usable query_id or query text (e.g. malformed/empty "
+                                "DBC.QryLogV entries), not a scope or permissions problem."
+                            )
+                        else:
+                            message = (
+                                "The audit-log query returned 0 rows for the configured window. "
+                                "This is expected if no queries ran in that period, but can also "
+                                "indicate an over-narrow databases_filter/database_pattern, a "
+                                "start_time/end_time that misses activity, missing SELECT grants on "
+                                "DBC.QryLogV, or a DBC maintenance window. Verify the scope and grants "
+                                "if you expected lineage."
+                            )
+                        self.report.warning(
+                            title="No lineage entries found",
+                            message=message,
+                            context=f"time_range={self.config.start_time}–{self.config.end_time}",
+                        )
                         return
 
                     logger.info(
@@ -3423,10 +3554,15 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         try:
             # Clear class-level caches so memory is released between recipe runs in the
             # same process. Without this, sequential recipes accumulate all TeradataTable
-            # objects (including view request_text) and creator metadata indefinitely.
+            # objects and creator metadata indefinitely.
             with self._tables_cache_lock:
                 self._tables_cache.clear()
                 self._table_creator_cache.clear()
+
+            # Close the disk-backed view-definition store so its temporary SQLite
+            # file is removed promptly rather than waiting for GC.
+            with self._view_definitions_lock:
+                self._view_definitions.close()
 
             # Clear module-level LRU caches for the same reason — schema column/PK/FK
             # data is per-connection and must not carry over to the next recipe run.
@@ -3481,14 +3617,28 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             # Sizing relies on SELECT access to DBC.TableSizeV, which locked-down
             # Teradata instances routinely withhold. Fall back to "no filtering"
             # (return None) so profiling proceeds for all tables rather than
-            # failing the entire run.
-            self.report.warning(
-                title="Could not size tables for profiling",
-                message=(
+            # failing the entire run. A missing grant (permission error) is
+            # surfaced under a distinct, actionable title and counted separately
+            # so it isn't lost in the generic sizing-failure bucket.
+            if _categorize_teradata_error(e) is ViewErrorCategory.PERMISSION:
+                self.report.increment_profiling_permission_error()
+                title = "Unauthorized to size tables for profiling"
+                message = (
+                    "Permission denied querying DBC.TableSizeV to apply "
+                    "profile_table_size_limit. Profiling will proceed without "
+                    "size-based filtering for this schema. Grant the ingestion "
+                    "user SELECT on DBC.TableSizeV to skip large tables."
+                )
+            else:
+                title = "Could not size tables for profiling"
+                message = (
                     "Failed to query DBC.TableSizeV to apply profile_table_size_limit. "
                     "Profiling will proceed without size-based filtering for this schema. "
                     "Ensure the ingestion user has SELECT on DBC.TableSizeV to skip large tables."
-                ),
+                )
+            self.report.warning(
+                title=title,
+                message=message,
                 context=f"schema={schema}",
                 exc=e,
             )

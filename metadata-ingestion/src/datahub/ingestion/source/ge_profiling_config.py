@@ -226,7 +226,8 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(
         default=None,
         description=(
-            "Fixed list of tags to ignore sampling."
+            "Fixed list of tags to ignore sampling. Each entry may be a full tag URN"
+            " (e.g. `urn:li:tag:my_tag`) or just the tag name (e.g. `my_tag`)."
             " If not specified, tables will be sampled based on `use_sampling`."
         ),
     )

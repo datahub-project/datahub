@@ -28,6 +28,7 @@ class DatasetSubTypes(StrEnum):
     EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
     SIGMA_DATA_MODEL_ELEMENT = "Sigma Data Model Element"
+    MICROSTRATEGY_DATASET = "MicroStrategy Dataset"
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
     SAC_LIVE_DATA_MODEL = "Live Data Model"
@@ -68,6 +69,7 @@ class GenericContainerSubTypes(StrEnum):
 class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
     INSTANCE = "Instance"
+    SERVICE = "Service"
     DATABASE = "Database"
     SCHEMA = "Schema"
     # System-Specific SubTypes
@@ -88,6 +90,7 @@ class DatasetContainerSubTypes(StrEnum):
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"
+    MATILLION_FOLDER = "Folder"
     # Microsoft Fabric
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
@@ -119,6 +122,8 @@ class BIContainerSubTypes(StrEnum):
     GRAFANA_FOLDER = "Folder"
     GRAFANA_DASHBOARD = "Dashboard"
     THOUGHTSPOT_WORKSPACE = "Workspace"
+    MICROSTRATEGY_PROJECT = "Project"
+    MICROSTRATEGY_FOLDER = "Folder"
 
 
 class FlowContainerSubTypes(StrEnum):
@@ -155,6 +160,8 @@ class BIAssetSubTypes(StrEnum):
     THOUGHTSPOT_ANSWER = "Answer"
     THOUGHTSPOT_LIVEBOARD = "Liveboard"
     THOUGHTSPOT_VISUALIZATION = "Visualization"
+    MICROSTRATEGY_DOSSIER = "Dossier"
+    MICROSTRATEGY_VISUALIZATION = "Visualization"
 
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"

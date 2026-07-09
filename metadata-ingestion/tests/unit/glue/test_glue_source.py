@@ -1,3 +1,4 @@
+import base64
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, cast
@@ -26,6 +27,7 @@ from datahub.ingestion.source.aws.glue import (
     _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -50,6 +52,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_databases_response,
     get_databases_response_for_lineage,
     get_databases_response_profiling,
+    get_databases_response_views,
     get_databases_response_with_mixed_database,
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
@@ -72,6 +75,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_tables_response_for_mixed_database,
     get_tables_response_for_target_database,
     get_tables_response_profiling_1,
+    get_tables_response_views,
     mixed_database,
     normal_table_in_mixed_database,
     resource_link_database,
@@ -102,6 +106,7 @@ def glue_source(
     extract_lakeformation_tags: bool = False,
     incremental_properties: bool = False,
     propagate_lakeformation_tags: bool = False,
+    include_view_lineage: bool = False,
 ) -> GlueSource:
     pipeline_context = PipelineContext(run_id="glue-source-tes")
     if mock_datahub_graph_instance:
@@ -121,6 +126,7 @@ def glue_source(
             extract_lakeformation_tags=extract_lakeformation_tags,
             incremental_properties=incremental_properties,
             propagate_lakeformation_tags=propagate_lakeformation_tags,
+            include_view_lineage=include_view_lineage,
         ),
     )
 
@@ -290,6 +296,41 @@ def test_glue_ingest(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_glue_view_lineage_ingest(
+    tmp_path: Path,
+    pytestconfig: pytest.Config,
+) -> None:
+    # End-to-end golden test for the VIRTUAL_VIEW path: exercises View subtype +
+    # ViewProperties emission and the full register-schemas-then-flush ordering
+    # that produces view->table and view->view (column-level) lineage.
+    glue_source_instance = glue_source(
+        include_view_lineage=True,
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+        extract_transforms=False,
+    )
+
+    with Stubber(glue_source_instance.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", get_databases_response_views, {})
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_views,
+            {"DatabaseName": "my_db"},
+        )
+
+        mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
+        glue_stubber.assert_no_pending_responses()
+
+        write_metadata_file(tmp_path / "glue_views_mces.json", mce_objects)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "glue_views_mces.json",
+        golden_path=test_resources_dir / "glue_views_mces_golden.json",
     )
 
 
@@ -2310,3 +2351,241 @@ def test_get_column_param_definitions_emitted_via_graph() -> None:
         if wu.get_aspect_of_type(models.StructuredPropertiesClass) is not None
     ]
     assert len(assignment_wus) > 0
+
+
+def _subtypes_and_view_props(
+    workunits: List[Any],
+) -> Tuple[Optional[List[str]], Optional[models.ViewPropertiesClass]]:
+    sub_types: Optional[List[str]] = None
+    view_props: Optional[models.ViewPropertiesClass] = None
+    for wu in workunits:
+        sub_type_aspect = wu.get_aspect_of_type(models.SubTypesClass)
+        if sub_type_aspect is not None:
+            sub_types = sub_type_aspect.typeNames
+        view_props_aspect = wu.get_aspect_of_type(models.ViewPropertiesClass)
+        if view_props_aspect is not None:
+            view_props = view_props_aspect
+    return sub_types, view_props
+
+
+def test_glue_virtual_view_classified_as_view_with_presto_definition() -> None:
+    # Athena/Presto views are stored in Glue as VIRTUAL_VIEW tables whose
+    # ViewOriginalText is a base64-encoded JSON blob wrapped in a Presto marker.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    original_sql = "SELECT id, name FROM my_db.my_schema.events"
+    encoded = base64.b64encode(
+        json.dumps({"originalSql": original_sql, "columns": []}).encode()
+    ).decode()
+    table = {
+        "Name": "events_view",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "ViewOriginalText": f"/* Presto View: {encoded} */",
+        "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+    }
+
+    sub_types, view_props = _subtypes_and_view_props(list(source._gen_table_wu(table)))
+
+    assert sub_types == [DatasetSubTypes.VIEW]
+    assert view_props is not None
+    assert view_props.viewLogic == original_sql
+    assert view_props.materialized is False
+    assert view_props.viewLanguage == "SQL"
+
+
+def test_glue_virtual_view_with_raw_sql_definition() -> None:
+    # Spark/Hive views registered in the catalog keep the raw SQL in
+    # ViewOriginalText without the Presto encoding.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    raw_sql = "SELECT * FROM my_db.my_schema.orders"
+    table = {
+        "Name": "orders_view",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "ViewOriginalText": raw_sql,
+        "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+    }
+
+    sub_types, view_props = _subtypes_and_view_props(list(source._gen_table_wu(table)))
+
+    assert sub_types == [DatasetSubTypes.VIEW]
+    assert view_props is not None
+    assert view_props.viewLogic == raw_sql
+
+
+def test_glue_view_definition_falls_back_to_view_expanded_text() -> None:
+    # When ViewOriginalText is absent, the raw SQL in ViewExpandedText is used.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    raw_sql = "SELECT * FROM my_db.my_schema.orders"
+    table = {
+        "Name": "orders_view",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "ViewExpandedText": raw_sql,
+        "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+    }
+
+    sub_types, view_props = _subtypes_and_view_props(list(source._gen_table_wu(table)))
+
+    assert sub_types == [DatasetSubTypes.VIEW]
+    assert view_props is not None
+    assert view_props.viewLogic == raw_sql
+
+
+def test_glue_view_with_undecodable_presto_text_warns_and_drops_blob() -> None:
+    # A view whose Presto marker wraps invalid base64 must NOT persist the encoded
+    # blob as viewLogic; it falls back to empty and surfaces a warning.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    table = {
+        "Name": "broken_view",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "ViewOriginalText": "/* Presto View: not!valid!base64 */",
+        "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+    }
+
+    sub_types, view_props = _subtypes_and_view_props(list(source._gen_table_wu(table)))
+
+    assert sub_types == [DatasetSubTypes.VIEW]
+    assert view_props is not None
+    assert view_props.viewLogic == ""
+    assert len(list(source.report.warnings)) >= 1
+
+
+def test_glue_view_without_sql_definition_warns_and_emits_empty_logic() -> None:
+    # A VIRTUAL_VIEW carrying neither ViewOriginalText nor ViewExpandedText is still
+    # classified as a view, with empty viewLogic and a warning (not silent).
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    table = {
+        "Name": "empty_view",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+    }
+
+    sub_types, view_props = _subtypes_and_view_props(list(source._gen_table_wu(table)))
+
+    assert sub_types == [DatasetSubTypes.VIEW]
+    assert view_props is not None
+    assert view_props.viewLogic == ""
+    assert len(list(source.report.warnings)) >= 1
+
+
+def test_glue_view_lineage_links_view_to_upstream_table() -> None:
+    # A VIRTUAL_VIEW whose SQL selects from a base table should yield an
+    # upstreamLineage edge from the view to that table, parsed from the view SQL.
+    source = glue_source(
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+        include_view_lineage=True,
+    )
+    assert source.aggregator is not None
+
+    base_table = {
+        "Name": "base_table",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "EXTERNAL_TABLE",
+        "StorageDescriptor": {
+            "Columns": [
+                {"Name": "id", "Type": "int"},
+                {"Name": "name", "Type": "string"},
+            ]
+        },
+    }
+    original_sql = "SELECT id, name FROM base_table"
+    encoded = base64.b64encode(
+        json.dumps({"originalSql": original_sql, "columns": []}).encode()
+    ).decode()
+    view = {
+        "Name": "events_view",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "ViewOriginalText": f"/* Presto View: {encoded} */",
+        "StorageDescriptor": {
+            "Columns": [
+                {"Name": "id", "Type": "int"},
+                {"Name": "name", "Type": "string"},
+            ]
+        },
+    }
+
+    # Drive both the base table (registers its schema) and the view (registers
+    # schema + view definition), then flush the aggregator.
+    list(source._gen_table_wu(base_table))
+    list(source._gen_table_wu(view))
+    mcps = list(source.aggregator.gen_metadata())
+
+    view_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,my_db.events_view,PROD)"
+    base_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,my_db.base_table,PROD)"
+    upstream_lineages = [
+        mcp.aspect
+        for mcp in mcps
+        if mcp.entityUrn == view_urn
+        and isinstance(mcp.aspect, models.UpstreamLineageClass)
+    ]
+    assert upstream_lineages, "no upstreamLineage emitted for the view"
+    lineage = upstream_lineages[0]
+    upstream_urns = {u.dataset for u in lineage.upstreams}
+    assert base_urn in upstream_urns
+
+    # Schemas were registered (via _extract_record), so column-level lineage
+    # should resolve the view's columns back to the base table's columns.
+    assert lineage.fineGrainedLineages, "no column-level lineage emitted"
+    column_edges = {
+        (
+            up.split(",")[-1].rstrip(")"),
+            down.split(",")[-1].rstrip(")"),
+        )
+        for fgl in lineage.fineGrainedLineages
+        for up in (fgl.upstreams or [])
+        for down in (fgl.downstreams or [])
+    }
+    assert ("id", "id") in column_edges
+    assert ("name", "name") in column_edges
+
+
+def test_glue_view_lineage_disabled_creates_no_aggregator() -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    assert source.aggregator is None
+
+
+def test_glue_view_definition_dialect_detection() -> None:
+    # Presto/Athena views are Trino SQL; raw (Spark/Hive) views are parsed as Spark
+    # (sqlglot's spark dialect is a superset of hive). The detected dialect drives
+    # per-view SQL parsing for lineage.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    encoded = base64.b64encode(
+        json.dumps({"originalSql": "SELECT id FROM base_table", "columns": []}).encode()
+    ).decode()
+    presto = source._get_view_definition(
+        {"ViewOriginalText": f"/* Presto View: {encoded} */"}, "my_db.presto_view"
+    )
+    raw = source._get_view_definition(
+        {"ViewOriginalText": "SELECT id FROM base_table"}, "my_db.raw_view"
+    )
+
+    assert presto is not None and presto.dialect == "trino"
+    assert raw is not None and raw.dialect == "spark"
+
+
+def test_glue_external_table_remains_table_without_view_properties() -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    table = {
+        "Name": "events",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "EXTERNAL_TABLE",
+        "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+    }
+
+    sub_types, view_props = _subtypes_and_view_props(list(source._gen_table_wu(table)))
+
+    assert sub_types == [DatasetSubTypes.TABLE]
+    assert view_props is None

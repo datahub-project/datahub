@@ -29,11 +29,31 @@ def sync_elastic() -> None:
     wait_for_writes_to_sync()
 
 
+_TRANSIENT_LOGIN_EXCEPTIONS = (
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+)
+
+
+def _is_transient_login_error(exception: BaseException) -> bool:
+    if isinstance(exception, _TRANSIENT_LOGIN_EXCEPTIONS):
+        return True
+    if isinstance(exception, requests.HTTPError) and exception.response is not None:
+        return exception.response.status_code >= 500
+    return False
+
+
 def get_frontend_session():
     username, password = get_admin_credentials()
     return login_as(username, password)
 
 
+@tenacity.retry(
+    retry=tenacity.retry_if_exception(_is_transient_login_error),
+    stop=tenacity.stop_after_attempt(5),
+    wait=tenacity.wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
 def login_as(username: str, password: str):
     return cli_utils.get_frontend_session_login_as(
         username=username, password=password, frontend_url=get_frontend_url()
@@ -85,6 +105,52 @@ def get_gms_prometheus_base_url():
     if parsed.port == 8080 and parsed.hostname is not None:
         return urlunparse((parsed.scheme, f"{parsed.hostname}:4319", "", "", "", ""))
     return base
+
+
+def _prometheus_actuator_reachable(base_url: str, timeout: float = 2.0) -> bool:
+    try:
+        response = requests.get(
+            f"{base_url.rstrip('/')}/actuator/prometheus", timeout=timeout
+        )
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
+
+
+def resolve_queue_ingest_prometheus_base_url() -> tuple[Optional[str], str]:
+    """Resolve Prometheus base URL for queue-path ``metadata_ingest`` metrics.
+
+    Standalone MCE consumer deployments expose metrics on the MCE management port; embedded
+    consumer deployments (``quickstart`` without ``quickstart-consumers``) share the GMS JVM and
+    fall back to the GMS management URL when no separate MCE actuator is reachable.
+
+    Returns:
+        (base_url, source) where source is ``mce``, ``gms``, or ``none``.
+    """
+    explicit_mce = env_vars.get_mce_management_url()
+    if explicit_mce and explicit_mce.strip():
+        base = explicit_mce.strip().rstrip("/")
+        if _prometheus_actuator_reachable(base):
+            return base, "mce"
+        return None, "none"
+
+    for candidate in ("http://datahub-mce-consumer:4319",):
+        if _prometheus_actuator_reachable(candidate):
+            return candidate.rstrip("/"), "mce"
+
+    gms_base = get_gms_prometheus_base_url()
+    if gms_base and _prometheus_actuator_reachable(gms_base):
+        return gms_base.rstrip("/"), "gms"
+
+    return None, "none"
+
+
+def get_queue_ingest_prometheus_url() -> tuple[Optional[str], str]:
+    """Full ``/actuator/prometheus`` URL for queue ingest metrics, plus source label."""
+    base, source = resolve_queue_ingest_prometheus_base_url()
+    if base is None:
+        return None, source
+    return f"{base}/actuator/prometheus", source
 
 
 def get_frontend_url():

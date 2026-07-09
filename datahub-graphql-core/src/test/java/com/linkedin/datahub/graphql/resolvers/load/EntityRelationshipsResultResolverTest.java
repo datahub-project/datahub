@@ -147,6 +147,128 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   @Test
+  public void testFilterByRelatedEntityTypesExcludesNonMatching()
+      throws ExecutionException, InterruptedException {
+    // The graph returns corpuser relationships; restricting to dataHubPolicy should drop them all.
+    // This mirrors the role "policies" query, where IsAssociatedWithRole edges from non-policy
+    // sources (e.g. global settings) must be excluded.
+    input.setRelatedEntityTypes(List.of("dataHubPolicy"));
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+    assertTrue(result.getRelationships().isEmpty());
+    assertEquals(result.getCount().intValue(), 0);
+    assertEquals(result.getTotal().intValue(), 0);
+  }
+
+  @Test
+  public void testFilterByRelatedEntityTypesKeepsMatching()
+      throws ExecutionException, InterruptedException {
+    input.setRelatedEntityTypes(List.of("corpuser"));
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+    assertEquals(result.getCount().intValue(), 2);
+    assertEquals(result.getRelationships().size(), 2);
+  }
+
+  /**
+   * Reproduces the Settings → Roles page crash. A role's {@code policies} are its incoming {@code
+   * IsAssociatedWithRole} edges, but that relationship name is shared: it is emitted toward a role
+   * by both policy actor filters ({@code DataHubPolicyInfo.actors}) and the global-settings
+   * maintenance-window audience ({@code GlobalSettingsInfo.maintenanceWindow.audience}), since both
+   * embed {@code DataHubActorFilter.roles}. So when an admin scopes a maintenance window to the
+   * Admin role, that role's edge set legitimately contains a {@code globalSettings} source mixed in
+   * with real {@code dataHubPolicy} sources. {@code UrnToEntityMapper} has no case for {@code
+   * globalSettings}, so under the {@code ... on DataHubPolicy} fragment it resolves to a null
+   * entity, and the frontend crashed dereferencing {@code .urn}. The {@code relatedEntityTypes:
+   * ["dataHubPolicy"]} filter must drop the {@code globalSettings} edge server-side while keeping
+   * the real policy.
+   */
+  @Test
+  public void testRolePoliciesExcludeMaintenanceWindowGlobalSettingsEdge()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    final Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Admin");
+    final Urn policyUrn = Urn.createFromString("urn:li:dataHubPolicy:test-policy");
+    final Urn globalSettingsUrn = Urn.createFromString("urn:li:globalSettings:0");
+
+    CorpGroup source = new CorpGroup();
+    source.setUrn(roleUrn.toString());
+    when(mockEnv.getSource()).thenReturn(source);
+
+    EntityRelationships roleEdges =
+        new EntityRelationships()
+            .setStart(0)
+            .setCount(2)
+            .setTotal(2)
+            .setRelationships(
+                new EntityRelationshipArray(
+                    new EntityRelationship().setEntity(policyUrn).setType("IsAssociatedWithRole"),
+                    new EntityRelationship()
+                        .setEntity(globalSettingsUrn)
+                        .setType("IsAssociatedWithRole")));
+    when(_graphClient.getRelatedEntities(eq(roleUrn.toString()), any(), any(), any(), any(), any()))
+        .thenReturn(roleEdges);
+
+    RelationshipsInput rolePoliciesInput = new RelationshipsInput();
+    rolePoliciesInput.setStart(0);
+    rolePoliciesInput.setCount(50);
+    rolePoliciesInput.setDirection(RelationshipDirection.INCOMING);
+    rolePoliciesInput.setTypes(List.of("IsAssociatedWithRole"));
+    rolePoliciesInput.setRelatedEntityTypes(List.of("dataHubPolicy"));
+    when(mockEnv.getArgument(eq("input"))).thenReturn(rolePoliciesInput);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getRelationships().size(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), policyUrn.toString());
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getTotal().intValue(), 1);
+  }
+
+  /**
+   * Without the {@code relatedEntityTypes} filter, the {@code globalSettings} maintenance-window
+   * edge survives into the result and resolves to a null entity (no {@code globalSettings} case in
+   * {@code UrnToEntityMapper}) — the exact precondition that crashed the Roles page. This guards
+   * against the filter being removed and the crash regressing.
+   */
+  @Test
+  public void testRolePoliciesWithoutFilterLeaksNullGlobalSettingsEntity()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    final Urn roleUrn = Urn.createFromString("urn:li:dataHubRole:Admin");
+    final Urn policyUrn = Urn.createFromString("urn:li:dataHubPolicy:test-policy");
+    final Urn globalSettingsUrn = Urn.createFromString("urn:li:globalSettings:0");
+
+    CorpGroup source = new CorpGroup();
+    source.setUrn(roleUrn.toString());
+    when(mockEnv.getSource()).thenReturn(source);
+
+    EntityRelationships roleEdges =
+        new EntityRelationships()
+            .setStart(0)
+            .setCount(2)
+            .setTotal(2)
+            .setRelationships(
+                new EntityRelationshipArray(
+                    new EntityRelationship().setEntity(policyUrn).setType("IsAssociatedWithRole"),
+                    new EntityRelationship()
+                        .setEntity(globalSettingsUrn)
+                        .setType("IsAssociatedWithRole")));
+    when(_graphClient.getRelatedEntities(eq(roleUrn.toString()), any(), any(), any(), any(), any()))
+        .thenReturn(roleEdges);
+
+    RelationshipsInput unfilteredInput = new RelationshipsInput();
+    unfilteredInput.setStart(0);
+    unfilteredInput.setCount(50);
+    unfilteredInput.setDirection(RelationshipDirection.INCOMING);
+    unfilteredInput.setTypes(List.of("IsAssociatedWithRole"));
+    when(mockEnv.getArgument(eq("input"))).thenReturn(unfilteredInput);
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getRelationships().size(), 2);
+    assertTrue(
+        result.getRelationships().stream().anyMatch(rel -> rel.getEntity() == null),
+        "globalSettings edge should resolve to a null entity without the filter");
+  }
+
+  @Test
   public void testResolverWithGraphClientOnlyUsesNullEntityService()
       throws ExecutionException, InterruptedException {
     EntityRelationshipsResultResolver resolverGraphOnly =
