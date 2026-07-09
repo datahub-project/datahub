@@ -1,4 +1,5 @@
 import dataclasses
+import itertools
 import json
 import logging
 import re
@@ -914,8 +915,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def process_ml_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
-        for ml_model in self.unity_catalog_api_proxy.ml_models(
-            schema=schema, max_results=self.config.ml_model_max_results
+        if not self.config.include_ml_models:
+            return
+        # ml_model_max_results is a hard cap on models ingested per schema, not
+        # just an API page size. islice stops pulling once the cap is reached
+        # (so a cap of 0 makes no API call at all).
+        for ml_model in itertools.islice(
+            self.unity_catalog_api_proxy.ml_models(
+                schema=schema, max_results=self.config.ml_model_max_results
+            ),
+            self.config.ml_model_max_results,
         ):
             yield from self.process_ml_model(ml_model, schema)
             ml_model_urn = self.gen_ml_model_urn(ml_model.id)
@@ -979,6 +988,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=ml_model_version.description,
             model_group=ml_model_urn,
             platform=self.platform,
+            env=self.config.env,
             last_modified=ml_model_version.updated_at,
             training_metrics=cast(
                 Optional[Dict[str, Optional[str]]], ml_model_version.run_details.metrics
