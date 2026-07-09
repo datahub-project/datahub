@@ -281,6 +281,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
             .setDatasetSummaryPageV1(_featureFlags.isDatasetSummaryPageV1())
+            .setMetricsEnabled(_featureFlags.isMetricsEnabled())
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
             .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
@@ -288,6 +289,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
             .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
             .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
+            .setI18nEnabled(_featureFlags.isI18nEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

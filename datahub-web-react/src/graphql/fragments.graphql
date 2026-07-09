@@ -9,6 +9,9 @@ fragment globalTagsFields on GlobalTags {
                 name
                 colorHex
             }
+            deprecation {
+                ...deprecationFields
+            }
         }
         associatedUrn
         attribution {
@@ -51,6 +54,9 @@ fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
                         termsCount
                         nodesCount
                     }
+                    displayProperties {
+                        ...displayPropertiesFields
+                    }
                     glossaryChildrenSearch(input: { query: "*", count: 500, types: [GLOSSARY_NODE] }) {
                         total
                         searchResults {
@@ -62,6 +68,9 @@ fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
                                         termsCount
                                         nodesCount
                                     }
+                                    displayProperties {
+                                        ...displayPropertiesFields
+                                    }
                                     glossaryChildrenSearch(input: { query: "*", count: 500, types: [GLOSSARY_NODE] }) {
                                         total
                                         searchResults {
@@ -72,6 +81,9 @@ fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
                                                     childrenCount {
                                                         termsCount
                                                         nodesCount
+                                                    }
+                                                    displayProperties {
+                                                        ...displayPropertiesFields
                                                     }
                                                     glossaryChildrenSearch(
                                                         input: { query: "*", count: 500, types: [GLOSSARY_NODE] }
@@ -85,6 +97,9 @@ fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
                                                                     childrenCount {
                                                                         termsCount
                                                                         nodesCount
+                                                                    }
+                                                                    displayProperties {
+                                                                        ...displayPropertiesFields
                                                                     }
                                                                 }
                                                             }
@@ -166,6 +181,9 @@ fragment glossaryTerm on GlossaryTerm {
             key
             value
         }
+    }
+    displayProperties {
+        ...displayPropertiesFields
     }
     ownership {
         ...ownershipFields
@@ -1328,8 +1346,14 @@ fragment entityDomain on DomainAssociation {
         displayProperties {
             ...displayPropertiesFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     associatedUrn
+    attribution {
+        ...attributionFields
+    }
 }
 
 fragment entityApplication on ApplicationAssociation {
@@ -1379,6 +1403,9 @@ fragment entityDataProduct on Entity {
                                 name
                             }
                         }
+                    }
+                    deprecation {
+                        ...deprecationFields
                     }
                 }
             }
@@ -1610,6 +1637,14 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
                 type
             }
         }
+        allowedPlatforms {
+            urn
+            type
+            properties {
+                displayName
+                logoUrl
+            }
+        }
         cardinality
         typeQualifier {
             allowedTypes {
@@ -1802,6 +1837,7 @@ fragment entityPrivileges on EntityPrivileges {
     canEditLinks
     canEditOwners
     canEditAssertions
+    canEditAssertionOwners
     canEditIncidents
     canEditDeprecation
     canEditSchemaFieldTags

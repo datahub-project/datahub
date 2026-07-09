@@ -1,7 +1,7 @@
-import { Tooltip } from '@components';
+import { Text, Tooltip } from '@components';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -13,7 +13,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
 
-const TagDisclaimer = styled(Typography.Text)`
+const TagDisclaimer = styled(Text)`
     color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 400;
@@ -32,6 +32,7 @@ export default function useTagsAndTermsRenderer(
     canEdit: boolean,
     showOneAndCount?: boolean,
 ) {
+    const { t } = useTranslation('entity.profile.schema');
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
@@ -57,10 +58,12 @@ export default function useTagsAndTermsRenderer(
                 {/* If can edit, show disclaimer for uneditable tags */}
                 {canEdit && options.showTags && !!uneditableTags?.tags?.length && (
                     <Tooltip
-                        title={`Some tags were sourced from ${platformName || 'an external platform'}. They will be resynced periodically during scheduled ingestion.`}
+                        title={t('tagTermRenderer.externalPlatformTooltip', {
+                            platform: platformName || t('tagTermRenderer.externalPlatformFallback'),
+                        })}
                     >
-                        <TagDisclaimer type="secondary">
-                            <Info /> Some tags are not editable.
+                        <TagDisclaimer type="span">
+                            <Info /> {t('tagTermRenderer.tagsNotEditable')}
                         </TagDisclaimer>
                     </Tooltip>
                 )}

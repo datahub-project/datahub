@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.plugins;
 
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -372,6 +373,7 @@ public class PluginFactoryMergeTest {
 
     @Override
     protected Stream<AspectValidationException> validateProposedAspects(
+        @Nonnull OperationFingerprint operationContext,
         @Nonnull Collection<? extends BatchItem> mcpItems,
         @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
@@ -379,7 +381,9 @@ public class PluginFactoryMergeTest {
 
     @Override
     protected Stream<AspectValidationException> validatePreCommitAspects(
-        @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<ChangeMCP> changeMCPs,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
   }
@@ -436,13 +440,17 @@ public class PluginFactoryMergeTest {
 
     @Override
     protected Stream<ChangeMCP> applyMCPSideEffect(
-        @Nonnull Collection<ChangeMCP> mcpItems, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<ChangeMCP> mcpItems,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
 
     @Override
     protected Stream<MCPItem> postMCPSideEffect(
-        @Nonnull Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<MCLItem> mclItems,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
   }

@@ -1,0 +1,38 @@
+namespace com.linkedin.semanticmodel
+
+import com.linkedin.metric.AiContext
+import com.linkedin.metric.MetricExpression
+
+/**
+ * A named field defined inside a `SemanticModel` dataset (dimension, measure, filter, or other).
+ * Fields are classified by `type` into four kinds — DIMENSION, MEASURE, FILTER, and OTHER.
+ */
+record SemanticField {
+
+  /**
+   * The name of this field as exposed by the semantic layer.
+   */
+  name: string
+
+  /**
+   * The kind of this field. Must be set for every field; determines how downstream tools
+   * interpret the field and whether kind-specific sub-records (e.g. `dimension`) are relevant.
+   */
+  type: SemanticFieldType
+
+  /**
+   * The SQL expression that computes this field, in one or more dialects.
+   */
+  expression: MetricExpression
+
+  /**
+   * Dimension-specific metadata. Populated when `type == DIMENSION`; ignored otherwise.
+   */
+  dimension: optional Dimension
+
+  /**
+   * AI-specific context for improved disambiguation and retrieval.
+   */
+  aiContext: optional AiContext
+
+}

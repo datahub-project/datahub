@@ -1,10 +1,13 @@
 import { message } from 'antd';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
 export const useAssertionURNCopyLink = (urn: string) => {
+    const { t } = useTranslation('entity.profile.validations');
+
     const onCopyLink = () => {
         const assertionUrn = urn;
 
@@ -20,10 +23,10 @@ export const useAssertionURNCopyLink = (urn: string) => {
         // Copy the URL to the clipboard
         navigator.clipboard.writeText(assertionUrl).then(
             () => {
-                message.success('Link copied to clipboard!');
+                message.success(t('action.clipboardCopied'));
             },
             () => {
-                message.error('Failed to copy link to clipboard.');
+                message.error(t('action.clipboardFailed'));
             },
         );
     };

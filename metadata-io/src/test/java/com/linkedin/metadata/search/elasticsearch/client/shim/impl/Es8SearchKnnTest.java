@@ -15,6 +15,8 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +24,9 @@ import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
 public class Es8SearchKnnTest {
+
+  private static final OperationContext OP_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   private static KnnSearchRequest testRequest() {
     return KnnSearchRequest.builder()
@@ -51,7 +56,7 @@ public class Es8SearchKnnTest {
     when(mockClient.search(any(SearchRequest.class), eq(Map.class))).thenReturn(mockResponse);
 
     Es8SearchClientShim shim = Es8SearchClientShim.forTest(mockClient);
-    KnnSearchResponse response = shim.searchKnn(testRequest());
+    KnnSearchResponse response = shim.searchKnn(OP_CONTEXT, testRequest());
 
     assertFalse(response.isEmpty());
     assertEquals(response.hits().size(), 2);
@@ -75,7 +80,7 @@ public class Es8SearchKnnTest {
     when(mockClient.search(any(SearchRequest.class), eq(Map.class))).thenReturn(mockResponse);
 
     Es8SearchClientShim shim = Es8SearchClientShim.forTest(mockClient);
-    KnnSearchResponse response = shim.searchKnn(testRequest());
+    KnnSearchResponse response = shim.searchKnn(OP_CONTEXT, testRequest());
 
     assertEquals(response.hits().size(), 0);
   }
@@ -95,7 +100,7 @@ public class Es8SearchKnnTest {
     when(mockClient.search(captor.capture(), eq(Map.class))).thenReturn(mockResponse);
 
     Es8SearchClientShim shim = Es8SearchClientShim.forTest(mockClient);
-    shim.searchKnn(testRequest()); // default ignoreUnavailable=true
+    shim.searchKnn(OP_CONTEXT, testRequest()); // default ignoreUnavailable=true
 
     SearchRequest captured = captor.getValue();
     assertTrue(
@@ -132,7 +137,7 @@ public class Es8SearchKnnTest {
             .build();
 
     Es8SearchClientShim shim = Es8SearchClientShim.forTest(mockClient);
-    shim.searchKnn(req);
+    shim.searchKnn(OP_CONTEXT, req);
 
     SearchRequest captured = captor.getValue();
     assertTrue(
@@ -168,7 +173,7 @@ public class Es8SearchKnnTest {
             .build();
 
     Es8SearchClientShim shim = Es8SearchClientShim.forTest(mockClient);
-    shim.searchKnn(multiIndexReq);
+    shim.searchKnn(OP_CONTEXT, multiIndexReq);
 
     SearchRequest captured = captor.getValue();
     List<String> indices = captured.index();
@@ -199,7 +204,7 @@ public class Es8SearchKnnTest {
     when(mockClient.search(any(SearchRequest.class), eq(Map.class))).thenReturn(mockResponse);
 
     Es8SearchClientShim shim = Es8SearchClientShim.forTest(mockClient);
-    KnnSearchResponse response = shim.searchKnn(testRequest());
+    KnnSearchResponse response = shim.searchKnn(OP_CONTEXT, testRequest());
 
     assertEquals(response.hits().size(), 1, "Only hits with non-empty ids should be returned");
     assertEquals(response.hits().get(0).id(), "urn:li:dataset:abc");

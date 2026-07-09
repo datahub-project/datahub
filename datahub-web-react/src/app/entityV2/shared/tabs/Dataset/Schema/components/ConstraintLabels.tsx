@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const Pill = styled.div`
@@ -27,17 +28,21 @@ const NullablePill = styled(Pill)`
 `;
 
 export function PrimaryKeyLabel() {
-    return <PrimaryKeyPill>Primary Key</PrimaryKeyPill>;
+    const { t } = useTranslation('entity.profile.schema');
+    return <PrimaryKeyPill>{t('constraintLabels.primaryKey')}</PrimaryKeyPill>;
 }
 
 export function ForeignKeyLabel() {
-    return <ForeignKeyPill>Foreign Key</ForeignKeyPill>;
+    const { t } = useTranslation('entity.profile.schema');
+    return <ForeignKeyPill>{t('constraintLabels.foreignKey')}</ForeignKeyPill>;
 }
 
 export function PartitioningKeyLabel() {
-    return <PrimaryKeyPill>Partition Key</PrimaryKeyPill>;
+    const { t } = useTranslation('entity.profile.schema');
+    return <PrimaryKeyPill>{t('constraintLabels.partitionKey')}</PrimaryKeyPill>;
 }
 
 export default function NullableLabel() {
-    return <NullablePill>Nullable</NullablePill>;
+    const { t } = useTranslation('entity.profile.schema');
+    return <NullablePill>{t('constraintLabels.nullable')}</NullablePill>;
 }

@@ -20,6 +20,7 @@ from graphql import (
 from graphql.utilities import introspection_from_schema
 
 from datahub.utilities.graphql_query_adapter import (
+    _SCHEMA_DISK_CACHE,
     SCHEMA_FAILURE_TTL_SECONDS,
     SCHEMA_TTL_SECONDS,
     QueryProjector,
@@ -32,10 +33,7 @@ from datahub.utilities.graphql_query_adapter import (
 @pytest.fixture(autouse=True)
 def _isolate_disk_cache(tmp_path):
     """Prevent tests from reading/writing the real ~/.datahub/schema_cache."""
-    with patch(
-        "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-        str(tmp_path / "schema_cache"),
-    ):
+    with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
         yield
 
 
@@ -814,6 +812,126 @@ class TestAdaptQueryPreservesFragments:
         assert orphan_names == {"Outer", "Inner"}
 
 
+class TestMinifyGraphqlQuery:
+    """Tests for the token-aware minifier used to shrink wire payloads."""
+
+    def test_collapses_indentation_outside_strings(self) -> None:
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        pretty = """
+            query Q {
+                me {
+                    corpUser {
+                        urn
+                        username
+                    }
+                }
+            }
+        """
+        minified = minify_graphql_query(pretty)
+        assert minified == "query Q { me { corpUser { urn username } } }"
+        assert "\n" not in minified
+        assert "  " not in minified
+
+    def test_preserves_whitespace_inside_string_literals(self) -> None:
+        """Naive ' '.join(q.split()) would corrupt 'hello   world' → 'hello world'."""
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        # GraphQL string literal with interior runs of whitespace and a tab.
+        q = 'query Q { search(input: {query: "hello   world\\tfoo"}) { total } }'
+        minified = minify_graphql_query(q)
+        assert '"hello   world\\tfoo"' in minified
+
+    def test_preserves_block_string_contents(self) -> None:
+        """Block strings — even after graphql-core's print_ast re-formats them
+        with surrounding newlines — retain their semantic content (block-string
+        de-indentation is part of the GraphQL spec). The minifier MUST NOT
+        touch anything between the triple quotes."""
+        from graphql import parse, print_ast
+
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        q = 'query Q { search(input: {query: """multi\n  line\n  query"""}) { total } }'
+        minified = minify_graphql_query(q)
+        # Block string must arrive intact at the AST level.
+        assert print_ast(parse(minified)) == print_ast(parse(q))
+        # Triple quotes must still bound the literal — minifier didn't split it.
+        assert minified.count('"""') == 2
+
+    def test_idempotent(self) -> None:
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        q = "query Q { me { corpUser { urn } } }"
+        once = minify_graphql_query(q)
+        twice = minify_graphql_query(once)
+        assert once == twice
+
+    def test_invalid_query_returned_verbatim(self) -> None:
+        """Unparseable input must not raise — callers rely on graceful degradation."""
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        garbage = "this is not graphql {{{"
+        assert minify_graphql_query(garbage) == garbage
+
+    def test_semantic_equivalence(self) -> None:
+        """Parsed AST of the minified output equals the original's AST."""
+        from graphql import parse, print_ast
+
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        q = """
+            fragment F on Dataset { urn name }
+            query Q($urn: String!) {
+                entity(urn: $urn) {
+                    ... on Dataset { ...F platform { urn } }
+                }
+            }
+        """
+        assert print_ast(parse(minify_graphql_query(q))) == print_ast(parse(q))
+
+
+class TestExecuteGraphqlMinifiesWireBody:
+    """Tests that execute_graphql sends a minified body regardless of strip mode."""
+
+    @staticmethod
+    def _captured_body(graph: Any, query: str, strip: bool) -> str:
+        sent: Dict[str, Any] = {}
+
+        def fake_post(url: str, body: Dict) -> Dict:
+            sent.update(body)
+            return {"data": {"me": {"corpUser": {"urn": "urn:li:corpuser:test"}}}}
+
+        with patch.object(graph, "_post_generic", fake_post):
+            graph.execute_graphql(query, strip_unsupported_fields=strip)
+        return sent["query"]
+
+    def _make_graph(self) -> Any:
+        from datahub.ingestion.graph.client import DataHubGraph
+
+        with patch.object(DataHubGraph, "__init__", lambda self, *a, **kw: None):
+            graph = DataHubGraph.__new__(DataHubGraph)
+            graph._gms_server = "http://localhost:8080"
+            graph._query_projector = None
+            return graph
+
+    def test_strip_false_minifies_before_send(self) -> None:
+        pretty = "query Q {\n    me {\n        corpUser {\n            urn\n        }\n    }\n}"
+        body = self._captured_body(self._make_graph(), pretty, strip=False)
+        assert "\n" not in body
+        assert body.count("    ") == 0
+        # Semantic equivalence preserved.
+        from graphql import parse, print_ast
+
+        assert print_ast(parse(body)) == print_ast(parse(pretty))
+
+    def test_invalid_query_passes_through_when_strip_false(self) -> None:
+        """If minification can't parse the query, send it as-is so the server
+        can produce a meaningful error rather than silently rewriting input."""
+        bad = "this is not graphql {{{"
+        body = self._captured_body(self._make_graph(), bad, strip=False)
+        assert body == bad
+
+
 class TestQueryResultCache:
     """Tests for the per-query result cache."""
 
@@ -873,10 +991,7 @@ class TestDiskCache:
         """Introspection is saved to disk; a new projector loads it without introspecting."""
         graph = _make_mock_graph(old_server_schema, commit_hash="disk_test_hash")
 
-        with patch(
-            "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-            str(tmp_path / "schema_cache"),
-        ):
+        with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
             # First projector: introspects and saves to disk
             projector1 = QueryProjector()
             projector1.adapt_query(SIMPLE_QUERY, graph)
@@ -902,10 +1017,7 @@ class TestDiskCache:
 
     def test_disk_cache_miss_on_different_commit(self, old_server_schema, tmp_path):
         """Changing commit hash causes disk cache miss and fresh introspection."""
-        with patch(
-            "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-            str(tmp_path / "schema_cache"),
-        ):
+        with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
             graph1 = _make_mock_graph(old_server_schema, commit_hash="hash_v1")
             projector = QueryProjector()
             projector.adapt_query(SIMPLE_QUERY, graph1)
@@ -933,16 +1045,13 @@ class TestDiskCache:
         self, old_server_schema, tmp_path
     ):
         """Corrupt cache file causes fallback to live introspection."""
-        with patch(
-            "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-            str(tmp_path / "schema_cache"),
-        ):
+        with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
             # Write a corrupt cache file
             graph = _make_mock_graph(old_server_schema, commit_hash="corrupt_test")
             projector = QueryProjector()
 
             # Pre-create corrupt file at the expected path
-            cache_path = projector._disk_cache_path(
+            cache_path = _SCHEMA_DISK_CACHE._path(
                 "http://localhost:8080", "corrupt_test"
             )
             cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -962,10 +1071,7 @@ class TestDiskCache:
         graph = _make_mock_graph(old_server_schema)
         graph.server_config.commit_hash = None
 
-        with patch(
-            "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-            str(tmp_path / "schema_cache"),
-        ):
+        with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
             projector = QueryProjector()
             projector.adapt_query(SIMPLE_QUERY, graph)
 
@@ -978,10 +1084,7 @@ class TestDiskCache:
         """Cache files older than 7 days are cleaned up."""
         import os
 
-        with patch(
-            "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-            str(tmp_path / "schema_cache"),
-        ):
+        with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
             cache_dir = tmp_path / "schema_cache"
             cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1067,8 +1170,15 @@ class TestExecuteGraphqlFailSafe:
                     original_query, strip_unsupported_fields=True
                 )
 
-                # The original query should have been sent (not a projected one)
-                assert sent_body["query"] == original_query
+                # The original query (semantically) should have been sent —
+                # no projection was applied. The body is whitespace-minified
+                # before transmission, so compare on parsed AST equivalence
+                # rather than byte-for-byte.
+                from graphql import parse, print_ast
+
+                assert print_ast(parse(sent_body["query"])) == print_ast(
+                    parse(original_query)
+                )
                 assert result == {"me": {"corpUser": {"urn": "urn:li:corpuser:test"}}}
 
     def test_import_error_falls_back_gracefully(self):
@@ -1130,10 +1240,7 @@ class TestDiskCacheResilience:
         parent.chmod(0o444)
 
         try:
-            with patch(
-                "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-                str(parent / "schema_cache"),
-            ):
+            with patch.object(_SCHEMA_DISK_CACHE, "_dir", parent / "schema_cache"):
                 graph = _make_mock_graph(
                     old_server_schema, commit_hash="perm_denied_test"
                 )
@@ -1148,7 +1255,7 @@ class TestDiskCacheResilience:
         graph = _make_mock_graph(old_server_schema, commit_hash="symlink_test")
         projector = QueryProjector()
 
-        cache_path = projector._disk_cache_path("http://localhost:8080", "symlink_test")
+        cache_path = _SCHEMA_DISK_CACHE._path("http://localhost:8080", "symlink_test")
         cache_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Create a symlink pointing to a decoy file
@@ -1168,7 +1275,7 @@ class TestDiskCacheResilience:
         graph = _make_mock_graph(old_server_schema, commit_hash="symlink_save_test")
         projector = QueryProjector()
 
-        cache_path = projector._disk_cache_path(
+        cache_path = _SCHEMA_DISK_CACHE._path(
             "http://localhost:8080", "symlink_save_test"
         )
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1189,7 +1296,7 @@ class TestDiskCacheResilience:
         graph = _make_mock_graph(old_server_schema, commit_hash="bad_schema_test")
         projector = QueryProjector()
 
-        cache_path = projector._disk_cache_path(
+        cache_path = _SCHEMA_DISK_CACHE._path(
             "http://localhost:8080", "bad_schema_test"
         )
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1206,7 +1313,7 @@ class TestDiskCacheResilience:
         graph = _make_mock_graph(old_server_schema, commit_hash="empty_file_test")
         projector = QueryProjector()
 
-        cache_path = projector._disk_cache_path(
+        cache_path = _SCHEMA_DISK_CACHE._path(
             "http://localhost:8080", "empty_file_test"
         )
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1220,7 +1327,7 @@ class TestDiskCacheResilience:
         graph = _make_mock_graph(old_server_schema, commit_hash="binary_test")
         projector = QueryProjector()
 
-        cache_path = projector._disk_cache_path("http://localhost:8080", "binary_test")
+        cache_path = _SCHEMA_DISK_CACHE._path("http://localhost:8080", "binary_test")
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_bytes(b"\x00\x01\x02\xff\xfe\xfd")
 
@@ -1238,8 +1345,6 @@ class TestDiskCacheResilience:
             f = cache_dir / f"old_{i}.json"
             f.write_text("{}")
             os.utime(f, (old_mtime, old_mtime))
-
-        projector = QueryProjector()
 
         # Delete some files mid-cleanup to simulate race condition
         original_unlink = Path.unlink
@@ -1260,7 +1365,7 @@ class TestDiskCacheResilience:
 
         with patch.object(Path, "unlink", racing_unlink):
             # Should not raise despite files disappearing
-            projector._cleanup_old_cache_files(cache_dir, max_age_days=7)
+            _SCHEMA_DISK_CACHE._cleanup()
 
     def test_gms_server_none_skips_disk_cache(self, old_server_schema, tmp_path):
         """graph._gms_server=None doesn't crash; disk cache is skipped."""
@@ -1327,7 +1432,7 @@ class TestDiskCacheResilience:
         def failing_dump(obj, fp):
             raise IOError("disk full")
 
-        with patch("datahub.utilities.graphql_query_adapter.json.dump", failing_dump):
+        with patch("datahub.utilities.server_state_disk_cache.json.dump", failing_dump):
             projector.adapt_query(SIMPLE_QUERY, graph)
 
         # No leftover .tmp files

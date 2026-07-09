@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -16,6 +17,7 @@ const StatContent = styled.div`
 `;
 
 const SidebarDashboardHeaderSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData } = useEntityData();
     const dashboard = entityData as any;
 
@@ -29,6 +31,7 @@ const SidebarDashboardHeaderSection = () => {
             dashboard?.statsSummary?.viewCountPercentileLast30Days,
             dashboard?.statsSummary?.uniqueUserPercentileLast30Days,
         ),
+        t,
     );
     if (popularityColumn) {
         columns.push(popularityColumn);
@@ -42,7 +45,7 @@ const SidebarDashboardHeaderSection = () => {
         dashboard?.statsSummary?.topUsersLast30Days?.find((user) => userExists(user))
     ) {
         columns.push({
-            title: 'Top Users',
+            title: t('sidebar.dashboardHeader.topUsersColumn'),
             content: <SidebarTopUsersHeaderSection />,
         });
     }
@@ -51,9 +54,14 @@ const SidebarDashboardHeaderSection = () => {
      * Queries column
      */
     if (dashboard?.statsSummary?.queryCountLast30Days) {
+        const count = dashboard?.statsSummary?.queryCountLast30Days;
         columns.push({
-            title: 'Queries',
-            content: <StatContent>{formatNumber(dashboard?.statsSummary?.queryCountLast30Days)} queries</StatContent>,
+            title: t('sidebar.dashboardHeader.queriesColumn'),
+            content: (
+                <StatContent>
+                    {t('sidebar.dashboardHeader.queriesCount', { count, formattedCount: formatNumber(count) })}
+                </StatContent>
+            ),
         });
     }
 
@@ -61,10 +69,13 @@ const SidebarDashboardHeaderSection = () => {
      * Users column
      */
     if (dashboard?.statsSummary?.uniqueUserCountLast30Days) {
+        const count = dashboard?.statsSummary?.uniqueUserCountLast30Days;
         columns.push({
-            title: 'Users',
+            title: t('sidebar.dashboardHeader.usersColumn'),
             content: (
-                <StatContent>{formatNumber(dashboard?.statsSummary?.uniqueUserCountLast30Days)} users</StatContent>
+                <StatContent>
+                    {t('sidebar.dashboardHeader.usersCount', { count, formattedCount: formatNumber(count) })}
+                </StatContent>
             ),
         });
     }
@@ -73,16 +84,20 @@ const SidebarDashboardHeaderSection = () => {
      * Recent Views
      */
     if (dashboard?.statsSummary?.viewCountLast30Days) {
+        const count = dashboard?.statsSummary?.viewCountLast30Days;
         columns.push({
-            title: 'Recent Views',
+            title: t('sidebar.dashboardHeader.recentViewsColumn'),
             content: (
                 <Tooltip
                     showArrow={false}
-                    title={`${formatNumberWithoutAbbreviation(
-                        dashboard?.statsSummary?.viewCountLast30Days,
-                    )} views over the past 30 days`}
+                    title={t('sidebar.dashboardHeader.viewsOverPast30DaysTooltip', {
+                        count,
+                        formattedCount: formatNumberWithoutAbbreviation(count),
+                    })}
                 >
-                    <StatContent>{formatNumber(dashboard?.statsSummary?.viewCountLast30Days)} views</StatContent>
+                    <StatContent>
+                        {t('sidebar.dashboardHeader.viewsCount', { count, formattedCount: formatNumber(count) })}
+                    </StatContent>
                 </Tooltip>
             ),
         });
@@ -92,14 +107,20 @@ const SidebarDashboardHeaderSection = () => {
      * Total Views
      */
     if (dashboard?.statsSummary?.viewCount) {
+        const count = dashboard?.statsSummary?.viewCount;
         columns.push({
-            title: 'Total Views',
+            title: t('sidebar.dashboardHeader.totalViewsColumn'),
             content: (
                 <Tooltip
                     showArrow={false}
-                    title={`${formatNumberWithoutAbbreviation(dashboard?.statsSummary?.viewCount)} views`}
+                    title={t('sidebar.dashboardHeader.totalViewsTooltip', {
+                        count,
+                        formattedCount: formatNumberWithoutAbbreviation(count),
+                    })}
                 >
-                    <StatContent>{formatNumber(dashboard?.statsSummary?.viewCount)} views</StatContent>
+                    <StatContent>
+                        {t('sidebar.dashboardHeader.viewsCount', { count, formattedCount: formatNumber(count) })}
+                    </StatContent>
                 </Tooltip>
             ),
         });

@@ -6,9 +6,11 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.operations.k8.models.ConfigMapUpdateRequest;
 import io.datahubproject.openapi.operations.k8.models.CronJobTriggerRequest;
 import io.datahubproject.openapi.operations.k8.models.DeploymentEnvUpdateRequest;
@@ -17,9 +19,12 @@ import io.datahubproject.openapi.operations.k8.models.K8sStatusResponse;
 import io.datahubproject.openapi.v1.models.registry.PaginatedResponse;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -27,9 +32,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -70,6 +78,20 @@ import org.springframework.web.bind.annotation.RestController;
             + "in production environments. Requires MANAGE_SYSTEM_OPERATIONS privilege.")
 public class KubernetesController {
 
+  private static final ResourceDefinitionContext KEDA_SCALED_OBJECT_CONTEXT =
+      new ResourceDefinitionContext.Builder()
+          .withGroup("keda.sh")
+          .withVersion("v1alpha1")
+          .withKind("ScaledObject")
+          .withPlural("scaledobjects")
+          .withNamespaced(true)
+          .build();
+
+  private static final String KEDA_PAUSED_REPLICAS_ANNOTATION =
+      "autoscaling.keda.sh/paused-replicas";
+  private static final String AUTO_SCALING_ACTIVATE = "activate"; // request value
+  private static final String AUTO_SCALING_ACTIVE = "active"; // response state
+  private static final String AUTO_SCALING_PAUSED = "paused"; // response state
   private final OperationContext systemOperationContext;
   private final AuthorizerChain authorizerChain;
   private final KubernetesClient kubernetesClient;
@@ -111,7 +133,9 @@ public class KubernetesController {
     OperationContext ctx =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actor, request, "getK8sStatus", List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actor, request, "getK8sStatus", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             auth,
             true);
@@ -149,6 +173,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "listDeployments",
+        UsageOperation.OTHER_READ,
         () -> {
           var items = kubernetesClient.apps().deployments().inNamespace(ns()).list().getItems();
           return k8sResponse(paginate(items, start, count));
@@ -171,6 +196,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getDeployment",
+        UsageOperation.OTHER_READ,
         () -> {
           var d = kubernetesClient.apps().deployments().inNamespace(ns()).withName(name).get();
           return d != null ? k8sResponse(d) : notFound("Deployment", name);
@@ -183,6 +209,8 @@ public class KubernetesController {
       summary = "Scale deployment",
       description =
           "Scale replicas and/or update resource limits/requests for a deployment. "
+              + "Pass replicas to scale the deployment (pauses autoscaling if configured). "
+              + "Pass autoscalingMode=activate (without replicas) to resume autoscaling. "
               + "⚠️ WARNING: This can cause service disruptions.",
       responses = {
         @ApiResponse(responseCode = "200", description = "Deployment scaled successfully"),
@@ -198,27 +226,57 @@ public class KubernetesController {
     return withAccess(
         request,
         "scaleDeployment",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
-          if (req.getReplicas() == null && req.getResources() == null) {
-            return ResponseEntity.badRequest()
-                .body(Map.of("error", "At least one of replicas or resources must be provided"));
-          }
-          if (req.getReplicas() != null && req.getReplicas() < 0) {
-            return ResponseEntity.badRequest()
-                .body(Map.of("error", "Replicas must be non-negative"));
-          }
+          boolean isActivate = AUTO_SCALING_ACTIVATE.equalsIgnoreCase(req.getAutoscalingMode());
+
+          Optional<ResponseEntity<?>> error = validateRequest(req, isActivate);
+          if (error.isPresent()) return error.get();
 
           var deployments = kubernetesClient.apps().deployments().inNamespace(ns());
           var d = deployments.withName(name).get();
           if (d == null) return notFound("Deployment", name);
 
-          if (req.getReplicas() != null) {
-            deployments.withName(name).scale(req.getReplicas());
-            log.info("Scaled deployment {} to {} replicas", name, req.getReplicas());
+          Optional<GenericKubernetesResource> scaledObject =
+              (req.getReplicas() != null || isActivate)
+                  ? findScaledObjectForDeployment(name)
+                  : Optional.empty();
+
+          String autoscalingMode = null;
+
+          // ── Non-KEDA path ─────────────────────────────────────────────────
+          if (scaledObject.isEmpty()) {
+            if (isActivate) {
+              // activate only makes sense on a KEDA-managed deployment
+              return ResponseEntity.badRequest()
+                  .body(
+                      Map.of(
+                          "error", "Deployment " + name + " does not have autoscaling configured"));
+            }
+            if (req.getReplicas() != null) {
+              deployments.withName(name).scale(req.getReplicas());
+              log.info("Scaled deployment {} to {} replicas", name, req.getReplicas());
+            }
+
+            // ── KEDA-managed path ─────────────────────────────────────────────
+          } else {
+            if (req.getReplicas() != null) {
+              // Pause autoscaling at the requested replica count via annotation.
+              pauseKedaScaledObject(scaledObject.get(), req.getReplicas());
+              log.info(
+                  "Autoscaling found for deployment {}. Pausing at {} replicas via annotation.",
+                  name,
+                  req.getReplicas());
+              autoscalingMode = AUTO_SCALING_PAUSED;
+            } else if (isActivate) {
+              // Resume autoscaling — remove the pause annotation if present
+              unpauseKedaScaledObject(scaledObject.get(), name);
+              autoscalingMode = AUTO_SCALING_ACTIVE;
+            }
           }
 
           if (req.getResources() != null) {
-            d = deployments.withName(name).get(); // Refetch after scale
+            d = deployments.withName(name).get(); // Refetch after any replica changes
             var cr =
                 resolveContainer(
                     d.getSpec().getTemplate().getSpec().getContainers(),
@@ -239,7 +297,10 @@ public class KubernetesController {
             log.info("Updated resources for deployment {}, container {}", name, containerName);
           }
 
-          return k8sResponse(deployments.withName(name).get());
+          var updatedDeployment = deployments.withName(name).get();
+          return autoscalingMode != null
+              ? buildKedaResponse(updatedDeployment, autoscalingMode)
+              : k8sResponse(updatedDeployment);
         });
   }
 
@@ -264,6 +325,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "updateDeploymentEnv",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           boolean hasSet = req.getSet() != null && !req.getSet().isEmpty();
           boolean hasRemove = req.getRemove() != null && !req.getRemove().isEmpty();
@@ -336,6 +398,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "listPods",
+        UsageOperation.OTHER_READ,
         () -> {
           var items = kubernetesClient.pods().inNamespace(ns()).list().getItems();
           return k8sResponse(paginate(items, start, count));
@@ -357,6 +420,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getPod",
+        UsageOperation.OTHER_READ,
         () -> {
           var pod = kubernetesClient.pods().inNamespace(ns()).withName(name).get();
           return pod != null ? k8sResponse(pod) : notFound("Pod", name);
@@ -383,6 +447,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getPodLogs",
+        UsageOperation.OTHER_READ,
         () -> {
           int limit = Math.min(Math.max(limitBytes, 1024), 1024 * 1024); // 1KB min, 1MB max
 
@@ -433,6 +498,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "deletePod",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           var pods = kubernetesClient.pods().inNamespace(ns());
           if (pods.withName(name).get() == null) return notFound("Pod", name);
@@ -461,6 +527,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "listConfigMaps",
+        UsageOperation.OTHER_READ,
         () -> {
           var items = kubernetesClient.configMaps().inNamespace(ns()).list().getItems();
           return k8sResponse(paginate(items, start, count));
@@ -483,6 +550,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getConfigMap",
+        UsageOperation.OTHER_READ,
         () -> {
           var cm = kubernetesClient.configMaps().inNamespace(ns()).withName(name).get();
           return cm != null ? k8sResponse(cm) : notFound("ConfigMap", name);
@@ -510,6 +578,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "updateConfigMap",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           boolean hasSet = req.getSet() != null && !req.getSet().isEmpty();
           boolean hasRemove = req.getRemove() != null && !req.getRemove().isEmpty();
@@ -562,6 +631,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "listCronJobs",
+        UsageOperation.OTHER_READ,
         () -> {
           var items = kubernetesClient.batch().v1().cronjobs().inNamespace(ns()).list().getItems();
           return k8sResponse(paginate(items, start, count));
@@ -584,6 +654,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getCronJob",
+        UsageOperation.OTHER_READ,
         () -> {
           var cj = kubernetesClient.batch().v1().cronjobs().inNamespace(ns()).withName(name).get();
           return cj != null ? k8sResponse(cj) : notFound("CronJob", name);
@@ -611,6 +682,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "triggerCronJob",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           if (req.getJobName() == null || req.getJobName().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Job name is required"));
@@ -674,6 +746,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "listJobs",
+        UsageOperation.OTHER_READ,
         () -> {
           var items = kubernetesClient.batch().v1().jobs().inNamespace(ns()).list().getItems();
           return k8sResponse(paginate(items, start, count));
@@ -695,6 +768,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getJob",
+        UsageOperation.OTHER_READ,
         () -> {
           var job = kubernetesClient.batch().v1().jobs().inNamespace(ns()).withName(name).get();
           return job != null ? k8sResponse(job) : notFound("Job", name);
@@ -719,6 +793,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "deleteJob",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           var jobs = kubernetesClient.batch().v1().jobs().inNamespace(ns());
           if (jobs.withName(name).get() == null) return notFound("Job", name);
@@ -731,13 +806,16 @@ public class KubernetesController {
   // ==================== Helper Methods ====================
 
   /** Runs operation after auth and K8s availability checks. Returns error response or null. */
-  private ResponseEntity<?> checkAccess(HttpServletRequest request, String operation) {
+  private ResponseEntity<?> checkAccess(
+      HttpServletRequest request, String operation, UsageOperation usageOperation) {
     Authentication auth = AuthenticationContext.getAuthentication();
     String actor = auth.getActor().toUrnStr();
     OperationContext ctx =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actor, request, operation, List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actor, request, operation, List.of())
+                .withUsageOperation(usageOperation),
             authorizerChain,
             auth,
             true);
@@ -755,8 +833,11 @@ public class KubernetesController {
 
   /** Executes operation if authorized and K8s available, otherwise returns error. */
   private ResponseEntity<?> withAccess(
-      HttpServletRequest request, String operation, Supplier<ResponseEntity<?>> handler) {
-    ResponseEntity<?> error = checkAccess(request, operation);
+      HttpServletRequest request,
+      String operation,
+      UsageOperation usageOperation,
+      Supplier<ResponseEntity<?>> handler) {
+    ResponseEntity<?> error = checkAccess(request, operation, usageOperation);
     return error != null ? error : handler.get();
   }
 
@@ -826,5 +907,147 @@ public class KubernetesController {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body("{\"error\": \"Serialization failed\"}");
     }
+  }
+
+  /**
+   * Removes the KEDA pause annotation from the given ScaledObject, allowing KEDA to resume
+   * controlling replicas. No-op if the annotation is not present (autoscaling was already active).
+   */
+  private void unpauseKedaScaledObject(
+      @Nonnull final GenericKubernetesResource scaledObject, @Nonnull final String deploymentName) {
+    Map<String, String> annotations = scaledObject.getMetadata().getAnnotations();
+    boolean wasPaused =
+        annotations != null && annotations.containsKey(KEDA_PAUSED_REPLICAS_ANNOTATION);
+    if (wasPaused) {
+      kubernetesClient
+          .genericKubernetesResources(KEDA_SCALED_OBJECT_CONTEXT)
+          .inNamespace(ns())
+          .withName(scaledObject.getMetadata().getName())
+          .edit(
+              so -> {
+                if (so.getMetadata().getAnnotations() != null) {
+                  so.getMetadata().getAnnotations().remove(KEDA_PAUSED_REPLICAS_ANNOTATION);
+                }
+                return so;
+              });
+      log.info("Resumed autoscaling for deployment {}", deploymentName);
+    }
+  }
+
+  /**
+   * Finds the KEDA ScaledObject targeting the given deployment in the current namespace. Returns
+   * empty if KEDA is not installed or not accessible, falling back to direct scale in all cases.
+   */
+  private Optional<GenericKubernetesResource> findScaledObjectForDeployment(String deploymentName) {
+    try {
+      return kubernetesClient
+          .genericKubernetesResources(KEDA_SCALED_OBJECT_CONTEXT)
+          .inNamespace(ns())
+          .list()
+          .getItems()
+          .stream()
+          .filter(
+              so -> {
+                Object spec = so.getAdditionalProperties().get("spec");
+                if (!(spec instanceof Map)) return false;
+                Object scaleTargetRef = ((Map<?, ?>) spec).get("scaleTargetRef");
+                if (!(scaleTargetRef instanceof Map)) return false;
+                Object kind = ((Map<?, ?>) scaleTargetRef).get("kind");
+                if (kind != null && !"Deployment".equals(kind)) return false;
+                return deploymentName.equals(((Map<?, ?>) scaleTargetRef).get("name"));
+              })
+          .findFirst();
+    } catch (KubernetesClientException e) {
+      if (e.getCode() == 403 || e.getCode() == 404 || e.getCode() == 410) {
+        log.debug(
+            "KEDA ScaledObjects not accessible for deployment {} (HTTP {}), falling back to direct scale",
+            deploymentName,
+            e.getCode());
+      } else {
+        log.warn(
+            "Unexpected K8s error checking KEDA ScaledObjects for deployment {} (HTTP {}): {}, falling back to direct scale",
+            deploymentName,
+            e.getCode(),
+            e.getMessage());
+      }
+      return Optional.empty();
+    } catch (Exception e) {
+      log.warn(
+          "Unexpected error checking KEDA ScaledObjects for deployment {}: {}, falling back to direct scale",
+          deploymentName,
+          e.getMessage());
+      return Optional.empty();
+    }
+  }
+
+  /** Sets the KEDA pause annotation on the ScaledObject to hold replicas at the desired count. */
+  private void pauseKedaScaledObject(
+      @Nonnull final GenericKubernetesResource scaledObject, final int replicas) {
+    kubernetesClient
+        .genericKubernetesResources(KEDA_SCALED_OBJECT_CONTEXT)
+        .inNamespace(ns())
+        .withName(scaledObject.getMetadata().getName())
+        .edit(
+            so -> {
+              if (so.getMetadata().getAnnotations() == null) {
+                so.getMetadata().setAnnotations(new HashMap<>());
+              }
+              so.getMetadata()
+                  .getAnnotations()
+                  .put(KEDA_PAUSED_REPLICAS_ANNOTATION, String.valueOf(replicas));
+              return so;
+            });
+  }
+
+  /**
+   * Builds the deployment response with an autoScalingMode field indicating whether autoscaling is
+   * paused or resumed.
+   */
+  private ResponseEntity<String> buildKedaResponse(
+      Object deployment, @Nonnull final String scalingMode) {
+    try {
+      String deploymentJson = k8sObjectMapper.writeValueAsString(deployment);
+      ObjectNode root = (ObjectNode) k8sObjectMapper.readTree(deploymentJson);
+
+      root.put("autoScalingMode", scalingMode);
+
+      return ResponseEntity.ok()
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(k8sObjectMapper.writeValueAsString(root));
+    } catch (JsonProcessingException e) {
+      log.error("Failed to serialize autoscaling-aware response", e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .body("{\"error\": \"Serialization failed\"}");
+    }
+  }
+
+  private Optional<ResponseEntity<?>> validateRequest(
+      DeploymentScaleRequest req, boolean isActivate) {
+    if (!isActivate && req.getReplicas() == null && req.getResources() == null) {
+      return Optional.of(
+          ResponseEntity.badRequest()
+              .body(
+                  Map.of(
+                      "error",
+                      "At least one of replicas, resources, or autoscalingMode="
+                          + AUTO_SCALING_ACTIVATE
+                          + " must be provided")));
+    }
+    // activate is an exclusive operation — replicas are irrelevant when resuming autoscaling
+    if (isActivate && req.getReplicas() != null) {
+      return Optional.of(
+          ResponseEntity.badRequest()
+              .body(
+                  Map.of(
+                      "error",
+                      "replicas must not be set when autoscalingMode is "
+                          + AUTO_SCALING_ACTIVATE)));
+    }
+
+    if (req.getReplicas() != null && req.getReplicas() < 0) {
+      return Optional.of(
+          ResponseEntity.badRequest().body(Map.of("error", "Replicas must be non-negative")));
+    }
+    return Optional.empty();
   }
 }

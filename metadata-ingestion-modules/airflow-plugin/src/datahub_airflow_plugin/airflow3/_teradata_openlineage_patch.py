@@ -1,9 +1,9 @@
 """
 Patch for TeradataOperator to use DataHub's SQL parser.
 
-TeradataOperator in Airflow 2.x provider mode uses DefaultExtractor which returns empty
-OperatorLineage. This patch modifies get_openlineage_facets_on_complete() to use
-DataHub's SQL parser, enabling lineage extraction.
+The provider's default `get_openlineage_facets_on_complete()` returns empty
+OperatorLineage for Teradata; this patch swaps it out for an implementation
+that parses the SQL with DataHub's parser so we get table- and column-level lineage.
 """
 
 import logging
@@ -154,15 +154,11 @@ def _create_teradata_openlineage_wrapper(
     original_get_openlineage_facets_on_complete: Any,
 ) -> Any:
     """Create wrapper function for Teradata operator's OpenLineage method."""
-    # Import OperatorLineage at wrapper creation time to check availability
-    # This avoids runtime import errors that would cause the patch to return None
-    # Try multiple import paths for compatibility with different Airflow versions
-    # Airflow 3.x: from airflow.providers.openlineage.extractors
-    # Airflow 2.x provider: from airflow.providers.openlineage.extractors.base
+    # Resolve OperatorLineage at wrapper-creation time so we surface the import
+    # error here (with a clear log) rather than failing at task-run time.
     OperatorLineageClass: Any = None
     import_error = None
     try:
-        # Try Airflow 3.x import path first
         from airflow.providers.openlineage.extractors import (
             OperatorLineage as _OpLineage,
         )
@@ -170,17 +166,6 @@ def _create_teradata_openlineage_wrapper(
         OperatorLineageClass = _OpLineage
     except (ImportError, ModuleNotFoundError) as e:
         import_error = e
-        try:
-            # Fallback for Airflow 2.x provider mode compatibility
-            from airflow.providers.openlineage.extractors.base import (
-                OperatorLineage as _OpLineage,
-            )
-
-            OperatorLineageClass = _OpLineage
-            import_error = None  # Success, clear the error
-        except (ImportError, ModuleNotFoundError) as e2:
-            # Both imports failed - log the more specific error
-            import_error = e2 if "Operator" not in str(e) else e
 
     if OperatorLineageClass is None or import_error is not None:
         # Log warning but don't fail - this is expected in some environments

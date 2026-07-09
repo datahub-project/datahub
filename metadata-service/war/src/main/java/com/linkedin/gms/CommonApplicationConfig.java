@@ -37,12 +37,15 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.common",
+      "com.linkedin.gms.factory.usage",
       "com.linkedin.gms.factory.entity",
       "com.linkedin.gms.factory.kafka",
+      "com.linkedin.gms.factory.messaging",
       "com.linkedin.gms.factory.kafka.common",
       "com.linkedin.gms.factory.kafka.schemaregistry",
       "com.linkedin.metadata.boot.kafka",
       "com.linkedin.metadata.kafka",
+      "com.linkedin.metadata.pgqueue",
       "com.linkedin.metadata.dao.producer",
       "com.linkedin.gms.factory.entity.update.indices",
       "com.linkedin.gms.factory.entityclient",
@@ -50,8 +53,10 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.incident",
       "com.linkedin.gms.factory.timeline.eventgenerator",
       "io.datahubproject.metadata.jobs.common.health.kafka",
+      "io.datahubproject.metadata.jobs.common.health.pgqueue",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.auth",
+      "com.linkedin.gms.factory.ratelimit",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.secret",
       "com.linkedin.gms.factory.timeseries",
@@ -72,6 +77,8 @@ import org.springframework.core.env.Environment;
 @Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yaml", factory = YamlPropertySourceFactory.class)
+// NOTE: the optional rate-limit override file is @PropertySource'd on RateLimitEngineFactory, not
+// here, so it loads wherever the engine is built (not only the war).
 public class CommonApplicationConfig {
 
   @Autowired private Environment environment;

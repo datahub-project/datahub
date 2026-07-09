@@ -632,7 +632,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
             eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
         .thenReturn(mockGlobalSettingsInfo);
 
-    when(mockSecretService.decrypt(any())).thenReturn("decrypted-secret");
+    when(mockSecretService.decrypt(any(), any())).thenReturn("decrypted-secret");
 
     // Execute
     ResponseEntity<String> httpResponse = authServiceController.getSsoSettings(null).join();
@@ -680,7 +680,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
             eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
         .thenReturn(mockGlobalSettingsInfo);
 
-    when(mockSecretService.decrypt("encrypted-secret")).thenReturn("decrypted-secret");
+    when(mockSecretService.decrypt(any(), eq("encrypted-secret"))).thenReturn("decrypted-secret");
 
     // Execute
     ResponseEntity<String> httpResponse = authServiceController.getSsoSettings(null).join();

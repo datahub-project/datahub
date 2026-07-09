@@ -1,5 +1,4 @@
 import contextlib
-import functools
 import json
 import logging
 import os
@@ -17,13 +16,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
-from datahub.ingestion.api.incremental_properties_helper import (
-    auto_incremental_properties,
-)
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
     TestableSource,
@@ -47,6 +41,9 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
+)
+from datahub.ingestion.source.snowflake.snowflake_marketplace import (
+    SnowflakeMarketplaceHandler,
 )
 from datahub.ingestion.source.snowflake.snowflake_pipes import (
     SnowflakePipesExtractor,
@@ -89,9 +86,6 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
     RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -151,11 +145,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(
     SourceCapability.TAGS,
     "Optionally enabled via `extract_tags`",
-    supported=True,
-)
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
@@ -249,18 +238,21 @@ class SnowflakeV2Source(
                 )
             )
 
+        # Constructed up front so consumers other than ``usage_extractor``
+        # (e.g. the marketplace handler) can also use the stateful window.
+        self.redundant_usage_run_skip_handler: Optional[
+            RedundantUsageRunSkipHandler
+        ] = None
+        if self.config.enable_stateful_usage_ingestion:
+            self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = (
-                None
-            )
-            if self.config.enable_stateful_usage_ingestion:
-                redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
-                    source=self,
-                    config=self.config,
-                    pipeline_name=self.ctx.pipeline_name,
-                    run_id=self.ctx.run_id,
-                )
             self.usage_extractor = self._exit_stack.enter_context(
                 SnowflakeUsageExtractor(
                     config,
@@ -268,7 +260,7 @@ class SnowflakeV2Source(
                     connection=self.connection,
                     filter=self.filters,
                     identifiers=self.identifiers,
-                    redundant_run_skip_handler=redundant_usage_run_skip_handler,
+                    redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
                 )
             )
 
@@ -417,9 +409,6 @@ class SnowflakeV2Source(
                     _report[SourceCapability.DATA_PROFILING] = CapabilityReport(
                         capable=True
                     )
-                    _report[SourceCapability.CLASSIFICATION] = CapabilityReport(
-                        capable=True
-                    )
 
                     if privilege.object_name.startswith("SNOWFLAKE.ACCOUNT_USAGE."):
                         # if access to "snowflake" shared database, access to all account_usage views is automatically granted
@@ -460,7 +449,6 @@ class SnowflakeV2Source(
             SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.DESCRIPTIONS: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.DATA_PROFILING: "Either no tables exist or current role does not have permissions to access them",
-            SourceCapability.CLASSIFICATION: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.CONTAINERS: "Current role does not have permissions to use any database",
             SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.LINEAGE_FINE: "Current role does not have permissions to snowflake account usage views",
@@ -475,7 +463,6 @@ class SnowflakeV2Source(
                 SourceCapability.SCHEMA_METADATA,
                 SourceCapability.DESCRIPTIONS,
                 SourceCapability.DATA_PROFILING,
-                SourceCapability.CLASSIFICATION,
                 SourceCapability.LINEAGE_COARSE,
                 SourceCapability.LINEAGE_FINE,
                 SourceCapability.USAGE_STATS,
@@ -531,20 +518,6 @@ class SnowflakeV2Source(
             name, SnowflakeObjectDomain.TABLE
         )
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            functools.partial(
-                auto_incremental_properties, self.config.incremental_properties
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
 
@@ -581,7 +554,19 @@ class SnowflakeV2Source(
                 self.config, self.report
             ).get_shares_workunits(databases)
 
-        # Stages, Tasks, and Pipes extraction
+        if self.config.marketplace.enabled:
+            with self.report.new_stage("*: MARKETPLACE_EXTRACTION"):
+                marketplace_handler = SnowflakeMarketplaceHandler(
+                    config=self.config,
+                    report=self.report,
+                    connection=self.connection,
+                    identifiers=self.identifiers,
+                    snowsight_url_builder=snowsight_url_builder,
+                    redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
+                    domain_registry=self.domain_registry,
+                )
+                yield from marketplace_handler.get_marketplace_workunits()
+
         yield from self._get_stages_tasks_pipes_workunits(databases)
 
         discovered_tables: List[str] = [
@@ -881,6 +866,7 @@ class SnowflakeV2Source(
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
                 snowflake_domain=self.config.snowflake_domain,
+                base_url_override=self.config.snowsight_base_url,
             )
 
         except Exception as e:

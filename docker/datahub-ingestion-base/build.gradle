@@ -31,8 +31,6 @@ docker {
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     dockerBuildArgs.GITHUB_REPO_URL = gradle.ext['datahub.dependencies.github.baseURL']
-    if (project.hasProperty('pipMirrorUrl')) {
-        dockerBuildArgs.PIP_MIRROR_URL = project.getProperty('pipMirrorUrl')
-    }
+    dockerBuildArgs.PIP_MIRROR_URL = gradle.ext['datahub.dependencies.python.pipMirrorUrl']
     buildArgs(dockerBuildArgs)
 }

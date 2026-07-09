@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -10,6 +11,8 @@ import com.linkedin.common.BrowsePathEntry;
 import com.linkedin.common.BrowsePathEntryArray;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.FabricType;
+import com.linkedin.common.urn.DataPlatformInstanceUrn;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.container.Container;
@@ -209,6 +212,80 @@ public class BrowsePathV2UtilsTest {
     expectedPath = new BrowsePathEntryArray();
     entry1 = new BrowsePathEntry().setId(dataFlowUrn.toString()).setUrn(dataFlowUrn);
     expectedPath.add(entry1);
+    Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
+  }
+
+  /**
+   * When a Snowflake DataPlatformInstance entity already exists, the default BrowsePathsV2 should
+   * use the URN-form entry for the platform instance segment (matching Python ingestion output).
+   */
+  @Test
+  public void testGetDefaultDatasetBrowsePathV2WithPlatformInstance() throws URISyntaxException {
+    String snowflakeDatasetUrn =
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,myinstance.DB.SCHEMA.TABLE,PROD)";
+    Urn datasetUrn = UrnUtils.getUrn(snowflakeDatasetUrn);
+    EntityService mockService = mock(EntityService.class);
+
+    DataPlatformInstanceUrn platformInstanceUrn =
+        new DataPlatformInstanceUrn(new DataPlatformUrn("snowflake"), "myinstance");
+    when(mockService.exists(any(OperationContext.class), eq(platformInstanceUrn), anyBoolean()))
+        .thenReturn(true);
+
+    BrowsePathsV2 browsePathsV2 =
+        BrowsePathV2Utils.getDefaultBrowsePathV2(
+            mock(OperationContext.class), datasetUrn, this.registry, '.', mockService, false);
+
+    BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
+    // First entry: URN-form platform instance (corrected by tryResolvePlatformInstanceEntry)
+    expectedPath.add(
+        new BrowsePathEntry().setId(platformInstanceUrn.toString()).setUrn(platformInstanceUrn));
+    // Remaining entries: plain-name database and schema segments
+    expectedPath.add(new BrowsePathEntry().setId("DB"));
+    expectedPath.add(new BrowsePathEntry().setId("SCHEMA"));
+    Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
+  }
+
+  /**
+   * When the DataPlatformInstance entity does NOT exist yet (e.g. lineage runs before schema
+   * ingestion), the plain-name fallback behavior is preserved unchanged.
+   */
+  @Test
+  public void testGetDefaultDatasetBrowsePathV2WithoutPlatformInstance() throws URISyntaxException {
+    String snowflakeDatasetUrn =
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,myinstance.DB.SCHEMA.TABLE,PROD)";
+    Urn datasetUrn = UrnUtils.getUrn(snowflakeDatasetUrn);
+    // No stubbing → exists() returns empty Set → tryResolvePlatformInstanceEntry is a no-op
+    EntityService mockService = mock(EntityService.class);
+
+    BrowsePathsV2 browsePathsV2 =
+        BrowsePathV2Utils.getDefaultBrowsePathV2(
+            mock(OperationContext.class), datasetUrn, this.registry, '.', mockService, false);
+
+    BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
+    expectedPath.add(new BrowsePathEntry().setId("myinstance"));
+    expectedPath.add(new BrowsePathEntry().setId("DB"));
+    expectedPath.add(new BrowsePathEntry().setId("SCHEMA"));
+    Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
+  }
+
+  /**
+   * BigQuery datasets without a platform instance: exists() returns false, entries are unchanged.
+   */
+  @Test
+  public void testGetDefaultDatasetBrowsePathV2BigQueryNoPlatformInstance()
+      throws URISyntaxException {
+    // DATASET_URN = urn:li:dataset:(urn:li:dataPlatform:bigquery,test.a.b,DEV)
+    Urn datasetUrn = UrnUtils.getUrn(DATASET_URN);
+    // No stubbing → exists() returns empty Set → no change
+    EntityService mockService = mock(EntityService.class);
+
+    BrowsePathsV2 browsePathsV2 =
+        BrowsePathV2Utils.getDefaultBrowsePathV2(
+            mock(OperationContext.class), datasetUrn, this.registry, '.', mockService, false);
+
+    BrowsePathEntryArray expectedPath = new BrowsePathEntryArray();
+    expectedPath.add(new BrowsePathEntry().setId("test"));
+    expectedPath.add(new BrowsePathEntry().setId("a"));
     Assert.assertEquals(browsePathsV2.getPath(), expectedPath);
   }
 

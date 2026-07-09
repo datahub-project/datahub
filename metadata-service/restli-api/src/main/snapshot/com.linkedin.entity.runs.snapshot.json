@@ -590,8 +590,9 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SIT", "SBX", "SANDBOX" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SIT", "SBX", "SANDBOX", "CERT" ],
     "symbolDocs" : {
+      "CERT" : "Designates certification fabrics",
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
@@ -2062,7 +2063,10 @@
       "name" : "definition",
       "type" : "string",
       "doc" : "Definition of business node",
-      "Searchable" : { }
+      "Searchable" : {
+        "fieldType" : "TEXT",
+        "searchTier" : 2
+      }
     }, {
       "name" : "parentNode",
       "type" : "com.linkedin.common.GlossaryNodeUrn",
@@ -2134,7 +2138,10 @@
       "name" : "definition",
       "type" : "string",
       "doc" : "Definition of business term.",
-      "Searchable" : { }
+      "Searchable" : {
+        "fieldType" : "TEXT",
+        "searchTier" : 2
+      }
     }, {
       "name" : "parentNode",
       "type" : "com.linkedin.common.GlossaryNodeUrn",
@@ -2492,10 +2499,20 @@
         "fieldType" : "BOOLEAN",
         "queryByDefault" : false
       }
+    }, {
+      "name" : "isSupportUser",
+      "type" : "boolean",
+      "doc" : "Whether the corpUser is a support user authenticated through the support OIDC flow.",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "BOOLEAN",
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
-      "name" : "corpUserInfo"
+      "name" : "corpUserInfo",
+      "schemaVersion" : 2
     }
   }, {
     "type" : "record",

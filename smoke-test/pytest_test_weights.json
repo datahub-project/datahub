@@ -576,7 +576,7 @@
     "duration": "19.512s"
   },
   {
-    "testId": "tests.cli.datahub_graph_test::test_graph_relationships",
+    "testId": "tests.graph.test_graph_client::test_graph_relationships",
     "duration": "19.510s"
   },
   {
@@ -716,7 +716,7 @@
     "duration": "10.260s"
   },
   {
-    "testId": "tests.cli.datahub_graph_test::test_get_aspect_v2",
+    "testId": "tests.graph.test_graph_client::test_get_aspect_v2",
     "duration": "10.257s"
   },
   {
@@ -1532,8 +1532,8 @@
     "duration": "0.076s"
   },
   {
-    "testId": "tests.metrics.test_metrics::test_datahub_request_count_metric_present",
-    "duration": "0.076s"
+    "testId": "tests.metrics.test_metrics::test_usage_aggregation_micrometer_export",
+    "duration": "12.000s"
   },
   {
     "testId": "tests.cli.search_cmd.test_search_cmd.TestSearchProjectionLive::test_minimal_projection_urn_only",
@@ -1740,7 +1740,7 @@
     "duration": "0.024s"
   },
   {
-    "testId": "tests.cli.datahub_graph_test::test_get_entities_v3",
+    "testId": "tests.graph.test_graph_client::test_get_entities_v3",
     "duration": "0.023s"
   },
   {

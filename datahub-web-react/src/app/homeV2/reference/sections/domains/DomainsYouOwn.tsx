@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
@@ -15,6 +16,7 @@ import { Domain, EntityType } from '@types';
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
 export const DomainsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
+    const { t } = useTranslation('home.v2');
     const userContext = useUserContext();
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -30,8 +32,8 @@ export const DomainsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSec
             <EntityLinkList
                 loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
-                title="Your domains"
-                tip="Domains that you are an owner of"
+                title={t('yourDomains.title')}
+                tip={t('yourDomains.tip')}
                 showMore={entities.length > entityCount}
                 showMoreCount={
                     entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW > entities.length
@@ -46,7 +48,7 @@ export const DomainsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSec
             />
             {showModal && (
                 <EmbeddedListSearchModal
-                    title="Your domains"
+                    title={t('yourDomains.title')}
                     fixedFilters={{
                         unionType: UnionType.AND,
                         filters: [
@@ -55,7 +57,7 @@ export const DomainsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSec
                         ],
                     }}
                     onClose={() => setShowModal(false)}
-                    placeholderText="Filter domains you own..."
+                    placeholderText={t('yourDomains.filterPlaceholder')}
                 />
             )}
         </ReferenceSection>

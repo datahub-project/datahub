@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 
 import botocore.exceptions
 import yaml
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
@@ -47,6 +47,7 @@ from datahub.emitter.mcp_builder import (
     add_domain_to_entity_wu,
     gen_containers,
 )
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -56,8 +57,10 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.api.report import EntityFilterReport
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
@@ -72,6 +75,10 @@ from datahub.ingestion.source.aws.s3_util import (
 from datahub.ingestion.source.aws.tag_entities import (
     LakeFormationTagPlatformResourceId,
 )
+from datahub.ingestion.source.common.presto_view_decoder import (
+    decode_presto_view,
+    is_presto_view,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -80,7 +87,6 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -114,6 +120,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    MetadataAttributionClass,
     MetadataChangeEventClass,
     OperationClass,
     OperationTypeClass,
@@ -132,6 +139,11 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
+)
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    SqlAggregatorReport,
+    SqlParsingAggregator,
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.delta import delta_type_to_hive_type
@@ -197,7 +209,10 @@ class TargetPlatformConfig(ConfigModel):
 
 
 class GlueSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    AwsSourceConfig,
+    IncrementalPropertiesConfigMixin,
 ):
     platform: str = Field(
         default=DEFAULT_PLATFORM,
@@ -255,7 +270,17 @@ class GlueSourceConfig(
 
     extract_lakeformation_tags: Optional[bool] = Field(
         default=False,
-        description="When True, extracts Lake Formation tags directly assigned to Glue tables/databases. Note: Tags inherited from databases or other parent resources are excluded.",
+        description="When True, extracts Lake Formation tags directly assigned to Glue tables/databases. Tags inherited from databases are excluded by AWS from the per-table response; enable `propagate_lakeformation_tags` to apply database tags to their tables as well.",
+    )
+
+    propagate_lakeformation_tags: bool = Field(
+        default=False,
+        description="When True (requires `extract_lakeformation_tags`), Lake Formation tags assigned to a Glue database are inherited by every table in that database, and (when `extract_lakeformation_column_tags` is also enabled) by every column as well — matching Lake Formation's own inheritance. AWS returns the database's tags alongside each table's own tags, so no extra API calls are made. A more-specific assignment overrides an inherited value for the same key (table over database, column over table/database).",
+    )
+
+    extract_lakeformation_column_tags: bool = Field(
+        default=True,
+        description="When True (requires `extract_lakeformation_tags`), Lake Formation tags assigned directly to columns are applied to the corresponding schema fields. If `propagate_lakeformation_tags` is also enabled, the table's and database's tags are inherited by every column as well (matching Lake Formation's inheritance), with a column's own tag taking precedence for the same key.",
     )
 
     profiling: GlueProfilingConfig = Field(
@@ -275,6 +300,16 @@ class GlueSourceConfig(
     include_column_lineage: bool = Field(
         default=True,
         description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
+    )
+
+    include_view_lineage: bool = Field(
+        default=True,
+        description=(
+            "When enabled, the SQL definition of each Glue view (TableType "
+            "VIRTUAL_VIEW, e.g. Athena/Presto views) is parsed to extract upstream "
+            "table/view lineage, including column-level lineage. Referenced tables "
+            "must also be ingested for the lineage to resolve to DataHub entities."
+        ),
     )
 
     extract_column_parameters: bool = Field(
@@ -333,13 +368,27 @@ class GlueSourceConfig(
                 f"'platform' can only take following values: {VALID_PLATFORMS}"
             )
 
+    @model_validator(mode="after")
+    def warn_lakeformation_subflags_without_parent(self) -> "GlueSourceConfig":
+        if self.propagate_lakeformation_tags and not self.extract_lakeformation_tags:
+            logger.warning(
+                "propagate_lakeformation_tags has no effect "
+                "unless extract_lakeformation_tags is enabled."
+            )
+        return self
+
 
 @dataclass
 class GlueSourceReport(StaleEntityRemovalSourceReport):
     catalog_id: Optional[str] = None
     tables_scanned = 0
+    views_scanned = 0
     filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
     databases: EntityFilterReport = EntityFilterReport.field(type="database")
+
+    # Surfaces SQL-parsing metrics/warnings (e.g. view definitions that failed to
+    # parse) when view lineage is enabled; None otherwise.
+    sql_aggregator: Optional[SqlAggregatorReport] = None
 
     num_job_script_location_missing: int = 0
     num_job_script_location_invalid: int = 0
@@ -353,8 +402,52 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
 
+    def report_view_scanned(self) -> None:
+        self.views_scanned += 1
+
     def report_table_dropped(self, table: str) -> None:
         self.filtered.append(table)
+
+
+@dataclass
+class TableLakeFormationTags:
+    """Lake Formation tags returned for a Glue table in a single GetResourceLFTags call.
+
+    AWS returns all three layers in one response (with ``ShowAssignedLFTags=True``):
+    the database's tags, the table's directly-assigned tags, and each column's
+    directly-assigned tags. This lets us propagate database tags to tables and
+    apply column tags without any extra API calls.
+    """
+
+    database_tags: List[LakeFormationTag]
+    table_tags: List[LakeFormationTag]
+    column_tags: Dict[str, List[LakeFormationTag]]
+
+
+@dataclass
+class ResolvedLakeFormationTags:
+    """LF tags resolved for an entity, split by provenance.
+
+    ``direct`` tags are assigned directly to the entity; ``propagated`` tags are
+    inherited from a parent (database for tables, table/database for columns) and
+    are marked with propagation attribution when emitted.
+    """
+
+    direct: List[LakeFormationTag]
+    propagated: List[LakeFormationTag]
+
+
+@dataclass
+class GlueViewDefinition:
+    """SQL definition of a Glue view and the SQL dialect it is written in.
+
+    Glue catalogs hold views from two engines: Athena/Presto views (base64-encoded
+    Trino SQL) and raw Spark/Hive views (Spark SQL). Lineage parsing must use the
+    matching dialect, so we carry it alongside the SQL.
+    """
+
+    sql: str
+    dialect: str
 
 
 @platform_name("Glue")
@@ -397,6 +490,17 @@ class GlueSource(StatefulIngestionSourceBase):
 
     lf_tag_cache: Dict[str, Dict[str, List[str]]] = {}
 
+    # Glue marks views (Athena/Presto or Spark/Hive views registered in the
+    # catalog) with this TableType. Everything else is a table.
+    _VIRTUAL_VIEW_TABLE_TYPE = "VIRTUAL_VIEW"
+
+    # sqlglot dialects for the two kinds of Glue view SQL. Presto/Athena views are
+    # Trino SQL; raw views are authored by Spark (Glue ETL/EMR) or Hive. sqlglot's
+    # "spark" dialect extends "hive", so it parses both Spark and Hive SQL — the
+    # safer default for raw views than "hive" alone.
+    _PRESTO_VIEW_DIALECT = "trino"
+    _RAW_VIEW_DIALECT = "spark"
+
     def __init__(self, config: GlueSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.ctx = ctx
@@ -425,14 +529,33 @@ class GlueSource(StatefulIngestionSourceBase):
                 catalog=self.source_config.catalog_id,
             )
 
+        # Parses VIRTUAL_VIEW SQL definitions into view->upstream lineage. View
+        # parsing is deferred to gen_metadata(), by which point every table and
+        # view schema has been registered.
+        self.aggregator: Optional[SqlParsingAggregator] = None
+        if self.source_config.include_view_lineage:
+            self.aggregator = SqlParsingAggregator(
+                platform=self.platform,
+                platform_instance=self.source_config.platform_instance,
+                env=self.env,
+                graph=self.ctx.graph,
+                eager_graph_load=False,
+            )
+            # Surface the aggregator's parse metrics/warnings in the source report.
+            self.report.sql_aggregator = self.aggregator.report
+
+    def close(self) -> None:
+        if self.aggregator:
+            self.aggregator.close()
+        super().close()
+
     def get_database_lf_tags(
         self,
         catalog_id: str,
         database_name: str,
     ) -> List[LakeFormationTag]:
-        """Get all LF tags for a specific table."""
+        """Get the Lake Formation tags directly assigned to a database."""
         try:
-            # Get LF tags for the specified table
             response = self.lf_client.get_resource_lf_tags(
                 CatalogId=catalog_id,
                 Resource={
@@ -443,40 +566,48 @@ class GlueSource(StatefulIngestionSourceBase):
                 },
                 ShowAssignedLFTags=True,
             )
-
-            if response:
-                logger.info(f"LF tags for database {database_name}: {response}")
-            # Extract and return the LF tags
-            lf_tags = response.get("LFTagOnDatabase", [])
-
-            tags = []
-            for lf_tag in lf_tags:
-                catalog_id = lf_tag.get("CatalogId")
-                tag_key = lf_tag.get("TagKey")
-                for tag_value in lf_tag.get("TagValues", []):
-                    t = LakeFormationTag(
-                        key=tag_key,
-                        value=tag_value,
-                        catalog=catalog_id,
-                    )
-                    tags.append(t)
-            return tags
-
+            return self._parse_lf_tag_dicts(response.get("LFTagOnDatabase", []))
         except Exception as e:
-            print(
-                f"Error getting LF tags for table {catalog_id}.{database_name}: {str(e)}"
+            self.report.warning(
+                title="Failed to extract Lake Formation tags for database",
+                message="Lake Formation tags will be missing for this database "
+                "(and its tables if propagation is enabled). Check that the "
+                "ingestion role has lakeformation:GetResourceLFTags.",
+                context=f"{catalog_id}.{database_name}",
+                exc=e,
             )
             return []
+
+    @staticmethod
+    def _parse_lf_tag_dicts(lf_tags: List[Dict]) -> List[LakeFormationTag]:
+        """Convert AWS LF-tag dicts ({CatalogId, TagKey, TagValues}) to LakeFormationTag."""
+        tags = []
+        for lf_tag in lf_tags:
+            tag_key = lf_tag.get("TagKey")
+            if not tag_key:
+                # Malformed response entry; nothing meaningful to emit.
+                continue
+            catalog_id = lf_tag.get("CatalogId")
+            for tag_value in lf_tag.get("TagValues", []):
+                tags.append(
+                    LakeFormationTag(key=tag_key, value=tag_value, catalog=catalog_id)
+                )
+        return tags
 
     def get_table_lf_tags(
         self,
         catalog_id: str,
         database_name: str,
         table_name: str,
-    ) -> List[LakeFormationTag]:
-        """Get all LF tags for a specific table."""
+    ) -> TableLakeFormationTags:
+        """Get the LF tags for a table, its database, and its columns in one call.
+
+        A single GetResourceLFTags call on the Table resource returns the
+        database's tags (``LFTagOnDatabase``), the table's directly-assigned tags
+        (``LFTagsOnTable``), and each column's directly-assigned tags
+        (``LFTagsOnColumns``) — so no per-column or per-database calls are needed.
+        """
         try:
-            # Get LF tags for the specified table
             response = self.lf_client.get_resource_lf_tags(
                 CatalogId=catalog_id,
                 Resource={
@@ -488,25 +619,50 @@ class GlueSource(StatefulIngestionSourceBase):
                 },
                 ShowAssignedLFTags=True,
             )
+            column_tags: Dict[str, List[LakeFormationTag]] = {}
+            for column in response.get("LFTagsOnColumns", []):
+                parsed = self._parse_lf_tag_dicts(column.get("LFTags", []))
+                if parsed:
+                    column_tags[column["Name"]] = parsed
+            return TableLakeFormationTags(
+                database_tags=self._parse_lf_tag_dicts(
+                    response.get("LFTagOnDatabase", [])
+                ),
+                table_tags=self._parse_lf_tag_dicts(response.get("LFTagsOnTable", [])),
+                column_tags=column_tags,
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to extract Lake Formation tags for table",
+                message="Lake Formation tags will be missing for this table. "
+                "Check that the ingestion role has lakeformation:GetResourceLFTags.",
+                context=f"{catalog_id}.{database_name}.{table_name}",
+                exc=e,
+            )
+            return TableLakeFormationTags(
+                database_tags=[], table_tags=[], column_tags={}
+            )
 
-            # Extract and return the LF tags
-            lf_tags = response.get("LFTagsOnTable", [])
+    def _resolve_table_lf_tags(
+        self, lf: TableLakeFormationTags
+    ) -> ResolvedLakeFormationTags:
+        """Resolve the LF tags to apply to a table, split into direct and propagated.
 
-            tags = []
-            for lf_tag in lf_tags:
-                catalog_id = lf_tag.get("CatalogId")
-                tag_key = lf_tag.get("TagKey")
-                for tag_value in lf_tag.get("TagValues", []):
-                    t = LakeFormationTag(
-                        key=tag_key,
-                        value=tag_value,
-                        catalog=catalog_id,
-                    )
-                    tags.append(t)
-            return tags
-
-        except Exception:
-            return []
+        The table's own tags are direct. When
+        `propagate_lakeformation_tags` is enabled, database
+        tags are inherited (propagated) for keys the table does not already
+        assign — a value assigned directly to the table overrides the inherited
+        database value, matching Lake Formation's inheritance/override semantics.
+        """
+        direct = list(lf.table_tags)
+        propagated: List[LakeFormationTag] = []
+        if self.source_config.propagate_lakeformation_tags:
+            table_keys = {str(tag.key) for tag in direct}
+            for db_tag in lf.database_tags:
+                if str(db_tag.key) not in table_keys:
+                    propagated.append(db_tag)
+                    table_keys.add(str(db_tag.key))
+        return ResolvedLakeFormationTags(direct=direct, propagated=propagated)
 
     def get_all_lf_tags(self) -> List:
         # 1. Get all LF-Tags in your account (metadata only)
@@ -1622,14 +1778,6 @@ class GlueSource(StatefulIngestionSourceBase):
                 domain_urn=domain_urn,
             )
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         databases, tables = self.get_all_databases_and_tables()
 
@@ -1648,6 +1796,21 @@ class GlueSource(StatefulIngestionSourceBase):
                 )
         if self.extract_transforms:
             yield from self._transform_extraction()
+
+        # Flush view lineage parsed from VIRTUAL_VIEW definitions. Deferred to here
+        # so all table/view schemas are registered before the SQL is parsed.
+        # This is the single funnel for view lineage, so a failure here must be
+        # reported rather than aborting the run after tables/views were emitted.
+        if self.aggregator:
+            try:
+                for mcp in self.aggregator.gen_metadata():
+                    yield mcp.as_workunit()
+            except Exception as e:
+                self.report.report_failure(
+                    message="Failed to generate view lineage from SQL parsing",
+                    context="SqlParsingAggregator.gen_metadata",
+                    exc=e,
+                )
 
     def _gen_table_wu(self, table: Dict) -> Iterable[MetadataWorkUnit]:
         database_name = table["DatabaseName"]
@@ -1668,13 +1831,42 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
         yield from self._extract_record(dataset_urn, table, full_table_name)
-        # generate a Dataset snapshot
-        # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
-        # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
+
+        is_view = table.get("TableType") == self._VIRTUAL_VIEW_TABLE_TYPE
+
+        # We assign the "Table"/"View" subType to the dataset representing the glue
+        # table - unfortunately it is not possible via the Dataset snapshot embedded
+        # in an mce, so we have to generate a separate mcp.
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=SubTypes(typeNames=[DatasetSubTypes.TABLE]),
+            aspect=SubTypes(
+                typeNames=[DatasetSubTypes.VIEW if is_view else DatasetSubTypes.TABLE]
+            ),
         ).as_workunit()
+
+        if is_view:
+            self.report.report_view_scanned()
+            view_definition = self._get_view_definition(table, full_table_name)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=ViewPropertiesClass(
+                    materialized=False,
+                    viewLanguage="SQL",
+                    viewLogic=view_definition.sql if view_definition else "",
+                ),
+            ).as_workunit()
+            if view_definition and self.aggregator:
+                # Glue is a two-level namespace (database.table); the view's Glue
+                # database is the default schema for resolving unqualified tables.
+                # Parse with the view's own dialect (Trino for Athena/Presto views,
+                # Spark for raw Spark/Hive views) rather than the platform default.
+                self.aggregator.add_view_definition(
+                    view_urn=dataset_urn,
+                    view_definition=view_definition.sql,
+                    default_db=None,
+                    default_schema=database_name,
+                    override_dialect=view_definition.dialect,
+                )
 
         yield from self._get_domain_wu(
             dataset_name=full_table_name,
@@ -1683,6 +1875,48 @@ class GlueSource(StatefulIngestionSourceBase):
         yield from self.add_table_to_database_container(
             dataset_urn=dataset_urn, db_name=database_name
         )
+
+    def _get_view_definition(
+        self, table: Dict, full_table_name: str
+    ) -> Optional[GlueViewDefinition]:
+        """Extract the SQL definition (and dialect) of a Glue VIRTUAL_VIEW table.
+
+        Decodes the Presto/Athena base64 encoding when present (Trino dialect),
+        otherwise returns the raw text as a Spark view, falling back to
+        ViewExpandedText. Returns ``None`` (and reports a warning) when no usable
+        SQL can be extracted, so the caller never persists an unusable encoded blob
+        as the view definition.
+        """
+        view_text = table.get("ViewOriginalText") or table.get("ViewExpandedText")
+        if not isinstance(view_text, str) or not view_text:
+            self.report.report_warning(
+                message="View has no SQL definition",
+                context=f"table={full_table_name}",
+            )
+            return None
+
+        if is_presto_view(view_text):
+            # A failed decode leaves only the encoded marker, which is not usable
+            # SQL, so we return None rather than store the raw blob as viewLogic.
+            try:
+                original_sql = decode_presto_view(view_text).get("originalSql")
+            except Exception as e:
+                self.report.report_warning(
+                    message="Failed to decode Presto view definition",
+                    context=f"table={full_table_name}: {e}",
+                )
+                return None
+            if isinstance(original_sql, str) and original_sql:
+                return GlueViewDefinition(
+                    sql=original_sql, dialect=self._PRESTO_VIEW_DIALECT
+                )
+            self.report.report_warning(
+                message="Presto view definition missing 'originalSql'",
+                context=f"table={full_table_name}",
+            )
+            return None
+
+        return GlueViewDefinition(sql=view_text, dialect=self._RAW_VIEW_DIALECT)
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         for job in self.get_all_jobs():
@@ -1766,10 +2000,49 @@ class GlueSource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
-        # Add schema metadata if available
-        schema_metadata = self._get_schema_metadata(table, table_name, dataset_urn)
+        # Fetch Lake Formation tags once: a single call returns the database's
+        # tags, the table's tags, and the columns' tags (see get_table_lf_tags).
+        table_lf_tags: Optional[TableLakeFormationTags] = None
+        resolved_table_tags = ResolvedLakeFormationTags(direct=[], propagated=[])
+        if self.source_config.extract_lakeformation_tags:
+            table_lf_tags = self.get_table_lf_tags(
+                catalog_id=table["CatalogId"],
+                database_name=table["DatabaseName"],
+                table_name=table["Name"],
+            )
+            resolved_table_tags = self._resolve_table_lf_tags(table_lf_tags)
+
+        # Add schema metadata if available. When propagation is enabled, the
+        # table's effective tags (its own + inherited database tags) are
+        # inherited by every column (matching Lake Formation's inheritance),
+        # marked as propagated, with a column's direct tags taking precedence
+        # for the same key.
+        column_lf_tags = (
+            table_lf_tags.column_tags
+            if table_lf_tags and self.source_config.extract_lakeformation_column_tags
+            else None
+        )
+        column_parent_tags = (
+            [*resolved_table_tags.direct, *resolved_table_tags.propagated]
+            if table_lf_tags
+            and self.source_config.extract_lakeformation_column_tags
+            and self.source_config.propagate_lakeformation_tags
+            else None
+        )
+        schema_metadata = self._get_schema_metadata(
+            table,
+            table_name,
+            dataset_urn,
+            column_lf_tags,
+            column_parent_tags,
+            dataset_urn,
+        )
         if schema_metadata:
             dataset_snapshot.aspects.append(schema_metadata)
+            # Register every table/view schema so the aggregator can resolve
+            # column-level lineage when it parses view definitions.
+            if self.aggregator:
+                self.aggregator.register_schema(dataset_urn, schema_metadata)
 
         # Add platform instance
         dataset_snapshot.aspects.append(self._get_data_platform_instance())
@@ -1786,19 +2059,29 @@ class GlueSource(StatefulIngestionSourceBase):
             dataset_snapshot.aspects.append(s3_tags)
 
         # Add Lake Formation tags if enabled
-        if self.source_config.extract_lakeformation_tags:
-            tags = self.get_table_lf_tags(
-                catalog_id=table["CatalogId"],
-                database_name=table["DatabaseName"],
-                table_name=table["Name"],
+        if table_lf_tags is not None:
+            # Tags inherited from the database are marked as propagated, with the
+            # database container as their origin.
+            db_container_urn = self.gen_database_key(table["DatabaseName"]).as_urn()
+            global_tags = self._build_lf_global_tags(
+                resolved_table_tags.direct,
+                resolved_table_tags.propagated,
+                propagated_origin=db_container_urn,
             )
-
-            global_tags = self._get_lake_formation_tags(tags)
             if global_tags:
                 dataset_snapshot.aspects.append(global_tags)
-                # Generate platform resources for LF tags
-                for tag in tags:
+                # Generate platform resources for table-level LF tags
+                for tag in [
+                    *resolved_table_tags.direct,
+                    *resolved_table_tags.propagated,
+                ]:
                     yield from self.gen_platform_resource(tag)
+            # Generate platform resources for column-level LF tags
+            if column_lf_tags:
+                for column_tag in {
+                    tag for tags in column_lf_tags.values() for tag in tags
+                }:
+                    yield from self.gen_platform_resource(column_tag)
 
         # Create and yield the main metadata work unit
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -1868,7 +2151,13 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def _get_schema_metadata(
-        self, table: Dict, table_name: str, dataset_urn: str
+        self,
+        table: Dict,
+        table_name: str,
+        dataset_urn: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]] = None,
+        column_parent_tags: Optional[List[LakeFormationTag]] = None,
+        column_parent_origin: Optional[str] = None,
     ) -> Optional[SchemaMetadata]:
         """Extract schema metadata from Glue table."""
         if not table.get("StorageDescriptor"):
@@ -1876,9 +2165,57 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # Check if this is a delta table with schema in parameters
         if self._is_delta_schema(table):
-            return self._get_delta_schema_metadata(table, table_name, dataset_urn)
+            return self._get_delta_schema_metadata(
+                table,
+                table_name,
+                dataset_urn,
+                column_tags,
+                column_parent_tags,
+                column_parent_origin,
+            )
         else:
-            return self._get_glue_schema_metadata(table, table_name)
+            return self._get_glue_schema_metadata(
+                table,
+                table_name,
+                column_tags,
+                column_parent_tags,
+                column_parent_origin,
+            )
+
+    def _apply_column_lf_tags(
+        self,
+        schema_fields: List[SchemaField],
+        column_name: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]],
+        parent_tags: Optional[List[LakeFormationTag]] = None,
+        parent_origin: Optional[str] = None,
+    ) -> None:
+        """Attach a column's LF tags to its root schema field (in place).
+
+        ``get_schema_fields_for_hive_column`` returns the column's own field
+        first, followed by any nested struct/array children, so the tag is
+        applied to ``schema_fields[0]``.
+
+        ``parent_tags`` are the table/database tags inherited by every column
+        when database-tag propagation is enabled (matching Lake Formation's
+        inheritance); they are marked as propagated. A tag the column assigns
+        directly overrides an inherited value for the same key.
+        """
+        if not schema_fields:
+            return
+        direct = list((column_tags or {}).get(column_name, []))
+        propagated: List[LakeFormationTag] = []
+        if parent_tags:
+            column_keys = {str(tag.key) for tag in direct}
+            for parent_tag in parent_tags:
+                if str(parent_tag.key) not in column_keys:
+                    propagated.append(parent_tag)
+                    column_keys.add(str(parent_tag.key))
+        global_tags = self._build_lf_global_tags(
+            direct, propagated, propagated_origin=parent_origin
+        )
+        if global_tags:
+            schema_fields[0].globalTags = global_tags
 
     def _is_delta_schema(self, table: Dict) -> bool:
         """Check if table uses delta format with schema in parameters."""
@@ -1901,7 +2238,12 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def _get_glue_schema_metadata(
-        self, table: Dict, table_name: str
+        self,
+        table: Dict,
+        table_name: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]] = None,
+        column_parent_tags: Optional[List[LakeFormationTag]] = None,
+        column_parent_origin: Optional[str] = None,
     ) -> Optional[SchemaMetadata]:
         """Extract schema metadata from Glue table columns."""
         schema = table["StorageDescriptor"]["Columns"]
@@ -1916,6 +2258,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 default_nullable=True,
             )
             if schema_fields:
+                self._apply_column_lf_tags(
+                    schema_fields,
+                    field["Name"],
+                    column_tags,
+                    column_parent_tags,
+                    column_parent_origin,
+                )
                 fields.extend(schema_fields)
 
         # Process partition keys
@@ -1928,6 +2277,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 default_nullable=False,
             )
             if schema_fields:
+                self._apply_column_lf_tags(
+                    schema_fields,
+                    partition_key["Name"],
+                    column_tags,
+                    column_parent_tags,
+                    column_parent_origin,
+                )
                 fields.extend(schema_fields)
 
         return SchemaMetadata(
@@ -1940,7 +2296,13 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def _get_delta_schema_metadata(
-        self, table: Dict, table_name: str, dataset_urn: str
+        self,
+        table: Dict,
+        table_name: str,
+        dataset_urn: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]] = None,
+        column_parent_tags: Optional[List[LakeFormationTag]] = None,
+        column_parent_origin: Optional[str] = None,
     ) -> Optional[SchemaMetadata]:
         """Extract schema metadata from Delta table parameters."""
         try:
@@ -1962,6 +2324,13 @@ class GlueSource(StatefulIngestionSourceBase):
                     default_nullable=bool(field.get("nullable", True)),
                 )
                 if schema_fields:
+                    self._apply_column_lf_tags(
+                        schema_fields,
+                        field["name"],
+                        column_tags,
+                        column_parent_tags,
+                        column_parent_origin,
+                    )
                     fields.extend(schema_fields)
 
             self.report.num_dataset_valid_delta_schema += 1
@@ -2027,8 +2396,16 @@ class GlueSource(StatefulIngestionSourceBase):
                 params = column.get("Parameters")
                 if not params:
                     continue
+                schema_fields = get_schema_fields_for_hive_column(
+                    hive_column_name=column["Name"],
+                    hive_column_type=column.get("Type", "string"),
+                    description=column.get("Comment"),
+                    default_nullable=True,
+                )
+                if not schema_fields:
+                    continue
                 field_urn = mce_builder.make_schema_field_urn(
-                    dataset_urn, column["Name"]
+                    dataset_urn, schema_fields[0].fieldPath
                 )
                 assignments = []
                 for key, value in params.items():
@@ -2037,7 +2414,7 @@ class GlueSource(StatefulIngestionSourceBase):
                         "urn:li:structuredProperty:"
                     )
                     if property_urn not in self._seen_column_param_urns:
-                        yield MetadataChangeProposalWrapper(
+                        definition_mcp = MetadataChangeProposalWrapper(
                             entityUrn=property_urn,
                             aspect=StructuredPropertyDefinitionClass(
                                 qualifiedName=qualified_name,
@@ -2045,9 +2422,17 @@ class GlueSource(StatefulIngestionSourceBase):
                                 valueType="urn:li:dataType:datahub.string",
                                 entityTypes=["urn:li:entityType:datahub.schemaField"],
                             ),
-                        ).as_workunit()
-                        # Only cache after successful yield so a dropped MCP
-                        # (network blip, GMS rejection) doesn't prevent retry.
+                        )
+                        if self.ctx.graph is not None:
+                            # Emit synchronously so GMS persists the definition
+                            # before the structuredProperties MCP below is
+                            # validated — GMS rejects assignments that reference
+                            # a definition not yet in the database.
+                            self.ctx.graph.emit_mcp(
+                                definition_mcp, emit_mode=EmitMode.SYNC_PRIMARY
+                            )
+                        else:
+                            yield definition_mcp.as_workunit()
                         self._seen_column_param_urns.add(property_urn)
                     assignments.append(
                         StructuredPropertyValueAssignmentClass(
@@ -2132,26 +2517,66 @@ class GlueSource(StatefulIngestionSourceBase):
         unique_tags = sorted(set(tags_to_add))
         return GlobalTagsClass(tags=[TagAssociationClass(tag) for tag in unique_tags])
 
-    def _get_lake_formation_tags(
-        self, tags: List[LakeFormationTag]
-    ) -> Optional[GlobalTagsClass]:
-        """Extract Lake Formation tags if enabled."""
-        tag_urns: List[str] = []
+    @staticmethod
+    def _to_tag_urns(tags: List[LakeFormationTag]) -> List[str]:
+        urns: List[str] = []
         for tag in tags:
             try:
-                tag_urns.append(tag.to_datahub_tag_urn().urn())
+                urns.append(tag.to_datahub_tag_urn().urn())
             except InvalidUrnError as e:
                 logger.warning(
                     f"Invalid Lake Formation tag URN for {tag}: {e}", exc_info=True
                 )
                 continue  # Skip invalid tags
+        return urns
 
-        tag_urns.sort()  # Sort to maintain consistent order
-        return (
-            GlobalTagsClass(tags=[TagAssociationClass(tag_urn) for tag_urn in tag_urns])
-            if tag_urns
-            else None
+    def _propagated_tag_attribution(
+        self, origin: Optional[str]
+    ) -> Tuple[MetadataAttributionClass, str]:
+        """Build the attribution + legacy context marking a tag as propagated.
+
+        Mirrors the DataHub tag-propagation action: ``sourceDetail.propagated``
+        drives the "Propagated" indicator in the UI, and ``context`` carries the
+        same information for older readers.
+        """
+        source_detail: Dict[str, str] = {"propagated": "true"}
+        if origin:
+            source_detail["origin"] = origin
+        attribution = MetadataAttributionClass(
+            time=get_sys_time(),
+            actor="urn:li:corpuser:__datahub_system",
+            source=origin,
+            sourceDetail=source_detail,
         )
+        return attribution, json.dumps(source_detail)
+
+    def _build_lf_global_tags(
+        self,
+        direct_tags: List[LakeFormationTag],
+        propagated_tags: Optional[List[LakeFormationTag]] = None,
+        propagated_origin: Optional[str] = None,
+    ) -> Optional[GlobalTagsClass]:
+        """Build a GlobalTags aspect, marking propagated tags with attribution.
+
+        Direct tags take precedence: a propagated tag is skipped if the same tag
+        URN is already assigned directly.
+        """
+        associations: Dict[str, TagAssociationClass] = {}
+        for urn in self._to_tag_urns(direct_tags):
+            associations.setdefault(urn, TagAssociationClass(tag=urn))
+
+        if propagated_tags:
+            attribution, context = self._propagated_tag_attribution(propagated_origin)
+            for urn in self._to_tag_urns(propagated_tags):
+                if urn not in associations:
+                    associations[urn] = TagAssociationClass(
+                        tag=urn, context=context, attribution=attribution
+                    )
+
+        if not associations:
+            return None
+        # Sort for stable, deterministic output.
+        return GlobalTagsClass(tags=[associations[urn] for urn in sorted(associations)])
 
     def get_report(self):
         return self.report
