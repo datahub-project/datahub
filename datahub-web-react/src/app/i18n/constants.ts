@@ -5,6 +5,7 @@ import esES from 'antd/lib/locale/es_ES';
 import frFR from 'antd/lib/locale/fr_FR';
 import itIT from 'antd/lib/locale/it_IT';
 import ptBR from 'antd/lib/locale/pt_BR';
+import svSE from 'antd/lib/locale/sv_SE';
 
 import { LocaleConfig, SupportedLanguage } from '@app/i18n/types';
 
@@ -50,6 +51,13 @@ export const IT_LOCALE_CONFIG: LocaleConfig = {
     label: 'Italiano (Beta)',
 };
 
+export const SV_LOCALE_CONFIG: LocaleConfig = {
+    lang: 'sv',
+    antd: svSE,
+    dayjs: 'sv',
+    label: 'Svenska (Beta)',
+};
+
 export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     en: EN_LOCALE_CONFIG,
     de: DE_LOCALE_CONFIG,
@@ -57,6 +65,7 @@ export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     'pt-BR': PT_BR_LOCALE_CONFIG,
     fr: FR_LOCALE_CONFIG,
     it: IT_LOCALE_CONFIG,
+    sv: SV_LOCALE_CONFIG,
 };
 
 export const LANGUAGE_OPTIONS: SelectOption[] = [
@@ -66,6 +75,7 @@ export const LANGUAGE_OPTIONS: SelectOption[] = [
     PT_BR_LOCALE_CONFIG,
     FR_LOCALE_CONFIG,
     IT_LOCALE_CONFIG,
+    SV_LOCALE_CONFIG,
 ].map((localeConfig) => ({
     value: localeConfig.lang,
     label: localeConfig.label,
