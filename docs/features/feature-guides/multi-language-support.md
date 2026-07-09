@@ -28,9 +28,9 @@ Languages marked _Beta_ are still being refined and may have untranslated string
 
 ## Enabling Multi-Language Support
 
-Multi-language support is off by default. To turn it on, set the `I18N_ENABLED` environment variable
-to `true` on GMS and restart. Once enabled, each user can pick their language under
-**Settings → Preferences**.
+Multi-language support is on by default. Each user can pick their language under
+**Settings → Preferences**. To turn it off, set the `I18N_ENABLED` environment variable
+to `false` on GMS and restart.
 
 ## Contributing a New Language
 
