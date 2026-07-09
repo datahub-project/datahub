@@ -41,6 +41,8 @@
     "deprecation.replacementSearchTitle": "Sélectionnez une entité pour remplacer l'entité obsolète.",
     "deprecation.selectReplacement": "Sélectionner un remplacement",
     "deprecation.setReplacement": "Définir un remplacement",
+    "deprecation.markedDeprecatedSuccess": "Marqué comme obsolète",
+    "deprecation.markedUnDeprecatedSuccess": "Marqué comme non obsolète",
     "deprecation.updateError": "Échec de la mise à jour de l'obsolescence: \n {{errorMessage}}",
     "deprecation.updated": "Obsolescence mise à jour",
     "domainSelect.notFound": "Aucun domaine trouvé",

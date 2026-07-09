@@ -38,6 +38,7 @@ from tests.metrics.usage_aggregation_metrics import (
     generate_openapi_metadata_read_traffic,
     generate_openapi_search_traffic,
     graphql_metadata_query_tags,
+    make_support_actor_user,
     parse_prometheus_tags,
     parse_sample_value,
     resolve_usage_actor_class,
@@ -264,32 +265,45 @@ def test_usage_aggregation_graphql_output_bytes(auth_session):
 
 @pytest.mark.read_only
 def test_usage_aggregation_graphql_output_bytes_not_double_counted(auth_session):
-    """Single GraphQL response should contribute output_bytes ~= body length, not ~2x."""
+    """Single GraphQL response should contribute output_bytes ~= body length, not ~2x.
+
+    Uses a dedicated support user so actor_class=support isolates this test from
+    admin (system) GraphQL traffic elsewhere in the pytest batch.
+    """
     gms_url = _require_prometheus_url()
-    actor_class = expected_actor_class_for_admin_session(auth_session)
-    tags = graphql_metadata_query_tags(actor_class)
+    if not can_provision_native_users(auth_session):
+        pytest.skip(
+            "Session lacks manageIdentities — cannot provision a support user locally"
+        )
 
     from tests.metrics.usage_aggregation_metrics import _ME_QUERY, execute_graphql_raw
 
-    output_baseline = fetch_metric_total(
-        auth_session, gms_url, OUTPUT_BYTES_METRIC, tags
+    user_urn, support_session = make_support_actor_user(
+        auth_session, "usage-output-dedup"
     )
-    response_text = execute_graphql_raw(auth_session, _ME_QUERY)
-    response_len = len(response_text)
-    assert response_len > 0
+    tags = graphql_metadata_query_tags("support")
+    try:
+        output_baseline = fetch_metric_total(
+            auth_session, gms_url, OUTPUT_BYTES_METRIC, tags
+        )
+        response_text = execute_graphql_raw(support_session, _ME_QUERY)
+        response_len = len(response_text)
+        assert response_len > 0
 
-    delta = wait_for_metric_delta(
-        auth_session,
-        gms_url,
-        OUTPUT_BYTES_METRIC,
-        output_baseline,
-        required_tags=tags,
-        min_delta=float(response_len) * 0.95,
-    )
-    # Allow up to ~2x when prior traffic in the same flush window contributes bytes.
-    assert delta <= response_len * 2.1, (
-        f"output_bytes delta {delta} far exceeds response length {response_len}"
-    )
+        delta = wait_for_metric_delta(
+            auth_session,
+            gms_url,
+            OUTPUT_BYTES_METRIC,
+            output_baseline,
+            required_tags=tags,
+            min_delta=float(response_len) * 0.95,
+        )
+        assert delta <= response_len * 2.1, (
+            f"output_bytes delta {delta} far exceeds response length {response_len}"
+        )
+    finally:
+        support_session.destroy()
+        cleanup_step_actor_user(auth_session, user_urn)
 
 
 @pytest.mark.read_only
