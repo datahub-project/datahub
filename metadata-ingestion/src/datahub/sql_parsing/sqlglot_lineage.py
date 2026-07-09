@@ -863,37 +863,49 @@ def _statement_risks_unnest_resolver_recursion(
     """Detect the sqlglot resolver infinite-recursion trigger (sqlglot >= 30.7.0).
 
     sqlglot's column Resolver recurses without a re-entrancy guard when it tries
-    to type a ``LATERAL FLATTEN`` / ``UNNEST`` of an *unqualified* column whose
-    base table is absent from the schema, while a schema is otherwise present:
-    typing the unnested column disambiguates it via ``get_table``, which
-    enumerates every source's columns, which re-enters the same lateral source.
-    In the compiled ``sqlglot[c]`` build this overflows the native C stack into
-    an uncatchable SIGSEGV that kills the whole ingest process. We cannot
+    to type a ``LATERAL FLATTEN`` / ``UNNEST`` of an *unqualified* column that it
+    cannot resolve to a known column, while a schema is otherwise present: typing
+    the unnested column disambiguates it via ``get_table``, which enumerates
+    every source's columns, which re-enters the same lateral source. In the
+    compiled ``sqlglot[c]`` build this overflows the native C stack into an
+    uncatchable SIGSEGV that kills the whole ingest process. We cannot
     monkeypatch the compiled resolver (mypyc dispatches its internal calls
     natively), so we detect the trigger here and skip column-level lineage,
     keeping table-level lineage.
 
-    The conditions mirror the confirmed trigger, so safe LATERAL FLATTENs
-    (qualified column, base table schema'd, or no schema at all) are unaffected.
+    The column is unresolvable whenever it is not a known column of any schema'd
+    source -- either because its base table is absent from the schema, or
+    because the base table is present but the flattened column itself is missing
+    from it (e.g. a semi-structured VARIANT/array column that was not surfaced).
+    The latter is what makes real Snowflake ``FLATTEN(tags)`` statements crash
+    even when the base table is otherwise schema'd. Safe LATERAL FLATTENs
+    (qualified column, flattened column present in a schema'd source, or no
+    schema at all) are unaffected.
     """
     mapping = getattr(schema, "mapping", None) or {}
     if not mapping:
         # No schema -> sqlglot skips the type-resolution path; safe.
         return False
 
-    def _is_known(table: sqlglot.exp.Table) -> bool:
+    # Columns known across every schema'd table referenced by the statement.
+    # Matched case-insensitively: sqlglot's resolver normalizes per dialect and
+    # DataHub normalizes column casing before this runs.
+    known_columns: Set[str] = set()
+    for table in statement.find_all(sqlglot.exp.Table):
         try:
-            return bool(schema.column_names(table))
+            columns = schema.column_names(table)
         except Exception:
-            return False
-
-    if not any(not _is_known(table) for table in statement.find_all(sqlglot.exp.Table)):
-        # Every referenced table is schema'd -> type resolves directly; safe.
-        return False
+            columns = []
+        known_columns.update(col.upper() for col in columns)
 
     for unnest in statement.find_all(sqlglot.exp.Lateral, sqlglot.exp.Unnest):
-        if any(not col.table for col in unnest.find_all(sqlglot.exp.Column)):
-            return True
+        for col in unnest.find_all(sqlglot.exp.Column):
+            # A qualified column (``t.items``) resolves directly and is safe. An
+            # unqualified column that is not a known column of any schema'd
+            # source is what the resolver cannot type without re-entering the
+            # lateral.
+            if not col.table and col.name.upper() not in known_columns:
+                return True
     return False
 
 

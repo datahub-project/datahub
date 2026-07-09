@@ -35,6 +35,16 @@ def test_detector_flags_unqualified_unnest_over_unschemad_table() -> None:
     assert _statement_risks_unnest_resolver_recursion(_parse(_SELECT), schema) is True
 
 
+def test_detector_flags_unqualified_unnest_when_flatten_column_missing() -> None:
+    # Regression: the flatten's base table IS schema'd, but the
+    # flattened column (`items`) is absent from that schema -- e.g. a
+    # semi-structured VARIANT/array column that was not surfaced. The resolver
+    # still cannot type the unqualified column, so it hits the same recursion.
+    # The original guard only checked table presence and missed this.
+    schema = _schema({"my_db": {"raw_schema": {"events": {"other_col": "STRING"}}}})
+    assert _statement_risks_unnest_resolver_recursion(_parse(_SELECT), schema) is True
+
+
 def test_detector_allows_safe_cases() -> None:
     schema = _schema({"MY_DB": {"ANALYTICS": {"USAGE_VIEW": {"OBJ_ID": "VARIANT"}}}})
     # qualified flatten column -> safe
@@ -79,5 +89,29 @@ def test_risky_unnest_skips_cll_without_crashing() -> None:
         result.in_tables
     )
     assert any("usage_view" in t.lower() for t in result.out_tables), result.out_tables
+    assert result.debug_info.table_error is None
+    assert "LATERAL FLATTEN" in str(result.debug_info.column_error)
+
+
+def test_risky_unnest_skips_cll_when_flatten_column_missing() -> None:
+    # Regression: end-to-end shape where the flatten's source table
+    # is present in the schema but the flattened column itself is absent. Without
+    # the fix this recurses -- a catchable RecursionError on pure-python
+    # sqlglot, but an uncatchable SIGSEGV that kills ingestion on sqlglot[c].
+    # The guard must skip CLL and keep table-level lineage instead.
+    resolver = SchemaResolver(platform="snowflake")
+    resolver.add_raw_schema_info(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.raw_schema.events,PROD)",
+        {"OTHER_COL": "STRING"},  # note: no `items` column
+    )
+    result = sqlglot_lineage(
+        _SELECT,
+        schema_resolver=resolver,
+        default_db="my_db",
+        default_schema="raw_schema",
+    )
+    assert any("raw_schema.events" in t.lower() for t in result.in_tables), (
+        result.in_tables
+    )
     assert result.debug_info.table_error is None
     assert "LATERAL FLATTEN" in str(result.debug_info.column_error)
