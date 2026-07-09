@@ -182,6 +182,12 @@ jobs:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
           GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_WORKFLOW: ${{ github.workflow }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SHARD: ${{ inputs.shard }}
+          SHARD_COUNT: ${{ inputs.shard_count }}
         run: |
           if [ -z "$POSTHOG_API_KEY" ]; then
             echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
@@ -192,13 +198,13 @@ jobs:
             --input-dir e2e-test/ui/playwright/test-results \
             --posthog-api-key "$POSTHOG_API_KEY" \
             --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
-            --repository "${{ github.repository }}" \
-            --workflow-name "${{ github.workflow }}" \
-            --branch "${GH_HEAD_REF}" \
-            --run-id "${{ github.run_id }}" \
-            --run-attempt "${{ github.run_attempt }}" \
-            --batch "${{ inputs.shard }}" \
-            --batch-count "${{ inputs.shard_count }}" \
+            --repository "$GH_REPOSITORY" \
+            --workflow-name "$GH_WORKFLOW" \
+            --branch "$GH_HEAD_REF" \
+            --run-id "$GH_RUN_ID" \
+            --run-attempt "$GH_RUN_ATTEMPT" \
+            --batch "$SHARD" \
+            --batch-count "$SHARD_COUNT" \
             --test-strategy "playwright"
 
       - name: Store logs on failure
