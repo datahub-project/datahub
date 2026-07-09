@@ -77,9 +77,10 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.unity import proxy_types as unity_proxy_types
+from datahub.ingestion.source.unity import federation, proxy_types as unity_proxy_types
 from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
 from datahub.ingestion.source.unity.config import (
+    FederationConnectionDetail,
     UnityCatalogAnalyzeProfilerConfig,
     UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
@@ -100,6 +101,7 @@ from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
     Catalog,
+    CatalogType,
     Column,
     CustomCatalogType,
     HiveTableType,
@@ -156,9 +158,15 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import MlModelGroupUrn, MlModelUrn, TagUrn
+from datahub.metadata.urns import (
+    MlModelGroupUrn,
+    MlModelUrn,
+    StructuredPropertyUrn,
+    TagUrn,
+)
 from datahub.sdk import MLModel, MLModelGroup
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
@@ -281,6 +289,36 @@ def _parse_metric_view_source(
         schema=schema,
         table=name,
     )
+
+
+@dataclasses.dataclass(frozen=True)
+class _ExternalSchemaKey:
+    """Identity of an external federated source's schema scope. Used as the cache
+    key for the bulk-loaded SchemaResolver; a frozen dataclass (not a bare tuple) so
+    its string-typed slots can't be silently transposed."""
+
+    platform: str
+    platform_instance: Optional[str]
+    env: str
+    remote_database: Optional[str]
+    # Whether the external URN's name is lower-cased (the external source's own
+    # convert_urns_to_lowercase). The id-prefix scope must fold the same way.
+    lowercase_urns: bool = True
+
+    def id_prefix(self) -> Optional[str]:
+        """Prefix of the external dataset id (`[platform_instance.]database.`) used
+        to scope the bulk schema fetch, or None for two-tier platforms (no database).
+        The database segment is folded to match how the URN name was built; the
+        platform_instance segment is not (the URN doesn't fold it)."""
+        if not self.remote_database:
+            return None
+        database = (
+            self.remote_database.lower()
+            if self.lowercase_urns
+            else self.remote_database
+        )
+        parts = [p for p in (self.platform_instance, database) if p]
+        return ".".join(parts) + "."
 
 
 @platform_name("Databricks")
@@ -429,6 +467,34 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Include platform resource repository in report for automatic cache statistics
         if self.config.include_tags and self.platform_resource_repository:
             self.report.tag_urn_resolver_cache = self.platform_resource_repository
+
+        # Federation property definitions are emitted lazily, the first time a
+        # foreign catalog is encountered, so non-federation workspaces never see them.
+        self._federation_defs_emitted: bool = False
+        # Federation target resolution is identical for every table in a catalog;
+        # caching by catalog name avoids re-resolving (and re-warning) per table.
+        # Keyed by catalog (not connection) because two foreign catalogs can share
+        # one connection while pointing at different remote databases.
+        self._federation_resolution_cache: Dict[
+            Optional[str],
+            Tuple[
+                Optional[FederationConnectionDetail],
+                Optional[federation.FederationTarget],
+            ],
+        ] = {}
+        # Bulk-loads external-source schemas via a scrolling query (scoped to the
+        # mirrored remote database) and resolves each foreign table's schema from the
+        # in-memory cache, instead of one graph round-trip per foreign table.
+        self._schema_resolver_provider: Optional[SchemaResolverProvider] = (
+            SchemaResolverProvider(graph=self.ctx.graph)
+            if self.ctx.graph is not None
+            else None
+        )
+        # Resolver cached per external schema scope (None if the bulk load failed)
+        # so a failed or already-loaded scope isn't fetched again per table.
+        self._external_schema_resolvers: Dict[
+            _ExternalSchemaKey, Optional[SchemaResolver]
+        ] = {}
 
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
@@ -847,6 +913,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         else:
             lineage = self.ingest_lineage(table)
 
+        # Fold the foreign-catalog COPY upstream into this single upstreamLineage
+        # aspect; a second MCP for the same URN would clobber the lineage above.
+        lineage = self._with_federation_lineage(
+            lineage, dataset_urn, table, schema_metadata
+        )
+
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
                 if str(notebook_id) in self.notebooks:
@@ -1228,7 +1300,405 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             external_url=self.external_url_base,
         )
 
+    def _resolve_federation(
+        self, catalog: Catalog
+    ) -> Tuple[
+        Optional[FederationConnectionDetail], Optional[federation.FederationTarget]
+    ]:
+        """Resolve (and cache) the federation target for a foreign catalog.
+
+        Cached by catalog name because every table in the catalog resolves to the
+        same target; this also ensures the unresolved-target warning/counter below
+        fire once per catalog rather than once per table. The key is the catalog
+        (not the connection): two foreign catalogs can share one connection but
+        point at different remote databases via their own OPTIONS.
+        """
+        if catalog.name in self._federation_resolution_cache:
+            return self._federation_resolution_cache[catalog.name]
+
+        detail = (
+            self.config.federation_connection_details.get(catalog.connection_name)
+            if catalog.connection_name
+            else None
+        )
+        connection = (
+            self.unity_catalog_api_proxy.connections().get(catalog.connection_name)
+            if catalog.connection_name
+            else None
+        )
+        target = federation.resolve_federation_target(
+            connection.connection_type if connection else None,
+            options=catalog.options,
+            override_platform=detail.platform if detail else None,
+            override_database=detail.database if detail else None,
+        )
+        if target is None:
+            self.report.num_federation_targets_unresolved += 1
+            self.report.report_warning(
+                title="Could not resolve Lakehouse Federation target",
+                message=(
+                    "Foreign-catalog tables will not be linked to their external "
+                    "source dataset; set federation_connection_details "
+                    "(platform/database) or grant the service principal permission "
+                    "to list Unity Catalog connections."
+                ),
+                context=f"catalog={catalog.name}, connection={catalog.connection_name}",
+            )
+
+        self._federation_resolution_cache[catalog.name] = (detail, target)
+        return detail, target
+
+    def _federation_structured_properties(
+        self, catalog: Catalog
+    ) -> Optional[Dict[StructuredPropertyUrn, str]]:
+        if not (
+            catalog.is_foreign_catalog
+            and self.config.emit_federation_structured_properties
+        ):
+            return None
+        ns = self.config.federation_structured_property_namespace
+        values: Dict[str, str] = {
+            federation.FEDERATION_PROP_CATALOG_TYPE: CatalogType.FOREIGN_CATALOG.value
+        }
+        if catalog.connection_name:
+            values[federation.FEDERATION_PROP_CONNECTION] = catalog.connection_name
+        _, target = self._resolve_federation(catalog)
+        if target:
+            values[federation.FEDERATION_PROP_PLATFORM] = target.platform
+            if target.remote_database:
+                values[federation.FEDERATION_PROP_REMOTE_DATABASE] = (
+                    target.remote_database
+                )
+        return {
+            federation.federation_property_urn(ns, suffix): value
+            for suffix, value in values.items()
+        }
+
+    def _gen_federation_property_definition_workunits(
+        self,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit federation structured-property definitions.
+
+        Each definition MCP uses changeType=CREATE with an If-None-Match header, so
+        the server creates it only if absent — a pre-existing (e.g. centrally
+        managed) definition is left untouched.
+
+        When a graph is available (e.g. a datahub-rest sink), the definitions are
+        registered synchronously via the graph rather than yielded into the
+        workunit stream. GMS validates a structuredProperties *assignment* against
+        an already-committed definition; emitting both in one async batch races and
+        the assignment is rejected. A synchronous graph emit commits the definitions
+        first. Without a graph (e.g. a file sink), definitions are yielded as
+        workunits — such sinks don't validate, so ordering is irrelevant.
+        Callers (`gen_catalog_containers`) ensure this runs once per ingestion run.
+        """
+        if not self.config.emit_federation_structured_properties:
+            return
+        mcps = federation.federation_property_definition_mcps(
+            self.config.federation_structured_property_namespace
+        )
+        if self.ctx.graph is not None:
+            try:
+                for mcp in mcps:
+                    self.ctx.graph.emit_mcp(mcp)
+            except Exception as e:
+                # Federation is supplemental: a failure registering the definitions
+                # (network / auth / GMS validation) must not abort ingestion. The
+                # assignments will simply not resolve until the definitions exist.
+                self.report.num_federation_property_defs_failed += 1
+                self.report.warning(
+                    title="Failed to register federation structured-property definitions",
+                    message=(
+                        "Foreign-catalog structured properties will not be visible "
+                        "until the definitions are registered; check the graph "
+                        "connection and the service account's permissions."
+                    ),
+                    context=self.config.federation_structured_property_namespace,
+                    exc=e,
+                )
+            return
+        for mcp in mcps:
+            yield mcp.as_workunit()
+
+    def _external_platform_key(self, catalog: Catalog) -> Optional[_ExternalSchemaKey]:
+        """The (platform, platform_instance, env, remote_database) the external
+        federated dataset was ingested under, or None if the federation target can't
+        be resolved. Single source of truth for these coordinates — the external URN
+        and the schema-resolver scope must agree on them."""
+        detail, target = self._resolve_federation(catalog)
+        if target is None:
+            return None
+        return _ExternalSchemaKey(
+            platform=target.platform,
+            platform_instance=detail.platform_instance if detail else None,
+            env=detail.env if (detail and detail.env) else self.config.env,
+            remote_database=target.remote_database,
+            # Single source of truth for the external-URN case-folding: both the URN
+            # (_external_dataset_urn) and the schema-resolver scope prefix read this.
+            lowercase_urns=detail is None or detail.convert_urns_to_lowercase,
+        )
+
+    def _external_dataset_urn(
+        self, catalog: Catalog, schema_name: str, table_name: str
+    ) -> Optional[str]:
+        """External source dataset URN for a foreign-catalog table, or None if the
+        federation target can't be resolved. Honors the per-connection
+        platform_instance, env, and case-folding so the URN byte-matches the external
+        source's own ingestion."""
+        _, target = self._resolve_federation(catalog)
+        key = self._external_platform_key(catalog)
+        if target is None or key is None:
+            return None
+        name = federation.external_dataset_name(target, schema_name, table_name)
+        # The external URN must match how the external source was ingested — a
+        # concern independent of this source's own convert_urns_to_lowercase (which
+        # governs the Databricks URNs). The decision lives on the key so the URN and
+        # the schema-resolver scope prefix can't diverge.
+        if key.lowercase_urns:
+            name = name.lower()
+        return make_dataset_urn_with_platform_instance(
+            platform=key.platform,
+            name=name,
+            platform_instance=key.platform_instance,
+            env=key.env,
+        )
+
+    def _resolve_external_schema_fields(
+        self, table: Table
+    ) -> Optional[List[SchemaFieldClass]]:
+        """Backfill a foreign-catalog table's columns from the already-ingested
+        external source, for the common case where Unity Catalog has not synced the
+        foreign table's schema yet. Returns None (and records the reason) unless the
+        catalog is foreign, the feature is enabled, and the external dataset's schema
+        is resolvable. Owns the backfill report counters and warning."""
+        catalog = table.schema.catalog
+        if not (
+            catalog.is_foreign_catalog
+            and self.config.include_federation_column_backfill
+        ):
+            return None
+        external_urn = self._external_dataset_urn(
+            catalog, table.schema.name, table.name
+        )
+        resolver, schema_info = self._external_schema_lookup(catalog, external_urn)
+        if schema_info:
+            self.report.num_federation_columns_backfilled += 1
+            # Column structure only (field path + native type). Governance (tags /
+            # glossary terms) is not copied — it belongs to the external dataset, not
+            # this read-only mirror. The DataHub logical type is left as NullType
+            # because the bulk fetch doesn't return it; authoritative types live on
+            # the external dataset.
+            return [
+                SchemaFieldClass(
+                    fieldPath=field_path,
+                    type=SchemaFieldDataTypeClass(type=NullTypeClass()),
+                    nativeDataType=native_type,
+                )
+                for field_path, native_type in schema_info.items()
+            ]
+        # Backfill produced nothing. Count it so the empty schema isn't a silent
+        # drop, but only warn when the external schemas loaded and this table simply
+        # wasn't among them — a missing/failed scope is already reported at the
+        # platform level (num_federation_external_schema_fetch_failed) or the
+        # unresolved-target level, so warning here would double-report.
+        self.report.num_federation_columns_backfill_failed += 1
+        if resolver is not None:
+            self.report.warning(
+                title="Could not backfill foreign-catalog columns",
+                message=(
+                    "The foreign-catalog table has no columns from Unity Catalog and "
+                    "its schema was not found in the external source. Ingest the "
+                    "external source into DataHub (matching platform_instance and "
+                    "env) so its schema is available on the graph."
+                ),
+                context=table.id,
+            )
+        return None
+
+    def _external_schema_lookup(
+        self, catalog: Catalog, external_urn: Optional[str]
+    ) -> Tuple[Optional[SchemaResolver], Optional[SchemaInfo]]:
+        """Resolve an external federated schema: the bulk-loaded SchemaResolver for
+        the catalog's scope and the {field path: native type} for `external_urn`
+        (None if no graph, the scope is unresolved, or the dataset has no schema in
+        DataHub). Shared by column backfill and column-level lineage so the two can't
+        drift on scope/case-folding. Returning the resolver lets the backfill caller
+        distinguish "scope loaded but table absent" from "scope unavailable"."""
+        key = self._external_platform_key(catalog)
+        resolver = self._external_schema_resolver(key) if key is not None else None
+        schema_info = (
+            resolver.resolve_urn(external_urn)[1]
+            if resolver is not None and external_urn is not None
+            else None
+        )
+        return resolver, schema_info
+
+    def _external_schema_info(
+        self, catalog: Catalog, external_urn: str
+    ) -> Optional[SchemaInfo]:
+        """External dataset's {field path: native type}, or None if unresolvable.
+        Thin wrapper over _external_schema_lookup for the column-lineage path."""
+        return self._external_schema_lookup(catalog, external_urn)[1]
+
+    def _external_schema_resolver(
+        self, key: _ExternalSchemaKey
+    ) -> Optional[SchemaResolver]:
+        """Bulk-initialized SchemaResolver for an external schema scope, cached (None
+        on failure) so a scope is scroll-fetched at most once. The fetch is scoped by
+        an exact prefix on the dataset id — ``[platform_instance.]remote_database.`` —
+        so a foreign catalog that mirrors a subset of a large external platform loads
+        only that database's schemas, not the entire platform."""
+        if key in self._external_schema_resolvers:
+            return self._external_schema_resolvers[key]
+        if self._schema_resolver_provider is None:
+            return None
+        resolver: Optional[SchemaResolver] = None
+        try:
+            resolver = self._schema_resolver_provider.get(
+                platform=key.platform,
+                platform_instance=key.platform_instance,
+                env=key.env,
+                # Scope by an exact prefix on the dataset id, built with the same
+                # case-folding as the URN so it matches the persisted id (a free-text
+                # query would over-match databases sharing a name prefix).
+                name_starts_with=key.id_prefix(),
+            )
+        except Exception as e:
+            # Bulk fetch is a known failure point (network / GMS 5xx / auth).
+            # Federation is supplemental, so degrade to no external schema rather
+            # than aborting ingestion.
+            self.report.num_federation_external_schema_fetch_failed += 1
+            self.report.warning(
+                title="Failed to bulk-fetch external source schemas for federation",
+                message=(
+                    "Foreign-catalog column backfill and column-level lineage will "
+                    "be skipped for the affected external database."
+                ),
+                context=f"platform={key.platform}, database={key.remote_database}",
+                exc=e,
+            )
+        self._external_schema_resolvers[key] = resolver
+        return resolver
+
+    def _federation_lineage(
+        self,
+        dataset_urn: str,
+        table: Table,
+        catalog: Catalog,
+        schema_metadata: Optional[SchemaMetadataClass] = None,
+    ) -> Optional[UpstreamLineageClass]:
+        """Build the foreign-catalog COPY upstream lineage aspect (with identity 1:1,
+        case-insensitive column-level lineage when column lineage is enabled and both
+        schemas resolve), or None for a non-foreign catalog, when federation lineage
+        is disabled, or when the external source URN can't be resolved.
+
+        Returned rather than emitted so process_table can fold it into the table's
+        single upstreamLineage aspect — emitting a second MCP for the same URN would
+        clobber the Unity Catalog lineage (last-write-wins)."""
+        if not catalog.is_foreign_catalog:
+            return None
+        if not self.config.include_federation_lineage:
+            return None
+
+        external_urn = self._external_dataset_urn(
+            catalog, table.schema.name, table.name
+        )
+        if external_urn is None:
+            return None
+
+        # A foreign catalog is a read-only mirror (copy) of the external dataset, so
+        # COPY is more accurate than the default VIEW.
+        self.report.num_federation_links_emitted += 1
+        fine_grained_lineages = self._federation_column_lineage(
+            dataset_urn, external_urn, catalog, schema_metadata
+        )
+        return UpstreamLineageClass(
+            upstreams=[Upstream(dataset=external_urn, type=DatasetLineageType.COPY)],
+            fineGrainedLineages=fine_grained_lineages,
+        )
+
+    def _with_federation_lineage(
+        self,
+        lineage: Optional[UpstreamLineageClass],
+        dataset_urn: str,
+        table: Table,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Optional[UpstreamLineageClass]:
+        """Fold the foreign-catalog COPY upstream into the table's single
+        upstreamLineage aspect. Federation is a supplemental feature, so any failure
+        here degrades to the table's unchanged Unity Catalog lineage (counted +
+        warned) rather than dropping it."""
+        try:
+            federation_lineage = self._federation_lineage(
+                dataset_urn, table, table.schema.catalog, schema_metadata
+            )
+        except Exception as e:
+            self.report.num_federation_links_failed += 1
+            self.report.warning(
+                title="Failed to build federation lineage",
+                message=(
+                    "Foreign-catalog upstream lineage was skipped for this table; "
+                    "its Unity Catalog lineage is unaffected."
+                ),
+                context=table.id,
+                exc=e,
+            )
+            return lineage
+        if federation_lineage is None:
+            return lineage
+        if lineage is None:
+            return federation_lineage
+        lineage.upstreams = [*lineage.upstreams, *federation_lineage.upstreams]
+        if federation_lineage.fineGrainedLineages:
+            lineage.fineGrainedLineages = [
+                *(lineage.fineGrainedLineages or []),
+                *federation_lineage.fineGrainedLineages,
+            ]
+        return lineage
+
+    def _federation_column_lineage(
+        self,
+        dataset_urn: str,
+        external_urn: str,
+        catalog: Catalog,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Optional[List[FineGrainedLineage]]:
+        if not (
+            self.config.include_column_lineage
+            and schema_metadata
+            and schema_metadata.fields
+        ):
+            return None
+        schema_info = self._external_schema_info(catalog, external_urn)
+        if not schema_info:
+            # Unity Catalog gave us columns but the external source's schema isn't
+            # resolvable (not ingested, or wrong platform_instance/env) — the COPY
+            # link is still emitted, only the column-level detail is skipped. Count
+            # it so the drop is observable, and log the URN to aid live debugging
+            # (this path has no companion warning).
+            self.report.num_federation_cll_skipped += 1
+            logger.debug(
+                f"Skipping federation column-level lineage: external schema not "
+                f"found for {external_urn}"
+            )
+            return None
+        cll = federation.identity_column_lineage(
+            dataset_urn=dataset_urn,
+            external_urn=external_urn,
+            downstream_field_paths=[f.fieldPath for f in schema_metadata.fields],
+            upstream_field_paths=list(schema_info.keys()),
+        )
+        return cll or None
+
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
+        if (
+            catalog.is_foreign_catalog
+            and self.config.emit_federation_structured_properties
+            and not self._federation_defs_emitted
+        ):
+            self._federation_defs_emitted = True
+            yield from self._gen_federation_property_definition_workunits()
+
         domain_urn = self._gen_domain_urn(catalog.name)
         catalog_tags = []
         if self.config.include_tags:
@@ -1240,6 +1710,24 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from self.gen_platform_resources(catalog_tags)
 
         catalog_container_key = self.gen_catalog_key(catalog)
+        try:
+            structured_properties = self._federation_structured_properties(catalog)
+        except Exception as e:
+            # Federation structured properties are supplemental — a failure must not
+            # stop the catalog container itself from being emitted.
+            self.report.num_federation_property_defs_failed += 1
+            self.report.warning(
+                title="Failed to assign federation structured properties",
+                message=(
+                    "The foreign-catalog container is emitted without its federation "
+                    "structured properties."
+                ),
+                context=catalog.name,
+                exc=e,
+            )
+            structured_properties = None
+        if catalog.is_foreign_catalog:
+            self.report.num_foreign_catalogs += 1
         yield from gen_containers(
             container_key=catalog_container_key,
             name=catalog.name,
@@ -1256,6 +1744,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             tags=[tag.to_datahub_tag_urn().name for tag in catalog_tags]
             if catalog_tags
             else None,
+            structured_properties=structured_properties,
         )
 
     def gen_schema_key(self, schema: Schema) -> ContainerKey:
@@ -2014,6 +2503,29 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
+        # Foreign (Lakehouse Federation) catalog tables often have no columns from
+        # Unity Catalog (UC syncs a foreign table's schema lazily). Backfill them
+        # from the already-ingested external source dataset via the graph.
+        if not schema_fields:
+            try:
+                backfilled = self._resolve_external_schema_fields(table)
+            except Exception as e:
+                # Backfill is supplemental — an error must never drop the table's
+                # schema aspect. Degrade to the (empty) Unity Catalog columns.
+                self.report.num_federation_columns_backfill_failed += 1
+                self.report.warning(
+                    title="Failed to backfill foreign-catalog columns",
+                    message=(
+                        "Column backfill from the external source raised; the "
+                        "foreign-catalog table keeps its Unity Catalog columns."
+                    ),
+                    context=table.id,
+                    exc=e,
+                )
+                backfilled = None
+            if backfilled:
+                schema_fields = backfilled
+
         platform_resources = self.gen_platform_resources(list(unique_tags))
         return (
             SchemaMetadataClass(
@@ -2284,6 +2796,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.sql_parsing_aggregator.close()
         if self.sql_parser_schema_resolver:
             self.sql_parser_schema_resolver.close()
+        if self._schema_resolver_provider:
+            self._schema_resolver_provider.close()
 
         super().close()
 
@@ -2309,6 +2823,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_urn: str,
         source_dataset_urn: str,
+        lineage_type: Union[str, DatasetLineageType] = DatasetLineageType.VIEW,
+        fine_grained_lineages: Optional[List[FineGrainedLineage]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Generate dataset to source connector lineage workunit
@@ -2316,8 +2832,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=UpstreamLineage(
-                upstreams=[
-                    Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
-                ]
+                upstreams=[Upstream(dataset=source_dataset_urn, type=lineage_type)],
+                fineGrainedLineages=fine_grained_lineages,
             ),
         ).as_workunit()
