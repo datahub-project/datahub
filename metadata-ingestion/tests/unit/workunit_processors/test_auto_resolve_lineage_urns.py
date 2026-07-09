@@ -67,9 +67,8 @@ def _make_processor(
 ) -> Tuple[AutoResolveLineageUrnsProcessor, mock.MagicMock, Any]:
     """Patch provide_schema_resolver to a single seeded snowflake resolver.
 
-    `schemas` maps existing URN -> column schema. The processor builds its
-    case-insensitive index from the resolver's schema-bearing entities (`get_urns()`),
-    so the keys of `schemas` are exactly the URNs membership/casing resolution sees.
+    `schemas` maps existing URN -> column schema; those are the entities SchemaResolver's
+    resolve_table matches references against (original + lowercase casing).
     """
     resolver = _resolver(schemas)
     provide_mock = mock.MagicMock(return_value=resolver)
@@ -156,17 +155,39 @@ def _stored_upstream(wu: MetadataWorkUnit) -> str:
     "stored,emitted",
     [
         (LOWER, UPPER),  # BI emits uppercase, warehouse stores lowercase
-        (UPPER, LOWER),  # doc headline: BI emits lowercase, warehouse stores uppercase
-        (WH_MIXED, WH_LOWER),  # mixed stored, lowercase emitted
-        (WH_LOWER, WH_MIXED),  # lowercase stored, mixed emitted
-        (WH_MIXED, WH_UPPER),  # mixed stored, uppercase emitted
+        (WH_LOWER, WH_MIXED),  # BI emits mixed, warehouse stores lowercase
     ],
 )
-def test_heals_to_stored_casing(stored: str, emitted: str) -> None:
-    # An upstream reference is reconciled to whatever casing the warehouse already
-    # stores, in any direction (upper/lower/mixed) — the property is symmetric.
+def test_heals_to_stored_casing_when_warehouse_lowercase(
+    stored: str, emitted: str
+) -> None:
+    # SchemaResolver.resolve_table matches the reference's original casing and its
+    # lowercased form, so a reference heals when the warehouse stores the entity
+    # lowercased (any BI casing -> lowercase). Non-lowercase stored casings are not yet
+    # reachable — that is the tracked normalizedUrn SchemaResolver follow-up (see below).
     out = _run({stored: {"amount": "int"}}, _upstream_wu(emitted))
     assert _stored_upstream(out) == stored
+
+
+@pytest.mark.parametrize(
+    "stored,emitted",
+    [
+        (UPPER, LOWER),  # warehouse uppercase
+        (WH_MIXED, WH_LOWER),  # warehouse mixed, lower emitted
+        (WH_MIXED, WH_UPPER),  # warehouse mixed, upper emitted
+    ],
+)
+def test_non_lowercase_stored_unresolved_pending_normalizedurn(
+    stored: str, emitted: str
+) -> None:
+    # Until SchemaResolver gains casing-aware resolution (the normalizedUrn follow-up),
+    # resolve_table cannot reach a warehouse stored in UPPER/Mixed casing from a different
+    # BI casing -> the reference is left unchanged and flagged UNRESOLVED.
+    out = _run({stored: {"amount": "int"}}, _upstream_wu(emitted))
+    assert _stored_upstream(out) == emitted
+    assert (
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
+    )
 
 
 def test_keeps_exact_when_exact_entity_exists():
@@ -176,11 +197,18 @@ def test_keeps_exact_when_exact_entity_exists():
     assert _stored_upstream(out) == UPPER
 
 
-def test_ambiguous_collision_left_unchanged():
+def test_ambiguous_collision_resolves_to_lowercase_pending_normalizedurn():
+    # Both `DB.SCHEMA.TABLE` and `db.schema.table` exist. A BI ref in a third casing
+    # (MIXED) resolves via resolve_table's lowercase attempt to the lowercase entity —
+    # resolve_table has no ambiguous-collision detection, so it does not leave it
+    # unchanged. Restoring collision-safety is part of the normalizedUrn follow-up.
     out = _run(
         {UPPER: {"amount": "int"}, LOWER: {"amount": "int"}}, _upstream_wu(MIXED)
     )
-    assert _stored_upstream(out) == MIXED
+    assert _stored_upstream(out) == LOWER
+    assert (
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.NORMALIZED
+    )
 
 
 def test_leaves_unchanged_when_no_entity_matches():
@@ -212,17 +240,17 @@ def test_exact_mixedcase_wins_and_does_not_misroute():
     assert upstream.matchType == LineageMatchTypeClass.EXACT
 
 
-def test_mixedcase_ambiguous_third_casing_left_unchanged():
-    # Both `DataHub` and `datahub` exist; BI emits a third casing `DATAHUB` that matches
-    # neither exactly -> ambiguous (two share the lowercase form) -> leave unchanged but
-    # flag UNRESOLVED.
+def test_mixedcase_third_casing_resolves_to_lowercase_pending_normalizedurn():
+    # Both `DataHub` and `datahub` exist; BI emits a third casing `DATAHUB`. resolve_table's
+    # lowercase attempt hits `datahub`, so it resolves there (no collision detection). The
+    # collision-safe behavior is part of the normalizedUrn follow-up.
     out = _run(
         {WH_MIXED: {"amount": "int"}, WH_LOWER: {"amount": "int"}},
         _upstream_wu(WH_UPPER),
     )
-    assert _stored_upstream(out) == WH_UPPER
+    assert _stored_upstream(out) == WH_LOWER
     assert (
-        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.UNRESOLVED
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.NORMALIZED
     )
 
 
@@ -348,8 +376,8 @@ def test_multi_platform_upstreams_both_healed():
     # A BI dataset (e.g. Hex) whose lineage references TWO warehouses; both are
     # configured. Each upstream is routed to the resolver for its own platform and
     # healed independently within the same aspect.
-    sf_real = make_dataset_urn("snowflake", "DB.SCHEMA.Orders")
-    rs_real = make_dataset_urn("redshift", "db.public.Customers")
+    sf_real = make_dataset_urn("snowflake", "db.schema.orders")
+    rs_real = make_dataset_urn("redshift", "db.public.customers")
     hex_dataset = make_dataset_urn("hex", "project.cell.combined")
 
     sf_resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
@@ -373,13 +401,13 @@ def test_multi_platform_upstreams_both_healed():
     ctx = mock.MagicMock()
     ctx.pipeline_context = pipeline_ctx
 
-    # BI emits both upstreams with the wrong casing (snowflake lower, redshift upper).
+    # BI emits both upstreams uppercased; both warehouses store lowercase, so each heals.
     wu = MetadataChangeProposalWrapper(
         entityUrn=hex_dataset,
         aspect=UpstreamLineageClass(
             upstreams=[
                 UpstreamClass(
-                    dataset=make_dataset_urn("snowflake", "db.schema.orders"),
+                    dataset=make_dataset_urn("snowflake", "DB.SCHEMA.ORDERS"),
                     type="TRANSFORMED",
                 ),
                 UpstreamClass(
@@ -395,8 +423,8 @@ def test_multi_platform_upstreams_both_healed():
         [out] = list(processor.process(iter([wu])))
 
     healed = {u.dataset for u in _upstream_aspect(out).upstreams}
-    assert sf_real in healed  # snowflake lower -> mixed
-    assert rs_real in healed  # redshift upper -> mixed
+    assert sf_real in healed  # snowflake upper -> lower
+    assert rs_real in healed  # redshift upper -> lower
 
 
 def test_platform_urn_form_in_config_is_normalized():
@@ -428,10 +456,10 @@ def test_platform_instance_is_threaded_through_and_heals():
     # must be passed to the resolver provider, and an instance-qualified reference must
     # heal against the stored instance-qualified URN.
     stored = make_dataset_urn_with_platform_instance(
-        "snowflake", "DB.SCHEMA.TABLE", "my_instance", "PROD"
+        "snowflake", "db.schema.table", "my_instance", "PROD"
     )
     referenced = make_dataset_urn_with_platform_instance(
-        "snowflake", "db.schema.table", "my_instance", "PROD"
+        "snowflake", "DB.SCHEMA.TABLE", "my_instance", "PROD"
     )
     resolver = SchemaResolver(platform="snowflake", env="PROD", graph=None)
     resolver.add_raw_schema_info(stored, {"amount": "int"})
@@ -605,13 +633,13 @@ def test_malformed_upstream_ref_does_not_block_valid_sibling():
     aspect = UpstreamLineageClass(
         upstreams=[
             UpstreamClass(dataset="garbage", type="TRANSFORMED"),
-            UpstreamClass(dataset=LOWER, type="TRANSFORMED"),
+            UpstreamClass(dataset=UPPER, type="TRANSFORMED"),
         ],
     )
     wu = MetadataChangeProposalWrapper(
         entityUrn=DOWNSTREAM, aspect=aspect
     ).as_workunit()
-    processor, _provide, patcher = _make_processor({UPPER: {"amount": "int"}})
+    processor, _provide, patcher = _make_processor({LOWER: {"amount": "int"}})
     try:
         [out] = list(processor.process(iter([wu])))
     finally:
@@ -619,7 +647,7 @@ def test_malformed_upstream_ref_does_not_block_valid_sibling():
 
     upstreams = _upstream_aspect(out).upstreams
     assert upstreams[0].dataset == "garbage"  # malformed left untouched
-    assert upstreams[1].dataset == UPPER  # valid sibling still healed
+    assert upstreams[1].dataset == LOWER  # valid sibling still healed
     assert processor.report.num_exceptions == 0
 
 
@@ -630,19 +658,19 @@ def test_empty_dataset_ref_does_not_block_valid_sibling():
         title="t",
         description="d",
         lastModified=ChangeAuditStampsClass(),
-        datasets=["", LOWER],
+        datasets=["", UPPER],
     )
     wu = MetadataChangeProposalWrapper(
         entityUrn=DOWNSTREAM, aspect=aspect
     ).as_workunit()
-    processor, _provide, patcher = _make_processor({UPPER: {"amount": "int"}})
+    processor, _provide, patcher = _make_processor({LOWER: {"amount": "int"}})
     try:
         [out] = list(processor.process(iter([wu])))
     finally:
         patcher.stop()
 
     datasets = _dashboard_aspect(out).datasets
-    assert datasets == ["", UPPER]
+    assert datasets == ["", LOWER]
     assert processor.report.num_exceptions == 0
 
 
@@ -682,12 +710,12 @@ def test_configured_platform_matching_nothing_warns():
 def test_configured_platform_that_matches_does_not_warn():
     # The unmatched-platform warning must not fire when the configured platform is
     # actually used, so it doesn't cry wolf on healthy runs.
-    processor, _provide, patcher = _make_processor({UPPER: {"amount": "int"}})
+    processor, _provide, patcher = _make_processor({LOWER: {"amount": "int"}})
     try:
-        [out] = list(processor.process(iter([_upstream_wu(LOWER)])))
+        [out] = list(processor.process(iter([_upstream_wu(UPPER)])))
     finally:
         patcher.stop()
-    assert _stored_upstream(out) == UPPER
+    assert _stored_upstream(out) == LOWER
     assert not _unmatched_platform_warned(
         cast(mock.MagicMock, processor.ctx.source_report)
     )
@@ -736,9 +764,9 @@ def test_unresolved_refs_surface_one_aggregated_warning():
 
 def test_no_warning_when_all_refs_resolve():
     # A clean run (everything heals) emits no pipeline warning.
-    processor, _provide, patcher = _make_processor({UPPER: {"amount": "int"}})
+    processor, _provide, patcher = _make_processor({LOWER: {"amount": "int"}})
     try:
-        list(processor.process(iter([_upstream_wu(LOWER)])))  # heals to UPPER
+        list(processor.process(iter([_upstream_wu(UPPER)])))  # heals to LOWER
     finally:
         patcher.stop()
 
