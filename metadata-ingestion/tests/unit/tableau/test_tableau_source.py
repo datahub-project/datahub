@@ -1616,6 +1616,27 @@ class TestProjectContainerHierarchy:
         # The dangling parent reference is surfaced to operators, not swallowed.
         assert "Incomplete project hierarchy" in source.report.as_string()
 
+    def test_dangling_parent_id_raises_actionable_error(self) -> None:
+        """emit_project_containers relies on _get_all_project having nulled out any
+        parent_id absent from the project map. If a future regression breaks that
+        normalization, the lookup should fail with an actionable error naming the
+        offending project -- not a bare KeyError."""
+        source = _make_site_source()
+        # A project pointing at a parent id that is not in the map -- the exact state
+        # _get_all_project is supposed to prevent.
+        orphan = TableauProject(
+            id="p2",
+            name="Project_2",
+            description=None,
+            parent_id="p1",
+            parent_name=None,
+            path=["Project_2"],
+        )
+        source.tableau_project_registry = {"p2": orphan}
+
+        with pytest.raises(ValueError, match="p1"):
+            list(source.emit_project_containers({"p2": orphan}))
+
 
 class TestNullApiResponseHandling:
     """Tableau's Metadata API occasionally returns None entries inside list fields

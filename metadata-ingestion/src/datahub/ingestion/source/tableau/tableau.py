@@ -4245,13 +4245,17 @@ class TableauSiteSource:
                 # Go to the parent project as we need to generate container first for parent
                 parent_project_key = self.gen_project_key(project_.parent_id)
 
-                # Resolve from the full project map, not tableau_project_registry, so
-                # we recurse to the root even through filtered-out ancestors (emitted as
-                # path-only containers). _get_all_project nulls out any parent_id absent
-                # from the map, so a non-None parent_id always resolves here.
-                parent_tableau_project: TableauProject = all_project_map[
-                    project_.parent_id
-                ]
+                # Resolve from the full project map so we recurse to the root even
+                # through filtered-out ancestors. _get_all_project nulls out any
+                # parent_id absent from the map, so this always resolves; guard it so a
+                # future regression fails with context, not a bare KeyError.
+                parent_tableau_project = all_project_map.get(project_.parent_id)
+                if parent_tableau_project is None:
+                    raise ValueError(
+                        f"parent_id {project_.parent_id!r} of project "
+                        f"{project_.name!r} ({project_.id!r}) is missing from the "
+                        f"project map; expected _get_all_project to have nulled it out."
+                    )
 
                 yield from emit_project_in_topological_order(parent_tableau_project)
 
