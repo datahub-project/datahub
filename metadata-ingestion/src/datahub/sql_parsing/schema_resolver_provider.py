@@ -22,22 +22,22 @@ def provide_schema_resolver(
     platform_instance: Optional[str],
     env: str,
     batch_size: int = 100,
-    id_starts_with: Optional[str] = None,
+    name_starts_with: Optional[str] = None,
 ) -> SchemaResolver:
-    """Return a bulk-initialized SchemaResolver, cached globally per (graph, platform, platform_instance, env, id_starts_with).
+    """Return a bulk-initialized SchemaResolver, cached globally per (graph, platform, platform_instance, env, name_starts_with).
 
     Using a module-level cache ensures deduplication across all callers in the same
     process, even when different SchemaResolverProvider instances are created.
 
-    `id_starts_with` narrows the bulk fetch to datasets whose id (fully-qualified
-    name) starts with the given prefix (e.g. a single database), so callers that only
+    `name_starts_with` narrows the bulk fetch to datasets whose fully-qualified name
+    starts with the given prefix (e.g. a single database), so callers that only
     need a subset of a large platform don't load the whole platform.
     """
     return SchemaResolverProvider(graph=graph, batch_size=batch_size).get(
         platform=platform,
         platform_instance=platform_instance,
         env=env,
-        id_starts_with=id_starts_with,
+        name_starts_with=name_starts_with,
     )
 
 
@@ -64,12 +64,12 @@ class SchemaResolverProvider:
         platform: str,
         platform_instance: Optional[str],
         env: str,
-        id_starts_with: Optional[str] = None,
+        name_starts_with: Optional[str] = None,
     ) -> SchemaResolver:
-        """Return a bulk-initialized SchemaResolver, cached per (platform, platform_instance, env, id_starts_with).
+        """Return a bulk-initialized SchemaResolver, cached per (platform, platform_instance, env, name_starts_with).
 
-        `id_starts_with` narrows the bulk fetch to datasets whose id (fully-qualified
-        name) starts with the given prefix (e.g. a single database), so a caller that
+        `name_starts_with` narrows the bulk fetch to datasets whose fully-qualified
+        name starts with the given prefix (e.g. a single database), so a caller that
         needs only a subset of a large platform doesn't load the whole platform. A
         prefix is exact (unlike a free-text query, which over-matches shared prefixes).
         """
@@ -83,13 +83,13 @@ class SchemaResolverProvider:
         extra_filters: Optional[List[RawSearchFilterRule]] = (
             [
                 SearchFilterRule(
-                    field="id", condition="START_WITH", values=[id_starts_with]
+                    field="id", condition="START_WITH", values=[name_starts_with]
                 ).to_raw()
             ]
-            if id_starts_with
+            if name_starts_with
             else None
         )
-        scope = f", id_starts_with {id_starts_with}" if id_starts_with else ""
+        scope = f", name_starts_with {name_starts_with}" if name_starts_with else ""
         logger.info(f"Fetching schemas for platform {platform}, env {env}{scope}")
         count = 0
         with PerfTimer() as timer:

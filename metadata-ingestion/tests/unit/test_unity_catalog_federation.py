@@ -25,6 +25,7 @@ from datahub.ingestion.source.unity.source import (
 )
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
+    DatasetLineageTypeClass,
     MySqlDDLClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -32,6 +33,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
+    UpstreamClass,
     UpstreamLineageClass,
 )
 
@@ -554,15 +556,8 @@ def test_federation_lineage_mode_emits_upstream():
     dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.t,PROD)"
     )
-    wus = list(src._gen_federation_link(dataset_urn, _foreign_table(catalog), catalog))
-    up = [
-        aspect
-        for wu in wus
-        if isinstance(
-            aspect := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
-        )
-    ]
-    assert up and up[0].upstreams[0].dataset == (
+    aspect = src._federation_lineage(dataset_urn, _foreign_table(catalog), catalog)
+    assert aspect is not None and aspect.upstreams[0].dataset == (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
     )
     assert src.report.num_federation_links_emitted == 1
@@ -571,7 +566,7 @@ def test_federation_lineage_mode_emits_upstream():
 def test_federation_link_none_emits_nothing():
     src = _source_with_link(include_lineage=False)
     catalog = _foreign_catalog()
-    assert list(src._gen_federation_link("x", _foreign_table(catalog), catalog)) == []
+    assert src._federation_lineage("x", _foreign_table(catalog), catalog) is None
 
 
 def test_federation_link_skipped_for_managed_catalog():
@@ -580,7 +575,7 @@ def test_federation_link_skipped_for_managed_catalog():
     catalog = _foreign_catalog()
     catalog.type = CatalogType.MANAGED_CATALOG
     catalog.connection_name = None
-    assert list(src._gen_federation_link("x", _foreign_table(catalog), catalog)) == []
+    assert src._federation_lineage("x", _foreign_table(catalog), catalog) is None
     assert src.report.num_federation_links_emitted == 0
 
 
@@ -656,15 +651,8 @@ def test_federation_link_lowercase_applied():
     dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.t,PROD)"
     )
-    wus = list(src._gen_federation_link(dataset_urn, table, catalog))
-    up = [
-        aspect
-        for wu in wus
-        if isinstance(
-            aspect := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
-        )
-    ]
-    assert up[0].upstreams[0].dataset == (
+    aspect = src._federation_lineage(dataset_urn, table, catalog)
+    assert aspect is not None and aspect.upstreams[0].dataset == (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
     )
 
@@ -687,8 +675,7 @@ def test_unresolved_target_warns_once_and_caches():
     table = _foreign_table(catalog)
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,c.my_schema.t,PROD)"
 
-    wus = list(src._gen_federation_link(dataset_urn, table, catalog))
-    assert wus == []
+    assert src._federation_lineage(dataset_urn, table, catalog) is None
     assert src.report.num_federation_targets_unresolved == 1
     assert any(
         w.title == "Could not resolve Lakehouse Federation target"
@@ -696,8 +683,7 @@ def test_unresolved_target_warns_once_and_caches():
     )
 
     # A second table in the same catalog must not double-count or re-warn.
-    more_wus = list(src._gen_federation_link(dataset_urn, table, catalog))
-    assert more_wus == []
+    assert src._federation_lineage(dataset_urn, table, catalog) is None
     assert src.report.num_federation_targets_unresolved == 1
 
 
@@ -758,17 +744,10 @@ def test_per_connection_lowercase_false_preserves_case():
     dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.t,PROD)"
     )
-    wus = list(src._gen_federation_link(dataset_urn, table, catalog))
-    up = [
-        aspect
-        for wu in wus
-        if isinstance(
-            aspect := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
-        )
-    ]
+    aspect = src._federation_lineage(dataset_urn, table, catalog)
     # convert_urns_to_lowercase=False on the connection preserves the mixed case of
     # the external URN, to match an external source ingested case-sensitively.
-    assert up[0].upstreams[0].dataset == (
+    assert aspect is not None and aspect.upstreams[0].dataset == (
         "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.My_DB.My_Schema.T,PROD)"
     )
 
@@ -1071,16 +1050,9 @@ def test_federation_lineage_emits_identity_column_lineage():
     # the databricks-side schema has uppercase field paths
     dbx_schema = _external_schema([_field("CUSTOMER_ID"), _field("NAME")])
 
-    wus = list(src._gen_federation_link(dataset_urn, table, catalog, dbx_schema))
-    up = [
-        agg
-        for wu in wus
-        if isinstance(
-            agg := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
-        )
-    ]
-    assert up, "expected an UpstreamLineage workunit"
-    fgl = up[0].fineGrainedLineages
+    aspect = src._federation_lineage(dataset_urn, table, catalog, dbx_schema)
+    assert aspect is not None, "expected an UpstreamLineage aspect"
+    fgl = aspect.fineGrainedLineages
     assert fgl is not None and len(fgl) == 2  # CUSTOMER_ID<-customer_id, NAME<-name
 
 
@@ -1103,22 +1075,13 @@ def test_federation_lineage_no_column_lineage_when_flag_off():
     src.ctx.graph = MagicMock()
     catalog = _foreign_catalog()
     dbx_schema = _external_schema([_field("CUSTOMER_ID")])
-    wus = list(
-        src._gen_federation_link(
-            "urn:li:dataset:(urn:li:dataPlatform:databricks,datahub_snowflake.my_schema.t,PROD)",
-            _foreign_table(catalog),
-            catalog,
-            dbx_schema,
-        )
+    aspect = src._federation_lineage(
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,datahub_snowflake.my_schema.t,PROD)",
+        _foreign_table(catalog),
+        catalog,
+        dbx_schema,
     )
-    up = [
-        agg
-        for wu in wus
-        if isinstance(
-            agg := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
-        )
-    ]
-    assert up and not up[0].fineGrainedLineages
+    assert aspect is not None and not aspect.fineGrainedLineages
 
 
 def test_external_schema_fetch_scoped_to_remote_database():
@@ -1138,7 +1101,7 @@ def test_external_schema_fetch_scoped_to_remote_database():
         platform="snowflake",
         platform_instance=None,
         env="PROD",
-        id_starts_with="my_db.",
+        name_starts_with="my_db.",
     )
 
 
@@ -1169,7 +1132,7 @@ def test_external_schema_fetch_lowercases_uppercase_database_in_prefix():
         platform="snowflake",
         platform_instance=None,
         env="PROD",
-        id_starts_with="my_db.",
+        name_starts_with="my_db.",
     )
 
 
@@ -1257,7 +1220,7 @@ def test_external_schema_fetch_uses_platform_and_instance_overrides():
         platform="mssql",
         platform_instance="prod-sql",
         env="DEV",
-        id_starts_with="prod-sql.my_db.",
+        name_starts_with="prod-sql.my_db.",
     )
 
 
@@ -1271,17 +1234,60 @@ def test_federation_cll_skipped_counted_when_external_schema_missing():
         "datahub_snowflake.my_schema.t,PROD)"
     )
     dbx_schema = _external_schema([_field("CUSTOMER_ID")])
-    wus = list(
-        src._gen_federation_link(
-            dataset_urn, _foreign_table(catalog), catalog, dbx_schema
-        )
+    aspect = src._federation_lineage(
+        dataset_urn, _foreign_table(catalog), catalog, dbx_schema
     )
-    up = [
-        agg
-        for wu in wus
-        if isinstance(
-            agg := wu.get_aspect_of_type(UpstreamLineageClass), UpstreamLineageClass
-        )
-    ]
-    assert up and not up[0].fineGrainedLineages
+    assert aspect is not None and not aspect.fineGrainedLineages
     assert src.report.num_federation_cll_skipped == 1
+
+
+def test_with_federation_lineage_folds_into_single_aspect():
+    # The foreign-catalog COPY upstream must be folded into the table's existing
+    # Unity Catalog lineage aspect, not emitted as a second MCP that would clobber it.
+    src = _source_with_link()
+    catalog = _foreign_catalog()
+    table = _foreign_table(catalog)
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.t,PROD)"
+    )
+    uc_upstream = (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.src,PROD)"
+    )
+    base = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=uc_upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+        ]
+    )
+    merged = src._with_federation_lineage(base, dataset_urn, table, None)
+    assert merged is not None
+    datasets = {u.dataset for u in merged.upstreams}
+    # UC lineage preserved (not clobbered) and the federation COPY folded alongside it.
+    assert uc_upstream in datasets
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,prod-pg.my_db.my_schema.t,PROD)"
+        in datasets
+    )
+    assert len(merged.upstreams) == 2
+
+
+def test_with_federation_lineage_degrades_on_error(monkeypatch):
+    # A federation failure must never drop the table's real Unity Catalog lineage.
+    src = _source_with_link()
+    catalog = _foreign_catalog()
+    table = _foreign_table(catalog)
+    base = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(
+                dataset="urn:li:dataset:(urn:li:dataPlatform:databricks,a.b.c,PROD)",
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+        ]
+    )
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("federation exploded")
+
+    monkeypatch.setattr(src, "_federation_lineage", boom)
+    result = src._with_federation_lineage(base, "urn:li:dataset:(x)", table, None)
+    assert result is base
+    assert src.report.num_federation_links_failed == 1

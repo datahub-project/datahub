@@ -72,6 +72,7 @@ class UnityCatalogReport(SQLSourceReport):
     num_federation_connections_list_failed: int = 0
     num_foreign_catalogs: int = 0
     num_federation_links_emitted: int = 0
+    num_federation_links_failed: int = 0
     num_federation_targets_unresolved: int = 0
     num_federation_columns_backfilled: int = 0
     num_federation_columns_backfill_failed: int = 0

@@ -892,6 +892,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         else:
             lineage = self.ingest_lineage(table)
 
+        # Fold the foreign-catalog COPY upstream into this single upstreamLineage
+        # aspect; a second MCP for the same URN would clobber the lineage above.
+        lineage = self._with_federation_lineage(
+            lineage, dataset_urn, table, schema_metadata
+        )
+
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
                 if str(notebook_id) in self.notebooks:
@@ -958,10 +964,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ],
             )
         ]
-
-        yield from self._gen_federation_link(
-            dataset_urn, table, table.schema.catalog, schema_metadata
-        )
 
     def process_ml_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         for ml_model in self.unity_catalog_api_proxy.ml_models(
@@ -1401,7 +1403,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=detail.platform_instance if detail else None,
             env=detail.env if (detail and detail.env) else self.config.env,
             remote_database=target.remote_database,
-            # Mirror the URN case-folding decision in _external_dataset_urn below.
+            # Single source of truth for the external-URN case-folding: both the URN
+            # (_external_dataset_urn) and the schema-resolver scope prefix read this.
             lowercase_urns=detail is None or detail.convert_urns_to_lowercase,
         )
 
@@ -1412,16 +1415,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         federation target can't be resolved. Honors the per-connection
         platform_instance, env, and case-folding so the URN byte-matches the external
         source's own ingestion."""
-        detail, target = self._resolve_federation(catalog)
+        _, target = self._resolve_federation(catalog)
         key = self._external_platform_key(catalog)
         if target is None or key is None:
             return None
         name = federation.external_dataset_name(target, schema_name, table_name)
         # The external URN must match how the external source was ingested — a
         # concern independent of this source's own convert_urns_to_lowercase (which
-        # governs the Databricks URNs). DataHub SQL connectors lower-case by default,
-        # so default to lower-casing here; override per connection when needed.
-        if detail is None or detail.convert_urns_to_lowercase:
+        # governs the Databricks URNs). The decision lives on the key so the URN and
+        # the schema-resolver scope prefix can't diverge.
+        if key.lowercase_urns:
             name = name.lower()
         return make_dataset_urn_with_platform_instance(
             platform=key.platform,
@@ -1528,7 +1531,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 # Scope by an exact prefix on the dataset id, built with the same
                 # case-folding as the URN so it matches the persisted id (a free-text
                 # query would over-match databases sharing a name prefix).
-                id_starts_with=key.id_prefix(),
+                name_starts_with=key.id_prefix(),
             )
         except Exception as e:
             # Bulk fetch is a known failure point (network / GMS 5xx / auth).
@@ -1547,40 +1550,81 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self._external_schema_resolvers[key] = resolver
         return resolver
 
-    def _gen_federation_link(
+    def _federation_lineage(
         self,
         dataset_urn: str,
         table: Table,
         catalog: Catalog,
         schema_metadata: Optional[SchemaMetadataClass] = None,
-    ) -> Iterable[MetadataWorkUnit]:
-        """Emit the upstream lineage link from a foreign-catalog table to its
-        external source dataset, unless disabled."""
+    ) -> Optional[UpstreamLineageClass]:
+        """Build the foreign-catalog COPY upstream lineage aspect (with identity 1:1,
+        case-insensitive column-level lineage when column lineage is enabled and both
+        schemas resolve), or None for a non-foreign catalog, when federation lineage
+        is disabled, or when the external source URN can't be resolved.
+
+        Returned rather than emitted so process_table can fold it into the table's
+        single upstreamLineage aspect — emitting a second MCP for the same URN would
+        clobber the Unity Catalog lineage (last-write-wins)."""
         if not catalog.is_foreign_catalog:
-            return
+            return None
         if not self.config.include_federation_lineage:
-            return
+            return None
 
         external_urn = self._external_dataset_urn(
             catalog, table.schema.name, table.name
         )
         if external_urn is None:
-            return
+            return None
 
         # A foreign catalog is a read-only mirror (copy) of the external dataset, so
-        # COPY is more accurate than the default VIEW. Emit identity column-level
-        # lineage (1:1, case-insensitive) when column lineage is enabled and both
-        # schemas are resolvable — the mirror's columns are copies of the external.
+        # COPY is more accurate than the default VIEW.
         self.report.num_federation_links_emitted += 1
         fine_grained_lineages = self._federation_column_lineage(
             dataset_urn, external_urn, catalog, schema_metadata
         )
-        yield from self.gen_lineage_workunit(
-            dataset_urn,
-            external_urn,
-            lineage_type=DatasetLineageType.COPY,
-            fine_grained_lineages=fine_grained_lineages,
+        return UpstreamLineageClass(
+            upstreams=[Upstream(dataset=external_urn, type=DatasetLineageType.COPY)],
+            fineGrainedLineages=fine_grained_lineages,
         )
+
+    def _with_federation_lineage(
+        self,
+        lineage: Optional[UpstreamLineageClass],
+        dataset_urn: str,
+        table: Table,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Optional[UpstreamLineageClass]:
+        """Fold the foreign-catalog COPY upstream into the table's single
+        upstreamLineage aspect. Federation is a supplemental feature, so any failure
+        here degrades to the table's unchanged Unity Catalog lineage (counted +
+        warned) rather than dropping it."""
+        try:
+            federation_lineage = self._federation_lineage(
+                dataset_urn, table, table.schema.catalog, schema_metadata
+            )
+        except Exception as e:
+            self.report.num_federation_links_failed += 1
+            self.report.warning(
+                title="Failed to build federation lineage",
+                message=(
+                    "Foreign-catalog upstream lineage was skipped for this table; "
+                    "its Unity Catalog lineage is unaffected."
+                ),
+                context=table.id,
+                exc=e,
+            )
+            return lineage
+        if federation_lineage is None:
+            return lineage
+        if lineage is None:
+            return federation_lineage
+        lineage.upstreams = [*lineage.upstreams, *federation_lineage.upstreams]
+        if federation_lineage.fineGrainedLineages:
+            lineage.fineGrainedLineages = [
+                *(lineage.fineGrainedLineages or []),
+                *federation_lineage.fineGrainedLineages,
+            ]
+        return lineage
 
     def _federation_column_lineage(
         self,
@@ -1636,7 +1680,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             yield from self.gen_platform_resources(catalog_tags)
 
         catalog_container_key = self.gen_catalog_key(catalog)
-        structured_properties = self._federation_structured_properties(catalog)
+        try:
+            structured_properties = self._federation_structured_properties(catalog)
+        except Exception as e:
+            # Federation structured properties are supplemental — a failure must not
+            # stop the catalog container itself from being emitted.
+            self.report.num_federation_property_defs_failed += 1
+            self.report.warning(
+                title="Failed to assign federation structured properties",
+                message=(
+                    "The foreign-catalog container is emitted without its federation "
+                    "structured properties."
+                ),
+                context=catalog.name,
+                exc=e,
+            )
+            structured_properties = None
         if catalog.is_foreign_catalog:
             self.report.num_foreign_catalogs += 1
         yield from gen_containers(
@@ -2418,7 +2477,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Unity Catalog (UC syncs a foreign table's schema lazily). Backfill them
         # from the already-ingested external source dataset via the graph.
         if not schema_fields:
-            backfilled = self._resolve_external_schema_fields(table)
+            try:
+                backfilled = self._resolve_external_schema_fields(table)
+            except Exception as e:
+                # Backfill is supplemental — an error must never drop the table's
+                # schema aspect. Degrade to the (empty) Unity Catalog columns.
+                self.report.num_federation_columns_backfill_failed += 1
+                self.report.warning(
+                    title="Failed to backfill foreign-catalog columns",
+                    message=(
+                        "Column backfill from the external source raised; the "
+                        "foreign-catalog table keeps its Unity Catalog columns."
+                    ),
+                    context=table.id,
+                    exc=e,
+                )
+                backfilled = None
             if backfilled:
                 schema_fields = backfilled
 
