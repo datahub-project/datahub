@@ -1471,10 +1471,10 @@ class TableauSiteSource:
                 continue
             self.workbook_project_map[wb.id] = wb.project_id
 
-    def _populate_projects_registry(self) -> None:
+    def _populate_projects_registry(self) -> Dict[str, TableauProject]:
         if self.server is None:
             logger.warning("server is None. Can not initialize the project registry")
-            return
+            return {}
 
         logger.info("Initializing site project registry")
 
@@ -1492,6 +1492,8 @@ class TableauSiteSource:
         logger.debug(
             f"Tableau workbooks {self.workbook_project_map}",
         )
+
+        return all_project_map
 
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
@@ -4212,7 +4214,9 @@ class TableauSiteSource:
 
         return None
 
-    def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
+    def emit_project_containers(
+        self, all_project_map: Dict[str, TableauProject]
+    ) -> Iterable[MetadataWorkUnit]:
         generated_project_keys: Set[str] = set()
 
         def emit_project_in_topological_order(
@@ -4241,19 +4245,20 @@ class TableauSiteSource:
                 # Go to the parent project as we need to generate container first for parent
                 parent_project_key = self.gen_project_key(project_.parent_id)
 
+                # Fall back to all_project_map when the parent was filtered out of the
+                # registry, so we recurse to the root. Such ancestors become path-only
+                # containers (no content, since they're absent from the content registry).
                 parent_tableau_project: Optional[TableauProject] = (
                     self.tableau_project_registry.get(project_.parent_id)
+                    or all_project_map.get(project_.parent_id)
                 )
 
-                if (
-                    parent_tableau_project is None
-                ):  # It is not in project registry because of project_pattern
-                    assert project_.parent_name, (
-                        f"project {project_.name} should not be null"
-                    )
+                if parent_tableau_project is None:
+                    # Parent unreachable (e.g. permissions); _get_all_project already
+                    # warned. Emit a single-level container and stop the upward walk.
                     parent_tableau_project = TableauProject(
                         id=project_.parent_id,
-                        name=project_.parent_name,
+                        name=project_.parent_name or project_.parent_id,
                         description=None,
                         parent_id=None,
                         parent_name=None,
@@ -4534,7 +4539,7 @@ class TableauSiteSource:
                     ] = timer.elapsed_seconds(digits=2)
 
             with PerfTimer() as timer:
-                self._populate_projects_registry()
+                all_project_map = self._populate_projects_registry()
                 self.report.populate_projects_registry_timer[self.site_content_url] = (
                     timer.elapsed_seconds(digits=2)
                 )
@@ -4544,7 +4549,7 @@ class TableauSiteSource:
 
             if self.config.add_site_container:
                 yield from self.emit_site_container()
-            yield from self.emit_project_containers()
+            yield from self.emit_project_containers(all_project_map)
 
             with PerfTimer() as timer:
                 yield from self.emit_workbooks()

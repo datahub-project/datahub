@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Any, Dict, List, Optional, Sequence, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
 from unittest import mock
 
 import pytest
@@ -34,6 +34,8 @@ from datahub.ingestion.source.tableau.tableau_common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
+    ContainerClass,
+    ContainerPropertiesClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
@@ -1313,6 +1315,270 @@ def _make_site_source() -> TableauSiteSource:
             report=TableauSourceReport(),
             server=mock.MagicMock(spec=Server),
         )
+
+
+def _tsc_project(id: str, name: str, parent_id: Optional[str]) -> mock.MagicMock:
+    """Minimal stand-in for a tableauserverclient ProjectItem, as returned by the
+    projects Pager."""
+    project = mock.MagicMock()
+    project.id = id
+    project.name = name
+    project.parent_id = parent_id
+    project.description = None
+    return project
+
+
+def _collect_container_tree(
+    source: TableauSiteSource,
+    all_project_map: Dict[str, TableauProject],
+) -> Dict[str, Dict[str, Optional[str]]]:
+    """Run emit_project_containers and return {project_id: {name, parent}} so
+    assertions read in terms of project ids rather than opaque container urns. A
+    root project's parent resolves to the "site" sentinel (its container nests under
+    the site container, which emit_site_container emits separately)."""
+    urn_to_id = {
+        source.gen_project_key(p.id).as_urn(): p.id for p in all_project_map.values()
+    }
+    urn_to_id[source.gen_site_key(source.site_id).as_urn()] = "site"
+
+    tree: Dict[str, Dict[str, Optional[str]]] = {}
+    for wu in source.emit_project_containers(all_project_map):
+        project_id = urn_to_id[wu.get_urn()]
+        entry = tree.setdefault(project_id, {"name": None, "parent": None})
+        props = wu.get_aspect_of_type(ContainerPropertiesClass)
+        if props is not None:
+            entry["name"] = props.name
+        parent = wu.get_aspect_of_type(ContainerClass)
+        if parent is not None:
+            entry["parent"] = urn_to_id.get(parent.container)
+    return tree
+
+
+class TestProjectContainerHierarchy:
+    """End-to-end tests for project container emission under project_pattern
+    filtering.
+
+    Each test declares a source project hierarchy plus a filter, then runs the real
+    pipeline -- fetch (via a mocked projects Pager) -> project_pattern filtering ->
+    registry building -> container emission -- and asserts the resulting browse
+    tree. The guiding invariant: every ingested project keeps its full folder path
+    up to the site, regardless of which ancestors matched the filter.
+    """
+
+    @staticmethod
+    def _run(
+        projects: List[Tuple[str, str, Optional[str]]],
+        *,
+        allow: Optional[List[str]] = None,
+        deny: Optional[List[str]] = None,
+        extract_project_hierarchy: bool = True,
+    ) -> Tuple[TableauSiteSource, Dict[str, Dict[str, Optional[str]]]]:
+        """Feed ``projects`` (id, name, parent_id) through the real projects Pager
+        and run filtering + registry building + container emission.
+
+        Returns (source, tree), where tree is {project_id: {name, parent}} and a
+        root project's parent resolves to the "site" sentinel (its container nests
+        under the site container). Sites are always added as containers here to
+        mirror a typical deployment.
+        """
+        project_pattern: Dict[str, List[str]] = {}
+        if allow is not None:
+            project_pattern["allow"] = allow
+        if deny is not None:
+            project_pattern["deny"] = deny
+
+        config_dict = {k: v for k, v in default_config.items() if k != "projects"}
+        config_dict.update(
+            project_pattern=project_pattern or {"allow": [".*"]},
+            extract_project_hierarchy=extract_project_hierarchy,
+            add_site_container=True,
+        )
+        config = TableauConfig.model_validate(config_dict)
+
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
+            source = TableauSiteSource(
+                config=config,
+                ctx=PipelineContext(run_id="test"),
+                platform="tableau",
+                site=SiteIdContentUrl(site_id="s1", site_content_url="s1"),
+                report=TableauSourceReport(),
+                server=mock.MagicMock(),
+            )
+
+        project_items = [_tsc_project(*p) for p in projects]
+
+        def fake_pager(endpoint: Any, **kwargs: Any) -> Any:
+            # Only the projects endpoint has data; the datasource/workbook registries
+            # are irrelevant to project-container emission.
+            if endpoint is source.server.projects:
+                return iter(project_items)
+            return iter([])
+
+        with mock.patch(
+            "datahub.ingestion.source.tableau.tableau.TSC.Pager", side_effect=fake_pager
+        ):
+            all_project_map = source._populate_projects_registry()
+
+        return source, _collect_container_tree(source, all_project_map)
+
+    def test_reconstructs_unmatched_ancestors(self) -> None:
+        """A matched leaf keeps its full folder path when every ancestor is filtered
+        out.
+
+            Site
+            └── Project_1        filtered out
+                └── Project_2    filtered out
+                    └── Project_3    filtered out
+                        └── Project_4    MATCHES (leaf)
+        """
+        _, tree = self._run(
+            projects=[
+                ("p1", "Project_1", None),
+                ("p2", "Project_2", "p1"),
+                ("p3", "Project_3", "p2"),
+                ("p4", "Project_4", "p3"),
+            ],
+            allow=["^Project_4$"],
+        )
+
+        assert set(tree) == {"p1", "p2", "p3", "p4"}
+        assert tree["p4"]["parent"] == "p3"
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+        assert tree["p1"]["name"] == "Project_1"
+
+    def test_shares_common_ancestors_once(self) -> None:
+        """Two matched leaves keep their full paths and share ancestors exactly once,
+        with each branch nested correctly.
+
+            Site
+            └── Project_1                shared ancestor
+                └── Project_2            shared ancestor
+                    ├── Project_3
+                    │   └── Project_4        MATCHES (leaf)
+                    └── Project_5
+                        └── Project_6        MATCHES (leaf)
+        """
+        _, tree = self._run(
+            projects=[
+                ("p1", "Project_1", None),
+                ("p2", "Project_2", "p1"),
+                ("p3", "Project_3", "p2"),
+                ("p4", "Project_4", "p3"),
+                ("p5", "Project_5", "p2"),
+                ("p6", "Project_6", "p5"),
+            ],
+            allow=["^Project_4$", "^Project_6$"],
+        )
+
+        # Shared ancestors (p1, p2) appear once each -- keying by project id
+        # collapses duplicates, so an equal set means no ancestor was emitted twice
+        # under a different identity.
+        assert set(tree) == {"p1", "p2", "p3", "p4", "p5", "p6"}
+        assert tree["p4"]["parent"] == "p3"
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p6"]["parent"] == "p5"
+        assert tree["p5"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+
+    def test_middle_project_with_parent_and_child(self) -> None:
+        """A matched middle project (unmatched parent above, child below) links up to
+        its reconstructed parent and down to its child.
+
+            Site
+            └── Project_1        filtered out    -> path-only ancestor
+                └── Project_2    MATCHES         -> content container
+                    └── Project_3  child of match -> content container
+        """
+        source, tree = self._run(
+            projects=[
+                ("p1", "Project_1", None),
+                ("p2", "Project_2", "p1"),
+                ("p3", "Project_3", "p2"),
+            ],
+            allow=["^Project_2$"],
+        )
+
+        # Project_2 matched directly; Project_3 was pulled in as its child; the
+        # unmatched ancestor Project_1 stayed out of the content registry.
+        assert set(source.tableau_project_registry) == {"p2", "p3"}
+        assert set(tree) == {"p1", "p2", "p3"}
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+
+    def test_denied_ancestor_still_emitted_as_path_container(self) -> None:
+        """An explicitly denied ancestor carries no content but is still emitted as a
+        path container so the matched descendant's path stays unbroken."""
+        source, tree = self._run(
+            projects=[
+                ("p1", "Project_1", None),
+                ("p2", "Project_2", "p1"),
+                ("p3", "Project_3", "p2"),
+            ],
+            allow=["^Project_3$"],
+            deny=["^Project_1$"],
+        )
+
+        # Denied ancestor is not content-bearing...
+        assert "p1" not in source.tableau_project_registry
+        # ...but still appears in the browse tree, correctly nested.
+        assert set(tree) == {"p1", "p2", "p3"}
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+
+    def test_denied_child_excluded_while_sibling_emits(self) -> None:
+        """Under a matched parent, extract_project_hierarchy pulls in children --
+        except ones matching a deny rule. A denied child that is not an ancestor of
+        anything ingested emits no container at all, while its sibling emits
+        normally.
+
+            Site
+            └── Project_1    MATCHES (parent)
+                ├── Project_2    child, re-admitted -> emits
+                └── Project_3    DENIED             -> not emitted
+        """
+        source, tree = self._run(
+            projects=[
+                ("p1", "Project_1", None),
+                ("p2", "Project_2", "p1"),
+                ("p3", "Project_3", "p1"),
+            ],
+            allow=["^Project_1$"],
+            deny=["^Project_3$"],
+        )
+
+        # The denied child is excluded entirely; the parent and its other child emit.
+        assert set(source.tableau_project_registry) == {"p1", "p2"}
+        assert set(tree) == {"p1", "p2"}
+        assert "p3" not in tree
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+
+    def test_path_reconstructed_when_hierarchy_flag_disabled(self) -> None:
+        """Path correctness does not depend on extract_project_hierarchy: with the
+        flag off, no descendants are re-admitted, yet the matched project's full
+        ancestor path is still reconstructed."""
+        source, tree = self._run(
+            projects=[
+                ("p1", "Project_1", None),
+                ("p2", "Project_2", "p1"),
+                ("p3", "Project_3", "p2"),
+            ],
+            allow=["^Project_3$"],
+            extract_project_hierarchy=False,
+        )
+
+        # Only the matched leaf is content-bearing (no downward re-admission)...
+        assert set(source.tableau_project_registry) == {"p3"}
+        # ...yet the full ancestor path is still reconstructed.
+        assert set(tree) == {"p1", "p2", "p3"}
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
 
 
 class TestNullApiResponseHandling:
