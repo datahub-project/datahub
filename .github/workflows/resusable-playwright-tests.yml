@@ -46,6 +46,11 @@ on:
         required: false
         type: string
         default: ${{ vars.DOCKER_REGISTRY }}
+      send_posthog_metrics:
+        description: "Whether to send test failure metrics to PostHog. Should only be true for scheduled/push runs, not workflow_dispatch."
+        required: false
+        type: boolean
+        default: false
 jobs:
   playwright_test:
     name: Playwright E2E Tests
@@ -176,7 +181,7 @@ jobs:
           retention-days: 5
 
       - name: Send failed test metrics to PostHog
-        if: failure()
+        if: failure() && inputs.send_posthog_metrics
         continue-on-error: true
         env:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}

@@ -161,7 +161,7 @@ def parse_playwright_failures(xml_file: Path) -> List[FailedTest]:
                 test_name = testcase.get('name', '')
 
                 parts = [p for p in [spec_file, classname, test_name] if p]
-                test_identifier = ' > '.join(parts) if parts else spec_file
+                test_identifier = (' > '.join(parts) if parts else spec_file)[:200]
 
                 error_msg = None
                 if failure is not None:

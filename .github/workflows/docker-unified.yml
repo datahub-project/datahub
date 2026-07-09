@@ -884,6 +884,7 @@ jobs:
       local_build_flags: "-PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=acryldata"
       datahub_version: ${{ needs.setup.outputs.tag }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
+      send_posthog_metrics: true
     secrets: inherit
 
   playwright_report:
