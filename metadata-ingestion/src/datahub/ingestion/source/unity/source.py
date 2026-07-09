@@ -727,6 +727,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
+            # Views (VIEW / MATERIALIZED_VIEW / HIVE_VIEW) are honored via
+            # include_views + view_pattern, mirroring SQL-based sources. Metric
+            # views are not is_view and keep their dedicated filtering below.
+            if table.is_view and (
+                not self.config.include_views
+                or not self.config.view_pattern.allowed(table.ref.qualified_table_name)
+            ):
+                self.report.tables.dropped(table.id, f"view ({table.table_type})")
+                continue
+
             if (
                 table.is_metric_view
                 and self.config.include_metric_views
@@ -736,6 +746,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 self.report.metric_views.dropped(table.id)
+                continue
+
+            # Regular tables (neither view nor metric view) are honored via
+            # include_tables; views and metric views keep their own toggles above.
+            if (
+                not table.is_view
+                and not table.is_metric_view
+                and not self.config.include_tables
+            ):
+                self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
             if (

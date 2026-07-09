@@ -1,0 +1,16 @@
+{
+    "columnCount_one": "{{count}} colonna",
+    "columnCount_other": "{{count}} colonne",
+    "matchCount_one": "{{count}} corrispondenza",
+    "matchCount_other": "{{count}} corrispondenze",
+    "ownerCount_one": "{{count}} proprietario",
+    "ownerCount_other": "{{count}} proprietari",
+    "queryCount_one": "{{count}} query",
+    "queryCount_other": "{{count}} query",
+    "rowCount_one": "{{count}} riga",
+    "rowCount_other": "{{count}} righe",
+    "tagCount_one": "{{count}} tag",
+    "tagCount_other": "{{count}} tag",
+    "termCount_one": "{{count}} termine",
+    "termCount_other": "{{count}} termini"
+}

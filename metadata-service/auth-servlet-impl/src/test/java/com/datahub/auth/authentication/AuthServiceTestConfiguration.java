@@ -7,6 +7,7 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.user.NativeUserService;
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -80,6 +81,12 @@ public class AuthServiceTestConfiguration {
   @Primary
   public TrackingService trackingService() {
     return Mockito.mock(TrackingService.class);
+  }
+
+  @Bean
+  @Primary
+  public AuthorizerChain authorizerChain() {
+    return Mockito.mock(AuthorizerChain.class);
   }
 
   @Bean

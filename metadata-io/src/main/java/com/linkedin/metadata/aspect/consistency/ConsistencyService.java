@@ -8,6 +8,7 @@ import com.linkedin.metadata.aspect.consistency.check.CheckBatchRequest;
 import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
+import com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixDetail;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixResult;
@@ -321,7 +322,7 @@ public class ConsistencyService {
     // Build query for system metadata index (URNs are just another filter)
     BoolQueryBuilder query =
         buildSystemMetadataQuery(
-            resolvedEntityType, checks, request.getFilter(), request.getUrns());
+            opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
 
     // Scroll system metadata index
     SearchResponse response =
@@ -375,8 +376,8 @@ public class ConsistencyService {
 
     List<ConsistencyIssue> issues = runChecks(ctx, entityResponses, checks);
 
-    // Run orphan check if there are orphan URNs
-    if (!orphanUrns.isEmpty()) {
+    // Run orphan check only when orphan-index-document is among the selected checks
+    if (!orphanUrns.isEmpty() && isOrphanCheckSelected(checks)) {
       List<ConsistencyIssue> orphanIssues = runOrphanCheck(ctx, resolvedEntityType);
       issues.addAll(orphanIssues);
     }
@@ -606,8 +607,8 @@ public class ConsistencyService {
 
     List<ConsistencyIssue> issues = runChecks(ctx, entitiesFromSql, checks);
 
-    // Run orphan check if there are orphan URNs
-    if (!orphanUrns.isEmpty()) {
+    // Run orphan check only when orphan-index-document is among the selected checks
+    if (!orphanUrns.isEmpty() && isOrphanCheckSelected(checks)) {
       List<ConsistencyIssue> orphanIssues = runOrphanCheck(ctx, entityType);
       issues.addAll(orphanIssues);
     }
@@ -629,6 +630,7 @@ public class ConsistencyService {
    *
    * <p>Package-private for testing.
    *
+   * @param opContext operation context (used to resolve key aspect when keyAspectOnly)
    * @param entityType entity type
    * @param checks checks to run
    * @param filter optional filter configuration
@@ -636,6 +638,7 @@ public class ConsistencyService {
    * @return BoolQueryBuilder for the system metadata index
    */
   BoolQueryBuilder buildSystemMetadataQuery(
+      @Nullable OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull List<ConsistencyCheck> checks,
       @Nullable SystemMetadataFilter filter,
@@ -654,7 +657,7 @@ public class ConsistencyService {
     }
 
     // Filter by aspect if check or config requires it
-    Set<String> targetAspects = getTargetAspects(checks, filter);
+    Set<String> targetAspects = getTargetAspects(opContext, entityType, checks, filter);
     if (!targetAspects.isEmpty()) {
       if (targetAspects.size() == 1) {
         query.filter(QueryBuilders.termQuery("aspect", targetAspects.iterator().next()));
@@ -704,13 +707,40 @@ public class ConsistencyService {
   /**
    * Get target aspects from checks or filter config.
    *
+   * <p>When {@code filter.keyAspectOnly} is true, returns only the entity type's key aspect name
+   * (ignores aspectFilters and check getTargetAspects for discovery).
+   *
+   * @param opContext operation context for key-aspect resolution
+   * @param entityType entity type being scrolled
    * @param checks list of checks
    * @param filter optional filter configuration
    * @return set of target aspect names (may be empty)
    */
   @Nonnull
-  private Set<String> getTargetAspects(
-      @Nonnull List<ConsistencyCheck> checks, @Nullable SystemMetadataFilter filter) {
+  Set<String> getTargetAspects(
+      @Nullable OperationContext opContext,
+      @Nonnull String entityType,
+      @Nonnull List<ConsistencyCheck> checks,
+      @Nullable SystemMetadataFilter filter) {
+    if (filter != null && filter.isKeyAspectOnly()) {
+      if (opContext == null) {
+        log.warn(
+            "keyAspectOnly requested for {} but OperationContext is null; falling back to unfiltered aspects",
+            entityType);
+      } else {
+        try {
+          String keyAspectName =
+              opContext.getEntityRegistry().getEntitySpec(entityType).getKeyAspectName();
+          if (keyAspectName != null && !keyAspectName.isEmpty()) {
+            return Set.of(keyAspectName);
+          }
+        } catch (Exception e) {
+          log.warn(
+              "Failed to resolve key aspect for entity type {}: {}", entityType, e.getMessage());
+        }
+      }
+    }
+
     Set<String> aspects = new HashSet<>();
 
     // Add from filter config first (now supports list)
@@ -980,6 +1010,16 @@ public class ConsistencyService {
   }
 
   /**
+   * Whether the orphan-index-document check is among the checks selected for this batch.
+   *
+   * <p>Package-private for testing.
+   */
+  static boolean isOrphanCheckSelected(@Nonnull List<ConsistencyCheck> checks) {
+    return checks.stream()
+        .anyMatch(check -> OrphanIndexDocumentCheck.CHECK_ID.equals(check.getId()));
+  }
+
+  /**
    * Run the orphan index document check.
    *
    * @param ctx check context with orphan URNs populated
@@ -989,15 +1029,11 @@ public class ConsistencyService {
   private List<ConsistencyIssue> runOrphanCheck(CheckContext ctx, String entityType) {
     // Get the OrphanIndexDocumentCheck from the registry
     return checkRegistry
-        .getById("orphan-index-document")
+        .getById(OrphanIndexDocumentCheck.CHECK_ID)
         .map(
             check -> {
-              if (check
-                  instanceof
-                  com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck) {
-                return ((com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck)
-                        check)
-                    .checkOrphans(ctx, entityType);
+              if (check instanceof OrphanIndexDocumentCheck) {
+                return ((OrphanIndexDocumentCheck) check).checkOrphans(ctx, entityType);
               }
               log.warn(
                   "OrphanIndexDocumentCheck found but is unexpected type: {}", check.getClass());
@@ -1100,7 +1136,7 @@ public class ConsistencyService {
     }
 
     // For orphan check, we need to check if entity exists in SQL
-    if ("orphan-index-document".equals(checkId)) {
+    if (OrphanIndexDocumentCheck.CHECK_ID.equals(checkId)) {
       Set<Urn> existingUrns = entityService.exists(opContext, Set.of(urn), null, true, false);
       if (existingUrns.isEmpty()) {
         // Entity doesn't exist in SQL - create orphan issue
