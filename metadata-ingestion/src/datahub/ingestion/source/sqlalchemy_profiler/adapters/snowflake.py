@@ -60,14 +60,18 @@ class SnowflakeAdapter(PlatformAdapter):
         """
         logger.debug(f"Snowflake setup_profiling called for {context.pretty_name}")
 
-        # If custom_sql is provided (e.g., TABLESAMPLE query from snowflake_profiler.py),
-        # use it as the profiling source
+        # If custom_sql is provided (e.g., snowflake_profiler.py), use it as the profiling source
         if context.custom_sql:
+            # Log at INFO level so it's visible in integration tests
             logger.info(
-                f"Using custom SQL for {context.pretty_name} (sampling via inline TABLESAMPLE)"
+                f"[Snowflake Profiling] Using TABLESAMPLE sampling for {context.pretty_name}"
             )
+            logger.info(f"[Snowflake Profiling] Sample query: {context.custom_sql}")
             context.sql_table = self._create_table_from_custom_sql(context, conn)
             context.is_sampled = True
+            logger.info(
+                f"[Snowflake Profiling] Created subquery for sampling, is_sampled={context.is_sampled}"
+            )
             return context
 
         # Otherwise, profile the original table
@@ -85,11 +89,11 @@ class SnowflakeAdapter(PlatformAdapter):
 
     def _create_table_from_custom_sql(
         self, context: ProfilingContext, conn: Connection
-    ) -> sa.Table:
+    ) -> sa.sql.expression.Subquery:
         """
-        Create a SQLAlchemy Table object from a custom SQL query (e.g., TABLESAMPLE).
+        Create a SQLAlchemy subquery from a custom SQL query (e.g., TABLESAMPLE).
 
-        This creates a Table that wraps the custom SQL as a subquery, allowing the
+        This creates a subquery that wraps the custom SQL, allowing the
         query combiner to profile it just like a regular table.
 
         Args:
@@ -97,15 +101,18 @@ class SnowflakeAdapter(PlatformAdapter):
             conn: Active database connection for metadata reflection
 
         Returns:
-            SQLAlchemy Table object representing the custom SQL query
+            SQLAlchemy Subquery object representing the custom SQL query
         """
         # First, get the column metadata from the original table
-        # This is needed to create the Table object with proper columns
+        # This is needed to create the selectable with proper columns
         if not context.table:
             raise ValueError(
                 f"Cannot create table from custom SQL for {context.pretty_name}: "
                 "table name required for column metadata"
             )
+
+        # custom_sql must be non-None when this method is called
+        assert context.custom_sql is not None, "custom_sql must be set"
 
         # Reflect the original table to get column definitions
         original_table = self._create_sqlalchemy_table(
@@ -119,33 +126,13 @@ class SnowflakeAdapter(PlatformAdapter):
         )
 
         # Create a subquery that can be used like a table
-        # We create a Table object with a custom selectable
         subquery = custom_query.subquery(name=context.table)
 
-        # Create a Table from the subquery with the same columns as the original
-        table = sa.Table(
-            context.table,
-            sa.MetaData(),
-            *[
-                sa.Column(
-                    c.name,
-                    c.type,
-                    key=c.name,
-                )
-                for c in original_table.columns
-            ],
-            schema=context.schema,
-        )
-
-        # Override the table's select to use our subquery
-        # This makes profiling queries execute against the TABLESAMPLE query
-        table = subquery.alias(context.table)
-
         logger.debug(
-            f"Created table from custom SQL for {context.pretty_name}: {context.custom_sql[:100]}..."
+            f"Created subquery from custom SQL for {context.pretty_name}: {context.custom_sql[:100]}..."
         )
 
-        return table
+        return subquery
 
     def _create_sqlalchemy_table(
         self, schema: Optional[str], table: str, autoload_with: Optional[Any] = None
@@ -265,7 +252,7 @@ class SnowflakeAdapter(PlatformAdapter):
 
     def get_column_quantiles(
         self,
-        table: sa.Table,
+        table: sa.sql.FromClause,
         column: str,
         conn: Connection,
         quantiles: Optional[List[float]] = None,

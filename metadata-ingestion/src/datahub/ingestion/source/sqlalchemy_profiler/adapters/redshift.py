@@ -106,7 +106,7 @@ class RedshiftAdapter(PlatformAdapter):
         return True
 
     def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
+        self, table: sa.sql.FromClause, conn: Connection
     ) -> Optional[int]:
         """
         Get fast row count estimate using Redshift system tables.
@@ -122,8 +122,8 @@ class RedshiftAdapter(PlatformAdapter):
             Estimated row count, or None if query fails
         """
         try:
-            schema = table.schema
-            table_name = table.name
+            schema = getattr(table, "schema", None)
+            table_name = getattr(table, "name", None)
 
             # Query Redshift system view using SQLAlchemy query builder
             # svv_table_info contains row counts for tables

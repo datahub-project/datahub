@@ -62,7 +62,7 @@ class MSSQLAdapter(PlatformAdapter):
     # =========================================================================
 
     def get_column_stdev(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.sql.FromClause, column: str, conn: Connection
     ) -> Optional[Any]:
         """
         Get sample standard deviation using MSSQL's `STDEV()` function.
@@ -85,7 +85,7 @@ class MSSQLAdapter(PlatformAdapter):
 
     def get_column_quantiles(
         self,
-        table: sa.Table,
+        table: sa.sql.FromClause,
         column: str,
         conn: Connection,
         quantiles: Optional[List[float]] = None,

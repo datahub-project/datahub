@@ -34,7 +34,19 @@ class ProfilingContext:
     partition: Optional[str] = None
 
     # Working state (populated during profiling)
-    sql_table: Optional[sa.Table] = None
+    # sql_table: SQLAlchemy selectable to profile: sa.sql.FromClause = Table or Subquery
+    # - In most cases: sa.Table (regular tables or temp tables)
+    # - Can also be: sa.sql.expression.Subquery (inline expressions)
+    #
+    # Adapter implementation patterns for custom_sql:
+    # 1. Temp table approach (BigQuery, Athena, Trino):
+    #    - Creates temp table/view from custom_sql
+    #    - Reflects it as sa.Table
+    #    - Requires cleanup in adapter.cleanup()
+    # 2. Inline expression approach (Snowflake):
+    #    - Wraps custom_sql as Subquery
+    #    - No temp objects, no cleanup needed
+    sql_table: Optional[sa.sql.FromClause] = None
     row_count: Optional[int] = None
 
     # Platform-specific resources (need cleanup)

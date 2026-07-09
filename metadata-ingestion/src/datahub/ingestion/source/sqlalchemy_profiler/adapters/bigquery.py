@@ -391,7 +391,7 @@ class BigQueryAdapter(PlatformAdapter):
 
     def get_column_quantiles(
         self,
-        table: sa.Table,
+        table: sa.sql.FromClause,
         column: str,
         conn: Connection,
         quantiles: Optional[List[float]] = None,

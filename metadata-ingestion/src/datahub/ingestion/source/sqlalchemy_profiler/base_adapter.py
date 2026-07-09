@@ -257,7 +257,7 @@ class PlatformAdapter(ABC):
         return False
 
     def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
+        self, table: sa.sql.FromClause, conn: Connection
     ) -> Optional[int]:
         """
         Get fast row count estimate without full table scan.
@@ -284,7 +284,7 @@ class PlatformAdapter(ABC):
 
     def get_row_count(
         self,
-        table: sa.Table,
+        table: sa.sql.FromClause,
         conn: Connection,
         sample_clause: Optional[str] = None,
         use_estimation: bool = False,
@@ -329,7 +329,7 @@ class PlatformAdapter(ABC):
         return int(count_result)
 
     def get_column_non_null_count(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.sql.FromClause, column: str, conn: Connection
     ) -> int:
         """
         Get non-null count for a column.
@@ -348,7 +348,9 @@ class PlatformAdapter(ABC):
         result = conn.execute(query).scalar()
         return int(result) if result is not None else 0
 
-    def get_column_min(self, table: sa.Table, column: str, conn: Connection) -> Any:
+    def get_column_min(
+        self, table: sa.sql.FromClause, column: str, conn: Connection
+    ) -> Any:
         """
         Get minimum value for a column.
 
@@ -363,7 +365,9 @@ class PlatformAdapter(ABC):
         query = sa.select([sa.func.min(sa.column(column))]).select_from(table)
         return conn.execute(query).scalar()
 
-    def get_column_max(self, table: sa.Table, column: str, conn: Connection) -> Any:
+    def get_column_max(
+        self, table: sa.sql.FromClause, column: str, conn: Connection
+    ) -> Any:
         """
         Get maximum value for a column.
 
@@ -379,7 +383,7 @@ class PlatformAdapter(ABC):
         return conn.execute(query).scalar()
 
     def get_column_mean(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.sql.FromClause, column: str, conn: Connection
     ) -> Optional[Any]:
         """
         Get average value for a column.
@@ -406,7 +410,7 @@ class PlatformAdapter(ABC):
         return result
 
     def get_column_stdev(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.sql.FromClause, column: str, conn: Connection
     ) -> Optional[Any]:
         """
         Get standard deviation for a column.
@@ -444,7 +448,11 @@ class PlatformAdapter(ABC):
         return None
 
     def get_column_unique_count(
-        self, table: sa.Table, column: str, conn: Connection, use_approx: bool = True
+        self,
+        table: sa.sql.FromClause,
+        column: str,
+        conn: Connection,
+        use_approx: bool = True,
     ) -> int:
         """
         Get unique count (approximate if use_approx=True).
@@ -467,7 +475,9 @@ class PlatformAdapter(ABC):
         result = conn.execute(query).scalar()
         return int(result) if result is not None else 0
 
-    def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
+    def get_column_median(
+        self, table: sa.sql.FromClause, column: str, conn: Connection
+    ) -> Any:
         """
         Get median value for a column.
 
@@ -516,7 +526,7 @@ class PlatformAdapter(ABC):
 
     def get_column_quantiles(
         self,
-        table: sa.Table,
+        table: sa.sql.FromClause,
         column: str,
         conn: Connection,
         quantiles: Optional[List[float]] = None,
@@ -584,7 +594,7 @@ class PlatformAdapter(ABC):
 
     def get_column_histogram(
         self,
-        table: sa.Table,
+        table: sa.sql.FromClause,
         column: str,
         conn: Connection,
         num_buckets: int = 10,
@@ -677,7 +687,7 @@ class PlatformAdapter(ABC):
 
     def get_column_value_frequencies(
         self,
-        table: sa.Table,
+        table: sa.sql.FromClause,
         column: str,
         conn: Connection,
         top_k: int = 10,
@@ -717,7 +727,7 @@ class PlatformAdapter(ABC):
 
     def get_column_distinct_value_frequencies(
         self,
-        table: sa.Table,
+        table: sa.sql.FromClause,
         column: str,
         conn: Connection,
     ) -> List[Tuple[Any, int]]:
@@ -765,7 +775,7 @@ class PlatformAdapter(ABC):
 
     def get_column_sample_values(
         self,
-        table: sa.Table,
+        table: sa.sql.FromClause,
         column: str,
         conn: Connection,
         limit: int = 20,

@@ -73,7 +73,7 @@ class MySQLAdapter(PlatformAdapter):
         return True
 
     def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
+        self, table: sa.sql.FromClause, conn: Connection
     ) -> Optional[int]:
         """
         Get fast row count estimate using information_schema.tables.table_rows.
@@ -89,8 +89,8 @@ class MySQLAdapter(PlatformAdapter):
             Estimated row count, or None if query fails
         """
         try:
-            schema = table.schema
-            table_name = table.name
+            schema = getattr(table, "schema", None)
+            table_name = getattr(table, "name", None)
 
             # Query information_schema.tables using SQLAlchemy query builder
             info_schema_tables = sa.Table(

@@ -159,7 +159,7 @@ class QueryCombinerRunner:
 
     def get_row_count(
         self,
-        table: "sa.Table",
+        table: "sa.sql.FromClause",
         sample_clause: Optional[str] = None,
         use_estimation: bool = False,
     ) -> FutureResult[int]:
@@ -182,7 +182,7 @@ class QueryCombinerRunner:
         return FutureResult(container=container)
 
     def get_column_non_null_count(
-        self, table: "sa.Table", column: str
+        self, table: "sa.sql.FromClause", column: str
     ) -> FutureResult[int]:
         """
         Get non-null count (avoids GE's problematic IN (NULL) pattern).
@@ -202,7 +202,9 @@ class QueryCombinerRunner:
         self.query_combiner.run(execute)
         return FutureResult(container=container)
 
-    def get_column_min(self, table: "sa.Table", column: str) -> FutureResult[Any]:
+    def get_column_min(
+        self, table: "sa.sql.FromClause", column: str
+    ) -> FutureResult[Any]:
         """
         Get minimum value for a column.
 
@@ -219,7 +221,9 @@ class QueryCombinerRunner:
         self.query_combiner.run(execute)
         return FutureResult(container=container)
 
-    def get_column_max(self, table: "sa.Table", column: str) -> FutureResult[Any]:
+    def get_column_max(
+        self, table: "sa.sql.FromClause", column: str
+    ) -> FutureResult[Any]:
         """
         Get maximum value for a column.
 
@@ -237,7 +241,7 @@ class QueryCombinerRunner:
         return FutureResult(container=container)
 
     def get_column_mean(
-        self, table: "sa.Table", column: str
+        self, table: "sa.sql.FromClause", column: str
     ) -> FutureResult[Optional[float]]:
         """
         Get average value for a column.
@@ -256,7 +260,7 @@ class QueryCombinerRunner:
         return FutureResult(container=container)
 
     def get_column_stdev(
-        self, table: "sa.Table", column: str
+        self, table: "sa.sql.FromClause", column: str
     ) -> FutureResult[Optional[float]]:
         """
         Get standard deviation for a column.
@@ -277,7 +281,7 @@ class QueryCombinerRunner:
         return FutureResult(container=container)
 
     def get_column_unique_count(
-        self, table: "sa.Table", column: str, use_approx: bool = True
+        self, table: "sa.sql.FromClause", column: str, use_approx: bool = True
     ) -> FutureResult[int]:
         """
         Get unique count (approximate if use_approx=True).
@@ -297,7 +301,9 @@ class QueryCombinerRunner:
         self.query_combiner.run(execute)
         return FutureResult(container=container)
 
-    def get_column_median(self, table: "sa.Table", column: str) -> FutureResult[Any]:
+    def get_column_median(
+        self, table: "sa.sql.FromClause", column: str
+    ) -> FutureResult[Any]:
         """
         Get median value for a column (database-specific).
 
@@ -318,7 +324,7 @@ class QueryCombinerRunner:
 
     def get_column_quantiles(
         self,
-        table: "sa.Table",
+        table: "sa.sql.FromClause",
         column: str,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
@@ -332,7 +338,7 @@ class QueryCombinerRunner:
 
     def get_column_histogram(
         self,
-        table: "sa.Table",
+        table: "sa.sql.FromClause",
         column: str,
         num_buckets: int = 10,
         min_val: Optional[float] = None,
@@ -370,7 +376,7 @@ class QueryCombinerRunner:
 
     def get_column_distinct_value_frequencies(
         self,
-        table: "sa.Table",
+        table: "sa.sql.FromClause",
         column: str,
     ) -> List[Tuple[Any, int]]:
         """
@@ -387,7 +393,7 @@ class QueryCombinerRunner:
 
     def get_column_sample_values(
         self,
-        table: "sa.Table",
+        table: "sa.sql.FromClause",
         column: str,
         limit: int = 20,
     ) -> List[Any]:
