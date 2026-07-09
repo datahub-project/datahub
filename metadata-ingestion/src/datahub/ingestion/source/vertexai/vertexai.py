@@ -352,9 +352,22 @@ class VertexAISource(StatefulIngestionSourceBase):
                 )
 
     def _gen_workunits_for_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
-        """Emit all workunits for a single project across its configured regions."""
-        yield from self._gen_project_workunits()
+        """Emit all workunits for a single project across its configured regions.
 
+        The first resource is fetched before any container is emitted, so a project
+        with a disabled API fails before emitting orphan containers.
+        """
+        resources = iter(self._gen_project_resource_workunits(project_id))
+        first = next(resources, None)
+        yield from self._gen_project_workunits()
+        if first is not None:
+            yield first
+            yield from resources
+
+    def _gen_project_resource_workunits(
+        self, project_id: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Fetch resource workunits for a project across its configured regions."""
         regions = self._project_to_regions.get(project_id, [self._get_region()])
         # Experiments are project-scoped, so extract them only for the first region
         first_region = True
