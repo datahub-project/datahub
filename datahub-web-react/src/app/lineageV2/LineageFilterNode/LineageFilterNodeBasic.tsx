@@ -22,9 +22,12 @@ export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
 const NodeWrapper = styled.div`
     background-color: ${(props) => props.theme.colors.bg};
-    border: ${(props) => `1px solid ${props.theme.colors.border}`};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
+    color: ${(props) => props.theme.colors.text};
     cursor: pointer;
+    font-size: 12px;
+    line-height: 16px;
     padding: 8px;
     width: ${LINEAGE_NODE_WIDTH}px;
 `;
@@ -57,7 +60,7 @@ const Title = styled.div`
 `;
 
 const TitleCount = styled.span`
-    font-weight: bold;
+    font-weight: 700;
     margin: 0 1px;
 `;
 
@@ -74,6 +77,7 @@ const PillsWrapper = styled.div`
 `;
 
 const PillColumn = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     flex-direction: row;
 `;

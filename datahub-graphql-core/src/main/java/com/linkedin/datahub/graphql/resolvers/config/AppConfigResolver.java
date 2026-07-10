@@ -290,6 +290,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
             .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
             .setI18nEnabled(_featureFlags.isI18nEnabled())
+            .setBrowserTracingEnabled(_featureFlags.isBrowserTracingEnabled())
+            .setBrowserWebVitalsEnabled(_featureFlags.isBrowserWebVitalsEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
