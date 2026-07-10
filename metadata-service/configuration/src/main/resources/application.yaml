@@ -320,6 +320,7 @@ datahub:
         scheduledIntervalSeconds: ${USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS:60}
         retryAttempts: ${USAGE_AGGREGATION_FLUSH_RETRY_ATTEMPTS:3}
         retryInitialBackoffMillis: ${USAGE_AGGREGATION_FLUSH_RETRY_INITIAL_BACKOFF_MILLIS:100}
+        alignmentPeriodSeconds: ${USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS:0}
 
   validation:
     aspectSize:
