@@ -448,9 +448,8 @@ def test_usage_emits_lineage_between_discovered_tables():
 
 
 def test_process_view_without_columns_still_marks_discovered():
-    # A view whose columns can't be reflected (KeyError) is still emitted as a
-    # real dataset, so it must land in discovered_datasets or usage would later
-    # treat it as a phantom/temp table and drop its query-history lineage.
+    # A view with unreflectable columns is still emitted, so it must land in
+    # discovered_datasets; otherwise usage treats it as temp and drops lineage.
     source = _source()
     inspector = MagicMock()
     inspector.get_columns.side_effect = KeyError("no columns")
@@ -546,12 +545,10 @@ def test_usage_skips_phantom_entity_from_mis_quoted_identifier():
     assert not any("appdb.appdb" in urn for urn in urns), (
         f"phantom doubled-database URN must not be emitted; got {urns}"
     )
-    # Co-assert the real upstream is emitted, so a parse regression that drops
-    # all output can't let this pass vacuously.
+    # Co-assert the real upstream is emitted, guarding against a vacuous pass.
     assert any(urn.endswith("appdb.orders,PROD)") for urn in urns), (
         f"expected the discovered table appdb.orders to be emitted; got {urns}"
     )
-    # The suppression is observable via the report counter and sample.
     assert source.report.num_usage_references_suppressed_as_temp >= 1
     assert "appdb.appdb.tmp_upsert" in list(
         source.report.usage_references_suppressed_as_temp_sample
@@ -582,12 +579,10 @@ def test_usage_does_not_attribute_to_filtered_out_database():
     assert not any("drop_db" in urn for urn in urns), (
         f"filtered-out database must not appear in emitted URNs; got {urns}"
     )
-    # Co-assert the allowed table is emitted, so dropping all output can't let
-    # this pass vacuously.
+    # Co-assert the allowed table is emitted, guarding against a vacuous pass.
     assert any(urn.endswith("keep_db.orders,PROD)") for urn in urns), (
         f"expected the allowed table keep_db.orders to be emitted; got {urns}"
     )
-    # The filtered reference is observable via the report counter and sample.
     assert source.report.num_usage_references_suppressed_as_temp >= 1
     assert "drop_db.secrets" in list(
         source.report.usage_references_suppressed_as_temp_sample
