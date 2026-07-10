@@ -3604,19 +3604,27 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             with self._tables_cache_lock:
                 self._tables_cache.clear()
                 self._table_creator_cache.clear()
+        except Exception as e:
+            logger.warning(f"Failed to clear table caches during close: {e}")
 
-            # Close the disk-backed view-definition store so its temporary SQLite
-            # file is removed promptly rather than waiting for GC.
+        # Close the disk-backed view-definition store so its temporary SQLite file is
+        # removed promptly rather than waiting for GC. Guard it separately: deleting the
+        # temp file is the realistic failure here, and if it raised it would skip the
+        # LRU cache clears below — the exact cleanup this PR exists to guarantee.
+        try:
             with self._view_definitions_lock:
                 self._view_definitions.close()
+        except Exception as e:
+            logger.warning(f"Failed to close view definitions store during close: {e}")
 
-            # Clear module-level LRU caches for the same reason — schema column/PK/FK
-            # data is per-connection and must not carry over to the next recipe run.
+        try:
+            # Clear module-level LRU caches so schema column/PK/FK data — which is
+            # per-connection — does not carry over to the next recipe run.
             get_schema_columns.cache_clear()
             get_schema_pk_constraints.cache_clear()
             get_schema_foreign_keys.cache_clear()
         except Exception as e:
-            logger.warning(f"Failed to clear caches during close: {e}")
+            logger.warning(f"Failed to clear schema LRU caches during close: {e}")
 
         # Report failed views summary
         super().close()
