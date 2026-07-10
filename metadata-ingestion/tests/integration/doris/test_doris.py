@@ -126,6 +126,10 @@ def test_doris_ingest(
         r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['min'\]",
         r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['max'\]",
         r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",
+        # Doris reports table storage size (information_schema.tables.data_length)
+        # asynchronously and it reflects columnar segment/compaction state, so it
+        # varies between runs. Ignore it like the other non-deterministic profile fields.
+        r"root\[\d+\]\['aspect'\]\['json'\]\['sizeInBytes'\]",
     ]
 
     mce_helpers.check_golden_file(
