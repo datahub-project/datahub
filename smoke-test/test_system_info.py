@@ -4,11 +4,13 @@ import pytest
 import requests
 
 from tests.privileges.utils import create_user, remove_user
+from tests.tokens.token_utils import assert_graphql_mutation_succeeded
 from tests.utils import get_admin_credentials, get_frontend_url, get_gms_url, login_as
 
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.no_cypress_suite1
+
 
 # ==============================================
 # SYSTEM INFO API TESTS
@@ -260,7 +262,9 @@ def extract_api_token_from_session(session):
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json_payload)
     response.raise_for_status()
 
-    token_data = response.json()["data"]["createAccessToken"]
+    res_data = response.json()
+    assert_graphql_mutation_succeeded(res_data)
+    token_data = res_data["data"]["createAccessToken"]
     return token_data["accessToken"], token_data["metadata"]["id"]
 
 
@@ -278,6 +282,7 @@ def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
     limited_test_email = "limited.test.user@smoke.datahub.test"
     test_user_urn = f"urn:li:corpuser:{limited_test_email}"
     token_id = None
+    limited_user_session = None
 
     try:
         # Create a limited-privilege user (no special privileges by default)
@@ -325,7 +330,7 @@ def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
     finally:
         # Clean up: revoke the API token and remove the test user
         try:
-            if token_id:
+            if token_id and limited_user_session is not None:
                 # Revoke the API token
                 revoke_json = {
                     "query": """mutation revokeAccessToken($tokenId: String!) {
