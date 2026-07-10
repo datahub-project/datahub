@@ -116,6 +116,29 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
       long maxWindowSeconds,
       int retryAttempts,
       long retryInitialBackoffMillis,
+      long alignmentPeriodSeconds) {
+    this(
+        usageOperationsRegistry,
+        metricRegistry,
+        actorClassResolver,
+        flushSink,
+        maxCardinality,
+        maxWindowSeconds,
+        retryAttempts,
+        retryInitialBackoffMillis,
+        alignmentPeriodSeconds,
+        Clock.systemUTC());
+  }
+
+  public InMemoryUsageAggregationStore(
+      @Nonnull UsageOperationsRegistry usageOperationsRegistry,
+      @Nonnull UsageMetricRegistry metricRegistry,
+      @Nonnull UsageActorClassResolver actorClassResolver,
+      @Nonnull UsageFlushSink flushSink,
+      int maxCardinality,
+      long maxWindowSeconds,
+      int retryAttempts,
+      long retryInitialBackoffMillis,
       @Nullable Long alignmentPeriodSeconds,
       @Nonnull Clock clock) {
     this.usageOperationsRegistry = usageOperationsRegistry;
