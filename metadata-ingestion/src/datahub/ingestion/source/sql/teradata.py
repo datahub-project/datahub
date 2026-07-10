@@ -1845,6 +1845,9 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                                 f"Failed to close {type(resource).__name__} "
                                 f"during __init__ cleanup: {cleanup_err}"
                             )
+                    with self._tables_cache_lock:
+                        self._tables_cache.clear()
+                        self._table_creator_cache.clear()
                     raise
                 logger.info(f"Found {len(self._tables_cache)} tables and views")
             setattr(self, "loop_tables", self.cached_loop_tables)  # noqa: B010

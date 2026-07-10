@@ -641,6 +641,35 @@ class TestTeradataSource:
         mock_schema_resolver.close.assert_called_once()
         mock_view_definitions.close.assert_called_once()
 
+    def test_init_cleanup_failure_does_not_mask_error_or_skip_resources(self):
+        config = TeradataConfig.model_validate(_base_config())
+        mock_aggregator = MagicMock()
+        mock_aggregator.close.side_effect = RuntimeError("close failed")
+        mock_schema_resolver = MagicMock()
+        mock_view_definitions = MagicMock()
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.FileBackedDict",
+                return_value=mock_view_definitions,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.SqlParsingAggregator",
+                return_value=mock_aggregator,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource._init_schema_resolver",
+                return_value=mock_schema_resolver,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views",
+                side_effect=RuntimeError("connection failed"),
+            ),
+            pytest.raises(RuntimeError, match="connection failed"),
+        ):
+            TeradataSource(config, PipelineContext(run_id="test"))
+        mock_schema_resolver.close.assert_called_once()
+        mock_view_definitions.close.assert_called_once()
+
     def test_make_lineage_queries_with_time_defaults(self):
         """Test that _make_lineage_queries works with automatic time defaults."""
         config_dict = {
