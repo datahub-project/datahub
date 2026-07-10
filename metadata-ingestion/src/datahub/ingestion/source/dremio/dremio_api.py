@@ -41,6 +41,11 @@ DREMIO_SYSTEM_TABLES_PATTERN = [
     r"^sys\..*",
 ]
 
+# A single Dremio REST API job returns at most this many rows, so it is also the
+# largest usable LIMIT per paged fetch. Larger LIMITs would silently return only
+# this many rows, breaking the "short page means last page" pagination check.
+DREMIO_MAX_JOB_OUTPUT_ROWS = 1_000_000
+
 
 class DremioAPIException(Exception):
     pass
@@ -190,7 +195,13 @@ class DremioAPIOperations:
         self.start_time = connection_args.start_time
         self.end_time = connection_args.end_time
         self.report = report
-        self._chunk_size = 1000  # Sensible default to prevent OOM
+        # 0 means "as much as possible": use Dremio's per-job row cap. Any larger
+        # configured value is clamped to that cap for the same reason.
+        self._chunk_size = (
+            DREMIO_MAX_JOB_OUTPUT_ROWS
+            if connection_args.batch_size == 0
+            else min(connection_args.batch_size, DREMIO_MAX_JOB_OUTPUT_ROWS)
+        )
         # /catalog/{id} responses are id-keyed and immutable for a run, so
         # we reuse them across container walk + dataset fetch.
         self._catalog_cache: Dict[str, Any] = {}

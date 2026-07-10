@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from datahub.ingestion.source.dremio.dremio_api import (
+    DREMIO_MAX_JOB_OUTPUT_ROWS,
     DremioAPIException,
     DremioAPIOperations,
     DremioEdition,
@@ -12,6 +13,36 @@ from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.file_backed_collections import FileBackedDict
+
+
+@pytest.mark.parametrize(
+    "configured,expected",
+    [
+        (10000, 10000),
+        (500, 500),
+        # 0 means "as much as possible" -> Dremio's per-job row cap.
+        (0, DREMIO_MAX_JOB_OUTPUT_ROWS),
+        # Anything above the cap is clamped so short-page pagination stays correct.
+        (5_000_000, DREMIO_MAX_JOB_OUTPUT_ROWS),
+    ],
+)
+def test_batch_size_resolves_to_chunk_size(monkeypatch, configured, expected):
+    mock_session = Mock()
+    monkeypatch.setattr("requests.Session", Mock(return_value=mock_session))
+    mock_session.post.return_value.json.return_value = {"token": "dummy-token"}
+    mock_session.post.return_value.status_code = 200
+
+    config = DremioSourceConfig(
+        hostname="dummy-host",
+        port=9047,
+        tls=False,
+        authentication_method="password",
+        username="dummy-user",
+        password="dummy-password",
+        batch_size=configured,
+    )
+    api = DremioAPIOperations(config, Mock(spec=DremioSourceReport))
+    assert api._chunk_size == expected
 
 
 class TestDremioChunking:
@@ -53,7 +84,7 @@ class TestDremioChunking:
 
         dremio_api.execute_query_iter.assert_called_once()
         query_arg = dremio_api.execute_query_iter.call_args[1]["query"]
-        assert "LIMIT 1000 OFFSET 0" in query_arg
+        assert "LIMIT 10000 OFFSET 0" in query_arg
 
     def test_get_queries_chunked_multiple_chunks(self, dremio_api):
         dremio_api._chunk_size = 1
@@ -182,7 +213,7 @@ class TestDremioChunking:
         assert tables[0]["TABLE_NAME"] == "table1"
 
         query_arg = dremio_api.execute_query_iter.call_args[1]["query"]
-        assert "LIMIT 1000 OFFSET 0" in query_arg
+        assert "LIMIT 10000 OFFSET 0" in query_arg
         # Global queries must not contain a LOCATE container filter.
         assert "LOCATE" not in query_arg
 

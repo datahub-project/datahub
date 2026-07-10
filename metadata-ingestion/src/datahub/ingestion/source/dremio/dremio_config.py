@@ -214,6 +214,17 @@ class DremioSourceConfig(
         description="Number of worker threads to use for parallel processing",
     )
 
+    batch_size: int = Field(
+        default=10000,
+        ge=0,
+        description="Number of rows to fetch per page when reading Dremio's system "
+        "tables (datasets, columns, view definitions, and queries) via LIMIT/OFFSET. "
+        "Dremio's system tables can be slow, so a larger batch reduces the number of "
+        "round-trips. Set to 0 to fetch as much as possible per page. Values are "
+        "capped at 1,000,000, the maximum number of rows a single Dremio REST API "
+        "job returns.",
+    )
+
     include_query_lineage: bool = Field(
         default=False,
         description="Whether to include query-based lineage information.",
