@@ -1,0 +1,34 @@
+# Patch for DataHub customizations in RddPathUtils.java
+# Upstream version: OpenLineage 1.38.0
+# Generated: 2025-10-02 12:57:22 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/RddPathUtils.patch
+#
+--- /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.38.0/spark/agent/util/RddPathUtils.java	2025-10-02 14:47:50.561792227 +0200
++++ /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark/agent/util/RddPathUtils.java	2025-10-02 14:57:05.423816118 +0200
+@@ -70,7 +70,8 @@
+ 
+     @Override
+     public Stream<Path> extract(RDD rdd) {
+-      log.warn("Unknown RDD class {}", rdd);
++      // Change to debug to silence error
++      log.debug("Unknown RDD class {}", rdd);
+       return Stream.empty();
+     }
+   }
+@@ -197,10 +198,12 @@
+               .map(o -> parentOf(o.toString()))
+               .filter(Objects::nonNull);
+         } else {
+-          log.warn("Cannot extract path from ParallelCollectionRDD {}", data);
++          // Changed to debug to silence error
++          log.debug("Cannot extract path from ParallelCollectionRDD {}", data);
+         }
+       } catch (IllegalAccessException | IllegalArgumentException e) {
+-        log.warn("Cannot read data field from ParallelCollectionRDD {}", rdd);
++        // Changed to debug to silence error
++        log.debug("Cannot read data field from ParallelCollectionRDD {}", rdd);
+       }
+       return Stream.empty();
+     }
