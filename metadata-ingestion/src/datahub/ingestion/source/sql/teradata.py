@@ -3584,12 +3584,18 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             except Exception as e:
                 logger.warning(f"Failed to close {type(resource).__name__}: {e}")
 
-        # Clean up pooled engine
+        # Clean up pooled engine. Guard dispose() so a driver/pool error can't skip
+        # the cache clears and super().close() below; the finally drops the handle so a
+        # failed dispose doesn't leave a stale engine behind.
         with self._pooled_engine_lock:
             if self._pooled_engine is not None:
                 logger.info("Disposing pooled engine")
-                self._pooled_engine.dispose()
-                self._pooled_engine = None
+                try:
+                    self._pooled_engine.dispose()
+                except Exception as e:
+                    logger.warning(f"Failed to dispose pooled engine: {e}")
+                finally:
+                    self._pooled_engine = None
 
         try:
             # Clear class-level caches so memory is released between recipe runs in the
