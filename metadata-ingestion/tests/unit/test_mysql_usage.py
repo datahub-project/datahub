@@ -388,19 +388,15 @@ def test_is_allowed_table_respects_pattern_and_system_schemas():
 def test_is_temp_table_flags_undiscovered_tables():
     source = _source()
     source.discovered_datasets.add("appdb.orders")
-    # A table we ingested is real; anything else (temp tables, filtered-out
-    # databases, phantom db.db.table names) is treated as temp so it is not
-    # emitted as its own dataset.
     assert not source._is_temp_table("appdb.orders")
     assert source._is_temp_table("appdb.tmp_scratch")
     assert source._is_temp_table("appdb.appdb.orders")
 
 
 def test_usage_skips_phantom_entity_from_mis_quoted_identifier():
-    # A single backticked identifier with an embedded dot parses as one table
-    # name, so the two-tier default_schema is prepended and the URN doubles the
-    # database (appdb.appdb.tmp_upsert). Since that phantom is not a discovered
-    # table it must be suppressed rather than emitted as a column-less dataset.
+    # `appdb.tmp_upsert` as one backticked identifier parses as a single table
+    # name, so default_schema is prepended into appdb.appdb.tmp_upsert. That
+    # undiscovered phantom must not be emitted.
     source = _source()
     source.discovered_datasets.add("appdb.orders")
     now = datetime.datetime.now(tz=datetime.timezone.utc)

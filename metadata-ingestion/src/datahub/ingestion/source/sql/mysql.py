@@ -456,41 +456,31 @@ class MySQLSource(TwoTierSQLAlchemySource):
             generate_operations=False,
             usage_config=self.config.usage,
             eager_graph_load=False,
-            # Keep query-history lineage/usage in step with what we actually
-            # ingested. Without these, referenced tables that we never emitted as
-            # datasets (other databases, temp tables, mis-quoted identifiers) turn
-            # into phantom, column-less entities. See _is_allowed_table /
-            # _is_temp_table.
             is_allowed_table=self._is_allowed_table,
             is_temp_table=self._is_temp_table,
         )
 
     def _save_schema_to_resolver(self) -> bool:
-        # is_temp_table distinguishes real tables from phantom ones by membership
-        # in discovered_datasets, which is only populated when schemas are saved to
-        # the resolver. Usage needs that regardless of view lineage.
+        # is_temp_table reads discovered_datasets, which is only filled when
+        # schemas are saved; usage needs it regardless of view lineage.
         return (
             super()._save_schema_to_resolver() or self.config.include_usage_statistics
         )
 
     def _is_allowed_table(self, name: str) -> bool:
-        # name is the two-tier "database.table" dataset name (platform instance
-        # already stripped). The fetch-time filters only see each query's default
-        # schema; this additionally drops tables *referenced* in other databases,
-        # so a query in an allowed database can't attribute usage/lineage to one
-        # excluded by database_pattern (or a system schema).
+        # name is the two-tier "database.table" name. Unlike the fetch-time
+        # filters (which only see a query's default schema), this also drops
+        # tables referenced in databases excluded by database_pattern.
         database = name.split(".", 1)[0]
         if database.lower() in _SYSTEM_SCHEMAS:
             return False
         return self.config.database_pattern.allowed(database)
 
     def _is_temp_table(self, name: str) -> bool:
-        # The aggregator resolves lineage THROUGH "temp" tables but never emits
-        # them as datasets. Treating every table we did not ingest as temp keeps
-        # query history from creating phantom, column-less entities: genuine temp
-        # tables, tables in filtered-out databases, and mis-quoted `db.table`
-        # references (a single backticked identifier with an embedded dot) that the
-        # SQL parser expands into db.db.table.
+        # Tables we never ingested are treated as temp: the aggregator resolves
+        # lineage through them but doesn't emit them, avoiding phantom datasets
+        # (temp tables, filtered-out databases, and mis-quoted `db.table` refs
+        # the parser expands to db.db.table).
         return name not in self.discovered_datasets
 
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
