@@ -525,6 +525,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.usage.aggregation.flush.scheduledIntervalSeconds",
           "datahub.usage.aggregation.flush.retryAttempts",
           "datahub.usage.aggregation.flush.retryInitialBackoffMillis",
+          "datahub.usage.aggregation.flush.alignmentPeriodSeconds",
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags
