@@ -61,9 +61,11 @@ _SYSTEM_SCHEMAS = frozenset(
     {"information_schema", "performance_schema", "mysql", "sys"}
 )
 
-# QueuePool-only sizing options. SQLAlchemySource._add_default_options injects
-# `max_overflow` into `options` whenever profiling is enabled, but NullPool
-# rejects these, so they must be dropped from the ephemeral usage engine.
+# QueuePool-only sizing options that NullPool rejects, so they must be dropped
+# from the ephemeral usage engine (which forces NullPool). DataHub itself only
+# auto-injects `max_overflow` (SQLAlchemySource._add_default_options, when
+# profiling is enabled); the other three are stripped defensively in case a user
+# sets them via `config.options`.
 _QUEUE_POOL_ONLY_OPTIONS = frozenset(
     {"pool_size", "max_overflow", "pool_timeout", "pool_use_lifo"}
 )
@@ -474,8 +476,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # NullPool + dispose() so this one-shot fetch never leaves connections
         # open. poolclass is forced last so a pooled class in options (intended
         # for the long-lived inspection engine) can't silently re-pool this
-        # ephemeral engine. QueuePool sizing options are stripped because
-        # NullPool rejects them (profiling injects max_overflow into options).
+        # ephemeral engine; QueuePool-only options are dropped (see
+        # _QUEUE_POOL_ONLY_OPTIONS) because NullPool rejects them.
         usage_options = {
             key: value
             for key, value in self.config.options.items()
