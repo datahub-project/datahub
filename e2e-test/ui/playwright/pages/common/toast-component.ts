@@ -19,16 +19,21 @@ export class ToastComponent {
     return this.container.getByText(text);
   }
 
-  async expectVisible(text: string | RegExp): Promise<void> {
-    await expect(this.getToast(text)).toBeVisible();
+  async expectVisible(text: string | RegExp, options?: { timeout?: number }): Promise<void> {
+    await expect(this.getToast(text)).toBeVisible(options);
   }
 
-  async expectHidden(text: string | RegExp): Promise<void> {
-    await expect(this.getToast(text)).toBeHidden();
+  async expectHidden(text: string | RegExp, options?: { timeout?: number }): Promise<void> {
+    await expect(this.getToast(text)).toBeHidden(options);
   }
 
-  async expectVisibleThenHidden(text: string | RegExp): Promise<void> {
-    await expect(this.getToast(text)).toBeVisible();
-    await expect(this.getToast(text)).toBeHidden();
+  // Toasts auto-dismiss, so the "hidden" leg rarely needs tuning; the "visible" leg
+  // often does, since the toast only appears after an async/backend action completes.
+  async expectVisibleThenHidden(
+    text: string | RegExp,
+    options?: { visibleTimeout?: number; hiddenTimeout?: number },
+  ): Promise<void> {
+    await this.expectVisible(text, { timeout: options?.visibleTimeout });
+    await this.expectHidden(text, { timeout: options?.hiddenTimeout });
   }
 }
