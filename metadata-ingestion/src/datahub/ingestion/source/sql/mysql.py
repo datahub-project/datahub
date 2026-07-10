@@ -486,9 +486,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # the parser expands to db.db.table). A table excluded only by
         # table_pattern is likewise "temp" here: lineage flows through it rather
         # than being cut off.
-        # Compare case-insensitively: the parser lowercases unresolved MySQL URNs
-        # (not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES), so a reference whose case
-        # differs from the catalog would otherwise miss a real, ingested table.
         if name in self.discovered_datasets or name.lower() in self._discovered_lower():
             return False
         self.report.num_usage_references_suppressed_as_temp += 1
@@ -496,8 +493,11 @@ class MySQLSource(TwoTierSQLAlchemySource):
         return True
 
     def _discovered_lower(self) -> Set[str]:
-        # Built once lazily: discovered_datasets is fully populated during
-        # ingestion, before the usage phase invokes this.
+        # Lowercased view of discovered_datasets for case-insensitive matching:
+        # the parser lowercases unresolved MySQL URNs (not in
+        # PLATFORMS_WITH_CASE_SENSITIVE_TABLES), so a reference whose case differs
+        # from the catalog would otherwise miss a real, ingested table. Built once
+        # lazily; discovered_datasets is fully populated before the usage phase.
         if self._discovered_lower_cache is None:
             self._discovered_lower_cache = {d.lower() for d in self.discovered_datasets}
         return self._discovered_lower_cache

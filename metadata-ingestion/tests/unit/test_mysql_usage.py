@@ -447,6 +447,80 @@ def test_usage_emits_lineage_between_discovered_tables():
     )
 
 
+def test_process_view_without_columns_still_marks_discovered():
+    # A view whose columns can't be reflected (KeyError) is still emitted as a
+    # real dataset, so it must land in discovered_datasets or usage would later
+    # treat it as a phantom/temp table and drop its query-history lineage.
+    source = _source()
+    inspector = MagicMock()
+    inspector.get_columns.side_effect = KeyError("no columns")
+
+    with (
+        patch.object(source, "get_table_properties", return_value=("", {}, None)),
+        patch.object(source, "_get_view_definition", return_value=""),
+        patch.object(source, "get_db_name", return_value="appdb"),
+        patch.object(source, "add_table_to_schema_container", return_value=[]),
+    ):
+        list(
+            source._process_view(
+                dataset_name="appdb.myview",
+                inspector=inspector,
+                schema="appdb",
+                view="myview",
+                sql_config=source.config,
+            )
+        )
+
+    assert "appdb.myview" in source.discovered_datasets
+
+
+def test_usage_lineage_flows_through_table_pattern_excluded_table():
+    # A real table excluded by table_pattern is absent from discovered_datasets,
+    # so it is treated as temp: lineage is stitched THROUGH it (orders -> final)
+    # rather than cut off, and the excluded table is not emitted.
+    source = _source()
+    source.discovered_datasets.update({"appdb.orders", "appdb.final"})
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    with patch.object(
+        source,
+        "_fetch_performance_schema_queries",
+        return_value=[
+            ObservedQuery(
+                query="INSERT INTO staging SELECT id FROM orders",
+                timestamp=now,
+                default_schema="appdb",
+                usage_multiplier=1,
+            ),
+            ObservedQuery(
+                query="INSERT INTO final SELECT id FROM staging",
+                timestamp=now,
+                default_schema="appdb",
+                usage_multiplier=1,
+            ),
+        ],
+    ):
+        workunits = list(source._generate_aggregator_workunits())
+
+    upstreams_by_downstream = {
+        wu.get_urn(): [u.dataset for u in aspect.upstreams]
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(UpstreamLineageClass)) is not None
+    }
+    final_upstreams = [
+        up
+        for urn, ups in upstreams_by_downstream.items()
+        if urn.endswith("appdb.final,PROD)")
+        for up in ups
+    ]
+    assert any("appdb.orders" in urn for urn in final_upstreams), (
+        f"lineage should flow orders -> final through staging; got {final_upstreams}"
+    )
+    assert not any("staging" in urn for urn in final_upstreams), (
+        "the table_pattern-excluded staging table must not be a lineage node"
+    )
+
+
 def test_usage_skips_phantom_entity_from_mis_quoted_identifier():
     # `appdb.tmp_upsert` as one backticked identifier parses as a single table
     # name, so default_schema is prepended into appdb.appdb.tmp_upsert. That
@@ -476,6 +550,11 @@ def test_usage_skips_phantom_entity_from_mis_quoted_identifier():
     # all output can't let this pass vacuously.
     assert any(urn.endswith("appdb.orders,PROD)") for urn in urns), (
         f"expected the discovered table appdb.orders to be emitted; got {urns}"
+    )
+    # The suppression is observable via the report counter and sample.
+    assert source.report.num_usage_references_suppressed_as_temp >= 1
+    assert "appdb.appdb.tmp_upsert" in list(
+        source.report.usage_references_suppressed_as_temp_sample
     )
 
 
@@ -507,6 +586,11 @@ def test_usage_does_not_attribute_to_filtered_out_database():
     # this pass vacuously.
     assert any(urn.endswith("keep_db.orders,PROD)") for urn in urns), (
         f"expected the allowed table keep_db.orders to be emitted; got {urns}"
+    )
+    # The filtered reference is observable via the report counter and sample.
+    assert source.report.num_usage_references_suppressed_as_temp >= 1
+    assert "drop_db.secrets" in list(
+        source.report.usage_references_suppressed_as_temp_sample
     )
 
 
