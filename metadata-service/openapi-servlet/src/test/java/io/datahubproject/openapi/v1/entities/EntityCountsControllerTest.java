@@ -118,7 +118,10 @@ public class EntityCountsControllerTest {
         .andExpect(jsonPath("$.counts[0].activeCount").value(10))
         .andExpect(jsonPath("$.counts[0].softDeletedCount").value(2))
         .andExpect(jsonPath("$.counts[0].totalCount").doesNotExist())
-        .andExpect(jsonPath("$.cacheHit").value(false));
+        .andExpect(jsonPath("$.cacheHit").value(false))
+        .andExpect(
+            jsonPath("$.computedAtMillis")
+                .value(Instant.parse("2026-07-07T15:00:00Z").toEpochMilli()));
   }
 
   @Test
@@ -156,7 +159,8 @@ public class EntityCountsControllerTest {
         .andExpect(jsonPath("$.counts[0].totalCount").value(12))
         .andExpect(jsonPath("$.activeTotal").value(10))
         .andExpect(jsonPath("$.softDeletedTotal").value(2))
-        .andExpect(jsonPath("$.totalCount").value(12));
+        .andExpect(jsonPath("$.totalCount").value(12))
+        .andExpect(jsonPath("$.computedAtMillis").exists());
   }
 
   @Test
@@ -194,7 +198,10 @@ public class EntityCountsControllerTest {
         .andExpect(jsonPath("$.entityType").value("chart"))
         .andExpect(jsonPath("$.activeCount").value(4))
         .andExpect(jsonPath("$.softDeletedCount").value(1))
-        .andExpect(jsonPath("$.totalCount").value(5));
+        .andExpect(jsonPath("$.totalCount").value(5))
+        .andExpect(
+            jsonPath("$.computedAtMillis")
+                .value(Instant.parse("2026-07-07T15:00:00Z").toEpochMilli()));
   }
 
   @Test
