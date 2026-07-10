@@ -1,5 +1,5 @@
 import datetime
-from typing import Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -109,7 +109,7 @@ def test_usage_connection_builds_valid_nullpool_engine(mock_create_engine):
 
     # Delegate to the real create_engine so its validation runs on what the
     # source builds, then return a mock so no DB is contacted.
-    def _validate_then_mock(engine_url: str, **kwargs: object) -> MagicMock:
+    def _validate_then_mock(engine_url: str, **kwargs: Any) -> MagicMock:
         real_create_engine(engine_url, **kwargs).dispose()
         return _patch_rows([])
 
