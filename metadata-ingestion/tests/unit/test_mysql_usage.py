@@ -165,6 +165,8 @@ def test_fetch_performance_schema_respects_database_pattern(mock_create_engine):
 
 def test_usage_workunits_generated_for_two_tier_table():
     source = _source()
+    # Usage/lineage is only attributed to tables we ingested (is_temp_table).
+    source.discovered_datasets.add("appdb.orders")
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
     with patch.object(
@@ -373,6 +375,79 @@ def test_general_log_drops_query_from_unknown_session(mock_create_engine):
     observed = list(_source(usage_source="general_log")._fetch_general_log_queries())
 
     assert observed == []
+
+
+def test_is_allowed_table_respects_pattern_and_system_schemas():
+    source = _source(database_pattern={"allow": ["keep_db"]})
+    assert source._is_allowed_table("keep_db.orders")
+    assert not source._is_allowed_table("drop_db.orders")
+    # System schemas are never allowed, regardless of the pattern.
+    assert not source._is_allowed_table("mysql.user")
+
+
+def test_is_temp_table_flags_undiscovered_tables():
+    source = _source()
+    source.discovered_datasets.add("appdb.orders")
+    # A table we ingested is real; anything else (temp tables, filtered-out
+    # databases, phantom db.db.table names) is treated as temp so it is not
+    # emitted as its own dataset.
+    assert not source._is_temp_table("appdb.orders")
+    assert source._is_temp_table("appdb.tmp_scratch")
+    assert source._is_temp_table("appdb.appdb.orders")
+
+
+def test_usage_skips_phantom_entity_from_mis_quoted_identifier():
+    # A single backticked identifier with an embedded dot parses as one table
+    # name, so the two-tier default_schema is prepended and the URN doubles the
+    # database (appdb.appdb.tmp_upsert). Since that phantom is not a discovered
+    # table it must be suppressed rather than emitted as a column-less dataset.
+    source = _source()
+    source.discovered_datasets.add("appdb.orders")
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    with patch.object(
+        source,
+        "_fetch_performance_schema_queries",
+        return_value=[
+            ObservedQuery(
+                query="INSERT INTO `appdb.tmp_upsert` SELECT id FROM orders",
+                timestamp=now,
+                default_schema="appdb",
+                usage_multiplier=3,
+            )
+        ],
+    ):
+        urns = {wu.get_urn() for wu in source._generate_aggregator_workunits()}
+
+    assert not any("appdb.appdb" in urn for urn in urns), (
+        f"phantom doubled-database URN must not be emitted; got {urns}"
+    )
+
+
+def test_usage_does_not_attribute_to_filtered_out_database():
+    # A query running in an allowed database that references a table in a
+    # filtered-out database must not resurrect that table as an entity.
+    source = _source(database_pattern={"allow": ["keep_db"]})
+    source.discovered_datasets.add("keep_db.orders")
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    with patch.object(
+        source,
+        "_fetch_performance_schema_queries",
+        return_value=[
+            ObservedQuery(
+                query="INSERT INTO orders SELECT id FROM drop_db.secrets",
+                timestamp=now,
+                default_schema="keep_db",
+                usage_multiplier=5,
+            )
+        ],
+    ):
+        urns = {wu.get_urn() for wu in source._generate_aggregator_workunits()}
+
+    assert not any("drop_db" in urn for urn in urns), (
+        f"filtered-out database must not appear in emitted URNs; got {urns}"
+    )
 
 
 @patch("datahub.ingestion.source.sql.mysql.create_engine")
