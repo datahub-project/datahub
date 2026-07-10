@@ -1823,7 +1823,17 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
 
         if self.config.include_tables or self.config.include_views:
             with self.report.new_stage("Table and view discovery"):
-                self.cache_tables_and_views()
+                try:
+                    self.cache_tables_and_views()
+                except Exception:
+                    # If __init__ fails here, the pipeline never registers this
+                    # source for cleanup (it only does so once __init__ returns),
+                    # so close() is never called. Release the file-backed
+                    # resources we already built to avoid leaking their temp
+                    # files across sequential recipe runs in the same process.
+                    self.aggregator.close()
+                    self.schema_resolver.close()
+                    raise
                 logger.info(f"Found {len(self._tables_cache)} tables and views")
             setattr(self, "loop_tables", self.cached_loop_tables)  # noqa: B010
             setattr(self, "loop_views", self.cached_loop_views)  # noqa: B010

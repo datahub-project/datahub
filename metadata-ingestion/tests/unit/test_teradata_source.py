@@ -602,6 +602,37 @@ class TestTeradataSource:
                 assert get_schema_pk_constraints.cache_info().currsize == 0
                 assert get_schema_foreign_keys.cache_info().currsize == 0
 
+    def test_init_disposes_resources_when_discovery_fails(self):
+        """If __init__ fails during table/view discovery, the file-backed
+        aggregator and schema resolver must be closed.
+        The pipeline only registers the source for close() once __init__
+        returns, so a failure here would otherwise leak their temp files
+        across sequential recipe runs in the same process.
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        mock_aggregator = MagicMock()
+        mock_schema_resolver = MagicMock()
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.SqlParsingAggregator",
+                return_value=mock_aggregator,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource._init_schema_resolver",
+                return_value=mock_schema_resolver,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views",
+                side_effect=RuntimeError("connection failed"),
+            ),
+            pytest.raises(RuntimeError, match="connection failed"),
+        ):
+            TeradataSource(config, PipelineContext(run_id="test"))
+        mock_aggregator.close.assert_called_once()
+        mock_schema_resolver.close.assert_called_once()
+
     def test_make_lineage_queries_with_time_defaults(self):
         """Test that _make_lineage_queries works with automatic time defaults."""
         config_dict = {
