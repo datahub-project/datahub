@@ -41,9 +41,14 @@ DREMIO_SYSTEM_TABLES_PATTERN = [
     r"^sys\..*",
 ]
 
-# A single Dremio REST API job returns at most this many rows, so it is also the
-# largest usable LIMIT per paged fetch. Larger LIMITs would silently return only
-# this many rows, breaking the "short page means last page" pagination check.
+# Defensive ceiling on the LIMIT we ever issue per page. Dremio's REST job-results
+# endpoint paginates without a documented total-row cap (it streams 500-row pages
+# until a short page: https://docs.dremio.com/current/reference/api/job/job-results/),
+# so this is a safety bound rather than a hard API limit. It keeps the LIMIT — and
+# therefore a single job's result set — from growing unboundedly, which keeps the
+# "short page means last page" pagination check meaningful. If a page ever comes
+# back exactly this size we warn, since at that point a genuinely full page and a
+# server-truncated one are indistinguishable.
 DREMIO_MAX_JOB_OUTPUT_ROWS = 1_000_000
 
 
@@ -195,13 +200,21 @@ class DremioAPIOperations:
         self.start_time = connection_args.start_time
         self.end_time = connection_args.end_time
         self.report = report
-        # 0 means "as much as possible": use Dremio's per-job row cap. Any larger
-        # configured value is clamped to that cap for the same reason.
+        # 0 means "as much as possible": fetch pages at the safety ceiling. Any
+        # larger configured value is clamped to the ceiling for the same reason.
         self._chunk_size = (
             DREMIO_MAX_JOB_OUTPUT_ROWS
             if connection_args.batch_size == 0
             else min(connection_args.batch_size, DREMIO_MAX_JOB_OUTPUT_ROWS)
         )
+        if connection_args.batch_size > DREMIO_MAX_JOB_OUTPUT_ROWS:
+            self.report.warning(
+                message="Configured batch_size exceeds the Dremio fetch ceiling; "
+                "clamping to the maximum.",
+                context=f"batch_size={connection_args.batch_size}, using {self._chunk_size}",
+            )
+        # Emitted at most once per run when a page fills the ceiling exactly.
+        self._warned_page_at_job_cap = False
         # /catalog/{id} responses are id-keyed and immutable for a run, so
         # we reuse them across container walk + dataset fetch.
         self._catalog_cache: Dict[str, Any] = {}
@@ -760,6 +773,23 @@ class DremioAPIOperations:
             return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CLOUD
         return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE
 
+    def _warn_if_page_at_job_cap(self, page_len: int) -> None:
+        """Surface (once) when a fetch page fills the job ceiling exactly.
+
+        At that size we can't distinguish a full page from a server-truncated one,
+        so if Dremio caps job output at/below the ceiling, later short pages would
+        look like end-of-data and rows would be dropped silently. Lowering
+        `batch_size` well below the ceiling avoids the ambiguity entirely.
+        """
+        if page_len >= DREMIO_MAX_JOB_OUTPUT_ROWS and not self._warned_page_at_job_cap:
+            self._warned_page_at_job_cap = True
+            self.report.warning(
+                message="A Dremio fetch page reached the maximum job output size. "
+                "If Dremio truncates job results at this size, some tables/views "
+                "may be silently skipped; lower `batch_size` if rows appear missing.",
+                context=f"page_size={page_len}",
+            )
+
     def _get_view_definitions(
         self,
         schema_condition: str,
@@ -808,6 +838,7 @@ class DremioAPIOperations:
                 if full_path:
                     definitions[full_path] = record.get("VIEW_DEFINITION")
 
+            self._warn_if_page_at_job_cap(len(chunk_results))
             if len(chunk_results) < chunk_size:
                 break
             offset += chunk_size
@@ -1055,6 +1086,7 @@ class DremioAPIOperations:
 
                         last_table_path = table_full_path
 
+                self._warn_if_page_at_job_cap(len(chunk_results))
                 if len(chunk_results) < chunk_size:
                     break
 
@@ -1219,6 +1251,7 @@ class DremioAPIOperations:
 
                 yield from chunk_results
 
+                self._warn_if_page_at_job_cap(len(chunk_results))
                 if len(chunk_results) < chunk_size:
                     break
 
