@@ -61,6 +61,13 @@ _SYSTEM_SCHEMAS = frozenset(
     {"information_schema", "performance_schema", "mysql", "sys"}
 )
 
+# QueuePool-only sizing options. SQLAlchemySource._add_default_options injects
+# `max_overflow` into `options` whenever profiling is enabled, but NullPool
+# rejects these, so they must be dropped from the ephemeral usage engine.
+_QUEUE_POOL_ONLY_OPTIONS = frozenset(
+    {"pool_size", "max_overflow", "pool_timeout", "pool_use_lifo"}
+)
+
 # One row per normalized statement: DIGEST_TEXT has literals stripped to `?`,
 # COUNT_STAR counts executions since the last reset, LAST_SEEN is the most recent.
 # Low-overhead query history when performance_schema is on (vs. the general log).
@@ -467,10 +474,16 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # NullPool + dispose() so this one-shot fetch never leaves connections
         # open. poolclass is forced last so a pooled class in options (intended
         # for the long-lived inspection engine) can't silently re-pool this
-        # ephemeral engine.
+        # ephemeral engine. QueuePool sizing options are stripped because
+        # NullPool rejects them (profiling injects max_overflow into options).
+        usage_options = {
+            key: value
+            for key, value in self.config.options.items()
+            if key not in _QUEUE_POOL_ONLY_OPTIONS
+        }
         engine = create_engine(
             self.config.get_sql_alchemy_url(),
-            **{**self.config.options, "poolclass": NullPool},
+            **{**usage_options, "poolclass": NullPool},
         )
         self._setup_rds_iam_event_listener(engine)
         try:

@@ -2,6 +2,8 @@ import datetime
 from typing import Optional
 from unittest.mock import MagicMock, patch
 
+from sqlalchemy.pool import NullPool
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mysql import (
     MySQLConfig,
@@ -93,6 +95,23 @@ def test_usage_connection_pins_utc_and_disposes_engine(mock_create_engine):
     )
     # Single-use engine must be disposed so the usage fetch leaks no connections.
     engine.dispose.assert_called_once()
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_usage_connection_strips_queuepool_options_for_nullpool(mock_create_engine):
+    # When profiling is enabled, _add_default_options injects QueuePool sizing
+    # options (e.g. max_overflow) into options. NullPool rejects them, so they
+    # must not reach the ephemeral usage engine (else create_engine raises
+    # TypeError). Simulate that injected state directly.
+    mock_create_engine.return_value = _patch_rows([])
+
+    source = _source(options={"max_overflow": 10, "pool_size": 5})
+    list(source._fetch_performance_schema_queries())
+
+    kwargs = mock_create_engine.call_args.kwargs
+    assert kwargs["poolclass"] is NullPool
+    for option in ("pool_size", "max_overflow", "pool_timeout", "pool_use_lifo"):
+        assert option not in kwargs, f"{option} must be stripped for NullPool"
 
 
 @patch("datahub.ingestion.source.sql.mysql.create_engine")
