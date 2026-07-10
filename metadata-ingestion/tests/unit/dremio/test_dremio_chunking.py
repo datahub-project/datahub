@@ -15,56 +15,55 @@ from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 
+def _make_api_with_batch_size(monkeypatch, batch_size):
+    mock_session = Mock()
+    monkeypatch.setattr("requests.Session", Mock(return_value=mock_session))
+    mock_session.post.return_value.json.return_value = {"token": "dummy-token"}
+    mock_session.post.return_value.status_code = 200
+
+    config = DremioSourceConfig(
+        hostname="dummy-host",
+        port=9047,
+        tls=False,
+        authentication_method="password",
+        username="dummy-user",
+        password="dummy-password",
+        batch_size=batch_size,
+    )
+    report = Mock(spec=DremioSourceReport)
+    return DremioAPIOperations(config, report), report
+
+
 @pytest.mark.parametrize(
     "configured,expected",
     [
         (10000, 10000),
         (500, 500),
-        # 0 means "as much as possible" -> Dremio's per-job row cap.
+        # 0 means "as much as possible" -> the safety ceiling.
         (0, DREMIO_MAX_JOB_OUTPUT_ROWS),
-        # Anything above the cap is clamped so short-page pagination stays correct.
+        # Above the ceiling is clamped so short-page pagination stays correct.
         (5_000_000, DREMIO_MAX_JOB_OUTPUT_ROWS),
     ],
 )
 def test_batch_size_resolves_to_chunk_size(monkeypatch, configured, expected):
-    mock_session = Mock()
-    monkeypatch.setattr("requests.Session", Mock(return_value=mock_session))
-    mock_session.post.return_value.json.return_value = {"token": "dummy-token"}
-    mock_session.post.return_value.status_code = 200
-
-    config = DremioSourceConfig(
-        hostname="dummy-host",
-        port=9047,
-        tls=False,
-        authentication_method="password",
-        username="dummy-user",
-        password="dummy-password",
-        batch_size=configured,
-    )
-    api = DremioAPIOperations(config, Mock(spec=DremioSourceReport))
+    api, _ = _make_api_with_batch_size(monkeypatch, configured)
     assert api._chunk_size == expected
 
 
 def test_batch_size_over_ceiling_warns(monkeypatch):
-    mock_session = Mock()
-    monkeypatch.setattr("requests.Session", Mock(return_value=mock_session))
-    mock_session.post.return_value.json.return_value = {"token": "dummy-token"}
-    mock_session.post.return_value.status_code = 200
-
-    config = DremioSourceConfig(
-        hostname="dummy-host",
-        port=9047,
-        tls=False,
-        authentication_method="password",
-        username="dummy-user",
-        password="dummy-password",
-        batch_size=DREMIO_MAX_JOB_OUTPUT_ROWS + 1,
-    )
-    report = Mock(spec=DremioSourceReport)
-    api = DremioAPIOperations(config, report)
+    api, report = _make_api_with_batch_size(monkeypatch, DREMIO_MAX_JOB_OUTPUT_ROWS + 1)
 
     assert api._chunk_size == DREMIO_MAX_JOB_OUTPUT_ROWS
     report.warning.assert_called_once()
+
+
+def test_batch_size_at_ceiling_does_not_warn(monkeypatch):
+    # The clamp warning uses `>` while the page-cap nudge uses `>=`; they
+    # intentionally differ. Exactly at the ceiling is a valid value, not a clamp.
+    api, report = _make_api_with_batch_size(monkeypatch, DREMIO_MAX_JOB_OUTPUT_ROWS)
+
+    assert api._chunk_size == DREMIO_MAX_JOB_OUTPUT_ROWS
+    report.warning.assert_not_called()
 
 
 class TestDremioChunking:

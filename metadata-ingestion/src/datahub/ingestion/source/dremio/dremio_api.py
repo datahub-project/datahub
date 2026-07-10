@@ -774,19 +774,23 @@ class DremioAPIOperations:
         return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE
 
     def _warn_if_page_at_job_cap(self, page_len: int) -> None:
-        """Surface (once) when a fetch page fills the job ceiling exactly.
+        """Nudge (once) when a fetch page reaches the configured ceiling.
 
-        At that size we can't distinguish a full page from a server-truncated one,
-        so if Dremio caps job output at/below the ceiling, later short pages would
-        look like end-of-data and rows would be dropped silently. Lowering
-        `batch_size` well below the ceiling avoids the ambiguity entirely.
+        This is a boundary/perf signal, not a truncation detector. A page can only
+        reach the ceiling when the operator has pushed `batch_size` to it (or set 0),
+        i.e. a genuinely full page at the maximum size. The opposite, dangerous case
+        — Dremio capping a job's output *below* the requested LIMIT — surfaces as a
+        short page that LIMIT/OFFSET pagination cannot distinguish from a legitimate
+        final page, so it is an accepted, undetectable limitation here rather than
+        something this warning covers. Keeping `batch_size` well below the ceiling
+        (the default) avoids operating anywhere near that boundary.
         """
         if page_len >= DREMIO_MAX_JOB_OUTPUT_ROWS and not self._warned_page_at_job_cap:
             self._warned_page_at_job_cap = True
             self.report.warning(
-                message="A Dremio fetch page reached the maximum job output size. "
-                "If Dremio truncates job results at this size, some tables/views "
-                "may be silently skipped; lower `batch_size` if rows appear missing.",
+                message="A Dremio fetch reached the configured maximum page size. "
+                "If you suspect rows are missing, lower `batch_size` so pages stay "
+                "well below Dremio's per-job limits.",
                 context=f"page_size={page_len}",
             )
 
