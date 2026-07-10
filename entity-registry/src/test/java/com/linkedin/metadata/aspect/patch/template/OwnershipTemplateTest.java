@@ -84,10 +84,8 @@ public class OwnershipTemplateTest {
 
   @Test
   public void testAddDeepPathReinjectsCompoundKey() throws Exception {
-    // Genuine guard for the mergeToArray key re-injection fix on a compound key [owner, type].
-    // A deep-path add materializes the owner/type levels purely from the path; the value carries
-    // neither key. On rebase, both keys must be re-injected (type at the inner level, owner at the
-    // outer). Pre-fix, the map keys were dropped and the Owner had no owner/type.
+    // Deep-path add with an empty value: owner and type come only from the path, so rebase must
+    // re-inject both compound-key levels. Pre-fix the keys were dropped and the Owner was empty.
     Ownership initial = new Ownership();
     initial.setOwners(new OwnerArray());
 
@@ -112,9 +110,8 @@ public class OwnershipTemplateTest {
 
   @Test
   public void testAddArrayAtIntermediateCompoundKeyLevelIsNotDropped() throws Exception {
-    // Guards the ObjectNode-vs-else split in mergeToArray (not key re-injection): an array set at
-    // the intermediate owner level hits the value-only fallback and must still be expanded on
-    // rebase, not silently dropped.
+    // An array set at the intermediate owner level hits the value-only fallback and must still be
+    // expanded on rebase, not dropped (guards the ObjectNode-vs-else split, not re-injection).
     Ownership initial = new Ownership();
     initial.setOwners(new OwnerArray());
 

@@ -62,8 +62,7 @@ public class EditableSchemaMetadataTemplateTest {
 
   @Test
   public void testAddSecondTagDoesNotClobberExistingFieldPath() throws Exception {
-    // The re-injection guard (get(keyField) == null) must not overwrite a fieldPath that is
-    // already present on a round-tripped element.
+    // Re-injection must not overwrite a fieldPath already present on a round-tripped element.
     EditableSchemaMetadata initial = TEMPLATE.getDefault();
 
     JsonPatchBuilder first = Json.createPatchBuilder();
