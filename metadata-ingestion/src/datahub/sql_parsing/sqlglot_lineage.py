@@ -1273,6 +1273,38 @@ def _column_level_lineage(
     )
 
 
+def _leaf_column_subfields(
+    parent: Optional[sqlglot.lineage.Node],
+    leaf_name: str,
+) -> OrderedSet[str]:
+    # Reconstruct struct-field accesses (e.g. `col.a.b`) for a base-column leaf.
+    #
+    # sqlglot's to_node discards the Dot context of the column that produced a leaf,
+    # so we recover it here from the parent node's select expression -- the same
+    # expression to_node scanned for source columns. A base column referenced with
+    # several distinct subfields in one expression (e.g. LEAST(c.a, c.b)) yields a
+    # single deduplicated leaf, so we return every distinct subfield to re-expand it.
+    # An empty string means the column was referenced without a subfield.
+    subfields: OrderedSet[str] = OrderedSet()
+    if parent is None:
+        subfields.add("")
+        return subfields
+
+    for column in find_all_in_scope(parent.expression, sqlglot.exp.Column):
+        if column.sql(comments=False) != leaf_name:
+            continue
+        parts = []
+        field: sqlglot.exp.Expression = column
+        while isinstance(field.parent, sqlglot.exp.Dot):
+            field = field.parent
+            parts.append(field.name)
+        subfields.add(".".join(parts))
+
+    if not subfields:
+        subfields.add("")
+    return subfields
+
+
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
     dialect: Optional[sqlglot.Dialect] = None,
@@ -1281,6 +1313,13 @@ def _get_direct_raw_col_upstreams(
 ) -> OrderedSet[_ColumnRef]:
     # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
     direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
+
+    # Map each node to its parent so leaf handling can recover the select expression
+    # that produced it (needed to reconstruct struct-field subfields).
+    node_parents: Dict[int, sqlglot.lineage.Node] = {}
+    for node in lineage_node.walk():
+        for child in node.downstream:
+            node_parents[id(child)] = node
 
     for node in lineage_node.walk():
         cooperate()
@@ -1300,14 +1339,11 @@ def _get_direct_raw_col_upstreams(
             # Parse the column name out of the node name.
             # Sqlglot calls .sql(), so we have to do the inverse.
             normalized_col = sqlglot.parse_one(node.name).this.name
-            if hasattr(node, "subfield") and node.subfield:
-                # The hasattr check is necessary, since it lets us be compatible with
-                # sqlglot versions that don't have the subfield attribute.
-                normalized_col = f"{normalized_col}.{node.subfield}"
-
-            direct_raw_col_upstreams.add(
-                _ColumnRef(table=table_ref, column=normalized_col)
-            )
+            for subfield in _leaf_column_subfields(
+                node_parents.get(id(node)), node.name
+            ):
+                column = f"{normalized_col}.{subfield}" if subfield else normalized_col
+                direct_raw_col_upstreams.add(_ColumnRef(table=table_ref, column=column))
         elif isinstance(node.expression, sqlglot.exp.Placeholder) and node.name != "*":
             # Handle placeholder expressions from lateral joins.
             #
