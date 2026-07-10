@@ -38,7 +38,7 @@ source ./set-test-env-vars.sh
 echo "TEST_STRATEGY: $TEST_STRATEGY, BATCH_COUNT: $BATCH_COUNT, BATCH_NUMBER: $BATCH_NUMBER"
 
 # PYTEST_XDIST_WORKERS: optional pytest-xdist worker count (workflows set this, e.g. 3).
-# Matrix jobs slice modules via BATCH_COUNT/BATCH_NUMBER; xdist parallelizes within each slice.
+# Independent of BATCH_COUNT/BATCH_NUMBER — matrix batching and xdist are orthogonal knobs.
 # --dist=loadscope groups by class (or whole module for module-level tests).
 xdist_args=()
 if [[ "${PYTEST_XDIST_WORKERS:-0}" =~ ^[1-9][0-9]*$ ]]; then

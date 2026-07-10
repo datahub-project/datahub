@@ -396,9 +396,11 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           CLEANUP_DATA: "false"
           TEST_STRATEGY: ${{ matrix.test_strategy }}
-          # BATCH_COUNT=1: no matrix module slicing; PYTEST_XDIST_WORKERS enables in-process parallelism.
+          # Parallelism is profile×arch matrix jobs, not BATCH_COUNT slicing — run the full suite per cell.
           BATCH_COUNT: "1"
           BATCH_NUMBER: "0"
+          # pytest-xdist is controlled only by workflow-level PYTEST_XDIST_WORKERS (independent of BATCH_COUNT).
+          PYTEST_XDIST_WORKERS: ${{ env.PYTEST_XDIST_WORKERS }}
           FILTERED_TESTS: ${{ steps.parse-pytest-failures.outputs.filtered_tests_file || '' }}
           DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ github.sha }}-${{ matrix.test_strategy }}-${{ matrix.architecture }}"
           PROFILE_NAME: ${{ matrix.profile }}
