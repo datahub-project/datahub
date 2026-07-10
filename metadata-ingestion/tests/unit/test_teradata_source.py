@@ -19,6 +19,7 @@ from sqlalchemy.exc import (
     TimeoutError as PoolTimeoutError,
 )
 
+from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import (
     MetadataChangeProposalWrapper,
@@ -234,6 +235,85 @@ class TestTeradataConfig:
         config_dict = {**_base_config(), **override}
         config = TeradataConfig.model_validate(config_dict)
         assert config.extract_ownership is expected
+
+
+def _create_source_with_lowercase(convert_urns_to_lowercase: bool) -> TeradataSource:
+    """Build a TeradataSource with a chosen convert_urns_to_lowercase value."""
+    config = TeradataConfig.model_validate(
+        {**_base_config(), "convert_urns_to_lowercase": convert_urns_to_lowercase}
+    )
+    with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+        with patch(
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
+
+
+class TestConvertUrnsToLowercaseContainerConsistency:
+    """convert_urns_to_lowercase must keep the container key and the dataset
+    identifier on the same casing, otherwise datasets are emitted under a
+    container URN that does not match their own (lower-cased) name — the
+    duplicate/orphan 'invalid lowercase container' failure mode.
+
+    Casing is normalized only in the URN paths; get_db_name() (reused as a SQL
+    identifier) keeps source case so CASESPECIFIC installations are unaffected.
+    """
+
+    def _db_name_for(self, source: TeradataSource, raw_db: str) -> str:
+        inspector = MagicMock()
+        inspector._datahub_database = raw_db
+        return source.get_db_name(inspector)
+
+    def test_lowercase_enabled_container_matches_dataset_db_segment(self):
+        source = _create_source_with_lowercase(True)
+
+        db_name = self._db_name_for(source, "MyDb")
+        # get_db_name keeps source case (it is reused as a SQL identifier).
+        assert db_name == "MyDb"
+
+        container_key = source.get_database_container_key(db_name, db_name)
+        assert isinstance(container_key, DatabaseKey)
+        dataset_identifier = source.get_identifier(
+            schema=db_name, entity="MyTable", inspector=MagicMock()
+        )
+        dataset_db_segment = dataset_identifier.split(".", 1)[0]
+
+        # The database segment of the (lower-cased) dataset name must equal the
+        # database the container key is built from.
+        assert dataset_db_segment == "mydb"
+        assert container_key.database == dataset_db_segment
+
+    def test_lowercase_disabled_preserves_source_case(self):
+        source = _create_source_with_lowercase(False)
+
+        db_name = self._db_name_for(source, "MyDb")
+        container_key = source.get_database_container_key(db_name, db_name)
+        assert isinstance(container_key, DatabaseKey)
+        dataset_identifier = source.get_identifier(
+            schema=db_name, entity="MyTable", inspector=MagicMock()
+        )
+
+        assert db_name == "MyDb"
+        assert dataset_identifier.split(".", 1)[0] == "MyDb"
+        assert container_key.database == "MyDb"
+
+    def test_creation_and_parenting_container_urns_agree(self):
+        """The container *entity* (gen_database_containers) and the key used to
+        parent datasets (get_database_container_key) must resolve to the same
+        URN under lower-casing — otherwise the dataset points at a container
+        that was never created."""
+        source = _create_source_with_lowercase(True)
+        db_name = self._db_name_for(source, "MyDb")
+
+        parenting_urn = source.get_database_container_key(db_name, db_name).as_urn()
+
+        created_urns = {
+            wu.get_urn()
+            for wu in source.gen_database_containers(database=db_name)
+            if wu.get_urn().startswith("urn:li:container:")
+        }
+
+        assert parenting_urn in created_urns
 
 
 class TestTeradataSource:
