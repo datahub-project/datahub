@@ -19,6 +19,7 @@ env:
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+  PYTEST_XDIST_WORKERS: "3"
 
 permissions:
   contents: read
@@ -395,7 +396,8 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           CLEANUP_DATA: "false"
           TEST_STRATEGY: ${{ matrix.test_strategy }}
-          BATCH_COUNT: "1" # since this workflow runs only on schedule trigger, batching isn't really needed.
+          # BATCH_COUNT=1: no matrix module slicing; PYTEST_XDIST_WORKERS enables in-process parallelism.
+          BATCH_COUNT: "1"
           BATCH_NUMBER: "0"
           FILTERED_TESTS: ${{ steps.parse-pytest-failures.outputs.filtered_tests_file || '' }}
           DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ github.sha }}-${{ matrix.test_strategy }}-${{ matrix.architecture }}"
