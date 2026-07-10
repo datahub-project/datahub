@@ -83,6 +83,43 @@ public class OwnershipTemplateTest {
   }
 
   @Test
+  public void testAddArrayAtIntermediateCompoundKeyLevelIsNotDropped() throws Exception {
+    // Compound key [owner, type]: an array set at the intermediate owner level must still be
+    // expanded on rebase, not silently dropped.
+    Ownership initial = new Ownership();
+    initial.setOwners(new OwnerArray());
+
+    JsonPatch patch =
+        Json.createPatch(
+            Json.createArrayBuilder()
+                .add(
+                    Json.createObjectBuilder()
+                        .add("op", "add")
+                        .add("path", "/owners/urn:li:corpuser:userA")
+                        .add(
+                            "value",
+                            Json.createArrayBuilder()
+                                .add(
+                                    Json.createObjectBuilder()
+                                        .add("owner", "urn:li:corpuser:userA")
+                                        .add("type", "DATAOWNER"))
+                                .add(
+                                    Json.createObjectBuilder()
+                                        .add("owner", "urn:li:corpuser:userA")
+                                        .add("type", "PRODUCER"))))
+                .build());
+
+    Ownership result = TEMPLATE.applyPatch(initial, patch);
+
+    Assert.assertNotNull(result.getOwners());
+    Assert.assertEquals(result.getOwners().size(), 2);
+    List<String> types =
+        result.getOwners().stream().map(o -> o.getType().toString()).collect(Collectors.toList());
+    Assert.assertTrue(types.contains("DATAOWNER"));
+    Assert.assertTrue(types.contains("PRODUCER"));
+  }
+
+  @Test
   public void testRemoveOneOfTwoEntries() throws Exception {
     Ownership initial = new Ownership();
     initial.setOwners(
