@@ -1229,6 +1229,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 context=f"{dataset_name}",
             )
             schema_metadata = None
+            # The view is still emitted as a real dataset below. Record it as
+            # discovered even without a schema so query-history consumers (e.g.
+            # usage temp-table detection) don't treat it as a phantom/temp table.
+            if self._save_schema_to_resolver():
+                self.discovered_datasets.add(dataset_name)
         else:
             schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
             schema_metadata = get_schema_metadata(

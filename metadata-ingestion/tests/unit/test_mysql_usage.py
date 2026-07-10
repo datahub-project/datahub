@@ -472,6 +472,11 @@ def test_usage_skips_phantom_entity_from_mis_quoted_identifier():
     assert not any("appdb.appdb" in urn for urn in urns), (
         f"phantom doubled-database URN must not be emitted; got {urns}"
     )
+    # Co-assert the real upstream is emitted, so a parse regression that drops
+    # all output can't let this pass vacuously.
+    assert any(urn.endswith("appdb.orders,PROD)") for urn in urns), (
+        f"expected the discovered table appdb.orders to be emitted; got {urns}"
+    )
 
 
 def test_usage_does_not_attribute_to_filtered_out_database():
@@ -497,6 +502,11 @@ def test_usage_does_not_attribute_to_filtered_out_database():
 
     assert not any("drop_db" in urn for urn in urns), (
         f"filtered-out database must not appear in emitted URNs; got {urns}"
+    )
+    # Co-assert the allowed table is emitted, so dropping all output can't let
+    # this pass vacuously.
+    assert any(urn.endswith("keep_db.orders,PROD)") for urn in urns), (
+        f"expected the allowed table keep_db.orders to be emitted; got {urns}"
     )
 
 
