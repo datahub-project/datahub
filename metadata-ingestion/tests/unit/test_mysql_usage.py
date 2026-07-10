@@ -1,6 +1,10 @@
 import datetime
-from typing import Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
+
+import pytest
+from sqlalchemy import create_engine as real_create_engine
+from sqlalchemy.pool import NullPool
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mysql import (
@@ -93,6 +97,36 @@ def test_usage_connection_pins_utc_and_disposes_engine(mock_create_engine):
     )
     # Single-use engine must be disposed so the usage fetch leaks no connections.
     engine.dispose.assert_called_once()
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_usage_connection_builds_valid_nullpool_engine(mock_create_engine):
+    url = "mysql+pymysql://u:p@h/db"
+    # create_engine validates pool kwargs eagerly (no connection), so this is the
+    # failure this PR fixes: NullPool rejects QueuePool sizing options.
+    with pytest.raises(TypeError):
+        real_create_engine(url, poolclass=NullPool, max_overflow=10)
+
+    # Delegate to the real create_engine so its validation runs on what the
+    # source builds, then return a mock so no DB is contacted.
+    def _validate_then_mock(engine_url: str, **kwargs: Any) -> MagicMock:
+        real_create_engine(engine_url, **kwargs).dispose()
+        return _patch_rows([])
+
+    mock_create_engine.side_effect = _validate_then_mock
+
+    # Set options directly instead of enabling profiling (which needs the full
+    # get_workunits path) to mimic _add_default_options' injection.
+    source = _source(
+        options={
+            "max_overflow": 10,
+            "pool_size": 5,
+            "pool_timeout": 30,
+            "pool_use_lifo": True,
+        }
+    )
+    # Must not raise: the usage engine strips every QueuePool-only option.
+    list(source._fetch_performance_schema_queries())
 
 
 @patch("datahub.ingestion.source.sql.mysql.create_engine")
