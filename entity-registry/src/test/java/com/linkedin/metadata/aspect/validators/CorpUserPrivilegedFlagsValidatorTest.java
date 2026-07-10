@@ -40,7 +40,9 @@ public class CorpUserPrivilegedFlagsValidatorTest {
   private static final Urn TARGET_USER_URN = UrnUtils.getUrn("urn:li:corpuser:target");
   private static final Urn REGULAR_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:regular");
   private static final Urn SYSTEM_ACTOR_USER_URN = UrnUtils.getUrn("urn:li:corpuser:datahub");
+  private static final Urn ADMIN_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:admin");
   private static final Urn SUPPORT_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:support");
+  private static final Urn INTRINSIC_SYSTEM_ACTOR_URN = UrnUtils.getUrn(SYSTEM_ACTOR);
 
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
@@ -240,6 +242,61 @@ public class CorpUserPrivilegedFlagsValidatorTest {
     assertEquals(CorpUserPrivilegedFlagsValidator.isSupportUser(corpUserInfo(false, true)), true);
   }
 
+  @Test
+  public void testEscalatedEffectiveActorUsesSessionAuditStampForSystemCorpUser() {
+    corpUserInfoByUrn.put(ADMIN_ACTOR_URN, corpUserInfo(true, false));
+
+    CorpUserInfo proposed = corpUserInfo(false, true);
+    AuditStamp sessionAudit =
+        new AuditStamp().setActor(ADMIN_ACTOR_URN).setTime(System.currentTimeMillis());
+
+    long violations =
+        validate(
+                proposed,
+                null,
+                operationContext(INTRINSIC_SYSTEM_ACTOR_URN, ADMIN_ACTOR_URN),
+                null,
+                sessionAudit)
+            .count();
+    assertEquals(violations, 0);
+  }
+
+  @Test
+  public void testEscalatedEffectiveActorDoesNotBypassRegularSessionUser() {
+    corpUserInfoByUrn.put(REGULAR_ACTOR_URN, corpUserInfo(false, false));
+
+    CorpUserInfo proposed = corpUserInfo(false, true);
+    AuditStamp sessionAudit =
+        new AuditStamp().setActor(REGULAR_ACTOR_URN).setTime(System.currentTimeMillis());
+
+    long violations =
+        validate(
+                proposed,
+                null,
+                operationContext(INTRINSIC_SYSTEM_ACTOR_URN, REGULAR_ACTOR_URN),
+                null,
+                sessionAudit)
+            .count();
+    assertEquals(violations, 1);
+  }
+
+  @Test
+  public void testIntrinsicSystemActorAllowedWithoutCorpUserInfo() {
+    CorpUserInfo proposed = corpUserInfo(false, true);
+    AuditStamp sessionAudit =
+        new AuditStamp().setActor(INTRINSIC_SYSTEM_ACTOR_URN).setTime(System.currentTimeMillis());
+
+    long violations =
+        validate(
+                proposed,
+                null,
+                operationContext(INTRINSIC_SYSTEM_ACTOR_URN, INTRINSIC_SYSTEM_ACTOR_URN),
+                null,
+                sessionAudit)
+            .count();
+    assertEquals(violations, 0);
+  }
+
   private java.util.stream.Stream<AspectValidationException> validate(
       CorpUserInfo proposed,
       CorpUserInfo current,
@@ -295,11 +352,16 @@ public class CorpUserPrivilegedFlagsValidatorTest {
   }
 
   private static OperationFingerprint operationContext(Urn actorUrn) {
-    AuditStamp auditStamp = new AuditStamp().setActor(actorUrn).setTime(System.currentTimeMillis());
+    return operationContext(actorUrn, actorUrn);
+  }
+
+  private static OperationFingerprint operationContext(Urn effectiveActorUrn, Urn auditActorUrn) {
+    AuditStamp auditStamp =
+        new AuditStamp().setActor(auditActorUrn).setTime(System.currentTimeMillis());
     return new OperationFingerprint() {
       @Override
       public Urn getActor() {
-        return actorUrn;
+        return effectiveActorUrn;
       }
 
       @Override

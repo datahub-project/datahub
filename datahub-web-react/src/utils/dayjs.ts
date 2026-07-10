@@ -33,7 +33,9 @@ const DAYJS_LOCALE_LOADERS: Record<string, () => Promise<unknown>> = {
     es: () => import('dayjs/locale/es'),
     fr: () => import('dayjs/locale/fr'),
     it: () => import('dayjs/locale/it'),
+    nb: () => import('dayjs/locale/nb'),
     'pt-br': () => import('dayjs/locale/pt-br'),
+    sv: () => import('dayjs/locale/sv'),
 };
 
 /**

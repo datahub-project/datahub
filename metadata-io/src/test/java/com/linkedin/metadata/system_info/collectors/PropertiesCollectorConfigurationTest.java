@@ -134,6 +134,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "consistencyChecks.checks.*.*",
           "consistencyChecks.gracePeriodSeconds",
 
+          // Entity consistency per-check upgrade config
+          "systemUpdate.entityConsistency.checks.*.*",
+          // Indexed list binding when systemMetadataFilterConfig.entityTypes (or sibling lists)
+          // have non-empty defaults; bare keys alone do not match entityTypes[0] etc.
+          "systemUpdate.entityConsistency.entityTypes[*]",
+          "systemUpdate.entityConsistency.checkIds[*]",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.aspectFilters[*]",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.entityTypes[*]",
+
           // Kafka topic Configs
           "kafka.topics.*.name",
           "kafka.topics.*.displayName",
@@ -263,6 +272,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cache.client.usageClient.statsEnabled",
           "cache.client.usageClient.statsIntervalSeconds",
           "cache.homepage.entityCounts.ttlSeconds",
+          "cache.entityCounts.keyAspect.enabled",
+          "cache.entityCounts.keyAspect.maxEntityTypes",
+          "cache.entityCounts.keyAspect.ttlSeconds",
+          "cache.entityCounts.keyAspect.singleFlight.pollIntervalMillis",
+          "cache.entityCounts.keyAspect.singleFlight.staleBuildingMillis",
+          "cache.entityCounts.keyAspect.singleFlight.waiterMaxMillis",
           "cache.primary.maxSize",
           "cache.primary.ttlSeconds",
           "cache.search.lineage.lightningThreshold",
@@ -886,8 +901,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.entityConsistency.entityTypes",
           "systemUpdate.entityConsistency.gracePeriodSeconds",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.aspectFilters",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.entityTypes",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.gePitEpochMs",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.includeSoftDeleted",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.keyAspectOnly",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.lePitEpochMs",
           // Additional configuration
           "metadataChangeProposal.consumer.batch.enabled",

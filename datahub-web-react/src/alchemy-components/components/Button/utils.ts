@@ -23,15 +23,98 @@ interface ColorStyles {
     disabledTextColor: string;
 }
 
+/**
+ * Foreground color for text / outline / link / secondary buttons.
+ * Uses semantic theme tokens (same ones Alert titles use) so status colors
+ * stay readable on tinted surfaces — foundation shade 500 is often too light
+ * (e.g. green[500] #77B750 vs textSuccess #0D7543).
+ */
+const getSemanticForegroundColor = (color: ColorOptions, theme: Theme): string | undefined => {
+    const themeColors = theme?.colors;
+    if (!themeColors) return undefined;
+
+    switch (color) {
+        case 'green':
+            return themeColors.textSuccess;
+        case 'red':
+            return themeColors.textError;
+        case 'blue':
+            return themeColors.textInformation;
+        case 'yellow':
+            return themeColors.textWarning;
+        case 'primary':
+        case 'violet':
+            return themeColors.textBrand ?? themeColors.buttonFillBrand;
+        case 'gray':
+            return themeColors.textSecondary;
+        default:
+            return undefined;
+    }
+};
+
+/**
+ * Soft surface backgrounds for secondary buttons, matched to the button color
+ * (same semantic surfaces Alert banners use). Brand/primary keep the violet
+ * brand surfaces; other colors previously incorrectly inherited those too.
+ */
+const getSecondarySurfaceColors = (
+    color: ColorOptions,
+    theme: Theme,
+): Pick<ColorStyles, 'bgColor' | 'hoverBgColor' | 'activeBgColor'> => {
+    const themeColors = theme?.colors;
+
+    switch (color) {
+        case 'green':
+            return {
+                bgColor: themeColors?.bgSurfaceSuccess ?? getColor('green', 0, theme),
+                hoverBgColor: themeColors?.bgSurfaceSuccessHover ?? getColor('green', 100, theme),
+                activeBgColor: themeColors?.bgSurfaceSuccessHover ?? getColor('green', 100, theme),
+            };
+        case 'red':
+            return {
+                bgColor: themeColors?.bgSurfaceError ?? getColor('red', 0, theme),
+                hoverBgColor: themeColors?.bgSurfaceErrorHover ?? getColor('red', 100, theme),
+                activeBgColor: themeColors?.bgSurfaceErrorHover ?? getColor('red', 100, theme),
+            };
+        case 'blue':
+            return {
+                bgColor: themeColors?.bgSurfaceInfo ?? getColor('blue', 0, theme),
+                hoverBgColor: themeColors?.bgSurfaceInformationHover ?? getColor('blue', 100, theme),
+                activeBgColor: themeColors?.bgSurfaceInformationHover ?? getColor('blue', 100, theme),
+            };
+        case 'yellow':
+            return {
+                bgColor: themeColors?.bgSurfaceWarning ?? getColor('yellow', 0, theme),
+                hoverBgColor: themeColors?.bgSurfaceWarningHover ?? getColor('yellow', 100, theme),
+                activeBgColor: themeColors?.bgSurfaceWarningHover ?? getColor('yellow', 100, theme),
+            };
+        case 'gray':
+            return {
+                bgColor: themeColors?.bgSurface ?? getColor('gray', 100, theme),
+                hoverBgColor: themeColors?.bgHover ?? getColor('gray', 100, theme),
+                activeBgColor: themeColors?.bgActive ?? getColor('gray', 200, theme),
+            };
+        case 'primary':
+        case 'violet':
+        default:
+            return {
+                bgColor: themeColors?.bgSurfaceBrand ?? getColor('violet', 0, theme),
+                hoverBgColor: themeColors?.bgSurfaceBrandHover ?? getColor('violet', 100, theme),
+                activeBgColor: themeColors?.buttonSurfaceBrandFocus ?? getColor('violet', 200, theme),
+            };
+    }
+};
+
 // Utility function to get color styles for button - does not generate CSS
 const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme: Theme): ColorStyles => {
     const isViolet = color === 'violet';
     const isPrimary = isViolet || color === 'primary';
-    // Brand (primary/violet) buttons must follow the configurable CI brand color rather than the
-    // static foundation ramp. buttonFillBrand is the solid brand color that pairs with brandGradient,
-    // and it drives the filled-variant border plus the text/outline/link text color.
+    // Brand (primary/violet) filled buttons must follow the configurable CI brand color rather
+    // than the static foundation ramp. buttonFillBrand pairs with brandGradient.
     const color500 =
         isPrimary && theme?.colors?.buttonFillBrand ? theme.colors.buttonFillBrand : getColor(color, 500, theme); // value of 500 shade
+    // Readable on-surface color for non-filled variants (matches Alert / banner text).
+    const foregroundColor = getSemanticForegroundColor(color, theme) ?? color500;
 
     const base = {
         // Backgrounds
@@ -68,8 +151,8 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
         return {
             ...base,
             bgColor: 'transparent',
-            borderColor: color500,
-            textColor: color500,
+            borderColor: foregroundColor,
+            textColor: foregroundColor,
 
             hoverBgColor: getColor(color, 100, theme),
             activeBgColor: isViolet ? getColor(color, 100, theme) : getColor(color, 200, theme),
@@ -82,7 +165,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     if (variant === 'text') {
         return {
             ...base,
-            textColor: color500,
+            textColor: foregroundColor,
 
             bgColor: 'transparent',
             borderColor: 'transparent',
@@ -95,12 +178,13 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
 
     // Override styles for secondary variant
     if (variant === 'secondary') {
+        const secondarySurfaces = getSecondarySurfaceColors(color, theme);
         return {
             ...base,
-            bgColor: theme?.colors?.bgSurfaceBrand ?? getColor('violet', 0, theme),
-            hoverBgColor: theme?.colors?.bgSurfaceBrandHover ?? getColor('violet', 100, theme),
-            activeBgColor: theme?.colors?.buttonSurfaceBrandFocus ?? getColor('violet', 200, theme),
-            textColor: color500,
+            bgColor: secondarySurfaces.bgColor,
+            hoverBgColor: secondarySurfaces.hoverBgColor,
+            activeBgColor: secondarySurfaces.activeBgColor,
+            textColor: foregroundColor,
             borderColor: 'transparent',
             disabledBgColor: 'transparent',
             disabledBorderColor: 'transparent',
@@ -111,7 +195,7 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme
     if (variant === 'link') {
         return {
             ...base,
-            textColor: color500,
+            textColor: foregroundColor,
             bgColor: 'transparent',
             borderColor: 'transparent',
             activeBgColor: 'transparent',

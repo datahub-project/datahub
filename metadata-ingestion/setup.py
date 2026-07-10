@@ -149,7 +149,7 @@ sqlglot_lib = {
     # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
     # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
     # upstream, so we restore [c] here for performance.
-    "sqlglot[c]==30.8.0",
+    "sqlglot[c]==30.12.0",
     "patchy==2.8.0",
 }
 
@@ -671,7 +671,8 @@ plugins: Dict[str, Set[str]] = {
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
     "omni": {"requests<3.0.0", "PyYAML>=5.4"},
-    "glue": aws_common | cachetools_lib | sqlglot_lib,
+    # usage_common (sqlparse) is required by SqlParsingAggregator, used for view lineage.
+    "glue": aws_common | cachetools_lib | sqlglot_lib | usage_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {

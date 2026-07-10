@@ -1,7 +1,9 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
+import styled from 'styled-components/macro';
 
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
@@ -21,6 +23,27 @@ import { EntityType } from '@types';
 
 // Row chrome (RowContainer/LeftContent/IconSlot/Title) lives in `treeRow.styles.ts`
 // — shared with `NodeItem` so the two leaf-row types stay visually identical.
+
+const TitleContent = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+`;
+
+const DeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    line-height: 0;
+
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
+`;
 
 interface Props {
     term: ChildGlossaryTermFragment;
@@ -75,6 +98,17 @@ function TermItem(props: Props) {
 
     const displayName = entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term);
 
+    // Prefer the profile page's live (post-mutation) deprecation state over the sidebar's own
+    // fetch when this row is the currently-open entity, mirroring the same isOnEntityPage
+    // pattern already used above for the display name.
+    const deprecation = isOnEntityPage ? entityData?.deprecation : term.deprecation;
+
+    const deprecationBadge = deprecation?.deprecated && (
+        <DeprecationSlot>
+            <DeprecationIcon urn={term.urn} deprecation={deprecation} showUndeprecate={false} showText={false} />
+        </DeprecationSlot>
+    );
+
     return (
         <TreeRowContainer
             $level={depth}
@@ -86,7 +120,10 @@ function TermItem(props: Props) {
                 <TreeRowIconSlot>
                     <GlossaryColoredIcon color={resolvedIconColor} icon={TermIcon} size={20} iconSize={12} />
                 </TreeRowIconSlot>
-                <TreeRowTitle $isSelected={isRowSelected}>{displayName}</TreeRowTitle>
+                <TitleContent>
+                    <TreeRowTitle $isSelected={isRowSelected}>{displayName}</TreeRowTitle>
+                    {deprecationBadge}
+                </TitleContent>
             </TreeRowLeftContent>
             {isMultiSelected && <SelectedMark />}
         </TreeRowContainer>
