@@ -287,19 +287,15 @@ def test_field_tags_patch(patch_dataset):
 
 
 def test_field_tag_patch_on_new_field_preserves_fieldpath(patch_dataset):
-    """End-to-end regression: patch-adding a field tag when the field has no existing
-    editableSchemaMetadata entry must persist with fieldPath intact.
+    """Patch-add a field tag with no pre-existing editableSchemaMetadata entry.
 
-    The field element is materialized solely from the patch path
-    (/editableSchemaFieldInfo/<fieldPath>/globalTags/...), so the map key is the only
-    place its identity exists. Before the ArrayMergingTemplate key re-injection fix the
-    rebuilt element had no fieldPath and GMS rejected the write with HTTP 422.
+    The field is created from the patch path alone, so fieldPath comes only from the
+    map key. Pre-fix GMS rejected this with HTTP 422 (fieldPath is required).
     """
     graph_client, dataset_urn = patch_dataset
     field_path = f"new_field_{uuid.uuid4().hex[:8]}"
     new_tag_urn = make_tag_urn(tag=f"testTag-{uuid.uuid4()}")
 
-    # Intentionally no editableSchemaMetadata seeded first.
     for patch_mcp in (
         DatasetPatchBuilder(dataset_urn)
         .for_field(field_path)
@@ -317,8 +313,7 @@ def test_field_tag_patch_on_new_field_preserves_fieldpath(patch_dataset):
 
 
 def test_field_term_patch_on_new_field_preserves_fieldpath(patch_dataset):
-    """End-to-end regression: patch-adding a field term when the field has no existing
-    editableSchemaMetadata entry must persist with fieldPath intact (see the tag variant)."""
+    """Patch-add a field term with no pre-existing editableSchemaMetadata entry (see tag variant)."""
     graph_client, dataset_urn = patch_dataset
     field_path = f"new_field_{uuid.uuid4().hex[:8]}"
     new_term = GlossaryTermAssociationClass(urn=make_term_urn(f"test-{uuid.uuid4()}"))
