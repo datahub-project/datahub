@@ -3,6 +3,7 @@ from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock
 
 from datahub.ingestion.source.gc.execution_request_cleanup import (
+    UNKNOWN_SOURCE_MAX_COUNT,
     CleanupRecord,
     DatahubExecutionRequestCleanup,
     DatahubExecutionRequestCleanupConfig,
@@ -11,6 +12,7 @@ from datahub.ingestion.source.gc.execution_request_cleanup import (
 
 DAY_MS = 24 * 3600 * 1000
 NOW_MS = int(time.time()) * 1000
+CUSTOM_SOURCE = "CUSTOM_SOURCE"
 
 
 def _record(
@@ -51,21 +53,21 @@ def _deleted_urns(
 
 
 def test_per_source_type_override_applies_shorter_window() -> None:
-    # Observe requests (sourceless, grouped by source.type) keep only 5 days, while
+    # A non-ingestion source.type with a shorter override keeps only 5 days, while
     # ingestion requests for a real source keep the global 90 days — so records of the
     # same age are treated differently based on their bucket's resolved policy.
     config = DatahubExecutionRequestCleanupConfig(
         keep_history_min_count=2,
         keep_history_max_count=1000,
         keep_history_max_days=90,
-        source_type_overrides={"OBSERVE_SOURCE": {"keep_history_max_days": 5}},
+        source_type_overrides={CUSTOM_SOURCE: {"keep_history_max_days": 5}},
     )
     records = [
         # newest-first, as the scroll endpoint returns them
         _record(
-            "urn:li:dataHubExecutionRequest:obs-0",
+            "urn:li:dataHubExecutionRequest:custom-0",
             days_ago=0,
-            source_type="OBSERVE_SOURCE",
+            source_type=CUSTOM_SOURCE,
         ),
         _record(
             "urn:li:dataHubExecutionRequest:ing-0",
@@ -74,9 +76,9 @@ def test_per_source_type_override_applies_shorter_window() -> None:
             source_type="SCHEDULED_INGESTION_SOURCE",
         ),
         _record(
-            "urn:li:dataHubExecutionRequest:obs-1",
+            "urn:li:dataHubExecutionRequest:custom-1",
             days_ago=1,
-            source_type="OBSERVE_SOURCE",
+            source_type=CUSTOM_SOURCE,
         ),
         _record(
             "urn:li:dataHubExecutionRequest:ing-1",
@@ -85,9 +87,9 @@ def test_per_source_type_override_applies_shorter_window() -> None:
             source_type="SCHEDULED_INGESTION_SOURCE",
         ),
         _record(
-            "urn:li:dataHubExecutionRequest:obs-6",
+            "urn:li:dataHubExecutionRequest:custom-6",
             days_ago=6,
-            source_type="OBSERVE_SOURCE",
+            source_type=CUSTOM_SOURCE,
         ),
         _record(
             "urn:li:dataHubExecutionRequest:ing-6",
@@ -99,27 +101,26 @@ def test_per_source_type_override_applies_shorter_window() -> None:
 
     deleted = _deleted_urns(config, records)
 
-    # obs-6 is beyond the 5-day observe window; its ingestion twin ing-6 is well
+    # custom-6 is beyond the 5-day override window; its ingestion twin ing-6 is well
     # within the 90-day ingestion window and is preserved.
-    assert deleted == ["urn:li:dataHubExecutionRequest:obs-6"]
+    assert deleted == ["urn:li:dataHubExecutionRequest:custom-6"]
 
 
-def test_corrupted_record_deleted_only_when_no_type_and_no_source() -> None:
+def test_unattributable_records_are_capped_not_deleted() -> None:
+    # Records with neither an ingestion source nor a source.type are unattributable.
+    # They are no longer deleted outright; they share a single bucket capped at
+    # UNKNOWN_SOURCE_MAX_COUNT so they cannot accumulate.
     config = DatahubExecutionRequestCleanupConfig()
     records = [
-        _record(
-            "urn:li:dataHubExecutionRequest:has-type",
-            days_ago=0,
-            source_type="OBSERVE_SOURCE",
-        ),
-        _record(
-            "urn:li:dataHubExecutionRequest:corrupt", days_ago=0
-        ),  # no source, no type
+        _record(f"urn:li:dataHubExecutionRequest:u-{i}", days_ago=0)
+        for i in range(UNKNOWN_SOURCE_MAX_COUNT + 25)
     ]
 
     deleted = _deleted_urns(config, records)
+    retained = len(records) - len(deleted)
 
-    assert deleted == ["urn:li:dataHubExecutionRequest:corrupt"]
+    assert retained > 0  # not deleted outright
+    assert retained <= UNKNOWN_SOURCE_MAX_COUNT  # bucket is capped
 
 
 def test_running_guard_still_protects_sourceless_records() -> None:
@@ -127,31 +128,31 @@ def test_running_guard_still_protects_sourceless_records() -> None:
     # window; only once it is older than the guard does it get deleted.
     config = DatahubExecutionRequestCleanupConfig(
         keep_history_min_count=1,
-        source_type_overrides={"OBSERVE_SOURCE": {"keep_history_max_days": 5}},
+        source_type_overrides={CUSTOM_SOURCE: {"keep_history_max_days": 5}},
     )
     records = [
         _record(
-            "urn:li:dataHubExecutionRequest:obs-fresh",
+            "urn:li:dataHubExecutionRequest:custom-fresh",
             days_ago=0,
-            source_type="OBSERVE_SOURCE",
+            source_type=CUSTOM_SOURCE,
         ),
         _record(
-            "urn:li:dataHubExecutionRequest:obs-running-recent",
+            "urn:li:dataHubExecutionRequest:custom-running-recent",
             days_ago=10,
-            source_type="OBSERVE_SOURCE",
+            source_type=CUSTOM_SOURCE,
             status="RUNNING",
         ),
         _record(
-            "urn:li:dataHubExecutionRequest:obs-running-stale",
+            "urn:li:dataHubExecutionRequest:custom-running-stale",
             days_ago=40,
-            source_type="OBSERVE_SOURCE",
+            source_type=CUSTOM_SOURCE,
             status="RUNNING",
         ),
     ]
 
     deleted = _deleted_urns(config, records)
 
-    assert deleted == ["urn:li:dataHubExecutionRequest:obs-running-stale"]
+    assert deleted == ["urn:li:dataHubExecutionRequest:custom-running-stale"]
 
 
 def test_get_retention_partial_override_falls_back_to_global() -> None:
@@ -160,17 +161,17 @@ def test_get_retention_partial_override_falls_back_to_global() -> None:
         keep_history_max_count=1000,
         keep_history_max_days=90,
         source_type_overrides={
-            "OBSERVE_SOURCE": {
+            CUSTOM_SOURCE: {
                 "keep_history_max_days": 5,
                 "keep_history_max_count": 10000,
             }
         },
     )
 
-    observe = config.get_retention("OBSERVE_SOURCE")
-    assert observe.min_count == 10  # unset -> global default
-    assert observe.max_count == 10000  # overridden
-    assert observe.max_milliseconds == 5 * DAY_MS  # overridden
+    custom = config.get_retention(CUSTOM_SOURCE)
+    assert custom.min_count == 10  # unset -> global default
+    assert custom.max_count == 10000  # overridden
+    assert custom.max_milliseconds == 5 * DAY_MS  # overridden
 
     default = config.get_retention("SCHEDULED_INGESTION_SOURCE")
     assert default.min_count == 10

@@ -17,6 +17,12 @@ DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME = "dataHubExecutionRequestKey"
 DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput"
 DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult"
 
+# Grouping key for execution requests that carry neither an ingestion source nor a
+# source.type. Such records are unattributable, so they share one bucket that is
+# capped tightly (below) to keep them from accumulating.
+UNKNOWN_SOURCE_KEY = "UNKNOWN"
+UNKNOWN_SOURCE_MAX_COUNT = 100
+
 
 @dataclass(frozen=True)
 class ResolvedRetention:
@@ -92,9 +98,10 @@ class DatahubExecutionRequestCleanupConfig(ConfigModel):
     ] = Field(
         default_factory=dict,
         description=(
-            "Per-source.type retention overrides (e.g. 'OBSERVE_SOURCE'). "
-            "Applies a different retention policy to non-ingestion execution requests, "
-            "which are grouped by source.type rather than ingestion source URN."
+            "Per-source.type retention overrides, keyed by the execution request "
+            "source.type. Applies a distinct retention policy to non-ingestion "
+            "execution requests, which are grouped by source.type rather than by "
+            "ingestion source URN."
         ),
     )
 
@@ -104,6 +111,9 @@ class DatahubExecutionRequestCleanupConfig(ConfigModel):
         min_count = self.keep_history_min_count
         max_count = self.keep_history_max_count
         max_days = self.keep_history_max_days
+
+        if source_type == UNKNOWN_SOURCE_KEY:
+            max_count = min(max_count, UNKNOWN_SOURCE_MAX_COUNT)
 
         override = self.source_type_overrides.get(source_type)
         if override is not None:
@@ -138,7 +148,7 @@ class CleanupRecord(BaseModel):
     request_id: str
     status: str
     ingestion_source: str
-    source_type: str = ""
+    source_type: str
     requested_at: int
 
 
@@ -267,23 +277,17 @@ class DatahubExecutionRequestCleanup:
             self.report.ergc_records_read += 1
 
             # Group by ingestion source URN when present, else fall back to source.type.
-            # Non-ingestion requests (observe, agent tasks, evals, connection tests) have
-            # a source.type but no ingestionSource; the fallback gives them real retention
-            # instead of being deleted as corrupted. Only records with neither are corrupt.
-            key = entry.ingestion_source or entry.source_type
-
-            # Always delete corrupted records (no ingestion source and no source type)
-            if not key:
-                logger.warning(
-                    f"ergc({self.instance_id}): will delete corrupted entry with missing source key: {entry}"
-                )
-                yield entry
-                continue
+            # Non-ingestion requests set a source.type but no ingestionSource; the
+            # fallback gives them real retention instead of instant deletion. Records
+            # with neither are unattributable and share one tightly capped UNKNOWN bucket.
+            key = entry.ingestion_source or entry.source_type or UNKNOWN_SOURCE_KEY
 
             if key not in state:
                 # Retention is resolved once per bucket, from the source.type of the
                 # record that opens it, so a per-type override can apply a distinct policy.
-                retention = self.config.get_retention(entry.source_type)
+                retention = self.config.get_retention(
+                    entry.source_type or UNKNOWN_SOURCE_KEY
+                )
                 state[key] = _BucketState(
                     min_count=retention.min_count,
                     max_count=retention.max_count,
