@@ -41,5 +41,6 @@ public class DataHubConfiguration {
   @Data
   public static class DataHubMetrics {
     private MetricsOptions hookLatency;
+    private EntityCountMetricsConfiguration entityCounts;
   }
 }

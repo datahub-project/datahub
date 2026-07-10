@@ -1,5 +1,5 @@
 import { Button, DatePicker, Loader, Modal, SimpleSelect, TextArea, toast } from '@components';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -12,12 +12,14 @@ import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils'
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { decommissionTimeToSeconds } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import type { Dayjs } from '@utils/dayjs';
+import dayjs from '@utils/dayjs';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { Entity, ResourceRefInput, SubResourceType } from '@types';
+import { Deprecation, Entity, ResourceRefInput, SubResourceType } from '@types';
 
 type DeprecationModalResult = {
     note?: string | null;
@@ -29,12 +31,21 @@ type Props = {
     urns: string[];
     // if you need to provide context for subresources, resourceRefs should be provided and will take precedence over urns
     resourceRefs?: ResourceRefInput[];
+    initialDeprecation?: Deprecation | null;
     onClose: () => void;
     refetch?: (result?: DeprecationModalResult) => void;
     zIndexOverride?: number;
 };
 
 const SCHEMA_FIELD_PREFIX = 'urn:li:schemaField:';
+
+const getInitialFormValues = (initialDeprecation?: Deprecation | null) => ({
+    note: initialDeprecation?.note ?? '',
+    decommissionTime: initialDeprecation?.decommissionTime
+        ? dayjs.unix(decommissionTimeToSeconds(initialDeprecation.decommissionTime))
+        : undefined,
+    replacementUrn: initialDeprecation?.replacement?.urn ?? null,
+});
 
 const FieldGroup = styled.div`
     display: flex;
@@ -46,19 +57,30 @@ const ReplacementControls = styled.div`
     align-self: flex-start;
 `;
 
-export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, zIndexOverride }: Props) => {
+export const UpdateDeprecationModal = ({
+    urns,
+    resourceRefs,
+    initialDeprecation,
+    onClose,
+    refetch,
+    zIndexOverride,
+}: Props) => {
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
     const { entityWithSchema } = useGetEntityWithSchema();
     const schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
     const entityRegistry = useEntityRegistry();
+    const isEditMode = !!initialDeprecation;
 
     const [batchUpdateDeprecation] = useBatchUpdateDeprecationMutation();
     const [isReplacementModalVisible, setIsReplacementModalVisible] = useState(false);
-    const [replacementUrn, setReplacementUrn] = useState<string | null>(null);
-    const [note, setNote] = useState<string>('');
-    const [decommissionTime, setDecommissionTime] = useState<Dayjs | null | undefined>(undefined);
+    const initialFormValues = getInitialFormValues(initialDeprecation);
+    const [replacementUrn, setReplacementUrn] = useState<string | null>(initialFormValues.replacementUrn);
+    const [note, setNote] = useState<string>(initialFormValues.note);
+    const [decommissionTime, setDecommissionTime] = useState<Dayjs | null | undefined>(
+        initialFormValues.decommissionTime,
+    );
 
     const isDeprecatingFields =
         !!resourceRefs && resourceRefs.length > 0 && resourceRefs[0].subResourceType === SubResourceType.DatasetField;
@@ -70,6 +92,13 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
         },
         skip: !replacementUrn || replacementUrn?.startsWith(SCHEMA_FIELD_PREFIX),
     });
+
+    useEffect(() => {
+        const nextValues = getInitialFormValues(initialDeprecation);
+        setNote(nextValues.note);
+        setDecommissionTime(nextValues.decommissionTime);
+        setReplacementUrn(nextValues.replacementUrn);
+    }, [initialDeprecation]);
 
     const handleSubmit = async () => {
         toast.loading(tcf('updating'));
@@ -92,7 +121,9 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                 resources: isDeprecatingFields ? resourceRefs : undefined,
             });
             toast.destroy();
-            toast.success(t('deprecation.markedDeprecatedSuccess'), { duration: 2 });
+            toast.success(isEditMode ? t('deprecation.updated') : t('deprecation.markedDeprecatedSuccess'), {
+                duration: 2,
+            });
         } catch (e: unknown) {
             toast.destroy();
             if (e instanceof Error) {
@@ -114,7 +145,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
 
     return (
         <Modal
-            title={t('deprecation.modalTitle')}
+            title={isEditMode ? t('deprecation.editTitle') : t('deprecation.modalTitle')}
             zIndex={zIndexOverride ?? 1000}
             onCancel={onClose}
             buttons={[
@@ -125,7 +156,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                 },
                 {
                     buttonDataTestId: 'add-deprecation-submit',
-                    text: t('deprecation.ok'),
+                    text: isEditMode ? tc('save') : t('deprecation.ok'),
                     onClick: handleSubmit,
                 },
             ]}
@@ -140,6 +171,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                     autoFocus
                 />
                 <DatePicker
+                    key={initialDeprecation?.decommissionTime ?? 'new-deprecation'}
                     placeholder={t('deprecation.decommissionDateLabel')}
                     value={decommissionTime}
                     onChange={(v) => setDecommissionTime(v)}
