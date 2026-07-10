@@ -1,6 +1,6 @@
 import { UserOutlined } from '@ant-design/icons';
-import { Button, Modal, Text, Tooltip } from '@components';
-import { Select, Typography, message } from 'antd';
+import { Button, Modal, Text, Tooltip, toast } from '@components';
+import { Select, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -131,13 +131,12 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                         roleUrn,
                     });
                     setInviteToken(data?.createInviteToken?.inviteToken || '');
-                    message.success(t('inviteToken.generateSuccess'));
+                    toast.success(t('inviteToken.generateSuccess'));
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('inviteToken.createError', { roleName: selectedRole?.name, error: e.message || '' }),
+                toast.destroy();
+                toast.error(t('inviteToken.createError', { roleName: selectedRole?.name, error: e.message || '' }), {
                     duration: 3,
                 });
             });
@@ -182,7 +181,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                             <Button
                                 onClick={() => {
                                     navigator.clipboard.writeText(inviteLink);
-                                    message.success(t('inviteToken.copiedSuccess'));
+                                    toast.success(t('inviteToken.copiedSuccess'));
                                 }}
                             >
                                 {tc('copy')}

@@ -1,5 +1,6 @@
 import { RedoOutlined } from '@ant-design/icons';
-import { Button, Modal, Typography, message } from 'antd';
+import { toast } from '@components';
+import { Button, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -67,15 +68,12 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
                         userUrn,
                     });
                     setHasGeneratedResetToken(true);
-                    message.success(t('resetToken.generateSuccess'));
+                    toast.success(t('resetToken.generateSuccess'));
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('resetToken.generateError', { error: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('resetToken.generateError', { error: e.message || '' }), { duration: 3 });
             });
     };
 

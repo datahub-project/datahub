@@ -1,5 +1,6 @@
 import { GlobalOutlined } from '@ant-design/icons';
-import { Modal, Tag, message } from 'antd';
+import { toast } from '@components';
+import { Modal, Tag } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
@@ -84,16 +85,13 @@ export default function AttributeContent({
                     })
                         .then(({ errors }) => {
                             if (!errors) {
-                                message.success({ content: t('removeSuccess'), duration: 2 });
+                                toast.success(t('removeSuccess'), { duration: 2 });
                             }
                         })
                         .then(refetch)
                         .catch((e) => {
-                            message.destroy();
-                            message.error({
-                                content: t('removeAttributeError', { error: e.message || '' }),
-                                duration: 3,
-                            });
+                            toast.destroy();
+                            toast.error(t('removeAttributeError', { error: e.message || '' }), { duration: 3 });
                         });
                 }
             },

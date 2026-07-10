@@ -1,6 +1,6 @@
 import { useReactiveVar } from '@apollo/client';
-import { Modal } from '@components';
-import { Form, message } from 'antd';
+import { Modal, toast } from '@components';
+import { Form } from 'antd';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect } from 'react-router';
@@ -52,7 +52,7 @@ export default function ResetCredentialsModal() {
                     return Promise.resolve();
                 })
                 .catch((_) => {
-                    message.error(t('reset.failed'));
+                    toast.error(t('reset.failed'));
                 })
                 .finally(() => setLoading(false));
         },

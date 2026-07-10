@@ -1,5 +1,6 @@
 import { DeleteOutlined } from '@ant-design/icons';
-import { Dropdown, Modal, message } from 'antd';
+import { toast } from '@components';
+import { Dropdown, Modal } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -27,16 +28,13 @@ export default function BusinessAttributeItemMenu({ title, urn, onDelete }: Prop
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success(t('businessAttribute.deleteSuccess'));
+                    toast.success(t('businessAttribute.deleteSuccess'));
                     onDelete?.();
                 }
             })
             .catch(() => {
-                message.destroy();
-                message.error({
-                    content: t('businessAttribute.deleteError'),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('businessAttribute.deleteError'), { duration: 3 });
             });
     };
 

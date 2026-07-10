@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import { ReactNode } from 'react';
 
 export enum ToastType {
@@ -8,9 +8,5 @@ export enum ToastType {
 }
 
 export const showToastMessage = (type: ToastType, content: string | ReactNode, duration: number) => {
-    message.open({
-        type,
-        content,
-        duration,
-    });
+    toast[type](content, { duration });
 };

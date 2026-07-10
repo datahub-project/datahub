@@ -1,6 +1,6 @@
 import { EditOutlined } from '@ant-design/icons';
-import { Text } from '@components';
-import { Button, Collapse, Form, Input, Modal, Select, Typography, message } from 'antd';
+import { Text, toast } from '@components';
+import { Button, Collapse, Form, Input, Modal, Select, Typography } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -91,29 +91,26 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
         };
         createBusinessAttribute({ variables: { input } })
             .then(() => {
-                message.loading({ content: tf('updating'), duration: 2 });
+                toast.loading(tf('updating'), { duration: 2 });
                 setTimeout(() => {
                     analytics.event({
                         type: EventType.CreateBusinessAttributeEvent,
                         name,
                     });
-                    message.success({
-                        content: t('businessAttribute.createSuccess', {
+                    toast.success(
+                        t('businessAttribute.createSuccess', {
                             entityName: entityRegistry.getEntityName(EntityType.BusinessAttribute),
                         }),
-                        duration: 2,
-                    });
+                        { duration: 2 },
+                    );
                     if (onCreateBusinessAttribute) {
                         onCreateBusinessAttribute();
                     }
                 }, 2000);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('businessAttribute.createError', { error: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('businessAttribute.createError', { error: e.message || '' }), { duration: 3 });
             });
         onModalClose();
         setDocumentation('');

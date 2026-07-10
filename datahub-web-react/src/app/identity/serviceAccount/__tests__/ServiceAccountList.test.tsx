@@ -60,24 +60,16 @@ vi.mock('@app/settingsV2/CreateTokenModal', () => ({
     default: ({ visible }: any) => (visible ? <div data-testid="create-token-modal">Create Token Modal</div> : null),
 }));
 
-// Mock antd message
-vi.mock('antd', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('antd')>();
-    return {
-        ...actual,
-        message: {
-            success: vi.fn(),
-            error: vi.fn(),
-            destroy: vi.fn(),
-        },
-    };
-});
-
-// Mock SearchBar component to avoid theme issues
+// Mock alchemy-components (includes toast) and SearchBar to avoid theme issues
 vi.mock('@src/alchemy-components', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@src/alchemy-components')>();
     return {
         ...actual,
+        toast: {
+            success: vi.fn(),
+            error: vi.fn(),
+            destroy: vi.fn(),
+        },
         SearchBar: ({ value, onChange, placeholder }: any) => (
             <input
                 data-testid="search-bar-input"
@@ -89,6 +81,17 @@ vi.mock('@src/alchemy-components', async (importOriginal) => {
     };
 });
 
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components')>();
+    return {
+        ...actual,
+        toast: {
+            success: vi.fn(),
+            error: vi.fn(),
+            destroy: vi.fn(),
+        },
+    };
+});
 const mockServiceAccounts = [
     {
         __typename: 'ServiceAccount',

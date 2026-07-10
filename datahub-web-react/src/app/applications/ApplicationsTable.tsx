@@ -1,6 +1,5 @@
 import { NetworkStatus } from '@apollo/client';
-import { Table } from '@components';
-import { message } from 'antd';
+import { Table, toast } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -67,7 +66,7 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
             // Find the application entity from applicationsData
             const applicationData = applicationsData.find((result) => result.entity.urn === applicationUrn);
             if (!applicationData) {
-                message.error(t('applications.findInfoError'));
+                toast.error(t('applications.findInfoError'));
                 return;
             }
 
@@ -88,11 +87,11 @@ const ApplicationsTable = ({ searchQuery, searchData, loading: propLoading, netw
             },
         })
             .then(() => {
-                message.success(t('applications.deleteSuccess', { name: applicationDisplayName }));
+                toast.success(t('applications.deleteSuccess', { name: applicationDisplayName }));
                 refetch(); // Refresh the application list
             })
             .catch((e: any) => {
-                message.error(t('applications.deleteError', { error: e.message }));
+                toast.error(t('applications.deleteError', { error: e.message }));
             });
 
         setShowDeleteModal(false);

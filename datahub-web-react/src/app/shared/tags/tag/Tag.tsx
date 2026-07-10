@@ -1,4 +1,5 @@
-import { Modal, message } from 'antd';
+import { toast } from '@components';
+import { Modal } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
@@ -83,13 +84,13 @@ export default function Tag({
                     })
                         .then(({ errors }) => {
                             if (!errors) {
-                                message.success({ content: t('removeTagSuccess'), duration: 2 });
+                                toast.success(t('removeTagSuccess'), { duration: 2 });
                             }
                         })
                         .then(refetch)
                         .catch((e) => {
-                            message.destroy();
-                            message.error({ content: t('removeTagError', { error: e.message || '' }), duration: 3 });
+                            toast.destroy();
+                            toast.error(t('removeTagError', { error: e.message || '' }), { duration: 3 });
                         });
                 }
             },

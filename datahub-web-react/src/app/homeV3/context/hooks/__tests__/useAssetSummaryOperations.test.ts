@@ -24,10 +24,10 @@ import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElementType } from '@types';
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
-        error: vi.fn(() => ({ key: 'test-message' })),
+// Mock toast (templateOperationUtils is mocked below, so this is unused but kept for clarity)
+vi.mock('@components', () => ({
+    toast: {
+        error: vi.fn(),
     },
 }));
 

@@ -1,6 +1,6 @@
 import { useReactiveVar } from '@apollo/client';
-import { Modal } from '@components';
-import { Form, message } from 'antd';
+import { Modal, toast } from '@components';
+import { Form } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -51,7 +51,7 @@ export default function LoginModal() {
                     return Promise.resolve();
                 })
                 .catch((e) => {
-                    message.error(t('login.failed', { error: e }));
+                    toast.error(t('login.failed', { error: e }));
                 })
                 .finally(() => setLoading(false));
         },

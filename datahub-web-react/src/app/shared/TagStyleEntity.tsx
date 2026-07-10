@@ -1,8 +1,8 @@
 import { grey } from '@ant-design/colors';
 import { PlusOutlined } from '@ant-design/icons';
 import { ApolloError } from '@apollo/client';
-import { Text } from '@components';
-import { Button, Divider, Typography, message } from 'antd';
+import { Text, toast } from '@components';
+import { Button, Divider, Typography } from 'antd';
 import ColorHash from 'color-hash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChromePicker } from 'react-color';
@@ -248,13 +248,13 @@ export default function TagStyleEntity({
                         colorHex: colorValue,
                     },
                 });
-                message.destroy();
-                message.success({ content: t('colorSaved'), duration: 2 });
+                toast.destroy();
+                toast.success(t('colorSaved'), { duration: 2 });
                 setDisplayColorPicker(false);
             } catch (e: unknown) {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: t('saveColorError', { error: e.message || '' }), duration: 2 });
+                    toast.error(t('saveColorError', { error: e.message || '' }), { duration: 2 });
                 }
             }
             refetch?.();
@@ -310,11 +310,11 @@ export default function TagStyleEntity({
 
     // Save the description
     const handleSaveDescription = async (desc: string) => {
-        message.loading({ content: tcFeedback('saving') });
+        toast.loading(tcFeedback('saving'));
         try {
             await updateDescriptionValue(desc);
-            message.destroy();
-            message.success({ content: t('descriptionUpdated'), duration: 2 });
+            toast.destroy();
+            toast.success(t('descriptionUpdated'), { duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateDescription,
@@ -322,9 +322,9 @@ export default function TagStyleEntity({
                 entityUrn: urn,
             });
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error({ content: t('updateDescriptionError', { error: e.message || '' }), duration: 2 });
+                toast.error(t('updateDescriptionError', { error: e.message || '' }), { duration: 2 });
             }
         }
         refetch?.();

@@ -1,5 +1,6 @@
 import { GlobalOutlined } from '@ant-design/icons';
-import { Button, Tag as CustomTag, Modal, Select, message } from 'antd';
+import { toast } from '@components';
+import { Button, Tag as CustomTag, Modal, Select } from 'antd';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -211,15 +212,12 @@ export default function EditBusinessAttributeModal({
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: t('addSuccess'),
-                        duration: 2,
-                    });
+                    toast.success(t('addSuccess'), { duration: 2 });
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('addError', { error: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('addError', { error: e.message || '' }), { duration: 3 });
             })
             .finally(() => {
                 setDisableAction(false);
@@ -245,15 +243,12 @@ export default function EditBusinessAttributeModal({
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: t('removeSuccess'),
-                        duration: 2,
-                    });
+                    toast.success(t('removeSuccess'), { duration: 2 });
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
+                toast.destroy();
+                toast.error(
                     handleBatchError(urn, e, { content: t('removeError', { error: e.message || '' }), duration: 3 }),
                 );
             })

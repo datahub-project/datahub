@@ -1,5 +1,5 @@
-import { Modal } from '@components';
-import { Form, Input, Typography, message } from 'antd';
+import { Modal, toast } from '@components';
+import { Form, Input, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -64,10 +64,7 @@ export default function GroupEditModal({
             },
         })
             .then(() => {
-                message.success({
-                    content: tf('changesSaved'),
-                    duration: 3,
-                });
+                toast.success(tf('changesSaved'), { duration: 3 });
                 onSave(); // call the refetch function once save
                 // clear the values from edit profile form
                 setData({
@@ -78,8 +75,8 @@ export default function GroupEditModal({
                 });
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('shared.saveChangesError', { error: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('shared.saveChangesError', { error: e.message || '' }), { duration: 3 });
             });
         handleTitleUpdate(data?.name || '');
         onClose();

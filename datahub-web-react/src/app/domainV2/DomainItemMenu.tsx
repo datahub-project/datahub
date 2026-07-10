@@ -1,5 +1,6 @@
 import { DeleteOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message } from 'antd';
+import { toast } from '@components';
+import { Dropdown, Menu } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -31,14 +32,14 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success(t('itemMenu.deleteSuccess'));
+                    toast.success(t('itemMenu.deleteSuccess'));
                     onDelete?.();
                 }
             })
             .catch((e) => {
                 console.error('Issue deleting a domain:', e);
-                message.destroy();
-                message.error({ content: t('itemMenu.deleteError'), duration: 3 });
+                toast.destroy();
+                toast.error(t('itemMenu.deleteError'), { duration: 3 });
             });
     };
 

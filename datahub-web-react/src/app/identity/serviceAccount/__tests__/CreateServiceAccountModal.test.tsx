@@ -27,12 +27,12 @@ vi.mock('@app/identity/serviceAccount/cacheUtils', () => ({
     addServiceAccountToListCache: vi.fn(),
 }));
 
-// Mock antd message
-vi.mock('antd', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('antd')>();
+// Mock alchemy toast
+vi.mock('@src/alchemy-components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@src/alchemy-components')>();
     return {
         ...actual,
-        message: {
+        toast: {
             success: vi.fn(),
             error: vi.fn(),
             destroy: vi.fn(),

@@ -1,6 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Text } from '@components';
-import { Button, Empty, Pagination, Typography, message } from 'antd';
+import { Text, toast } from '@components';
+import { Button, Empty, Pagination, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -204,7 +204,7 @@ export const BusinessAttributes = () => {
             {businessAttributeLoading && !businessAttributeData && (
                 <Message type="loading" content={t('businessAttribute.loading')} style={{ marginTop: '10%' }} />
             )}
-            {businessAttributeError && message.error(t('businessAttribute.loadError'))}
+            {businessAttributeError && toast.error(t('businessAttribute.loadError'))}
             <BusinessAttributesContainer>
                 <BusinessAttributeHeaderContainer>
                     <BusinessAttributeTitle level={2}>{t('businessAttribute.pageTitle')}</BusinessAttributeTitle>

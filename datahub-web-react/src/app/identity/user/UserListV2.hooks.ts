@@ -1,5 +1,5 @@
 import { useApolloClient } from '@apollo/client';
-import { message } from 'antd';
+import { toast } from '@components';
 import i18next from 'i18next';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -232,20 +232,19 @@ export function useRoleAssignment(
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content:
-                            roleToAssign?.urn === NO_ROLE_URN
-                                ? i18next.t('users.roleAssign.removeSuccess', {
-                                      ns: 'entity.identity',
-                                      name: roleAssignmentState.username,
-                                  })
-                                : i18next.t('users.roleAssign.assignSuccess', {
-                                      ns: 'entity.identity',
-                                      role: roleToAssign?.name,
-                                      name: roleAssignmentState.username,
-                                  }),
-                        duration: 2,
-                    });
+                    toast.success(
+                        roleToAssign?.urn === NO_ROLE_URN
+                            ? i18next.t('users.roleAssign.removeSuccess', {
+                                  ns: 'entity.identity',
+                                  name: roleAssignmentState.username,
+                              })
+                            : i18next.t('users.roleAssign.assignSuccess', {
+                                  ns: 'entity.identity',
+                                  role: roleToAssign?.name,
+                                  name: roleAssignmentState.username,
+                              }),
+                        { duration: 2 },
+                    );
                     setRoleAssignmentState(null);
                     setTimeout(() => {
                         refetch();
@@ -257,23 +256,22 @@ export function useRoleAssignment(
                 // Revert optimistic update on API failure
                 updateUserRole(roleAssignmentState.userUrn, roleAssignmentState.originalRoleUrn);
 
-                message.destroy();
-                message.error({
-                    content:
-                        roleToAssign?.urn === NO_ROLE_URN
-                            ? i18next.t('users.roleAssign.removeError', {
-                                  ns: 'entity.identity',
-                                  name: roleAssignmentState.username,
-                                  error: e.message || '',
-                              })
-                            : i18next.t('users.roleAssign.assignError', {
-                                  ns: 'entity.identity',
-                                  role: roleToAssign?.name,
-                                  name: roleAssignmentState.username,
-                                  error: e.message || '',
-                              }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(
+                    roleToAssign?.urn === NO_ROLE_URN
+                        ? i18next.t('users.roleAssign.removeError', {
+                              ns: 'entity.identity',
+                              name: roleAssignmentState.username,
+                              error: e.message || '',
+                          })
+                        : i18next.t('users.roleAssign.assignError', {
+                              ns: 'entity.identity',
+                              role: roleToAssign?.name,
+                              name: roleAssignmentState.username,
+                              error: e.message || '',
+                          }),
+                    { duration: 3 },
+                );
             });
     }, [roleAssignmentState, selectRoleOptions, batchAssignRoleMutation, updateUserRole, refetch, client]);
 

@@ -1,5 +1,4 @@
-import { Modal } from '@components';
-import { message } from 'antd';
+import { Modal, toast } from '@components';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -43,11 +42,11 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
                     userUrns: selectedMemberUrns,
                 },
             });
-            message.success({ content: t('group.membersAddedSuccess'), duration: 3 });
+            toast.success(t('group.membersAddedSuccess'), { duration: 3 });
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error({ content: t('group.addMembersError', { error: e.message || '' }), duration: 3 });
+                toast.error(t('group.addMembersError', { error: e.message || '' }), { duration: 3 });
             }
         } finally {
             onSubmit();

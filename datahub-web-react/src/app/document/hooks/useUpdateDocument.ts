@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -77,7 +77,7 @@ export function useUpdateDocument() {
                 throw new Error('Failed to update document');
             } catch (error) {
                 console.error('Failed to update document:', error);
-                message.error(t('document.updateError'));
+                toast.error(t('document.updateError'));
                 return false;
             }
         },
@@ -110,7 +110,7 @@ export function useUpdateDocument() {
                 throw new Error('Failed to update document status');
             } catch (error) {
                 console.error('Failed to update document status:', error);
-                message.error(t('document.updateStatusError'));
+                toast.error(t('document.updateStatusError'));
                 return false;
             }
         },
@@ -144,7 +144,7 @@ export function useUpdateDocument() {
                 throw new Error('Failed to update document sub-type');
             } catch (error) {
                 console.error('Failed to update document sub-type:', error);
-                message.error(t('document.updateSubTypeError'));
+                toast.error(t('document.updateSubTypeError'));
                 return false;
             }
         },
@@ -172,7 +172,7 @@ export function useUpdateDocument() {
                 throw new Error('Failed to update related entities');
             } catch (error) {
                 console.error('Failed to update related entities:', error);
-                message.error(t('document.updateRelatedAssetsError'));
+                toast.error(t('document.updateRelatedAssetsError'));
                 // Silent fail - don't show error message for this operation
                 return false;
             }

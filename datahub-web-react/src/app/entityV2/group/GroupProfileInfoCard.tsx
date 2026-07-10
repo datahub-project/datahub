@@ -1,5 +1,5 @@
-import { Avatar } from '@components';
-import { Col, message } from 'antd';
+import { Avatar, toast } from '@components';
+import { Col } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -74,13 +74,13 @@ export const GroupProfileInfoCard = ({ sidebarData, refetch }: Props) => {
     const handleTitleUpdate = async (name: string) => {
         await updateName({ variables: { input: { name, urn } } })
             .then(() => {
-                message.success({ content: t('group.nameUpdatedSuccess'), duration: 2 });
+                toast.success(t('group.nameUpdatedSuccess'), { duration: 2 });
                 refetch();
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: t('group.updateNameError', { error: e.message || '' }), duration: 3 });
+                    toast.error(t('group.updateNameError', { error: e.message || '' }), { duration: 3 });
                 }
             });
     };

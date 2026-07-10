@@ -1,9 +1,9 @@
-import { Tooltip } from '@components';
+import { Tooltip, toast } from '@components';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import { Button, Select, message } from 'antd';
+import { Button, Select } from 'antd';
 import { orderBy } from 'lodash';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -361,11 +361,8 @@ export const IntroduceYourselfMainContent = () => {
                 }
             })
             .catch((_) => {
-                message.destroy();
-                message.error({
-                    content: t('introduceYourself.errorProvisionView'),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('introduceYourself.errorProvisionView'), { duration: 3 });
             });
     };
 
@@ -401,7 +398,7 @@ export const IntroduceYourselfMainContent = () => {
             })
             .catch((err) => {
                 console.error(err);
-                message.error(t('introduceYourself.errorSaveDetails'));
+                toast.error(t('introduceYourself.errorSaveDetails'));
             });
     };
 
@@ -426,7 +423,7 @@ export const IntroduceYourselfMainContent = () => {
             })
             .catch((err) => {
                 console.error(err);
-                message.error(t('introduceYourself.errorSaveDetails'));
+                toast.error(t('introduceYourself.errorSaveDetails'));
             });
     };
 

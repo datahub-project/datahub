@@ -1,4 +1,5 @@
-import { Popconfirm, message } from 'antd';
+import { toast } from '@components';
+import { Popconfirm } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -36,27 +37,27 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                         roleUrn: roleToAssign?.urn || 'undefined',
                         userUrn,
                     });
-                    message.success({
-                        content: roleToAssign
+                    toast.success(
+                        roleToAssign
                             ? t('users.roleAssign.assignSuccess', { role: roleToAssign?.name, name: username })
                             : t('users.roleAssign.removeSuccess', { name: username }),
-                        duration: 2,
-                    });
+                        { duration: 2 },
+                    );
                     onConfirm();
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: roleToAssign
+                toast.destroy();
+                toast.error(
+                    roleToAssign
                         ? t('users.roleAssign.assignError', {
                               role: roleToAssign?.name,
                               name: username,
                               error: e.message || '',
                           })
                         : t('users.roleAssign.removeError', { name: username, error: e.message || '' }),
-                    duration: 3,
-                });
+                    { duration: 3 },
+                );
             });
     };
 

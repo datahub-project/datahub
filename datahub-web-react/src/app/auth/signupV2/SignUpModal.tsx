@@ -1,6 +1,6 @@
 import { useReactiveVar } from '@apollo/client';
-import { Modal } from '@components';
-import { Form, message } from 'antd';
+import { Modal, toast } from '@components';
+import { Form } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -64,18 +64,12 @@ export default function SignUpModal() {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: t('signup.acceptedInvite'),
-                        duration: 2,
-                    });
+                    toast.success(t('signup.acceptedInvite'), { duration: 2 });
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('signup.acceptInviteFailed', { error: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('signup.acceptInviteFailed', { error: e.message || '' }), { duration: 3 });
             });
     };
 
@@ -120,7 +114,7 @@ export default function SignUpModal() {
                     return Promise.resolve();
                 })
                 .catch((_) => {
-                    message.error(t('signup.loginFailed'));
+                    toast.error(t('signup.loginFailed'));
                 })
                 .finally(() => setLoading(false));
         },

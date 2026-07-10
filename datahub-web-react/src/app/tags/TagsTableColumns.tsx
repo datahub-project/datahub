@@ -1,9 +1,8 @@
-import { Button, Menu, Text } from '@components';
+import { Button, Menu, Text, toast } from '@components';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
@@ -285,7 +284,7 @@ export const TagActionsColumn = React.memo(
         const [batchUpdateDeprecation] = useBatchUpdateDeprecationMutation();
 
         const handleUndeprecate = async () => {
-            message.loading({ content: tf('updating') });
+            toast.loading(tf('updating'));
             try {
                 await batchUpdateDeprecation({
                     variables: {
@@ -295,16 +294,13 @@ export const TagActionsColumn = React.memo(
                         },
                     },
                 });
-                message.destroy();
-                message.success({ content: te('deprecation.markedUnDeprecatedSuccess'), duration: 2 });
+                toast.destroy();
+                toast.success(te('deprecation.markedUnDeprecatedSuccess'), { duration: 2 });
                 refetch();
             } catch (e: unknown) {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: te('deprecation.updateError', { errorMessage: e.message || '' }),
-                        duration: 2,
-                    });
+                    toast.error(te('deprecation.updateError', { errorMessage: e.message || '' }), { duration: 2 });
                 }
             }
         };

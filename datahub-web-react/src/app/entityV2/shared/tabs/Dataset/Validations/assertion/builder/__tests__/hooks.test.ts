@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
+import { toast } from '@components';
 import { useHistory, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,8 +9,8 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
-vi.mock('antd', () => ({
-    message: {
+vi.mock('@components', () => ({
+    toast: {
         success: vi.fn(),
         error: vi.fn(),
     },
@@ -67,8 +67,8 @@ describe('useAssertionURNCopyLink', () => {
             result.current();
         });
 
-        expect(message.success).toHaveBeenCalledWith('Link copied to clipboard!');
-        expect(message.error).not.toHaveBeenCalled();
+        expect(toast.success).toHaveBeenCalledWith('Link copied to clipboard!');
+        expect(toast.error).not.toHaveBeenCalled();
     });
 
     it('shows an error message when the clipboard write fails', async () => {
@@ -79,8 +79,8 @@ describe('useAssertionURNCopyLink', () => {
             result.current();
         });
 
-        expect(message.error).toHaveBeenCalledWith('Failed to copy link to clipboard.');
-        expect(message.success).not.toHaveBeenCalled();
+        expect(toast.error).toHaveBeenCalledWith('Failed to copy link to clipboard.');
+        expect(toast.success).not.toHaveBeenCalled();
     });
 });
 

@@ -1,4 +1,5 @@
-import { Modal, message } from 'antd';
+import { toast } from '@components';
+import { Modal } from 'antd';
 import i18next from 'i18next';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
@@ -41,14 +42,14 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
     const { reloadByKeyType } = useReloadableContext();
 
     const handleRemoveDomain = (urnToRemoveFrom) => {
-        message.loading({ content: i18next.t('entity.preview:domain.removing'), duration: 2 });
+        toast.loading(i18next.t('entity.preview:domain.removing'), { duration: 2 });
         unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
                     entityState?.setShouldRefetchContents(true);
                     refetch();
-                    message.success({ content: i18next.t('entity.preview:domain.removed'), duration: 2 });
+                    toast.success(i18next.t('entity.preview:domain.removed'), { duration: 2 });
                     // Reload modules
                     // Assets - to update assets in domain summary tab
                     reloadByKeyType([
@@ -63,10 +64,9 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
                 }, 2000);
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: i18next.t('entity.preview:domain.removeError', { error: e.message || '' }),
+                    toast.error(i18next.t('entity.preview:domain.removeError', { error: e.message || '' }), {
                         duration: 3,
                     });
                 }
@@ -96,7 +96,7 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
 
     const handleRemoveTerm = (previewData, termUrn) => {
         if (termUrn) {
-            message.loading({ content: i18next.t('entity.preview:term.removing'), duration: 2 });
+            toast.loading(i18next.t('entity.preview:term.removing'), { duration: 2 });
             removeTermMutation({
                 variables: {
                     input: {
@@ -109,7 +109,7 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
                     if (!errors) {
                         setTimeout(() => {
                             setShouldRefetchEmbeddedListSearch(true);
-                            message.success({ content: i18next.t('entity.preview:term.removed'), duration: 2 });
+                            toast.success(i18next.t('entity.preview:term.removed'), { duration: 2 });
                             reloadByKeyType([
                                 getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
                             ]);
@@ -117,9 +117,8 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
                     }
                 })
                 .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: i18next.t('entity.preview:term.removeError', { error: e.message || '' }),
+                    toast.destroy();
+                    toast.error(i18next.t('entity.preview:term.removeError', { error: e.message || '' }), {
                         duration: 3,
                     });
                 });
@@ -152,19 +151,16 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
-                    message.success({ content: i18next.t('entity.preview:dataProduct.removed'), duration: 2 });
+                    toast.success(i18next.t('entity.preview:dataProduct.removed'), { duration: 2 });
                     reloadByKeyType([
                         getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
                     ]);
                 }, 2000);
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: e.message || i18next.t('entity.preview:dataProduct.removeError'),
-                        duration: 3,
-                    });
+                    toast.error(e.message || i18next.t('entity.preview:dataProduct.removeError'), { duration: 3 });
                 }
             });
     }
@@ -194,14 +190,13 @@ export function useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch) {
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
-                    message.success({ content: i18next.t('entity.preview:application.removed'), duration: 2 });
+                    toast.success(i18next.t('entity.preview:application.removed'), { duration: 2 });
                 }, 2000);
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: i18next.t('entity.preview:application.removeError', { error: e.message }),
+                    toast.error(i18next.t('entity.preview:application.removeError', { error: e.message }), {
                         duration: 3,
                     });
                 }

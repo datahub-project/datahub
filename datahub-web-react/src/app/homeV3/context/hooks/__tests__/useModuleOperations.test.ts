@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
+import { toast } from '@components';
 import { vi } from 'vitest';
 
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
@@ -17,11 +17,10 @@ import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, 
 // Mock GraphQL hooks
 vi.mock('@graphql/template.generated');
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
-        error: vi.fn(() => ({ key: 'test-message' })),
-        warning: vi.fn(() => ({ key: 'test-message' })),
+vi.mock('@components', () => ({
+    toast: {
+        error: vi.fn(),
+        warning: vi.fn(),
     },
 }));
 
@@ -568,7 +567,7 @@ describe('useModuleOperations', () => {
 
         it('should show translated error when no template is available', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
+            const messageSpy = vi.spyOn(toast, 'error');
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -833,7 +832,7 @@ describe('useModuleOperations', () => {
 
         it('should validate input and show error for missing module URN', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
+            const messageSpy = vi.spyOn(toast, 'error');
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -880,7 +879,7 @@ describe('useModuleOperations', () => {
 
         it('should validate input and show error for missing position', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
+            const messageSpy = vi.spyOn(toast, 'error');
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -921,7 +920,7 @@ describe('useModuleOperations', () => {
 
         it('should validate input and show error for invalid rowIndex', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
+            const messageSpy = vi.spyOn(toast, 'error');
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -968,7 +967,7 @@ describe('useModuleOperations', () => {
 
         it('should handle case when no template is available', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
+            const messageSpy = vi.spyOn(toast, 'error');
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -2138,7 +2137,7 @@ describe('useModuleOperations', () => {
     describe('moveModule translated error messages', () => {
         it('should show translated error when no template is available', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
+            const messageSpy = vi.spyOn(toast, 'error');
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -2176,7 +2175,7 @@ describe('useModuleOperations', () => {
     describe('upsertModule translated error messages', () => {
         it('should show translated error when mutation resolves but returns no URN (create mode)', async () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
+            const messageSpy = vi.spyOn(toast, 'error');
 
             const { result } = renderHook(() =>
                 useModuleOperations(
@@ -2216,7 +2215,7 @@ describe('useModuleOperations', () => {
 
         it('should show translated error when mutation resolves but returns no URN (edit mode)', async () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
+            const messageSpy = vi.spyOn(toast, 'error');
 
             const existingModule = mockPersonalTemplate.properties!.rows![0].modules![0];
 

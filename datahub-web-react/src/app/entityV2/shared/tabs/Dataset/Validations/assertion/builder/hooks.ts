@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -23,10 +23,10 @@ export const useAssertionURNCopyLink = (urn: string) => {
         // Copy the URL to the clipboard
         navigator.clipboard.writeText(assertionUrl).then(
             () => {
-                message.success(t('action.clipboardCopied'));
+                toast.success(t('action.clipboardCopied'));
             },
             () => {
-                message.error(t('action.clipboardFailed'));
+                toast.error(t('action.clipboardFailed'));
             },
         );
     };

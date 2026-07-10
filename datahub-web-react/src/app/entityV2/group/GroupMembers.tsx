@@ -1,6 +1,6 @@
 import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
-import { Avatar, Tooltip } from '@components';
-import { Button, Col, Dropdown, Empty, MenuProps, Pagination, Row, Typography, message } from 'antd';
+import { Avatar, Tooltip, toast } from '@components';
+import { Button, Col, Dropdown, Empty, MenuProps, Pagination, Row, Typography } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -123,7 +123,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, externalG
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: t('group.removedMemberSuccess'), duration: 2 });
+                    toast.success(t('group.removedMemberSuccess'), { duration: 2 });
                     // Hack to deal with eventual consistency
                     setTimeout(() => {
                         // Reload the page.
@@ -133,8 +133,8 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, externalG
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('group.removeMemberError', { error: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('group.removeMemberError', { error: e.message || '' }), { duration: 3 });
             });
     };
 
