@@ -2,6 +2,7 @@ namespace com.linkedin.semanticmodel
 
 import com.linkedin.metric.AiContext
 import com.linkedin.metric.MetricExpression
+import com.linkedin.schema.SchemaField
 
 /**
  * A named field defined inside a `SemanticModel` dataset (dimension, measure, filter, or other).
@@ -10,9 +11,12 @@ import com.linkedin.metric.MetricExpression
 record SemanticField {
 
   /**
-   * The name of this field as exposed by the semantic layer.
+   * Inline SchemaField describing this field's schema and identity.
+   * Its `fieldPath` composes into `urn:li:schemaField:(<parentSemanticModelUrn>,<fieldPath>)`,
+   * which serves as the endpoint for column-level lineage edges and as the anchor for
+   * column-level governance (tags, glossary terms, description).
    */
-  name: string
+  schemaField: SchemaField
 
   /**
    * The kind of this field. Must be set for every field; determines how downstream tools

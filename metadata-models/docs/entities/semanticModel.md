@@ -59,15 +59,31 @@ DataHub represents these using the `query` entity:
 Each `ModelDataset` entry can carry a list of `SemanticField` records that describe the columns
 exposed by the semantic model:
 
+- **`schemaField`** — required inline `SchemaField` that gives this field its identity and
+  governance surface. The `fieldPath` inside it becomes the field-path component of the
+  `urn:li:schemaField:(<semanticModelUrn>,<fieldPath>)` URN used for column-level lineage edges.
 - **`type`** — required `SemanticFieldType` enum identifying the kind of field: `DIMENSION` (grouping /
   filtering attribute), `MEASURE` (aggregatable numeric value), `FILTER` (named boolean predicate),
   or `OTHER` (forward-compat escape hatch for source constructs that do not map cleanly to the
   three named kinds).
-- **`name`** — the field name as used in metric expressions.
 - **`expression`** — the underlying SQL expression(s) in one or more dialects.
 - **`dimension`** — optional `Dimension` record; populated only when `type == DIMENSION`. Currently
   exposes `isTime: boolean` to flag time dimensions used for date-range filtering.
 - **`aiContext`** — AI hints specific to this field.
+
+### Lineage
+
+Semantic models support both table-level and column-level lineage via the `upstreamLineage` aspect,
+the same aspect used by datasets.
+
+**Table-level upstream lineage** — populate `upstreamLineage.upstreams` with one `Upstream` entry
+per source table or query.
+
+**Column-level lineage** — populate `upstreamLineage.fineGrainedLineages` with `FineGrainedLineage`
+records.
+
+**Metrics as downstream nodes** — metrics that declare `metricInfo.semanticModel` pointing at this
+entity automatically appear as downstream nodes in the lineage explorer.
 
 ### Governance
 
@@ -81,11 +97,12 @@ The semantic model entity reuses these standard governance aspects: `ownership`,
 | Relationship | Direction | Target entity      | Aspect / edge name  |
 | ------------ | --------- | ------------------ | ------------------- |
 | SourcedBy    | outbound  | `dataset`, `query` | `semanticModelInfo` |
+| UpstreamOf   | outbound  | `dataset`, `query` | `upstreamLineage`   |
 | ModeledBy    | inbound   | `metric`           | `metricInfo`        |
 
-The `SourcedBy` edges are derived from the `datasets[].source` URN fields in `semanticModelInfo`,
-so every referenced dataset or query automatically appears as an upstream dependency in the
-lineage graph.
+The `SourcedBy` edges are derived from the `datasets[].source` URN fields in `semanticModelInfo`.
+The `upstreamLineage` aspect provides the full lineage graph traversal path (table-level and
+column-level), so both upstream sources and downstream metrics appear in the lineage explorer.
 
 ## Notable Exceptions
 
