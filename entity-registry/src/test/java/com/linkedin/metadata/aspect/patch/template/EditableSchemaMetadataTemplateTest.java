@@ -59,4 +59,29 @@ public class EditableSchemaMetadataTemplateTest {
         fieldInfo.getGlossaryTerms().getTerms().get(0).getUrn().toString(),
         "urn:li:glossaryTerm:term1");
   }
+
+  @Test
+  public void testAddSecondTagDoesNotClobberExistingFieldPath() throws Exception {
+    // The re-injection guard (get(keyField) == null) must not overwrite a fieldPath that is
+    // already present on a round-tripped element.
+    EditableSchemaMetadata initial = TEMPLATE.getDefault();
+
+    JsonPatchBuilder first = Json.createPatchBuilder();
+    first.add(
+        "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag1",
+        Json.createObjectBuilder().add("tag", "urn:li:tag:tag1").build());
+    EditableSchemaMetadata afterFirst = TEMPLATE.applyPatch(initial, first.build());
+
+    JsonPatchBuilder second = Json.createPatchBuilder();
+    second.add(
+        "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag2",
+        Json.createObjectBuilder().add("tag", "urn:li:tag:tag2").build());
+    EditableSchemaMetadata result = TEMPLATE.applyPatch(afterFirst, second.build());
+
+    assertNotNull(result.getEditableSchemaFieldInfo());
+    assertEquals(result.getEditableSchemaFieldInfo().size(), 1);
+    EditableSchemaFieldInfo fieldInfo = result.getEditableSchemaFieldInfo().get(0);
+    assertEquals(fieldInfo.getFieldPath(), "field1");
+    assertEquals(fieldInfo.getGlobalTags().getTags().size(), 2);
+  }
 }

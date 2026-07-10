@@ -83,9 +83,38 @@ public class OwnershipTemplateTest {
   }
 
   @Test
+  public void testAddDeepPathReinjectsCompoundKey() throws Exception {
+    // Genuine guard for the mergeToArray key re-injection fix on a compound key [owner, type].
+    // A deep-path add materializes the owner/type levels purely from the path; the value carries
+    // neither key. On rebase, both keys must be re-injected (type at the inner level, owner at the
+    // outer). Pre-fix, the map keys were dropped and the Owner had no owner/type.
+    Ownership initial = new Ownership();
+    initial.setOwners(new OwnerArray());
+
+    JsonPatch patch =
+        Json.createPatch(
+            Json.createArrayBuilder()
+                .add(
+                    Json.createObjectBuilder()
+                        .add("op", "add")
+                        .add("path", "/owners/urn:li:corpuser:userA/DATAOWNER")
+                        .add("value", Json.createObjectBuilder()))
+                .build());
+
+    Ownership result = TEMPLATE.applyPatch(initial, patch);
+
+    Assert.assertNotNull(result.getOwners());
+    Assert.assertEquals(result.getOwners().size(), 1);
+    Owner owner = result.getOwners().get(0);
+    Assert.assertEquals(owner.getOwner().toString(), "urn:li:corpuser:userA");
+    Assert.assertEquals(owner.getType(), OwnershipType.DATAOWNER);
+  }
+
+  @Test
   public void testAddArrayAtIntermediateCompoundKeyLevelIsNotDropped() throws Exception {
-    // Compound key [owner, type]: an array set at the intermediate owner level must still be
-    // expanded on rebase, not silently dropped.
+    // Guards the ObjectNode-vs-else split in mergeToArray (not key re-injection): an array set at
+    // the intermediate owner level hits the value-only fallback and must still be expanded on
+    // rebase, not silently dropped.
     Ownership initial = new Ownership();
     initial.setOwners(new OwnerArray());
 
