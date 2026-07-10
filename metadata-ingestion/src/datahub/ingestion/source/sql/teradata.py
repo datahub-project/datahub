@@ -3575,8 +3575,14 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
     def close(self) -> None:
         """Clean up resources when source is closed."""
         logger.info("Closing SqlParsingAggregator")
-        self.aggregator.close()
-        self.schema_resolver.close()
+        # Guard each close so one failing teardown neither masks the others nor
+        # skips the remaining cleanup below (pooled engine dispose, cache clears,
+        # and super().close() which emits the failed-views summary).
+        for resource in (self.aggregator, self.schema_resolver):
+            try:
+                resource.close()
+            except Exception as e:
+                logger.warning(f"Failed to close {type(resource).__name__}: {e}")
 
         # Clean up pooled engine
         with self._pooled_engine_lock:

@@ -617,6 +617,22 @@ class TestTeradataSource:
         mock_schema_resolver = MagicMock()
         mock_view_definitions = MagicMock()
 
+        # Pre-populate the class-level caches so we can assert the failure path
+        # clears them (otherwise stale entries leak across recipe runs in the
+        # same process). The isolate_teradata_caches fixture resets them per test.
+        TeradataSource._tables_cache["stale_db"] = [
+            TeradataTable(
+                database="stale_db",
+                name="stale_table",
+                description=None,
+                object_type="Table",
+                create_timestamp=datetime(2024, 1, 1),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+            )
+        ]
+        TeradataSource._table_creator_cache[("stale_db", "stale_table")] = "owner"
+
         with (
             patch(
                 "datahub.ingestion.source.sql.teradata.FileBackedDict",
@@ -640,6 +656,8 @@ class TestTeradataSource:
         mock_aggregator.close.assert_called_once()
         mock_schema_resolver.close.assert_called_once()
         mock_view_definitions.close.assert_called_once()
+        assert len(TeradataSource._tables_cache) == 0
+        assert len(TeradataSource._table_creator_cache) == 0
 
     def test_init_cleanup_failure_does_not_mask_error_or_skip_resources(self):
         config = TeradataConfig.model_validate(_base_config())
