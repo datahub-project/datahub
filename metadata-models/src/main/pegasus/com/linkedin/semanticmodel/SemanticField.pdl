@@ -11,9 +11,7 @@ import com.linkedin.schema.SchemaField
 record SemanticField {
 
   /**
-   * Inline SchemaField describing this field's schema and identity.
-   * Its `fieldPath` composes into `urn:li:schemaField:(<parentSemanticModelUrn>,<fieldPath>)`,
-   * which serves as the endpoint for column-level lineage edges and as the anchor for
+   * Inline SchemaField describing this field's schema and identity for column-level lineage edges and as the anchor for
    * column-level governance (tags, glossary terms, description).
    */
   schemaField: SchemaField
