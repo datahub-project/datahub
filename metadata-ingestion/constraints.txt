@@ -1573,9 +1573,6 @@ sqlglot==30.12.0
     # via
     #   acryl-datahub
     #   dlt
-    #   sqlglotc
-sqlglotc==30.12.0
-    # via sqlglot
 sqlparse==0.5.5
     # via
     #   acryl-datahub
