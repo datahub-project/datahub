@@ -1828,11 +1828,23 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 except Exception:
                     # If __init__ fails here, the pipeline never registers this
                     # source for cleanup (it only does so once __init__ returns),
-                    # so close() is never called. Release the file-backed
-                    # resources we already built to avoid leaking their temp
-                    # files across sequential recipe runs in the same process.
-                    self.aggregator.close()
-                    self.schema_resolver.close()
+                    # so close() is never called. Release every file-backed
+                    # resource we already built (each owns a temp SQLite file) to
+                    # avoid leaking their temp files across sequential recipe runs
+                    # in the same process. Guard each close so a cleanup failure
+                    # neither masks the original exception nor skips the rest.
+                    for resource in (
+                        self.aggregator,
+                        self.schema_resolver,
+                        self._view_definitions,
+                    ):
+                        try:
+                            resource.close()
+                        except Exception as cleanup_err:
+                            logger.warning(
+                                f"Failed to close {type(resource).__name__} "
+                                f"during __init__ cleanup: {cleanup_err}"
+                            )
                     raise
                 logger.info(f"Found {len(self._tables_cache)} tables and views")
             setattr(self, "loop_tables", self.cached_loop_tables)  # noqa: B010
