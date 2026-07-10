@@ -129,19 +129,43 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
         return instance.arrayNode().addAll((ArrayNode) mapNode);
       }
       return instance.arrayNode().add(mapNode);
+    }
+    String keyField = keyFields.get(0);
+    List<String> remainingKeyFields =
+        keyFields.size() > 1 ? keyFields.subList(1, keyFields.size()) : Collections.emptyList();
+    ArrayNode mergingArray = instance.arrayNode();
+    if (mapNode instanceof ObjectNode) {
+      mapNode
+          .fields()
+          .forEachRemaining(
+              entry -> {
+                ArrayNode merged = mergeToArray(entry.getValue(), remainingKeyFields);
+                reinjectKey(merged, keyField, entry.getKey());
+                mergingArray.addAll(merged);
+              });
     } else {
-      ArrayNode mergingArray = instance.arrayNode();
+      // A patch can set a non-object (e.g. an array) at an intermediate key level. There is no
+      // map key to restore here, so preserve the original value-only merge.
       mapNode
           .elements()
-          .forEachRemaining(
-              node ->
-                  mergingArray.addAll(
-                      mergeToArray(
-                          node,
-                          keyFields.size() > 1
-                              ? keyFields.subList(1, keyFields.size())
-                              : Collections.emptyList())));
-      return mergingArray;
+          .forEachRemaining(node -> mergingArray.addAll(mergeToArray(node, remainingKeyFields)));
     }
+    return mergingArray;
+  }
+
+  // Restores the key field on elements created by a patch through a deeper path (e.g.
+  // /editableSchemaFieldInfo/<fieldPath>/globalTags/...), which never materializes the key in the
+  // value and would otherwise drop it, failing validation. No-op for normal round-trips that still
+  // carry the key. Compound/nested keys and empty keys are left as-is.
+  private static void reinjectKey(ArrayNode elements, String keyField, String key) {
+    if (key == null || key.isEmpty() || keyField.contains(UNIT_SEPARATOR_DELIMITER)) {
+      return;
+    }
+    elements.forEach(
+        element -> {
+          if (element instanceof ObjectNode && element.get(keyField) == null) {
+            ((ObjectNode) element).set(keyField, TextNode.valueOf(key));
+          }
+        });
   }
 }

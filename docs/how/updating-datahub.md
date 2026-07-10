@@ -56,6 +56,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- #18334 **(GMS / patch)** Fixed keyed-array patch rebase (`ArrayMergingTemplate`) dropping the map key when a patch creates a new element through a deeper path — e.g. adding a field-level tag or term to a schema field with no existing `editableSchemaMetadata` entry produced an `EditableSchemaFieldInfo` with no `fieldPath` and was rejected with `HTTP 422 - fieldPath is required`. The fix applies to every keyed array (tags, terms, ownership, upstreams, etc.). This previously required an SDK-side workaround, now removed: **the Python SDK's `Dataset.patch_builder().add_tag()/add_term()` on a new schema field, and any client that patches a keyed array through a deep path, now depend on this GMS fix.** A new SDK against an older GMS (DataHub Core < 1.8.0 / DataHub Cloud < 2.1.0) regresses to the `422` on those field-level adds. **Action:** upgrade GMS to a version containing this fix before upgrading clients that rely on it.
+
 ## v1.6.0
 
 Requirements:

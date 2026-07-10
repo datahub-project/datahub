@@ -32,7 +32,11 @@
     "aspect": {
         "json": {
             "arrayPrimaryKeys": {
+<<<<<<< HEAD
                 "tags": ["tag", "attribution\u241fsource"]
+=======
+                "tags": ["attribution\u241fsource", "tag"]
+>>>>>>> 528de8f42c (fix(patch): re-inject keyed-array element key on patch rebase (#18334))
             },
             "patch": [
                 {
