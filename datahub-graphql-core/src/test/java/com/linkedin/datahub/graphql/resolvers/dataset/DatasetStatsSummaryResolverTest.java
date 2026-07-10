@@ -5,10 +5,13 @@ import static org.mockito.ArgumentMatchers.any;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
+import com.linkedin.datahub.graphql.resolvers.load.DatasetStatsSummaryBatchLoader;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageQueryResultAggregations;
@@ -17,6 +20,9 @@ import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.concurrent.CompletableFuture;
+import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderRegistry;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -92,6 +98,41 @@ public class DatasetStatsSummaryResolverTest {
                 Mockito.eq(null),
                 Mockito.eq(null)))
         .thenReturn(newResult);
+  }
+
+  @Test
+  public void testBatchLoadEnabledDelegatesToDataLoader() throws Exception {
+    // With the flag on, the resolver must enqueue into the batch DataLoader and NOT call the
+    // usage client directly (auth + fetching move into the loader).
+    final UsageStatsJavaClient mockClient = Mockito.mock(UsageStatsJavaClient.class);
+
+    final DatasetStatsSummary expected = new DatasetStatsSummary();
+    expected.setQueryCountLast30Days(42);
+
+    @SuppressWarnings("unchecked")
+    final DataLoader<Urn, DatasetStatsSummary> mockLoader = Mockito.mock(DataLoader.class);
+    Mockito.when(mockLoader.load(UrnUtils.getUrn(TEST_DATASET_URN)))
+        .thenReturn(CompletableFuture.completedFuture(expected));
+    final DataLoaderRegistry registry = Mockito.mock(DataLoaderRegistry.class);
+    // doReturn avoids generic-inference issues on the generic getDataLoader(String) signature.
+    Mockito.doReturn(mockLoader)
+        .when(registry)
+        .getDataLoader(DatasetStatsSummaryBatchLoader.LOADER_NAME);
+
+    final FeatureFlags flags = new FeatureFlags();
+    flags.setDatasetStatsSummaryBatchLoadEnabled(true);
+    final DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient, flags);
+
+    final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getContext()).thenReturn(Mockito.mock(QueryContext.class));
+    Mockito.when(mockEnv.getDataLoaderRegistry()).thenReturn(registry);
+
+    final DatasetStatsSummary result = resolver.get(mockEnv).get();
+
+    Assert.assertEquals((int) result.getQueryCountLast30Days(), 42);
+    Mockito.verify(mockLoader).load(UrnUtils.getUrn(TEST_DATASET_URN));
+    Mockito.verifyNoInteractions(mockClient); // did not fall back to the per-URN path
   }
 
   @Test
