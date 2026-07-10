@@ -102,22 +102,21 @@ def test_usage_connection_pins_utc_and_disposes_engine(mock_create_engine):
 @patch("datahub.ingestion.source.sql.mysql.create_engine")
 def test_usage_connection_builds_valid_nullpool_engine(mock_create_engine):
     url = "mysql+pymysql://u:p@h/db"
-    # The exact failure this PR fixes: NullPool rejects QueuePool sizing options.
-    # create_engine validates these eagerly, without opening a connection.
+    # create_engine validates pool kwargs eagerly (no connection), so this is the
+    # failure this PR fixes: NullPool rejects QueuePool sizing options.
     with pytest.raises(TypeError):
         real_create_engine(url, poolclass=NullPool, max_overflow=10)
 
-    # Delegate to the real create_engine so its eager kwarg validation runs
-    # against exactly what the source builds (would raise if a QueuePool-only
-    # option leaked through), then hand back a mock so no DB is contacted.
+    # Delegate to the real create_engine so its validation runs on what the
+    # source builds, then return a mock so no DB is contacted.
     def _validate_then_mock(engine_url: str, **kwargs: object) -> MagicMock:
         real_create_engine(engine_url, **kwargs).dispose()
         return _patch_rows([])
 
     mock_create_engine.side_effect = _validate_then_mock
 
-    # Set the options directly rather than enabling profiling (which would need
-    # the full get_workunits path) to mimic _add_default_options' injection.
+    # Set options directly instead of enabling profiling (which needs the full
+    # get_workunits path) to mimic _add_default_options' injection.
     source = _source(
         options={
             "max_overflow": 10,
