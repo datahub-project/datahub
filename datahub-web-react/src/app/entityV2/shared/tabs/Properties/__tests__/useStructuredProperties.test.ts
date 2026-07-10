@@ -1,8 +1,13 @@
+import { renderHook } from '@testing-library/react-hooks';
+
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import {
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import useStructuredProperties, {
     getStructuredPropertyRows,
     identifyAndAddParentRows,
 } from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+
+import { PropertyValueInput, StructuredPropertyEntity } from '@types';
 
 const PROPAGATED = { attribution: { sourceDetail: [{ key: 'propagated', value: 'true' }] } };
 
@@ -42,6 +47,93 @@ describe('getStructuredPropertyRows deduplication', () => {
         const rows = getStructuredPropertyRows(entityWith([structuredProperty('urn:li:structuredProperty:p', true)]));
         expect(rows).toHaveLength(1);
         expect(rows[0].attribution).toBeDefined();
+    });
+});
+
+const mockUseEntityData = vi.hoisted(() => vi.fn());
+const mockUseGetEntityWithSchema = vi.hoisted(() => vi.fn());
+
+vi.mock('@app/entity/shared/EntityContext', () => ({
+    useEntityData: mockUseEntityData,
+}));
+
+vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema', () => ({
+    useGetEntityWithSchema: mockUseGetEntityWithSchema,
+}));
+
+const entityRegistry = new EntityRegistry();
+
+const FIELD_PATH = 'fieldA';
+
+function buildStructuredPropertiesEntry(qualifiedName: string, value: string) {
+    return {
+        structuredProperty: {
+            exists: true,
+            definition: {
+                displayName: qualifiedName,
+                qualifiedName,
+                valueType: {} as StructuredPropertyEntity['definition']['valueType'],
+            },
+        },
+        values: [{ __typename: 'StringValue', stringValue: value } as unknown as PropertyValueInput],
+        valueEntities: [],
+        associatedUrn: 'urn:li:schemaField:1',
+    };
+}
+
+describe('useStructuredProperties', () => {
+    beforeEach(() => {
+        mockUseEntityData.mockReturnValue({ entityData: null });
+        mockUseGetEntityWithSchema.mockReturnValue({ entityWithSchema: null, loading: false, refetch: vi.fn() });
+    });
+
+    afterEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('derives field-level rows directly from fieldProperties without relying on entity-with-schema query', () => {
+        const fieldProperties = {
+            properties: [buildStructuredPropertiesEntry('testProp', 'value1')],
+        } as any;
+
+        const { result } = renderHook(() =>
+            useStructuredProperties(entityRegistry, FIELD_PATH, undefined, fieldProperties),
+        );
+
+        // the query should be skipped since fieldProperties was already provided
+        expect(mockUseGetEntityWithSchema).toHaveBeenCalledWith(true);
+        expect(result.current.loading).toBe(false);
+        expect(result.current.structuredPropertyRowsRaw).toHaveLength(1);
+        expect(result.current.structuredPropertyRowsRaw[0]).toMatchObject({ qualifiedName: 'testProp' });
+    });
+
+    it('falls back to the entity-with-schema query when fieldProperties is not provided', () => {
+        mockUseGetEntityWithSchema.mockReturnValue({
+            entityWithSchema: {
+                schemaMetadata: {
+                    fields: [
+                        {
+                            fieldPath: FIELD_PATH,
+                            schemaFieldEntity: {
+                                structuredProperties: {
+                                    properties: [buildStructuredPropertiesEntry('testProp', 'value1')],
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+            loading: true,
+            refetch: vi.fn(),
+        });
+
+        const { result } = renderHook(() => useStructuredProperties(entityRegistry, FIELD_PATH, undefined));
+
+        // the query should not be skipped since fieldProperties was not provided
+        expect(mockUseGetEntityWithSchema).toHaveBeenCalledWith(false);
+        expect(result.current.loading).toBe(true);
+        expect(result.current.structuredPropertyRowsRaw).toHaveLength(1);
+        expect(result.current.structuredPropertyRowsRaw[0]).toMatchObject({ qualifiedName: 'testProp' });
     });
 });
 

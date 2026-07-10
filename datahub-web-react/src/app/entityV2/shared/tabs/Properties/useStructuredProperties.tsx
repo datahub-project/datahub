@@ -8,7 +8,7 @@ import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';
 import { dedupeByUrn } from '@src/utils/dedupeByUrn';
 
-import { PropertyValue, StructuredPropertiesEntry } from '@types';
+import { Maybe, PropertyValue, StructuredProperties, StructuredPropertiesEntry } from '@types';
 
 const typeNameToType = {
     StringValue: { type: 'string', nativeDataType: 'text' },
@@ -82,6 +82,20 @@ function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericE
     dedupedProperties.forEach((structuredPropertiesEntry) => {
         structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
     });
+
+    return structuredPropertyRows;
+}
+
+// map structured properties already available on the caller (e.g. from a parent drawer) into a
+// list of PropertyRow objects, without needing to fire the entity-with-schema query
+export function getFieldEntityStructuredPropertyRows(fieldProperties?: Maybe<StructuredProperties>) {
+    const structuredPropertyRows: PropertyRow[] = [];
+
+    fieldProperties?.properties
+        ?.filter((prop) => prop.structuredProperty.exists)
+        .forEach((structuredPropertiesEntry) => {
+            structuredPropertyRows.push(mapStructuredPropertyToPropertyRow(structuredPropertiesEntry));
+        });
 
     return structuredPropertyRows;
 }
@@ -228,16 +242,20 @@ export default function useStructuredProperties(
     entityRegistry: EntityRegistry,
     fieldPath: string | null,
     filterText?: string,
+    fieldProperties?: Maybe<StructuredProperties>,
 ) {
     const { entityData } = useEntityData();
-    const { entityWithSchema } = useGetEntityWithSchema(!fieldPath);
+    // Skip the entity-with-schema query entirely when the caller already has field-level
+    // structured properties available (e.g. passed down from a parent drawer), to avoid
+    // re-firing the query and flashing an empty table when revisiting this tab.
+    const hasFieldProperties = !!fieldProperties;
+    const { entityWithSchema, loading } = useGetEntityWithSchema(!fieldPath || hasFieldProperties);
 
     let structuredPropertyRowsRaw: PropertyRow[] = [];
     if (fieldPath) {
-        structuredPropertyRowsRaw = getFieldStructuredPropertyRows(
-            fieldPath,
-            entityWithSchema as GenericEntityProperties,
-        );
+        structuredPropertyRowsRaw = hasFieldProperties
+            ? getFieldEntityStructuredPropertyRows(fieldProperties)
+            : getFieldStructuredPropertyRows(fieldPath, entityWithSchema as GenericEntityProperties);
     } else {
         structuredPropertyRowsRaw = getStructuredPropertyRows(entityData);
     }
@@ -263,5 +281,6 @@ export default function useStructuredProperties(
         structuredPropertyRows,
         expandedRowsFromFilter: expandedRowsFromFilter as Set<string>,
         structuredPropertyRowsRaw,
+        loading: hasFieldProperties ? false : loading,
     };
 }
