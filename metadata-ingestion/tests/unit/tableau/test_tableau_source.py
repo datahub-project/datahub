@@ -14,6 +14,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.source.tableau.tableau import (
     DEFAULT_PAGE_SIZE,
+    CustomSqlParseResult,
     LineageResult,
     SiteIdContentUrl,
     TableauConfig,
@@ -391,6 +392,31 @@ def test_make_fine_grained_lineage_class_skips_upstreams_with_unresolved_column(
     assert result[0].upstreams == [
         f"urn:li:schemaField:({upstream_table_urn},resolved_col)"
     ]
+
+
+def test_make_fine_grained_lineage_class_skips_unresolved_downstream_column():
+    # An empty downstream column (same root cause as the upstream case above)
+    # must not produce an invalid schemaField URN with an empty field path.
+    upstream_table_urn = "urn:li:dataset:(urn:li:dataPlatform:athena,db.table,PROD)"
+    parsed_result = SqlParsingResult(
+        in_tables=[upstream_table_urn],
+        out_tables=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column=""),
+                upstreams=[ColumnRef(table=upstream_table_urn, column="resolved_col")],
+            )
+        ],
+    )
+
+    result = make_fine_grained_lineage_class(
+        parsed_result,
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,ds-1,PROD)",
+        out_columns=[],
+    )
+
+    assert len(result) == 1
+    assert result[0].downstreams == []
 
 
 def test_database_hostname_to_platform_instance_map():
@@ -1007,6 +1033,39 @@ class TestTableauSourceNewFeatures:
             assert (
                 "customer_name" in upstream_field_urn
             )  # Normalized from "Customer Name"
+
+    def test_get_upstream_fields_from_custom_sql_skips_unresolved_downstream_column(
+        self,
+    ):
+        upstream_table_urn = "urn:li:dataset:(urn:li:dataPlatform:athena,db.table,PROD)"
+        parsed_result = SqlParsingResult(
+            in_tables=[upstream_table_urn],
+            out_tables=[],
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(column=""),
+                    upstreams=[
+                        ColumnRef(table=upstream_table_urn, column="resolved_col")
+                    ],
+                )
+            ],
+        )
+
+        with mock.patch.object(
+            self.tableau_source,
+            "parse_custom_sql",
+            return_value=CustomSqlParseResult(
+                result=parsed_result, platform_instance=None
+            ),
+        ):
+            fine_grained_lineages = (
+                self.tableau_source.get_upstream_fields_from_custom_sql(
+                    datasource={}, datasource_urn="urn:li:dataset:(...,csql,PROD)"
+                )
+            )
+
+        assert len(fine_grained_lineages) == 1
+        assert fine_grained_lineages[0].downstreams == []
 
 
 def _extract_dataset_properties(work_units):

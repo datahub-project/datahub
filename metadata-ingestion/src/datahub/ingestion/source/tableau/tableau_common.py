@@ -1022,8 +1022,7 @@ def make_fine_grained_lineage_class(
                     ),
                 )
             ]
-            if cll_info.downstream is not None
-            and cll_info.downstream.column is not None
+            if cll_info.downstream is not None and cll_info.downstream.column
             else []
         )
         upstreams = cll_info.upstream_schema_field_urns()
