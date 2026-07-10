@@ -47,8 +47,6 @@
               runtime_limit_seconds: {{execution_request_cleanup.runtime_limit_seconds}}{{^execution_request_cleanup.runtime_limit_seconds}}3600{{/execution_request_cleanup.runtime_limit_seconds}}
               limit_entities_delete: {{execution_request_cleanup.limit_entities_delete}}{{^execution_request_cleanup.limit_entities_delete}}10000{{/execution_request_cleanup.limit_entities_delete}}
               max_read_errors: {{execution_request_cleanup.max_read_errors}}{{^execution_request_cleanup.max_read_errors}}10{{/execution_request_cleanup.max_read_errors}}
-              # Per-source.type retention overrides; empty by default. Provide via
-              # DATAHUB_GC_BOOTSTRAP_VALUES to apply a distinct policy to a source.type.
               source_type_overrides: {{&execution_request_cleanup.source_type_overrides}}{{^execution_request_cleanup.source_type_overrides}}{}{{/execution_request_cleanup.source_type_overrides}}
       extraArgs: {}
       debugMode: false
