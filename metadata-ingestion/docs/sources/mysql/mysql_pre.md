@@ -9,6 +9,21 @@ Grant the following privileges to the ingestion user:
 - `grant select on DATABASE.* to 'USERNAME'@'%'` (required for metadata and profiling)
 - `grant show view on DATABASE.* to 'USERNAME'@'%'` (required for view definitions)
 
+#### Multiple Databases
+
+Leave `database` unset to ingest every database the ingestion user can see. Use `database_pattern` to
+select which databases are ingested, for example:
+
+```yaml
+database_pattern:
+  allow:
+    - "^db_one$"
+    - "^db_two$"
+```
+
+Setting `database` restricts ingestion to that single database; a wildcard such as `*` is not a valid
+value for `database` — use `database_pattern` for multi-database ingestion.
+
 #### Connection Usage and Limits
 
 With profiling enabled the source opens connections concurrently. While a database is being profiled

@@ -9,6 +9,21 @@ Use the MariaDB source to ingest relational metadata from MariaDB databases, inc
 - Authentication details configured in the recipe (`username` and `password`).
 - If SSL is required, provide MariaDB TLS connect arguments (`ssl_ca`, `ssl_cert`, `ssl_key`) under `options.connect_args`.
 
+#### Multiple Databases
+
+Leave `database` unset to ingest every database the ingestion user can see. Use `database_pattern` to
+select which databases are ingested, for example:
+
+```yaml
+database_pattern:
+  allow:
+    - "^db_one$"
+    - "^db_two$"
+```
+
+Setting `database` restricts ingestion to that single database; a wildcard such as `*` is not a valid
+value for `database` — use `database_pattern` for multi-database ingestion.
+
 #### Connection Usage and Limits
 
 With profiling enabled the source opens connections concurrently. While a database is being profiled
