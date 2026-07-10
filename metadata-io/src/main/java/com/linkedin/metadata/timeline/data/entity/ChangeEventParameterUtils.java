@@ -1,12 +1,11 @@
 package com.linkedin.metadata.timeline.data.entity;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.MetadataAttribution;
+import io.datahubproject.metadata.context.ObjectMapperContext;
 import javax.annotation.Nullable;
 
 /** Helpers for building ChangeEvent parameter maps shared across entity change events. */
 public class ChangeEventParameterUtils {
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final String EMPTY_JSON = "{}";
 
   private ChangeEventParameterUtils() {}
@@ -20,6 +19,6 @@ public class ChangeEventParameterUtils {
     if (attribution == null) {
       return EMPTY_JSON;
     }
-    return OBJECT_MAPPER.valueToTree(attribution.getSourceDetail()).toString();
+    return ObjectMapperContext.defaultMapper.valueToTree(attribution.getSourceDetail()).toString();
   }
 }
