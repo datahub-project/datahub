@@ -286,6 +286,59 @@ def test_field_tags_patch(patch_dataset):
     assert len(field_info.globalTags.tags) == 0
 
 
+def test_field_tag_patch_on_new_field_preserves_fieldpath(patch_dataset):
+    """End-to-end regression: patch-adding a field tag when the field has no existing
+    editableSchemaMetadata entry must persist with fieldPath intact.
+
+    The field element is materialized solely from the patch path
+    (/editableSchemaFieldInfo/<fieldPath>/globalTags/...), so the map key is the only
+    place its identity exists. Before the ArrayMergingTemplate key re-injection fix the
+    rebuilt element had no fieldPath and GMS rejected the write with HTTP 422.
+    """
+    graph_client, dataset_urn = patch_dataset
+    field_path = f"new_field_{uuid.uuid4().hex[:8]}"
+    new_tag_urn = make_tag_urn(tag=f"testTag-{uuid.uuid4()}")
+
+    # Intentionally no editableSchemaMetadata seeded first.
+    for patch_mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .for_field(field_path)
+        .add_tag(TagAssociationClass(tag=new_tag_urn))
+        .parent()
+        .build()
+    ):
+        graph_client.emit_mcp(patch_mcp)
+
+    field_info = get_field_info(graph_client, dataset_urn, field_path)
+    assert field_info, "patch must create the field entry"
+    assert field_info.fieldPath == field_path
+    assert field_info.globalTags is not None
+    assert [t.tag for t in field_info.globalTags.tags] == [new_tag_urn]
+
+
+def test_field_term_patch_on_new_field_preserves_fieldpath(patch_dataset):
+    """End-to-end regression: patch-adding a field term when the field has no existing
+    editableSchemaMetadata entry must persist with fieldPath intact (see the tag variant)."""
+    graph_client, dataset_urn = patch_dataset
+    field_path = f"new_field_{uuid.uuid4().hex[:8]}"
+    new_term = GlossaryTermAssociationClass(urn=make_term_urn(f"test-{uuid.uuid4()}"))
+
+    for patch_mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .for_field(field_path)
+        .add_term(new_term)
+        .parent()
+        .build()
+    ):
+        graph_client.emit_mcp(patch_mcp)
+
+    field_info = get_field_info(graph_client, dataset_urn, field_path)
+    assert field_info, "patch must create the field entry"
+    assert field_info.fieldPath == field_path
+    assert field_info.glossaryTerms is not None
+    assert [t.urn for t in field_info.glossaryTerms.terms] == [new_term.urn]
+
+
 def get_custom_properties(
     graph: DataHubGraph, dataset_urn: str
 ) -> Optional[Dict[str, str]]:
