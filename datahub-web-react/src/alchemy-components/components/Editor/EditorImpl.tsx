@@ -63,6 +63,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         fixedBottomToolbar,
         hideToolbar,
         compact,
+        noPadding,
     } = props;
     const styledTheme = useTheme();
     const editorTheme = useMemo(() => getEditorTheme(styledTheme), [styledTheme]);
@@ -126,6 +127,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             $hideBorder={hideBorder}
             $fixedBottomToolbar={fixedBottomToolbar}
             $compact={compact}
+            $noPadding={noPadding}
         >
             <ThemeProvider theme={editorTheme}>
                 <RemirrorLocaleProvider>

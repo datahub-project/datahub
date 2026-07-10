@@ -42,4 +42,6 @@ export type EditorProps = {
     hideToolbar?: boolean;
     /** Enable compact mode with smaller min-height and adjusted padding */
     compact?: boolean;
+    /** Remove default ProseMirror content padding (for inline/sidebar viewers) */
+    noPadding?: boolean;
 };

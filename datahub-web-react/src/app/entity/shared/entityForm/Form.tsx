@@ -19,12 +19,6 @@ import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { FormPrompt } from '@types';
 
-const PaddinglessEditor = styled(Editor)`
-    .remirror-editor.ProseMirror {
-        padding: 0;
-    }
-`;
-
 const TabWrapper = styled.div`
     background-color: ${(props) => props.theme.colors.bgSurface};
     overflow: auto;
@@ -85,7 +79,7 @@ function Form({ formUrn }: Props) {
                 )}
                 {description ? (
                     <SubTitle>
-                        <PaddinglessEditor content={description} readOnly />
+                        <Editor content={description} readOnly noPadding />
                     </SubTitle>
                 ) : (
                     <SubTitle>
