@@ -61,6 +61,15 @@ _SYSTEM_SCHEMAS = frozenset(
     {"information_schema", "performance_schema", "mysql", "sys"}
 )
 
+# QueuePool-only sizing options that NullPool rejects, so they must be dropped
+# from the ephemeral usage engine (which forces NullPool). DataHub itself only
+# auto-injects `max_overflow` (SQLAlchemySource._add_default_options, when
+# profiling is enabled); the other three are stripped defensively in case a user
+# sets them via `config.options`.
+_QUEUE_POOL_ONLY_OPTIONS = frozenset(
+    {"pool_size", "max_overflow", "pool_timeout", "pool_use_lifo"}
+)
+
 # One row per normalized statement: DIGEST_TEXT has literals stripped to `?`,
 # COUNT_STAR counts executions since the last reset, LAST_SEEN is the most recent.
 # Low-overhead query history when performance_schema is on (vs. the general log).
@@ -327,32 +336,56 @@ class MySQLSource(TwoTierSQLAlchemySource):
         engine = create_engine(url, **self.config.options)
         self._setup_rds_iam_event_listener(engine)
 
-        with engine.connect() as conn:
-            inspector = inspect(conn)
-            if self.config.database and self.config.database != "":
-                databases = [self.config.database]
-            else:
-                databases = inspector.get_schema_names()
-            for db in databases:
-                if self.config.database_pattern.allowed(db):
-                    url = self.config.get_sql_alchemy_url(current_db=db)
-                    db_engine = create_engine(url, **self.config.options)
-                    self._setup_rds_iam_event_listener(db_engine, database_name=db)
+        try:
+            with engine.connect() as conn:
+                inspector = inspect(conn)
+                if self.config.database and self.config.database != "":
+                    databases = [self.config.database]
+                else:
+                    databases = inspector.get_schema_names()
+        finally:
+            # Only used to list databases; dispose so it does not hold a pooled
+            # connection open for the whole reflection/profiling run.
+            engine.dispose()
 
-                    with db_engine.connect() as conn:
-                        inspector = inspect(conn)
-                        yield inspector
+        for db in databases:
+            if not self.config.database_pattern.allowed(db):
+                continue
+            db_url = self.config.get_sql_alchemy_url(current_db=db)
+            # config.options carries the max_overflow that _add_default_options injects when
+            # profiling is on, so this per-DB QueuePool can grow to profiling.max_workers
+            # connections (QueuePool accepts it). PR #18319 fixes the mirror-image case where the
+            # same injected option breaks the NullPool usage engine — same root cause.
+            db_engine = create_engine(db_url, **self.config.options)
+            self._setup_rds_iam_event_listener(db_engine, database_name=db)
+            try:
+                with db_engine.connect() as conn:
+                    inspector = inspect(conn)
+                    # Invariant: the caller must complete all reflection + profiling for this db
+                    # before requesting the next inspector — the finally below disposes the engine
+                    # on resume, so deferring work past the yield would run it on a torn-down engine.
+                    yield inspector
+            finally:
+                # Dispose once the inspector is consumed; otherwise each engine's
+                # pool keeps one connection open per database for the whole run,
+                # exhausting servers with a low max_user_connections limit.
+                db_engine.dispose()
 
     def add_profile_metadata(self, inspector: Inspector) -> None:
         if not self.config.is_profiling_enabled():
             return
         with inspector.engine.connect() as conn:
-            for row in conn.execute(
-                "SELECT table_schema, table_name, data_length from information_schema.tables"
+            # MySQL upper-cases information_schema labels; MariaDB keeps the
+            # selected case. Unpack positionally so access is case-independent.
+            for table_schema, table_name, data_length in conn.execute(
+                text(
+                    "SELECT table_schema, table_name, data_length "
+                    "FROM information_schema.tables"
+                )
             ):
                 self.profile_metadata_info.dataset_name_to_storage_bytes[
-                    f"{row.TABLE_SCHEMA}.{row.TABLE_NAME}"
-                ] = row.DATA_LENGTH
+                    f"{table_schema}.{table_name}"
+                ] = data_length
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
@@ -467,10 +500,16 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # NullPool + dispose() so this one-shot fetch never leaves connections
         # open. poolclass is forced last so a pooled class in options (intended
         # for the long-lived inspection engine) can't silently re-pool this
-        # ephemeral engine.
+        # ephemeral engine; QueuePool-only options are dropped (see
+        # _QUEUE_POOL_ONLY_OPTIONS) because NullPool rejects them.
+        usage_options = {
+            key: value
+            for key, value in self.config.options.items()
+            if key not in _QUEUE_POOL_ONLY_OPTIONS
+        }
         engine = create_engine(
             self.config.get_sql_alchemy_url(),
-            **{**self.config.options, "poolclass": NullPool},
+            **{**usage_options, "poolclass": NullPool},
         )
         self._setup_rds_iam_event_listener(engine)
         try:

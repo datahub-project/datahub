@@ -149,7 +149,7 @@ sqlglot_lib = {
     # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
     # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
     # upstream, so we restore [c] here for performance.
-    "sqlglot[c]==30.8.0",
+    "sqlglot[c]==30.12.0",
     "patchy==2.8.0",
 }
 
