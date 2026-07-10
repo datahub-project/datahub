@@ -60,6 +60,13 @@ class SQLSourceReport(
     num_queries_parsed: int = 0
     num_queries_parse_failures: int = 0
 
+    # Query-history references dropped as "temp" because the table was never
+    # ingested (temp tables, filtered-out databases, mis-quoted identifiers).
+    num_usage_references_suppressed_as_temp: int = 0
+    usage_references_suppressed_as_temp_sample: LossyList[str] = field(
+        default_factory=LossyList
+    )
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table

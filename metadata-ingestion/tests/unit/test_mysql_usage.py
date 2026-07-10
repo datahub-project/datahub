@@ -12,7 +12,10 @@ from datahub.ingestion.source.sql.mysql import (
     MySQLSource,
     _parse_general_log_user,
 )
-from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
+    UpstreamLineageClass,
+)
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 
@@ -391,6 +394,57 @@ def test_is_temp_table_flags_undiscovered_tables():
     assert not source._is_temp_table("appdb.orders")
     assert source._is_temp_table("appdb.tmp_scratch")
     assert source._is_temp_table("appdb.appdb.orders")
+    # Each suppression is counted so a missing table is observable, not silent.
+    assert source.report.num_usage_references_suppressed_as_temp == 2
+
+
+def test_is_temp_table_matches_case_insensitively():
+    # A catalog holding mixed-case identifiers (e.g. lower_case_table_names=2)
+    # must still match a reference the parser lowercased, or real lineage would
+    # silently vanish.
+    source = _source()
+    source.discovered_datasets.add("AppDB.Orders")
+    assert not source._is_temp_table("appdb.orders")
+
+
+def test_save_schema_to_resolver_tracks_usage_flag():
+    assert _source(include_view_lineage=False)._save_schema_to_resolver()
+    off = MySQLConfig(include_usage_statistics=False, include_view_lineage=False)
+    assert not MySQLSource(
+        off, PipelineContext(run_id="mysql-usage-test")
+    )._save_schema_to_resolver()
+
+
+def test_usage_emits_lineage_between_discovered_tables():
+    # Positive counterpart to the phantom tests: when both tables are ingested,
+    # the query lineage edge must survive.
+    source = _source()
+    source.discovered_datasets.update({"appdb.orders", "appdb.summary"})
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    with patch.object(
+        source,
+        "_fetch_performance_schema_queries",
+        return_value=[
+            ObservedQuery(
+                query="INSERT INTO summary SELECT id FROM orders",
+                timestamp=now,
+                default_schema="appdb",
+                usage_multiplier=1,
+            )
+        ],
+    ):
+        workunits = list(source._generate_aggregator_workunits())
+
+    upstreams = [
+        upstream.dataset
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(UpstreamLineageClass)) is not None
+        for upstream in aspect.upstreams
+    ]
+    assert any("appdb.orders" in urn for urn in upstreams), (
+        f"expected lineage from appdb.orders; got {upstreams}"
+    )
 
 
 def test_usage_skips_phantom_entity_from_mis_quoted_identifier():
