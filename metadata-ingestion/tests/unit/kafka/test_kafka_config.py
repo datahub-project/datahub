@@ -56,7 +56,7 @@ class TestSchemaResolutionFallbackConfig:
 
         assert config.enabled is False
         assert config.sample_timeout_seconds == 2.0
-        assert config.sample_strategy == "hybrid"
+        assert config.offset_reset_strategy == "hybrid"
         assert config.max_messages_per_topic == 10
 
     def test_kafka_source_config_with_custom_schema_resolution(self):
@@ -66,20 +66,20 @@ class TestSchemaResolutionFallbackConfig:
                 "schema_resolution": {
                     "enabled": True,
                     "sample_timeout_seconds": 3.0,
-                    "sample_strategy": "earliest",
+                    "offset_reset_strategy": "earliest",
                 },
             }
         )
 
         assert config.schema_resolution.enabled is True
         assert config.schema_resolution.sample_timeout_seconds == 3.0
-        assert config.schema_resolution.sample_strategy == "earliest"
+        assert config.schema_resolution.offset_reset_strategy == "earliest"
 
 
 class TestConfigurationValidationEdgeCases:
     def test_schema_resolution_invalid_strategy(self):
         with pytest.raises(ValidationError):
-            SchemaResolutionFallback(sample_strategy="lates")
+            SchemaResolutionFallback(offset_reset_strategy="lates")
 
     def test_schema_resolution_negative_timeout(self):
         with pytest.raises(ValidationError):

@@ -22,6 +22,7 @@ from datahub.ingestion.source.kafka.kafka_profiler_utils import (
     calculate_numeric_stats,
     filter_numeric_values,
 )
+from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_utils import MessageValue
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -92,12 +93,11 @@ class KafkaFieldStatistics(BaseModel):
                 self.mean_value = None
 
 
-def is_special_value(v: FieldValue) -> bool:
+def is_overflow_value(v: FieldValue) -> bool:
+    # Guards numeric aggregation against float64 overflow only. NOT a sentinel filter:
+    # legitimate values like -1 and INT_MAX must be profiled normally.
     if isinstance(v, (int, float)):
-        if abs(v) > 9.223372036854775e18:
-            return True
-        if v in (-1, 2147483647):
-            return True
+        return abs(v) > 9.223372036854775e18
     return False
 
 
@@ -208,8 +208,13 @@ def flatten_json(
 
 
 class KafkaProfiler:
-    def __init__(self, profiler_config: ProfilerConfig) -> None:
+    def __init__(
+        self,
+        profiler_config: ProfilerConfig,
+        report: Optional[KafkaSourceReport] = None,
+    ) -> None:
         self.profiler_config = profiler_config
+        self.report = report
         self._expensive_profiling_disabled = (
             profiler_config.turn_off_expensive_profiling_metrics
         )
@@ -223,12 +228,13 @@ class KafkaProfiler:
         samples: List[Dict[str, MessageValue]],
         schema_metadata: Optional[SchemaMetadataClass],
         config: ProfilerConfig,
+        report: Optional[KafkaSourceReport] = None,
     ) -> Optional[DatasetProfileClass]:
         if not samples:
             logger.warning(f"No samples available for topic {topic_name}")
             return None
 
-        profiler = KafkaProfiler(config)
+        profiler = KafkaProfiler(config, report=report)
 
         try:
             profile = profiler.generate_dataset_profile(samples, schema_metadata)
@@ -244,6 +250,14 @@ class KafkaProfiler:
                         f"Profiling completed with {len(profiler.profiling_errors)} errors for topic {topic_name}. "
                         f"Skipped {profiler.samples_skipped} samples. First error: {profiler.profiling_errors[0]}"
                     )
+                    if report is not None:
+                        report.profiling_samples_skipped += profiler.samples_skipped
+                        report.report_warning(
+                            "profiling",
+                            f"Profiling of topic {topic_name} skipped "
+                            f"{profiler.samples_skipped} sample(s) due to processing "
+                            f"errors. First error: {profiler.profiling_errors[0]}",
+                        )
 
             return profile
 
@@ -445,13 +459,13 @@ class KafkaProfiler:
             if not field_path:
                 continue
 
-            # Add value if it's not a special value
-            if not is_special_value(value):  # type: ignore[arg-type]
+            # Skip only values that would overflow numeric aggregation.
+            if not is_overflow_value(value):  # type: ignore[arg-type]
                 if field_path not in field_mappings["values"]:
                     field_mappings["values"][field_path] = []  # type: ignore[assignment]
                 field_mappings["values"][field_path].append(value)  # type: ignore[union-attr,arg-type]
             else:
-                # Initialize field if needed but don't add special value
+                # Initialize field if needed but don't add the overflowing value
                 if field_path not in field_mappings["values"]:
                     field_mappings["values"][field_path] = []  # type: ignore[assignment]
 
@@ -708,7 +722,7 @@ class KafkaProfiler:
                     v
                     for v in non_null_values
                     if not (isinstance(v, float) and math.isnan(v))
-                    and not is_special_value(v)
+                    and not is_overflow_value(v)
                 ],
                 max_samples=getattr(
                     self.profiler_config, "field_sample_values_limit", 20
@@ -798,7 +812,7 @@ class KafkaProfiler:
                 if (
                     math.isnan(num_val)
                     or math.isinf(num_val)
-                    or is_special_value(num_val)
+                    or is_overflow_value(num_val)
                 ):
                     continue
 
@@ -850,7 +864,7 @@ class KafkaProfiler:
                             if (
                                 not math.isnan(value)
                                 and not math.isinf(value)
-                                and not is_special_value(value)
+                                and not is_overflow_value(value)
                             ):
                                 values.extend([value] * freq)
                         except ValueError:

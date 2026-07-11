@@ -237,7 +237,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Whether to profile complex types like structs, arrays and maps. ",
     )
 
-    nested_field_max_depth: int = Field(
+    nested_field_max_depth: pydantic.PositiveInt = Field(
         default=10,
         description="Maximum recursion depth when flattening nested JSON structures during profiling. "
         "Lower values prevent recursion errors but may truncate deeply nested data. "

@@ -25,17 +25,6 @@ from datahub.ingestion.source_config.operation_config import is_profiling_enable
 
 
 class SchemaResolutionFallback(ConfigModel):
-    """
-    Configuration for comprehensive schema resolution with multiple fallback strategies.
-
-    This enables a multi-stage approach to resolve schemas for Kafka topics:
-    1. TopicNameStrategy: Direct lookup using topic name
-    2. RecordNameStrategy: Extract record name from messages and lookup
-    3. TopicRecordNameStrategy: Combine topic + record name for lookup
-    4. TopicSubjectMap: User-defined topic-to-subject mappings
-    5. Schema Inference: Infer schema from message data as final fallback
-    """
-
     enabled: bool = Field(
         default=False,
         description="Enable comprehensive schema resolution with multiple fallback strategies for topics where schema registry lookup fails.",
@@ -46,9 +35,9 @@ class SchemaResolutionFallback(ConfigModel):
         gt=0.0,
         description="Maximum time to spend sampling messages from a single topic (in seconds) for record name extraction and schema inference. Must be positive.",
     )
-    sample_strategy: Literal["earliest", "latest", "hybrid"] = Field(
+    offset_reset_strategy: Literal["earliest", "latest", "hybrid"] = Field(
         default="hybrid",
-        description="Sampling strategy: 'earliest' (scan from beginning), 'latest' (recent messages only), or 'hybrid' (try latest first, fallback to earliest).",
+        description="Where to start reading when sampling messages for schema inference: 'earliest' (scan from beginning), 'latest' (recent messages only), or 'hybrid' (try latest first, fallback to earliest). Distinct from the profiler's `sampling_strategy`.",
     )
     max_messages_per_topic: PositiveInt = Field(
         default=DEFAULT_MAX_MESSAGES_PER_TOPIC,
@@ -58,15 +47,6 @@ class SchemaResolutionFallback(ConfigModel):
 
 
 class ProfilerConfig(GEProfilingConfig):
-    """
-    Kafka profiling configuration extending GEProfilingConfig.
-
-    Inherits from GEProfilingConfig to provide consistent profiling options across
-    DataHub sources while adding Kafka-specific sampling strategies. The base config
-    provides standard profiling flags (include_field_min_value, include_field_max_value,
-    turn_off_expensive_profiling_metrics, etc.) used throughout DataHub's profiling ecosystem.
-    """
-
     max_sample_time_seconds: PositiveInt = Field(
         default=DEFAULT_MAX_SAMPLE_TIME_SECONDS,
         gt=0,
@@ -82,9 +62,10 @@ class ProfilerConfig(GEProfilingConfig):
         description="Number of messages to fetch in a single batch (for more efficient reading). Must be positive.",
     )
 
-    sample_size: int = Field(
+    sample_size: PositiveInt = Field(
         default=DEFAULT_SAMPLE_SIZE,
-        description="Number of messages to sample for profiling. Higher values provide more accurate statistics but take longer to process.",
+        gt=0,
+        description="Number of messages to sample for profiling. Higher values provide more accurate statistics but take longer to process. Must be positive.",
     )
 
 

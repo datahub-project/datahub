@@ -280,7 +280,7 @@ source:
     schema_resolution:
       enabled: true # disabled by default
       sample_timeout_seconds: 2.0
-      sample_strategy: "hybrid" # "earliest", "latest", or "hybrid"
+      offset_reset_strategy: "hybrid" # "earliest", "latest", or "hybrid"
       max_messages_per_topic: 10
 
     profiling:
@@ -302,7 +302,7 @@ source:
 
 #### Data Profiling
 
-The Kafka source supports data profiling of message content to generate field-level statistics and sample values. Profiling is completely independent of schema resolution — either can be enabled without the other.
+The Kafka source supports data profiling of message content to generate field-level statistics and sample values. Profiling and schema resolution are enabled independently — either can be turned on without the other. Note, however, that both features draw their parallelism from the same `profiling.max_workers` setting.
 
 ```yaml
 source:
@@ -400,7 +400,7 @@ source:
   config:
     schema_resolution:
       enabled: true
-      sample_strategy: "hybrid"
+      offset_reset_strategy: "hybrid"
 ```
 
 ##### Protobuf Duplicate Symbol Errors

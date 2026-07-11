@@ -12,6 +12,8 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 
 from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
+    CONFLUENT_MAGIC_BYTE,
+    CONFLUENT_WIRE_HEADER_LENGTH,
     DEFAULT_CPU_COUNT_FALLBACK,
     DEFAULT_MAX_WORKERS_MULTIPLIER,
     RESOLUTION_METHOD_NO_INFERENCE_AVAILABLE,
@@ -29,6 +31,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     STRATEGY_NAME_RECORD_NAME,
     STRATEGY_NAME_TOPIC_RECORD_NAME,
 )
+from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_inference import KafkaSchemaInference
 from datahub.ingestion.source.kafka.kafka_utils import MessageValue
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -53,13 +56,6 @@ class RecordNameExtractionResult:
 
 
 class KafkaSchemaResolver:
-    """
-    Comprehensive schema resolver for Kafka topics with multiple fallback strategies.
-
-    This class implements a sophisticated schema resolution approach that tries multiple
-    strategies before falling back to schema inference from message data.
-    """
-
     def __init__(
         self,
         source_config: KafkaSourceConfig,
@@ -67,11 +63,13 @@ class KafkaSchemaResolver:
         known_subjects: List[str],
         max_workers: int = DEFAULT_MAX_WORKERS_MULTIPLIER
         * (os.cpu_count() or DEFAULT_CPU_COUNT_FALLBACK),
+        report: Optional[KafkaSourceReport] = None,
     ):
         self.source_config = source_config
         self.schema_registry_client = schema_registry_client
         self.known_subjects = set(known_subjects)
         self.max_workers = max_workers
+        self.report = report
 
         # Initialize schema inference as final fallback
         self.schema_inference = None
@@ -81,21 +79,23 @@ class KafkaSchemaResolver:
                 consumer_config=source_config.connection.consumer_config,
                 fallback_config=source_config.schema_resolution,
                 max_workers=max_workers,
+                report=report,
+            )
+
+    def _note_registry_error(self, subject_name: str, error: Exception) -> None:
+        # KeyError/ValueError just mean "subject not registered" (expected while probing).
+        # OSError means the registry was unreachable — operators must see that, not lose it.
+        if isinstance(error, OSError) and self.report is not None:
+            self.report.schema_registry_connectivity_failures += 1
+            self.report.report_warning(
+                "schema-registry",
+                f"Schema registry was unreachable while resolving subject "
+                f"{subject_name}: {error}",
             )
 
     def resolve_schemas_batch(
         self, topics: List[str], is_key_schema: bool = False
     ) -> Dict[str, SchemaResolutionResult]:
-        """
-        Resolve schemas for multiple topics using comprehensive strategy.
-
-        Args:
-            topics: List of topic names
-            is_key_schema: Whether to resolve key schemas (vs value schemas)
-
-        Returns:
-            Dictionary mapping topic names to schema resolution results
-        """
         results = {}
         topics_needing_inference = []
 
@@ -142,16 +142,6 @@ class KafkaSchemaResolver:
     def _resolve_from_registry(
         self, topic: str, is_key_schema: bool
     ) -> SchemaResolutionResult:
-        """
-        Try to resolve schema from registry using multiple strategies.
-
-        Strategy order:
-        1. TopicNameStrategy: <topic>-key/value
-        2. TopicSubjectMap: User-defined mappings
-        3. RecordNameStrategy: Extract from messages and try <record_name>-key/value
-        4. TopicRecordNameStrategy: Try <topic>-<record_name>-key/value
-        """
-
         # Strategy 1: TopicNameStrategy (most common)
         result = self._try_topic_name_strategy(topic, is_key_schema)
         if result.schema or result.fields:
@@ -194,6 +184,7 @@ class KafkaSchemaResolver:
                     )
             except (KeyError, ValueError, OSError) as e:
                 logger.debug(f"TopicNameStrategy failed for {subject_name}: {e}")
+                self._note_registry_error(subject_name, e)
 
         return SchemaResolutionResult(
             schema=None,
@@ -222,6 +213,7 @@ class KafkaSchemaResolver:
                     )
             except (KeyError, ValueError, OSError) as e:
                 logger.debug(f"TopicSubjectMap failed for {subject_name}: {e}")
+                self._note_registry_error(subject_name, e)
 
         return SchemaResolutionResult(
             schema=None,
@@ -236,13 +228,7 @@ class KafkaSchemaResolver:
         resolution_method: str,
         strategy_name: str,
     ) -> Optional[SchemaResolutionResult]:
-        """
-        Try to resolve schema using record names and a subject format.
-
-        Performance note: Only makes Schema Registry API calls for subjects that exist
-        in known_subjects set (pre-fetched). Returns immediately on first match.
-        Worst case: O(n) where n = len(record_names), typically 1-10 per topic.
-        """
+        # Only hits the registry for subjects already known to exist; returns on first match.
         for record_name in record_names:
             subject_name = subject_format.format(record_name=record_name)
             if subject_name in self.known_subjects:
@@ -263,17 +249,12 @@ class KafkaSchemaResolver:
                         )
                 except (KeyError, ValueError, OSError) as e:
                     logger.debug(f"{strategy_name} failed for {subject_name}: {e}")
+                    self._note_registry_error(subject_name, e)
         return None
 
     def _try_record_name_strategies(
         self, topic: str, is_key_schema: bool
     ) -> SchemaResolutionResult:
-        """
-        Try RecordNameStrategy and TopicRecordNameStrategy by extracting record names from messages.
-
-        This requires sampling a few messages from the topic to extract record names,
-        then trying to find matching subjects in the registry.
-        """
         if not self.schema_inference:
             return SchemaResolutionResult(
                 schema=None,
@@ -327,12 +308,6 @@ class KafkaSchemaResolver:
     def _extract_record_names_from_topic(
         self, topic: str, is_key_schema: bool
     ) -> Set[str]:
-        """
-        Extract potential record names from a small sample of messages in the topic.
-
-        This method samples a few messages and tries to extract Avro record names
-        or Protobuf message names that could be used for RecordNameStrategy.
-        """
         record_names: Set[str] = set()
 
         try:
@@ -373,21 +348,20 @@ class KafkaSchemaResolver:
     def _extract_record_name_from_message(
         self, message_value: MessageValue
     ) -> RecordNameExtractionResult:
-        """
-        Extract record name from a single message.
-
-        This method attempts to parse Avro or Protobuf messages to extract
-        the record/message name that could be used for schema registry lookup.
-        """
-        if not isinstance(message_value, bytes) or len(message_value) < 5:
+        if (
+            not isinstance(message_value, bytes)
+            or len(message_value) < CONFLUENT_WIRE_HEADER_LENGTH
+        ):
             return RecordNameExtractionResult(record_name=None)
 
         try:
             # Check for Confluent Schema Registry magic byte
-            if message_value[0] == 0:
+            if message_value[0] == CONFLUENT_MAGIC_BYTE:
                 # This is a schema registry serialized message
                 # Bytes 1-4 contain the schema ID
-                schema_id = int.from_bytes(message_value[1:5], byteorder="big")
+                schema_id = int.from_bytes(
+                    message_value[1:CONFLUENT_WIRE_HEADER_LENGTH], byteorder="big"
+                )
 
                 # Try to get the schema from the registry using the ID
                 try:
@@ -396,6 +370,7 @@ class KafkaSchemaResolver:
                         return self._extract_record_name_from_schema(schema.schema_str)
                 except (KeyError, ValueError, OSError) as e:
                     logger.debug(f"Failed to get schema for ID {schema_id}: {e}")
+                    self._note_registry_error(f"schema-id-{schema_id}", e)
 
             logger.debug(
                 "Message is not schema registry format and raw parsing is not implemented"

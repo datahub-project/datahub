@@ -3,7 +3,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Dict, List, Set, Union
+from typing import Dict, List, Optional, Set, Union
 
 from confluent_kafka import Consumer
 
@@ -11,7 +11,9 @@ from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_CPU_COUNT_FALLBACK,
     DEFAULT_MAX_WORKERS_MULTIPLIER,
+    DEFAULT_SESSION_TIMEOUT_MS,
 )
+from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_utils import (
     MessageValue,
     process_kafka_message_for_sampling,
@@ -51,17 +53,15 @@ class KafkaSchemaInference:
         fallback_config: SchemaResolutionFallback,
         max_workers: int = DEFAULT_MAX_WORKERS_MULTIPLIER
         * (os.cpu_count() or DEFAULT_CPU_COUNT_FALLBACK),
+        report: Optional[KafkaSourceReport] = None,
     ):
         self.bootstrap_servers = bootstrap_servers
         self.consumer_config = consumer_config
         self.fallback_config = fallback_config
         self.max_workers = max_workers
+        self.report = report
 
     def infer_schemas_batch(self, topics: List[str]) -> Dict[str, List[SchemaField]]:
-        """
-        Infer schemas for multiple topics in parallel for improved performance.
-        Returns a dictionary mapping topic names to their inferred schema fields.
-        """
         if not topics:
             return {}
 
@@ -130,10 +130,7 @@ class KafkaSchemaInference:
         return results
 
     def _sample_topic_messages(self, topic: str) -> List[MessageValue]:
-        """
-        Sample messages from a Kafka topic with hybrid strategy: try latest first, fallback to earliest.
-        """
-        strategy = self.fallback_config.sample_strategy.lower()
+        strategy = self.fallback_config.offset_reset_strategy.lower()
 
         if strategy == "hybrid":
             # Try latest first for speed
@@ -157,20 +154,34 @@ class KafkaSchemaInference:
     ) -> List[MessageValue]:
         start_time = time.time()
 
-        try:
-            # Create a consumer with optimized settings for fast sampling
-            consumer_config = {
-                "bootstrap.servers": self.bootstrap_servers,
-                "group.id": f"datahub-schema-inference-{topic}-{offset_strategy}-{int(time.time())}",
-                "auto.offset.reset": offset_strategy,
-                "enable.auto.commit": False,
-                "fetch.min.bytes": 1,  # Don't wait for large batches
-                "fetch.wait.max.ms": 100,  # Short wait time
-                "session.timeout.ms": 6000,  # Shorter session timeout
-                **self.consumer_config,
-            }
+        # Create a consumer with optimized settings for fast sampling
+        consumer_config = {
+            "bootstrap.servers": self.bootstrap_servers,
+            "group.id": f"datahub-schema-inference-{topic}-{offset_strategy}-{int(time.time())}",
+            "auto.offset.reset": offset_strategy,
+            "enable.auto.commit": False,
+            "fetch.min.bytes": 1,  # Don't wait for large batches
+            "fetch.wait.max.ms": 100,  # Short wait time
+            "session.timeout.ms": DEFAULT_SESSION_TIMEOUT_MS,  # Shorter session timeout
+            **self.consumer_config,
+        }
 
+        try:
             consumer = Consumer(consumer_config)
+        except Exception as e:
+            logger.debug(
+                f"Failed to create consumer for topic {topic} with '{offset_strategy}' strategy: {e}"
+            )
+            if self.report is not None:
+                self.report.schema_inference_sampling_failures += 1
+                self.report.report_warning(
+                    "schema-inference",
+                    f"Could not create a consumer to sample topic {topic} for schema "
+                    f"inference ({offset_strategy}): {e}",
+                )
+            return []
+
+        try:
             consumer.subscribe([topic])
 
             messages: List[MessageValue] = []
@@ -217,8 +228,6 @@ class KafkaSchemaInference:
                     logger.debug(f"Failed to process message for schema inference: {e}")
                     continue
 
-            consumer.close()
-
             elapsed_time = time.time() - start_time
             logger.debug(
                 f"Sampled {len(messages)} messages from topic {topic} using '{offset_strategy}' strategy "
@@ -231,15 +240,21 @@ class KafkaSchemaInference:
             logger.debug(
                 f"Failed to sample messages from topic {topic} with '{offset_strategy}' strategy: {e}"
             )
+            if self.report is not None:
+                self.report.schema_inference_sampling_failures += 1
+                self.report.report_warning(
+                    "schema-inference",
+                    f"Failed to sample topic {topic} for schema inference "
+                    f"({offset_strategy}): {e}",
+                )
             return []
+        finally:
+            # Always close so a flaky broker can't leak connections and
+            # consumer-group slots across the ThreadPoolExecutor workers.
+            consumer.close()
 
     def _infer_schema_from_messages(self, topic: str) -> List[SchemaField]:
-        """
-        Infer schema fields from actual message data when no schema registry entry exists.
-        This provides a fallback mechanism for schema-less topics.
-        """
         try:
-            # Sample messages from the topic
             sample_messages = self._sample_topic_messages(topic)
 
             if not sample_messages:
@@ -364,10 +379,7 @@ class KafkaSchemaInference:
         max_depth: int = 5,
         current_depth: int = 0,
     ) -> Dict[str, Union[str, int, float, bool, list, dict, None]]:
-        """
-        Flatten a nested object while preserving original types for schema inference.
-        Unlike the regular flatten_json, this preserves the original Python types.
-        """
+        # Like flatten_json but keeps original Python types for schema inference.
         result = {}
 
         if current_depth >= max_depth:

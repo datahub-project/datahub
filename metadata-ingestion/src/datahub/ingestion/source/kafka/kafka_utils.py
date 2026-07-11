@@ -59,15 +59,6 @@ def decode_kafka_message_value(
 
 
 def process_kafka_message_for_sampling(value: Any) -> Dict[str, Any]:
-    """
-    Process a Kafka message value for schema inference sampling.
-
-    Args:
-        value: The message value (can be bytes, dict, etc.)
-
-    Returns:
-        Dictionary suitable for schema inference
-    """
     if value is None:
         return {"null_value": True}
 

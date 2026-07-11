@@ -102,7 +102,10 @@ class TestKafkaSchemaFallbackIntegration:
                     "bootstrap": "localhost:9092",
                     "schema_registry_url": "http://localhost:8081",
                 },
-                "schema_resolution": {"enabled": True, "sample_strategy": "hybrid"},
+                "schema_resolution": {
+                    "enabled": True,
+                    "offset_reset_strategy": "hybrid",
+                },
                 "profiling": {"enabled": True, "max_workers": 8},
             }
         )

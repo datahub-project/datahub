@@ -1,4 +1,5 @@
 import math
+import statistics
 
 from hypothesis import given, strategies as st
 
@@ -135,13 +136,18 @@ def test_empty_or_all_invalid_returns_none(values):
 
 
 @given(st.lists(st.floats(min_value=-1e10, max_value=1e10), min_size=3, max_size=100))
-def test_median_is_middle_value_for_sorted_list(values):
+def test_median_matches_statistics_median(values):
     filtered = [v for v in values if not math.isnan(v) and not math.isinf(v)]
     if len(filtered) >= 3:
         stats = calculate_numeric_stats(filtered)
-        sorted_vals = sorted(filtered)
-        expected_median = sorted_vals[len(sorted_vals) // 2]
+        expected_median = statistics.median(filtered)
         if stats["median"] is not None:
             assert stats["median"] == expected_median, (
                 f"Median {stats['median']} doesn't match expected {expected_median}"
             )
+
+
+def test_median_averages_two_middle_values_for_even_length():
+    # Regression: sorted[len // 2] would return 3 here; correct median is 2.5.
+    stats = calculate_numeric_stats([1.0, 2.0, 3.0, 4.0])
+    assert stats["median"] == 2.5

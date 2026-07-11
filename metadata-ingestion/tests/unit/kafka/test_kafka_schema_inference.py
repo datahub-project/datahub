@@ -19,7 +19,7 @@ def fallback_config():
     return SchemaResolutionFallback(
         enabled=True,
         sample_timeout_seconds=1.0,
-        sample_strategy="hybrid",
+        offset_reset_strategy="hybrid",
     )
 
 
@@ -143,7 +143,7 @@ class TestKafkaSchemaInference:
         assert result == [{"field": "value"}]
 
     def test_sample_topic_messages_latest_strategy(self, schema_inference):
-        schema_inference.fallback_config.sample_strategy = "latest"
+        schema_inference.fallback_config.offset_reset_strategy = "latest"
 
         with patch.object(
             schema_inference, "_sample_messages_with_strategy"
@@ -155,7 +155,7 @@ class TestKafkaSchemaInference:
         assert result == [{"field": "value"}]
 
     def test_sample_topic_messages_earliest_strategy(self, schema_inference):
-        schema_inference.fallback_config.sample_strategy = "earliest"
+        schema_inference.fallback_config.offset_reset_strategy = "earliest"
 
         with patch.object(
             schema_inference, "_sample_messages_with_strategy"

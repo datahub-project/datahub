@@ -8,7 +8,7 @@ from datahub.ingestion.source.kafka.kafka_profiler import (
     KafkaFieldStatistics,
     KafkaProfiler,
     clean_field_path,
-    is_special_value,
+    is_overflow_value,
 )
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -122,14 +122,17 @@ def test_clean_field_path():
     assert clean_field_path(path, preserve_types=False) == "id"
 
 
-def test_is_special_value():
-    assert not is_special_value(42)
-    assert not is_special_value("test")
-    assert not is_special_value(True)
+def test_is_overflow_value():
+    assert not is_overflow_value(42)
+    assert not is_overflow_value("test")
+    assert not is_overflow_value(True)
 
-    assert is_special_value(-1)
-    assert is_special_value(2147483647)
-    assert is_special_value(9.223372036854776e18)
+    # Legitimate sentinel-looking values must NOT be treated as special anymore.
+    assert not is_overflow_value(-1)
+    assert not is_overflow_value(2147483647)
+
+    # Only values that would overflow float64 aggregation are excluded.
+    assert is_overflow_value(9.223372036854776e18)
 
 
 def test_process_field_statistics(profiler, sample_data):

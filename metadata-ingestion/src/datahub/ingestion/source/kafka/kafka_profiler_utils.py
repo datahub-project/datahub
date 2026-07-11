@@ -1,4 +1,5 @@
 import math
+import statistics
 from typing import Any, Dict, List, Optional
 
 
@@ -17,14 +18,6 @@ def calculate_standard_deviation(values: List[float]) -> Optional[float]:
         return None
 
 
-def is_special_numeric_value(value: Any) -> bool:
-    try:
-        float_val = float(value)
-        return math.isnan(float_val) or math.isinf(float_val)
-    except (ValueError, TypeError):
-        return False
-
-
 def calculate_numeric_stats(numeric_values: List[float]) -> Dict[str, Optional[float]]:
     stats: Dict[str, Optional[float]] = {
         "min": None,
@@ -40,8 +33,9 @@ def calculate_numeric_stats(numeric_values: List[float]) -> Dict[str, Optional[f
     stats["min"] = min(numeric_values)
     stats["max"] = max(numeric_values)
 
-    sorted_values = sorted(numeric_values)
-    stats["median"] = sorted_values[len(sorted_values) // 2]
+    # statistics.median averages the two middle values for even-length inputs
+    # (e.g. [1, 2, 3, 4] -> 2.5), unlike sorted[len // 2] which returns 3.
+    stats["median"] = statistics.median(numeric_values)
 
     # For single values, mean equals the value (no summation risk)
     if len(numeric_values) == 1:

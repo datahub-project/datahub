@@ -39,11 +39,7 @@ class KafkaSchemaRegistryBase(ABC):
     def get_schema_and_fields_batch(
         self, topics: List[str], is_key_schema: bool = False
     ) -> Dict[str, Tuple[Optional[Schema], List[SchemaField]]]:
-        """
-        Get schemas and fields for multiple topics in batch.
-        Default implementation falls back to individual schema lookups for backward compatibility.
-        Subclasses should override this for better performance.
-        """
+        # Default: per-topic lookups. Subclasses should override for batch performance.
         result = {}
         for topic in topics:
             try:
@@ -64,11 +60,7 @@ class KafkaSchemaRegistryBase(ABC):
         schema: Optional[Schema],
         fields: List[SchemaField],
     ) -> Optional[SchemaMetadata]:
-        """
-        Build SchemaMetadata from pre-fetched schema and fields.
-        Default implementation falls back to the original method for backward compatibility.
-        Subclasses should override this for better performance.
-        """
+        # Default ignores the pre-fetched schema; subclasses should override to use it.
         return self.get_schema_metadata(topic, platform_urn, False)
 
     def build_schema_metadata_with_key(
@@ -80,9 +72,5 @@ class KafkaSchemaRegistryBase(ABC):
         key_schema: Optional[Schema],
         key_fields: List[SchemaField],
     ) -> Optional[SchemaMetadata]:
-        """
-        Build SchemaMetadata from pre-fetched value and key schemas and fields.
-        Default implementation falls back to the original method for backward compatibility.
-        Subclasses should override this for better performance.
-        """
+        # Default ignores the pre-fetched schemas; subclasses should override to use them.
         return self.get_schema_metadata(topic, platform_urn, False)

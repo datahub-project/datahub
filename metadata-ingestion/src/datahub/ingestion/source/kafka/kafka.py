@@ -6,7 +6,6 @@ import logging
 import random
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import (
     TYPE_CHECKING,
@@ -15,7 +14,6 @@ from typing import (
     Iterable,
     List,
     Optional,
-    Set,
     Tuple,
     Type,
     Union,
@@ -23,6 +21,8 @@ from typing import (
 )
 
 from datahub.ingestion.source.kafka.kafka_constants import (
+    CONFLUENT_MAGIC_BYTE,
+    CONFLUENT_WIRE_HEADER_LENGTH,
     DEFAULT_CONSUMER_TIMEOUT_SECONDS,
     SCHEMA_TYPE_AVRO,
 )
@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
     from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
+import avro.errors
 import avro.io
 import avro.schema
 import confluent_kafka
@@ -82,14 +83,11 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_profiler import (
     KafkaProfiler,
-    clean_field_path,
     flatten_json,
 )
+from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -105,7 +103,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
-from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.str_enum import StrEnum
@@ -122,8 +119,6 @@ warnings.filterwarnings(
 
 
 class KafkaConnectivityError(Exception):
-    """Exception raised when Kafka connectivity validation fails."""
-
     pass
 
 
@@ -180,8 +175,8 @@ def get_kafka_admin_client(
 
 def validate_kafka_connectivity(connection: KafkaConsumerConnectionConfig) -> None:
     logger.info(f"Validating connectivity to Kafka at {connection.bootstrap}")
+    consumer = get_kafka_consumer(connection)
     try:
-        consumer = get_kafka_consumer(connection)
         # Get cluster metadata with a short timeout.
         # By passing an empty string as the topic parameter, we get cluster metadata
         # without enumerating all topics, which is much faster for large clusters.
@@ -197,7 +192,6 @@ def validate_kafka_connectivity(connection: KafkaConsumerConnectionConfig) -> No
         logger.info(
             f"Successfully connected to Kafka cluster with {broker_count} broker(s)"
         )
-        consumer.close()
     except KafkaConnectivityError:
         # Re-raise our own exceptions
         raise
@@ -212,18 +206,9 @@ def validate_kafka_connectivity(connection: KafkaConsumerConnectionConfig) -> No
         )
         logger.error(error_msg)
         raise KafkaConnectivityError(error_msg) from e
-
-
-@dataclass
-class KafkaSourceReport(StaleEntityRemovalSourceReport):
-    topics_scanned: int = 0
-    filtered: LossyList[str] = field(default_factory=LossyList)
-
-    def report_topic_scanned(self, topic: str) -> None:
-        self.topics_scanned += 1
-
-    def report_dropped(self, topic: str) -> None:
-        self.filtered.append(topic)
+    finally:
+        # Always close the consumer, even on the error/timeout paths.
+        consumer.close()
 
 
 class KafkaConnectionTest:
@@ -235,15 +220,19 @@ class KafkaConnectionTest:
         )
 
     def get_connection_test(self) -> TestConnectionReport:
-        capability_report = {
-            SourceCapability.SCHEMA_METADATA: self.schema_registry_connectivity(),
-        }
-        return TestConnectionReport(
-            basic_connectivity=self.basic_connectivity(),
-            capability_report={
-                k: v for k, v in capability_report.items() if v is not None
-            },
-        )
+        try:
+            capability_report = {
+                SourceCapability.SCHEMA_METADATA: self.schema_registry_connectivity(),
+            }
+            return TestConnectionReport(
+                basic_connectivity=self.basic_connectivity(),
+                capability_report={
+                    k: v for k, v in capability_report.items() if v is not None
+                },
+            )
+        finally:
+            # The consumer is only needed for the connectivity check; always close it.
+            self.consumer.close()
 
     def basic_connectivity(self) -> CapabilityReport:
         try:
@@ -333,6 +322,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 consumer_config=self.source_config.connection.consumer_config,
                 fallback_config=self.source_config.schema_resolution,
                 max_workers=self.source_config.profiling.max_workers,
+                report=self.report,
             )
         if self.source_config.domain:
             self.domain_registry = DomainRegistry(
@@ -422,6 +412,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         schema_registry_client=self.schema_registry_client.get_schema_registry_client(),
                         known_subjects=self.schema_registry_client.get_subjects(),
                         max_workers=self.source_config.profiling.max_workers,
+                        report=self.report,
                     )
 
                 # Resolve value schemas
@@ -563,7 +554,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         consumer: Optional[confluent_kafka.Consumer] = None,
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Optional[List[Dict[str, Any]]]:
-        """Get sample messages from Kafka topic using configured strategy and optimizations."""
+        """Get sample messages from a topic using the configured sampling strategy."""
 
         _consumer = consumer if consumer is not None else self.consumer
 
@@ -956,7 +947,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         schema_metadata: Optional[SchemaMetadataClass],
         is_key: bool = False,
     ) -> Optional[Any]:
-        """Optimized message part processing with pre-cached schema metadata."""
+        """Decode one message part (key or value) using pre-fetched schema metadata."""
         if data is None:
             return None
 
@@ -979,9 +970,14 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
                     if schema_str and schema_type == SCHEMA_TYPE_AVRO:
                         try:
-                            if len(data) > 5 and data[0] == 0:
+                            if (
+                                len(data) > CONFLUENT_WIRE_HEADER_LENGTH
+                                and data[0] == CONFLUENT_MAGIC_BYTE
+                            ):
                                 schema = avro.schema.parse(schema_str)
-                                decoder = avro.io.BinaryDecoder(io.BytesIO(data[5:]))
+                                decoder = avro.io.BinaryDecoder(
+                                    io.BytesIO(data[CONFLUENT_WIRE_HEADER_LENGTH:])
+                                )
                                 reader = avro.io.DatumReader(schema)
                                 decoded_value = reader.read(decoder)
 
@@ -996,39 +992,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                         max_depth=self.source_config.profiling.nested_field_max_depth,
                                     )
                                 return decoded_value
-                        except Exception as e:
-                            # Enhanced error handling for specific Avro issues
-                            error_msg = str(e)
-                            if "InvalidAvroBinaryEncoding" in error_msg:
-                                logger.debug(
-                                    f"Invalid Avro binary encoding for topic {topic}: {error_msg}"
-                                )
-                                # Skip this message but continue processing
-                                return {
-                                    "avro_decode_error": "Invalid binary encoding",
-                                    "raw_data_length": len(data),
-                                }
-                            elif "SchemaResolutionException" in error_msg:
-                                logger.debug(
-                                    f"Avro schema resolution error for topic {topic}: {error_msg}"
-                                )
-                                # Skip this message but continue processing
-                                return {
-                                    "avro_schema_error": "Schema resolution failed",
-                                    "raw_data_length": len(data),
-                                }
-                            else:
-                                logger.warning(
-                                    f"Avro decode error for topic {topic}: {error_msg}"
-                                )
-                                self.report.report_warning(
-                                    "avro_decode_error",
-                                    f"Failed to decode Avro message for topic {topic}: {error_msg}",
-                                )
-                                return {
-                                    "avro_decode_error": "General decode error",
-                                    "raw_data_length": len(data),
-                                }
+                        except (avro.errors.AvroException, EOFError, ValueError) as e:
+                            # Skip undecodable messages; never emit a synthetic field,
+                            # which would pollute the profile as a fake topic column.
+                            self.report.profiling_avro_decode_failures += 1
+                            self.report.report_warning(
+                                "avro-decode",
+                                f"Skipped a message for topic {topic} that failed Avro "
+                                f"decoding ({type(e).__name__}): {e}",
+                            )
+                            return None
 
                     return decode_kafka_message_value(
                         data,
@@ -1042,104 +1015,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 return base64.b64encode(data).decode("utf-8")
 
         return data
-
-    def _process_sample_data(
-        self,
-        samples: List[Dict[str, Any]],
-        schema_metadata: Optional[SchemaMetadataClass] = None,
-    ) -> Dict[str, Any]:
-        """Process sample data to extract field information from both key and value schemas."""
-        all_keys: Set[str] = set()
-        field_sample_map: Dict[str, List[str]] = {}
-
-        # Initialize from schema if available
-        if schema_metadata is not None and isinstance(
-            schema_metadata.platformSchema, KafkaSchemaClass
-        ):
-            # Handle all schema fields (both key and value)
-            for schema_field in schema_metadata.fields or []:
-                field_path = schema_field.fieldPath
-                if field_path not in field_sample_map:
-                    field_sample_map[field_path] = []
-                    all_keys.add(field_path)
-
-        # Process samples
-        for sample in samples:
-            # Process each field in the sample
-            for field_name, value in sample.items():
-                if field_name not in ["offset", "timestamp"]:
-                    # For sample data, we need to map the simplified field names back to full paths
-                    matching_schema_field = None
-                    if schema_metadata and schema_metadata.fields:
-                        clean_field = clean_field_path(field_name, preserve_types=False)
-
-                        # Find matching schema field by comparing the end of the path
-                        for schema_field in schema_metadata.fields:
-                            if (
-                                clean_field_path(
-                                    schema_field.fieldPath, preserve_types=False
-                                )
-                                == clean_field
-                            ):
-                                matching_schema_field = schema_field
-                                break
-
-                    # Use the full path from schema if found, otherwise use original field name
-                    field_path = (
-                        matching_schema_field.fieldPath
-                        if matching_schema_field
-                        else field_name
-                    )
-
-                    if field_path not in field_sample_map:
-                        field_sample_map[field_path] = []
-                        all_keys.add(field_path)
-                    field_sample_map[field_path].append(str(value))
-
-        return {"all_keys": all_keys, "field_sample_map": field_sample_map}
-
-    def create_profiling_wu(
-        self,
-        entity_urn: str,
-        topic: str,
-        schema_metadata: Optional[SchemaMetadataClass] = None,
-    ) -> Iterable[MetadataWorkUnit]:
-        """Create samples work unit incorporating both schema fields and sample values."""
-        # Only proceed if profiling is enabled (respects operation_config)
-        if not self.source_config.is_profiling_enabled():
-            if self.source_config.profiling.report_dropped_profiles:
-                self.report.report_warning(
-                    "Profiling not enabled for topic (respecting operation_config)",
-                    topic,
-                )
-            return
-
-        samples = self.get_sample_messages(topic)
-        if not samples:
-            if self.source_config.profiling.report_dropped_profiles:
-                self.report.report_warning("No samples collected for topic", topic)
-            return
-
-        logger.info(f"Collected {len(samples)} samples for topic {topic}.")
-
-        # Respect sample size limit if configured
-        if self.source_config.profiling.limit:
-            samples = samples[: self.source_config.profiling.limit]
-
-        # Apply offset if configured
-        if self.source_config.profiling.offset:
-            samples = samples[self.source_config.profiling.offset :]
-
-        # Use static method for potential parallelization
-        dataset_profile = KafkaProfiler.profile_topic(
-            topic, samples, schema_metadata, self.source_config.profiling
-        )
-
-        if dataset_profile:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=entity_urn,
-                aspect=dataset_profile,
-            ).as_workunit()
 
     def _collect_and_profile_topic(
         self,
@@ -1161,12 +1036,26 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         if not samples:
             logger.debug(f"No samples collected for topic {topic}, skipping profiling")
+            self.report.profiling_topics_dropped += 1
+            if self.source_config.profiling.report_dropped_profiles:
+                self.report.report_warning(
+                    "profiling",
+                    f"No samples collected for topic {topic}; profile dropped.",
+                )
             return None
 
         profile = KafkaProfiler.profile_topic(
-            topic, samples, schema_metadata, self.source_config.profiling
+            topic,
+            samples,
+            schema_metadata,
+            self.source_config.profiling,
+            report=self.report,
         )
-        return (entity_urn, profile) if profile else None
+        if profile:
+            self.report.profiling_topics_profiled += 1
+            return (entity_urn, profile)
+        self.report.profiling_topics_dropped += 1
+        return None
 
     def generate_profiles_in_parallel(
         self,

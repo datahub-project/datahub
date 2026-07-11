@@ -8,6 +8,11 @@ DEFAULT_SAMPLE_SIZE = 200
 DEFAULT_MAX_SAMPLE_TIME_SECONDS = 60
 DEFAULT_MAX_MESSAGES_PER_TOPIC = 10
 
+# Confluent Schema Registry wire format: a single magic byte (0x00) followed by a
+# 4-byte big-endian schema ID, i.e. a 5-byte header before the Avro payload.
+CONFLUENT_MAGIC_BYTE = 0
+CONFLUENT_WIRE_HEADER_LENGTH = 5
+
 # Schema types
 SCHEMA_TYPE_AVRO = "AVRO"
 SCHEMA_TYPE_PROTOBUF = "PROTOBUF"
