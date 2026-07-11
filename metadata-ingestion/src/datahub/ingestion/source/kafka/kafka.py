@@ -119,8 +119,6 @@ warnings.filterwarnings(
 
 
 def _needs_schema_resolution(schema_and_fields: Optional[SchemaAndFields]) -> bool:
-    # A topic needs fallback resolution when the registry returned neither a
-    # schema nor any fields for it.
     return schema_and_fields is None or (
         schema_and_fields.schema is None and not schema_and_fields.fields
     )
@@ -1063,8 +1061,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         topic_value_schemas: Dict[str, SchemaAndFields],
         topic_key_schemas: Dict[str, SchemaAndFields],
     ) -> None:
-        # Fills in value/key schemas (in place) for topics the registry returned
-        # nothing for, using the comprehensive fallback resolver.
+        # Fills topic_value_schemas / topic_key_schemas in place for topics the
+        # registry returned nothing for, using the fallback resolver.
         topics_needing_resolution = [
             topic
             for topic in topic_names

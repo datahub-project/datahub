@@ -397,10 +397,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                     imported_schemas,
                     is_key_schema=is_key_schema,
                 )
-                # protobuf_schema_to_mce_fields swallows compile failures (e.g. a
-                # duplicate symbol / descriptor-pool conflict from a message type
-                # shared across topics) and returns [] without raising, so surface
-                # the empty result here rather than letting it pass silently.
+                # protobuf_schema_to_mce_fields returns [] (not raises) on compile
+                # failures like a duplicate symbol from a shared message type, so
+                # surface the empty result here rather than letting it pass silently.
                 if not fields:
                     self.report.warning(
                         title="Protobuf schema produced no fields",

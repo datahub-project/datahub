@@ -175,9 +175,7 @@ class TestProtobufSchemaHandling:
         assert kafka_source.report.profiling_avro_decode_failures == 0
 
     def test_schemaless_bytes_are_returned_raw(self, kafka_source):
-        # Contract: with no schema metadata, _process_message_part passes bytes
-        # through unchanged rather than decoding them. Profiling is gated on schema
-        # presence upstream, so this raw path is not exercised for real profiles.
+        # With no schema metadata, bytes pass through unchanged (not decoded).
         data = b'{"id": 1}'
 
         result = kafka_source._process_message_part(

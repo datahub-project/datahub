@@ -3,13 +3,12 @@ import statistics
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
-# Per-value gate applied before aggregation: values beyond int64 max are dropped
-# so that squaring (for stdev) and summation stay comfortably within float64 range.
+# Per-value gate: drop values beyond int64 max so squaring (stdev) and summation
+# stay within float64 range.
 VALUE_OVERFLOW_THRESHOLD = 9.223372036854775e18
 
-# Headroom used by the median/mean utility when it is called directly with
-# arbitrary floats (not pre-filtered by VALUE_OVERFLOW_THRESHOLD). float64
-# overflows near 1.8e308, so beyond this we switch to overflow-safe math.
+# Aggregation headroom for callers that pass raw floats. float64 overflows near
+# 1.8e308, so beyond this we switch to overflow-safe math.
 AGGREGATION_OVERFLOW_THRESHOLD = 1e200
 
 
@@ -38,9 +37,7 @@ def calculate_standard_deviation(values: List[float]) -> Optional[float]:
 
 
 def _overflow_safe_median(numeric_values: List[float]) -> float:
-    # statistics.median averages the two middle values as (a + b) / 2, which
-    # overflows to inf for near-float-max inputs. a / 2 + b / 2 is mathematically
-    # equivalent and cannot overflow since each half is finite.
+    # a / 2 + b / 2 avoids the inf that (a + b) / 2 hits for near-float-max inputs.
     sorted_values = sorted(numeric_values)
     n = len(sorted_values)
     mid = n // 2
@@ -62,9 +59,8 @@ def calculate_numeric_stats(numeric_values: List[float]) -> NumericStats:
         abs(x) > AGGREGATION_OVERFLOW_THRESHOLD for x in numeric_values
     )
 
-    # statistics.median averages the two middle values for even-length inputs
-    # (e.g. [1, 2, 3, 4] -> 2.5), unlike sorted[len // 2] which returns 3. Fall
-    # back to an overflow-safe average when values are near float max.
+    # statistics.median is correct for even-length inputs but overflows near
+    # float max, so fall back to the overflow-safe variant when at risk.
     stats.median = (
         _overflow_safe_median(numeric_values)
         if has_overflow_risk
@@ -72,7 +68,7 @@ def calculate_numeric_stats(numeric_values: List[float]) -> NumericStats:
     )
 
     if len(numeric_values) == 1:
-        # For a single value, mean equals the value (no summation risk).
+        # A lone value has no summation risk, so compute it even when at overflow risk.
         stats.mean = numeric_values[0]
         stats.stdev = 0.0
     elif not has_overflow_risk:
