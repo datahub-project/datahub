@@ -12,6 +12,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
+from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     BQ_SAFETY_ROW_LIMIT,
     BQ_SAFETY_ROW_LIMIT_THRESHOLD,
@@ -20,15 +21,10 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DATE_FORMAT_YYYY_MM_DD,
     DATE_FORMAT_YYYYMMDD,
     DATE_LIKE_COLUMN_NAMES,
-    LIMIT_CLAUSE_TEMPLATE,
     PARTITION_HANDLING_ENABLED,
     PARTITION_HANDLING_KWARG,
-    PARTITION_METADATA_CACHE_QUERY,
     PARTITIONING_COLUMN_FLAG,
-    SELECT_ALL_TEMPLATE,
     STRFTIME_FORMATS,
-    TABLESAMPLE_SYSTEM_TEMPLATE,
-    WHERE_CLAUSE_TEMPLATE,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
@@ -161,7 +157,7 @@ class BigqueryProfiler(GenericProfiler):
                 project, dataset, "INFORMATION_SCHEMA.COLUMNS"
             )
 
-            query = PARTITION_METADATA_CACHE_QUERY.format(
+            query = queries.PARTITION_METADATA_CACHE.format(
                 info_schema_ref=safe_info_schema_ref, flag=PARTITIONING_COLUMN_FLAG
             )
 
@@ -249,8 +245,8 @@ class BigqueryProfiler(GenericProfiler):
         otherwise the configured row limit. Shared by the inline (internal table) and
         deferred (external table) code paths so their SQL cannot drift.
         """
-        select_all = SELECT_ALL_TEMPLATE.format(table_ref=safe_table_ref)
-        where_clause = WHERE_CLAUSE_TEMPLATE.format(where=partition_where)
+        select_all = queries.SELECT_ALL.format(table_ref=safe_table_ref)
+        where_clause = queries.WHERE_CLAUSE.format(where=partition_where)
 
         rows_count = getattr(bq_table, "rows_count", None)
         if (
@@ -260,14 +256,14 @@ class BigqueryProfiler(GenericProfiler):
         ):
             sample_pc = self.config.profiling.sample_size / rows_count
             sample_percent = min(100 * sample_pc, 100.0)
-            tablesample = TABLESAMPLE_SYSTEM_TEMPLATE.format(
+            tablesample = queries.TABLESAMPLE_SYSTEM.format(
                 sample_percent=sample_percent
             )
             return f"{select_all}\n{tablesample}\n{where_clause}"
 
         if self.config.profiling.profiling_row_limit > 0:
             row_limit = max(1, int(self.config.profiling.profiling_row_limit))
-            limit_clause = LIMIT_CLAUSE_TEMPLATE.format(limit=row_limit)
+            limit_clause = queries.LIMIT_CLAUSE.format(limit=row_limit)
             return f"{select_all}\n{where_clause}\n{limit_clause}"
 
         return f"{select_all}\n{where_clause}"
@@ -373,8 +369,8 @@ class BigqueryProfiler(GenericProfiler):
             sample_pc = self.config.profiling.sample_size / rows_count
             sample_percent = min(100 * sample_pc, 100.0)
             custom_sql = (
-                f"{SELECT_ALL_TEMPLATE.format(table_ref=safe_table_ref)}\n"
-                f"{TABLESAMPLE_SYSTEM_TEMPLATE.format(sample_percent=sample_percent)}"
+                f"{queries.SELECT_ALL.format(table_ref=safe_table_ref)}\n"
+                f"{queries.TABLESAMPLE_SYSTEM.format(sample_percent=sample_percent)}"
             )
             logger.info(
                 f"Applied {sample_percent:.4f}% sampling to {table_ref} "
@@ -390,8 +386,8 @@ class BigqueryProfiler(GenericProfiler):
             # expensive full-table scans.
             row_limit = max(1, int(self.config.profiling.profiling_row_limit))
             custom_sql = (
-                f"{SELECT_ALL_TEMPLATE.format(table_ref=safe_table_ref)} "
-                f"{LIMIT_CLAUSE_TEMPLATE.format(limit=row_limit)}"
+                f"{queries.SELECT_ALL.format(table_ref=safe_table_ref)} "
+                f"{queries.LIMIT_CLAUSE.format(limit=row_limit)}"
             )
             logger.info(
                 f"Applied row limit ({row_limit:,}) to non-partitioned table {table_ref} ({bq_table.rows_count:,} rows)"
@@ -404,8 +400,8 @@ class BigqueryProfiler(GenericProfiler):
         ):
             # Safety cap for very large unpartitioned tables when no explicit limit is configured.
             custom_sql = (
-                f"{SELECT_ALL_TEMPLATE.format(table_ref=safe_table_ref)} "
-                f"{LIMIT_CLAUSE_TEMPLATE.format(limit=BQ_SAFETY_ROW_LIMIT)}"
+                f"{queries.SELECT_ALL.format(table_ref=safe_table_ref)} "
+                f"{queries.LIMIT_CLAUSE.format(limit=BQ_SAFETY_ROW_LIMIT)}"
             )
             logger.info(
                 f"Applied safety limit of {BQ_SAFETY_ROW_LIMIT:,} rows to large table {table_ref} ({bq_table.rows_count:,} rows)"

@@ -1,50 +1,36 @@
 import re
 from typing import Set
 
-# ============================================================================
-# Partition ID Format Constants
-# ============================================================================
-
-# BigQuery partition ID lengths for different date/time formats
-PARTITION_ID_YYYYMMDD_LENGTH = 8  # Date format: YYYYMMDD (e.g., 20250115)
-PARTITION_ID_YYYYMMDDHH_LENGTH = 10  # Datetime with hour: YYYYMMDDHH (e.g., 2025011523)
+# BigQuery partition ID lengths for date/time formats: YYYYMMDD and YYYYMMDDHH.
+PARTITION_ID_YYYYMMDD_LENGTH = 8
+PARTITION_ID_YYYYMMDDHH_LENGTH = 10
 
 
-# ============================================================================
-# Date/Time Column Name Patterns
-# ============================================================================
-
-# Column names that suggest date/time data (used as fallback when type info is unavailable)
-# Note: 'day' is excluded as it typically refers to day number (1-31) in partition contexts
+# Column names that suggest date/time data, used as a fallback when type info is
+# unavailable. 'day' is excluded: in partition contexts it's usually a day number (1-31).
 DATE_LIKE_COLUMN_NAMES: Set[str] = {
-    # Basic date/time column names
     "date",
     "dt",
     "ts",
     "time",
     "timestamp",
     "datetime",
-    # Partition-specific patterns
-    "partition_date",
     "date_partition",
     "partition_time",
     "partition_timestamp",
     "partition_dt",
     "pt_date",
     "pdate",
-    # Event/action timestamps
     "event_date",
     "event_time",
     "event_timestamp",
     "event_dt",
-    # Creation timestamps
     "created_date",
     "created_time",
     "created_at",
     "create_date",
     "creation_date",
     "creation_time",
-    # Update/modification timestamps
     "updated_date",
     "updated_time",
     "updated_at",
@@ -53,7 +39,6 @@ DATE_LIKE_COLUMN_NAMES: Set[str] = {
     "modified_at",
     "last_modified",
     "last_updated",
-    # Trading/Financial date columns
     "trade_date",
     "trader_date",
     "trading_date",
@@ -63,12 +48,10 @@ DATE_LIKE_COLUMN_NAMES: Set[str] = {
     "booking_date",
     "deal_date",
     "execution_date",
-    # Transaction timestamps
     "transaction_date",
     "transaction_time",
     "txn_date",
     "txn_time",
-    # Data pipeline timestamps
     "process_date",
     "process_time",
     "processed_date",
@@ -82,7 +65,6 @@ DATE_LIKE_COLUMN_NAMES: Set[str] = {
     "ingest_date",
     "ingest_time",
     "ingestion_date",
-    # Lifecycle dates
     "start_date",
     "start_time",
     "end_date",
@@ -92,7 +74,6 @@ DATE_LIKE_COLUMN_NAMES: Set[str] = {
     "expiry_date",
     "expiration_date",
     "maturity_date",
-    # Record timestamps
     "record_date",
     "record_time",
     "snapshot_date",
@@ -103,7 +84,6 @@ DATE_LIKE_COLUMN_NAMES: Set[str] = {
     "batch_time",
 }
 
-# BigQuery date/time data types
 DATE_TIME_TYPES: Set[str] = {
     "DATE",
     "DATETIME",
@@ -111,7 +91,7 @@ DATE_TIME_TYPES: Set[str] = {
     "TIME",
 }
 
-# BigQuery string types that should be quoted
+# String types that must be quoted when used as literals in a filter.
 BIGQUERY_STRING_TYPES: Set[str] = {
     "STRING",
     "BYTES",
@@ -120,25 +100,16 @@ BIGQUERY_STRING_TYPES: Set[str] = {
 }
 
 
-# ============================================================================
-# Compiled Regex Patterns
-# ============================================================================
-
-# Valid BigQuery column name / dataset identifier pattern (letters, numbers, underscores)
 VALID_COLUMN_NAME_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
-# BigQuery project ID pattern (lowercase letters, numbers, hyphens; 6-30 chars)
+# BigQuery project ID: lowercase letters, numbers, hyphens; 6-30 chars.
 PROJECT_ID_RE = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
 
-# BigQuery table name pattern (letters, numbers, underscores, hyphens allowed)
+# Table name: hyphens allowed (unlike column/dataset identifiers).
 TABLE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]*$")
 
 
-# ============================================================================
-# Security / SQL Injection Validation Patterns
-# ============================================================================
-
-# Collapses runs of whitespace when normalising a query before injection checks
+# Collapses runs of whitespace when normalising a query before injection checks.
 WHITESPACE_RE = re.compile(r"\s+")
 
 # DDL, DML, admin, and script-injection patterns that must not appear in profiling queries
@@ -167,7 +138,7 @@ SQL_DANGEROUS_PATTERNS = [
     ]
 ]
 
-# Patterns that a valid profiling query must start with
+# Patterns that a valid profiling query must start with.
 SQL_ALLOWED_START_PATTERNS = [
     re.compile(p)
     for p in [
@@ -193,81 +164,60 @@ FILTER_DANGEROUS_PATTERNS = [
     ]
 ]
 
-# A valid backtick-quoted column reference inside a filter expression
+# A valid backtick-quoted column reference inside a filter expression.
 FILTER_COLUMN_REF_RE = re.compile(r"`[a-zA-Z_][a-zA-Z0-9_]*`")
 
-# Recognised SQL comparison / membership operators in filter expressions
+# Recognised SQL comparison / membership operators in filter expressions.
 FILTER_OPERATOR_RE = re.compile(
     r"(?:=|!=|<>|<|>|<=|>=|IS\s+(?:NOT\s+)?NULL|LIKE|NOT\s+LIKE|IN\s*\()",
     re.IGNORECASE,
 )
 
-# Pattern to extract required partition columns from BigQuery error messages
-# Example: "Cannot query over table without a filter over column(s) 'year', 'month', 'day'"
+# Extracts required partition columns from BigQuery's "requires a filter over
+# column(s) 'year', 'month', 'day'" error (up to four columns).
 PARTITION_FILTER_PATTERN = re.compile(
     r"filter over column\(s\) '([^']+)'(?:, '([^']+)')?(?:, '([^']+)')?(?:, '([^']+)')?",
     re.IGNORECASE,
 )
 
-# ============================================================================
-# Date Format Constants
-# ============================================================================
+DATE_FORMAT_YYYYMMDD = "YYYYMMDD"
+DATE_FORMAT_YYYY_MM_DD = "YYYY-MM-DD"
+DATE_FORMAT_YYYYMMDDHH = "YYYYMMDDHH"
 
-# Date format identifiers used across BigQuery partitions
-DATE_FORMAT_YYYYMMDD = "YYYYMMDD"  # Format: 20250115 (8 digits, no separators)
-DATE_FORMAT_YYYY_MM_DD = "YYYY-MM-DD"  # Format: 2025-01-15 (with dashes)
-DATE_FORMAT_YYYYMMDDHH = "YYYYMMDDHH"  # Format: 2025011523 (10 digits with hour)
-
-# Python strftime format strings for each date format
 STRFTIME_FORMATS = {
-    DATE_FORMAT_YYYYMMDD: "%Y%m%d",  # 20250115
-    DATE_FORMAT_YYYY_MM_DD: "%Y-%m-%d",  # 2025-01-15
-    DATE_FORMAT_YYYYMMDDHH: "%Y%m%d%H",  # 2025011523
+    DATE_FORMAT_YYYYMMDD: "%Y%m%d",
+    DATE_FORMAT_YYYY_MM_DD: "%Y-%m-%d",
+    DATE_FORMAT_YYYYMMDDHH: "%Y%m%d%H",
 }
 
-# Matches an ISO 8601 date string (e.g. '2026-02-25'). Used in filter construction
-# to detect and convert YYYY-MM-DD strings destined for integer partition columns.
+# Matches an ISO 8601 date string, used to detect YYYY-MM-DD strings destined for
+# integer partition columns so they can be converted.
 ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-# Regex patterns to detect date formats in partition filter expressions
-# These are used to maintain consistent formatting when adding date windowing
+# Detects an existing date literal's format so date windowing keeps the same format.
 DATE_FORMAT_PATTERNS = {
-    DATE_FORMAT_YYYYMMDD: re.compile(r"'(\d{8})'"),  # Matches '20250115'
-    DATE_FORMAT_YYYY_MM_DD: re.compile(
-        r"'(\d{4}-\d{2}-\d{2})'"
-    ),  # Matches '2025-01-15'
-    DATE_FORMAT_YYYYMMDDHH: re.compile(r"'(\d{10})'"),  # Matches '2025011523'
+    DATE_FORMAT_YYYYMMDD: re.compile(r"'(\d{8})'"),
+    DATE_FORMAT_YYYY_MM_DD: re.compile(r"'(\d{4}-\d{2}-\d{2})'"),
+    DATE_FORMAT_YYYYMMDDHH: re.compile(r"'(\d{10})'"),
 }
 
 
-# ============================================================================
-# Query Configuration Constants
-# ============================================================================
-
-# Maximum number of partition values to fetch in a single query
 MAX_PARTITION_VALUES = 1000
 
-# Query sampling constants for partition discovery
 SAMPLING_PERCENT = 0.001  # 0.1% sample rate for large tables
-SAMPLING_LIMIT_ROWS = 5  # Maximum rows to return when sampling
-TEST_QUERY_LIMIT_ROWS = 1  # Row limit for test queries (validation)
+SAMPLING_LIMIT_ROWS = 5
+TEST_QUERY_LIMIT_ROWS = 1
 
-# Fallback row cap for unpartitioned tables when profiling_row_limit is explicitly set
-# to 0 (unlimited). Applied only to tables exceeding BQ_SAFETY_ROW_LIMIT_THRESHOLD rows
-# to prevent full-scan profiling of extremely large tables from causing OOM failures.
+# Fallback row cap for unpartitioned tables when profiling_row_limit is 0 (unlimited).
+# Applied only above BQ_SAFETY_ROW_LIMIT_THRESHOLD rows to keep a full-scan profile from OOMing.
 BQ_SAFETY_ROW_LIMIT = 100_000
 BQ_SAFETY_ROW_LIMIT_THRESHOLD = 1_000_000
 
-# Default limits for partition discovery operations
-DEFAULT_PARTITION_STATS_LIMIT = 10  # Max results for partition statistics queries
-DEFAULT_MAX_PARTITION_VALUES = 3  # Max distinct values to discover per partition column
+DEFAULT_PARTITION_STATS_LIMIT = 10
+DEFAULT_MAX_PARTITION_VALUES = 3  # distinct values to discover per partition column
 
 
-# ============================================================================
-# BigQuery Data Types
-# ============================================================================
-
-# Numeric types requiring unquoted literals in SQL WHERE clauses
+# Numeric types requiring unquoted literals in SQL WHERE clauses.
 BIGQUERY_NUMERIC_TYPES: Set[str] = {
     "INT64",
     "INTEGER",
@@ -287,28 +237,9 @@ BIGQUERY_NUMERIC_TYPES: Set[str] = {
 }
 
 
-# ============================================================================
-# SQL Query Templates and Fragments
-# ============================================================================
-
-# INFORMATION_SCHEMA.COLUMNS value flagging a column as part of the partition spec
+# INFORMATION_SCHEMA.COLUMNS value flagging a column as part of the partition spec.
+# SQL templates live in queries.py and take this as a format argument.
 PARTITIONING_COLUMN_FLAG = "YES"
-
-# Profiling SELECT fragments. table_ref must already be validated + backtick-escaped.
-# Kept here so the inline (internal table) and deferred (external table) paths that both
-# assemble custom_sql cannot drift apart.
-SELECT_ALL_TEMPLATE = "SELECT * FROM {table_ref}"
-TABLESAMPLE_SYSTEM_TEMPLATE = "TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"
-WHERE_CLAUSE_TEMPLATE = "WHERE {where}"
-LIMIT_CLAUSE_TEMPLATE = "LIMIT {limit}"
-
-# One query per dataset pre-fetches every table's partition columns (profiler cache).
-PARTITION_METADATA_CACHE_QUERY = """
-SELECT table_name, column_name, data_type
-FROM {info_schema_ref}
-WHERE is_partitioning_column = '{flag}'
-ORDER BY table_name, ordinal_position
-"""
 
 # batch_kwargs keys / values shared between the inline and deferred profiling paths
 CUSTOM_SQL_KWARG = "custom_sql"

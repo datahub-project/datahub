@@ -19,6 +19,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
+from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DEFAULT_MAX_PARTITION_VALUES,
     DEFAULT_PARTITION_STATS_LIMIT,
@@ -723,16 +724,13 @@ class PartitionDiscovery:
         if extra_where:
             where += f" AND {extra_where}"
 
-        return f"""WITH PartitionStats AS (
-    SELECT `{col_name}` as val, COUNT(*) as record_count
-    FROM {table_ref}
-    WHERE {where}
-    GROUP BY `{col_name}`
-    HAVING record_count > 0
-    ORDER BY {order_by}
-    LIMIT {limit_clause}
-)
-SELECT val, record_count FROM PartitionStats"""
+        return queries.PARTITION_STATS_CTE.format(
+            col_name=col_name,
+            table_ref=table_ref,
+            where=where,
+            order_by=order_by,
+            limit_clause=limit_clause,
+        )
 
     def _create_partition_stats_query(
         self,
@@ -857,7 +855,7 @@ SELECT val, record_count FROM PartitionStats"""
         # plus the raw error for reporting.
         try:
             safe_table_ref = build_safe_table_reference(project, schema, table.name)
-            test_query = f"""SELECT COUNT(*) FROM {safe_table_ref} LIMIT @limit_rows"""
+            test_query = queries.COUNT_STAR_PROBE.format(table_ref=safe_table_ref)
             job_config = QueryJobConfig(
                 query_parameters=[
                     ScalarQueryParameter("limit_rows", "INT64", TEST_QUERY_LIMIT_ROWS)
@@ -883,9 +881,9 @@ SELECT val, record_count FROM PartitionStats"""
                 project, schema, "INFORMATION_SCHEMA.COLUMNS"
             )
 
-            query = f"""SELECT column_name
-FROM {safe_info_schema_ref}
-WHERE table_name = @table_name AND is_partitioning_column = '{PARTITIONING_COLUMN_FLAG}'"""
+            query = queries.PARTITION_COLUMN_NAMES.format(
+                info_schema_ref=safe_info_schema_ref, flag=PARTITIONING_COLUMN_FLAG
+            )
 
             job_config = QueryJobConfig(
                 query_parameters=[
@@ -960,11 +958,9 @@ WHERE table_name = @table_name AND is_partitioning_column = '{PARTITIONING_COLUM
 
             if date_columns:
                 primary_date_col = date_columns[0]
-                sample_query = f"""SELECT *
-FROM {safe_table_ref}
-WHERE `{primary_date_col}` IS NOT NULL
-ORDER BY `{primary_date_col}` DESC
-LIMIT @limit_rows"""
+                sample_query = queries.LATEST_BY_DATE_SAMPLE.format(
+                    table_ref=safe_table_ref, date_col=primary_date_col
+                )
 
                 job_config = QueryJobConfig(
                     query_parameters=[
@@ -974,9 +970,9 @@ LIMIT @limit_rows"""
                     ]
                 )
             else:
-                sample_query = f"""SELECT *
-FROM {safe_table_ref} TABLESAMPLE SYSTEM (@sample_percent PERCENT)
-LIMIT @limit_rows"""
+                sample_query = queries.TABLESAMPLE_SAMPLE.format(
+                    table_ref=safe_table_ref
+                )
 
                 job_config = QueryJobConfig(
                     query_parameters=[
@@ -1065,10 +1061,9 @@ LIMIT @limit_rows"""
         where_clause = " AND ".join(validated_filters)
 
         try:
-            query = f"""SELECT 1 as exists_check
-FROM {safe_table_ref}
-WHERE {where_clause}
-LIMIT 1"""
+            query = queries.PARTITION_EXISTS_CHECK.format(
+                table_ref=safe_table_ref, where=where_clause
+            )
 
             results = execute_query_func(
                 query, QueryJobConfig(), "partition verification"
@@ -1570,13 +1565,11 @@ LIMIT 1"""
                     continue
 
                 try:
-                    discover_query = f"""
-SELECT DISTINCT `{col_name}` as col_value, COUNT(*) as row_count
-FROM {safe_table_ref}
-WHERE {where_clause} AND `{col_name}` IS NOT NULL
-GROUP BY `{col_name}`
-ORDER BY row_count DESC
-LIMIT @max_values"""
+                    discover_query = queries.TOP_VALUES_BY_COUNT.format(
+                        col_name=col_name,
+                        table_ref=safe_table_ref,
+                        where=where_clause,
+                    )
 
                     job_config = QueryJobConfig(
                         query_parameters=[

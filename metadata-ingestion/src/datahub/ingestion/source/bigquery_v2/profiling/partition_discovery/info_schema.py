@@ -10,6 +10,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
     BQ_UNPARTITIONED_PARTITION_ID,
 )
+from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     PARTITIONING_COLUMN_FLAG,
 )
@@ -41,9 +42,9 @@ class InfoSchemaQueries:
                 project, schema, "INFORMATION_SCHEMA.COLUMNS"
             )
 
-            query = f"""SELECT column_name, data_type
-FROM {safe_info_schema_ref}
-WHERE table_name = @table_name AND is_partitioning_column = '{PARTITIONING_COLUMN_FLAG}'"""
+            query = queries.PARTITION_COLUMN_TYPES.format(
+                info_schema_ref=safe_info_schema_ref, flag=PARTITIONING_COLUMN_FLAG
+            )
 
             job_config = QueryJobConfig(
                 query_parameters=[
@@ -108,10 +109,10 @@ WHERE table_name = @table_name AND is_partitioning_column = '{PARTITIONING_COLUM
 
             column_filter_clause = " OR ".join(column_conditions)
 
-            query = f"""SELECT column_name, data_type
-FROM {safe_info_schema_ref}
-WHERE table_name = @table_name 
-AND ({column_filter_clause})"""
+            query = queries.PARTITION_COLUMN_TYPES_FILTERED.format(
+                info_schema_ref=safe_info_schema_ref,
+                column_filter_clause=column_filter_clause,
+            )
 
             job_config = QueryJobConfig(query_parameters=parameters)
 
@@ -148,17 +149,12 @@ AND ({column_filter_clause})"""
                 project, schema, "INFORMATION_SCHEMA.PARTITIONS"
             )
 
-            query_parts = [
-                "SELECT partition_id, last_modified_time, total_rows",
-                f"FROM {safe_info_schema_ref}",
-                "WHERE table_name = @table_name",
-                f"AND partition_id NOT IN ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}')",
-                "AND total_rows > 0",
-                "ORDER BY last_modified_time DESC",
-                "LIMIT @max_partitions",
-            ]
-
-            query = " ".join(query_parts)
+            query = queries.PARTITIONS_BY_MODIFIED.format(
+                info_schema_ref=safe_info_schema_ref,
+                null_id=BQ_NULL_PARTITION_ID,
+                unpartitioned_id=BQ_UNPARTITIONED_PARTITION_ID,
+                streaming_id=BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
+            )
 
             parameters = [
                 ScalarQueryParameter("table_name", "STRING", table.name),
