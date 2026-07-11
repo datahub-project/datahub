@@ -4,12 +4,8 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class ExtractedPartitionInfo(BaseModel):
-    """Partition columns/values parsed out of a BigQuery partition-filter error message.
-
-    Distinct from ``bigquery_schema.PartitionInfo`` (the structural partition
-    definition read from table metadata); this only carries what could be recovered
-    from an error string.
-    """
+    # Partition columns/values recovered from a BigQuery partition-filter error message.
+    # Distinct from bigquery_schema.PartitionInfo (the structural definition from metadata).
 
     required_columns: List[str] = Field(default_factory=list)
     partition_values: Dict[str, Union[str, int]] = Field(default_factory=dict)

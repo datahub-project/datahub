@@ -1,10 +1,5 @@
-"""
-BigQuery profiler security utilities for SQL injection protection.
-
-Identifiers (table/column/schema names) cannot be parameterized in BigQuery, so they
-must be validated and backtick-escaped manually. Data values use QueryJobConfig with
-ScalarQueryParameter throughout the codebase.
-"""
+# Identifiers (table/column/schema names) cannot be parameterized in BigQuery, so they must
+# be validated and backtick-escaped here. Data values use ScalarQueryParameter elsewhere.
 
 import logging
 from typing import List
@@ -25,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 def _validate_identifier_format(identifier_type: str, clean_identifier: str) -> None:
-    """Validate identifier format according to BigQuery rules for the given type."""
     if identifier_type == "project":
         if not PROJECT_ID_RE.match(clean_identifier):
             raise ValueError(f"Invalid project ID format: {clean_identifier}")
@@ -68,10 +62,6 @@ def _validate_identifier_format(identifier_type: str, clean_identifier: str) -> 
 def validate_bigquery_identifier(
     identifier: str, identifier_type: str = "general"
 ) -> str:
-    """Validate and backtick-escape a BigQuery identifier against SQL injection.
-
-    For DATA VALUES use parameterized queries with QueryJobConfig/ScalarQueryParameter instead.
-    """
     if not identifier or not isinstance(identifier, str):
         raise ValueError(
             f"Invalid {identifier_type} identifier: must be non-empty string"
@@ -85,19 +75,8 @@ def validate_bigquery_identifier(
         ):
             return f"`{identifier}`"
 
-    dangerous_patterns = [
-        ";",  # Statement terminator - clear SQL injection
-        "--",  # SQL comment - clear injection vector
-        "/*",  # Block comment start - injection vector
-        "*/",  # Block comment end - injection vector
-        '"',  # Double quote - can break out of identifier context
-        "'",  # Single quote - can break out of string context
-        "\\",  # Backslash - escape character, potential injection
-        "\n",  # Newline - can break SQL structure
-        "\r",  # Carriage return - can break SQL structure
-        "\t",  # Tab - generally not allowed in identifiers
-        "`",  # Backtick - we add these ourselves, shouldn't be in input
-    ]
+    # Injection/escape chars that must never appear in an identifier we backtick ourselves.
+    dangerous_patterns = [";", "--", "/*", "*/", '"', "'", "\\", "\n", "\r", "\t", "`"]
 
     for pattern in dangerous_patterns:
         if pattern in identifier:
@@ -132,7 +111,6 @@ def validate_bigquery_identifier(
 
 
 def build_safe_table_reference(project: str, dataset: str, table: str) -> str:
-    """Build a safe fully-qualified BigQuery table reference."""
     if table.startswith("INFORMATION_SCHEMA"):
         safe_project = validate_bigquery_identifier(project, "project")
         safe_dataset = validate_bigquery_identifier(dataset, "dataset")
@@ -146,7 +124,6 @@ def build_safe_table_reference(project: str, dataset: str, table: str) -> str:
 
 
 def validate_column_name(col_name: str, context: str = "") -> bool:
-    """Validate a column name against BigQuery identifier rules."""
     if not col_name or not isinstance(col_name, str):
         logger.warning(
             f"Invalid column name{' in ' + context if context else ''}: {col_name}"
@@ -163,7 +140,6 @@ def validate_column_name(col_name: str, context: str = "") -> bool:
 
 
 def validate_column_names(col_names: List[str], context: str = "") -> List[str]:
-    """Validate multiple column names and return only valid ones."""
     valid_columns = []
     for col in col_names:
         if validate_column_name(col, context):
@@ -172,7 +148,6 @@ def validate_column_names(col_names: List[str], context: str = "") -> List[str]:
 
 
 def validate_sql_structure(query: str) -> bool:
-    """Validate SQL query structure for security issues."""
     if not query or not isinstance(query, str):
         return False
 
@@ -189,7 +164,6 @@ def validate_sql_structure(query: str) -> bool:
 
 
 def validate_filter_expression(filter_expr: str) -> bool:
-    """Validate that a filter expression is safe for use in a WHERE clause."""
     if not filter_expr or not isinstance(filter_expr, str):
         return False
 
@@ -212,7 +186,6 @@ def validate_filter_expression(filter_expr: str) -> bool:
 
 
 def validate_and_filter_expressions(filters: List[str], context: str = "") -> List[str]:
-    """Validate a list of filter expressions and return only safe ones."""
     validated_filters = []
     for filter_str in filters:
         if validate_filter_expression(filter_str):

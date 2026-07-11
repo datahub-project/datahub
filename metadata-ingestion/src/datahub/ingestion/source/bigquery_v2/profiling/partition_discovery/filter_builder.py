@@ -1,5 +1,3 @@
-"""Filter creation and validation utilities for partition queries."""
-
 import logging
 import re
 from typing import Dict, List, Optional, Union
@@ -17,13 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class FilterBuilder:
-    """Utilities for creating safe partition filters."""
-
     @staticmethod
     def create_safe_filter(
         col_name: str, val: Union[str, int, float], col_type: Optional[str] = None
     ) -> str:
-        """Create a safe partition filter with appropriate quoting based on column type."""
         if not VALID_COLUMN_NAME_PATTERN.match(col_name):
             raise ValueError(f"Invalid column name for filter: {col_name}")
 
@@ -73,7 +68,7 @@ class FilterBuilder:
 
     @staticmethod
     def _format_date_value(val: str, col_type: str) -> Optional[str]:
-        """Convert common BigQuery partition date formats (YYYYMMDD/YYYYMM/YYYYMMDDHH) to YYYY-MM-DD."""
+        # Normalize BigQuery partition date formats (YYYYMMDD/YYYYMM/YYYYMMDDHH) to YYYY-MM-DD.
         if ISO_DATE_PATTERN.match(val):
             return val
         if re.match(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", val):
@@ -101,7 +96,6 @@ class FilterBuilder:
         required_columns: List[str],
         column_types: Optional[Dict[str, str]] = None,
     ) -> Optional[List[str]]:
-        """Convert partition_id from INFORMATION_SCHEMA.PARTITIONS to filter expressions."""
         try:
             filters = []
             column_types = column_types or {}

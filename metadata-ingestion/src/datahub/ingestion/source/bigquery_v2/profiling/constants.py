@@ -1,12 +1,3 @@
-"""
-Constants for BigQuery profiling operations.
-
-This module centralizes all constants used across the profiling module including:
-- Partition ID format specifications
-- Date/time column name patterns
-- Compiled regex patterns for performance
-"""
-
 import re
 from typing import Set
 

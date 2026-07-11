@@ -1,5 +1,3 @@
-"""BigQuery profiler: orchestrates table profiling with partition-aware query generation."""
-
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone

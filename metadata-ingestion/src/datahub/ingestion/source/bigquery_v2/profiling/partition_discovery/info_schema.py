@@ -1,5 +1,3 @@
-"""INFORMATION_SCHEMA query utilities for partition discovery."""
-
 import logging
 from typing import Callable, Dict, List, Optional, Union
 
@@ -33,8 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 class InfoSchemaQueries:
-    """Utilities for querying INFORMATION_SCHEMA for partition information."""
-
     def __init__(self, report: Optional[BigQueryV2Report] = None) -> None:
         self.report = report
 
@@ -45,7 +41,6 @@ class InfoSchemaQueries:
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Dict[str, str]:
-        """Get partition columns from INFORMATION_SCHEMA using parameterized queries."""
         try:
             safe_info_schema_ref = build_safe_table_reference(
                 project, schema, "INFORMATION_SCHEMA.COLUMNS"
@@ -92,7 +87,6 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
         partition_columns: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Dict[str, str]:
-        """Get data types for partition columns using parameterized queries."""
         if not partition_columns:
             return {}
 
@@ -150,7 +144,6 @@ AND ({column_filter_clause})"""
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         max_results: int = DEFAULT_INFO_SCHEMA_PARTITIONS_LIMIT,
     ) -> PartitionResult:
-        """Get partition information from INFORMATION_SCHEMA.PARTITIONS."""
         if not partition_columns:
             return PartitionResult(partition_values={}, row_count=None)
 
@@ -249,7 +242,6 @@ LIMIT @max_results"""
         verify_partition_has_data: Callable,
         column_types: Dict[str, str],
     ) -> Optional[List[str]]:
-        """Get partition filters from INFORMATION_SCHEMA.PARTITIONS (metadata-only, no data scanning)."""
         if not required_columns:
             return []
 
@@ -344,7 +336,7 @@ LIMIT @max_results"""
         partition_columns: List[str],
         result_values: Dict[str, Union[str, int, float]],
     ) -> None:
-        """Parse a YYYYMMDD/YYYYMMDDHH partition_id into year/month/day/hour column values."""
+        # Split a YYYYMMDD/YYYYMMDDHH partition_id into year/month/day/hour column values.
         if partition_id.isdigit():
             if len(partition_id) == PARTITION_ID_YYYYMMDD_LENGTH:
                 year = partition_id[:4]

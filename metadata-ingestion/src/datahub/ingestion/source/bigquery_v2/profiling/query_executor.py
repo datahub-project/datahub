@@ -1,5 +1,3 @@
-"""BigQuery query execution with security validation and error handling."""
-
 import logging
 from typing import List, Optional
 
@@ -14,17 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class QueryExecutor:
-    """Handles secure execution of BigQuery queries for profiling operations."""
-
     def __init__(self, config: BigQueryV2Config):
         self.config = config
 
     def _validate_query_security(self, query: str) -> None:
-        # validate_sql_structure performs structural checks (SELECT-only, no DML, etc.).
-        # The pattern check below is an extra belt-and-suspenders guard against
-        # comment-based injection that slips past the structural analysis.
         validate_sql_structure(query)
 
+        # Extra guard against comment-based injection that slips past structural checks.
         dangerous_patterns = [";", "--", "/*", "xp_cmdshell", "sp_executesql"]
         for pattern in dangerous_patterns:
             if pattern in query:
@@ -34,7 +28,6 @@ class QueryExecutor:
                 raise ValueError(f"Query contains dangerous pattern: {pattern}")
 
     def execute_query(self, query: str, context: str = "") -> List[Row]:
-        """Execute BigQuery query with timeout and security validation."""
         self._validate_query_security(query)
 
         try:
@@ -65,7 +58,6 @@ class QueryExecutor:
     def execute_query_with_config(
         self, query: str, job_config: QueryJobConfig, context: str = ""
     ) -> List[Row]:
-        """Execute query with custom job configuration and parameters."""
         self._validate_query_security(query)
 
         try:
@@ -94,13 +86,7 @@ class QueryExecutor:
     def execute_query_safely(
         self, query: str, job_config: Optional[QueryJobConfig] = None, context: str = ""
     ) -> List[Row]:
-        """Execute query with unified error handling.
-
-        Failures are logged once at the execute_query/execute_query_with_config layer,
-        then re-raised for the caller to interpret. Some callers (e.g. the
-        partition-detection probe) rely on the raised exception rather than a return
-        value, so this method must not swallow it.
-        """
+        # Must re-raise, not swallow: the partition-detection probe relies on the exception.
         logger.debug(f"Executing query{f' for {context}' if context else ''}: {query}")
 
         if job_config:
@@ -116,7 +102,6 @@ class QueryExecutor:
         where_clause: str = "",
         limit: Optional[int] = None,
     ) -> str:
-        """Build a safe custom SQL query for profiling operations."""
         from datahub.ingestion.source.bigquery_v2.profiling.security import (
             build_safe_table_reference,
         )
@@ -135,5 +120,4 @@ class QueryExecutor:
         return " ".join(query_parts)
 
     def get_effective_timeout(self) -> int:
-        """Get effective timeout for query operations in seconds."""
         return self.config.profiling.partition_fetch_timeout

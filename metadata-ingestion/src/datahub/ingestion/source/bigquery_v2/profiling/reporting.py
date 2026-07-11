@@ -1,11 +1,3 @@
-"""Reporting helper for the profiling subpackage.
-
-Partition discovery helpers may run without a report attached (e.g. in unit tests),
-so warnings must degrade to the module logger when no report is available. Surfacing
-skips/timeouts/permission errors to the ingestion report is important: operators read
-the report, not the debug logs.
-"""
-
 import logging
 from typing import Optional
 
@@ -19,6 +11,7 @@ def warn(
     message: str,
     context: Optional[str] = None,
 ) -> None:
+    # Discovery helpers may run without a report (e.g. in tests); fall back to the logger.
     if report is not None:
         report.warning(title=title, message=message, context=context)
     else:
