@@ -24,6 +24,23 @@ import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 public class S3ObjectStorageClientTest {
 
   @Test
+  public void testPutObjectAtBucketRootWhenNoPrefix() {
+    S3Client s3Client = mock(S3Client.class);
+    when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))
+        .thenReturn(PutObjectResponse.builder().build());
+
+    S3ObjectStorageClient client =
+        new S3ObjectStorageClient(s3Client, "my-bucket", null, 1024, 512);
+    client.putObject("exports/out.bin", new byte[] {1, 2, 3});
+
+    ArgumentCaptor<PutObjectRequest> requestCaptor =
+        ArgumentCaptor.forClass(PutObjectRequest.class);
+    verify(s3Client).putObject(requestCaptor.capture(), any(RequestBody.class));
+    assertEquals(requestCaptor.getValue().bucket(), "my-bucket");
+    assertEquals(requestCaptor.getValue().key(), "exports/out.bin");
+  }
+
+  @Test
   public void testPutObjectSinglePart() {
     S3Client s3Client = mock(S3Client.class);
     when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class)))

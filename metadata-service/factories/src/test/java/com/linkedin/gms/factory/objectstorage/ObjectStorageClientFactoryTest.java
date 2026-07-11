@@ -37,15 +37,15 @@ public class ObjectStorageClientFactoryTest {
     dataHubConfiguration.setS3(s3Configuration);
 
     ObjectStorageConfiguration objectStorageConfiguration = new ObjectStorageConfiguration();
-    objectStorageConfiguration.setPath("/tmp/datahub-object-storage");
-    objectStorageConfiguration.setProvider("local");
     dataHubConfiguration.setObjectStorage(objectStorageConfiguration);
 
     when(configurationProvider.getDatahub()).thenReturn(dataHubConfiguration);
   }
 
   @Test
-  public void testCreatesLocalClientWhenConfigured() {
+  public void testCreatesLocalClientFromUri() {
+    dataHubConfiguration.getObjectStorage().setUri("file:///tmp/datahub-object-storage");
+
     ObjectStorageClient client = factory.getInstance();
     assertNotNull(client);
     assertTrue(client instanceof LocalObjectStorageClient);
@@ -54,8 +54,26 @@ public class ObjectStorageClientFactoryTest {
   }
 
   @Test
-  public void testReturnsNullWhenLocalPathMissing() {
-    dataHubConfiguration.getObjectStorage().setPath("");
+  public void testCreatesLocalClientFromLegacyConfig() {
+    dataHubConfiguration.getObjectStorage().setPath("/tmp/datahub-object-storage");
+    dataHubConfiguration.getObjectStorage().setProvider("local");
+
+    ObjectStorageClient client = factory.getInstance();
+    assertNotNull(client);
+    assertTrue(client instanceof LocalObjectStorageClient);
+    assertTrue(client.isConfigured());
+    assertTrue(client.provider() == ObjectStorageProvider.LOCAL);
+  }
+
+  @Test
+  public void testReturnsNullWhenLocationUnconfigured() {
+    ObjectStorageClient client = factory.getInstance();
+    assertNull(client);
+  }
+
+  @Test
+  public void testReturnsNullWhenLegacyLocalPathMissing() {
+    dataHubConfiguration.getObjectStorage().setProvider("local");
     ObjectStorageClient client = factory.getInstance();
     assertNull(client);
   }

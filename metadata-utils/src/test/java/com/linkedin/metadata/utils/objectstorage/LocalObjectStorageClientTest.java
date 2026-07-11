@@ -35,6 +35,18 @@ public class LocalObjectStorageClientTest {
   }
 
   @Test
+  public void testPutObjectAcceptsLeadingSlash() throws Exception {
+    Path root = Files.createTempDirectory("object-storage-local");
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    client.putObject("/exports/report.bin", "payload".getBytes());
+
+    Path written = root.resolve("exports/report.bin");
+    assertTrue(Files.exists(written));
+    assertEquals(Files.readString(written), "payload");
+  }
+
+  @Test
   public void testPutObjectRejectsTraversal() throws Exception {
     Path root = Files.createTempDirectory("object-storage-local");
     LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());

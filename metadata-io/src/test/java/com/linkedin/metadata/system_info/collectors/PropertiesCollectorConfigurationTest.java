@@ -517,6 +517,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedUploadUrlExpirationSeconds",
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
+          "datahub.objectStorage.uri",
           "datahub.objectStorage.path",
           "datahub.objectStorage.provider",
           "datahub.objectStorage.multipartThresholdBytes",

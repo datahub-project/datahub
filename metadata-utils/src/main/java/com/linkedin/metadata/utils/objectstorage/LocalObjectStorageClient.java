@@ -21,7 +21,9 @@ public class LocalObjectStorageClient implements ObjectStorageClient {
     if (!isConfigured()) {
       throw new IllegalStateException("Local object storage root path is not configured");
     }
-    Path target = ObjectStoragePathValidator.resolveUnderRoot(Path.of(rootPath), objectKey);
+    String relativeKey =
+        ObjectStorageKeyResolver.joinKey(null, objectKey, ObjectStorageProvider.LOCAL);
+    Path target = ObjectStoragePathValidator.resolveUnderRoot(Path.of(rootPath), relativeKey);
     try {
       Files.createDirectories(target.getParent());
       Files.write(target, bytes);

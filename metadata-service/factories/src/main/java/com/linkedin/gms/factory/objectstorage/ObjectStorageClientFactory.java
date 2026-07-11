@@ -8,11 +8,11 @@ import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.utils.objectstorage.GcsObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.LocalObjectStorageClient;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
-import com.linkedin.metadata.utils.objectstorage.ObjectStorageProvider;
-import com.linkedin.metadata.utils.objectstorage.ObjectStorageProviderResolver;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageLocation;
 import com.linkedin.metadata.utils.objectstorage.S3ObjectStorageClient;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -39,15 +39,23 @@ public class ObjectStorageClientFactory {
       ObjectStorageConfiguration objectStorageConfiguration =
           configurationProvider.getDatahub().getObjectStorage();
 
-      String bucketName = s3Configuration != null ? s3Configuration.getBucketName() : null;
-      String path =
+      String legacyBucketName = s3Configuration != null ? s3Configuration.getBucketName() : null;
+      String configuredUri =
+          objectStorageConfiguration != null ? objectStorageConfiguration.getUri() : null;
+      String legacyPath =
           objectStorageConfiguration != null ? objectStorageConfiguration.getPath() : null;
-      String providerHint =
+      String legacyProvider =
           objectStorageConfiguration != null ? objectStorageConfiguration.getProvider() : null;
 
-      ObjectStorageProvider provider =
-          ObjectStorageProviderResolver.resolve(providerHint, bucketName);
+      Optional<ObjectStorageLocation> location =
+          ObjectStorageLocation.resolve(
+              configuredUri, legacyBucketName, legacyPath, legacyProvider);
+      if (location.isEmpty()) {
+        log.debug("Skipping ObjectStorageClient creation (no object storage location configured)");
+        return null;
+      }
 
+      ObjectStorageLocation resolvedLocation = location.get();
       int multipartThreshold =
           objectStorageConfiguration != null
                   && objectStorageConfiguration.getMultipartThresholdBytes() != null
@@ -59,36 +67,28 @@ public class ObjectStorageClientFactory {
               ? objectStorageConfiguration.getMultipartPartSizeBytes()
               : S3ObjectStorageClient.DEFAULT_MULTIPART_PART_SIZE_BYTES;
 
-      return switch (provider) {
-        case LOCAL -> {
-          LocalObjectStorageClient client = new LocalObjectStorageClient(path);
-          if (!client.isConfigured()) {
-            log.debug(
-                "Skipping ObjectStorageClient creation (LOCAL provider requires non-empty path)");
-            yield null;
-          }
-          yield client;
-        }
+      return switch (resolvedLocation.provider()) {
+        case LOCAL -> new LocalObjectStorageClient(resolvedLocation.localRoot());
         case S3 -> {
-          if (bucketName == null || bucketName.isBlank()) {
-            log.debug("Skipping ObjectStorageClient creation (S3 provider requires bucket name)");
-            yield null;
-          }
           S3Client s3Client = createS3Client(s3Configuration);
           if (s3Client == null) {
             yield null;
           }
           yield new S3ObjectStorageClient(
-              s3Client, bucketName, path, multipartThreshold, multipartPartSize);
+              s3Client,
+              resolvedLocation.bucket(),
+              emptyToNull(resolvedLocation.keyPrefix()),
+              multipartThreshold,
+              multipartPartSize);
         }
         case GCS -> {
-          if (bucketName == null || bucketName.isBlank()) {
-            log.debug("Skipping ObjectStorageClient creation (GCS provider requires bucket name)");
-            yield null;
-          }
           Storage storage = StorageOptions.getDefaultInstance().getService();
           yield new GcsObjectStorageClient(
-              storage, bucketName, path, multipartThreshold, multipartPartSize);
+              storage,
+              resolvedLocation.bucket(),
+              emptyToNull(resolvedLocation.keyPrefix()),
+              multipartThreshold,
+              multipartPartSize);
         }
       };
     } catch (Exception e) {
@@ -141,6 +141,14 @@ public class ObjectStorageClientFactory {
 
   private software.amazon.awssdk.services.s3.S3ClientBuilder buildS3ClientBuilder() {
     return S3Client.builder();
+  }
+
+  @Nullable
+  private static String emptyToNull(@Nullable String value) {
+    if (value == null || value.isEmpty()) {
+      return null;
+    }
+    return value;
   }
 
   @Nullable

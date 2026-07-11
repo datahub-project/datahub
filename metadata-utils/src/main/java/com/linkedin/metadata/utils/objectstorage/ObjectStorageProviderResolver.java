@@ -5,9 +5,6 @@ import javax.annotation.Nullable;
 
 public final class ObjectStorageProviderResolver {
 
-  private static final String PROVIDER_ENV = "DATAHUB_OBJECT_STORAGE_PROVIDER";
-  private static final String GCS_CREDENTIALS_ENV = "GOOGLE_APPLICATION_CREDENTIALS";
-
   private ObjectStorageProviderResolver() {}
 
   @Nonnull
@@ -20,10 +17,6 @@ public final class ObjectStorageProviderResolver {
 
     if (bucketName == null || bucketName.isBlank()) {
       return ObjectStorageProvider.LOCAL;
-    }
-
-    if (hasGcsCredentialSignal()) {
-      return ObjectStorageProvider.GCS;
     }
 
     return ObjectStorageProvider.S3;
@@ -41,10 +34,5 @@ public final class ObjectStorageProviderResolver {
       default -> throw new IllegalArgumentException(
           "Unsupported object storage provider: " + configuredProvider);
     };
-  }
-
-  private static boolean hasGcsCredentialSignal() {
-    String gcsCredentials = System.getenv(GCS_CREDENTIALS_ENV);
-    return gcsCredentials != null && !gcsCredentials.isBlank();
   }
 }

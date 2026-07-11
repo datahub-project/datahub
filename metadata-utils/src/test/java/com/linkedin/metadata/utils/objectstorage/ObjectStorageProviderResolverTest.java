@@ -2,25 +2,9 @@ package com.linkedin.metadata.utils.objectstorage;
 
 import static org.testng.Assert.assertEquals;
 
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ObjectStorageProviderResolverTest {
-
-  private String previousGcsCredentials;
-
-  @BeforeMethod
-  public void saveEnv() {
-    previousGcsCredentials = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
-  }
-
-  @AfterMethod
-  public void restoreEnv() {
-    if (previousGcsCredentials == null) {
-      // Cannot unset env in Java; tests below use explicit provider hints when needed.
-    }
-  }
 
   @Test
   public void testExplicitProvider() {
@@ -38,10 +22,7 @@ public class ObjectStorageProviderResolverTest {
   }
 
   @Test
-  public void testBucketWithoutHintDefaultsToS3WhenNoGcsEnv() {
-    if (previousGcsCredentials != null && !previousGcsCredentials.isBlank()) {
-      return;
-    }
+  public void testBucketWithoutProviderHintDefaultsToS3() {
     assertEquals(
         ObjectStorageProviderResolver.resolve(null, "my-bucket"), ObjectStorageProvider.S3);
   }

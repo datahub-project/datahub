@@ -310,8 +310,9 @@ datahub:
     assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
 
   objectStorage:
-    path: ${DATAHUB_OBJECT_STORAGE_PATH:}
-    provider: ${DATAHUB_OBJECT_STORAGE_PROVIDER:}
+    uri: ${DATAHUB_OBJECT_STORAGE_URI:} # s3://bucket, s3://bucket/prefix, gs://bucket, or file:///local/root
+    path: ${DATAHUB_OBJECT_STORAGE_PATH:} # legacy fallback prefix/root when uri is unset
+    provider: ${DATAHUB_OBJECT_STORAGE_PROVIDER:} # legacy fallback provider when uri is unset
     multipartThresholdBytes: ${OBJECT_STORAGE_MULTIPART_THRESHOLD_BYTES:8388608}
     multipartPartSizeBytes: ${OBJECT_STORAGE_MULTIPART_PART_SIZE_BYTES:8388608}
 
