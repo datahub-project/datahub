@@ -8,6 +8,7 @@ from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
 from pydantic import Field, PrivateAttr, field_validator, model_validator
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -36,6 +37,7 @@ from datahub.ingestion.source.data_lake_common.object_store import (
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
 from datahub.ingestion.source.gcs.gcs_utils import GCS_ENDPOINT_URL, HMACKey
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import S3Source
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -156,6 +158,14 @@ class GCSSourceConfig(
         description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
     )
 
+    profile_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for tables to profile ",
+    )
+    profiling: DataLakeProfilerConfig = Field(
+        default=DataLakeProfilerConfig(), description="Data profiling configuration"
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @model_validator(mode="before")
@@ -227,7 +237,7 @@ class GCSSourceReport(DataLakeSourceReport):
     ],
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
-@capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class GCSSource(StatefulIngestionSourceBase):
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -296,6 +306,8 @@ class GCSSource(StatefulIngestionSourceBase):
             number_of_files_to_sample=self.config.number_of_files_to_sample,
             platform=PLATFORM_GCS,
             platform_instance=self.config.platform_instance,
+            profile_patterns=self.config.profile_patterns,
+            profiling=self.config.profiling,
         )
 
     def create_equivalent_s3_config(self) -> DataLakeSourceConfig:
