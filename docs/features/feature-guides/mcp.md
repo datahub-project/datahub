@@ -30,6 +30,8 @@ Surface real SQL queries that reference a dataset — see join patterns, common 
 **Works Where You Work** <br />
 Seamlessly integrates with Cursor, Windsurf, Claude Desktop, OpenAI, and any other MCP-compatible client.
 
+**Ready to connect?** Jump to [Managed setup](#managed-mcp-server-usage) or [Self-Hosted setup](#self-hosted-mcp-server-usage).
+
 ## Tools
 
 The DataHub MCP Server provides the following tools, grouped by whether they read from or write to DataHub. All tools are annotated with MCP-standard hints (`readOnlyHint`, `destructiveHint`) so compatible clients (e.g. Claude) can surface which tools modify catalog state and prompt for confirmation accordingly.
@@ -148,7 +150,7 @@ Mutation tools are available in [mcp-server-datahub](https://github.com/acryldat
 
 <a id="oauth2-with-dynamic-client-registration-recommended"></a>
 
-# Connecting to Managed MCP Server with OAuth - Recommended {#managed-mcp-server-usage}
+## Connecting to Managed MCP Server with OAuth - Recommended {#managed-mcp-server-usage}
 
 _Available in DataHub Cloud v1.0.2+_
 
@@ -321,7 +323,7 @@ OAuth + DCR is the recommended path for **interactive** clients where a human si
 - **DataHub Cloud < v1.0.2** or self-hosted DataHub Core
 - MCP clients that don't yet implement OAuth-based remote MCP
 
-# Connecting to Managed MCP Server with Access Tokens
+## Connecting to Managed MCP Server with Access Tokens
 
 For DataHub Cloud v0.3.12+, you can connect directly to the hosted MCP server endpoint — no local installation required.
 
@@ -611,9 +613,37 @@ For other AI tools, provide the following configuration:
 
 </details>
 
-### Troubleshooting
+## Troubleshooting
 
-#### `spawn uvx ENOENT`
+### Authentication errors / `401 Unauthorized`
+
+Tools fail, return `401`, or (self-hosted) the server exits at startup complaining about a missing GMS host.
+
+- **Self-hosted:** confirm `DATAHUB_GMS_URL` and `DATAHUB_GMS_TOKEN` are set and the URL is reachable.
+- **Managed:** regenerate your [personal access token](../../authentication/personal-access-tokens.md) and re-add it. A valid token is a JWT that starts with `eyJ`.
+
+### Empty or too-few search results
+
+Search may be scoped to a **Default View** — common when using a service-account token that has a default view set. Results are narrowed silently, with no error.
+
+- Check the service account's Default View (unset it, or set `DATAHUB_MCP_DISABLE_DEFAULT_VIEW=true` to disable scoping).
+- Confirm the entities exist and are visible in the DataHub UI, and try a broader query.
+
+### Write/edit tools are missing
+
+Mutation tools (`add_tags`, `update_description`, etc.) are hidden unless explicitly enabled.
+
+- Set `TOOLS_IS_MUTATION_ENABLED=true` on the server process and restart.
+
+### Document tools (`search_documents`, `grep_documents`) are missing
+
+These are automatically hidden when the catalog has no documents. This is expected if you haven't ingested any documents. If you have and they're still missing, confirm `DATAHUB_MCP_DOCUMENT_TOOLS_DISABLED` is not set.
+
+### Some tools are missing on an older DataHub
+
+Tools whose minimum version is higher than your connected DataHub instance are hidden automatically. Upgrade your DataHub instance to access them.
+
+### `spawn uvx ENOENT` (self-hosted)
 
 The full stack trace might look like this:
 
