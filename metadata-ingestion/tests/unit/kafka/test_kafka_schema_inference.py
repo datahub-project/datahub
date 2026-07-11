@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
+from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_inference import (
     KafkaSchemaInference,
 )
@@ -165,6 +166,46 @@ class TestKafkaSchemaInference:
 
         mock_sample.assert_called_once_with("test-topic", "earliest")
         assert result == [{"field": "value"}]
+
+    def test_consumer_creation_failure_is_reported(self, fallback_config):
+        report = KafkaSourceReport()
+        inference = KafkaSchemaInference(
+            bootstrap_servers="localhost:9092",
+            consumer_config={"group.id": "test"},
+            fallback_config=fallback_config,
+            max_workers=1,
+            report=report,
+        )
+        with patch(
+            "datahub.ingestion.source.kafka.kafka_schema_inference.Consumer",
+            side_effect=OSError("broker down"),
+        ):
+            result = inference._sample_messages_with_strategy("test-topic", "latest")
+
+        assert result == []
+        assert report.schema_inference_sampling_failures == 1
+
+    def test_extraction_failure_is_reported(self, fallback_config):
+        report = KafkaSourceReport()
+        inference = KafkaSchemaInference(
+            bootstrap_servers="localhost:9092",
+            consumer_config={"group.id": "test"},
+            fallback_config=fallback_config,
+            max_workers=1,
+            report=report,
+        )
+        with (
+            patch.object(inference, "_sample_topic_messages", return_value=[{"a": 1}]),
+            patch.object(
+                inference,
+                "_extract_fields_from_samples",
+                side_effect=ValueError("boom"),
+            ),
+        ):
+            result = inference._infer_schema_from_messages("test-topic")
+
+        assert result == []
+        assert report.schema_inference_sampling_failures == 1
 
     def test_flatten_for_schema_inference(self, schema_inference):
         nested_obj = {

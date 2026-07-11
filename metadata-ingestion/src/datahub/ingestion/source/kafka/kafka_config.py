@@ -32,7 +32,6 @@ class SchemaResolutionFallback(ConfigModel):
 
     sample_timeout_seconds: PositiveFloat = Field(
         default=2.0,
-        gt=0.0,
         description="Maximum time to spend sampling messages from a single topic (in seconds) for record name extraction and schema inference. Must be positive.",
     )
     offset_reset_strategy: Literal["earliest", "latest", "hybrid"] = Field(
@@ -41,7 +40,6 @@ class SchemaResolutionFallback(ConfigModel):
     )
     max_messages_per_topic: PositiveInt = Field(
         default=DEFAULT_MAX_MESSAGES_PER_TOPIC,
-        gt=0,
         description="Maximum number of messages to sample per topic for record name extraction and schema inference. Must be positive.",
     )
 
@@ -49,7 +47,6 @@ class SchemaResolutionFallback(ConfigModel):
 class ProfilerConfig(GEProfilingConfig):
     max_sample_time_seconds: PositiveInt = Field(
         default=DEFAULT_MAX_SAMPLE_TIME_SECONDS,
-        gt=0,
         description="Maximum time to spend sampling messages in seconds. Must be positive.",
     )
     sampling_strategy: Literal["latest", "random", "stratified", "full"] = Field(
@@ -58,13 +55,11 @@ class ProfilerConfig(GEProfilingConfig):
     )
     batch_size: PositiveInt = Field(
         default=DEFAULT_BATCH_SIZE,
-        gt=0,
         description="Number of messages to fetch in a single batch (for more efficient reading). Must be positive.",
     )
 
     sample_size: PositiveInt = Field(
         default=DEFAULT_SAMPLE_SIZE,
-        gt=0,
         description="Number of messages to sample for profiling. Higher values provide more accurate statistics but take longer to process. Must be positive.",
     )
 

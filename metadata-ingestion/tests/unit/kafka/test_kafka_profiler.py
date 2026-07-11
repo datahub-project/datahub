@@ -104,20 +104,12 @@ def schema_metadata():
 
 
 def test_clean_field_path():
-    assert (
-        clean_field_path(
-            "user.profile.name[type=string][version=1]", preserve_types=True
-        )
-        == "user.profile.name[type=string][version=1]"
-    )
-
     path = "user.profile.name[type=string][version=1]"
-    cleaned = clean_field_path(path, preserve_types=False)
+    cleaned = clean_field_path(path)
     assert path != cleaned
     assert "name" in cleaned
 
-    path = "id[key=True]"
-    assert clean_field_path(path, preserve_types=False) == "id"
+    assert clean_field_path("id[key=True]") == "id"
 
 
 def test_is_overflow_value():
@@ -180,7 +172,7 @@ def test_histogram_generation_degenerate_inputs(profiler):
 
 
 def test_profile_samples(profiler, sample_data, schema_metadata):
-    result = profiler.profile_samples(
+    result = profiler.generate_dataset_profile(
         cast(List[Dict[str, Any]], sample_data), schema_metadata
     )
     assert isinstance(result, DatasetProfileClass)

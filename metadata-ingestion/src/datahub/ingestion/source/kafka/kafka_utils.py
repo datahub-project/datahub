@@ -58,7 +58,7 @@ def decode_kafka_message_value(
         return {"binary_data": base64.b64encode(value).decode("utf-8")}
 
 
-def process_kafka_message_for_sampling(value: Any) -> Dict[str, Any]:
+def process_kafka_message_for_sampling(value: MessageValue) -> Dict[str, Any]:
     if value is None:
         return {"null_value": True}
 

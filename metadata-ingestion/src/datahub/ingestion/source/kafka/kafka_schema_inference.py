@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Union
 
 from confluent_kafka import Consumer
@@ -29,17 +29,11 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
-# Import MessageValue from kafka_utils for consistency
-
 
 @dataclass
 class FieldAnalysis:
-    types: Set[str]
-    sample_values: List[str]
-
-    def __init__(self) -> None:
-        self.types = set()
-        self.sample_values = []
+    types: Set[str] = field(default_factory=set)
+    sample_values: List[str] = field(default_factory=list)
 
 
 FieldInfo = Dict[str, FieldAnalysis]
@@ -60,6 +54,15 @@ class KafkaSchemaInference:
         self.fallback_config = fallback_config
         self.max_workers = max_workers
         self.report = report
+
+    def _note_inference_failure(self, topic: str, exc: Exception) -> None:
+        if self.report is not None:
+            self.report.schema_inference_sampling_failures += 1
+            self.report.report_warning(
+                "schema-inference",
+                f"Failed to infer schema for topic {topic}; it will be processed "
+                f"without schema information: {exc}",
+            )
 
     def infer_schemas_batch(self, topics: List[str]) -> Dict[str, List[SchemaField]]:
         if not topics:
@@ -84,7 +87,7 @@ class KafkaSchemaInference:
                     schema_fields = self._infer_schema_from_messages(topic)
                     results[topic] = schema_fields
                 except Exception as e:
-                    logger.warning(f"Failed to infer schema for topic {topic}: {e}")
+                    self._note_inference_failure(topic, e)
                     results[topic] = []
 
         return results
@@ -123,7 +126,7 @@ class KafkaSchemaInference:
                     results[topic] = schema_fields
                     logger.debug(f"Completed schema inference for topic {topic}")
                 except Exception as e:
-                    logger.warning(f"Failed to infer schema for topic {topic}: {e}")
+                    self._note_inference_failure(topic, e)
                     results[topic] = []
 
         logger.info(f"Completed parallel schema inference for {len(topics)} topics")
@@ -271,10 +274,7 @@ class KafkaSchemaInference:
             return inferred_fields
 
         except Exception as e:
-            logger.warning(
-                f"Failed to infer schema from messages for topic {topic}: {e}. "
-                f"Topic will be processed without schema information."
-            )
+            self._note_inference_failure(topic, e)
             return []
 
     def _extract_fields_from_samples(

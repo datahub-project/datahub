@@ -1,4 +1,3 @@
-import base64
 import concurrent.futures
 import io
 import json
@@ -88,6 +87,7 @@ from datahub.ingestion.source.kafka.kafka_profiler import (
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
+    SchemaAndFields,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -116,6 +116,14 @@ warnings.filterwarnings(
     module="avro.schema",
     message=".*Unknown .*, using .*",
 )
+
+
+def _needs_schema_resolution(schema_and_fields: Optional[SchemaAndFields]) -> bool:
+    # A topic needs fallback resolution when the registry returned neither a
+    # schema nor any fields for it.
+    return schema_and_fields is None or (
+        schema_and_fields.schema is None and not schema_and_fields.fields
+    )
 
 
 class KafkaConnectivityError(Exception):
@@ -393,83 +401,19 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         # Handle comprehensive schema resolution for topics without schemas
         if self.source_config.schema_resolution.enabled:
-            topics_needing_resolution = [
-                topic
-                for topic in topic_names
-                if topic_value_schemas.get(topic, (None, []))[0] is None
-                and not topic_value_schemas.get(topic, (None, []))[1]
-            ]
-
-            if topics_needing_resolution:
-                logger.info(
-                    f"Processing {len(topics_needing_resolution)} topics with comprehensive schema resolution"
-                )
-
-                # Initialize schema resolver if not already done
-                if not hasattr(self, "_schema_resolver"):
-                    self._schema_resolver = KafkaSchemaResolver(
-                        source_config=self.source_config,
-                        schema_registry_client=self.schema_registry_client.get_schema_registry_client(),
-                        known_subjects=self.schema_registry_client.get_subjects(),
-                        max_workers=self.source_config.profiling.max_workers,
-                        report=self.report,
-                    )
-
-                # Resolve value schemas
-                value_resolution_results = self._schema_resolver.resolve_schemas_batch(
-                    topics_needing_resolution, is_key_schema=False
-                )
-
-                # Resolve key schemas
-                key_resolution_results = self._schema_resolver.resolve_schemas_batch(
-                    topics_needing_resolution, is_key_schema=True
-                )
-
-                # Update results with resolved schemas
-                value_schemas_resolved = 0
-                key_schemas_resolved = 0
-
-                for topic in topics_needing_resolution:
-                    value_result = value_resolution_results.get(topic)
-                    key_result = key_resolution_results.get(topic)
-
-                    # Update value schema
-                    if value_result and (value_result.schema or value_result.fields):
-                        topic_value_schemas[topic] = (
-                            value_result.schema,
-                            value_result.fields,
-                        )
-                        logger.debug(
-                            f"Resolved value schema for topic {topic} using {value_result.resolution_method}"
-                        )
-                        value_schemas_resolved += 1
-                    elif topic not in topic_value_schemas:
-                        topic_value_schemas[topic] = (None, [])
-
-                    # Update key schema
-                    if key_result and (key_result.schema or key_result.fields):
-                        topic_key_schemas[topic] = (
-                            key_result.schema,
-                            key_result.fields,
-                        )
-                        logger.debug(
-                            f"Resolved key schema for topic {topic} using {key_result.resolution_method}"
-                        )
-                        key_schemas_resolved += 1
-                    elif topic not in topic_key_schemas:
-                        topic_key_schemas[topic] = (None, [])
-
-                logger.info(
-                    f"Schema resolution complete: {value_schemas_resolved} value schemas and {key_schemas_resolved} key schemas resolved for {len(topics_needing_resolution)} topics"
-                )
+            self._resolve_missing_schemas(
+                topic_names, topic_value_schemas, topic_key_schemas
+            )
 
         # Process topics sequentially (schemas are pre-fetched) and collect profiling tasks
         collection_tasks: List[Tuple[str, str, Optional[SchemaMetadataClass]]] = []
 
         for topic, topic_detail in allowed_topics:
             try:
-                value_schema, value_fields = topic_value_schemas.get(topic, (None, []))
-                key_schema, key_fields = topic_key_schemas.get(topic, (None, []))
+                value_sf = topic_value_schemas.get(topic) or SchemaAndFields()
+                key_sf = topic_key_schemas.get(topic) or SchemaAndFields()
+                value_schema, value_fields = value_sf.schema, value_sf.fields
+                key_schema, key_fields = key_sf.schema, key_sf.fields
 
                 # Extract metadata work units
                 yield from self._extract_record_with_schemas(
@@ -1011,8 +955,14 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     )
 
             except Exception as e:
-                logger.warning(f"Failed to process message part: {e}")
-                return base64.b64encode(data).decode("utf-8")
+                # Skip the message rather than emitting a base64 blob, which would
+                # pollute the profile as a synthetic field value.
+                self.report.profiling_samples_skipped += 1
+                self.report.report_warning(
+                    "profiling",
+                    f"Skipped a message for topic {topic} that failed to decode: {e}",
+                )
+                return None
 
         return data
 
@@ -1099,12 +1049,84 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         logger.warning(f"No profile generated for topic: {topic_name}")
 
                 except Exception as e:
-                    logger.error(f"Failed to profile topic {topic_name}: {e}")
-                    if self.source_config.profiling.report_dropped_profiles:
-                        self.report.report_warning(
-                            "profiling",
-                            f"Failed to profile topic {topic_name}: {str(e)}",
-                        )
+                    # A topic that throws is a dropped profile; always tally it so the
+                    # final profiled/dropped counts stay correct.
+                    self.report.profiling_topics_dropped += 1
+                    self.report.report_warning(
+                        "profiling",
+                        f"Failed to profile topic {topic_name}: {str(e)}",
+                    )
+
+    def _resolve_missing_schemas(
+        self,
+        topic_names: List[str],
+        topic_value_schemas: Dict[str, SchemaAndFields],
+        topic_key_schemas: Dict[str, SchemaAndFields],
+    ) -> None:
+        # Fills in value/key schemas (in place) for topics the registry returned
+        # nothing for, using the comprehensive fallback resolver.
+        topics_needing_resolution = [
+            topic
+            for topic in topic_names
+            if _needs_schema_resolution(topic_value_schemas.get(topic))
+        ]
+        if not topics_needing_resolution:
+            return
+
+        logger.info(
+            f"Processing {len(topics_needing_resolution)} topics with comprehensive schema resolution"
+        )
+
+        if not hasattr(self, "_schema_resolver"):
+            self._schema_resolver = KafkaSchemaResolver(
+                source_config=self.source_config,
+                schema_registry_client=self.schema_registry_client.get_schema_registry_client(),
+                known_subjects=self.schema_registry_client.get_subjects(),
+                max_workers=self.source_config.profiling.max_workers,
+                report=self.report,
+            )
+
+        value_resolution_results = self._schema_resolver.resolve_schemas_batch(
+            topics_needing_resolution, is_key_schema=False
+        )
+        key_resolution_results = self._schema_resolver.resolve_schemas_batch(
+            topics_needing_resolution, is_key_schema=True
+        )
+
+        value_schemas_resolved = 0
+        key_schemas_resolved = 0
+
+        for topic in topics_needing_resolution:
+            value_result = value_resolution_results.get(topic)
+            key_result = key_resolution_results.get(topic)
+
+            if value_result and (value_result.schema or value_result.fields):
+                topic_value_schemas[topic] = SchemaAndFields(
+                    schema=value_result.schema,
+                    fields=value_result.fields,
+                )
+                logger.debug(
+                    f"Resolved value schema for topic {topic} using {value_result.resolution_method}"
+                )
+                value_schemas_resolved += 1
+            elif topic not in topic_value_schemas:
+                topic_value_schemas[topic] = SchemaAndFields()
+
+            if key_result and (key_result.schema or key_result.fields):
+                topic_key_schemas[topic] = SchemaAndFields(
+                    schema=key_result.schema,
+                    fields=key_result.fields,
+                )
+                logger.debug(
+                    f"Resolved key schema for topic {topic} using {key_result.resolution_method}"
+                )
+                key_schemas_resolved += 1
+            elif topic not in topic_key_schemas:
+                topic_key_schemas[topic] = SchemaAndFields()
+
+        logger.info(
+            f"Schema resolution complete: {value_schemas_resolved} value schemas and {key_schemas_resolved} key schemas resolved for {len(topics_needing_resolution)} topics"
+        )
 
     def _extract_record_with_schemas(
         self,
@@ -1117,14 +1139,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         key_schema: Optional["Schema"],
         key_fields: List["SchemaField"],
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        """Extract record with pre-fetched schema data to avoid sequential schema lookups."""
-        kafka_entity = "subject" if is_subject else "topic"
-
-        logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
-
+        # Build schema metadata from pre-fetched data to avoid sequential lookups.
         platform_urn = make_data_platform_urn(self.platform)
-
-        # Build schema metadata from pre-fetched data
         schema_metadata = None
         if (
             value_schema is not None
@@ -1142,6 +1158,35 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     key_fields,
                 )
             )
+        yield from self._emit_dataset(
+            topic, is_subject, topic_detail, extra_topic_config, schema_metadata
+        )
+
+    def _extract_record(
+        self,
+        topic: str,
+        is_subject: bool,
+        topic_detail: Optional[TopicMetadata],
+        extra_topic_config: Optional[Dict[str, ConfigEntry]],
+    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+        platform_urn = make_data_platform_urn(self.platform)
+        schema_metadata = self.schema_registry_client.get_schema_metadata(
+            topic, platform_urn, is_subject
+        )
+        yield from self._emit_dataset(
+            topic, is_subject, topic_detail, extra_topic_config, schema_metadata
+        )
+
+    def _emit_dataset(
+        self,
+        topic: str,
+        is_subject: bool,
+        topic_detail: Optional[TopicMetadata],
+        extra_topic_config: Optional[Dict[str, ConfigEntry]],
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+        kafka_entity = "subject" if is_subject else "topic"
+        logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
 
         # topic can have no associated subject, but still it can be ingested without schema
         # for schema ingestion, ingest only if it has valid schema
@@ -1166,7 +1211,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         ]
         extra_aspects.append(BrowsePathsV2Class(path=browse_path_entries))
 
-        # build custom properties for topic, schema properties may be added as needed
         custom_props: Dict[str, str] = {}
         if not is_subject:
             custom_props = self.build_custom_properties(
@@ -1184,7 +1228,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         external_url: Optional[str] = None
         all_tags: List[str] = []
 
-        # Extract metadata from AVRO schema if available
+        # In Kafka both documentSchema and keySchema contain a "doc" field; the
+        # dataset description maps to documentSchema's "doc".
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
@@ -1209,140 +1254,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.warning(
                     message=f"Unable to extract tags from schema field '{self.source_config.schema_tags_field}': {e}. Expected an array of strings.",
                     context=dataset_name,
-                    title="Unable to extract tags from schema field",
-                    exc=e,
-                )
-
-            if self.source_config.enable_meta_mapping:
-                meta_aspects = self.meta_processor.process(avro_schema.other_props)
-
-                meta_owners_aspect = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
-                if meta_owners_aspect:
-                    extra_aspects.append(meta_owners_aspect)
-
-                meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
-                if meta_terms_aspect:
-                    extra_aspects.append(meta_terms_aspect)
-
-                meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
-                if meta_tags_aspect:
-                    all_tags += [
-                        tag_association.tag[len("urn:li:tag:") :]
-                        for tag_association in meta_tags_aspect.tags
-                    ]
-
-        if self.source_config.external_url_base:
-            base_url = self.source_config.external_url_base.rstrip("/")
-            external_url = f"{base_url}/{dataset_name}"
-
-        domain_urn: Optional[str] = None
-        for domain, pattern in self.source_config.domain.items():
-            if pattern.allowed(dataset_name):
-                domain_urn = make_domain_urn(
-                    self.domain_registry.get_domain_urn(domain)
-                )
-
-        subtype = DatasetSubTypes.SCHEMA if is_subject else DatasetSubTypes.TOPIC
-        tag_urns = [make_tag_urn(tag) for tag in all_tags] if all_tags else None
-        yield Dataset(
-            platform=self.platform,
-            name=dataset_name,
-            display_name=dataset_name,
-            platform_instance=self.source_config.platform_instance,
-            env=self.source_config.env,
-            subtype=subtype,
-            description=description,
-            external_url=external_url,
-            custom_properties=custom_props if custom_props else None,
-            tags=tag_urns,
-            domain=domain_urn,
-            extra_aspects=extra_aspects,
-        )
-
-    def _extract_record(
-        self,
-        topic: str,
-        is_subject: bool,
-        topic_detail: Optional[TopicMetadata],
-        extra_topic_config: Optional[Dict[str, ConfigEntry]],
-    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        kafka_entity = "subject" if is_subject else "topic"
-        logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
-
-        platform_urn = make_data_platform_urn(self.platform)
-
-        schema_metadata = self.schema_registry_client.get_schema_metadata(
-            topic, platform_urn, is_subject
-        )
-
-        # topic can have no associated subject, but still it can be ingested without schema
-        # for schema ingestion, ingest only if it has valid schema
-        if is_subject:
-            if schema_metadata is None:
-                return
-            dataset_name = schema_metadata.schemaName
-        else:
-            dataset_name = topic
-
-        extra_aspects: List = [StatusClass(removed=False)]
-
-        if schema_metadata is not None:
-            extra_aspects.append(schema_metadata)
-
-        # Source emits [env, platform]. The auto_browse_path_v2 processor prepends
-        # the platform instance URN when configured, resulting in final path:
-        # [platform_instance_urn, env, platform]
-        browse_path_entries = [
-            BrowsePathEntryClass(id=self.source_config.env.lower()),
-            BrowsePathEntryClass(id=self.platform),
-        ]
-        extra_aspects.append(BrowsePathsV2Class(path=browse_path_entries))
-
-        custom_props: Dict[str, str] = {}
-        if not is_subject:
-            custom_props = self.build_custom_properties(
-                topic, topic_detail, extra_topic_config
-            )
-            schema_name: Optional[str] = (
-                self.schema_registry_client._get_subject_for_topic(
-                    topic, is_key_schema=False
-                )
-            )
-            if schema_name is not None:
-                custom_props["Schema Name"] = schema_name
-
-        description: Optional[str] = None
-        external_url: Optional[str] = None
-        all_tags: List[str] = []
-
-        # Extract metadata from AVRO schema if available
-        if (
-            schema_metadata is not None
-            and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
-            and schema_metadata.platformSchema.documentSchemaType == SCHEMA_TYPE_AVRO
-        ):
-            # Point to note:
-            # In Kafka documentSchema and keySchema both contains "doc" field.
-            # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
-            avro_schema = avro.schema.parse(
-                schema_metadata.platformSchema.documentSchema,
-                validate_names=False,
-            )
-            description = getattr(avro_schema, "doc", None)
-
-            try:
-                schema_tags = cast(
-                    Iterable[str],
-                    avro_schema.other_props.get(
-                        self.source_config.schema_tags_field, []
-                    ),
-                )
-                for tag in schema_tags:
-                    all_tags.append(self.source_config.tag_prefix + tag)
-            except TypeError as e:
-                self.report.warning(
-                    message=f"Unable to extract tags from schema field '{self.source_config.schema_tags_field}': {e}. Expected an array of strings.",
-                    context=topic,
                     title="Unable to extract tags from schema field",
                     exc=e,
                 )

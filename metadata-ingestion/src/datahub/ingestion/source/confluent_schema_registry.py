@@ -21,6 +21,7 @@ from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
+    SchemaAndFields,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
@@ -63,8 +64,19 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             self.known_schema_registry_subjects.extend(
                 self.schema_registry_client.get_subjects()
             )
+        except OSError as e:
+            self.report.schema_registry_connectivity_failures += 1
+            self.report.warning(
+                title="Failed to list schema registry subjects",
+                message="Could not reach the schema registry; every topic may be treated as schemaless.",
+                exc=e,
+            )
         except Exception as e:
-            logger.warning(f"Failed to get subjects from schema registry: {e}")
+            self.report.warning(
+                title="Failed to list schema registry subjects",
+                message="Every topic may be treated as schemaless.",
+                exc=e,
+            )
 
         self.field_meta_processor = OperationProcessor(
             self.source_config.field_meta_mapping,
@@ -296,21 +308,31 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
 
     def get_schema_and_fields_batch(
         self, topics: List[str], is_key_schema: bool = False
-    ) -> Dict[str, Tuple[Optional[Schema], List[SchemaField]]]:
-        """
-        Get schemas and fields for multiple topics in batch.
-        Simple implementation that calls _get_schema_and_fields for each topic.
-        """
-        results = {}
+    ) -> Dict[str, SchemaAndFields]:
+        results: Dict[str, SchemaAndFields] = {}
         for topic in topics:
             try:
                 schema, fields = self._get_schema_and_fields(
                     topic, is_key_schema, is_subject=False
                 )
-                results[topic] = (schema, fields)
+                results[topic] = SchemaAndFields(schema=schema, fields=fields)
+            except OSError as e:
+                self.report.schema_registry_connectivity_failures += 1
+                self.report.warning(
+                    title="Failed to retrieve schema from schema registry",
+                    message="Registry connectivity error; topic will be treated as schemaless.",
+                    context=topic,
+                    exc=e,
+                )
+                results[topic] = SchemaAndFields()
             except Exception as e:
-                logger.warning(f"Failed to get schema for topic {topic}: {e}")
-                results[topic] = (None, [])
+                self.report.warning(
+                    title="Failed to retrieve schema for topic",
+                    message="Topic will be treated as schemaless.",
+                    context=topic,
+                    exc=e,
+                )
+                results[topic] = SchemaAndFields()
         return results
 
     def _load_json_schema_with_resolved_references(
@@ -375,32 +397,25 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                     imported_schemas,
                     is_key_schema=is_key_schema,
                 )
+                # protobuf_schema_to_mce_fields swallows compile failures (e.g. a
+                # duplicate symbol / descriptor-pool conflict from a message type
+                # shared across topics) and returns [] without raising, so surface
+                # the empty result here rather than letting it pass silently.
+                if not fields:
+                    self.report.warning(
+                        title="Protobuf schema produced no fields",
+                        message="The protobuf schema failed to compile or contained no fields; "
+                        "the topic will have no schema fields.",
+                        context=topic,
+                    )
             except Exception as e:
-                error_msg = str(e)
-                if "duplicate symbol" in error_msg.lower():
-                    logger.warning(
-                        f"Protobuf duplicate symbol error for topic {topic}: {error_msg}. "
-                        f"This often occurs with schema evolution or multiple versions of the same message type."
-                    )
-                    # Return empty fields but don't fail completely
-                    fields = []
-                elif "descriptor pool" in error_msg.lower():
-                    logger.warning(
-                        f"Protobuf descriptor pool error for topic {topic}: {error_msg}. "
-                        f"This may indicate conflicting protobuf definitions."
-                    )
-                    # Return empty fields but don't fail completely
-                    fields = []
-                else:
-                    logger.warning(
-                        f"Failed to process protobuf schema for topic {topic}: {e}"
-                    )
-                    self.report.report_warning(
-                        "protobuf_schema_parsing_error",
-                        f"Failed to parse protobuf schema for topic {topic}: {e}",
-                    )
-                    # Always continue processing - don't raise
-                    fields = []
+                self.report.warning(
+                    title="Failed to parse protobuf schema",
+                    message="The topic will have no schema fields.",
+                    context=topic,
+                    exc=e,
+                )
+                fields = []
         elif schema.schema_type == "JSON":
             base_name = topic.replace(".", "_")
             canonical_name = (
@@ -464,18 +479,6 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 fields=key_fields + fields,
             )
         return None
-
-    def build_schema_metadata(
-        self,
-        topic: str,
-        platform_urn: str,
-        schema: Optional[Schema],
-        fields: List[SchemaField],
-    ) -> Optional[SchemaMetadata]:
-        """Build SchemaMetadata from pre-fetched schema and fields data."""
-        return self.build_schema_metadata_with_key(
-            topic, platform_urn, schema, fields, None, []
-        )
 
     def build_schema_metadata_with_key(
         self,

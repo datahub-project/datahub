@@ -20,7 +20,8 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     PROFILER_UNKNOWN_TYPES,
 )
 from datahub.ingestion.source.kafka.kafka_profiler_utils import (
-    NumericStats,
+    AGGREGATION_OVERFLOW_THRESHOLD,
+    VALUE_OVERFLOW_THRESHOLD,
     calculate_numeric_stats,
     filter_numeric_values,
 )
@@ -85,10 +86,10 @@ class KafkaFieldStatistics(BaseModel):
     unique_proportion: float = Field(default=0.0, ge=0.0, le=1.0)
     null_count: int = Field(default=0, ge=0)
     null_proportion: float = Field(default=0.0, ge=0.0, le=1.0)
-    min_value: Optional[FieldValue] = None
-    max_value: Optional[FieldValue] = None
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
     mean_value: Optional[float] = None
-    median_value: Optional[FieldValue] = None
+    median_value: Optional[float] = None
     stdev: Optional[float] = None
     quantiles: List[QuantileClass] = Field(default_factory=list)
     distinct_value_frequencies: Dict[str, int] = Field(default_factory=dict)
@@ -111,24 +112,17 @@ def is_overflow_value(v: FieldValue) -> bool:
     # Guards numeric aggregation against float64 overflow only. NOT a sentinel filter:
     # legitimate values like -1 and INT_MAX must be profiled normally.
     if isinstance(v, (int, float)):
-        return abs(v) > 9.223372036854775e18
+        return abs(v) > VALUE_OVERFLOW_THRESHOLD
     return False
 
 
-def clean_field_path(field_path: str, preserve_types: bool = True) -> str:
-    if preserve_types:
-        return field_path
-
+def clean_field_path(field_path: str) -> str:
+    # Return the innermost field name, ignoring Avro path tokens like
+    # [version=...]/[type=...] and stripping any trailing [key=...] suffix.
     parts = field_path.split(".")
     for part in reversed(parts):
         if part and not (part.startswith("[version=") or part.startswith("[type=")):
-            clean_part = part.split("[key=")[0]
-            return clean_part
-
-    if "." in field_path and not field_path.endswith("]"):
-        last_part = field_path.split(".")[-1]
-        if not last_part.startswith("["):
-            return last_part.split("[key=")[0]
+            return part.split("[key=")[0]
 
     return field_path
 
@@ -288,9 +282,6 @@ class KafkaProfiler:
             logger.error(error_msg)
             raise
 
-    def _calculate_numeric_stats(self, numeric_values: List[float]) -> NumericStats:
-        return calculate_numeric_stats(numeric_values)
-
     def _get_sample_values(
         self, values: List[FieldValue], max_samples: int = 20
     ) -> List[str]:
@@ -318,7 +309,7 @@ class KafkaProfiler:
             numeric_values = [
                 v
                 for v in filter_numeric_values(values, exclude_special=True)
-                if abs(v) < 1e200
+                if abs(v) < AGGREGATION_OVERFLOW_THRESHOLD
             ]
 
             if len(numeric_values) < 2:
@@ -368,9 +359,7 @@ class KafkaProfiler:
                 )
                 if hasattr(key_schema, "fields"):
                     for schema_field in key_schema.fields:
-                        clean_name = clean_field_path(
-                            schema_field.name, preserve_types=False
-                        )
+                        clean_name = clean_field_path(schema_field.name)
                         field_mappings.paths[clean_name] = schema_field.name
                         field_mappings.values[schema_field.name] = []
             except Exception as e:
@@ -378,7 +367,7 @@ class KafkaProfiler:
 
         # Map all schema fields
         for schema_field in schema_metadata.fields or []:
-            clean_name = clean_field_path(schema_field.fieldPath, preserve_types=False)
+            clean_name = clean_field_path(schema_field.fieldPath)
             field_mappings.paths[clean_name] = schema_field.fieldPath
             field_mappings.values[schema_field.fieldPath] = []
 
@@ -401,10 +390,7 @@ class KafkaProfiler:
                 for schema_field in schema_metadata.fields:
                     if (
                         "[key=True]" in schema_field.fieldPath
-                        and clean_field_path(
-                            schema_field.fieldPath, preserve_types=False
-                        )
-                        == base_field_name
+                        and clean_field_path(schema_field.fieldPath) == base_field_name
                     ):
                         return schema_field.fieldPath
 
@@ -436,17 +422,14 @@ class KafkaProfiler:
             return field_name  # No match found, keep as-is
 
         # Try to find matching schema field
-        clean_sample = clean_field_path(field_name, preserve_types=False)
+        clean_sample = clean_field_path(field_name)
         if schema_metadata and schema_metadata.fields:
             for schema_field in schema_metadata.fields:
                 # Skip key fields when looking for regular field matches
                 if "[key=True]" in schema_field.fieldPath:
                     continue
 
-                if (
-                    clean_field_path(schema_field.fieldPath, preserve_types=False)
-                    == clean_sample
-                ):
+                if clean_field_path(schema_field.fieldPath) == clean_sample:
                     return schema_field.fieldPath
 
         return field_paths.get(clean_sample, field_name)
@@ -489,13 +472,6 @@ class KafkaProfiler:
                     )
                     continue
         return field_stats
-
-    def profile_samples(
-        self,
-        samples: List[Dict[str, MessageValue]],
-        schema_metadata: Optional[SchemaMetadataClass] = None,
-    ) -> DatasetProfileClass:
-        return self.generate_dataset_profile(samples, schema_metadata)
 
     def generate_dataset_profile(
         self,
@@ -782,7 +758,7 @@ class KafkaProfiler:
             return
 
         # Calculate basic numeric statistics
-        numeric_stats = self._calculate_numeric_stats(numeric_values)
+        numeric_stats = calculate_numeric_stats(numeric_values)
         stats.min_value = numeric_stats.min
         stats.max_value = numeric_stats.max
         stats.mean_value = numeric_stats.mean

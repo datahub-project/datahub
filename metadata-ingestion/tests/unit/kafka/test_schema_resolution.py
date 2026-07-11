@@ -195,6 +195,42 @@ class TestKafkaSchemaResolver:
         assert result.subject_name == "com.example.User-value"
         assert result.record_name == "com.example.User"
 
+    @patch("datahub.ingestion.source.kafka.schema_resolution.KafkaSchemaInference")
+    def test_topic_record_name_strategy_success(
+        self, mock_inference_class, schema_resolver, mock_schema_registry_client
+    ):
+        mock_inference = MagicMock()
+        mock_inference_class.return_value = mock_inference
+        schema_resolver.schema_inference = mock_inference
+
+        mock_inference._sample_topic_messages.return_value = [
+            b"\x00\x00\x00\x00\x01" + b"dummy_data"
+        ]
+
+        mock_schema = Schema(
+            schema_str='{"type": "record", "name": "Order", "namespace": "com.example"}',
+            schema_type="AVRO",
+        )
+        mock_schema_registry_client.get_by_id.return_value = mock_schema
+        mock_schema_registry_client.get_latest_version.return_value = RegisteredSchema(
+            schema_id="4",
+            guid=None,
+            schema=mock_schema,
+            subject="order-topic-com.example.Order-value",
+            version=1,
+        )
+
+        # The plain RecordNameStrategy subject (`com.example.Order-value`) is not a
+        # known subject, so resolution must fall through to TopicRecordNameStrategy
+        # (`order-topic-com.example.Order-value`), which is known.
+        result = schema_resolver._try_record_name_strategies(
+            "order-topic", is_key_schema=False
+        )
+
+        assert result.schema is not None
+        assert result.resolution_method == "topic_record_name_strategy"
+        assert result.subject_name == "order-topic-com.example.Order-value"
+
     def test_record_name_strategies_no_inference(self, schema_resolver):
         schema_resolver.schema_inference = None
 

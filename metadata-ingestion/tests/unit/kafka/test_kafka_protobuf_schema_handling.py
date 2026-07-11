@@ -76,11 +76,9 @@ class TestProtobufSchemaHandling:
             is_key=False,
         )
 
-        assert result is not None
-        assert not any(
-            "avro_decode_error" in str(warning)
-            for warning in kafka_source.report.warnings
-        )
+        # Protobuf is decoded as opaque text, never run through the Avro decoder.
+        assert result == {"text_value": sample_data.decode("utf-8")}
+        assert kafka_source.report.profiling_avro_decode_failures == 0
 
     def test_avro_schema_still_parsed_correctly(self, kafka_source):
         avro_schema_metadata = SchemaMetadataClass(
@@ -142,11 +140,10 @@ class TestProtobufSchemaHandling:
             is_key=False,
         )
 
+        # JSON is decoded into fields, not run through the Avro decoder.
         assert result is not None
-        assert not any(
-            "avro_decode_error" in str(warning)
-            for warning in kafka_source.report.warnings
-        )
+        assert "id" in result
+        assert kafka_source.report.profiling_avro_decode_failures == 0
 
     def test_key_schema_type_checked_correctly(self, kafka_source):
         protobuf_key_schema_metadata = SchemaMetadataClass(
@@ -173,11 +170,26 @@ class TestProtobufSchemaHandling:
             is_key=True,
         )
 
-        assert result is not None
-        assert not any(
-            "avro_decode_error" in str(warning)
-            for warning in kafka_source.report.warnings
+        # The protobuf *key* must not be run through the Avro decoder either.
+        assert result == {"text_value": sample_key_data.decode("utf-8")}
+        assert kafka_source.report.profiling_avro_decode_failures == 0
+
+    def test_schemaless_bytes_are_returned_raw(self, kafka_source):
+        # Contract: with no schema metadata, _process_message_part passes bytes
+        # through unchanged rather than decoding them. Profiling is gated on schema
+        # presence upstream, so this raw path is not exercised for real profiles.
+        data = b'{"id": 1}'
+
+        result = kafka_source._process_message_part(
+            data=data,
+            prefix="value",
+            topic="test_topic",
+            schema_metadata=None,
+            is_key=False,
         )
+
+        assert result == data
+        assert kafka_source.report.profiling_avro_decode_failures == 0
 
     def test_missing_schema_type_uses_fallback(self, kafka_source):
         schema_metadata_no_type = SchemaMetadataClass(
