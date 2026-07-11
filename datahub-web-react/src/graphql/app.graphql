@@ -127,6 +127,8 @@ query appConfig {
             multipleDataProductsPerAsset
             showTestsInHealthIcon
             i18nEnabled
+            browserTracingEnabled
+            browserWebVitalsEnabled
         }
         chromeExtensionConfig {
             enabled

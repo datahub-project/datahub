@@ -1,4 +1,4 @@
-import { Tooltip, toast } from '@components';
+import { Menu, Tooltip, toast } from '@components';
 import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,9 +11,11 @@ import {
     ENTITY_HEADER_ACTION_ICON_SIZE,
     ENTITY_HEADER_ACTION_ICON_WEIGHT,
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import { canShowEditDeprecation } from '@app/entityV2/shared/EntityDropdown/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
+import { Deprecation } from '@types';
 
 export default function UpdateDeprecationMenuAction() {
     const { t } = useTranslation('entity.shared.entityDropdown');
@@ -21,8 +23,13 @@ export default function UpdateDeprecationMenuAction() {
     const { urn, entityData, entityType } = useEntityData();
     const refetchForEntity = useRefetch();
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
+    const [isDeprecationMenuOpen, setIsDeprecationMenuOpen] = useState(false);
+    const [deprecationModalInitialValues, setDeprecationModalInitialValues] = useState<Deprecation | null>(null);
     const entityRegistry = useEntityRegistry();
     const [updateDeprecation] = useUpdateDeprecationMutation();
+
+    const isDeprecated = !!entityData?.deprecation?.deprecated;
+    const canEditDeprecation = canShowEditDeprecation(entityData?.privileges);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
         toast.loading(tcf('updating'));
@@ -58,32 +65,79 @@ export default function UpdateDeprecationMenuAction() {
         refetchForEntity?.();
     };
 
+    const openDeprecationModal = (initialDeprecation: Deprecation | null) => {
+        setDeprecationModalInitialValues(initialDeprecation);
+        setIsDeprecationModalVisible(true);
+    };
+
+    const deprecationMenuItems = isDeprecated
+        ? [
+              ...(canEditDeprecation
+                  ? [
+                        {
+                            type: 'item' as const,
+                            key: 'edit-deprecation',
+                            title: t('deprecation.editDeprecated'),
+                            onClick: () => openDeprecationModal(entityData?.deprecation ?? null),
+                        },
+                    ]
+                  : []),
+              {
+                  type: 'item' as const,
+                  key: 'un-deprecate',
+                  title: t('deprecation.markUnDeprecated'),
+                  onClick: () => handleUpdateDeprecation(false),
+              },
+          ]
+        : [];
+
+    const getDeprecationTooltip = () => {
+        const entityName = entityRegistry.getEntityName(entityType);
+        if (!isDeprecated) {
+            return t('deprecation.markTooltip', { entityName });
+        }
+        if (canEditDeprecation) {
+            return t('deprecation.editTooltip', { entityName });
+        }
+        return t('deprecation.markUnTooltip', { entityName });
+    };
+
     return (
         <>
             <Tooltip
                 placement="bottom"
-                title={
-                    !entityData?.deprecation?.deprecated
-                        ? t('deprecation.markTooltip', { entityName: entityRegistry.getEntityName(entityType) })
-                        : t('deprecation.markUnTooltip', { entityName: entityRegistry.getEntityName(entityType) })
-                }
+                title={getDeprecationTooltip()}
+                open={isDeprecationMenuOpen ? false : undefined}
             >
-                <ActionMenuItem
-                    key="deprecation"
-                    onClick={() =>
-                        !entityData?.deprecation?.deprecated
-                            ? setIsDeprecationModalVisible(true)
-                            : handleUpdateDeprecation(false)
-                    }
-                    data-testid="entity-menu-deprecate-button"
-                >
-                    <Prohibit size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
-                </ActionMenuItem>
+                {isDeprecated ? (
+                    <Menu
+                        items={deprecationMenuItems}
+                        trigger={['click']}
+                        overlayStyle={{ minWidth: 180 }}
+                        onOpenChange={setIsDeprecationMenuOpen}
+                    >
+                        <ActionMenuItem key="deprecation" data-testid="entity-menu-deprecate-button">
+                            <Prohibit size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+                        </ActionMenuItem>
+                    </Menu>
+                ) : (
+                    <ActionMenuItem
+                        key="deprecation"
+                        onClick={() => openDeprecationModal(null)}
+                        data-testid="entity-menu-deprecate-button"
+                    >
+                        <Prohibit size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+                    </ActionMenuItem>
+                )}
             </Tooltip>
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}
-                    onClose={() => setIsDeprecationModalVisible(false)}
+                    initialDeprecation={deprecationModalInitialValues}
+                    onClose={() => {
+                        setIsDeprecationModalVisible(false);
+                        setDeprecationModalInitialValues(null);
+                    }}
                     refetch={refetchForEntity}
                 />
             )}
