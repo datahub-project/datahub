@@ -177,6 +177,10 @@ def test_kafka_oauth_callback(
     with open(config_file) as fp:
         recipe = yaml.safe_load(fp)
 
+    # The recipe writes to a relative path; point it at tmp_path so the output
+    # lands in pytest's auto-cleaned dir instead of the repo root.
+    recipe["sink"]["config"]["filename"] = str(tmp_path / "kafka_mces.json")
+
     pipeline = Pipeline.create(recipe)
 
     pipeline.run()

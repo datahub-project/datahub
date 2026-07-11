@@ -1,8 +1,6 @@
 .envrc
 .vscode/
 output
-# Ingestion-output leftovers (e.g. from `datahub ingest` to a file sink)
-*_mces.json
 pvenv36/
 /venv*/
 bq_credentials.json

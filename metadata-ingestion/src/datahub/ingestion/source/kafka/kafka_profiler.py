@@ -13,7 +13,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.ingestion.source.kafka.kafka_config import ProfilerConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
+    DEFAULT_HISTOGRAM_BUCKETS,
+    DEFAULT_MAX_FIELDS_TO_PROFILE,
     DEFAULT_NESTED_FIELD_MAX_DEPTH,
+    MAX_DISTINCT_VALUE_FREQUENCIES,
+    MAX_FLATTEN_DICT_KEYS,
+    MAX_FLATTEN_LIST_ITEMS,
+    MAX_SAMPLE_VALUE_STR_LENGTH,
     PROFILER_BOOLEAN_TYPES,
     PROFILER_DATETIME_TYPES,
     PROFILER_NUMERIC_TYPES,
@@ -152,7 +158,7 @@ def flatten_json(
     try:
         if isinstance(nested_json, dict):
             # Limit the number of keys processed to prevent excessive expansion
-            keys = list(nested_json.keys())[:100]  # Limit to first 100 keys
+            keys = list(nested_json.keys())[:MAX_FLATTEN_DICT_KEYS]
             for key in keys:
                 value = nested_json[key]
                 new_key = f"{parent_key}.{key}" if parent_key else key
@@ -169,13 +175,13 @@ def flatten_json(
                 else:
                     # Convert value to string and limit length to prevent memory issues
                     str_value = str(value)
-                    if len(str_value) > 1000:
-                        str_value = str_value[:1000] + "..."
+                    if len(str_value) > MAX_SAMPLE_VALUE_STR_LENGTH:
+                        str_value = str_value[:MAX_SAMPLE_VALUE_STR_LENGTH] + "..."
                     flattened_dict[new_key] = str_value
 
         elif isinstance(nested_json, list):
             # Limit array processing to prevent excessive expansion
-            items = nested_json[:50]  # Limit to first 50 items
+            items = nested_json[:MAX_FLATTEN_LIST_ITEMS]
             for i, item in enumerate(items):
                 new_key = f"{parent_key}[{i}]"
                 if isinstance(item, (dict, list)):
@@ -190,14 +196,14 @@ def flatten_json(
                 else:
                     # Convert value to string and limit length
                     str_value = str(item)
-                    if len(str_value) > 1000:
-                        str_value = str_value[:1000] + "..."
+                    if len(str_value) > MAX_SAMPLE_VALUE_STR_LENGTH:
+                        str_value = str_value[:MAX_SAMPLE_VALUE_STR_LENGTH] + "..."
                     flattened_dict[new_key] = str_value
         else:
             # Convert value to string and limit length
             str_value = str(nested_json)
-            if len(str_value) > 1000:
-                str_value = str_value[:1000] + "..."
+            if len(str_value) > MAX_SAMPLE_VALUE_STR_LENGTH:
+                str_value = str_value[:MAX_SAMPLE_VALUE_STR_LENGTH] + "..."
             flattened_dict[parent_key] = str_value
 
     finally:
@@ -278,7 +284,7 @@ class KafkaProfiler:
             raise
 
     def _get_sample_values(
-        self, values: List[FieldValue], max_samples: int = 20
+        self, values: List[FieldValue], max_samples: int
     ) -> List[str]:
         if not values:
             return []
@@ -287,13 +293,13 @@ class KafkaProfiler:
             sample_size = min(max_samples, len(values))
             indices = sorted(random.sample(range(len(values)), sample_size))
             # Cap each rendered value so a huge payload can't bloat the profile.
-            return [str(values[i])[:1000] for i in indices]
+            return [str(values[i])[:MAX_SAMPLE_VALUE_STR_LENGTH] for i in indices]
         except Exception as e:
             logger.debug(f"Failed to build sample values: {e}")
             return []
 
     def _create_histogram(
-        self, values: List[NumericValue], max_buckets: int = 10
+        self, values: List[NumericValue], max_buckets: int = DEFAULT_HISTOGRAM_BUCKETS
     ) -> Optional[HistogramClass]:
         try:
             if not values or len(values) < 2:
@@ -651,7 +657,10 @@ class KafkaProfiler:
         if not self._expensive_profiling_disabled:
             return False
 
-        max_fields = self.profiler_config.max_number_of_fields_to_profile or 10
+        max_fields = (
+            self.profiler_config.max_number_of_fields_to_profile
+            or DEFAULT_MAX_FIELDS_TO_PROFILE
+        )
         self._processed_field_count += 1
         return self._processed_field_count > max_fields
 
@@ -682,9 +691,7 @@ class KafkaProfiler:
                     if not (isinstance(v, float) and math.isnan(v))
                     and not is_overflow_value(v)
                 ],
-                max_samples=getattr(
-                    self.profiler_config, "field_sample_values_limit", 20
-                ),
+                max_samples=self.profiler_config.field_sample_values_limit,
             )
             if self.profiler_config.include_field_sample_values
             and not self._expensive_profiling_disabled
@@ -875,7 +882,7 @@ class KafkaProfiler:
                         stats.distinct_value_frequencies.items(),
                         key=lambda x: x[1],
                         reverse=True,
-                    )[:10]
+                    )[:MAX_DISTINCT_VALUE_FREQUENCIES]
                 ]
                 if self.profiler_config.include_field_distinct_value_frequencies
                 and stats.distinct_value_frequencies

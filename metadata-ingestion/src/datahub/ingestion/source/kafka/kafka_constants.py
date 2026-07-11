@@ -15,6 +15,18 @@ DEFAULT_MAX_MESSAGES_PER_TOPIC = 10
 CONFLUENT_MAGIC_BYTE = 0
 CONFLUENT_WIRE_HEADER_LENGTH = 5
 
+# Profiling caps that keep a single message from bloating the profile or blowing up
+# memory. MAX_SAMPLE_VALUE_STR_LENGTH bounds each rendered value string; the flatten
+# caps bound how much of a nested payload we expand.
+MAX_SAMPLE_VALUE_STR_LENGTH = 1000
+MAX_FLATTEN_DICT_KEYS = 100
+MAX_FLATTEN_LIST_ITEMS = 50
+DEFAULT_HISTOGRAM_BUCKETS = 10
+MAX_DISTINCT_VALUE_FREQUENCIES = 10
+# Fallback cap on profiled fields when max_number_of_fields_to_profile is unset and
+# expensive profiling is disabled.
+DEFAULT_MAX_FIELDS_TO_PROFILE = 10
+
 # Schema types
 SCHEMA_TYPE_AVRO = "AVRO"
 SCHEMA_TYPE_PROTOBUF = "PROTOBUF"
