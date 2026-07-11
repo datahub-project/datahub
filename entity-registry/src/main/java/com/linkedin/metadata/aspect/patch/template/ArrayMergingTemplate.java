@@ -13,8 +13,12 @@ import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import java.util.Collections;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template<T> {
+
+  Logger log = LoggerFactory.getLogger(ArrayMergingTemplate.class);
 
   static final String UNIT_SEPARATOR_DELIMITER = "␟";
 
@@ -159,27 +163,39 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
     return mergingArray;
   }
 
-  // Best-effort resolution of the array element record schema; null when it can't be resolved.
+  // Best-effort resolution of the array element record schema. Returns null when it can't be
+  // resolved, in which case keys are not re-injected (see reinjectKey); the debug logs make a
+  // silent regression of that path traceable, as it is not expected for real aspects.
   default RecordDataSchema resolveArrayItemSchema(String arrayFieldName) {
     try {
       DataSchema aspectSchema = DataTemplateUtil.getSchema(getTemplateType());
-      if (!(aspectSchema instanceof RecordDataSchema)) {
-        return null;
-      }
-      RecordDataSchema.Field field = ((RecordDataSchema) aspectSchema).getField(arrayFieldName);
-      if (field == null) {
-        return null;
-      }
-      DataSchema fieldSchema = field.getType().getDereferencedDataSchema();
+      DataSchema fieldSchema =
+          aspectSchema instanceof RecordDataSchema
+              ? fieldSchemaOf((RecordDataSchema) aspectSchema, arrayFieldName)
+              : null;
       if (!(fieldSchema instanceof ArrayDataSchema)) {
+        log.debug(
+            "Could not resolve keyed-array field {} on aspect {}; skipping key re-injection",
+            arrayFieldName,
+            getTemplateType());
         return null;
       }
       DataSchema itemSchema =
           ((ArrayDataSchema) fieldSchema).getItems().getDereferencedDataSchema();
       return itemSchema instanceof RecordDataSchema ? (RecordDataSchema) itemSchema : null;
     } catch (RuntimeException e) {
+      log.debug(
+          "Failed to resolve schema for field {} on aspect {}; skipping key re-injection",
+          arrayFieldName,
+          getTemplateType(),
+          e);
       return null;
     }
+  }
+
+  private static DataSchema fieldSchemaOf(RecordDataSchema recordSchema, String fieldName) {
+    RecordDataSchema.Field field = recordSchema.getField(fieldName);
+    return field == null ? null : field.getType().getDereferencedDataSchema();
   }
 
   // Restores a key field that only lived in the patch path (e.g. a deep-path add) and would
