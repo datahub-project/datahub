@@ -1,18 +1,17 @@
-from typing import Dict, List, Optional, Union
+from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ExtractedPartitionInfo(BaseModel):
-    # Partition columns/values recovered from a BigQuery partition-filter error message.
+    # Partition columns recovered from a BigQuery partition-filter error message.
     # Distinct from bigquery_schema.PartitionInfo (the structural definition from metadata).
 
-    # Callers build this empty and populate fields afterwards, so validators must also
-    # run on assignment (not just construction) to actually check the parsed values.
+    # Callers build this empty and populate required_columns afterwards, so the validator
+    # must also run on assignment (not just construction) to actually check parsed values.
     model_config = ConfigDict(validate_assignment=True)
 
     required_columns: List[str] = Field(default_factory=list)
-    partition_values: Dict[str, Union[str, int]] = Field(default_factory=dict)
 
     @field_validator("required_columns")
     @classmethod
@@ -22,18 +21,3 @@ class ExtractedPartitionInfo(BaseModel):
                 if not col or not isinstance(col, str):
                     raise ValueError(f"Invalid column name: {col}")
         return v
-
-
-class PartitionResult(BaseModel):
-    partition_values: Dict[str, Union[str, int, float]] = Field(default_factory=dict)
-    row_count: Optional[int] = Field(default=None)
-
-    @field_validator("row_count")
-    @classmethod
-    def validate_row_count(cls, v: Optional[int]) -> Optional[int]:
-        if v is not None and v < 0:
-            raise ValueError(f"row_count must be non-negative, got: {v}")
-        return v
-
-    class Config:
-        frozen = False

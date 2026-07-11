@@ -142,6 +142,8 @@ class PartitionInfo:
     def __post_init__(self) -> None:
         if not self.fields:
             raise ValueError("PartitionInfo must have at least one field")
+        if any(not f or not f.strip() for f in self.fields):
+            raise ValueError("PartitionInfo fields must not contain blank names")
         if self.columns is not None and len(self.fields) != len(self.columns):
             raise ValueError(
                 f"fields/columns length mismatch: {len(self.fields)} fields vs {len(self.columns)} columns"

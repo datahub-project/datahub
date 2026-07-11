@@ -209,11 +209,6 @@ PARTITION_FILTER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# Pattern to extract partition values from path-like error messages
-# Example: "feed=pp_tse/year=2025/month=09/day=16" → [('feed', 'pp_tse'), ('year', '2025'), ...]
-PARTITION_PATH_PATTERN = re.compile(r"([a-zA-Z_]+)=([^/\s]+)")
-
-
 # ============================================================================
 # Date Format Constants
 # ============================================================================
@@ -252,9 +247,6 @@ DATE_FORMAT_PATTERNS = {
 # Maximum number of partition values to fetch in a single query
 MAX_PARTITION_VALUES = 1000
 
-# Default number of strategic candidate dates to check (today, yesterday)
-DEFAULT_STRATEGIC_DATE_COUNT = 2
-
 # Query sampling constants for partition discovery
 SAMPLING_PERCENT = 0.001  # 0.1% sample rate for large tables
 SAMPLING_LIMIT_ROWS = 5  # Maximum rows to return when sampling
@@ -267,10 +259,6 @@ BQ_SAFETY_ROW_LIMIT = 100_000
 BQ_SAFETY_ROW_LIMIT_THRESHOLD = 1_000_000
 
 # Default limits for partition discovery operations
-DEFAULT_POPULATED_PARTITIONS_LIMIT = (
-    5  # Max partitions from get_most_populated_partitions
-)
-DEFAULT_INFO_SCHEMA_PARTITIONS_LIMIT = 100  # Max partitions from INFORMATION_SCHEMA
 DEFAULT_PARTITION_STATS_LIMIT = 10  # Max results for partition statistics queries
 DEFAULT_MAX_PARTITION_VALUES = 3  # Max distinct values to discover per partition column
 

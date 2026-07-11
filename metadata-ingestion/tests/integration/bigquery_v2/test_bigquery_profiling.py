@@ -67,8 +67,6 @@ def test_profiling_modules_integration():
     assert len(dates) == 2
     assert dates[0][0] >= dates[1][0]
 
-    assert profiler.query_executor.get_effective_timeout() > 0
-
     assert validate_bigquery_identifier("test_table") == "`test_table`"
     filters = ["`date` = '2023-01-01'", "`id` > 100"]
     assert validate_and_filter_expressions(filters) == filters
@@ -148,27 +146,6 @@ def test_partition_discovery_strategic_dates():
     descriptions = [d for _, d in dates]
     assert any("today" in d.lower() for d in descriptions)
     assert any("yesterday" in d.lower() for d in descriptions)
-
-
-def test_query_executor_sql_building():
-    executor = QueryExecutor(make_config())
-
-    assert (
-        executor.build_safe_custom_sql("test-project-123", "dataset", "table")
-        == "SELECT * FROM `test-project-123`.`dataset`.`table`"
-    )
-    assert (
-        executor.build_safe_custom_sql(
-            "test-project-123", "dataset", "table", where_clause="`date` = '2023-01-01'"
-        )
-        == "SELECT * FROM `test-project-123`.`dataset`.`table` WHERE `date` = '2023-01-01'"
-    )
-    assert (
-        executor.build_safe_custom_sql(
-            "test-project-123", "dataset", "table", limit=1000
-        )
-        == "SELECT * FROM `test-project-123`.`dataset`.`table` LIMIT 1000"
-    )
 
 
 def test_partition_filters_from_max_partition_id():

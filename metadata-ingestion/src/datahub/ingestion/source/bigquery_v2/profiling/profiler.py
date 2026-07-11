@@ -3,6 +3,7 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union, cast
 
+from google.api_core.exceptions import GoogleAPICallError
 from sqlalchemy import create_engine, inspect
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -341,8 +342,15 @@ class BigqueryProfiler(GenericProfiler):
                     f"Applied partition filters for {table_ref}: {partition_where}"
                 )
             else:
-                logger.info(
-                    f"Partition filters were rejected during validation for {table_ref}, proceeding without filters"
+                # Discovery produced filters but all failed validation, so partition_where
+                # stays empty and the table is profiled unfiltered (a full scan, or an
+                # error if it has require_partition_filter=true). Surface it, don't just log.
+                self.report.warning(
+                    title="Partition filters rejected during profiling",
+                    message="Discovered partition filters failed validation; profiling "
+                    "will proceed without a partition filter (full scan), or fail if the "
+                    "table requires a partition filter.",
+                    context=table_ref,
                 )
 
         safe_table_ref = f"{safe_project}.{safe_schema}.{safe_table}"
@@ -612,8 +620,14 @@ class BigqueryProfiler(GenericProfiler):
                 )
 
                 if partition_filters is None:
-                    logger.warning(
-                        f"Could not construct partition filters for external table {table_ref} - skipping profiling"
+                    # Mirror the internal path (get_profile_request) which reports skips
+                    # via the report: an external table that requires a filter we can't
+                    # build is dropped from output, and operators need to see why.
+                    self.report.warning(
+                        title="External table skipped during profiling",
+                        message="Could not construct required partition filters for this "
+                        "external table; profiling was skipped to avoid a full scan.",
+                        context=table_ref,
                     )
                     return None
 
@@ -650,9 +664,21 @@ class BigqueryProfiler(GenericProfiler):
 
                 return request
 
-            except Exception as e:
-                logger.error(
-                    f"Error processing partition discovery for external table {request.pretty_name}: {e}"
+            except (
+                ValueError,
+                AttributeError,
+                KeyError,
+                GoogleAPICallError,
+            ) as e:
+                # Same reporting as the internal path. Catch only the failures partition
+                # discovery / validation realistically raises (bad identifiers, missing
+                # request plumbing, BigQuery API/IAM/quota errors) — an unexpected error
+                # should surface loudly rather than silently drop the table.
+                self.report.warning(
+                    title="External table skipped during profiling",
+                    message="Partition discovery failed for this external table; "
+                    "profiling was skipped.",
+                    context=f"{request.pretty_name}: {e}",
                 )
                 return None
 

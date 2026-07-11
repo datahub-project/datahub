@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional
 
 from google.cloud.bigquery import QueryJobConfig, Row, ScalarQueryParameter
 
@@ -11,16 +11,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_UNPARTITIONED_PARTITION_ID,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
-    DEFAULT_INFO_SCHEMA_PARTITIONS_LIMIT,
-    PARTITION_ID_YYYYMMDD_LENGTH,
-    PARTITION_ID_YYYYMMDDHH_LENGTH,
     PARTITIONING_COLUMN_FLAG,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
     FilterBuilder,
-)
-from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
-    PartitionResult,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.reporting import warn
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
@@ -136,103 +130,6 @@ AND ({column_filter_clause})"""
             )
             return {}
 
-    def get_partition_info_from_information_schema(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        partition_columns: List[str],
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        max_results: int = DEFAULT_INFO_SCHEMA_PARTITIONS_LIMIT,
-    ) -> PartitionResult:
-        if not partition_columns:
-            return PartitionResult(partition_values={}, row_count=None)
-
-        try:
-            safe_max_results = max(1, min(int(max_results), 1000))
-
-            safe_info_schema_ref = build_safe_table_reference(
-                project, schema, "INFORMATION_SCHEMA.PARTITIONS"
-            )
-
-            query = f"""SELECT partition_id, total_rows
-FROM {safe_info_schema_ref}
-WHERE table_name = @table_name 
-AND partition_id NOT IN ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}')
-AND total_rows > 0
-ORDER BY total_rows DESC
-LIMIT @max_results"""
-
-            job_config = QueryJobConfig(
-                query_parameters=[
-                    ScalarQueryParameter("table_name", "STRING", table.name),
-                    ScalarQueryParameter("max_results", "INT64", safe_max_results),
-                ]
-            )
-
-            partition_info_results = execute_query_func(
-                query, job_config, "partition info from information schema"
-            )
-
-            if not partition_info_results:
-                logger.warning(
-                    f"No partitions found in INFORMATION_SCHEMA for table {table.name}"
-                )
-                return PartitionResult(partition_values={}, row_count=None)
-
-            best_partition = partition_info_results[0]
-            partition_id = best_partition.partition_id
-
-            logger.debug(
-                f"Found best partition {partition_id} with {best_partition.total_rows} rows"
-            )
-
-            partition_values: Dict[str, Union[str, int, float]] = {}
-            row_count = (
-                best_partition.total_rows
-                if hasattr(best_partition, "total_rows")
-                else None
-            )
-
-            if "$" in partition_id:
-                parts = partition_id.split("$")
-                for part in parts:
-                    if "=" in part:
-                        col, val = part.split("=", 1)
-                        if col in partition_columns:
-                            if val.isdigit():
-                                partition_values[col] = int(val)
-                            else:
-                                partition_values[col] = val
-            else:
-                if len(partition_columns) == 1:
-                    col_name = partition_columns[0]
-                    partition_values[col_name] = partition_id
-                else:
-                    self._parse_single_partition_id_for_multiple_columns(
-                        partition_id, partition_columns, partition_values
-                    )
-
-            if partition_values:
-                logger.info(
-                    f"Obtained partition values from INFORMATION_SCHEMA for {table.name}: {dict(partition_values)}"
-                )
-
-            return PartitionResult(
-                partition_values=partition_values, row_count=row_count
-            )
-
-        except Exception as e:
-            warn(
-                self.report,
-                logger,
-                title="Partition info discovery failed",
-                message="Failed to read partition info from INFORMATION_SCHEMA.PARTITIONS; "
-                "no partition filter could be derived for this table",
-                context=f"{table.name}: {e}",
-            )
-            return PartitionResult(partition_values={}, row_count=None)
-
     def get_partition_filters_from_information_schema(
         self,
         table: BigqueryTable,
@@ -330,42 +227,3 @@ LIMIT @max_results"""
                 context=f"{table.name}: {e}",
             )
             return None
-
-    @staticmethod
-    def _parse_single_partition_id_for_multiple_columns(
-        partition_id: str,
-        partition_columns: List[str],
-        result_values: Dict[str, Union[str, int, float]],
-    ) -> None:
-        # Split a YYYYMMDD/YYYYMMDDHH partition_id into year/month/day/hour column values.
-        if partition_id.isdigit():
-            if len(partition_id) == PARTITION_ID_YYYYMMDD_LENGTH:
-                year = partition_id[:4]
-                month = partition_id[4:6]
-                day = partition_id[6:8]
-
-                for col in partition_columns:
-                    col_lower = col.lower()
-                    if col_lower in ["year", "yr"]:
-                        result_values[col] = year
-                    elif col_lower in ["month", "mo"]:
-                        result_values[col] = month
-                    elif col_lower in ["day", "dy"]:
-                        result_values[col] = day
-
-            elif len(partition_id) == PARTITION_ID_YYYYMMDDHH_LENGTH:
-                year = partition_id[:4]
-                month = partition_id[4:6]
-                day = partition_id[6:8]
-                hour = partition_id[8:10]
-
-                for col in partition_columns:
-                    col_lower = col.lower()
-                    if col_lower in ["year", "yr"]:
-                        result_values[col] = year
-                    elif col_lower in ["month", "mo"]:
-                        result_values[col] = month
-                    elif col_lower in ["day", "dy"]:
-                        result_values[col] = day
-                    elif col_lower in ["hour", "hr"]:
-                        result_values[col] = hour

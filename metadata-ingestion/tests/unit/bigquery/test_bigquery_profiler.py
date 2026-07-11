@@ -240,57 +240,6 @@ def test_query_executor_initialization():
     assert executor.config == config
 
 
-def test_query_executor_get_effective_timeout():
-    config = create_test_config()
-    executor = QueryExecutor(config)
-    timeout = executor.get_effective_timeout()
-    assert timeout > 0
-
-    config_dict = {
-        "project_id": "test-project-123456",
-        "profiling": {"partition_fetch_timeout": 300},
-    }
-    config_with_timeout = BigQueryV2Config.parse_obj(config_dict)
-    executor_with_timeout = QueryExecutor(config_with_timeout)
-    timeout = executor_with_timeout.get_effective_timeout()
-    assert timeout == 300
-
-
-def test_query_executor_build_safe_custom_sql():
-    config = create_test_config()
-    executor = QueryExecutor(config)
-
-    sql = executor.build_safe_custom_sql("test-project-123", "dataset", "table")
-    expected = "SELECT * FROM `test-project-123`.`dataset`.`table`"
-    assert sql == expected
-
-    sql_with_where = executor.build_safe_custom_sql(
-        "test-project-123", "dataset", "table", where_clause="`date` = '2023-01-01'"
-    )
-    expected_with_where = (
-        "SELECT * FROM `test-project-123`.`dataset`.`table` WHERE `date` = '2023-01-01'"
-    )
-    assert sql_with_where == expected_with_where
-
-    sql_with_limit = executor.build_safe_custom_sql(
-        "test-project-123", "dataset", "table", limit=1000
-    )
-    expected_with_limit = (
-        "SELECT * FROM `test-project-123`.`dataset`.`table` LIMIT 1000"
-    )
-    assert sql_with_limit == expected_with_limit
-
-    sql_complete = executor.build_safe_custom_sql(
-        "test-project-123",
-        "dataset",
-        "table",
-        where_clause="`status` = 'active'",
-        limit=500,
-    )
-    expected_complete = "SELECT * FROM `test-project-123`.`dataset`.`table` WHERE `status` = 'active' LIMIT 500"
-    assert sql_complete == expected_complete
-
-
 def test_partition_discovery_initialization():
     config = create_test_config()
     discovery = PartitionDiscovery(config)
@@ -688,17 +637,6 @@ def test_full_profiling_workflow():
     validated = validate_and_filter_expressions(valid_filters)
     assert validated == valid_filters
 
-    executor = profiler.query_executor
-    query = executor.build_safe_custom_sql(
-        "test-project-123456",
-        "dataset",
-        "table",
-        where_clause=" AND ".join(validated),
-        limit=1000,
-    )
-    expected = "SELECT * FROM `test-project-123456`.`dataset`.`table` WHERE `date` = '2023-01-01' AND `id` > 100 LIMIT 1000"
-    assert query == expected
-
     discovery = profiler.partition_discovery
     strategic_dates = discovery._get_strategic_candidate_dates()
     assert len(strategic_dates) == 2
@@ -752,33 +690,6 @@ def test_partition_discovery_get_partition_columns_from_ddl():
     )
 
     assert isinstance(result, dict)
-
-
-def test_partition_discovery_get_most_populated_partitions():
-    config = create_test_config()
-    discovery = PartitionDiscovery(config)
-    table = create_test_table(partitioned=True)
-
-    def mock_execute_query(query, config, context):
-        if "GROUP BY" in query and "ORDER BY" in query:
-            return [
-                SimpleNamespace(event_date=date(2023, 12, 25), record_count=1000),
-                SimpleNamespace(event_date=date(2023, 12, 24), record_count=800),
-                SimpleNamespace(event_date=date(2023, 12, 23), record_count=600),
-            ]
-        return []
-
-    result = discovery.get_most_populated_partitions(
-        table, "test-project", "test_dataset", ["event_date"], mock_execute_query
-    )
-
-    from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
-        PartitionResult,
-    )
-
-    assert isinstance(result, PartitionResult)
-    assert hasattr(result, "partition_values")
-    assert hasattr(result, "row_count")
 
 
 def test_partition_discovery_get_required_partition_filters():
@@ -943,24 +854,118 @@ def test_profiler_get_workunits():
         mock_generate.assert_called_once()
 
 
-def test_profiler_generate_profile_workunits_with_deferred_partitions():
-    """Calling with an empty list should immediately yield nothing."""
+def _build_deferred_external_request(profiler):
+    external_table = create_test_table(
+        name="ext_events", partitioned=True, external=True
+    )
+    with patch.object(
+        PartitionDiscovery,
+        "get_required_partition_filters",
+        return_value=["`event_date` = '2023-01-01'"],
+    ):
+        request = profiler.get_profile_request(
+            external_table, "test_dataset", "test-project"
+        )
+    assert request is not None
+    assert getattr(request, "needs_partition_discovery", False)
+    return request
+
+
+def test_deferred_external_discovery_failure_is_reported():
+    # BLOCKER regression: when deferred external-table partition discovery returns
+    # None the request must be dropped AND a report warning surfaced (previously it
+    # was only logged, so failures silently disappeared from output).
     config = create_test_config()
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
 
-    assert hasattr(profiler, "generate_profile_workunits_with_deferred_partitions")
-    method = profiler.generate_profile_workunits_with_deferred_partitions
-    assert callable(method)
+    request = _build_deferred_external_request(profiler)
 
-    result = list(
-        profiler.generate_profile_workunits_with_deferred_partitions(
-            [], max_workers=1, platform="bigquery", profiler_args={}
+    with (
+        patch.object(
+            PartitionDiscovery, "get_required_partition_filters", return_value=None
+        ),
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            return_value=[],
+        ) as mock_super,
+    ):
+        result = list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [request], max_workers=1, platform="bigquery", profiler_args={}
+            )
         )
-    )
 
-    assert isinstance(result, list)
-    assert len(result) == 0
+    assert result == []
+    assert len(report.warnings) >= 1
+    mock_super.assert_not_called()
+
+
+def test_deferred_external_discovery_exception_is_reported():
+    # Companion to the None case: a discovery exception must also route through the
+    # report and drop the request rather than crash the thread pool silently.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    request = _build_deferred_external_request(profiler)
+
+    with (
+        patch.object(
+            PartitionDiscovery,
+            "get_required_partition_filters",
+            side_effect=ValueError("boom"),
+        ),
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            return_value=[],
+        ) as mock_super,
+    ):
+        result = list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [request], max_workers=1, platform="bigquery", profiler_args={}
+            )
+        )
+
+    assert result == []
+    assert len(report.warnings) >= 1
+    mock_super.assert_not_called()
+
+
+def test_deferred_external_discovery_success_builds_custom_sql():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    request = _build_deferred_external_request(profiler)
+
+    captured = {}
+
+    def fake_super(processed_requests, **kwargs):
+        captured["requests"] = list(processed_requests)
+        return []
+
+    with (
+        patch.object(
+            PartitionDiscovery,
+            "get_required_partition_filters",
+            return_value=["`event_date` = '2023-01-01'"],
+        ),
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            side_effect=fake_super,
+        ),
+    ):
+        list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [request], max_workers=1, platform="bigquery", profiler_args={}
+            )
+        )
+
+    assert len(captured.get("requests", [])) == 1
+    retained = captured["requests"][0]
+    assert retained.batch_kwargs.get("custom_sql")
+    assert "event_date" in retained.batch_kwargs["custom_sql"]
 
 
 def test_profiler_external_table_integration():
@@ -1405,7 +1410,6 @@ def test_external_vs_internal_table_consistency():
     internal_filter_str = " ".join(internal_filters)
 
     assert "2024-10-15" in external_filter_str or "20241015" in external_filter_str
-    assert "2024-10-15" in external_filter_str or "20241015" in external_filter_str
     assert "2024-10-15" in internal_filter_str or "20241015" in internal_filter_str
 
 
@@ -1448,6 +1452,43 @@ def test_security_validate_sql_structure_comprehensive():
 
     for valid_sql in complex_valid:
         validate_sql_structure(valid_sql)
+
+
+def test_security_validate_sql_structure_cte():
+    # The partition-stats probes are WITH ... SELECT CTEs, so the WITH allow-pattern
+    # must accept them while still rejecting dangerous statements hidden after the CTE.
+    valid_cte = (
+        "WITH PartitionStats AS ("
+        "SELECT `event_date` as val, COUNT(*) as record_count "
+        "FROM `project.dataset.table` WHERE `event_date` IS NOT NULL "
+        "GROUP BY `event_date` HAVING record_count > 0 ORDER BY val DESC LIMIT 1) "
+        "SELECT val, record_count FROM PartitionStats"
+    )
+    assert validate_sql_structure(valid_cte) is True
+
+    with pytest.raises(ValueError, match="Query contains dangerous pattern"):
+        validate_sql_structure(
+            "WITH x AS (SELECT 1) SELECT 1; DROP TABLE `project.dataset.table`"
+        )
+
+
+def test_get_profile_request_value_error_skips_and_warns():
+    # get_batch_kwargs raises ValueError when a partitioned table requires a filter that
+    # can't be built (or fails identifier validation); get_profile_request must catch it,
+    # skip the table, and record a report warning rather than propagate.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+    table = create_test_table(partitioned=True)
+
+    with patch(
+        "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.get_profile_request",
+        side_effect=ValueError("Could not construct required partition filters"),
+    ):
+        result = profiler.get_profile_request(table, "test_dataset", "test-project")
+
+    assert result is None
+    assert len(report.warnings) >= 1
 
 
 def test_hierarchical_year_month_day_components():
@@ -2410,11 +2451,21 @@ def test_find_real_partition_values_type_propagation(
         )
 
         mock_get_types.assert_called_once_with(
-            table, project, schema, required_columns, mock_execute
+            table,
+            project,
+            schema,
+            required_columns,
+            mock_execute,
+            cached_metadata=None,
         )
 
         mock_get_partition_info.assert_called_once_with(
-            table, project, schema, required_columns, mock_execute
+            table,
+            project,
+            schema,
+            required_columns,
+            mock_execute,
+            cached_metadata=None,
         )
 
         assert result is not None, "Expected filters but got None"

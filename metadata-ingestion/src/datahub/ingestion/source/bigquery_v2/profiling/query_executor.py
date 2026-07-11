@@ -93,31 +93,3 @@ class QueryExecutor:
             return self.execute_query_with_config(query, job_config, context)
         else:
             return self.execute_query(query, context)
-
-    def build_safe_custom_sql(
-        self,
-        project: str,
-        schema: str,
-        table: str,
-        where_clause: str = "",
-        limit: Optional[int] = None,
-    ) -> str:
-        from datahub.ingestion.source.bigquery_v2.profiling.security import (
-            build_safe_table_reference,
-        )
-
-        safe_table_ref = build_safe_table_reference(project, schema, table)
-
-        query_parts = ["SELECT *", f"FROM {safe_table_ref}"]
-
-        if where_clause:
-            query_parts.append(f"WHERE {where_clause}")
-
-        if limit is not None and limit > 0:
-            safe_limit = max(1, min(int(limit), 10_000_000))
-            query_parts.append(f"LIMIT {safe_limit}")
-
-        return " ".join(query_parts)
-
-    def get_effective_timeout(self) -> int:
-        return self.config.profiling.partition_fetch_timeout
