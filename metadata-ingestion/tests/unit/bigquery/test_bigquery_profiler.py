@@ -12,6 +12,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.profiling import queries
+from datahub.ingestion.source.bigquery_v2.profiling.constants import CUSTOM_SQL_KWARG
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
 )
@@ -674,22 +676,20 @@ def test_partition_discovery_get_partition_columns_from_info_schema():
 def test_partition_discovery_get_partition_columns_from_ddl():
     config = create_test_config()
     discovery = PartitionDiscovery(config)
-    table = create_test_table()
+    table = create_test_table(
+        ddl="CREATE TABLE test_table (id INT64, event_date DATE) PARTITION BY DATE(event_date)"
+    )
 
     def mock_execute_query(query, config, context):
-        if "INFORMATION_SCHEMA.TABLES" in query:
-            return [
-                SimpleNamespace(
-                    ddl="CREATE TABLE test_table (id INT64, event_date DATE) PARTITION BY DATE(event_date)"
-                )
-            ]
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="event_date", data_type="DATE")]
         return []
 
     result = discovery.get_partition_columns_from_ddl(
         table, "test-project", "test_dataset", mock_execute_query
     )
 
-    assert isinstance(result, dict)
+    assert result == {"event_date": "DATE"}
 
 
 def test_partition_discovery_get_required_partition_filters():
@@ -709,7 +709,7 @@ def test_partition_discovery_get_required_partition_filters():
     )
 
     assert result is not None
-    assert isinstance(result, list)
+    assert any("date_partition" in f for f in result)
 
 
 def test_partition_discovery_log_partition_attempt():
@@ -745,12 +745,12 @@ def test_partition_discovery_get_partition_filters_from_information_schema():
     def mock_execute_query(query, config, context):
         if "INFORMATION_SCHEMA.PARTITIONS" in query:
             return [
-                SimpleNamespace(partition_id="20231225"),
-                SimpleNamespace(partition_id="20231224"),
-                SimpleNamespace(partition_id="20231223"),
+                SimpleNamespace(
+                    partition_id="20231225", last_modified_time=None, total_rows=1000
+                ),
             ]
-        elif "COUNT(*)" in query:
-            return [SimpleNamespace(cnt=1000)]
+        elif "exists_check" in query:
+            return [SimpleNamespace(exists_check=1)]
         return []
 
     result = discovery._get_partition_filters_from_information_schema(
@@ -762,7 +762,8 @@ def test_partition_discovery_get_partition_filters_from_information_schema():
         {"_PARTITIONDATE": "DATE"},
     )
 
-    assert result is None or isinstance(result, list)
+    assert result is not None
+    assert "`_PARTITIONDATE` = '2023-12-25'" in result
 
 
 def test_partition_discovery_verify_partition_has_data():
@@ -793,11 +794,10 @@ def test_partition_discovery_enhance_partition_filters_with_actual_values():
     table = create_test_table(external=True)
 
     def mock_execute_query(query, config, context):
-        if "DISTINCT" in query:
-            return [
-                SimpleNamespace(region="US", category="retail"),
-                SimpleNamespace(region="EU", category="wholesale"),
-            ]
+        if "region" in query:
+            return [SimpleNamespace(col_value="US", row_count=100)]
+        if "category" in query:
+            return [SimpleNamespace(col_value="retail", row_count=50)]
         return []
 
     base_filters = ["`event_date` = '2023-12-25'"]
@@ -812,7 +812,10 @@ def test_partition_discovery_enhance_partition_filters_with_actual_values():
         mock_execute_query,
     )
 
-    assert isinstance(result, list)
+    assert result is not None
+    assert "`event_date` = '2023-12-25'" in result
+    assert any("region" in f and "US" in f for f in result)
+    assert any("category" in f and "retail" in f for f in result)
 
 
 def test_profiler_get_profile_request():
@@ -1411,6 +1414,85 @@ def test_external_vs_internal_table_consistency():
 
     assert "2024-10-15" in external_filter_str or "20241015" in external_filter_str
     assert "2024-10-15" in internal_filter_str or "20241015" in internal_filter_str
+
+
+def test_queries_templates_pass_sql_validation():
+    # Discovery tests all mock execution, so a template edit that breaks the SELECT/WITH
+    # prefix or introduces a dangerous keyword would pass CI but fail at runtime. Run the
+    # real, complete-query templates through the same validator the executor applies.
+    formatted = [
+        queries.SELECT_ALL.format(table_ref="`p.d.t`"),
+        queries.PARTITION_METADATA_CACHE.format(
+            info_schema_ref="`p`.`d`.INFORMATION_SCHEMA.COLUMNS", flag="YES"
+        ),
+        queries.PARTITION_COLUMN_NAMES.format(
+            info_schema_ref="`p`.`d`.INFORMATION_SCHEMA.COLUMNS", flag="YES"
+        ),
+        queries.PARTITION_COLUMN_TYPES.format(
+            info_schema_ref="`p`.`d`.INFORMATION_SCHEMA.COLUMNS", flag="YES"
+        ),
+        queries.PARTITION_COLUMN_TYPES_FILTERED.format(
+            info_schema_ref="`p`.`d`.INFORMATION_SCHEMA.COLUMNS",
+            column_filter_clause="column_name = @c0",
+        ),
+        queries.PARTITIONS_BY_MODIFIED.format(
+            info_schema_ref="`p`.`d`.INFORMATION_SCHEMA.PARTITIONS",
+            null_id="__NULL__",
+            unpartitioned_id="__UNPARTITIONED__",
+            streaming_id="__STREAMING_UNPARTITIONED__",
+        ),
+        queries.COUNT_STAR_PROBE.format(table_ref="`p.d.t`"),
+        queries.PARTITION_EXISTS_CHECK.format(
+            table_ref="`p.d.t`", where="`event_date` = '2023-12-25'"
+        ),
+        queries.LATEST_BY_DATE_SAMPLE.format(
+            table_ref="`p.d.t`", date_col="event_date"
+        ),
+        queries.TABLESAMPLE_SAMPLE.format(table_ref="`p.d.t`", sample_percent=0.001),
+        queries.TOP_VALUES_BY_COUNT.format(
+            col_name="region",
+            table_ref="`p.d.t`",
+            where="`event_date` = '2023-12-25'",
+        ),
+        queries.PARTITION_STATS_CTE.format(
+            col_name="region",
+            table_ref="`p.d.t`",
+            where="`event_date` = '2023-12-25'",
+            order_by="record_count DESC",
+            limit_clause="10",
+        ),
+    ]
+    for sql in formatted:
+        assert validate_sql_structure(sql) is True
+
+
+def test_internal_and_external_custom_sql_are_identical():
+    # Centralization goal: the inline (internal) and deferred (external) paths must emit
+    # identical partition custom_sql for the same table + filters, since both delegate to
+    # _build_partition_profiling_sql over the same safe table reference.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    discovered = ["`event_date` = '2023-12-25'"]
+    table = create_test_table(name="t", partitioned=True, external=False)
+
+    with patch.object(
+        PartitionDiscovery,
+        "get_required_partition_filters",
+        return_value=discovered,
+    ):
+        internal_kwargs = profiler.get_batch_kwargs(
+            table, "test_dataset", "test-project-123456"
+        )
+    internal_sql = internal_kwargs[CUSTOM_SQL_KWARG]
+
+    safe_ref = build_safe_table_reference("test-project-123456", "test_dataset", "t")
+    external_sql = profiler._build_partition_profiling_sql(
+        safe_ref, "`event_date` = '2023-12-25'", table
+    )
+
+    assert internal_sql == external_sql
 
 
 def test_query_executor_execute_query_safely():

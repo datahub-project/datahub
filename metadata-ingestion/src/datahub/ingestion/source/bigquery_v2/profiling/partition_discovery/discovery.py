@@ -418,8 +418,14 @@ class PartitionDiscovery:
                     not partition_values_results
                     or partition_values_results[0].val is None
                 ):
-                    logger.warning(
-                        f"No non-empty partition values found for date column {col_name}"
+                    warn(
+                        self.report,
+                        logger,
+                        title="Partition value discovery found no values",
+                        message="A date partition column returned no values; its filter "
+                        "is dropped, so the resulting partition scan may be broader than "
+                        "intended.",
+                        context=f"{table.name}.{col_name}",
                     )
                     continue
 
@@ -681,8 +687,14 @@ class PartitionDiscovery:
                     not partition_values_results
                     or partition_values_results[0].val is None
                 ):
-                    logger.warning(
-                        f"No non-empty partition values found for non-date column {col_name}"
+                    warn(
+                        self.report,
+                        logger,
+                        title="Partition value discovery found no values",
+                        message="A non-date partition column returned no values; its "
+                        "filter is dropped, so the resulting partition scan may be broader "
+                        "than intended.",
+                        context=f"{table.name}.{col_name}",
                     )
                     continue
 
@@ -971,14 +983,11 @@ class PartitionDiscovery:
                 )
             else:
                 sample_query = queries.TABLESAMPLE_SAMPLE.format(
-                    table_ref=safe_table_ref
+                    table_ref=safe_table_ref, sample_percent=SAMPLING_PERCENT
                 )
 
                 job_config = QueryJobConfig(
                     query_parameters=[
-                        ScalarQueryParameter(
-                            "sample_percent", "FLOAT64", SAMPLING_PERCENT
-                        ),
                         ScalarQueryParameter(
                             "limit_rows", "INT64", SAMPLING_LIMIT_ROWS
                         ),
@@ -1028,7 +1037,14 @@ class PartitionDiscovery:
             return None
 
         except Exception as e:
-            logger.warning(f"Error getting partition filters with sampling: {e}")
+            warn(
+                self.report,
+                logger,
+                title="Partition sampling failed",
+                message="Sampling-based partition discovery failed; the table may be "
+                "profiled without a partition filter or skipped.",
+                context=f"{table.name}: {e}",
+            )
             return None
 
     def _create_partition_filter_from_value(
@@ -1124,7 +1140,14 @@ class PartitionDiscovery:
             )
 
         except Exception as e:
-            logger.error(f"Error checking external table partitioning: {e}")
+            warn(
+                self.report,
+                logger,
+                title="External table partition discovery failed",
+                message="Could not determine partition filters for this external table; "
+                "profiling may fall back to a full scan or skip the table.",
+                context=f"{table.name}: {e}",
+            )
             return None
 
     def _find_valid_partition_combination(

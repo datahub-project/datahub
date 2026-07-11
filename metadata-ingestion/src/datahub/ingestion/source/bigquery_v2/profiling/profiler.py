@@ -438,12 +438,13 @@ class BigqueryProfiler(GenericProfiler):
     ) -> Optional[TableProfilerRequest]:
         try:
             profile_request = super().get_profile_request(table, schema_name, db_name)
-        except ValueError as e:
-            # get_batch_kwargs raises ValueError for:
-            # - identifiers that fail security validation
-            # - partitioned tables that require a filter but one couldn't be constructed
+        except (ValueError, AttributeError, KeyError, GoogleAPICallError) as e:
+            # get_batch_kwargs raises ValueError for identifiers that fail security
+            # validation or partitioned tables whose filter couldn't be built; the other
+            # types cover BigQuery API/IAM/quota errors escaping discovery. Kept symmetric
+            # with the external deferred path so neither aborts the whole project.
             table_ref = f"{db_name}.{schema_name}.{table.name}"
-            self.report.report_warning(
+            self.report.warning(
                 title="Table skipped during profiling",
                 message=str(e),
                 context=table_ref,
@@ -652,6 +653,16 @@ class BigqueryProfiler(GenericProfiler):
                                 PARTITION_HANDLING_KWARG: PARTITION_HANDLING_ENABLED,
                             }
                         )
+                    else:
+                        # Mirror the internal path: discovery produced filters but all
+                        # failed validation, so this external table is profiled unfiltered.
+                        self.report.warning(
+                            title="Partition filters rejected during profiling",
+                            message="Discovered partition filters for this external table "
+                            "failed validation; profiling will proceed without a partition "
+                            "filter (full scan), or fail if the table requires one.",
+                            context=table_ref,
+                        )
 
                 delattr(request, "needs_partition_discovery")
                 delattr(request, "bq_table")
@@ -703,7 +714,22 @@ class BigqueryProfiler(GenericProfiler):
                 }
 
                 for future in as_completed(future_to_request):
-                    result = future.result()
+                    req = future_to_request[future]
+                    try:
+                        result = future.result()
+                    except Exception as e:
+                        # The worker only catches the errors partition discovery
+                        # realistically raises; anything else (RetryError, token
+                        # RefreshError, TimeoutError, connection drops) would otherwise
+                        # propagate out of as_completed and abort profiling for every
+                        # remaining table. Report and continue instead.
+                        self.report.warning(
+                            title="External table skipped during profiling",
+                            message="Partition discovery worker failed with an "
+                            "unexpected error; profiling was skipped for this table.",
+                            context=f"{req.pretty_name}: {e}",
+                        )
+                        continue
                     if result is not None:
                         processed_requests.append(result)
 
