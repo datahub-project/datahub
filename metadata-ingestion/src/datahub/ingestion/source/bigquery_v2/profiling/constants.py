@@ -84,7 +84,6 @@ DATE_LIKE_COLUMN_NAMES: Set[str] = {
     "batch_time",
 }
 
-# Integer partition columns that hold a component of a date (e.g. dt=2025/01/02).
 DATE_COMPONENT_COLUMNS: Tuple[str, ...] = ("year", "month", "day")
 
 DATE_TIME_TYPES: Set[str] = {
@@ -173,7 +172,7 @@ FILTER_COLUMN_REF_RE = re.compile(r"`[a-zA-Z_][a-zA-Z0-9_]*`")
 # Same, but captures the column name (without backticks).
 BACKTICK_COLUMN_NAME_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`")
 
-# Captures `col` = 'YYYY-MM-DD' equality filters (column name, date literal).
+# Captures the column and date from `col` = 'YYYY-MM-DD' filters.
 BACKTICK_EQ_DATE_RE = re.compile(
     r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*=\s*'(\d{4}-\d{2}-\d{2})'", re.IGNORECASE
 )

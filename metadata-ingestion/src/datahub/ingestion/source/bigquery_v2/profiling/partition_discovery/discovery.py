@@ -412,8 +412,7 @@ class PartitionDiscovery:
 
     @staticmethod
     def _date_component_value(col_name: str, dt: datetime) -> Optional[str]:
-        # year/month/day partition columns map to that component of `dt`
-        # (month/day zero-padded to two digits, matching BigQuery integer partitions).
+        # month/day are zero-padded to match BigQuery integer partition values.
         component = col_name.lower()
         if component == "year":
             return str(dt.year)
@@ -1281,8 +1280,7 @@ class PartitionDiscovery:
                 col_type = column_types.get(col, "")
                 actual_filters.append(self._create_safe_filter(col, val, col_type))
             except ValueError as e:
-                # Dropping a column here widens the scan on that dimension; surface it
-                # like the sibling per-column discovery failures rather than log-only.
+                # Dropping a column here widens the scan on that dimension, so surface it.
                 warn(
                     self.report,
                     logger,
@@ -1408,8 +1406,7 @@ class PartitionDiscovery:
                         f"Exception testing date {description} for table {table.name}: {e}"
                     )
 
-        # The direct table query above already returned nothing and the strategic
-        # candidates don't mutate that result, so re-querying would be identical work.
+        # Strategic candidates don't mutate the direct-query result, so re-querying is wasted.
         return self._get_fallback_partition_filters(
             table, project, schema, required_columns
         )

@@ -119,8 +119,7 @@ class BigQueryProfilingConfig(GEProfilingConfig):
     def reject_bool_fallback_values(
         cls, v: Dict[str, Union[str, int, float]]
     ) -> Dict[str, Union[str, int, float]]:
-        # bool is an int subclass, so Union[str, int, float] would otherwise accept
-        # True/False and emit `col = TRUE`, which rarely matches a partition value.
+        # bool is an int subclass, so it slips past Union[str, int, float] otherwise.
         for col, val in v.items():
             if isinstance(val, bool):
                 raise ValueError(

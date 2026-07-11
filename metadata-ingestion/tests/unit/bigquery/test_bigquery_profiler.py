@@ -722,8 +722,6 @@ def test_external_table_discovery_fallback_warns():
 
 
 def test_internal_fallback_is_not_null_warns():
-    # When internal discovery can't resolve a value and falls back to an unpruned
-    # IS NOT NULL filter, the report must warn about the resulting full-scan profile.
     report = BigQueryV2Report()
     discovery = PartitionDiscovery(create_test_config(), report)
     table = create_test_table(name="internal", external=False)

@@ -50,9 +50,8 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 if TYPE_CHECKING:
-    # Imported only for type hints: the concrete GE / SQLAlchemy profilers pull in heavy
-    # optional deps, so they stay lazily imported at runtime (matching the parent
-    # GenericProfiler). mypy still needs the names to type this override's return value.
+    # Hint-only: these profilers pull in heavy optional deps, so they stay lazily
+    # imported at runtime (as in the parent GenericProfiler).
     from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,

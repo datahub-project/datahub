@@ -211,8 +211,7 @@ class InfoSchemaQueries:
             if partition_filters:
                 return partition_filters
 
-            # Only a whole-set failure is operator-relevant: one summarizing warning
-            # instead of one per partition row.
+            # One summarizing warning on whole-set failure, not one per partition row.
             if convert_failures:
                 warn(
                     self.report,
