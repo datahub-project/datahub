@@ -59,27 +59,26 @@ const createWrapper = ({ children }: { children: React.ReactNode }) => (
     </MockedProvider>
 );
 
-const createMockDomain = (index: number): ListDomainFragment =>
-    ({
-        urn: `urn:li:domain:${index}`,
-        id: `${index}`,
-        type: EntityType.Domain,
-        properties: {
-            name: `Domain ${index}`,
-            description: null,
-            customProperties: [],
-        },
-        parentDomains: null,
-        ownership: null,
-        privileges: null,
-        displayProperties: null,
-        deprecation: null,
-        entities: null,
-        dataProducts: null,
-        applicationsInDomain: null,
-        children: null,
-        institutionalMemory: null,
-    });
+const createMockDomain = (index: number): ListDomainFragment => ({
+    urn: `urn:li:domain:${index}`,
+    id: `${index}`,
+    type: EntityType.Domain,
+    properties: {
+        name: `Domain ${index}`,
+        description: null,
+        customProperties: [],
+    },
+    parentDomains: null,
+    ownership: null,
+    privileges: null,
+    displayProperties: null,
+    deprecation: null,
+    entities: null,
+    dataProducts: null,
+    applicationsInDomain: null,
+    children: null,
+    institutionalMemory: null,
+});
 
 const createScrollData = (domains: ListDomainFragment[], nextScrollId: string | null = null) => ({
     scrollAcrossEntities: {
@@ -199,9 +198,7 @@ describe('useScrollDomains', () => {
         await waitFor(() => expect(result.current.hasInitialized).toBe(true));
         expect(result.current.domains).toHaveLength(2);
         expect(
-            mockUseScrollAcrossEntitiesQuery.mock.calls.every(
-                ([options]) => options.variables.input.scrollId === null,
-            ),
+            mockUseScrollAcrossEntitiesQuery.mock.calls.every(([options]) => options.variables.input.scrollId === null),
         ).toBe(true);
     });
 
@@ -244,9 +241,7 @@ describe('useScrollDomains', () => {
 
         await waitFor(() => expect(result.current.error).toBe(mockError));
         expect(
-            mockUseScrollAcrossEntitiesQuery.mock.calls.every(
-                ([options]) => options.variables.input.scrollId === null,
-            ),
+            mockUseScrollAcrossEntitiesQuery.mock.calls.every(([options]) => options.variables.input.scrollId === null),
         ).toBe(true);
     });
 
