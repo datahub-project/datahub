@@ -1,5 +1,5 @@
-from typing import Dict, Iterator, List, Tuple
-from unittest.mock import patch
+from typing import Dict, Iterator, List, Optional, Tuple
+from unittest.mock import MagicMock, patch
 
 import confluent_kafka
 import pytest
@@ -142,6 +142,84 @@ def test_strategy_skips_empty_partition(kafka_source):
 
     # No offset should be set; the read loop still assigns the (unchanged) partition.
     assert fake.assigned_offsets == [partition.offset]
+
+
+class ErroringConsumer:
+    """Yields messages whose .error() is truthy to exercise the error-report path."""
+
+    def assign(self, partitions: List[confluent_kafka.TopicPartition]) -> None:
+        pass
+
+    def seek(self, partition: confluent_kafka.TopicPartition) -> None:
+        pass
+
+    def poll(self, timeout: float) -> MagicMock:
+        msg = MagicMock()
+        msg.error.return_value = "simulated broker error"
+        return msg
+
+
+def test_stratified_reports_errored_messages(kafka_source):
+    partitions, watermarks = _single_partition()
+    samples: List[Dict] = []
+
+    kafka_source._get_stratified_samples(
+        partitions, watermarks, 10, samples, TOPIC, None, consumer=ErroringConsumer()
+    )
+
+    # Errored messages must be reported (like the batch path), not silently dropped.
+    assert samples == []
+    assert kafka_source.report.warnings
+
+
+def test_parallel_profiling_worker_failure_is_dropped(kafka_source):
+    tasks: List[Tuple[str, str, Optional[SchemaMetadataClass]]] = [
+        ("urn:li:dataset:(urn:li:dataPlatform:kafka,test-topic,PROD)", TOPIC, None)
+    ]
+    with patch.object(
+        kafka_source, "_collect_and_profile_topic", side_effect=RuntimeError("boom")
+    ):
+        workunits = list(kafka_source.generate_profiles_in_parallel(tasks))
+
+    assert workunits == []
+    assert kafka_source.report.profiling_topics_dropped == 1
+    assert kafka_source.report.warnings
+
+
+def test_empty_samples_drops_profile(kafka_source):
+    with (
+        patch("datahub.ingestion.source.kafka.kafka.get_kafka_consumer"),
+        patch.object(kafka_source, "get_sample_messages", return_value=[]),
+    ):
+        result = kafka_source._collect_and_profile_topic("urn:test", TOPIC, None)
+
+    assert result is None
+    assert kafka_source.report.profiling_topics_dropped == 1
+
+
+def test_empty_samples_reports_when_report_dropped_profiles_enabled():
+    with (
+        patch(
+            "datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer",
+            autospec=True,
+        ),
+        patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True),
+        patch("datahub.ingestion.source.kafka.kafka.get_kafka_consumer"),
+    ):
+        config = KafkaSourceConfig.model_validate(
+            {
+                "connection": {"bootstrap": "localhost:9092"},
+                "profiling": {"enabled": True, "report_dropped_profiles": True},
+            }
+        )
+        source = KafkaSource(config, PipelineContext(run_id="test"))
+        with patch.object(source, "get_sample_messages", return_value=[]):
+            result = source._collect_and_profile_topic("urn:test", TOPIC, None)
+
+        assert result is None
+        assert source.report.profiling_topics_dropped == 1
+        assert source.report.warnings
+        source.close()
 
 
 def test_avro_decode_failure_is_skipped_and_reported(kafka_source):

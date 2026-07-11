@@ -57,6 +57,22 @@ PROFILER_STRING_TYPES = {"string", "enum"}
 PROFILER_UNKNOWN_TYPES = {"bytes", "fixed", "array", "map", "record", "union", "null"}
 
 
+# Profiler message-sampling strategies (KafkaSourceConfig.profiling.sampling_strategy).
+class SamplingStrategy(StrEnum):
+    LATEST = "latest"
+    RANDOM = "random"
+    STRATIFIED = "stratified"
+    FULL = "full"
+
+
+# Where schema-inference sampling starts reading (schema_resolution.offset_reset_strategy).
+# EARLIEST/LATEST double as the librdkafka auto.offset.reset values.
+class OffsetResetStrategy(StrEnum):
+    EARLIEST = "earliest"
+    LATEST = "latest"
+    HYBRID = "hybrid"
+
+
 # Schema resolution methods
 class ResolutionMethod(StrEnum):
     SCHEMA_INFERENCE = "schema_inference"

@@ -1,4 +1,4 @@
-from typing import Dict, Literal, Optional
+from typing import Dict, Optional
 
 from pydantic import Field, PositiveFloat, PositiveInt
 
@@ -14,6 +14,8 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_MAX_MESSAGES_PER_TOPIC,
     DEFAULT_MAX_SAMPLE_TIME_SECONDS,
     DEFAULT_SAMPLE_SIZE,
+    OffsetResetStrategy,
+    SamplingStrategy,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -34,8 +36,8 @@ class SchemaResolutionFallback(ConfigModel):
         default=2.0,
         description="Maximum time to spend sampling messages from a single topic (in seconds) for record name extraction and schema inference. Must be positive.",
     )
-    offset_reset_strategy: Literal["earliest", "latest", "hybrid"] = Field(
-        default="hybrid",
+    offset_reset_strategy: OffsetResetStrategy = Field(
+        default=OffsetResetStrategy.HYBRID,
         description="Where to start reading when sampling messages for schema inference: 'earliest' (scan from beginning), 'latest' (recent messages only), or 'hybrid' (try latest first, fallback to earliest). Distinct from the profiler's `sampling_strategy`.",
     )
     max_messages_per_topic: PositiveInt = Field(
@@ -49,8 +51,8 @@ class ProfilerConfig(GEProfilingConfig):
         default=DEFAULT_MAX_SAMPLE_TIME_SECONDS,
         description="Maximum time to spend sampling messages in seconds. Must be positive.",
     )
-    sampling_strategy: Literal["latest", "random", "stratified", "full"] = Field(
-        default="latest",
+    sampling_strategy: SamplingStrategy = Field(
+        default=SamplingStrategy.LATEST,
         description="Strategy for sampling messages: 'latest' (from end of topic), 'random' (random offsets), 'stratified' (evenly distributed), 'full' (entire topic, respects sample_size)",
     )
     batch_size: PositiveInt = Field(
@@ -114,7 +116,7 @@ class KafkaSourceConfig(
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
     schema_resolution: SchemaResolutionFallback = Field(
-        default=SchemaResolutionFallback(),
+        default_factory=SchemaResolutionFallback,
         description="Configuration for comprehensive schema resolution with multiple fallback strategies.",
     )
     disable_topic_record_naming_strategy: bool = Field(
@@ -130,7 +132,7 @@ class KafkaSourceConfig(
         description="Base URL for external platform (e.g. Aiven) where topics can be viewed. The topic name will be appended to this base URL.",
     )
     profiling: ProfilerConfig = Field(
-        default=ProfilerConfig(),
+        default_factory=ProfilerConfig,
         description="Settings for message sampling and profiling",
     )
 

@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import sys
+import threading
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -53,6 +54,9 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 _DESCRIPTOR_CACHE: Dict[str, Optional[FileDescriptor]] = {}
+# protobuf compilation registers symbols in a process-global descriptor pool, so
+# serialize cache access and compilation across profiling/schema-inference threads.
+_DESCRIPTOR_CACHE_LOCK = threading.Lock()
 
 GOOGLE_TYPE_DEFINITIONS = {
     "google/type/date.proto": """
@@ -349,91 +353,92 @@ def _from_protobuf_schema_to_descriptors(
     all_schema_content = "\n".join([schema.content for schema in imported_schemas])
 
     cache_key = hashlib.md5(all_schema_content.encode()).hexdigest()
-    if cache_key in _DESCRIPTOR_CACHE:
-        cached_descriptor = _DESCRIPTOR_CACHE[cache_key]
-        if cached_descriptor is not None:
-            logger.debug(
-                f"Reusing cached descriptor for {main_schema.name} (hash: {cache_key[:8]}...)"
-            )
-        return cached_descriptor
-
-    google_types_referenced = []
-
-    if "google.type.Date" in all_schema_content and not any(
-        schema.name == "google/type/date.proto" for schema in imported_schemas
-    ):
-        google_types_referenced.append("google/type/date.proto")
-
-    if "google.type.Decimal" in all_schema_content and not any(
-        schema.name == "google/type/decimal.proto" for schema in imported_schemas
-    ):
-        google_types_referenced.append("google/type/decimal.proto")
-
-    for google_type_file in google_types_referenced:
-        if google_type_file in GOOGLE_TYPE_DEFINITIONS:
-            logger.info(f"Adding fallback definition for {google_type_file}")
-            imported_schemas.append(
-                ProtobufSchema(
-                    name=google_type_file,
-                    content=GOOGLE_TYPE_DEFINITIONS[google_type_file],
-                )
-            )
-
-    with TemporaryDirectory() as tmpdir, _add_sys_path(tmpdir):
-        for schema in imported_schemas:
-            #
-            # Ignore google/protobuf modules but allow google/type modules
-            # which contain common types like google.type.Date and google.type.Decimal
-            #
-            should_skip_schema = schema.name.startswith("google/protobuf") or (
-                schema.name.startswith("google/")
-                and not schema.name.startswith("google/type")
-            )
-            if not should_skip_schema:
-                #
-                # This is just in case one of the referenced schemas has '/' in their name
-                #
-                full_path = os.path.join(tmpdir, schema.name)
-                Path(full_path).parent.mkdir(parents=True, exist_ok=True)
-                with open(full_path, "w") as temp_file:
-                    temp_file.writelines(schema.content)
-
-        try:
-            descriptor = grpc.protos(main_schema.name).DESCRIPTOR
-            _DESCRIPTOR_CACHE[cache_key] = descriptor
-            return descriptor
-        except Exception as e:
-            error_msg = str(e)
-
-            if "duplicate symbol" in error_msg.lower():
+    with _DESCRIPTOR_CACHE_LOCK:
+        if cache_key in _DESCRIPTOR_CACHE:
+            cached_descriptor = _DESCRIPTOR_CACHE[cache_key]
+            if cached_descriptor is not None:
                 logger.debug(
-                    f"Protobuf schema {main_schema.name} contains symbols already registered in "
-                    f"global descriptor pool (hash: {cache_key[:8]}...). This typically occurs when "
-                    f"multiple topics share the same schema. Schema fields will be unavailable."
+                    f"Reusing cached descriptor for {main_schema.name} (hash: {cache_key[:8]}...)"
                 )
-            elif "google.type" in error_msg:
-                logger.warning(
-                    f"Failed to compile protobuf schema {main_schema.name}: {e}"
-                )
-                logger.error(
-                    f"Google type definition error in {main_schema.name}. "
-                    f"This may indicate missing google/type imports in the schema registry."
-                )
-            elif "descriptor pool" in error_msg.lower():
-                logger.warning(
-                    f"Failed to compile protobuf schema {main_schema.name}: {e}"
-                )
-                logger.error(
-                    f"Descriptor pool error in {main_schema.name}. "
-                    f"This may indicate conflicting protobuf definitions or circular dependencies."
-                )
-            else:
-                logger.warning(
-                    f"Failed to compile protobuf schema {main_schema.name}: {e}"
+            return cached_descriptor
+
+        google_types_referenced = []
+
+        if "google.type.Date" in all_schema_content and not any(
+            schema.name == "google/type/date.proto" for schema in imported_schemas
+        ):
+            google_types_referenced.append("google/type/date.proto")
+
+        if "google.type.Decimal" in all_schema_content and not any(
+            schema.name == "google/type/decimal.proto" for schema in imported_schemas
+        ):
+            google_types_referenced.append("google/type/decimal.proto")
+
+        for google_type_file in google_types_referenced:
+            if google_type_file in GOOGLE_TYPE_DEFINITIONS:
+                logger.info(f"Adding fallback definition for {google_type_file}")
+                imported_schemas.append(
+                    ProtobufSchema(
+                        name=google_type_file,
+                        content=GOOGLE_TYPE_DEFINITIONS[google_type_file],
+                    )
                 )
 
-            _DESCRIPTOR_CACHE[cache_key] = None
-            return None
+        with TemporaryDirectory() as tmpdir, _add_sys_path(tmpdir):
+            for schema in imported_schemas:
+                #
+                # Ignore google/protobuf modules but allow google/type modules
+                # which contain common types like google.type.Date and google.type.Decimal
+                #
+                should_skip_schema = schema.name.startswith("google/protobuf") or (
+                    schema.name.startswith("google/")
+                    and not schema.name.startswith("google/type")
+                )
+                if not should_skip_schema:
+                    #
+                    # This is just in case one of the referenced schemas has '/' in their name
+                    #
+                    full_path = os.path.join(tmpdir, schema.name)
+                    Path(full_path).parent.mkdir(parents=True, exist_ok=True)
+                    with open(full_path, "w") as temp_file:
+                        temp_file.writelines(schema.content)
+
+            try:
+                descriptor = grpc.protos(main_schema.name).DESCRIPTOR
+                _DESCRIPTOR_CACHE[cache_key] = descriptor
+                return descriptor
+            except Exception as e:
+                error_msg = str(e)
+
+                if "duplicate symbol" in error_msg.lower():
+                    logger.debug(
+                        f"Protobuf schema {main_schema.name} contains symbols already registered in "
+                        f"global descriptor pool (hash: {cache_key[:8]}...). This typically occurs when "
+                        f"multiple topics share the same schema. Schema fields will be unavailable."
+                    )
+                elif "google.type" in error_msg:
+                    logger.warning(
+                        f"Failed to compile protobuf schema {main_schema.name}: {e}"
+                    )
+                    logger.error(
+                        f"Google type definition error in {main_schema.name}. "
+                        f"This may indicate missing google/type imports in the schema registry."
+                    )
+                elif "descriptor pool" in error_msg.lower():
+                    logger.warning(
+                        f"Failed to compile protobuf schema {main_schema.name}: {e}"
+                    )
+                    logger.error(
+                        f"Descriptor pool error in {main_schema.name}. "
+                        f"This may indicate conflicting protobuf definitions or circular dependencies."
+                    )
+                else:
+                    logger.warning(
+                        f"Failed to compile protobuf schema {main_schema.name}: {e}"
+                    )
+
+                _DESCRIPTOR_CACHE[cache_key] = None
+                return None
 
 
 def _get_column_type(descriptor: DescriptorBase) -> SchemaFieldDataType:

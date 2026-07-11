@@ -697,6 +697,25 @@ def _validate_event_granularity(profile):
     )
 
 
+def _assert_deterministic_count_statistics(profile_aspects):
+    """numeric_topic's `count` field is seeded as i * 10 for i in 0..19, so with a
+    sample_size that covers the whole topic the stats are fully determined: this
+    pins exact values rather than merely checking the stats exist."""
+    count_profiles = [
+        field_profile
+        for profile in profile_aspects
+        for field_profile in profile.get("fieldProfiles", [])
+        if field_profile.get("fieldPath", "").split(".")[-1] == "count"
+    ]
+    assert count_profiles, "Expected a profiled 'count' field for numeric_topic"
+
+    for field_profile in count_profiles:
+        assert float(field_profile["min"]) == 0.0
+        assert float(field_profile["max"]) == 190.0
+        assert float(field_profile["mean"]) == pytest.approx(95.0)
+        assert float(field_profile["median"]) == pytest.approx(95.0)
+
+
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -744,3 +763,6 @@ def test_kafka_profiling(
 
         # Validate event granularity
         _validate_event_granularity(profile)
+
+    # Pin the exact stats of the deterministically-seeded numeric count field.
+    _assert_deterministic_count_statistics(profile_aspects)

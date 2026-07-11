@@ -1,8 +1,10 @@
+from typing import List
 from unittest.mock import Mock, patch
 
 import pytest
 
 from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
+from datahub.ingestion.source.kafka.kafka_constants import OffsetResetStrategy
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_inference import (
     KafkaSchemaInference,
@@ -13,6 +15,25 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     StringTypeClass,
 )
+
+_INFERENCE_MODULE = "datahub.ingestion.source.kafka.kafka_schema_inference"
+
+
+class ScriptedConsumer:
+    """Yields a fixed sequence of poll results (then None), and records close()."""
+
+    def __init__(self, messages: List[object]) -> None:
+        self._messages = list(messages)
+        self.closed = False
+
+    def subscribe(self, topics: List[str]) -> None:
+        pass
+
+    def poll(self, timeout: float) -> object:
+        return self._messages.pop(0) if self._messages else None
+
+    def close(self) -> None:
+        self.closed = True
 
 
 @pytest.fixture
@@ -197,7 +218,9 @@ class TestKafkaSchemaInference:
             "datahub.ingestion.source.kafka.kafka_schema_inference.Consumer",
             side_effect=OSError("broker down"),
         ):
-            result = inference._sample_messages_with_strategy("test-topic", "latest")
+            result = inference._sample_messages_with_strategy(
+                "test-topic", OffsetResetStrategy.LATEST
+            )
 
         assert result == []
         assert report.schema_inference_sampling_failures == 1
@@ -223,6 +246,78 @@ class TestKafkaSchemaInference:
 
         assert result == []
         assert report.schema_inference_sampling_failures == 1
+
+    def test_poll_loop_skips_errors_and_decode_failures(self, fallback_config):
+        report = KafkaSourceReport()
+        inference = KafkaSchemaInference(
+            bootstrap_servers="localhost:9092",
+            consumer_config={"group.id": "test"},
+            fallback_config=fallback_config,
+            max_workers=1,
+            report=report,
+        )
+
+        errored = Mock()
+        errored.error.return_value = "broker error"
+        undecodable = Mock()
+        undecodable.error.return_value = None
+        undecodable.value.return_value = b"not-json"
+        valid = Mock()
+        valid.error.return_value = None
+        valid.value.return_value = b'{"a": 1}'
+        scripted = ScriptedConsumer([None, errored, undecodable, valid])
+
+        def fake_process(value: object) -> object:
+            if value == b"not-json":
+                raise ValueError("undecodable")
+            return {"a": 1}
+
+        with (
+            patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted),
+            patch(
+                f"{_INFERENCE_MODULE}.process_kafka_message_for_sampling",
+                side_effect=fake_process,
+            ),
+        ):
+            result = inference._sample_messages_with_strategy(
+                "test-topic", OffsetResetStrategy.LATEST
+            )
+
+        # None (timeout) and errored messages are skipped; the undecodable one is
+        # skipped too, leaving only the valid message. The consumer is always closed.
+        assert result == [{"a": 1}]
+        assert scripted.closed
+
+    def test_poll_loop_all_decode_failures_are_reported(self, fallback_config):
+        report = KafkaSourceReport()
+        inference = KafkaSchemaInference(
+            bootstrap_servers="localhost:9092",
+            consumer_config={"group.id": "test"},
+            fallback_config=fallback_config,
+            max_workers=1,
+            report=report,
+        )
+
+        undecodable = Mock()
+        undecodable.error.return_value = None
+        undecodable.value.return_value = b"not-json"
+        scripted = ScriptedConsumer([undecodable, undecodable])
+
+        with (
+            patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted),
+            patch(
+                f"{_INFERENCE_MODULE}.process_kafka_message_for_sampling",
+                side_effect=ValueError("undecodable"),
+            ),
+        ):
+            result = inference._sample_messages_with_strategy(
+                "test-topic", OffsetResetStrategy.LATEST
+            )
+
+        assert result == []
+        assert report.schema_inference_message_decode_failures == 2
+        assert report.warnings
+        assert scripted.closed
 
     def test_flatten_for_schema_inference(self, schema_inference):
         nested_obj = {

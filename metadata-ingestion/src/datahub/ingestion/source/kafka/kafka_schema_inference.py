@@ -12,6 +12,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_CPU_COUNT_FALLBACK,
     DEFAULT_MAX_WORKERS_MULTIPLIER,
     DEFAULT_SESSION_TIMEOUT_MS,
+    OffsetResetStrategy,
 )
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_utils import (
@@ -133,27 +134,35 @@ class KafkaSchemaInference:
         return results
 
     def sample_topic_messages(self, topic: str) -> List[MessageValue]:
-        strategy = self.fallback_config.offset_reset_strategy.lower()
+        strategy = self.fallback_config.offset_reset_strategy
 
-        if strategy == "hybrid":
+        if strategy == OffsetResetStrategy.HYBRID:
             # Try latest first for speed
             logger.debug(f"Trying 'latest' sampling for topic {topic}")
-            messages = self._sample_messages_with_strategy(topic, "latest")
+            messages = self._sample_messages_with_strategy(
+                topic, OffsetResetStrategy.LATEST
+            )
 
             if not messages:
                 logger.debug(
                     f"No recent messages found, trying 'earliest' for topic {topic}"
                 )
-                messages = self._sample_messages_with_strategy(topic, "earliest")
+                messages = self._sample_messages_with_strategy(
+                    topic, OffsetResetStrategy.EARLIEST
+                )
 
             return messages
-        elif strategy == "latest":
-            return self._sample_messages_with_strategy(topic, "latest")
-        else:  # earliest or any other value
-            return self._sample_messages_with_strategy(topic, "earliest")
+        elif strategy == OffsetResetStrategy.LATEST:
+            return self._sample_messages_with_strategy(
+                topic, OffsetResetStrategy.LATEST
+            )
+        else:  # earliest
+            return self._sample_messages_with_strategy(
+                topic, OffsetResetStrategy.EARLIEST
+            )
 
     def _sample_messages_with_strategy(
-        self, topic: str, offset_strategy: str
+        self, topic: str, offset_strategy: OffsetResetStrategy
     ) -> List[MessageValue]:
         start_time = time.time()
 
@@ -161,7 +170,7 @@ class KafkaSchemaInference:
         consumer_config = {
             "bootstrap.servers": self.bootstrap_servers,
             "group.id": f"datahub-schema-inference-{topic}-{offset_strategy}-{int(time.time())}",
-            "auto.offset.reset": offset_strategy,
+            "auto.offset.reset": str(offset_strategy),
             "enable.auto.commit": False,
             "fetch.min.bytes": 1,  # Don't wait for large batches
             "fetch.wait.max.ms": 100,  # Short wait time
@@ -189,19 +198,20 @@ class KafkaSchemaInference:
 
             messages: List[MessageValue] = []
             attempts = 0
+            decode_failures = 0
 
             # For 'latest' strategy, use shorter timeout since we expect recent activity
             timeout_seconds = (
                 self.fallback_config.sample_timeout_seconds
                 * 0.3  # 30% of normal timeout
-                if offset_strategy == "latest"
+                if offset_strategy == OffsetResetStrategy.LATEST
                 else self.fallback_config.sample_timeout_seconds
             )
 
             # For 'latest' strategy, reduce poll attempts since we're looking for recent messages
             max_attempts = (
                 10  # Cap at 10 for latest
-                if offset_strategy == "latest"
+                if offset_strategy == OffsetResetStrategy.LATEST
                 else 20  # Standard attempts for earliest
             )
 
@@ -228,6 +238,7 @@ class KafkaSchemaInference:
                     messages.append(processed_message)
 
                 except Exception as e:
+                    decode_failures += 1
                     logger.debug(f"Failed to process message for schema inference: {e}")
                     continue
 
@@ -236,6 +247,16 @@ class KafkaSchemaInference:
                 f"Sampled {len(messages)} messages from topic {topic} using '{offset_strategy}' strategy "
                 f"in {elapsed_time:.2f}s ({attempts} poll attempts)"
             )
+
+            # Every polled message failed to decode: surface it so the topic doesn't
+            # silently fall back to schemaless with nothing in the report.
+            if not messages and decode_failures > 0 and self.report is not None:
+                self.report.schema_inference_message_decode_failures += decode_failures
+                self.report.report_warning(
+                    "schema-inference",
+                    f"All {decode_failures} sampled message(s) for topic {topic} failed "
+                    f"to decode ({offset_strategy}); it will be treated as schemaless.",
+                )
 
             return messages
 

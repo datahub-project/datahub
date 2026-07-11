@@ -1,6 +1,7 @@
 import math
 import statistics
 
+import pytest
 from hypothesis import given, strategies as st
 
 from datahub.ingestion.source.kafka.kafka_profiler_utils import (
@@ -155,3 +156,10 @@ def test_near_float_max_mean_stdev_suppressed():
     assert stats.median == big
     assert stats.mean is None
     assert stats.stdev is None
+
+
+def test_stdev_is_sample_not_population():
+    # Pins the exact sample stdev: for [2, 4] the sample stdev is sqrt(2) ≈ 1.414,
+    # whereas the population stdev would be 1.0. Guards against a pstdev regression.
+    stats = calculate_numeric_stats([2.0, 4.0])
+    assert stats.stdev == pytest.approx(math.sqrt(2.0))

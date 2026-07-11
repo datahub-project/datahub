@@ -25,6 +25,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     CONFLUENT_WIRE_HEADER_LENGTH,
     DEFAULT_CONSUMER_TIMEOUT_SECONDS,
     SCHEMA_TYPE_AVRO,
+    SamplingStrategy,
 )
 from datahub.ingestion.source.kafka.kafka_schema_inference import (
     KafkaSchemaInference,
@@ -314,40 +315,49 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config: KafkaSourceConfig = config
-        self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
-            self.source_config.connection
-        )
-        self.init_kafka_admin_client()
         self.report: KafkaSourceReport = KafkaSourceReport()
         # Profiling runs across a thread pool; report counters and warnings are
         # read-modify-write, so serialize every mutation from a worker thread.
         self._report_lock = threading.Lock()
         self._schema_resolver: Optional[KafkaSchemaResolver] = None
-        self.schema_registry_client: KafkaSchemaRegistryBase = (
-            KafkaSource.create_schema_registry(config, self.report)
+        self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
+            self.source_config.connection
         )
-
-        if self.source_config.schema_resolution.enabled:
-            self.schema_inference = KafkaSchemaInference(
-                bootstrap_servers=self.source_config.connection.bootstrap,
-                consumer_config=self.source_config.connection.consumer_config,
-                fallback_config=self.source_config.schema_resolution,
-                max_workers=self.source_config.profiling.max_workers,
-                report=self.report,
-            )
-        if self.source_config.domain:
-            self.domain_registry = DomainRegistry(
-                cached_domains=[k for k in self.source_config.domain],
-                graph=self.ctx.graph,
+        # The consumer holds a broker connection and a consumer-group slot; close it
+        # if any later init step raises so we don't leak either.
+        try:
+            self.init_kafka_admin_client()
+            self.schema_registry_client: KafkaSchemaRegistryBase = (
+                KafkaSource.create_schema_registry(config, self.report)
             )
 
-        self.meta_processor = OperationProcessor(
-            self.source_config.meta_mapping,
-            self.source_config.tag_prefix,
-            OwnershipSourceTypeClass.SERVICE,
-            self.source_config.strip_user_ids_from_email,
-            match_nested_props=True,
-        )
+            if self.source_config.schema_resolution.enabled:
+                self.schema_inference = KafkaSchemaInference(
+                    bootstrap_servers=self.source_config.connection.bootstrap,
+                    consumer_config=self.source_config.connection.consumer_config,
+                    fallback_config=self.source_config.schema_resolution,
+                    max_workers=self.source_config.profiling.max_workers,
+                    report=self.report,
+                )
+            if self.source_config.domain:
+                self.domain_registry = DomainRegistry(
+                    cached_domains=[k for k in self.source_config.domain],
+                    graph=self.ctx.graph,
+                )
+
+            self.meta_processor = OperationProcessor(
+                self.source_config.meta_mapping,
+                self.source_config.tag_prefix,
+                OwnershipSourceTypeClass.SERVICE,
+                self.source_config.strip_user_ids_from_email,
+                match_nested_props=True,
+            )
+        except Exception:
+            try:
+                self.consumer.close()
+            except Exception as e:
+                logger.debug(f"Failed to close consumer during failed init: {e}")
+            raise
 
     def init_kafka_admin_client(self) -> None:
         try:
@@ -545,62 +555,30 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 low, high = _consumer.get_watermark_offsets(partition)
                 watermarks[partition.partition] = (low, high)
 
-            # Different sampling approaches based on strategy
+            # All samplers share the same signature, so dispatch by strategy.
             strategy = self.source_config.profiling.sampling_strategy
-
-            if strategy == "latest":
-                self._get_latest_samples(
-                    partitions,
-                    watermarks,
-                    partition_sample_size,
-                    samples,
-                    topic,
-                    schema_metadata,
-                    consumer=_consumer,
-                )
-            elif strategy == "random":
-                self._get_random_samples(
-                    partitions,
-                    watermarks,
-                    partition_sample_size,
-                    samples,
-                    topic,
-                    schema_metadata,
-                    consumer=_consumer,
-                )
-            elif strategy == "stratified":
-                self._get_stratified_samples(
-                    partitions,
-                    watermarks,
-                    partition_sample_size,
-                    samples,
-                    topic,
-                    schema_metadata,
-                    consumer=_consumer,
-                )
-            elif strategy == "full":
-                self._get_full_samples(
-                    partitions,
-                    watermarks,
-                    partition_sample_size,
-                    samples,
-                    topic,
-                    schema_metadata,
-                    consumer=_consumer,
-                )
-            else:
+            samplers = {
+                SamplingStrategy.LATEST: self._get_latest_samples,
+                SamplingStrategy.RANDOM: self._get_random_samples,
+                SamplingStrategy.STRATIFIED: self._get_stratified_samples,
+                SamplingStrategy.FULL: self._get_full_samples,
+            }
+            sampler = samplers.get(strategy)
+            if sampler is None:
                 logger.warning(
                     f"Unrecognized sampling strategy: {strategy}, using 'latest'"
                 )
-                self._get_latest_samples(
-                    partitions,
-                    watermarks,
-                    partition_sample_size,
-                    samples,
-                    topic,
-                    schema_metadata,
-                    consumer=_consumer,
-                )
+                sampler = self._get_latest_samples
+
+            sampler(
+                partitions,
+                watermarks,
+                partition_sample_size,
+                samples,
+                topic,
+                schema_metadata,
+                consumer=_consumer,
+            )
 
             logger.info(f"Collected {len(samples)} samples from topic {topic}")
 
@@ -734,10 +712,17 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     _consumer.seek(seek_tp)
                     for _ in range(batch_end - i):
                         msg = _consumer.poll(timeout=1.0)
-                        if msg and not msg.error():
-                            self._process_message_to_sample(
-                                msg, samples, topic, schema_metadata
+                        if msg is None:
+                            continue
+                        if msg.error():
+                            self.report.report_warning(
+                                "profiling",
+                                f"Error while consuming from {topic}: {msg.error()}",
                             )
+                            continue
+                        self._process_message_to_sample(
+                            msg, samples, topic, schema_metadata
+                        )
 
     def _get_full_samples(
         self,
@@ -993,8 +978,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         finally:
             try:
                 consumer.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to close consumer for topic {topic}: {e}")
 
         if not samples:
             logger.debug(f"No samples collected for topic {topic}, skipping profiling")

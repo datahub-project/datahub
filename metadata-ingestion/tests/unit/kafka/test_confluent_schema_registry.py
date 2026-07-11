@@ -167,6 +167,29 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
         assert any("id" in name for name in field_names)
         assert any("name" in name for name in field_names)
 
+    def test_init_subjects_connectivity_failure_is_reported(self):
+        kafka_source_config = KafkaSourceConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "localhost:9092",
+                    "schema_registry_url": "http://localhost:8081",
+                },
+            }
+        )
+        report = KafkaSourceReport()
+
+        with patch(
+            "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient"
+        ) as mock_client_cls:
+            mock_client_cls.return_value.get_subjects.side_effect = OSError(
+                "registry unreachable"
+            )
+            registry = ConfluentSchemaRegistry.create(kafka_source_config, report)
+
+        # A registry we can't reach at startup must be tallied, not swallowed.
+        assert report.schema_registry_connectivity_failures == 1
+        assert registry.get_subjects() == []
+
     def test_batch_connectivity_failure_is_reported(self):
         kafka_source_config = KafkaSourceConfig.model_validate(
             {
