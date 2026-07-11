@@ -127,6 +127,16 @@ public class ObjectStorageLocationTest {
   }
 
   @Test
+  public void testParseCloudUriRejectsEmptyBucket() {
+    assertThrows(IllegalArgumentException.class, () -> ObjectStorageLocation.parse("s3:///prefix"));
+  }
+
+  @Test
+  public void testParseFileUriRejectsMissingPath() {
+    assertThrows(IllegalArgumentException.class, () -> ObjectStorageLocation.parse("file://"));
+  }
+
+  @Test
   public void testSynthesizeLocalRequiresAbsolutePath() {
     assertThrows(
         IllegalArgumentException.class,

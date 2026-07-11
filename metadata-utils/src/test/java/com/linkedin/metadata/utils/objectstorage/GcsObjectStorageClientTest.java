@@ -11,6 +11,7 @@ import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
@@ -54,5 +55,29 @@ public class GcsObjectStorageClientTest {
 
     verify(storage).writer(any(BlobInfo.class));
     verify(channel).close();
+  }
+
+  @Test
+  public void testPutObjectLargePayloadWriteFailure() throws Exception {
+    Storage storage = mock(Storage.class);
+    WriteChannel channel = mock(WriteChannel.class);
+    when(storage.writer(any(BlobInfo.class))).thenReturn(channel);
+    when(channel.write(any(ByteBuffer.class))).thenThrow(new IOException("write failed"));
+
+    GcsObjectStorageClient client =
+        new GcsObjectStorageClient(storage, "my-bucket", null, 1024, 1024);
+    try {
+      client.putObject("exports/large.bin", new byte[1536]);
+      throw new AssertionError("Expected RuntimeException");
+    } catch (RuntimeException ex) {
+      assertEquals(ex.getMessage(), "Failed to write object to GCS: write failed");
+    }
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPutObjectRejectsUnconfiguredBucket() {
+    GcsObjectStorageClient client =
+        new GcsObjectStorageClient(mock(Storage.class), "", null, 1024, 1024);
+    client.putObject("key", new byte[] {1});
   }
 }

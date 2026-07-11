@@ -49,4 +49,12 @@ public class ObjectStoragePathValidatorTest {
         ObjectStoragePathException.class,
         () -> ObjectStoragePathValidator.resolveUnderRoot(base, "foo/../../secret"));
   }
+
+  @Test
+  public void testDecodeUrlEncodedPath() throws Exception {
+    Path base = Files.createTempDirectory("object-storage-base");
+    Path resolved =
+        ObjectStoragePathValidator.resolveUnderRoot(base, "exports%2F2026%2Freport.bin");
+    assertEquals(resolved.getFileName().toString(), "report.bin");
+  }
 }

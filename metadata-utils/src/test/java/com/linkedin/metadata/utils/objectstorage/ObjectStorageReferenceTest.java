@@ -34,4 +34,9 @@ public class ObjectStorageReferenceTest {
     assertThrows(
         IllegalArgumentException.class, () -> ObjectStorageReference.fromUri("file:///tmp"));
   }
+
+  @Test
+  public void testConstructorRejectsBlankBucket() {
+    assertThrows(IllegalArgumentException.class, () -> new ObjectStorageReference(" ", "key"));
+  }
 }

@@ -26,4 +26,9 @@ public class ObjectStorageProviderResolverTest {
     assertEquals(
         ObjectStorageProviderResolver.resolve(null, "my-bucket"), ObjectStorageProvider.S3);
   }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testInvalidProviderThrows() {
+    ObjectStorageProviderResolver.resolve("azure", "my-bucket");
+  }
 }

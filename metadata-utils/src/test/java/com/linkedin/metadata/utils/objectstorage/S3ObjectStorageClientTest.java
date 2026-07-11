@@ -12,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
@@ -77,5 +78,30 @@ public class S3ObjectStorageClientTest {
     verify(s3Client, times(2)).uploadPart(any(UploadPartRequest.class), any(RequestBody.class));
     verify(s3Client).completeMultipartUpload(any(CompleteMultipartUploadRequest.class));
     verify(s3Client, never()).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+  }
+
+  @Test
+  public void testPutObjectMultipartAbortsOnFailure() {
+    S3Client s3Client = mock(S3Client.class);
+    when(s3Client.createMultipartUpload(any(CreateMultipartUploadRequest.class)))
+        .thenReturn(CreateMultipartUploadResponse.builder().uploadId("upload-1").build());
+    when(s3Client.uploadPart(any(UploadPartRequest.class), any(RequestBody.class)))
+        .thenThrow(new RuntimeException("upload failed"));
+
+    S3ObjectStorageClient client =
+        new S3ObjectStorageClient(s3Client, "my-bucket", null, 1024, 1024);
+    try {
+      client.putObject("exports/large.bin", new byte[2048]);
+      throw new AssertionError("Expected RuntimeException");
+    } catch (RuntimeException ignored) {
+      verify(s3Client).abortMultipartUpload(any(AbortMultipartUploadRequest.class));
+    }
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPutObjectRejectsUnconfiguredBucket() {
+    S3ObjectStorageClient client =
+        new S3ObjectStorageClient(mock(S3Client.class), " ", null, 1024, 1024);
+    client.putObject("key", new byte[] {1});
   }
 }

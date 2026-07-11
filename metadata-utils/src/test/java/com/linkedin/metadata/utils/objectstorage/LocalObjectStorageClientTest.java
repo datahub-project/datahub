@@ -62,4 +62,11 @@ public class LocalObjectStorageClientTest {
     assertFalse(new LocalObjectStorageClient("").isConfigured());
     assertTrue(new LocalObjectStorageClient("/tmp/datahub-object-storage").isConfigured());
   }
+
+  @Test
+  public void testPutObjectRejectsUnconfiguredRoot() {
+    LocalObjectStorageClient client = new LocalObjectStorageClient(null);
+    assertThrows(
+        IllegalStateException.class, () -> client.putObject("exports/out.bin", new byte[] {1}));
+  }
 }
