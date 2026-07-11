@@ -114,7 +114,7 @@ WHITESPACE_RE = re.compile(r"\s+")
 
 # DDL, DML, admin, and script-injection patterns that must not appear in profiling queries
 SQL_DANGEROUS_PATTERNS = [
-    re.compile(p)
+    re.compile(p, re.IGNORECASE)
     for p in [
         r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION|PROCEDURE)",
         r"\bDROP\s+(?:TABLE|VIEW|FUNCTION|PROCEDURE|DATABASE|SCHEMA)",
@@ -150,7 +150,7 @@ SQL_ALLOWED_START_PATTERNS = [
 
 # Injection patterns that must not appear in WHERE-clause filter expressions
 FILTER_DANGEROUS_PATTERNS = [
-    re.compile(p)
+    re.compile(p, re.IGNORECASE)
     for p in [
         r";\s*(?:DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|TRUNCATE)\s+",
         r"UNION\s+(?:ALL\s+)?SELECT",
@@ -166,6 +166,9 @@ FILTER_DANGEROUS_PATTERNS = [
 
 # A valid backtick-quoted column reference inside a filter expression.
 FILTER_COLUMN_REF_RE = re.compile(r"`[a-zA-Z_][a-zA-Z0-9_]*`")
+
+# Same, but captures the column name (without backticks).
+BACKTICK_COLUMN_NAME_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`")
 
 # Recognised SQL comparison / membership operators in filter expressions.
 FILTER_OPERATOR_RE = re.compile(
@@ -193,6 +196,12 @@ STRFTIME_FORMATS = {
 # Matches an ISO 8601 date string, used to detect YYYY-MM-DD strings destined for
 # integer partition columns so they can be converted.
 ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# BigQuery partition-id / date-literal shapes normalised by FilterBuilder.
+DATETIME_SECONDS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+PARTITION_ID_YYYYMMDD_PATTERN = re.compile(r"^\d{8}$")
+PARTITION_ID_YYYYMM_PATTERN = re.compile(r"^\d{6}$")
+PARTITION_ID_YYYYMMDDHH_PATTERN = re.compile(r"^\d{10}$")
 
 # Detects an existing date literal's format so date windowing keeps the same format.
 DATE_FORMAT_PATTERNS = {

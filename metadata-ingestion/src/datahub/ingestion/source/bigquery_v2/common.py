@@ -100,6 +100,11 @@ class BigQueryIdentifierBuilder:
         )
 
 
+# The system-tables deny pattern never changes, so build it once instead of on every
+# is_allowed() call (invoked per table during ingestion).
+_SYSTEM_TABLES_ALLOW_DENY = AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN)
+
+
 class BigQueryFilter:
     def __init__(
         self, filter_config: BigQueryFilterConfig, structured_reporter: SourceReport
@@ -117,9 +122,7 @@ class BigQueryFilter:
         )
 
     def is_allowed(self, table_id: BigqueryTableIdentifier) -> bool:
-        return AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN).allowed(
-            str(table_id)
-        ) and (
+        return _SYSTEM_TABLES_ALLOW_DENY.allowed(str(table_id)) and (
             gcp_is_project_allowed(self.filter_config, table_id.project_id)
             and is_schema_allowed(
                 self.filter_config.dataset_pattern,

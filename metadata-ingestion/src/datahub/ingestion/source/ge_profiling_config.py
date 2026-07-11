@@ -217,7 +217,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     )
 
     profile_external_tables: Annotated[
-        bool, SupportedSources(["redshift", "snowflake"])
+        bool, SupportedSources(["bigquery", "redshift", "snowflake"])
     ] = Field(
         default=False,
         description="Whether to profile external tables. Only Snowflake, BigQuery and Redshift support this.",

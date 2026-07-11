@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union, 
 
 from google.api_core.exceptions import GoogleAPICallError
 from sqlalchemy import create_engine, inspect
+from typing_extensions import TypeGuard
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
@@ -14,6 +15,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    BACKTICK_COLUMN_NAME_RE,
     BQ_SAFETY_ROW_LIMIT,
     BQ_SAFETY_ROW_LIMIT_THRESHOLD,
     CUSTOM_SQL_KWARG,
@@ -28,6 +30,9 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
+    CachedPartitionMetadata,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
@@ -79,7 +84,9 @@ class BigqueryProfiler(GenericProfiler):
         self._external_tables_processed = 0
         self._partition_discovery_calls = 0
         # {(project, dataset): {table_name: {partition_columns: [...], column_types: {...}}}}
-        self._partition_metadata_cache: Dict[Tuple[str, str], Dict[str, Dict]] = {}
+        self._partition_metadata_cache: Dict[
+            Tuple[str, str], Dict[str, CachedPartitionMetadata]
+        ] = {}
         self._cache_hits = 0
         self._cache_misses = 0
 
@@ -169,7 +176,7 @@ class BigqueryProfiler(GenericProfiler):
                 query, job_config, f"partition metadata cache for {project}.{dataset}"
             )
 
-            dataset_cache: Dict[str, Dict] = {}
+            dataset_cache: Dict[str, CachedPartitionMetadata] = {}
 
             for row in rows:
                 table_name = row.table_name
@@ -201,7 +208,7 @@ class BigqueryProfiler(GenericProfiler):
 
     def _get_cached_partition_metadata(
         self, project: str, dataset: str, table_name: str
-    ) -> Optional[Dict]:
+    ) -> Optional[CachedPartitionMetadata]:
         cache_key = (project, dataset)
 
         if cache_key not in self._partition_metadata_cache:
@@ -236,6 +243,17 @@ class BigqueryProfiler(GenericProfiler):
             partition_id, partition_datetime
         )
 
+    def _sample_percent(self, rows_count: int) -> float:
+        sample_pc = self.config.profiling.sample_size / rows_count
+        return min(100 * sample_pc, 100.0)
+
+    def _should_sample(self, rows_count: Optional[int]) -> TypeGuard[int]:
+        return bool(
+            self.config.profiling.use_sampling
+            and rows_count
+            and rows_count > self.config.profiling.sample_size
+        )
+
     def _build_partition_profiling_sql(
         self, safe_table_ref: str, partition_where: str, bq_table: BigqueryTable
     ) -> str:
@@ -249,15 +267,9 @@ class BigqueryProfiler(GenericProfiler):
         where_clause = queries.WHERE_CLAUSE.format(where=partition_where)
 
         rows_count = getattr(bq_table, "rows_count", None)
-        if (
-            self.config.profiling.use_sampling
-            and rows_count
-            and rows_count > self.config.profiling.sample_size
-        ):
-            sample_pc = self.config.profiling.sample_size / rows_count
-            sample_percent = min(100 * sample_pc, 100.0)
+        if self._should_sample(rows_count):
             tablesample = queries.TABLESAMPLE_SYSTEM.format(
-                sample_percent=sample_percent
+                sample_percent=self._sample_percent(rows_count)
             )
             return f"{select_all}\n{tablesample}\n{where_clause}"
 
@@ -267,6 +279,49 @@ class BigqueryProfiler(GenericProfiler):
             return f"{select_all}\n{where_clause}\n{limit_clause}"
 
         return f"{select_all}\n{where_clause}"
+
+    def _build_custom_sql(
+        self, safe_table_ref: str, table_ref: str, bq_table: BigqueryTable
+    ) -> Optional[str]:
+        # Custom SQL for a table without a partition filter: sample, cap at the row
+        # limit, or apply the safety cap for very large tables. Returns None when the
+        # table fits within limits so GE profiles it normally (FULL_TABLE partitionSpec).
+        rows_count = getattr(bq_table, "rows_count", None)
+        select_all = queries.SELECT_ALL.format(table_ref=safe_table_ref)
+
+        if self._should_sample(rows_count):
+            sample_percent = self._sample_percent(rows_count)
+            logger.info(
+                f"Applied {sample_percent:.4f}% sampling to {table_ref} "
+                f"({rows_count:,} rows)"
+            )
+            return (
+                f"{select_all}\n"
+                f"{queries.TABLESAMPLE_SYSTEM.format(sample_percent=sample_percent)}"
+            )
+
+        if not rows_count:
+            return None
+
+        row_limit = self.config.profiling.profiling_row_limit
+        if row_limit > 0 and rows_count > row_limit:
+            limit = max(1, int(row_limit))
+            logger.info(
+                f"Applied row limit ({limit:,}) to non-partitioned table "
+                f"{table_ref} ({rows_count:,} rows)"
+            )
+            return f"{select_all} {queries.LIMIT_CLAUSE.format(limit=limit)}"
+
+        if row_limit == 0 and rows_count > BQ_SAFETY_ROW_LIMIT_THRESHOLD:
+            logger.info(
+                f"Applied safety limit of {BQ_SAFETY_ROW_LIMIT:,} rows to large table "
+                f"{table_ref} ({rows_count:,} rows)"
+            )
+            return (
+                f"{select_all} {queries.LIMIT_CLAUSE.format(limit=BQ_SAFETY_ROW_LIMIT)}"
+            )
+
+        return None
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
@@ -350,64 +405,16 @@ class BigqueryProfiler(GenericProfiler):
                 )
 
         safe_table_ref = f"{safe_project}.{safe_schema}.{safe_table}"
-        custom_sql = None
 
-        should_sample = (
-            self.config.profiling.use_sampling
-            and hasattr(bq_table, "rows_count")
-            and bq_table.rows_count
-            and bq_table.rows_count > self.config.profiling.sample_size
-        )
-
+        # A partitioned table gets the partition-filtered SELECT; otherwise fall back to
+        # sampling / row-limit SQL (or None, so GE profiles the full table normally).
         if partition_where:
-            custom_sql = self._build_partition_profiling_sql(
+            custom_sql: Optional[str] = self._build_partition_profiling_sql(
                 safe_table_ref, partition_where, bq_table
             )
             logger.info(f"Applied partition profiling SQL for {table_ref}")
-        elif should_sample:
-            rows_count = bq_table.rows_count or 1
-            sample_pc = self.config.profiling.sample_size / rows_count
-            sample_percent = min(100 * sample_pc, 100.0)
-            custom_sql = (
-                f"{queries.SELECT_ALL.format(table_ref=safe_table_ref)}\n"
-                f"{queries.TABLESAMPLE_SYSTEM.format(sample_percent=sample_percent)}"
-            )
-            logger.info(
-                f"Applied {sample_percent:.4f}% sampling to {table_ref} "
-                f"({bq_table.rows_count:,} rows)"
-            )
-        elif (
-            hasattr(bq_table, "rows_count")
-            and bq_table.rows_count
-            and self.config.profiling.profiling_row_limit > 0
-            and bq_table.rows_count > self.config.profiling.profiling_row_limit
-        ):
-            # Apply the row limit for non-partitioned tables that exceed it to avoid
-            # expensive full-table scans.
-            row_limit = max(1, int(self.config.profiling.profiling_row_limit))
-            custom_sql = (
-                f"{queries.SELECT_ALL.format(table_ref=safe_table_ref)} "
-                f"{queries.LIMIT_CLAUSE.format(limit=row_limit)}"
-            )
-            logger.info(
-                f"Applied row limit ({row_limit:,}) to non-partitioned table {table_ref} ({bq_table.rows_count:,} rows)"
-            )
-        elif (
-            hasattr(bq_table, "rows_count")
-            and bq_table.rows_count
-            and bq_table.rows_count > BQ_SAFETY_ROW_LIMIT_THRESHOLD
-            and self.config.profiling.profiling_row_limit == 0
-        ):
-            # Safety cap for very large unpartitioned tables when no explicit limit is configured.
-            custom_sql = (
-                f"{queries.SELECT_ALL.format(table_ref=safe_table_ref)} "
-                f"{queries.LIMIT_CLAUSE.format(limit=BQ_SAFETY_ROW_LIMIT)}"
-            )
-            logger.info(
-                f"Applied safety limit of {BQ_SAFETY_ROW_LIMIT:,} rows to large table {table_ref} ({bq_table.rows_count:,} rows)"
-            )
-        # else: no custom_sql for non-partitioned, non-sampled tables that fit within limits —
-        # let GE profile normally, preserving the default FULL_TABLE partitionSpec on the profile MCP.
+        else:
+            custom_sql = self._build_custom_sql(safe_table_ref, table_ref, bq_table)
 
         if custom_sql:
             base_kwargs.update(
@@ -436,27 +443,12 @@ class BigqueryProfiler(GenericProfiler):
     def get_profile_request(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> Optional[TableProfilerRequest]:
-        try:
-            profile_request = super().get_profile_request(table, schema_name, db_name)
-        except (ValueError, AttributeError, KeyError, GoogleAPICallError) as e:
-            # get_batch_kwargs raises ValueError for identifiers that fail security
-            # validation or partitioned tables whose filter couldn't be built; the other
-            # types cover BigQuery API/IAM/quota errors escaping discovery. Kept symmetric
-            # with the external deferred path so neither aborts the whole project.
-            table_ref = f"{db_name}.{schema_name}.{table.name}"
-            self.report.warning(
-                title="Table skipped during profiling",
-                message=str(e),
-                context=table_ref,
-            )
-            return None
-
-        if not profile_request:
-            return None
-
         bq_table = cast(BigqueryTable, table)
         table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
 
+        # Check staleness before super().get_profile_request(), which runs partition
+        # discovery (issuing BigQuery queries). last_altered is already available, so
+        # there's no need to discover partitions for a table we're about to skip.
         if self._should_skip_profiling_due_to_staleness(bq_table):
             # Surface in the report, not just the log: skip_stale_tables defaults to True,
             # so without this operators silently lose profiling on long-idle tables.
@@ -466,6 +458,23 @@ class BigqueryProfiler(GenericProfiler):
                 "profiling was skipped. Set profiling.skip_stale_tables=false to profile it anyway.",
                 context=table_ref,
             )
+            return None
+
+        try:
+            profile_request = super().get_profile_request(table, schema_name, db_name)
+        except (ValueError, AttributeError, KeyError, GoogleAPICallError) as e:
+            # get_batch_kwargs raises ValueError for identifiers that fail security
+            # validation or partitioned tables whose filter couldn't be built; the other
+            # types cover BigQuery API/IAM/quota errors escaping discovery. Kept symmetric
+            # with the external deferred path so neither aborts the whole project.
+            self.report.warning(
+                title="Table skipped during profiling",
+                message=str(e),
+                context=table_ref,
+            )
+            return None
+
+        if not profile_request:
             return None
 
         if bq_table.external and not self.config.profiling.profile_external_tables:
@@ -787,7 +796,6 @@ class BigqueryProfiler(GenericProfiler):
             return partition_filters
 
         window_days = self.config.profiling.partition_datetime_window_days
-        windowed_filters = partition_filters.copy()
 
         date_columns = self._extract_date_columns_from_filters(partition_filters)
 
@@ -805,28 +813,33 @@ class BigqueryProfiler(GenericProfiler):
 
         start_date = reference_date - timedelta(days=window_days)
 
+        # Drop each windowed column's single-date equality; the range below replaces it.
+        # Keeping `col = X` would AND-collapse back to `col = X` and the window would
+        # have no effect (the original bug this method had).
+        windowed_filters = [
+            f
+            for f in partition_filters
+            if not any(f"`{col}` = " in f for col in date_columns)
+        ]
+
         for col_name in date_columns:
             existing_format = self._detect_date_format_in_filters(
                 partition_filters, col_name
             )
 
             if existing_format == DATE_FORMAT_YYYYMMDD:
-                format_str = STRFTIME_FORMATS[DATE_FORMAT_YYYYMMDD]
-                start_date_str = f"'{start_date.strftime(format_str)}'"
-                end_date_str = f"'{reference_date.strftime(format_str)}'"
-            elif existing_format == DATE_FORMAT_YYYY_MM_DD:
-                format_str = STRFTIME_FORMATS[DATE_FORMAT_YYYY_MM_DD]
-                start_date_str = f"'{start_date.strftime(format_str)}'"
-                end_date_str = f"'{reference_date.strftime(format_str)}'"
+                # YYYYMMDD partitions are stored as integers; emit unquoted literals.
+                fmt = STRFTIME_FORMATS[DATE_FORMAT_YYYYMMDD]
+                start_date_str = start_date.strftime(fmt)
+                end_date_str = reference_date.strftime(fmt)
             else:
-                format_str = STRFTIME_FORMATS[DATE_FORMAT_YYYY_MM_DD]
-                start_date_str = f"'{start_date.strftime(format_str)}'"
-                end_date_str = f"'{reference_date.strftime(format_str)}'"
+                fmt = STRFTIME_FORMATS[DATE_FORMAT_YYYY_MM_DD]
+                start_date_str = f"'{start_date.strftime(fmt)}'"
+                end_date_str = f"'{reference_date.strftime(fmt)}'"
 
-            range_filter = (
+            windowed_filters.append(
                 f"`{col_name}` >= {start_date_str} AND `{col_name}` <= {end_date_str}"
             )
-            windowed_filters.append(range_filter)
 
         logger.debug(
             f"Applied {window_days}-day partition window for {table.name}: "
@@ -853,15 +866,21 @@ class BigqueryProfiler(GenericProfiler):
     def _extract_date_columns_from_filters(
         self, partition_filters: List[str]
     ) -> List[str]:
-        """Uses pattern matching as a heuristic since partition filters are constructed without full schema metadata."""
-        date_columns = []
+        """Heuristic: partition filters are built without full schema metadata, so a
+        column is treated as a date column when its full name or any underscore-separated
+        token is a known date-like name (so ``event_ts`` matches via ``ts``)."""
+        date_columns: List[str] = []
 
         for filter_expr in partition_filters:
-            filter_lower = filter_expr.lower()
-            for pattern in DATE_LIKE_COLUMN_NAMES:
-                if f"`{pattern}`" in filter_lower:
-                    if pattern not in date_columns:
-                        date_columns.append(pattern)
+            for col_name in BACKTICK_COLUMN_NAME_RE.findall(filter_expr):
+                if col_name in date_columns:
+                    continue
+                name_lower = col_name.lower()
+                tokens = set(name_lower.split("_"))
+                if name_lower in DATE_LIKE_COLUMN_NAMES or (
+                    tokens & DATE_LIKE_COLUMN_NAMES
+                ):
+                    date_columns.append(col_name)
 
         return date_columns
 

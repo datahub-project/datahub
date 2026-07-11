@@ -41,6 +41,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_sch
     InfoSchemaQueries,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
+    CachedPartitionMetadata,
     ExtractedPartitionInfo,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.reporting import warn
@@ -145,8 +146,13 @@ class PartitionDiscovery:
             )
 
         except Exception as e:
-            logger.warning(
-                f"Error parsing DDL with sqlglot for table {table.name}: {e}"
+            warn(
+                self.report,
+                logger,
+                title="Partition columns from DDL failed",
+                message="Could not parse the table DDL to find partition columns; the "
+                "table may be treated as unpartitioned and full-scanned or skipped.",
+                context=f"{table.name}: {e}",
             )
 
         return partition_cols_with_types
@@ -157,7 +163,7 @@ class PartitionDiscovery:
         project: str,
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        cached_partition_metadata: Optional[Dict] = None,
+        cached_partition_metadata: Optional[CachedPartitionMetadata] = None,
     ) -> Optional[List[str]]:
         """Return partition filter expressions needed to query this table.
 
@@ -194,21 +200,36 @@ class PartitionDiscovery:
                 table, project, schema, execute_query_func
             )
 
+        probe_error: Optional[str] = None
         if not required_partition_columns:
             # Last resort: probe with a cheap query and parse the partition-filter error.
-            probed, _ = self._probe_required_partition_columns(
-                table, project, schema, execute_query_func, "partition detection"
+            required_partition_columns, probe_error = (
+                self._probe_required_partition_columns(
+                    table, project, schema, execute_query_func, "partition detection"
+                )
             )
-            if not probed:
-                logger.debug(f"No partition columns found for table {table.name}")
-                return []
-            required_partition_columns = probed
 
         if not required_partition_columns:
+            if table.external:
+                # External (e.g. hive-partitioned) tables often expose partition columns
+                # only via DDL, which the schema and probe checks above don't read.
+                return self._handle_external_table_partitioning(
+                    table, project, schema, current_time, execute_query_func
+                )
+            if probe_error is not None:
+                # A probe timeout / IAM / quota error must not be silently reclassified
+                # as "unpartitioned"; mirror _get_partition_columns_from_schema.
+                warn(
+                    self.report,
+                    logger,
+                    title="Partition column detection failed",
+                    message="Could not determine partition columns from the fallback "
+                    "probe query; the table will be treated as unpartitioned and may be "
+                    "full-scanned or skipped",
+                    context=f"{table.name}: probe error={probe_error}",
+                )
             logger.debug(f"No partition columns found for table {table.name}")
-            return self._handle_external_table_partitioning(
-                table, project, schema, current_time, execute_query_func
-            )
+            return []
 
         column_types = self._get_partition_column_types(
             table,
@@ -278,7 +299,7 @@ class PartitionDiscovery:
         schema: str,
         partition_columns: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        cached_metadata: Optional[Dict] = None,
+        cached_metadata: Optional[CachedPartitionMetadata] = None,
     ) -> Dict[str, str]:
         # cached_metadata is passed down the discovery call chain rather than held as
         # instance state so a single PartitionDiscovery can be shared across the parallel
@@ -300,7 +321,7 @@ class PartitionDiscovery:
         partition_columns: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         max_results: int = 5,
-        cached_metadata: Optional[Dict] = None,
+        cached_metadata: Optional[CachedPartitionMetadata] = None,
     ) -> Dict[str, Any]:
         if not partition_columns:
             return {}
@@ -732,7 +753,7 @@ class PartitionDiscovery:
     ) -> str:
         # Shared "most-populated partition value" CTE: group by the column, keep populated
         # groups, order, take the top. Probes differ only in extra_where/order_by/limit.
-        where = f"`{col_name}` IS NOT NULL"
+        where = FilterBuilder.is_not_null(col_name)
         if extra_where:
             where += f" AND {extra_where}"
 
@@ -1086,8 +1107,15 @@ class PartitionDiscovery:
             )
             return bool(results)
         except Exception as e:
-            logger.warning(
-                f"Error verifying partition data for {project}.{schema}.{table.name}: {e}"
+            # A timed-out/errored verification is indistinguishable from a genuinely
+            # empty partition here, so a correct filter can be dropped; surface it.
+            warn(
+                self.report,
+                logger,
+                title="Partition verification failed",
+                message="Could not verify that the discovered partition filter matches "
+                "rows; the filter may be dropped and the partition scan widened.",
+                context=f"{project}.{schema}.{table.name}: {e}",
             )
             return False
 
@@ -1176,7 +1204,7 @@ class PartitionDiscovery:
         required_columns: List[str],
         column_types: Dict[str, str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        cached_metadata: Optional[Dict] = None,
+        cached_metadata: Optional[CachedPartitionMetadata] = None,
     ) -> Optional[List[str]]:
         filters = []
         for col in required_columns:
@@ -1217,10 +1245,10 @@ class PartitionDiscovery:
                             self._create_safe_filter(col, fallback_val, col_data_type)
                         )
                     else:
-                        filters.append(f"`{col}` IS NOT NULL")
+                        filters.append(FilterBuilder.is_not_null(col))
             except ValueError as e:
                 logger.warning(f"Skipping invalid filter for column {col}: {e}")
-                filters.append(f"`{col}` IS NOT NULL")
+                filters.append(FilterBuilder.is_not_null(col))
 
         try:
             if self._verify_partition_has_data(
@@ -1243,8 +1271,15 @@ class PartitionDiscovery:
             else:
                 return None
         except Exception as e:
-            logger.warning(
-                f"Error testing date candidate {description} for table {table.name}: {e}"
+            # Report rather than debug-log: if every candidate fails this way (e.g. a
+            # systemic IAM/timeout error) it must not look identical to "found nothing".
+            warn(
+                self.report,
+                logger,
+                title="Strategic date candidate failed",
+                message="Could not test a strategic partition date candidate; if all "
+                "candidates fail the table may be treated as unpartitioned.",
+                context=f"{table.name} ({description}): {e}",
             )
             return None
 
@@ -1278,7 +1313,7 @@ class PartitionDiscovery:
         schema: str,
         required_columns: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        cached_metadata: Optional[Dict] = None,
+        cached_metadata: Optional[CachedPartitionMetadata] = None,
     ) -> Optional[List[str]]:
         """Find real partition values by querying the table directly.
 
@@ -1456,7 +1491,7 @@ class PartitionDiscovery:
                 return self._create_safe_filter(col_name, fallback_value, col_type)
             except ValueError as e:
                 logger.warning(f"Invalid fallback value for {col_name}: {e}")
-                return f"`{col_name}` IS NOT NULL"
+                return FilterBuilder.is_not_null(col_name)
 
         try:
             if self._is_date_like_column(col_name) or self._is_date_type_column(
@@ -1465,7 +1500,7 @@ class PartitionDiscovery:
                 logger.warning(
                     f"Specific date values failed for column {col_name}, using IS NOT NULL"
                 )
-                return f"`{col_name}` IS NOT NULL"
+                return FilterBuilder.is_not_null(col_name)
             elif col_name.lower() == "year":
                 return self._create_safe_filter(
                     col_name, str(fallback_date.year), col_type
@@ -1482,10 +1517,10 @@ class PartitionDiscovery:
                 logger.warning(
                     f"No fallback value for partition column {col_name}, using IS NOT NULL"
                 )
-                return f"`{col_name}` IS NOT NULL"
+                return FilterBuilder.is_not_null(col_name)
         except ValueError as e:
             logger.warning(f"Error creating fallback filter for {col_name}: {e}")
-            return f"`{col_name}` IS NOT NULL"
+            return FilterBuilder.is_not_null(col_name)
 
     def _get_partition_filters_from_max_partition_id(
         self,
@@ -1510,8 +1545,13 @@ class PartitionDiscovery:
             return filters
 
         except Exception as e:
-            logger.warning(
-                f"Error parsing max_partition_id '{table.max_partition_id}': {e}"
+            warn(
+                self.report,
+                logger,
+                title="max_partition_id parse failed",
+                message="Could not derive a partition filter from the table's "
+                "max_partition_id; falling back to query-based partition discovery.",
+                context=f"{table.name} (max_partition_id={table.max_partition_id}): {e}",
             )
             return None
 
@@ -1542,7 +1582,7 @@ class PartitionDiscovery:
         required_columns: List[str],
         initial_filters: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        cached_metadata: Optional[Dict] = None,
+        cached_metadata: Optional[CachedPartitionMetadata] = None,
     ) -> Optional[List[str]]:
         # For compound partitioning (e.g. date + region), _test_date_candidate uses
         # IS NOT NULL as a placeholder for non-date columns; replace each with the real
@@ -1616,14 +1656,14 @@ class PartitionDiscovery:
                             f"Found actual value for {col_name}: {actual_value} ({results[0].row_count} rows)"
                         )
                     else:
-                        enhanced_filters.append(f"`{col_name}` IS NOT NULL")
+                        enhanced_filters.append(FilterBuilder.is_not_null(col_name))
                         unresolved_cols.append(col_name)
 
                 except Exception as e:
                     logger.warning(
                         f"Error discovering values for column {col_name}: {e}"
                     )
-                    enhanced_filters.append(f"`{col_name}` IS NOT NULL")
+                    enhanced_filters.append(FilterBuilder.is_not_null(col_name))
                     unresolved_cols.append(col_name)
 
             # These non-date dimensions kept an unpruned IS NOT NULL: the WHERE clause

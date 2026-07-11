@@ -1,6 +1,13 @@
-from typing import List
+from typing import Dict, List, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class CachedPartitionMetadata(TypedDict):
+    # Per-table partition metadata pre-fetched once per dataset from
+    # INFORMATION_SCHEMA.COLUMNS, then threaded through discovery instead of a bare dict.
+    partition_columns: List[str]
+    column_types: Dict[str, str]
 
 
 class ExtractedPartitionInfo(BaseModel):
@@ -16,8 +23,8 @@ class ExtractedPartitionInfo(BaseModel):
     @field_validator("required_columns")
     @classmethod
     def validate_required_columns(cls, v: List[str]) -> List[str]:
-        if v:
-            for col in v:
-                if not col or not isinstance(col, str):
-                    raise ValueError(f"Invalid column name: {col}")
+        # Pydantic already guarantees str items; only reject blank names.
+        for col in v:
+            if not col:
+                raise ValueError("Partition column name must be non-empty")
         return v

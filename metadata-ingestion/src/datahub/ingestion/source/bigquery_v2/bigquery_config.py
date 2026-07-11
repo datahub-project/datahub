@@ -79,22 +79,24 @@ class BigQueryProfilingConfig(GEProfilingConfig):
 
     partition_fetch_timeout: PositiveInt = Field(
         default=30,
-        description="Timeout in seconds for partition value fetch operations. If exceeded, fallback "
-        "partition values will be used.",
+        description="Timeout in seconds for each partition value fetch query. On timeout the "
+        "table is treated as having no discoverable partition, so it is either skipped or "
+        "(for require_partition_filter=false tables) profiled without a partition filter.",
     )
 
     profiling_row_limit: NonNegativeInt = Field(
         default=1000000,
-        description="The number of rows to sample for profiling. This is a low level config property which "
-        "should be touched with care. This restriction is needed because excessively wide tables can "
-        "result in failure to ingest the schema. Set to 0 to disable the row limit.",
+        description="Maximum number of rows to scan when profiling a table (applied as a LIMIT "
+        "on the generated profiling SQL); distinct from `sample_size`, which controls "
+        "row-level sampling. Set to 0 to disable this limit, though a safety LIMIT still "
+        "applies to unpartitioned tables above ~1M rows.",
     )
 
     skip_stale_tables: bool = Field(
         default=True,
-        description="Skip profiling for tables that haven't been modified in over a year. "
-        "Uses last_altered timestamp (which contains BigQuery's last_modified_time) for both regular and external tables. "
-        "This helps avoid profiling abandoned or archived tables.",
+        description="Skip profiling for tables not modified within `staleness_threshold_days` "
+        "(default 365). Uses last_altered (BigQuery's last_modified_time) for both regular and "
+        "external tables. This helps avoid profiling abandoned or archived tables.",
     )
 
     staleness_threshold_days: NonNegativeInt = Field(
@@ -597,7 +599,7 @@ class BigQueryV2Config(
     )
 
     profiling: BigQueryProfilingConfig = Field(
-        default=BigQueryProfilingConfig(),
+        default_factory=BigQueryProfilingConfig,
         description="Profiling related configs",
     )
 
