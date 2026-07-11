@@ -215,6 +215,7 @@ def test_max_partition_id_used_before_information_schema():
         type_="DAY",
         field="run_date",
         fields=["run_date"],
+        columns=None,
         require_partition_filter=True,
     )
 
@@ -323,6 +324,7 @@ def test_non_date_partition_columns_find_most_frequent_value():
         type_="RANGE",
         field="region_id",
         fields=["region_id"],
+        columns=None,
         require_partition_filter=True,
     )
 
@@ -364,6 +366,7 @@ def test_compound_partition_date_plus_string():
         type_="DAY",
         field="event_date",
         fields=["event_date", "feed"],
+        columns=None,
         require_partition_filter=True,
     )
 
@@ -405,6 +408,7 @@ def test_compound_partition_non_date_query_failure_still_returns_date_filter():
         type_="DAY",
         field="event_date",
         fields=["event_date", "feed"],
+        columns=None,
         require_partition_filter=True,
     )
 
@@ -552,6 +556,7 @@ def test_information_schema_partitions_path():
         type_="DAY",
         field="event_date",
         fields=["event_date"],
+        columns=None,
         require_partition_filter=True,
     )
 
