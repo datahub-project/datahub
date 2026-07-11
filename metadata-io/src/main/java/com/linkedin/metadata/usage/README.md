@@ -1,4 +1,4 @@
-### Flush alignment
+# Flush alignment
 
 When `alignmentPeriodSeconds` is non-zero, flush batches are split at UTC calendar
 boundaries — a drain that would cross a boundary ends the current batch at the
