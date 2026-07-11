@@ -17,6 +17,7 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
     profiling_samples_skipped: int = 0
     profiling_avro_decode_failures: int = 0
     schema_inference_sampling_failures: int = 0
+    schema_inference_no_fields: int = 0
     schema_registry_connectivity_failures: int = 0
 
     def report_topic_scanned(self, topic: str) -> None:

@@ -169,7 +169,7 @@ class TestKafkaSchemaResolver:
         mock_inference_class.return_value = mock_inference
         schema_resolver.schema_inference = mock_inference
 
-        mock_inference._sample_topic_messages.return_value = [
+        mock_inference.sample_topic_messages.return_value = [
             b"\x00\x00\x00\x00\x01" + b"dummy_data"
         ]
 
@@ -203,7 +203,7 @@ class TestKafkaSchemaResolver:
         mock_inference_class.return_value = mock_inference
         schema_resolver.schema_inference = mock_inference
 
-        mock_inference._sample_topic_messages.return_value = [
+        mock_inference.sample_topic_messages.return_value = [
             b"\x00\x00\x00\x00\x01" + b"dummy_data"
         ]
 

@@ -57,12 +57,12 @@ class TestDecodeKafkaMessageValue:
         expected = {"empty_message": True}
         assert result == expected
 
-    def test_decode_binary_data(self):
+    def test_decode_binary_data_skipped(self):
+        # Non-UTF-8 payloads are skipped (None) rather than emitting a synthetic
+        # base64 field that would pollute the profile.
         value = b"\x8a\x8b\x8c\xde\xad\xbe\xef"
         result = decode_kafka_message_value(value, "test-topic")
-        expected_b64 = base64.b64encode(value).decode("utf-8")
-        expected = {"binary_data": expected_b64}
-        assert result == expected
+        assert result is None
 
     def test_decode_with_flatten_json_function(self):
         mock_flatten = Mock(return_value={"flattened": "result"})

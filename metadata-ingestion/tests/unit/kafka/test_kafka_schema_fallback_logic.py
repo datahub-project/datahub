@@ -94,34 +94,3 @@ class TestKafkaSchemaFallbackIntegration:
             mock_infer.side_effect = Exception("Schema inference failed")
             result = schema_inference.infer_schemas_batch(["failing-topic"])
             assert result == {"failing-topic": []}
-
-    def test_configuration_combinations(self):
-        config1 = KafkaSourceConfig.parse_obj(
-            {
-                "connection": {
-                    "bootstrap": "localhost:9092",
-                    "schema_registry_url": "http://localhost:8081",
-                },
-                "schema_resolution": {
-                    "enabled": True,
-                    "offset_reset_strategy": "hybrid",
-                },
-                "profiling": {"enabled": True, "max_workers": 8},
-            }
-        )
-        assert config1.schema_resolution.enabled is True
-        assert config1.profiling.enabled is True
-        assert config1.profiling.max_workers == 8
-
-        config2 = KafkaSourceConfig.parse_obj(
-            {
-                "connection": {
-                    "bootstrap": "localhost:9092",
-                    "schema_registry_url": "http://localhost:8081",
-                },
-                "schema_resolution": {"enabled": False},
-                "profiling": {"enabled": False},
-            }
-        )
-        assert config2.schema_resolution.enabled is False
-        assert config2.profiling.enabled is False

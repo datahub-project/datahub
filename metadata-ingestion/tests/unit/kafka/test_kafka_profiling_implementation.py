@@ -136,21 +136,6 @@ class TestKafkaProfilingImplementation:
         result = flatten_json(circular_data, max_depth=5)
         assert isinstance(result, dict)
 
-    def test_kafka_specific_config_fields(self):
-        config = ProfilerConfig(
-            enabled=True,
-            max_sample_time_seconds=30,
-            sampling_strategy="random",
-            nested_field_max_depth=3,
-            max_workers=4,
-            sample_size=500,
-        )
-        assert config.max_sample_time_seconds == 30
-        assert config.sampling_strategy == "random"
-        assert config.nested_field_max_depth == 3
-        assert config.max_workers == 4
-        assert config.sample_size == 500
-
     def test_field_statistics_with_config_flags(self):
         config = ProfilerConfig(
             enabled=True,

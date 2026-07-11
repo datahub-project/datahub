@@ -11,51 +11,40 @@ logger = logging.getLogger(__name__)
 
 MessageValue = Union[str, bytes, dict, list, int, float, bool, None]
 
+FlattenJsonFunc = Callable[..., Dict[str, str]]
+
 
 def decode_kafka_message_value(
     value: bytes,
     topic: str,
-    flatten_json_func: Optional[Callable[..., Any]] = None,
+    flatten_json_func: Optional[FlattenJsonFunc] = None,
     max_depth: int = DEFAULT_NESTED_FIELD_MAX_DEPTH,
-) -> Any:
+) -> MessageValue:
+    # Returns None to signal "skip this message" for a binary payload we can't
+    # decode without a schema. Emitting a synthetic base64 field instead would
+    # pollute the profile with a fake column. The caller counts the skip.
     if not isinstance(value, bytes):
-        # Already decoded or not bytes
         return value
 
     try:
-        # Try to decode as UTF-8 first
-        try:
-            text_data = value.decode("utf-8")
-        except UnicodeDecodeError:
-            # Binary data - encode as base64 for safe processing
-            logger.debug(f"Binary data detected for topic {topic}, encoding as base64")
-            return {"binary_data": base64.b64encode(value).decode("utf-8")}
+        text_data = value.decode("utf-8")
+    except UnicodeDecodeError:
+        logger.debug(f"Skipping binary message for topic {topic}")
+        return None
 
-        # Check if text_data is empty or whitespace only
-        if not text_data.strip():
-            logger.debug(f"Empty message detected for topic {topic}")
-            return {"empty_message": True}
+    if not text_data.strip():
+        return {"empty_message": True}
 
-        # Try to parse as JSON
-        try:
-            decoded = json.loads(text_data)
-            if isinstance(decoded, (dict, list)):
-                if isinstance(decoded, list):
-                    decoded = {"item": decoded}
+    try:
+        decoded = json.loads(text_data)
+    except json.JSONDecodeError:
+        return {"text_value": text_data}
 
-                # Apply JSON flattening if function provided
-                if flatten_json_func and isinstance(decoded, dict):
-                    return flatten_json_func(decoded, "", None, max_depth)
-                return decoded
-            return decoded
-        except json.JSONDecodeError:
-            # Valid UTF-8 but not JSON - return as text
-            return {"text_value": text_data}
-
-    except Exception as e:
-        # If all else fails, use base64 encoding
-        logger.debug(f"Failed to process message data for topic {topic}: {e}")
-        return {"binary_data": base64.b64encode(value).decode("utf-8")}
+    if isinstance(decoded, list):
+        decoded = {"item": decoded}
+    if isinstance(decoded, dict) and flatten_json_func:
+        return flatten_json_func(decoded, "", None, max_depth)
+    return decoded
 
 
 def process_kafka_message_for_sampling(value: MessageValue) -> Dict[str, Any]:

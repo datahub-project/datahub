@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import random
+import threading
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -277,7 +278,7 @@ class KafkaConnectionTest:
 )
 @capability(
     SourceCapability.DATA_PROFILING,
-    "Optionally enabled via configuration `profiling.enabled.`",
+    "Optionally enabled via configuration `profiling.enabled`.",
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -318,6 +319,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         )
         self.init_kafka_admin_client()
         self.report: KafkaSourceReport = KafkaSourceReport()
+        # Profiling runs across a thread pool; report counters and warnings are
+        # read-modify-write, so serialize every mutation from a worker thread.
+        self._report_lock = threading.Lock()
+        self._schema_resolver: Optional[KafkaSchemaResolver] = None
         self.schema_registry_client: KafkaSchemaRegistryBase = (
             KafkaSource.create_schema_registry(config, self.report)
         )
@@ -385,11 +390,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         logger.info(f"Processing {len(allowed_topics)} allowed topics")
 
-        # Batch schema retrieval (PARALLEL) - eliminates the main bottleneck
+        # Fetch every topic's schema up front so per-topic processing below has no
+        # further registry round-trips.
         topic_names = [topic for topic, _ in allowed_topics]
         logger.info(f"Retrieving schemas for {len(topic_names)} topics in batch")
 
-        # Get both value and key schemas in parallel
         topic_value_schemas = self.schema_registry_client.get_schema_and_fields_batch(
             topic_names, is_key_schema=False
         )
@@ -937,29 +942,38 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         except (avro.errors.AvroException, EOFError, ValueError) as e:
                             # Skip undecodable messages; never emit a synthetic field,
                             # which would pollute the profile as a fake topic column.
-                            self.report.profiling_avro_decode_failures += 1
-                            self.report.report_warning(
-                                "avro-decode",
-                                f"Skipped a message for topic {topic} that failed Avro "
-                                f"decoding ({type(e).__name__}): {e}",
-                            )
+                            with self._report_lock:
+                                self.report.profiling_avro_decode_failures += 1
+                                self.report.report_warning(
+                                    "avro-decode",
+                                    f"Skipped a message for topic {topic} that failed Avro "
+                                    f"decoding ({type(e).__name__}): {e}",
+                                )
                             return None
 
-                    return decode_kafka_message_value(
+                    decoded = decode_kafka_message_value(
                         data,
                         topic,
                         flatten_json_func=flatten_json,
                         max_depth=self.source_config.profiling.nested_field_max_depth,
                     )
+                    if decoded is None:
+                        # Binary/undecodable payload; skip rather than pollute the
+                        # profile with a synthetic field.
+                        with self._report_lock:
+                            self.report.profiling_samples_skipped += 1
+                        return None
+                    return decoded
 
             except Exception as e:
                 # Skip the message rather than emitting a base64 blob, which would
                 # pollute the profile as a synthetic field value.
-                self.report.profiling_samples_skipped += 1
-                self.report.report_warning(
-                    "profiling",
-                    f"Skipped a message for topic {topic} that failed to decode: {e}",
-                )
+                with self._report_lock:
+                    self.report.profiling_samples_skipped += 1
+                    self.report.report_warning(
+                        "profiling",
+                        f"Skipped a message for topic {topic} that failed to decode: {e}",
+                    )
                 return None
 
         return data
@@ -984,12 +998,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         if not samples:
             logger.debug(f"No samples collected for topic {topic}, skipping profiling")
-            self.report.profiling_topics_dropped += 1
-            if self.source_config.profiling.report_dropped_profiles:
-                self.report.report_warning(
-                    "profiling",
-                    f"No samples collected for topic {topic}; profile dropped.",
-                )
+            with self._report_lock:
+                self.report.profiling_topics_dropped += 1
+                if self.source_config.profiling.report_dropped_profiles:
+                    self.report.report_warning(
+                        "profiling",
+                        f"No samples collected for topic {topic}; profile dropped.",
+                    )
             return None
 
         profile = KafkaProfiler.profile_topic(
@@ -998,12 +1013,14 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             schema_metadata,
             self.source_config.profiling,
             report=self.report,
+            report_lock=self._report_lock,
         )
-        if profile:
-            self.report.profiling_topics_profiled += 1
-            return (entity_urn, profile)
-        self.report.profiling_topics_dropped += 1
-        return None
+        with self._report_lock:
+            if profile:
+                self.report.profiling_topics_profiled += 1
+            else:
+                self.report.profiling_topics_dropped += 1
+        return (entity_urn, profile) if profile else None
 
     def generate_profiles_in_parallel(
         self,
@@ -1075,7 +1092,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             f"Processing {len(topics_needing_resolution)} topics with comprehensive schema resolution"
         )
 
-        if not hasattr(self, "_schema_resolver"):
+        if self._schema_resolver is None:
             self._schema_resolver = KafkaSchemaResolver(
                 source_config=self.source_config,
                 schema_registry_client=self.schema_registry_client.get_schema_registry_client(),
@@ -1378,7 +1395,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 extra_topic_details = self.fetch_topic_configurations(topics)
             except Exception as e:
                 logger.debug(e, exc_info=e)
-                logger.warning(f"Failed to fetch config details due to error {e}.")
+                self.report.report_warning(
+                    "topic-config",
+                    f"Failed to fetch topic configuration details (partitions, "
+                    f"retention, cleanup policy, etc.) due to error {e}.",
+                )
         return extra_topic_details
 
     def fetch_topic_configurations(self, topics: List[str]) -> Dict[str, dict]:

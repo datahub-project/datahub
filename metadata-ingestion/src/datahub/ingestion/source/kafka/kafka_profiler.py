@@ -2,13 +2,14 @@ import logging
 import math
 import random
 import warnings
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional, Set, Union
 
 import avro.io
 import avro.schema
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.ingestion.source.kafka.kafka_config import ProfilerConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
@@ -18,6 +19,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     PROFILER_NUMERIC_TYPES,
     PROFILER_STRING_TYPES,
     PROFILER_UNKNOWN_TYPES,
+    ProfilerFieldType,
 )
 from datahub.ingestion.source.kafka.kafka_profiler_utils import (
     AGGREGATION_OVERFLOW_THRESHOLD,
@@ -94,18 +96,9 @@ class KafkaFieldStatistics(BaseModel):
     quantiles: List[QuantileClass] = Field(default_factory=list)
     distinct_value_frequencies: Dict[str, int] = Field(default_factory=dict)
 
-    class Config:
-        arbitrary_types_allowed = True
-        # Enforce the count/proportion constraints on post-construction assignment too.
-        validate_assignment = True
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        if isinstance(self.mean_value, str):
-            try:
-                self.mean_value = float(self.mean_value)
-            except (ValueError, TypeError):
-                self.mean_value = None
+    # validate_assignment enforces the count/proportion constraints on
+    # post-construction assignment too.
+    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
 
 def is_overflow_value(v: FieldValue) -> bool:
@@ -237,6 +230,7 @@ class KafkaProfiler:
         schema_metadata: Optional[SchemaMetadataClass],
         config: ProfilerConfig,
         report: Optional[KafkaSourceReport] = None,
+        report_lock: Optional[AbstractContextManager] = None,
     ) -> Optional[DatasetProfileClass]:
         if not samples:
             logger.warning(f"No samples available for topic {topic_name}")
@@ -259,13 +253,14 @@ class KafkaProfiler:
                         f"Skipped {profiler.samples_skipped} samples. First error: {profiler.profiling_errors[0]}"
                     )
                     if report is not None:
-                        report.profiling_samples_skipped += profiler.samples_skipped
-                        report.report_warning(
-                            "profiling",
-                            f"Profiling of topic {topic_name} skipped "
-                            f"{profiler.samples_skipped} sample(s) due to processing "
-                            f"errors. First error: {profiler.profiling_errors[0]}",
-                        )
+                        with report_lock or nullcontext():
+                            report.profiling_samples_skipped += profiler.samples_skipped
+                            report.report_warning(
+                                "profiling",
+                                f"Profiling of topic {topic_name} skipped "
+                                f"{profiler.samples_skipped} sample(s) due to processing "
+                                f"errors. First error: {profiler.profiling_errors[0]}",
+                            )
 
             return profile
 
@@ -289,14 +284,13 @@ class KafkaProfiler:
             return []
 
         try:
-            # Take a random sample up to max_samples size
             sample_size = min(max_samples, len(values))
             indices = sorted(random.sample(range(len(values)), sample_size))
-            samples = [str(values[i]) for i in indices]
-            samples = [s[:1000] for s in samples]  # Limit string length
-            return samples
-        except Exception:
-            return [str(values[0])]
+            # Cap each rendered value so a huge payload can't bloat the profile.
+            return [str(values[i])[:1000] for i in indices]
+        except Exception as e:
+            logger.debug(f"Failed to build sample values: {e}")
+            return []
 
     def _create_histogram(
         self, values: List[NumericValue], max_buckets: int = 10
@@ -535,44 +529,30 @@ class KafkaProfiler:
             FixedTypeClass,
             NullTypeClass,
         ],
-    ) -> str:
+    ) -> ProfilerFieldType:
         if isinstance(type_class, NumberTypeClass):
-            return "NUMERIC"
+            return ProfilerFieldType.NUMERIC
         elif isinstance(type_class, BooleanTypeClass):
-            return "BOOLEAN"
+            return ProfilerFieldType.BOOLEAN
         elif isinstance(type_class, (DateTypeClass, TimeTypeClass)):
-            return "DATETIME"
+            return ProfilerFieldType.DATETIME
         elif isinstance(type_class, (StringTypeClass, EnumTypeClass)):
-            return "STRING"
-        elif isinstance(
-            type_class,
-            (
-                ArrayTypeClass,
-                MapTypeClass,
-                RecordTypeClass,
-                UnionTypeClass,
-                BytesTypeClass,
-                FixedTypeClass,
-                NullTypeClass,
-            ),
-        ):
-            return "UNKNOWN"
-        else:
-            return "UNKNOWN"
+            return ProfilerFieldType.STRING
+        return ProfilerFieldType.UNKNOWN
 
-    def _get_data_type_from_native_type(self, native_type: str) -> str:
+    def _get_data_type_from_native_type(self, native_type: str) -> ProfilerFieldType:
         if native_type in PROFILER_NUMERIC_TYPES:
-            return "NUMERIC"
+            return ProfilerFieldType.NUMERIC
         elif native_type in PROFILER_BOOLEAN_TYPES:
-            return "BOOLEAN"
+            return ProfilerFieldType.BOOLEAN
         elif native_type in PROFILER_DATETIME_TYPES:
-            return "DATETIME"
+            return ProfilerFieldType.DATETIME
         elif native_type in PROFILER_STRING_TYPES:
-            return "STRING"
+            return ProfilerFieldType.STRING
         elif native_type in PROFILER_UNKNOWN_TYPES:
-            return "UNKNOWN"
+            return ProfilerFieldType.UNKNOWN
         else:
-            return "STRING"
+            return ProfilerFieldType.STRING
 
     def _process_field_statistics(
         self,
@@ -597,7 +577,7 @@ class KafkaProfiler:
         self._add_distinct_value_statistics(stats, values)
 
         # Add numeric statistics if applicable
-        if data_type == "NUMERIC":
+        if data_type == ProfilerFieldType.NUMERIC:
             self._add_numeric_field_statistics(stats, non_null_values)
 
         return stats
@@ -607,13 +587,13 @@ class KafkaProfiler:
         field_path: str,
         values: List[FieldValue],
         schema_metadata: Optional[SchemaMetadataClass],
-    ) -> str:
-        data_type = "STRING"  # Default fallback
+    ) -> ProfilerFieldType:
+        data_type = ProfilerFieldType.STRING  # Default fallback
 
         # Try to determine type from schema metadata first
         if schema_metadata and schema_metadata.fields:
             data_type = self._get_data_type_from_schema(field_path, schema_metadata)
-            if data_type != "STRING":
+            if data_type != ProfilerFieldType.STRING:
                 return data_type
 
         # Fallback to detecting from sample values
@@ -630,7 +610,7 @@ class KafkaProfiler:
 
     def _get_data_type_from_schema(
         self, field_path: str, schema_metadata: SchemaMetadataClass
-    ) -> str:
+    ) -> ProfilerFieldType:
         for schema_field in schema_metadata.fields:
             if schema_field.fieldPath == field_path:
                 # Check the actual schema field type (more reliable than nativeDataType)
@@ -638,39 +618,40 @@ class KafkaProfiler:
                     data_type = self._get_data_type_from_schema_field_type(
                         schema_field.type.type
                     )
-                    if data_type != "STRING":  # Found a specific type
+                    if data_type != ProfilerFieldType.STRING:  # Found a specific type
                         return data_type
 
                 # Fallback to native data type if type class is not available
                 native_type = getattr(schema_field, "nativeDataType", "").lower()
                 data_type = self._get_data_type_from_native_type(native_type)
-                if data_type != "STRING":  # Found a specific type
+                if data_type != ProfilerFieldType.STRING:  # Found a specific type
                     return data_type
-        return "STRING"
+        return ProfilerFieldType.STRING
 
     def _detect_data_type_from_values(
-        self, values: List[FieldValue], default_type: str
-    ) -> str:
+        self, values: List[FieldValue], default_type: ProfilerFieldType
+    ) -> ProfilerFieldType:
         non_null_values = self._filter_non_null_values(values)
         if not non_null_values:
             return default_type
 
         sample_value = non_null_values[0]
-        if isinstance(sample_value, (int, float)):
-            return "NUMERIC"
-        elif isinstance(sample_value, bool):
-            return "BOOLEAN"
+        # bool is a subclass of int, so check it first.
+        if isinstance(sample_value, bool):
+            return ProfilerFieldType.BOOLEAN
+        elif isinstance(sample_value, (int, float)):
+            return ProfilerFieldType.NUMERIC
         elif isinstance(sample_value, (dict, list)):
-            return "UNKNOWN"  # Complex types -> UNKNOWN (aligned with GE)
+            return (
+                ProfilerFieldType.UNKNOWN
+            )  # Complex types -> UNKNOWN (aligned with GE)
         return default_type
 
     def _should_skip_field_processing(self) -> bool:
         if not self._expensive_profiling_disabled:
             return False
 
-        max_fields = (
-            getattr(self.profiler_config, "max_number_of_fields_to_profile", 10) or 10
-        )
+        max_fields = self.profiler_config.max_number_of_fields_to_profile or 10
         self._processed_field_count += 1
         return self._processed_field_count > max_fields
 
@@ -828,9 +809,8 @@ class KafkaProfiler:
             histogram = None
             if (
                 self.profiler_config.include_field_histogram
-                and stats.data_type
-                == "NUMERIC"  # Only create histograms for numeric fields
-                and not self._expensive_profiling_disabled  # Skip for expensive profiling disabled
+                and stats.data_type == ProfilerFieldType.NUMERIC
+                and not self._expensive_profiling_disabled
             ):
                 # Get values from distinct_value_frequencies
                 values = []
@@ -884,11 +864,10 @@ class KafkaProfiler:
                 else None,
                 stdev=str(stats.stdev)
                 if self.profiler_config.include_field_stddev_value
-                and hasattr(stats, "stdev")
+                and stats.stdev is not None
                 else None,
                 quantiles=stats.quantiles
-                if self.profiler_config.include_field_quantiles
-                and hasattr(stats, "quantiles")
+                if self.profiler_config.include_field_quantiles and stats.quantiles
                 else None,
                 distinctValueFrequencies=[
                     ValueFrequencyClass(value=str(value), frequency=freq)

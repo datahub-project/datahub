@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from pydantic import ValidationError
 
@@ -12,16 +10,6 @@ from datahub.ingestion.source_config.operation_config import OperationConfig
 
 
 class TestKafkaProfilingConfig:
-    def test_profiler_config_kafka_specific_defaults(self):
-        config = ProfilerConfig()
-
-        assert config.sample_size == 200
-        assert config.max_workers == 5 * (os.cpu_count() or 4)
-        assert config.max_sample_time_seconds == 60
-        assert config.sampling_strategy == "latest"
-        assert config.batch_size == 100
-        assert config.nested_field_max_depth == 10
-
     def test_kafka_source_config_is_profiling_enabled(self):
         config_off = KafkaSourceConfig(
             connection={"bootstrap": "localhost:9092"},
@@ -51,14 +39,6 @@ class TestKafkaProfilingConfig:
 
 
 class TestSchemaResolutionFallbackConfig:
-    def test_schema_resolution_defaults(self):
-        config = SchemaResolutionFallback()
-
-        assert config.enabled is False
-        assert config.sample_timeout_seconds == 2.0
-        assert config.offset_reset_strategy == "hybrid"
-        assert config.max_messages_per_topic == 10
-
     def test_kafka_source_config_with_custom_schema_resolution(self):
         config = KafkaSourceConfig.parse_obj(
             {

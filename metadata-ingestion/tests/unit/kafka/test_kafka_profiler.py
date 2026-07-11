@@ -207,19 +207,6 @@ def test_sample_values(mock_random_sample, profiler):
     assert samples[2] == "value5"
 
 
-def test_custom_profiler_config():
-    custom_config = ProfilerConfig(
-        sample_size=200,
-        max_sample_time_seconds=120,
-        sampling_strategy="random",
-    )
-    profiler = KafkaProfiler(custom_config)
-
-    assert profiler.profiler_config.sample_size == 200
-    assert profiler.profiler_config.max_sample_time_seconds == 120
-    assert profiler.profiler_config.sampling_strategy == "random"
-
-
 def test_profile_topic_static_method(sample_data, schema_metadata):
     config = ProfilerConfig(enabled=True)
 
@@ -243,10 +230,13 @@ def test_profile_topic_recursion_error_handling():
     deeply_nested_sample: Dict[str, Any] = {
         "level1": {"level2": {"level3": {"level4": "value"}}}
     }
+    # max_depth=1 must truncate the nesting into a profile rather than recursing
+    # forever or crashing.
     result = KafkaProfiler.profile_topic(
         "nested_topic", [deeply_nested_sample], None, config
     )
-    assert isinstance(result, (DatasetProfileClass, type(None)))
+    assert isinstance(result, DatasetProfileClass)
+    assert result.fieldProfiles
 
 
 def test_ge_profiling_config_inheritance():

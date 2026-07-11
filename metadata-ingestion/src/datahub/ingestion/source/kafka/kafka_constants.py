@@ -20,6 +20,17 @@ SCHEMA_TYPE_AVRO = "AVRO"
 SCHEMA_TYPE_PROTOBUF = "PROTOBUF"
 SCHEMA_TYPE_JSON = "JSON"
 
+
+# Coarse field categories the profiler assigns to each field. STRING doubles as
+# the "not yet determined" sentinel during type detection.
+class ProfilerFieldType(StrEnum):
+    NUMERIC = "NUMERIC"
+    BOOLEAN = "BOOLEAN"
+    DATETIME = "DATETIME"
+    STRING = "STRING"
+    UNKNOWN = "UNKNOWN"
+
+
 # Profiler type classifications
 PROFILER_NUMERIC_TYPES = {"long", "int", "double", "float", "decimal"}
 PROFILER_BOOLEAN_TYPES = {"boolean", "bool"}

@@ -135,3 +135,23 @@ def test_median_averages_two_middle_values_for_even_length():
     # Regression: sorted[len // 2] would return 3 here; correct median is 2.5.
     stats = calculate_numeric_stats([1.0, 2.0, 3.0, 4.0])
     assert stats.median == 2.5
+
+
+def test_near_float_max_median_does_not_overflow():
+    # (a + b) / 2 would overflow to inf here; the overflow-safe path must not.
+    big = 1e308
+    stats = calculate_numeric_stats([big, big])
+    assert stats.median == big
+    assert not math.isinf(stats.median)
+
+
+def test_near_float_max_mean_stdev_suppressed():
+    # Beyond the aggregation threshold, mean/stdev are left unset rather than
+    # returning an overflowed inf, but min/max/median stay populated.
+    big = 1e308
+    stats = calculate_numeric_stats([big, big, big])
+    assert stats.min == big
+    assert stats.max == big
+    assert stats.median == big
+    assert stats.mean is None
+    assert stats.stdev is None

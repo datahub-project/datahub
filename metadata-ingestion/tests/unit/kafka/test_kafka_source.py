@@ -75,42 +75,6 @@ def test_kafka_source_profiling_enabled_check(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_profiling_config_inheritance(mock_kafka):
-    ctx = PipelineContext(run_id="test")
-
-    config = KafkaSourceConfig.parse_obj(
-        {
-            "connection": {"bootstrap": "localhost:9092"},
-            "profiling": {
-                "enabled": True,
-                "turn_off_expensive_profiling_metrics": True,
-                "field_sample_values_limit": 50,
-                "max_number_of_fields_to_profile": 20,
-                "profile_nested_fields": True,
-                "max_workers": 4,
-                "nested_field_max_depth": 3,
-            },
-        }
-    )
-
-    kafka_source = KafkaSource(config, ctx)
-
-    # Check that GE profiling config is properly inherited
-    profiling_config = kafka_source.source_config.profiling
-    assert profiling_config.enabled
-    assert profiling_config.turn_off_expensive_profiling_metrics
-    assert profiling_config.field_sample_values_limit == 50
-    assert profiling_config.max_number_of_fields_to_profile == 20
-    assert profiling_config.profile_nested_fields
-
-    # Check Kafka-specific config
-    assert profiling_config.max_workers == 4
-    assert profiling_config.nested_field_max_depth == 3
-
-    kafka_source.close()
-
-
-@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()

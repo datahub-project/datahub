@@ -81,7 +81,7 @@ class TestKafkaSchemaInference:
         assert isinstance(field_types["float_field"], NumberTypeClass)
 
     def test_infer_schema_from_messages_success(self, schema_inference):
-        with patch.object(schema_inference, "_sample_topic_messages") as mock_sample:
+        with patch.object(schema_inference, "sample_topic_messages") as mock_sample:
             mock_sample.return_value = [
                 {"field1": "value1", "field2": 123},
                 {"field1": "value2", "field2": 456},
@@ -96,10 +96,27 @@ class TestKafkaSchemaInference:
         assert "field2" in field_paths
 
     def test_infer_schema_from_messages_no_samples(self, schema_inference):
-        with patch.object(schema_inference, "_sample_topic_messages") as mock_sample:
+        with patch.object(schema_inference, "sample_topic_messages") as mock_sample:
             mock_sample.return_value = []
             result = schema_inference._infer_schema_from_messages("empty-topic")
         assert result == []
+
+    def test_sampled_but_no_fields_is_reported(self, fallback_config):
+        report = KafkaSourceReport()
+        inference = KafkaSchemaInference(
+            bootstrap_servers="localhost:9092",
+            consumer_config={"group.id": "test"},
+            fallback_config=fallback_config,
+            max_workers=1,
+            report=report,
+        )
+        # Non-dict samples yield no fields, so the topic would go schemaless.
+        with patch.object(inference, "sample_topic_messages") as mock_sample:
+            mock_sample.return_value = ["not-a-dict", 123]
+            result = inference._infer_schema_from_messages("opaque-topic")
+
+        assert result == []
+        assert report.schema_inference_no_fields == 1
 
     def test_infer_schemas_batch_sequential(self, schema_inference):
         schema_inference.max_workers = 1
@@ -131,38 +148,38 @@ class TestKafkaSchemaInference:
         mock_parallel.assert_called_once_with(["topic1", "topic2"])
         assert len(result) == 2
 
-    def test_sample_topic_messages_hybrid_strategy(self, schema_inference):
+    def testsample_topic_messages_hybrid_strategy(self, schema_inference):
         with patch.object(
             schema_inference, "_sample_messages_with_strategy"
         ) as mock_sample:
             mock_sample.side_effect = [[], [{"field": "value"}]]
-            result = schema_inference._sample_topic_messages("test-topic")
+            result = schema_inference.sample_topic_messages("test-topic")
 
         assert mock_sample.call_count == 2
         mock_sample.assert_any_call("test-topic", "latest")
         mock_sample.assert_any_call("test-topic", "earliest")
         assert result == [{"field": "value"}]
 
-    def test_sample_topic_messages_latest_strategy(self, schema_inference):
+    def testsample_topic_messages_latest_strategy(self, schema_inference):
         schema_inference.fallback_config.offset_reset_strategy = "latest"
 
         with patch.object(
             schema_inference, "_sample_messages_with_strategy"
         ) as mock_sample:
             mock_sample.return_value = [{"field": "value"}]
-            result = schema_inference._sample_topic_messages("test-topic")
+            result = schema_inference.sample_topic_messages("test-topic")
 
         mock_sample.assert_called_once_with("test-topic", "latest")
         assert result == [{"field": "value"}]
 
-    def test_sample_topic_messages_earliest_strategy(self, schema_inference):
+    def testsample_topic_messages_earliest_strategy(self, schema_inference):
         schema_inference.fallback_config.offset_reset_strategy = "earliest"
 
         with patch.object(
             schema_inference, "_sample_messages_with_strategy"
         ) as mock_sample:
             mock_sample.return_value = [{"field": "value"}]
-            result = schema_inference._sample_topic_messages("test-topic")
+            result = schema_inference.sample_topic_messages("test-topic")
 
         mock_sample.assert_called_once_with("test-topic", "earliest")
         assert result == [{"field": "value"}]
@@ -195,7 +212,7 @@ class TestKafkaSchemaInference:
             report=report,
         )
         with (
-            patch.object(inference, "_sample_topic_messages", return_value=[{"a": 1}]),
+            patch.object(inference, "sample_topic_messages", return_value=[{"a": 1}]),
             patch.object(
                 inference,
                 "_extract_fields_from_samples",

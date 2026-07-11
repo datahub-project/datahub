@@ -303,7 +303,7 @@ class KafkaSchemaResolver:
             # Use the schema inference infrastructure to sample messages
             if not self.schema_inference:
                 return record_names
-            sample_messages = self.schema_inference._sample_topic_messages(topic)
+            sample_messages = self.schema_inference.sample_topic_messages(topic)
 
             # Use the configured fallback config to determine how many messages to sample
             fallback_config = self.source_config.schema_resolution

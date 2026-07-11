@@ -132,7 +132,7 @@ class KafkaSchemaInference:
         logger.info(f"Completed parallel schema inference for {len(topics)} topics")
         return results
 
-    def _sample_topic_messages(self, topic: str) -> List[MessageValue]:
+    def sample_topic_messages(self, topic: str) -> List[MessageValue]:
         strategy = self.fallback_config.offset_reset_strategy.lower()
 
         if strategy == "hybrid":
@@ -258,18 +258,27 @@ class KafkaSchemaInference:
 
     def _infer_schema_from_messages(self, topic: str) -> List[SchemaField]:
         try:
-            sample_messages = self._sample_topic_messages(topic)
+            sample_messages = self.sample_topic_messages(topic)
 
             if not sample_messages:
                 logger.debug(f"Skipping empty topic {topic} for schema inference")
                 return []
 
-            # Infer schema fields from the sample data
             inferred_fields = self._extract_fields_from_samples(topic, sample_messages)
 
-            logger.info(
-                f"Successfully inferred {len(inferred_fields)} schema fields from message data for topic {topic}"
-            )
+            if not inferred_fields and self.report is not None:
+                # We had samples but every one failed to yield a field; without
+                # this the topic would go schemaless with no report signal.
+                self.report.schema_inference_no_fields += 1
+                self.report.report_warning(
+                    "schema-inference",
+                    f"Sampled {len(sample_messages)} message(s) for topic {topic} "
+                    f"but inferred no fields; treating it as schemaless.",
+                )
+            else:
+                logger.info(
+                    f"Inferred {len(inferred_fields)} schema fields from message data for topic {topic}"
+                )
 
             return inferred_fields
 
@@ -283,12 +292,7 @@ class KafkaSchemaInference:
         # Collect all unique field paths and their types from samples
         field_info: FieldInfo = {}
 
-        # Process messages up to the configured limit for performance
-        max_messages_to_process = min(
-            len(sample_messages), self.fallback_config.max_messages_per_topic * 5
-        )  # Allow more for field extraction
-
-        for message in sample_messages[:max_messages_to_process]:
+        for message in sample_messages:
             if not isinstance(message, dict):
                 continue
 
