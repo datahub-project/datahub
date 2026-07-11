@@ -69,7 +69,7 @@ class BigqueryProfiler(GenericProfiler):
         super().__init__(config, report, "bigquery", state_handler)
         self.config = config
         self.report = report
-        self.partition_discovery = PartitionDiscovery(config)
+        self.partition_discovery = PartitionDiscovery(config, report)
         self.query_executor = QueryExecutor(config)
         self._tables_profiled = 0
         self._external_tables_processed = 0
@@ -185,8 +185,16 @@ ORDER BY table_name, ordinal_position
             self._partition_metadata_cache[cache_key] = dataset_cache
 
         except Exception as e:
-            logger.warning(
-                f"Failed to populate partition metadata cache for {project}.{dataset}: {e}"
+            # Caching {} here means every table in this dataset is subsequently treated
+            # as unpartitioned (partition discovery falls back to per-table probing).
+            # Surface it in the report so operators know why partition filters may be
+            # missing across a whole dataset (commonly an IAM/permissions issue).
+            self.report.warning(
+                title="Partition metadata cache population failed",
+                message="Failed to pre-fetch partition columns from "
+                "INFORMATION_SCHEMA.COLUMNS for a dataset; tables in it will fall back "
+                "to per-table partition probing and may be full-scanned or skipped",
+                context=f"{project}.{dataset}: {e}",
             )
             self._partition_metadata_cache[cache_key] = {}
 
@@ -226,6 +234,35 @@ ORDER BY table_name, ordinal_position
         return PartitionDiscovery.get_partition_range_from_partition_id(
             partition_id, partition_datetime
         )
+
+    def _build_partition_profiling_sql(
+        self, safe_table_ref: str, partition_where: str, bq_table: BigqueryTable
+    ) -> str:
+        """Build the profiling SELECT for a table that has a partition filter.
+
+        Applies TABLESAMPLE when sampling is enabled and the table is large enough,
+        otherwise the configured row limit. Shared by the inline (internal table) and
+        deferred (external table) code paths so their SQL cannot drift.
+        """
+        rows_count = getattr(bq_table, "rows_count", None)
+        if (
+            self.config.profiling.use_sampling
+            and rows_count
+            and rows_count > self.config.profiling.sample_size
+        ):
+            sample_pc = self.config.profiling.sample_size / rows_count
+            sample_percent = min(100 * sample_pc, 100.0)
+            return (
+                f"SELECT * FROM {safe_table_ref}\n"
+                f"TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)\n"
+                f"WHERE {partition_where}"
+            )
+
+        if self.config.profiling.profiling_row_limit > 0:
+            row_limit = max(1, int(self.config.profiling.profiling_row_limit))
+            return f"SELECT * FROM {safe_table_ref}\nWHERE {partition_where}\nLIMIT {row_limit}"
+
+        return f"SELECT * FROM {safe_table_ref}\nWHERE {partition_where}"
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
@@ -311,35 +348,21 @@ ORDER BY table_name, ordinal_position
             and bq_table.rows_count > self.config.profiling.sample_size
         )
 
-        if should_sample:
+        if partition_where:
+            custom_sql = self._build_partition_profiling_sql(
+                safe_table_ref, partition_where, bq_table
+            )
+            logger.info(f"Applied partition profiling SQL for {table_ref}")
+        elif should_sample:
             rows_count = bq_table.rows_count or 1
             sample_pc = self.config.profiling.sample_size / rows_count
             sample_percent = min(100 * sample_pc, 100.0)
-
-            if partition_where:
-                custom_sql = f"""SELECT * FROM {safe_table_ref}
-TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)
-WHERE {partition_where}"""
-            else:
-                custom_sql = f"""SELECT * FROM {safe_table_ref}
+            custom_sql = f"""SELECT * FROM {safe_table_ref}
 TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"""
-
             logger.info(
                 f"Applied {sample_percent:.4f}% sampling to {table_ref} "
                 f"({bq_table.rows_count:,} rows)"
             )
-        elif partition_where:
-            if self.config.profiling.profiling_row_limit > 0:
-                row_limit = max(1, int(self.config.profiling.profiling_row_limit))
-                custom_sql = f"""SELECT * FROM {safe_table_ref}
-WHERE {partition_where}
-LIMIT {row_limit}"""
-                logger.info(
-                    f"Applied row limit ({row_limit:,}) to partitioned {table_ref}"
-                )
-            else:
-                custom_sql = f"""SELECT * FROM {safe_table_ref}
-WHERE {partition_where}"""
         elif (
             hasattr(bq_table, "rows_count")
             and bq_table.rows_count
@@ -582,31 +605,9 @@ WHERE {partition_where}"""
                             db_name, schema_name, bq_table.name
                         )
 
-                        if (
-                            self.config.profiling.use_sampling
-                            and hasattr(bq_table, "rows_count")
-                            and bq_table.rows_count
-                            and bq_table.rows_count > self.config.profiling.sample_size
-                        ):
-                            sample_pc = (
-                                self.config.profiling.sample_size / bq_table.rows_count
-                            )
-                            sample_percent = min(100 * sample_pc, 100.0)
-
-                            custom_sql = f"""SELECT * FROM {safe_table_ref} 
-TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)
-WHERE {partition_where}"""
-                        else:
-                            if self.config.profiling.profiling_row_limit > 0:
-                                row_limit = max(
-                                    1, int(self.config.profiling.profiling_row_limit)
-                                )
-                                custom_sql = f"""SELECT * FROM {safe_table_ref}
-WHERE {partition_where}
-LIMIT {row_limit}"""
-                            else:
-                                custom_sql = f"""SELECT * FROM {safe_table_ref}
-WHERE {partition_where}"""
+                        custom_sql = self._build_partition_profiling_sql(
+                            safe_table_ref, partition_where, bq_table
+                        )
 
                         request.batch_kwargs.update(
                             dict(custom_sql=custom_sql, partition_handling="true")

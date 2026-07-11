@@ -18,6 +18,7 @@ from sqlglot.expressions import (
 )
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
@@ -43,9 +44,10 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_sch
     InfoSchemaQueries,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
-    PartitionInfo,
+    ExtractedPartitionInfo,
     PartitionResult,
 )
+from datahub.ingestion.source.bigquery_v2.profiling.reporting import warn
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     build_safe_table_reference,
     validate_filter_expression,
@@ -57,8 +59,12 @@ logger = logging.getLogger(__name__)
 class PartitionDiscovery:
     """Handles partition discovery and filter generation for BigQuery tables."""
 
-    def __init__(self, config: BigQueryV2Config):
+    def __init__(
+        self, config: BigQueryV2Config, report: Optional[BigQueryV2Report] = None
+    ):
         self.config = config
+        self.report = report
+        self.info_schema = InfoSchemaQueries(report)
         self._current_cached_metadata: Optional[Dict] = None
 
     @staticmethod
@@ -97,7 +103,7 @@ class PartitionDiscovery:
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Dict[str, str]:
-        return InfoSchemaQueries.get_partition_columns_from_info_schema(
+        return self.info_schema.get_partition_columns_from_info_schema(
             table, project, schema, execute_query_func
         )
 
@@ -372,7 +378,7 @@ class PartitionDiscovery:
             if all(col in cached_types for col in partition_columns):
                 return {col: cached_types[col] for col in partition_columns}
 
-        return InfoSchemaQueries.get_partition_column_types(
+        return self.info_schema.get_partition_column_types(
             table, project, schema, partition_columns, execute_query_func
         )
 
@@ -386,7 +392,7 @@ class PartitionDiscovery:
         max_results: int = DEFAULT_INFO_SCHEMA_PARTITIONS_LIMIT,
     ) -> PartitionResult:
         """Get partition information from INFORMATION_SCHEMA.PARTITIONS."""
-        return InfoSchemaQueries.get_partition_info_from_information_schema(
+        return self.info_schema.get_partition_info_from_information_schema(
             table, project, schema, partition_columns, execute_query_func, max_results
         )
 
@@ -638,33 +644,15 @@ class PartitionDiscovery:
         column_types: Optional[Dict[str, str]] = None,
     ) -> List[str]:
         """Find the maximum month value within the maximum year."""
-        try:
-            col_type = column_types.get(month_col, "INT64") if column_types else "INT64"
-            year_constraint = " AND ".join(year_filters)
-            constrained_query = f"""WITH PartitionStats AS (
-    SELECT `{month_col}` as val, COUNT(*) as record_count
-    FROM {safe_table_ref}
-    WHERE `{month_col}` IS NOT NULL AND {year_constraint}
-    GROUP BY `{month_col}`
-    HAVING record_count > 0
-    ORDER BY `{month_col}` DESC
-    LIMIT 1
-)
-SELECT val, record_count FROM PartitionStats"""
-
-            job_config = QueryJobConfig()
-            partition_values_results = execute_query_func(
-                constrained_query, job_config, f"partition component {month_col}"
-            )
-            if partition_values_results and partition_values_results[0].val is not None:
-                max_month = partition_values_results[0].val
-                result_values[month_col] = max_month
-                filter_expr = self._create_safe_filter(month_col, max_month, col_type)
-                logger.info(f"Found latest month within max year: {max_month}")
-                return [filter_expr]
-        except Exception as e:
-            logger.error(f"Error getting max month for {month_col}: {e}")
-        return []
+        return self._find_max_component_within_constraint(
+            component_col=month_col,
+            safe_table_ref=safe_table_ref,
+            constraint_filters=year_filters,
+            execute_query_func=execute_query_func,
+            result_values=result_values,
+            column_types=column_types,
+            scope_label="max year",
+        )
 
     def _find_max_day_within_year_month(
         self,
@@ -676,32 +664,55 @@ SELECT val, record_count FROM PartitionStats"""
         column_types: Optional[Dict[str, str]] = None,
     ) -> List[str]:
         """Find the maximum day value within the maximum year/month."""
+        return self._find_max_component_within_constraint(
+            component_col=day_col,
+            safe_table_ref=safe_table_ref,
+            constraint_filters=year_month_filters,
+            execute_query_func=execute_query_func,
+            result_values=result_values,
+            column_types=column_types,
+            scope_label="max year/month",
+        )
+
+    def _find_max_component_within_constraint(
+        self,
+        component_col: str,
+        safe_table_ref: str,
+        constraint_filters: List[str],
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        result_values: Dict[str, Any],
+        column_types: Optional[Dict[str, str]],
+        scope_label: str,
+    ) -> List[str]:
+        """Find the max value of a date-component column within an existing constraint."""
         try:
-            col_type = column_types.get(day_col, "INT64") if column_types else "INT64"
-            year_month_constraint = " AND ".join(year_month_filters)
-            constrained_query = f"""WITH PartitionStats AS (
-    SELECT `{day_col}` as val, COUNT(*) as record_count
-    FROM {safe_table_ref}
-    WHERE `{day_col}` IS NOT NULL AND {year_month_constraint}
-    GROUP BY `{day_col}`
-    HAVING record_count > 0
-    ORDER BY `{day_col}` DESC
-    LIMIT 1
-)
-SELECT val, record_count FROM PartitionStats"""
+            col_type = (
+                column_types.get(component_col, "INT64") if column_types else "INT64"
+            )
+            constrained_query = self._build_partition_stats_cte(
+                safe_table_ref,
+                component_col,
+                order_by=f"`{component_col}` DESC",
+                limit_clause="1",
+                extra_where=" AND ".join(constraint_filters),
+            )
 
             job_config = QueryJobConfig()
             partition_values_results = execute_query_func(
-                constrained_query, job_config, f"partition component {day_col}"
+                constrained_query, job_config, f"partition component {component_col}"
             )
             if partition_values_results and partition_values_results[0].val is not None:
-                max_day = partition_values_results[0].val
-                result_values[day_col] = max_day
-                filter_expr = self._create_safe_filter(day_col, max_day, col_type)
-                logger.info(f"Found latest day within max year/month: {max_day}")
+                max_value = partition_values_results[0].val
+                result_values[component_col] = max_value
+                filter_expr = self._create_safe_filter(
+                    component_col, max_value, col_type
+                )
+                logger.info(
+                    f"Found latest {component_col} within {scope_label}: {max_value}"
+                )
                 return [filter_expr]
         except Exception as e:
-            logger.error(f"Error getting max day for {day_col}: {e}")
+            logger.error(f"Error getting max {component_col}: {e}")
         return []
 
     def _process_non_date_columns(
@@ -729,17 +740,13 @@ SELECT val, record_count FROM PartitionStats"""
                     continue
 
                 if latest_date_filters:
-                    date_constraint = " AND ".join(latest_date_filters)
-                    constrained_query = f"""WITH PartitionStats AS (
-    SELECT `{col_name}` as val, COUNT(*) as record_count
-    FROM {safe_table_ref}
-    WHERE `{col_name}` IS NOT NULL AND {date_constraint}
-    GROUP BY `{col_name}`
-    HAVING record_count > 0
-    ORDER BY record_count DESC
-    LIMIT @max_results
-)
-SELECT val, record_count FROM PartitionStats"""
+                    constrained_query = self._build_partition_stats_cte(
+                        safe_table_ref,
+                        col_name,
+                        order_by="record_count DESC",
+                        limit_clause="@max_results",
+                        extra_where=" AND ".join(latest_date_filters),
+                    )
 
                     job_config = QueryJobConfig(
                         query_parameters=[
@@ -786,6 +793,35 @@ SELECT val, record_count FROM PartitionStats"""
                 )
                 continue
 
+    @staticmethod
+    def _build_partition_stats_cte(
+        table_ref: str,
+        col_name: str,
+        order_by: str,
+        limit_clause: str,
+        extra_where: str = "",
+    ) -> str:
+        """Build the shared "most-populated partition value" CTE.
+
+        All partition-value probes share this shape (group by the column, keep only
+        populated groups, order, take the top); they differ only in the extra WHERE
+        constraint, the ORDER BY, and the LIMIT clause.
+        """
+        where = f"`{col_name}` IS NOT NULL"
+        if extra_where:
+            where += f" AND {extra_where}"
+
+        return f"""WITH PartitionStats AS (
+    SELECT `{col_name}` as val, COUNT(*) as record_count
+    FROM {table_ref}
+    WHERE {where}
+    GROUP BY `{col_name}`
+    HAVING record_count > 0
+    ORDER BY {order_by}
+    LIMIT {limit_clause}
+)
+SELECT val, record_count FROM PartitionStats"""
+
     def _create_partition_stats_query(
         self,
         table_ref: str,
@@ -796,16 +832,9 @@ SELECT val, record_count FROM PartitionStats"""
         order_by = self._get_column_ordering_strategy(col_name, data_type)
         safe_max_results = max(1, min(int(max_results), MAX_PARTITION_VALUES))
 
-        query = f"""WITH PartitionStats AS (
-    SELECT `{col_name}` as val, COUNT(*) as record_count
-    FROM {table_ref}
-    WHERE `{col_name}` IS NOT NULL
-    GROUP BY `{col_name}`
-    HAVING record_count > 0
-    ORDER BY {order_by}
-    LIMIT @max_results
-)
-SELECT val, record_count FROM PartitionStats"""
+        query = self._build_partition_stats_cte(
+            table_ref, col_name, order_by, "@max_results"
+        )
 
         job_config = QueryJobConfig(
             query_parameters=[
@@ -892,35 +921,15 @@ SELECT val, record_count FROM PartitionStats"""
 
         return column_names
 
-    def _remove_duplicate_columns(self, column_names: List[str]) -> List[str]:
-        """Remove duplicate column names while preserving order."""
-        seen = set()
-        unique_columns = []
-
-        for col in column_names:
-            col_upper = col.upper()
-            if col_upper not in seen:
-                seen.add(col_upper)
-                unique_columns.append(col_upper)
-
-        return unique_columns
-
     def _get_partition_columns_from_table_info(self, table: BigqueryTable) -> set:
         """Extract required partition columns from table partition_info."""
         required_partition_columns: set[str] = set()
 
         if table.partition_info:
-            if isinstance(table.partition_info.fields, (list, tuple)):
-                required_partition_columns.update(table.partition_info.fields)
-
-            if (
-                hasattr(table.partition_info, "columns")
-                and table.partition_info.columns is not None
-            ):
-                # Safe iteration over columns when not None
-                cols = table.partition_info.columns
+            required_partition_columns.update(table.partition_info.fields)
+            if table.partition_info.columns is not None:
                 required_partition_columns.update(
-                    col.name for col in cols if col is not None
+                    col.name for col in table.partition_info.columns
                 )
 
         return required_partition_columns
@@ -958,7 +967,7 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
                 f"Found partition columns from schema: {required_partition_columns}"
             )
         except Exception as e:
-            logger.warning(f"Error querying partition columns: {e}")
+            logger.debug(f"Error querying partition columns from schema: {e}")
             try:
                 safe_table_ref = build_safe_table_reference(project, schema, table.name)
 
@@ -973,9 +982,22 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
                     ]
                 )
                 execute_query_func(test_query, job_config, "partition error detection")
-            except Exception as e:
-                error_info = self._extract_partition_info_from_error(str(e))
+            except Exception as probe_error:
+                error_info = self._extract_partition_info_from_error(str(probe_error))
                 required_partition_columns = set(error_info.required_columns)
+                # If the probe error is not the expected "requires partition filter"
+                # error, we learned nothing and the table will be treated as
+                # unpartitioned. Surface that so operators can see the real cause.
+                if not required_partition_columns:
+                    warn(
+                        self.report,
+                        logger,
+                        title="Partition column detection failed",
+                        message="Could not determine partition columns from "
+                        "INFORMATION_SCHEMA or the fallback probe query; the table will "
+                        "be treated as unpartitioned and may be full-scanned or skipped",
+                        context=f"{table.name}: schema error={e}; probe error={probe_error}",
+                    )
 
         return required_partition_columns
 
@@ -1442,6 +1464,7 @@ LIMIT 1"""
         column_types = column_types or {}
 
         fallback_filters = []
+        uses_is_not_null = False
         for col_name in required_columns:
             col_type = column_types.get(col_name, "")
             filter_str = self._create_fallback_filter_for_column(
@@ -1449,8 +1472,28 @@ LIMIT 1"""
             )
             if filter_str:
                 fallback_filters.append(filter_str)
+                if "IS NOT NULL" in filter_str:
+                    uses_is_not_null = True
 
         logger.debug(f"Generated fallback partition filters: {fallback_filters}")
+
+        # An `IS NOT NULL` fallback does not prune partitions, so profiling will scan
+        # the whole table and produce stats describing all partitions rather than the
+        # intended one. Warn so operators can distinguish fallback-profiled tables from
+        # correctly-discovered ones (this is the exact full-scan this feature avoids).
+        if fallback_filters and uses_is_not_null:
+            warn(
+                self.report,
+                logger,
+                title="Partition discovery fell back to full scan",
+                message="Partition discovery failed; profiling with an unpruned "
+                "'IS NOT NULL' fallback filter. The resulting profile describes the whole "
+                "table, not a single partition, and scans all partitions. Set "
+                "profiling.fallback_partition_values to target a specific partition, or "
+                "the table will be skipped if fallbacks are disabled",
+                context=f"{table.name}: filters={fallback_filters}",
+            )
+
         return fallback_filters
 
     def _create_fallback_filter_for_column(
@@ -1537,7 +1580,7 @@ LIMIT 1"""
         column_types: Dict[str, str],
     ) -> Optional[List[str]]:
         """Get partition filters from INFORMATION_SCHEMA.PARTITIONS (metadata-only, no data scanning)."""
-        return InfoSchemaQueries.get_partition_filters_from_information_schema(
+        return self.info_schema.get_partition_filters_from_information_schema(
             table,
             project,
             schema,
@@ -1545,14 +1588,6 @@ LIMIT 1"""
             execute_query_func,
             self._verify_partition_has_data,
             column_types,
-        )
-
-    def _convert_partition_id_to_filters(
-        self, partition_id: str, required_columns: List[str]
-    ) -> Optional[List[str]]:
-        """Convert a partition_id from INFORMATION_SCHEMA.PARTITIONS to filter expressions."""
-        return FilterBuilder.convert_partition_id_to_filters(
-            partition_id, required_columns
         )
 
     def _enhance_partition_filters_with_actual_values(
@@ -1653,9 +1688,11 @@ LIMIT @max_values"""
     def _get_strategic_candidate_dates(self) -> List[Tuple[datetime, str]]:
         return DateUtils.get_strategic_candidate_dates()
 
-    def _extract_partition_info_from_error(self, error_message: str) -> PartitionInfo:
+    def _extract_partition_info_from_error(
+        self, error_message: str
+    ) -> ExtractedPartitionInfo:
         """Extract required partition columns and values from BigQuery partition error messages."""
-        result = PartitionInfo(required_columns=[], partition_values={})
+        result = ExtractedPartitionInfo(required_columns=[], partition_values={})
 
         column_match = PARTITION_FILTER_PATTERN.search(error_message)
 

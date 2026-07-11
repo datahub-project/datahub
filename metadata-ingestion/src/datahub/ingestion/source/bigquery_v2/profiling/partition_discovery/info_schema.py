@@ -5,6 +5,7 @@ from typing import Callable, Dict, List, Optional, Union
 
 from google.cloud.bigquery import QueryJobConfig, Row, ScalarQueryParameter
 
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_NULL_PARTITION_ID,
@@ -22,6 +23,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_b
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
     PartitionResult,
 )
+from datahub.ingestion.source.bigquery_v2.profiling.reporting import warn
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     build_safe_table_reference,
     validate_column_names,
@@ -33,8 +35,11 @@ logger = logging.getLogger(__name__)
 class InfoSchemaQueries:
     """Utilities for querying INFORMATION_SCHEMA for partition information."""
 
-    @staticmethod
+    def __init__(self, report: Optional[BigQueryV2Report] = None) -> None:
+        self.report = report
+
     def get_partition_columns_from_info_schema(
+        self,
         table: BigqueryTable,
         project: str,
         schema: str,
@@ -63,19 +68,24 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             partition_columns = [row.column_name for row in partition_column_rows]
 
             if partition_columns:
-                return InfoSchemaQueries.get_partition_column_types(
+                return self.get_partition_column_types(
                     table, project, schema, partition_columns, execute_query_func
                 )
             else:
                 return {}
         except Exception as e:
-            logger.warning(
-                f"Error getting partition columns from INFORMATION_SCHEMA: {e}"
+            warn(
+                self.report,
+                logger,
+                title="Partition column discovery failed",
+                message="Failed to read partition columns from INFORMATION_SCHEMA; "
+                "the table will be treated as unpartitioned and may be full-scanned or skipped",
+                context=f"{table.name}: {e}",
             )
             return {}
 
-    @staticmethod
     def get_partition_column_types(
+        self,
         table: BigqueryTable,
         project: str,
         schema: str,
@@ -121,11 +131,18 @@ AND ({column_filter_clause})"""
             )
             return {row.column_name: row.data_type for row in query_results}
         except Exception as e:
-            logger.warning(f"Error getting partition column types: {e}")
+            warn(
+                self.report,
+                logger,
+                title="Partition column type lookup failed",
+                message="Failed to read partition column data types from INFORMATION_SCHEMA; "
+                "partition filters may be built with incorrect quoting",
+                context=f"{table.name}: {e}",
+            )
             return {}
 
-    @staticmethod
     def get_partition_info_from_information_schema(
+        self,
         table: BigqueryTable,
         project: str,
         schema: str,
@@ -147,8 +164,7 @@ AND ({column_filter_clause})"""
             query = f"""SELECT partition_id, total_rows
 FROM {safe_info_schema_ref}
 WHERE table_name = @table_name 
-AND partition_id != '{BQ_NULL_PARTITION_ID}'
-AND partition_id != '{BQ_UNPARTITIONED_PARTITION_ID}'
+AND partition_id NOT IN ('{BQ_NULL_PARTITION_ID}', '{BQ_UNPARTITIONED_PARTITION_ID}', '{BQ_STREAMING_UNPARTITIONED_PARTITION_ID}')
 AND total_rows > 0
 ORDER BY total_rows DESC
 LIMIT @max_results"""
@@ -199,7 +215,7 @@ LIMIT @max_results"""
                     col_name = partition_columns[0]
                     partition_values[col_name] = partition_id
                 else:
-                    InfoSchemaQueries._parse_single_partition_id_for_multiple_columns(
+                    self._parse_single_partition_id_for_multiple_columns(
                         partition_id, partition_columns, partition_values
                     )
 
@@ -213,11 +229,18 @@ LIMIT @max_results"""
             )
 
         except Exception as e:
-            logger.warning(f"Error getting partition info from INFORMATION_SCHEMA: {e}")
+            warn(
+                self.report,
+                logger,
+                title="Partition info discovery failed",
+                message="Failed to read partition info from INFORMATION_SCHEMA.PARTITIONS; "
+                "no partition filter could be derived for this table",
+                context=f"{table.name}: {e}",
+            )
             return PartitionResult(partition_values={}, row_count=None)
 
-    @staticmethod
     def get_partition_filters_from_information_schema(
+        self,
         table: BigqueryTable,
         project: str,
         schema: str,
@@ -306,7 +329,13 @@ LIMIT @max_results"""
                 return None
 
         except Exception as e:
-            logger.warning(f"Error in INFORMATION_SCHEMA partition discovery: {e}")
+            warn(
+                self.report,
+                logger,
+                title="Partition filter discovery failed",
+                message="Failed to derive partition filters from INFORMATION_SCHEMA.PARTITIONS",
+                context=f"{table.name}: {e}",
+            )
             return None
 
     @staticmethod

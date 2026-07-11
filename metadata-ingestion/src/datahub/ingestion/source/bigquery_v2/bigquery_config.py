@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import (
     Field,
+    NonNegativeInt,
     PositiveInt,
     PrivateAttr,
     ValidationInfo,
@@ -69,24 +70,24 @@ _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
 
 
 class BigQueryProfilingConfig(GEProfilingConfig):
-    fallback_partition_values: Dict[str, Any] = Field(
+    fallback_partition_values: Dict[str, Union[str, int, float]] = Field(
         default_factory=dict,
-        description="Fallback values for partition columns when timeout occurs. Keys are column names, "
-        "values are the fallback values to use. For non-date columns, the values are used directly. "
-        "Example: {'batch': 'default', 'region': 'us-east-1'}",
+        description="Fallback values for partition columns when partition discovery fails. Keys are column "
+        "names, values are the fallback values to use (string, int, or float). For non-date columns, the "
+        "values are used directly. Example: {'batch': 'default', 'region': 'us-east-1'}",
     )
 
-    partition_fetch_timeout: int = Field(
+    partition_fetch_timeout: PositiveInt = Field(
         default=30,
         description="Timeout in seconds for partition value fetch operations. If exceeded, fallback "
         "partition values will be used.",
     )
 
-    profiling_row_limit: int = Field(
+    profiling_row_limit: NonNegativeInt = Field(
         default=1000000,
         description="The number of rows to sample for profiling. This is a low level config property which "
         "should be touched with care. This restriction is needed because excessively wide tables can "
-        "result in failure to ingest the schema.",
+        "result in failure to ingest the schema. Set to 0 to disable the row limit.",
     )
 
     skip_stale_tables: bool = Field(
@@ -96,13 +97,13 @@ class BigQueryProfilingConfig(GEProfilingConfig):
         "This helps avoid profiling abandoned or archived tables.",
     )
 
-    staleness_threshold_days: int = Field(
+    staleness_threshold_days: NonNegativeInt = Field(
         default=365,
         description="Number of days after which a table is considered stale and profiling will be skipped "
         "if skip_stale_tables is enabled.",
     )
 
-    partition_datetime_window_days: Optional[int] = Field(
+    partition_datetime_window_days: Optional[NonNegativeInt] = Field(
         default=30,
         description="Limit profiling to partitions within this many days from the selected partition date. "
         "For example, if set to 30 and the selected partition is '2025-08-15', only partitions from "

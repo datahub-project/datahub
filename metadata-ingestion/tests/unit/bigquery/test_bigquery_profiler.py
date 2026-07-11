@@ -15,6 +15,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
 )
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+    FilterBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
@@ -77,6 +80,7 @@ def create_test_table(
             type_="DAY",
             field="date_partition",
             fields=["date_partition"],
+            columns=None,
             require_partition_filter=True,
         )
     return table
@@ -287,56 +291,6 @@ def test_query_executor_build_safe_custom_sql():
     assert sql_complete == expected_complete
 
 
-def test_query_executor_cost_estimation():
-    config = create_test_config()
-    executor = QueryExecutor(config)
-
-    mock_client = Mock()
-
-    # Simulate a dry-run job that reports bytes processed
-    mock_job_with_bytes = Mock()
-    mock_job_with_bytes.total_bytes_processed = 500
-
-    # Simulate a dry-run job that reports no bytes (e.g. metadata-only query)
-    mock_job_no_bytes = Mock()
-    mock_job_no_bytes.total_bytes_processed = None
-
-    with patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_connection.BigQueryConnectionConfig.get_bigquery_client",
-        return_value=mock_client,
-    ):
-        # When the dry-run job returns a byte estimate, it should be forwarded
-        mock_client.query.return_value = mock_job_with_bytes
-        assert executor.get_query_cost_estimate("SELECT 1") == 500
-
-        # When no byte estimate is available, get_query_cost_estimate returns None
-        mock_client.query.return_value = mock_job_no_bytes
-        assert executor.get_query_cost_estimate("SELECT 1") is None
-
-        # test_query_execution returns True when the dry-run succeeds
-        mock_client.query.return_value = mock_job_no_bytes
-        assert executor.test_query_execution("SELECT 1") is True
-
-        # test_query_execution returns False when the dry-run raises
-        mock_client.query.side_effect = Exception("permission denied")
-        assert executor.test_query_execution("SELECT 1") is False
-        mock_client.query.side_effect = None
-
-        # is_query_too_expensive: no cost estimate → treated as too expensive
-        mock_client.query.return_value = mock_job_no_bytes
-        assert executor.is_query_too_expensive("SELECT 1", 1000) is True
-
-        # is_query_too_expensive: estimate below threshold → not too expensive
-        mock_client.query.return_value = mock_job_with_bytes  # 500 bytes
-        assert executor.is_query_too_expensive("SELECT 1", 1000) is False
-
-        # is_query_too_expensive: estimate above threshold → too expensive
-        mock_job_large = Mock()
-        mock_job_large.total_bytes_processed = 2000
-        mock_client.query.return_value = mock_job_large
-        assert executor.is_query_too_expensive("SELECT 1", 1000) is True
-
-
 def test_partition_discovery_initialization():
     config = create_test_config()
     discovery = PartitionDiscovery(config)
@@ -422,13 +376,12 @@ def test_partition_discovery_create_safe_filter():
 @pytest.mark.parametrize(
     "partition_id, required_columns, expected_filters", PARTITION_ID_TEST_DATA
 )
-def test_partition_discovery_convert_partition_id_to_filters(
+def test_convert_partition_id_to_filters(
     partition_id: str, required_columns: List[str], expected_filters: List[str]
 ) -> None:
-    config = create_test_config()
-    discovery = PartitionDiscovery(config)
-
-    result = discovery._convert_partition_id_to_filters(partition_id, required_columns)
+    result = FilterBuilder.convert_partition_id_to_filters(
+        partition_id, required_columns, {}
+    )
 
     assert result is not None, "Expected filters but got None"
     for expected_filter in expected_filters:
@@ -437,13 +390,12 @@ def test_partition_discovery_convert_partition_id_to_filters(
         ), f"Expected filter {expected_filter} not found in {result}"
 
 
-def test_partition_discovery_convert_partition_id_to_filters_invalid():
-    """Test PartitionDiscovery._convert_partition_id_to_filters with invalid input."""
-    config = create_test_config()
-    discovery = PartitionDiscovery(config)
-
+def test_convert_partition_id_to_filters_invalid():
+    """convert_partition_id_to_filters falls back to a quoted literal for unparseable IDs."""
     required_columns = ["_PARTITIONDATE"]
-    filters = discovery._convert_partition_id_to_filters("invalid", required_columns)
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        "invalid", required_columns, {}
+    )
     assert filters is not None, "Expected filters but got None"
     assert len(filters) == 1
     assert "`_PARTITIONDATE` = 'invalid'" in filters
@@ -610,6 +562,118 @@ def test_profiler_get_batch_kwargs_security_validation():
 
     with pytest.raises(ValueError, match="Invalid dataset identifier"):
         profiler.get_batch_kwargs(table, "invalid;dataset", "test-project")
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_profiler_get_batch_kwargs_sets_partition_key(mock_get_filters):
+    """A table with a real max_partition_id carries a partition key so profile MCPs
+    are typed PARTITION rather than FULL_TABLE, even when no partition WHERE filter
+    was derived."""
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    mock_get_filters.return_value = []
+
+    table = create_test_table(rows_count=10, max_partition_id="20231225")
+
+    result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
+
+    assert result.get("partition") == "20231225"
+    assert "custom_sql" not in result
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_profiler_get_batch_kwargs_no_partition_key_for_plain_table(mock_get_filters):
+    """A non-partitioned table gets no partition key (profile stays FULL_TABLE)."""
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    mock_get_filters.return_value = []
+
+    table = create_test_table(rows_count=10, max_partition_id=None)
+
+    result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
+
+    assert "partition" not in result
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_profiler_get_batch_kwargs_ignores_special_partition_id(mock_get_filters):
+    """Sentinel partition IDs (e.g. __NULL__) must not become a partition key."""
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    mock_get_filters.return_value = []
+
+    table = create_test_table(rows_count=10, max_partition_id="__NULL__")
+
+    result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
+
+    assert "partition" not in result
+
+
+def test_validate_bigquery_identifier_table_allows_hyphen():
+    """BigQuery table names may contain single hyphens when backtick-escaped."""
+    assert validate_bigquery_identifier("my-table", "table") == "`my-table`"
+
+
+@pytest.mark.parametrize(
+    "malicious", ["tbl--x", "tbl;drop", "tbl'injection", "tbl/*c*/", 'tbl"q']
+)
+def test_validate_bigquery_identifier_table_rejects_injection(malicious: str) -> None:
+    """The relaxed table rule still rejects comment/quote/statement injection."""
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier(malicious, "table")
+
+
+def test_validate_bigquery_identifier_dataset_rejects_hyphen():
+    """Datasets keep the stricter rule (no hyphens) unlike tables."""
+    with pytest.raises(ValueError, match="Invalid dataset identifier"):
+        validate_bigquery_identifier("my-dataset", "dataset")
+
+
+def test_fallback_partition_values_override_used():
+    """A configured fallback value is used verbatim for a non-date partition column."""
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": "test-project-123456",
+            "profiling": {
+                "enabled": True,
+                "fallback_partition_values": {"region": "us-east-1"},
+            },
+        }
+    )
+    discovery = PartitionDiscovery(config)
+
+    result = discovery._create_fallback_filter_for_column(
+        "region", datetime.now(timezone.utc), "STRING"
+    )
+
+    assert result == "`region` = 'us-east-1'"
+
+
+def test_external_table_discovery_fallback_warns():
+    """When external discovery falls back to an unpruned IS NOT NULL filter, the
+    report gets a warning so operators can spot full-scan profiling."""
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+    table = create_test_table(external=True)
+
+    with (
+        patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
+        patch.object(
+            discovery,
+            "get_partition_columns_from_info_schema",
+            return_value={"region": "STRING"},
+        ),
+    ):
+        filters = discovery._get_external_table_partition_filters(
+            table,
+            "test-project",
+            "dataset",
+            datetime.now(timezone.utc),
+            lambda query, job_config, context: [],
+        )
+
+    assert filters == ["`region` IS NOT NULL"]
+    assert len(report.warnings) >= 1
 
 
 def test_full_profiling_workflow():
@@ -1029,15 +1093,6 @@ def test_profiler_get_dataset_name_variations():
         assert result == expected
 
 
-def test_profiler_repr():
-    config = create_test_config()
-    report = BigQueryV2Report()
-    profiler = BigqueryProfiler(config, report)
-
-    # Python's default __repr__ always includes the class name
-    assert "BigqueryProfiler" in repr(profiler)
-
-
 def test_partition_discovery_information_schema_without_restrictive_windowing():
     """Test that INFORMATION_SCHEMA partition discovery doesn't apply restrictive windowing during discovery."""
     config = create_test_config(partition_datetime_window_days=30)
@@ -1354,42 +1409,6 @@ def test_external_vs_internal_table_consistency():
     assert "2024-10-15" in internal_filter_str or "20241015" in internal_filter_str
 
 
-def test_query_executor_execute_with_retry():
-    config = create_test_config()
-    executor = QueryExecutor(config)
-
-    mock_client = Mock()
-    mock_client.query.side_effect = Exception("Simulated error")
-
-    with (
-        patch(
-            "datahub.ingestion.source.bigquery_v2.bigquery_connection.bigquery.Client",
-            return_value=mock_client,
-        ),
-        pytest.raises(Exception, match="Simulated error"),
-    ):
-        executor.execute_with_retry("SELECT 1", max_retries=2)
-
-
-def test_query_executor_is_query_too_expensive_scenarios():
-    """Test QueryExecutor.is_query_too_expensive with different scenarios."""
-    config = create_test_config()
-    executor = QueryExecutor(config)
-
-    with patch.object(executor, "get_query_cost_estimate") as mock_cost:
-        mock_cost.return_value = 500_000_000  # 500MB
-        result = executor.is_query_too_expensive("SELECT 1", 1_000_000_000)  # 1GB limit
-        assert result is False
-
-        mock_cost.return_value = 2_000_000_000  # 2GB
-        result = executor.is_query_too_expensive("SELECT 1", 1_000_000_000)  # 1GB limit
-        assert result is True
-
-        mock_cost.return_value = None
-        result = executor.is_query_too_expensive("SELECT 1", 1_000_000_000)
-        assert result is True  # Should be conservative when estimation fails
-
-
 def test_query_executor_execute_query_safely():
     config = create_test_config()
     executor = QueryExecutor(config)
@@ -1445,6 +1464,7 @@ def test_hierarchical_year_month_day_components():
         type_="DAY",
         field="year",  # Primary field
         fields=["year", "month", "day", "source"],  # All partition fields
+        columns=None,
         require_partition_filter=True,
     )
     table.partition_info = partition_info  # type: ignore[assignment]

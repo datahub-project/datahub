@@ -7,7 +7,7 @@ ScalarQueryParameter throughout the codebase.
 """
 
 import logging
-from typing import List, Optional, Union
+from typing import List
 
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     FILTER_COLUMN_REF_RE,
@@ -103,25 +103,6 @@ def validate_bigquery_identifier(
         if pattern in identifier:
             raise ValueError(
                 f"Invalid {identifier_type} identifier contains dangerous character '{pattern}': {identifier}"
-            )
-
-    script_injection_patterns = [
-        "javascript:",
-        "vbscript:",
-        "<script",
-        "</script>",
-        "eval(",
-        "expression(",
-        "onload=",
-        "onerror=",
-        "onclick=",
-    ]
-
-    identifier_lower = identifier.lower()
-    for pattern in script_injection_patterns:
-        if pattern in identifier_lower:
-            raise ValueError(
-                f"Invalid {identifier_type} identifier contains script injection pattern '{pattern}': {identifier}"
             )
 
     clean_identifier = identifier.replace("`", "")
@@ -247,57 +228,3 @@ def validate_and_filter_expressions(filters: List[str], context: str = "") -> Li
         )
 
     return validated_filters
-
-
-def has_malicious_patterns(value: str) -> bool:
-    """Check if a string contains potentially malicious SQL patterns."""
-    malicious_patterns = [
-        "UNION",
-        "SELECT",
-        "DROP",
-        "DELETE",
-        "INSERT",
-        "UPDATE",
-        "--",
-        "/*",
-        "xp_cmdshell",
-        "sp_executesql",
-    ]
-
-    value_upper = str(value).upper()
-    return any(pattern in value_upper for pattern in malicious_patterns)
-
-
-def clamp_numeric_value(
-    value: Union[str, int, float],
-    min_val: int,
-    max_val: int,
-    default: Optional[int] = None,
-) -> int:
-    """Safely clamp a numeric value to a range."""
-    try:
-        int_val = int(value)
-        return max(min_val, min(int_val, max_val))
-    except (ValueError, TypeError):
-        if default is not None:
-            return default
-        return min_val
-
-
-def create_safe_parameter_name(base_name: str, value: Union[str, int, float]) -> str:
-    """Create a safe parameter name for BigQuery parameterized queries."""
-    hash_suffix = abs(hash(str(value))) % 10000
-    return f"{base_name}_{hash_suffix}"
-
-
-def build_column_list_for_query(columns: List[str], backtick_wrap: bool = True) -> str:
-    """Build a comma-separated list of columns for use in SQL queries."""
-    if backtick_wrap:
-        return ", ".join([f"`{col}`" for col in columns])
-    else:
-        return ", ".join(columns)
-
-
-def build_where_conditions(columns: List[str], condition: str = "IS NOT NULL") -> str:
-    """Build WHERE conditions for multiple columns joined with AND."""
-    return " AND ".join([f"`{col}` {condition}" for col in columns])
