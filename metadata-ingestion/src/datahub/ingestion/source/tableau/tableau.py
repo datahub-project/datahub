@@ -2357,14 +2357,10 @@ class TableauSiteSource:
                         datasource_urn, cll_info.downstream.column
                     )
                 ]
-                if cll_info.downstream is not None
-                and cll_info.downstream.column is not None
+                if cll_info.downstream is not None and cll_info.downstream.column
                 else []
             )
-            upstreams = [
-                builder.make_schema_field_urn(column_ref.table, column_ref.column)
-                for column_ref in cll_info.upstreams
-            ]
+            upstreams = cll_info.upstream_schema_field_urns()
             fine_grained_lineages.append(
                 FineGrainedLineage(
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,

@@ -524,6 +524,9 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     deprecation {
         ...deprecationFields
     }
+    privileges {
+        ...entityPrivileges
+    }
     health {
         ...entityHealth
     }
@@ -671,6 +674,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         parentContainers {
             ...parentContainersFields
         }
@@ -747,6 +753,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         parentContainers {
             ...parentContainersFields
         }
@@ -821,6 +830,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
             total
         }
@@ -863,6 +875,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
@@ -918,6 +933,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         parentNodes {
             ...parentNodesFields
@@ -977,6 +995,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
     }
     ... on Container {
         properties {
@@ -1011,6 +1032,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         parentContainers {
             ...parentContainersFields
         }
@@ -1044,6 +1068,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         deprecation {
             ...deprecationFields
         }
+        privileges {
+            ...entityPrivileges
+        }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
@@ -1066,6 +1093,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
+        privileges {
+            ...entityPrivileges
+        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
@@ -1084,6 +1114,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
@@ -1112,6 +1145,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields

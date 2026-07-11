@@ -1,31 +1,25 @@
-# API usage aggregation (`com.linkedin.metadata.usage`)
+### Flush alignment
 
-In-memory rollup for **GMS API traffic** — operational Micrometer metrics and optional
-commercial extension overlays.
+When `alignmentPeriodSeconds` is non-zero, flush batches are split at UTC calendar
+boundaries — a drain that would cross a boundary ends the current batch at the
+boundary and starts a fresh window there. Multiple batches per period are normal;
+flush consumers should sum additive rows and union distinct identities per aligned
+`window_start`.
 
-## Package layout
+The flush coordinator ticks on `scheduledIntervalSeconds` (default 60s). Each tick
+flushes before the next boundary when within one interval of it, otherwise on the
+normal schedule.
 
-| Package                     | Role                                                                 |
-| --------------------------- | -------------------------------------------------------------------- |
-| `usage.store`               | In-memory aggregation (`UsageAggregationStore`, flush window state)  |
-| `usage.flush`               | Flush batch DTOs, sinks, coordinator                                 |
-| `usage.registry.operations` | `usage_operations.yaml` runtime registry (`UsageOperationsRegistry`) |
-| `usage.registry.metrics`    | `usage_metric_registry.yaml` runtime registry + increment resolver   |
-| `usage.registry.graphql`    | GraphQL classification registry builder                              |
-| `usage.instrumentation`     | HTTP session enrichment, auth-channel resolution                     |
-| `usage.identity`            | Actor-class classification                                           |
+| `alignmentPeriodSeconds` | Grid (UTC)   |
+| ------------------------ | ------------ |
+| `0` (default)            | Disabled     |
+| `3600`                   | Top of hour  |
+| `900`                    | 15 minutes   |
+| `86400`                  | UTC midnight |
 
-Configuration YAML loaders and manifests live in `com.linkedin.metadata.config.usage.*`
-(`manifest`, `loader`, `overlay`, `graphql`, `metric`).
-
-## Enable flags
-
-- `USAGE_AGGREGATION_ENABLED` — GMS aggregation + flush coordinator
-- `USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED` — Micrometer sink (default on)
-
-**Queue-path ingest** (`metadata_ingest` with `request_api=messaging`) is recorded on the MCE
-consumer when `USAGE_AGGREGATION_ENABLED=true` there — see `UsageQueueIngestRecorder` and
-`MceUsageAggregationFactory`. Async REST ingest dedup uses MCP `headers` (`X-DataHub-Usage-PreRecorded`)
-via `UsageMetadataChangeProposalEnricher` on publish.
-
-See [`store/README.md`](store/README.md) for store-level types.
+Set `USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS` to enable alignment (e.g. `3600` for
+hourly). When alignment is on, keep `scheduledIntervalSeconds` > 0 so the
+coordinator can flush before each boundary. With `scheduledIntervalSeconds=0`, no
+periodic ticks run — flushes rely on `maxWindowSeconds` and cardinality triggers
+only, which can miss boundary timing unless `maxWindowSeconds` divides the alignment
+period cleanly.
