@@ -16,20 +16,9 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     CONFLUENT_WIRE_HEADER_LENGTH,
     DEFAULT_CPU_COUNT_FALLBACK,
     DEFAULT_MAX_WORKERS_MULTIPLIER,
-    RESOLUTION_METHOD_NO_INFERENCE_AVAILABLE,
-    RESOLUTION_METHOD_NO_RECORD_NAMES_FOUND,
-    RESOLUTION_METHOD_NONE,
-    RESOLUTION_METHOD_RECORD_NAME_STRATEGIES_FAILED,
-    RESOLUTION_METHOD_RECORD_NAME_STRATEGY,
-    RESOLUTION_METHOD_REGISTRY_FAILED,
-    RESOLUTION_METHOD_SCHEMA_INFERENCE,
-    RESOLUTION_METHOD_SUBJECT_MAP_FAILED,
-    RESOLUTION_METHOD_TOPIC_NAME_FAILED,
-    RESOLUTION_METHOD_TOPIC_NAME_STRATEGY,
-    RESOLUTION_METHOD_TOPIC_RECORD_NAME_STRATEGY,
-    RESOLUTION_METHOD_TOPIC_SUBJECT_MAP,
     STRATEGY_NAME_RECORD_NAME,
     STRATEGY_NAME_TOPIC_RECORD_NAME,
+    ResolutionMethod,
 )
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_inference import KafkaSchemaInference
@@ -43,7 +32,7 @@ logger = logging.getLogger(__name__)
 class SchemaResolutionResult:
     schema: Optional[Schema]
     fields: List[SchemaField]
-    resolution_method: str
+    resolution_method: ResolutionMethod
     subject_name: Optional[str] = None
     record_name: Optional[str] = None
 
@@ -124,9 +113,9 @@ class KafkaSchemaResolver:
                 results[topic] = SchemaResolutionResult(
                     schema=None,
                     fields=fields,
-                    resolution_method=RESOLUTION_METHOD_SCHEMA_INFERENCE
+                    resolution_method=ResolutionMethod.SCHEMA_INFERENCE
                     if fields
-                    else RESOLUTION_METHOD_NONE,
+                    else ResolutionMethod.NONE,
                 )
         else:
             # No schema inference available or needed
@@ -134,7 +123,7 @@ class KafkaSchemaResolver:
                 results[topic] = SchemaResolutionResult(
                     schema=None,
                     fields=[],
-                    resolution_method=RESOLUTION_METHOD_NONE,
+                    resolution_method=ResolutionMethod.NONE,
                 )
 
         return results
@@ -161,7 +150,7 @@ class KafkaSchemaResolver:
         return SchemaResolutionResult(
             schema=None,
             fields=[],
-            resolution_method=RESOLUTION_METHOD_REGISTRY_FAILED,
+            resolution_method=ResolutionMethod.REGISTRY_FAILED,
         )
 
     def _try_topic_name_strategy(
@@ -179,7 +168,7 @@ class KafkaSchemaResolver:
                     return SchemaResolutionResult(
                         schema=registered_schema.schema,
                         fields=[],
-                        resolution_method=RESOLUTION_METHOD_TOPIC_NAME_STRATEGY,
+                        resolution_method=ResolutionMethod.TOPIC_NAME_STRATEGY,
                         subject_name=subject_name,
                     )
             except (KeyError, ValueError, OSError) as e:
@@ -189,7 +178,7 @@ class KafkaSchemaResolver:
         return SchemaResolutionResult(
             schema=None,
             fields=[],
-            resolution_method=RESOLUTION_METHOD_TOPIC_NAME_FAILED,
+            resolution_method=ResolutionMethod.TOPIC_NAME_FAILED,
         )
 
     def _try_topic_subject_map(
@@ -208,7 +197,7 @@ class KafkaSchemaResolver:
                     return SchemaResolutionResult(
                         schema=registered_schema.schema,
                         fields=[],
-                        resolution_method=RESOLUTION_METHOD_TOPIC_SUBJECT_MAP,
+                        resolution_method=ResolutionMethod.TOPIC_SUBJECT_MAP,
                         subject_name=subject_name,
                     )
             except (KeyError, ValueError, OSError) as e:
@@ -218,14 +207,14 @@ class KafkaSchemaResolver:
         return SchemaResolutionResult(
             schema=None,
             fields=[],
-            resolution_method=RESOLUTION_METHOD_SUBJECT_MAP_FAILED,
+            resolution_method=ResolutionMethod.SUBJECT_MAP_FAILED,
         )
 
     def _try_subject_name_with_record_names(
         self,
         record_names: Set[str],
         subject_format: str,
-        resolution_method: str,
+        resolution_method: ResolutionMethod,
         strategy_name: str,
     ) -> Optional[SchemaResolutionResult]:
         # Only hits the registry for subjects already known to exist; returns on first match.
@@ -259,7 +248,7 @@ class KafkaSchemaResolver:
             return SchemaResolutionResult(
                 schema=None,
                 fields=[],
-                resolution_method=RESOLUTION_METHOD_NO_INFERENCE_AVAILABLE,
+                resolution_method=ResolutionMethod.NO_INFERENCE_AVAILABLE,
             )
 
         try:
@@ -270,7 +259,7 @@ class KafkaSchemaResolver:
                 return SchemaResolutionResult(
                     schema=None,
                     fields=[],
-                    resolution_method=RESOLUTION_METHOD_NO_RECORD_NAMES_FOUND,
+                    resolution_method=ResolutionMethod.NO_RECORD_NAMES_FOUND,
                 )
 
             suffix = "-key" if is_key_schema else "-value"
@@ -279,7 +268,7 @@ class KafkaSchemaResolver:
             result = self._try_subject_name_with_record_names(
                 record_names,
                 subject_format=f"{{record_name}}{suffix}",
-                resolution_method=RESOLUTION_METHOD_RECORD_NAME_STRATEGY,
+                resolution_method=ResolutionMethod.RECORD_NAME_STRATEGY,
                 strategy_name=STRATEGY_NAME_RECORD_NAME,
             )
             if result:
@@ -289,7 +278,7 @@ class KafkaSchemaResolver:
             result = self._try_subject_name_with_record_names(
                 record_names,
                 subject_format=f"{topic}-{{record_name}}{suffix}",
-                resolution_method=RESOLUTION_METHOD_TOPIC_RECORD_NAME_STRATEGY,
+                resolution_method=ResolutionMethod.TOPIC_RECORD_NAME_STRATEGY,
                 strategy_name=STRATEGY_NAME_TOPIC_RECORD_NAME,
             )
             if result:
@@ -302,7 +291,7 @@ class KafkaSchemaResolver:
         return SchemaResolutionResult(
             schema=None,
             fields=[],
-            resolution_method=RESOLUTION_METHOD_RECORD_NAME_STRATEGIES_FAILED,
+            resolution_method=ResolutionMethod.RECORD_NAME_STRATEGIES_FAILED,
         )
 
     def _extract_record_names_from_topic(

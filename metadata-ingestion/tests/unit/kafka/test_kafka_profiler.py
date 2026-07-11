@@ -5,7 +5,6 @@ import pytest
 
 from datahub.ingestion.source.kafka.kafka_config import ProfilerConfig
 from datahub.ingestion.source.kafka.kafka_profiler import (
-    KafkaFieldStatistics,
     KafkaProfiler,
     clean_field_path,
     is_overflow_value,
@@ -14,7 +13,6 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     DatasetProfileClass,
-    HistogramClass,
     KafkaSchemaClass,
     NumberTypeClass,
     SchemaFieldClass,
@@ -162,23 +160,23 @@ def test_process_field_statistics(profiler, sample_data):
 
 
 def test_histogram_generation(profiler):
-    profiler.profiler_config.include_field_histogram = True
+    # 10 evenly spaced values over [0, 9] into 5 buckets.
+    histogram = profiler._create_histogram([float(i) for i in range(10)], max_buckets=5)
 
-    with patch.object(profiler, "_create_histogram") as mock_create_histogram:
-        mock_create_histogram.return_value = HistogramClass(
-            boundaries=["10.0", "30.0", "50.0", "70.0", "90.0"],
-            heights=[0.2, 0.2, 0.2, 0.2, 0.2],
-        )
+    assert histogram is not None
+    # N buckets => N+1 boundaries and N heights.
+    assert len(histogram.boundaries) == 6
+    assert len(histogram.heights) == 5
+    # Boundaries span the value range and increase monotonically.
+    assert [float(b) for b in histogram.boundaries] == [0.0, 1.8, 3.6, 5.4, 7.2, 9.0]
+    # Heights are normalized frequencies that sum to 1.0.
+    assert sum(histogram.heights) == pytest.approx(1.0)
 
-        test_stats = KafkaFieldStatistics(
-            field_path="test_numeric_field",
-            sample_values=["10.0", "20.0", "30.0"],
-            data_type="NUMERIC",
-            distinct_value_frequencies={str(i * 10): 1 for i in range(1, 10)},
-        )
 
-        profiler.create_profile_data({"test_numeric_field": test_stats}, 9)
-        mock_create_histogram.assert_called_once()
+def test_histogram_generation_degenerate_inputs(profiler):
+    # Too few values or a zero-width range yields no histogram.
+    assert profiler._create_histogram([5.0]) is None
+    assert profiler._create_histogram([5.0, 5.0, 5.0]) is None
 
 
 def test_profile_samples(profiler, sample_data, schema_metadata):
@@ -296,7 +294,7 @@ def test_expensive_profiling_limits():
     )
     profiler = KafkaProfiler(config)
 
-    field_values: dict[str, List[Union[str, int, float, bool, None]]] = {
+    field_values: dict[str, List[Any]] = {
         "field1": [1, 2, 3],
         "field2": ["a", "b", "c"],
         "field3": [True, False, True],

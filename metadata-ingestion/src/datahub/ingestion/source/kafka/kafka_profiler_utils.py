@@ -1,6 +1,16 @@
 import math
 import statistics
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, List, Optional
+
+
+@dataclass
+class NumericStats:
+    min: Optional[float] = None
+    max: Optional[float] = None
+    mean: Optional[float] = None
+    median: Optional[float] = None
+    stdev: Optional[float] = None
 
 
 def calculate_standard_deviation(values: List[float]) -> Optional[float]:
@@ -18,37 +28,28 @@ def calculate_standard_deviation(values: List[float]) -> Optional[float]:
         return None
 
 
-def calculate_numeric_stats(numeric_values: List[float]) -> Dict[str, Optional[float]]:
-    stats: Dict[str, Optional[float]] = {
-        "min": None,
-        "max": None,
-        "mean": None,
-        "median": None,
-        "stdev": None,
-    }
+def calculate_numeric_stats(numeric_values: List[float]) -> NumericStats:
+    stats = NumericStats()
 
     if not numeric_values:
         return stats
 
-    stats["min"] = min(numeric_values)
-    stats["max"] = max(numeric_values)
+    stats.min = min(numeric_values)
+    stats.max = max(numeric_values)
 
     # statistics.median averages the two middle values for even-length inputs
     # (e.g. [1, 2, 3, 4] -> 2.5), unlike sorted[len // 2] which returns 3.
-    stats["median"] = statistics.median(numeric_values)
+    stats.median = statistics.median(numeric_values)
 
-    # For single values, mean equals the value (no summation risk)
-    if len(numeric_values) == 1:
-        stats["mean"] = numeric_values[0]
-    elif not any(abs(x) > 1e200 for x in numeric_values):
-        # Only calculate mean for multiple values if no overflow risk
-        mean_val = sum(numeric_values) / len(numeric_values)
-        stats["mean"] = mean_val
+    has_overflow_risk = any(abs(x) > 1e200 for x in numeric_values)
 
     if len(numeric_values) == 1:
-        stats["stdev"] = 0.0
-    elif len(numeric_values) > 1 and not any(abs(x) > 1e200 for x in numeric_values):
-        stats["stdev"] = calculate_standard_deviation(numeric_values)
+        # For a single value, mean equals the value (no summation risk).
+        stats.mean = numeric_values[0]
+        stats.stdev = 0.0
+    elif not has_overflow_risk:
+        stats.mean = sum(numeric_values) / len(numeric_values)
+        stats.stdev = calculate_standard_deviation(numeric_values)
 
     return stats
 

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 from unittest.mock import patch
 
 import pytest
@@ -97,7 +97,7 @@ class TestKafkaProfilingImplementation:
         profiler = KafkaProfiler(config)
         assert profiler._expensive_profiling_disabled
 
-        field_values: List[Union[str, int, float, bool, None]] = [1, 2, 3, 4, 5]
+        field_values: List[Any] = [1, 2, 3, 4, 5]
         stats1 = profiler._process_field_statistics("field1", field_values)
         assert stats1.field_path == "field1"
         stats2 = profiler._process_field_statistics("field2", field_values)
@@ -161,7 +161,7 @@ class TestKafkaProfilingImplementation:
         )
         profiler = KafkaProfiler(config)
 
-        values: List[Union[str, int, float, bool, None]] = [1, 2, 3, None, 2, 4]
+        values: List[Any] = [1, 2, 3, None, 2, 4]
         stats = profiler._process_field_statistics("test_field", values)
 
         assert stats.null_count == 1

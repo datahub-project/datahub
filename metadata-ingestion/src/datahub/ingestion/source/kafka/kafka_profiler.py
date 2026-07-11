@@ -2,8 +2,9 @@ import logging
 import math
 import random
 import warnings
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional, Set, Union, cast
+from typing import Dict, List, Optional, Set, Union
 
 import avro.io
 import avro.schema
@@ -19,6 +20,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     PROFILER_UNKNOWN_TYPES,
 )
 from datahub.ingestion.source.kafka.kafka_profiler_utils import (
+    NumericStats,
     calculate_numeric_stats,
     filter_numeric_values,
 )
@@ -61,18 +63,28 @@ warnings.filterwarnings(
     message=".*Unknown .*, using .*",
 )
 
-FieldValue = Union[str, int, float, bool, None]
+# Profiled field values are exactly Kafka message values (nested dict/list/bytes
+# included) — the stats helpers handle the full set, so they share one type.
+FieldValue = MessageValue
 NumericValue = Union[int, float]
+
+
+@dataclass
+class FieldMappings:
+    paths: Dict[str, str] = field(default_factory=dict)  # clean name -> full field path
+    values: Dict[str, List[FieldValue]] = field(
+        default_factory=dict
+    )  # full field path -> collected values
 
 
 class KafkaFieldStatistics(BaseModel):
     field_path: str
     data_type: Optional[str] = None
     sample_values: List[str] = Field(default_factory=list)
-    unique_count: int = 0
-    unique_proportion: float = 0.0
-    null_count: int = 0
-    null_proportion: float = 0.0
+    unique_count: int = Field(default=0, ge=0)
+    unique_proportion: float = Field(default=0.0, ge=0.0, le=1.0)
+    null_count: int = Field(default=0, ge=0)
+    null_proportion: float = Field(default=0.0, ge=0.0, le=1.0)
     min_value: Optional[FieldValue] = None
     max_value: Optional[FieldValue] = None
     mean_value: Optional[float] = None
@@ -83,6 +95,8 @@ class KafkaFieldStatistics(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+        # Enforce the count/proportion constraints on post-construction assignment too.
+        validate_assignment = True
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -274,9 +288,7 @@ class KafkaProfiler:
             logger.error(error_msg)
             raise
 
-    def _calculate_numeric_stats(
-        self, numeric_values: List[float]
-    ) -> Dict[str, Optional[float]]:
+    def _calculate_numeric_stats(self, numeric_values: List[float]) -> NumericStats:
         return calculate_numeric_stats(numeric_values)
 
     def _get_sample_values(
@@ -339,13 +351,8 @@ class KafkaProfiler:
 
     def _init_schema_fields(
         self, schema_metadata: Optional[SchemaMetadataClass]
-    ) -> Dict[str, Union[Dict[str, str], Dict[str, List[FieldValue]]]]:
-        field_mappings: Dict[
-            str, Union[Dict[str, str], Dict[str, List[FieldValue]]]
-        ] = {
-            "paths": {},
-            "values": {},
-        }  # Maps clean names to full paths and values
+    ) -> FieldMappings:
+        field_mappings = FieldMappings()
 
         if not schema_metadata or not isinstance(
             schema_metadata.platformSchema, KafkaSchemaClass
@@ -364,16 +371,16 @@ class KafkaProfiler:
                         clean_name = clean_field_path(
                             schema_field.name, preserve_types=False
                         )
-                        field_mappings["paths"][clean_name] = schema_field.name
-                        field_mappings["values"][schema_field.name] = []  # type: ignore[assignment]
+                        field_mappings.paths[clean_name] = schema_field.name
+                        field_mappings.values[schema_field.name] = []
             except Exception as e:
                 logger.warning(f"Failed to parse key schema: {e}")
 
         # Map all schema fields
         for schema_field in schema_metadata.fields or []:
             clean_name = clean_field_path(schema_field.fieldPath, preserve_types=False)
-            field_mappings["paths"][clean_name] = schema_field.fieldPath  # type: ignore[assignment]
-            field_mappings["values"][schema_field.fieldPath] = []  # type: ignore[assignment]
+            field_mappings.paths[clean_name] = schema_field.fieldPath
+            field_mappings.values[schema_field.fieldPath] = []
 
         return field_mappings
 
@@ -448,26 +455,19 @@ class KafkaProfiler:
         self,
         sample: Dict[str, MessageValue],
         schema_metadata: Optional[SchemaMetadataClass],
-        field_mappings: Dict[str, Union[Dict[str, str], Dict[str, List[FieldValue]]]],
+        field_mappings: FieldMappings,
     ) -> None:
         for field_name, value in sample.items():
             field_path = self._get_field_path(
-                field_name,
-                schema_metadata,
-                field_mappings["paths"],  # type: ignore[arg-type]
+                field_name, schema_metadata, field_mappings.paths
             )
             if not field_path:
                 continue
 
+            values = field_mappings.values.setdefault(field_path, [])
             # Skip only values that would overflow numeric aggregation.
-            if not is_overflow_value(value):  # type: ignore[arg-type]
-                if field_path not in field_mappings["values"]:
-                    field_mappings["values"][field_path] = []  # type: ignore[assignment]
-                field_mappings["values"][field_path].append(value)  # type: ignore[union-attr,arg-type]
-            else:
-                # Initialize field if needed but don't add the overflowing value
-                if field_path not in field_mappings["values"]:
-                    field_mappings["values"][field_path] = []  # type: ignore[assignment]
+            if not is_overflow_value(value):
+                values.append(value)
 
     def _calculate_field_stats(
         self,
@@ -524,8 +524,9 @@ class KafkaProfiler:
                     continue
 
             # Calculate statistics for all fields
-            values_dict = cast(Dict[str, List[FieldValue]], field_mappings["values"])
-            field_stats = self._calculate_field_stats(values_dict, schema_metadata)
+            field_stats = self._calculate_field_stats(
+                field_mappings.values, schema_metadata
+            )
 
             # Create and return profile
             return self.create_profile_data(field_stats, len(samples))
@@ -782,11 +783,11 @@ class KafkaProfiler:
 
         # Calculate basic numeric statistics
         numeric_stats = self._calculate_numeric_stats(numeric_values)
-        stats.min_value = numeric_stats["min"]
-        stats.max_value = numeric_stats["max"]
-        stats.mean_value = numeric_stats["mean"]
-        stats.median_value = numeric_stats["median"]
-        stats.stdev = numeric_stats["stdev"]
+        stats.min_value = numeric_stats.min
+        stats.max_value = numeric_stats.max
+        stats.mean_value = numeric_stats.mean
+        stats.median_value = numeric_stats.median
+        stats.stdev = numeric_stats.stdev
 
         # Calculate quantiles (skip for expensive profiling)
         if (

@@ -1,3 +1,5 @@
+from datahub.utilities.str_enum import StrEnum
+
 DEFAULT_CPU_COUNT_FALLBACK = 4
 DEFAULT_MAX_WORKERS_MULTIPLIER = 5
 DEFAULT_NESTED_FIELD_MAX_DEPTH = 10
@@ -31,19 +33,22 @@ PROFILER_DATETIME_TYPES = {
 PROFILER_STRING_TYPES = {"string", "enum"}
 PROFILER_UNKNOWN_TYPES = {"bytes", "fixed", "array", "map", "record", "union", "null"}
 
+
 # Schema resolution methods
-RESOLUTION_METHOD_SCHEMA_INFERENCE = "schema_inference"
-RESOLUTION_METHOD_NONE = "none"
-RESOLUTION_METHOD_REGISTRY_FAILED = "registry_failed"
-RESOLUTION_METHOD_TOPIC_NAME_STRATEGY = "topic_name_strategy"
-RESOLUTION_METHOD_TOPIC_NAME_FAILED = "topic_name_failed"
-RESOLUTION_METHOD_TOPIC_SUBJECT_MAP = "topic_subject_map"
-RESOLUTION_METHOD_SUBJECT_MAP_FAILED = "subject_map_failed"
-RESOLUTION_METHOD_NO_INFERENCE_AVAILABLE = "no_inference_available"
-RESOLUTION_METHOD_NO_RECORD_NAMES_FOUND = "no_record_names_found"
-RESOLUTION_METHOD_RECORD_NAME_STRATEGY = "record_name_strategy"
-RESOLUTION_METHOD_TOPIC_RECORD_NAME_STRATEGY = "topic_record_name_strategy"
-RESOLUTION_METHOD_RECORD_NAME_STRATEGIES_FAILED = "record_name_strategies_failed"
+class ResolutionMethod(StrEnum):
+    SCHEMA_INFERENCE = "schema_inference"
+    NONE = "none"
+    REGISTRY_FAILED = "registry_failed"
+    TOPIC_NAME_STRATEGY = "topic_name_strategy"
+    TOPIC_NAME_FAILED = "topic_name_failed"
+    TOPIC_SUBJECT_MAP = "topic_subject_map"
+    SUBJECT_MAP_FAILED = "subject_map_failed"
+    NO_INFERENCE_AVAILABLE = "no_inference_available"
+    NO_RECORD_NAMES_FOUND = "no_record_names_found"
+    RECORD_NAME_STRATEGY = "record_name_strategy"
+    TOPIC_RECORD_NAME_STRATEGY = "topic_record_name_strategy"
+    RECORD_NAME_STRATEGIES_FAILED = "record_name_strategies_failed"
+
 
 # Schema resolution strategy names (for logging)
 STRATEGY_NAME_RECORD_NAME = "RecordNameStrategy"
