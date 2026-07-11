@@ -1,4 +1,5 @@
 import pytest
+from google.cloud.bigquery.table import TimePartitioning, TimePartitioningType
 
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
@@ -27,8 +28,6 @@ class TestPartitionInfo:
             PartitionInfo(fields=("field1", "field2"), columns=(col1,))
 
     def test_partition_info_from_time_partitioning(self):
-        from google.cloud.bigquery.table import TimePartitioning, TimePartitioningType
-
         time_partitioning = TimePartitioning(
             type_=TimePartitioningType.DAY,
             field="created_date",
@@ -44,8 +43,6 @@ class TestPartitionInfo:
         assert partition_info.require_partition_filter is True
 
     def test_partition_info_from_time_partitioning_no_field(self):
-        from google.cloud.bigquery.table import TimePartitioning, TimePartitioningType
-
         time_partitioning = TimePartitioning(type_=TimePartitioningType.HOUR)
 
         partition_info = PartitionInfo.from_time_partitioning(time_partitioning)

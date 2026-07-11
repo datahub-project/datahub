@@ -16,6 +16,7 @@ from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     BACKTICK_COLUMN_NAME_RE,
+    BACKTICK_EQ_DATE_RE,
     BQ_SAFETY_ROW_LIMIT,
     BQ_SAFETY_ROW_LIMIT_THRESHOLD,
     CUSTOM_SQL_KWARG,
@@ -49,6 +50,9 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 if TYPE_CHECKING:
+    # Imported only for type hints: the concrete GE / SQLAlchemy profilers pull in heavy
+    # optional deps, so they stay lazily imported at runtime (matching the parent
+    # GenericProfiler). mypy still needs the names to type this override's return value.
     from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
@@ -886,15 +890,14 @@ class BigqueryProfiler(GenericProfiler):
     def _get_reference_date_from_filters(
         self, partition_filters: List[str], date_columns: List[str]
     ) -> Optional[date]:
+        date_column_set = set(date_columns)
         for filter_expr in partition_filters:
-            for col_name in date_columns:
-                pattern = rf"`{col_name}`\s*=\s*'(\d{{4}}-\d{{2}}-\d{{2}})'"
-                match = re.search(pattern, filter_expr, re.IGNORECASE)
-                if match:
-                    try:
-                        date_str = match.group(1)
-                        return datetime.strptime(date_str, "%Y-%m-%d").date()
-                    except ValueError:
-                        continue
+            for col_name, date_str in BACKTICK_EQ_DATE_RE.findall(filter_expr):
+                if col_name not in date_column_set:
+                    continue
+                try:
+                    return datetime.strptime(date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    continue
 
         return None

@@ -4,7 +4,8 @@
 # NOT parameter-bound and must be made safe by the caller first: identifiers
 # ({table_ref}, {col_name}, {info_schema_ref}) are validated/backtick-escaped, filter
 # fragments ({where}, {order_by}) come from create_safe_filter / validated builders, and
-# {sample_percent} is a fixed float from config (TABLESAMPLE rejects a parameter there).
+# {sample_percent} is a code-controlled float (the SAMPLING_PERCENT constant or a computed
+# percentage, never user input) because TABLESAMPLE rejects a query parameter there.
 
 # Profiling SELECT fragments, shared by the inline (internal) and deferred (external)
 # custom_sql paths so they cannot drift apart.
@@ -63,7 +64,7 @@ ORDER BY `{date_col}` DESC
 LIMIT @limit_rows"""
 
 # BigQuery requires a literal (not a query parameter) in the TABLESAMPLE percentage;
-# sample_percent is a fixed float from config, not user input.
+# sample_percent is the code-controlled SAMPLING_PERCENT constant, not user input.
 TABLESAMPLE_SAMPLE = """SELECT *
 FROM {table_ref} TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)
 LIMIT @limit_rows"""

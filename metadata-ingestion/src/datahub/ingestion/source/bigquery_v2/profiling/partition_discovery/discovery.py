@@ -21,6 +21,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    DATE_COMPONENT_COLUMNS,
     DEFAULT_MAX_PARTITION_VALUES,
     DEFAULT_PARTITION_STATS_LIMIT,
     MAX_PARTITION_VALUES,
@@ -132,8 +133,14 @@ class PartitionDiscovery:
             )
 
             if not column_names:
-                logger.warning(
-                    f"Could not extract column names from PARTITION BY clause for table {table.name}"
+                warn(
+                    self.report,
+                    logger,
+                    title="Partition columns from DDL failed",
+                    message="Found a PARTITION BY clause but could not extract any column "
+                    "names from it; the table may be treated as unpartitioned and "
+                    "full-scanned or skipped.",
+                    context=f"{table.name}",
                 )
                 return partition_cols_with_types
 
@@ -181,8 +188,6 @@ class PartitionDiscovery:
         7. Direct table query for latest date values (_find_real_partition_values)
         8. Sampling fallback (_get_partitions_with_sampling)
         """
-        current_time = datetime.now(timezone.utc)
-
         logger.info(
             f"Starting partition discovery for table {table.name} "
             f"(project={project}, dataset={schema})"
@@ -214,7 +219,7 @@ class PartitionDiscovery:
                 # External (e.g. hive-partitioned) tables often expose partition columns
                 # only via DDL, which the schema and probe checks above don't read.
                 return self._handle_external_table_partitioning(
-                    table, project, schema, current_time, execute_query_func
+                    table, project, schema, execute_query_func
                 )
             if probe_error is not None:
                 # A probe timeout / IAM / quota error must not be silently reclassified
@@ -385,9 +390,7 @@ class PartitionDiscovery:
     ) -> Tuple[List[str], Dict[str, Optional[str]], List[str]]:
         date_columns = []
         date_component_columns: Dict[str, Optional[str]] = {
-            "year": None,
-            "month": None,
-            "day": None,
+            c: None for c in DATE_COMPONENT_COLUMNS
         }
         non_date_columns = []
 
@@ -395,7 +398,7 @@ class PartitionDiscovery:
             col_data_type = column_types.get(col_name, "")
             if self._is_date_type_column(col_data_type):
                 date_columns.append(col_name)
-            elif col_name.lower() in ["year", "month", "day"]:
+            elif col_name.lower() in DATE_COMPONENT_COLUMNS:
                 date_component_columns[col_name.lower()] = col_name
             elif self._is_date_like_column(col_name):
                 date_columns.append(col_name)
@@ -406,6 +409,31 @@ class PartitionDiscovery:
                 non_date_columns.append(col_name)
 
         return date_columns, date_component_columns, non_date_columns
+
+    @staticmethod
+    def _date_component_value(col_name: str, dt: datetime) -> Optional[str]:
+        # year/month/day partition columns map to that component of `dt`
+        # (month/day zero-padded to two digits, matching BigQuery integer partitions).
+        component = col_name.lower()
+        if component == "year":
+            return str(dt.year)
+        if component == "month":
+            return f"{dt.month:02d}"
+        if component == "day":
+            return f"{dt.day:02d}"
+        return None
+
+    def _warn_partition_column_discovery_failed(
+        self, context: str, error: Exception
+    ) -> None:
+        warn(
+            self.report,
+            logger,
+            title="Partition value discovery failed for column",
+            message="Could not read the latest value for a partition column; its filter "
+            "is dropped, so the resulting partition scan may be broader than intended.",
+            context=f"{context}: {error}",
+        )
 
     def _process_regular_date_columns(
         self,
@@ -465,14 +493,8 @@ class PartitionDiscovery:
                 )
 
             except Exception as e:
-                warn(
-                    self.report,
-                    logger,
-                    title="Partition value discovery failed for column",
-                    message="Could not read the latest value for a partition column; its "
-                    "filter is dropped, so the resulting partition scan may be broader "
-                    "than intended.",
-                    context=f"{table.name}.{col_name}: {e}",
+                self._warn_partition_column_discovery_failed(
+                    f"{table.name}.{col_name}", e
                 )
                 continue
 
@@ -561,14 +583,8 @@ class PartitionDiscovery:
                 logger.info(f"Found latest year: {max_year}")
                 return [filter_expr]
         except Exception as e:
-            warn(
-                self.report,
-                logger,
-                title="Partition value discovery failed for column",
-                message="Could not read the latest value for a partition column; its "
-                "filter is dropped, so the resulting partition scan may be broader "
-                "than intended.",
-                context=f"{safe_table_ref}.{year_col}: {e}",
+            self._warn_partition_column_discovery_failed(
+                f"{safe_table_ref}.{year_col}", e
             )
         return []
 
@@ -647,14 +663,8 @@ class PartitionDiscovery:
                 )
                 return [filter_expr]
         except Exception as e:
-            warn(
-                self.report,
-                logger,
-                title="Partition value discovery failed for column",
-                message="Could not read the latest value for a partition column; its "
-                "filter is dropped, so the resulting partition scan may be broader "
-                "than intended.",
-                context=f"{safe_table_ref}.{component_col}: {e}",
+            self._warn_partition_column_discovery_failed(
+                f"{safe_table_ref}.{component_col}", e
             )
         return []
 
@@ -732,14 +742,8 @@ class PartitionDiscovery:
                 )
 
             except Exception as e:
-                warn(
-                    self.report,
-                    logger,
-                    title="Partition value discovery failed for column",
-                    message="Could not read the most-populated value for a partition "
-                    "column; its filter is dropped, so the resulting partition scan may "
-                    "be broader than intended.",
-                    context=f"{table.name}.{col_name}: {e}",
+                self._warn_partition_column_discovery_failed(
+                    f"{table.name}.{col_name}", e
                 )
                 continue
 
@@ -1124,21 +1128,17 @@ class PartitionDiscovery:
         table: BigqueryTable,
         project: str,
         schema: str,
-        current_time: datetime,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
-        if table.external:
-            return self._get_external_table_partition_filters(
-                table, project, schema, current_time, execute_query_func
-            )
-        return None
+        return self._get_external_table_partition_filters(
+            table, project, schema, execute_query_func
+        )
 
     def _get_external_table_partition_filters(
         self,
         table: BigqueryTable,
         project: str,
         schema: str,
-        current_time: datetime,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
         try:
@@ -1218,34 +1218,20 @@ class PartitionDiscovery:
                     filters.append(
                         self._create_safe_filter(col, date_str, col_data_type)
                     )
-                elif col.lower() == "year":
+                    continue
+
+                component_value = self._date_component_value(col, test_date)
+                if component_value is not None:
                     filters.append(
-                        self._create_safe_filter(
-                            col, str(test_date.year), col_data_type
-                        )
+                        self._create_safe_filter(col, component_value, col_data_type)
                     )
-                elif col.lower() == "month":
+                elif col in self.config.profiling.fallback_partition_values:
+                    fallback_val = self.config.profiling.fallback_partition_values[col]
                     filters.append(
-                        self._create_safe_filter(
-                            col, f"{test_date.month:02d}", col_data_type
-                        )
-                    )
-                elif col.lower() == "day":
-                    filters.append(
-                        self._create_safe_filter(
-                            col, f"{test_date.day:02d}", col_data_type
-                        )
+                        self._create_safe_filter(col, fallback_val, col_data_type)
                     )
                 else:
-                    if col in self.config.profiling.fallback_partition_values:
-                        fallback_val = self.config.profiling.fallback_partition_values[
-                            col
-                        ]
-                        filters.append(
-                            self._create_safe_filter(col, fallback_val, col_data_type)
-                        )
-                    else:
-                        filters.append(FilterBuilder.is_not_null(col))
+                    filters.append(FilterBuilder.is_not_null(col))
             except ValueError as e:
                 logger.warning(f"Skipping invalid filter for column {col}: {e}")
                 filters.append(FilterBuilder.is_not_null(col))
@@ -1295,7 +1281,16 @@ class PartitionDiscovery:
                 col_type = column_types.get(col, "")
                 actual_filters.append(self._create_safe_filter(col, val, col_type))
             except ValueError as e:
-                logger.warning(f"Skipping invalid filter for {col}={val}: {e}")
+                # Dropping a column here widens the scan on that dimension; surface it
+                # like the sibling per-column discovery failures rather than log-only.
+                warn(
+                    self.report,
+                    logger,
+                    title="Partition filter dropped",
+                    message="Could not build a filter for a discovered partition value; "
+                    "that column is left unfiltered and its partitions may be full-scanned.",
+                    context=f"{table.name}: {col}={val}: {e}",
+                )
                 continue
 
         logger.info(
@@ -1359,7 +1354,7 @@ class PartitionDiscovery:
             for col in required_columns
         )
         has_date_components = any(
-            col.lower() in ["year", "month", "day"] for col in required_columns
+            col.lower() in DATE_COMPONENT_COLUMNS for col in required_columns
         )
         has_date_like_names = any(
             not column_types.get(col, "") and self._is_date_like_column(col)
@@ -1413,23 +1408,8 @@ class PartitionDiscovery:
                         f"Exception testing date {description} for table {table.name}: {e}"
                     )
 
-        logger.info(
-            f"All strategic date candidates exhausted for {table.name}; querying table directly as final fallback"
-        )
-        actual_partition_values = self._get_partition_info_from_table_query(
-            table,
-            project,
-            schema,
-            required_columns,
-            execute_query_func,
-            cached_metadata=cached_metadata,
-        )
-
-        if actual_partition_values:
-            return self._filters_from_partition_values(
-                table, actual_partition_values, column_types
-            )
-
+        # The direct table query above already returned nothing and the strategic
+        # candidates don't mutate that result, so re-querying would be identical work.
         return self._get_fallback_partition_filters(
             table, project, schema, required_columns
         )
@@ -1501,23 +1481,15 @@ class PartitionDiscovery:
                     f"Specific date values failed for column {col_name}, using IS NOT NULL"
                 )
                 return FilterBuilder.is_not_null(col_name)
-            elif col_name.lower() == "year":
-                return self._create_safe_filter(
-                    col_name, str(fallback_date.year), col_type
-                )
-            elif col_name.lower() == "month":
-                return self._create_safe_filter(
-                    col_name, f"{fallback_date.month:02d}", col_type
-                )
-            elif col_name.lower() == "day":
-                return self._create_safe_filter(
-                    col_name, f"{fallback_date.day:02d}", col_type
-                )
-            else:
-                logger.warning(
-                    f"No fallback value for partition column {col_name}, using IS NOT NULL"
-                )
-                return FilterBuilder.is_not_null(col_name)
+
+            component_value = self._date_component_value(col_name, fallback_date)
+            if component_value is not None:
+                return self._create_safe_filter(col_name, component_value, col_type)
+
+            logger.warning(
+                f"No fallback value for partition column {col_name}, using IS NOT NULL"
+            )
+            return FilterBuilder.is_not_null(col_name)
         except ValueError as e:
             logger.warning(f"Error creating fallback filter for {col_name}: {e}")
             return FilterBuilder.is_not_null(col_name)

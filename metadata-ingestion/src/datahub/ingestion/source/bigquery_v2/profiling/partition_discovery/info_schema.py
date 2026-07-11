@@ -176,6 +176,7 @@ class InfoSchemaQueries:
                 return None
 
             partition_filters = []
+            convert_failures = 0
 
             for partition_row in partition_rows:
                 partition_id = partition_row.partition_id
@@ -203,16 +204,28 @@ class InfoSchemaQueries:
                             )
 
                 except Exception as e:
-                    logger.warning(f"Error processing partition {partition_id}: {e}")
+                    convert_failures += 1
+                    logger.debug(f"Error processing partition {partition_id}: {e}")
                     continue
 
             if partition_filters:
                 return partition_filters
-            else:
-                logger.debug(
-                    f"No valid partition filters from INFORMATION_SCHEMA for {table.name}"
+
+            # Only a whole-set failure is operator-relevant: one summarizing warning
+            # instead of one per partition row.
+            if convert_failures:
+                warn(
+                    self.report,
+                    logger,
+                    title="Partition filter discovery failed",
+                    message="No partition id from INFORMATION_SCHEMA.PARTITIONS could be "
+                    "converted to a filter; the table may be full-scanned or skipped.",
+                    context=f"{table.name}: {convert_failures} partition id(s) failed to convert",
                 )
-                return None
+            logger.debug(
+                f"No valid partition filters from INFORMATION_SCHEMA for {table.name}"
+            )
+            return None
 
         except Exception as e:
             warn(

@@ -491,10 +491,6 @@ def test_partition_filter_validation_rejects_injection():
     """Partition filters that contain SQL injection patterns must be rejected by
     validate_and_filter_expressions before they reach the custom_sql.
     """
-    from datahub.ingestion.source.bigquery_v2.profiling.security import (
-        validate_and_filter_expressions,
-    )
-
     dangerous = [
         "`date` = '2024-01-01'; DROP TABLE users",
         "`col` = val /*comment*/",

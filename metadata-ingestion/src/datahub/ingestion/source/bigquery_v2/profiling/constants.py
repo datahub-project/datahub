@@ -1,5 +1,5 @@
 import re
-from typing import Set
+from typing import Set, Tuple
 
 # BigQuery partition ID lengths for date/time formats: YYYYMMDD and YYYYMMDDHH.
 PARTITION_ID_YYYYMMDD_LENGTH = 8
@@ -83,6 +83,9 @@ DATE_LIKE_COLUMN_NAMES: Set[str] = {
     "batch_date",
     "batch_time",
 }
+
+# Integer partition columns that hold a component of a date (e.g. dt=2025/01/02).
+DATE_COMPONENT_COLUMNS: Tuple[str, ...] = ("year", "month", "day")
 
 DATE_TIME_TYPES: Set[str] = {
     "DATE",
@@ -169,6 +172,11 @@ FILTER_COLUMN_REF_RE = re.compile(r"`[a-zA-Z_][a-zA-Z0-9_]*`")
 
 # Same, but captures the column name (without backticks).
 BACKTICK_COLUMN_NAME_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`")
+
+# Captures `col` = 'YYYY-MM-DD' equality filters (column name, date literal).
+BACKTICK_EQ_DATE_RE = re.compile(
+    r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*=\s*'(\d{4}-\d{2}-\d{2})'", re.IGNORECASE
+)
 
 # Recognised SQL comparison / membership operators in filter expressions.
 FILTER_OPERATOR_RE = re.compile(

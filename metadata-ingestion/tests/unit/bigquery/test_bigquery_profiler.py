@@ -308,26 +308,6 @@ def test_partition_discovery_get_strategic_candidate_dates():
     assert any("yesterday" in desc.lower() for desc in descriptions)
 
 
-def test_partition_discovery_create_safe_filter():
-    config = create_test_config()
-    discovery = PartitionDiscovery(config)
-
-    string_filter = discovery._create_safe_filter("status", "active")
-    assert string_filter == "`status` = 'active'"
-
-    numeric_filter = discovery._create_safe_filter("count", 100)
-    assert numeric_filter == "`count` = '100'"
-
-    float_filter = discovery._create_safe_filter("price", 99.99)
-    assert float_filter == "`price` = '99.99'"
-
-    test_date = date(2023, 12, 25)
-    date_filter = discovery._create_safe_filter(
-        "event_date", test_date.strftime("%Y-%m-%d")
-    )
-    assert date_filter == "`event_date` = '2023-12-25'"
-
-
 @pytest.mark.parametrize(
     "partition_id, required_columns, expected_filters", PARTITION_ID_TEST_DATA
 )
@@ -734,12 +714,26 @@ def test_external_table_discovery_fallback_warns():
             table,
             "test-project",
             "dataset",
-            datetime.now(timezone.utc),
             lambda query, job_config, context: [],
         )
 
     assert filters == ["`region` IS NOT NULL"]
     assert len(report.warnings) >= 1
+
+
+def test_internal_fallback_is_not_null_warns():
+    # When internal discovery can't resolve a value and falls back to an unpruned
+    # IS NOT NULL filter, the report must warn about the resulting full-scan profile.
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+    table = create_test_table(name="internal", external=False)
+
+    filters = discovery._get_fallback_partition_filters(
+        table, "test-project-123456", "test_dataset", ["region"], {"region": "STRING"}
+    )
+
+    assert filters == ["`region` IS NOT NULL"]
+    assert any("full scan" in str(w).lower() for w in report.warnings)
 
 
 def test_full_profiling_workflow():
@@ -2461,22 +2455,6 @@ def test_filter_builder_convert_partition_id_without_column_types():
     assert filters is not None
     assert len(filters) == 1
     assert "`run_timestamp`" in filters[0]
-
-
-def test_partition_discovery_create_safe_filter_with_types():
-    """Test PartitionDiscovery._create_safe_filter properly passes column types"""
-    config = create_test_config()
-    discovery = PartitionDiscovery(config)
-
-    filter_int = discovery._create_safe_filter("user_id", 999, "INT64")
-    assert filter_int == "`user_id` = 999"
-
-    # Test TIMESTAMP with YYYYMM
-    filter_ts = discovery._create_safe_filter("run_timestamp", "202601", "TIMESTAMP")
-    assert filter_ts == "`run_timestamp` = TIMESTAMP('2026-01-01')"
-
-    filter_str = discovery._create_safe_filter("status", "active", "STRING")
-    assert filter_str == "`status` = 'active'"
 
 
 def test_fallback_filter_with_column_types():

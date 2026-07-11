@@ -99,10 +99,11 @@ class BigQueryProfilingConfig(GEProfilingConfig):
         "external tables. This helps avoid profiling abandoned or archived tables.",
     )
 
-    staleness_threshold_days: NonNegativeInt = Field(
+    staleness_threshold_days: PositiveInt = Field(
         default=365,
         description="Number of days after which a table is considered stale and profiling will be skipped "
-        "if skip_stale_tables is enabled.",
+        "if skip_stale_tables is enabled. Must be positive; disable the behavior with "
+        "skip_stale_tables=false rather than setting this to 0.",
     )
 
     partition_datetime_window_days: Optional[NonNegativeInt] = Field(
@@ -112,6 +113,20 @@ class BigQueryProfilingConfig(GEProfilingConfig):
         "'2025-07-16' to '2025-08-15' will be included in profiling. Set to None to disable date windowing. "
         "This helps focus profiling on recent data patterns and improves performance.",
     )
+
+    @field_validator("fallback_partition_values")
+    @classmethod
+    def reject_bool_fallback_values(
+        cls, v: Dict[str, Union[str, int, float]]
+    ) -> Dict[str, Union[str, int, float]]:
+        # bool is an int subclass, so Union[str, int, float] would otherwise accept
+        # True/False and emit `col = TRUE`, which rarely matches a partition value.
+        for col, val in v.items():
+            if isinstance(val, bool):
+                raise ValueError(
+                    f"fallback_partition_values[{col!r}] must be a string, int, or float, not bool"
+                )
+        return v
 
 
 class BigQueryBaseConfig(ConfigModel):
