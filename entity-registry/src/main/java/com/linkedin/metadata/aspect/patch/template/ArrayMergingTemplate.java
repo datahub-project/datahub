@@ -6,6 +6,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.linkedin.data.schema.ArrayDataSchema;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import java.util.Collections;
 import java.util.List;
@@ -112,7 +116,7 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
     ArrayNode arrayNode;
 
     if (!keyFields.isEmpty()) {
-      arrayNode = mergeToArray(mapNode, keyFields);
+      arrayNode = mergeToArray(mapNode, keyFields, resolveArrayItemSchema(arrayFieldName));
     } else {
       // No keys, assume pure Strings
       arrayNode = instance.arrayNode();
@@ -121,7 +125,8 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
     return rebasedNode.set(arrayFieldName, arrayNode);
   }
 
-  default ArrayNode mergeToArray(JsonNode mapNode, List<String> keyFields) {
+  default ArrayNode mergeToArray(
+      JsonNode mapNode, List<String> keyFields, RecordDataSchema itemSchema) {
     if (keyFields.isEmpty()) {
       // When a plain add sets an array at an entity-key level (e.g. /tags/<urn> with
       // value [{...}]), the leaf ArrayNode's elements must be expanded into the result.
@@ -139,8 +144,8 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
           .fields()
           .forEachRemaining(
               entry -> {
-                ArrayNode merged = mergeToArray(entry.getValue(), remainingKeyFields);
-                reinjectKey(merged, keyField, entry.getKey());
+                ArrayNode merged = mergeToArray(entry.getValue(), remainingKeyFields, itemSchema);
+                reinjectKey(merged, keyField, entry.getKey(), itemSchema);
                 mergingArray.addAll(merged);
               });
     } else {
@@ -148,17 +153,50 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
       // map key to restore here, so preserve the original value-only merge.
       mapNode
           .elements()
-          .forEachRemaining(node -> mergingArray.addAll(mergeToArray(node, remainingKeyFields)));
+          .forEachRemaining(
+              node -> mergingArray.addAll(mergeToArray(node, remainingKeyFields, itemSchema)));
     }
     return mergingArray;
+  }
+
+  // Resolves the record schema of the array element type for a keyed array field (e.g. the
+  // TagAssociation record behind GlobalTags.tags). Best-effort: returns null when the schema
+  // cannot be resolved, in which case re-injection is skipped rather than guessed.
+  default RecordDataSchema resolveArrayItemSchema(String arrayFieldName) {
+    try {
+      DataSchema aspectSchema = DataTemplateUtil.getSchema(getTemplateType());
+      if (!(aspectSchema instanceof RecordDataSchema)) {
+        return null;
+      }
+      RecordDataSchema.Field field = ((RecordDataSchema) aspectSchema).getField(arrayFieldName);
+      if (field == null) {
+        return null;
+      }
+      DataSchema fieldSchema = field.getType().getDereferencedDataSchema();
+      if (!(fieldSchema instanceof ArrayDataSchema)) {
+        return null;
+      }
+      DataSchema itemSchema =
+          ((ArrayDataSchema) fieldSchema).getItems().getDereferencedDataSchema();
+      return itemSchema instanceof RecordDataSchema ? (RecordDataSchema) itemSchema : null;
+    } catch (RuntimeException e) {
+      return null;
+    }
   }
 
   // Restores the key field on elements created by a patch through a deeper path (e.g.
   // /editableSchemaFieldInfo/<fieldPath>/globalTags/...), which never materializes the key in the
   // value and would otherwise drop it, failing validation. No-op for normal round-trips that still
-  // carry the key. Compound/nested keys and empty keys are left as-is.
-  private static void reinjectKey(ArrayNode elements, String keyField, String key) {
-    if (key == null || key.isEmpty() || keyField.contains(UNIT_SEPARATOR_DELIMITER)) {
+  // carry the key. Only primitive/enum key fields are restored: the map key is a scalar path
+  // segment, so injecting it into a record- or collection-typed field (e.g. an optional
+  // attribution record used as a compound key) would corrupt the element and fail validation.
+  // Compound/nested keys and empty keys are left as-is.
+  private static void reinjectKey(
+      ArrayNode elements, String keyField, String key, RecordDataSchema itemSchema) {
+    if (key == null
+        || key.isEmpty()
+        || keyField.contains(UNIT_SEPARATOR_DELIMITER)
+        || !isScalarKeyField(itemSchema, keyField)) {
       return;
     }
     elements.forEach(
@@ -167,5 +205,27 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
             ((ObjectNode) element).set(keyField, TextNode.valueOf(key));
           }
         });
+  }
+
+  private static boolean isScalarKeyField(RecordDataSchema itemSchema, String keyField) {
+    if (itemSchema == null) {
+      return false;
+    }
+    RecordDataSchema.Field field = itemSchema.getField(keyField);
+    if (field == null) {
+      return false;
+    }
+    switch (field.getType().getDereferencedType()) {
+      case STRING:
+      case INT:
+      case LONG:
+      case FLOAT:
+      case DOUBLE:
+      case BOOLEAN:
+      case ENUM:
+        return true;
+      default:
+        return false;
+    }
   }
 }
