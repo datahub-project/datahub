@@ -814,8 +814,7 @@ class BigqueryProfiler(GenericProfiler):
         start_date = reference_date - timedelta(days=window_days)
 
         # Drop each windowed column's single-date equality; the range below replaces it.
-        # Keeping `col = X` would AND-collapse back to `col = X` and the window would
-        # have no effect (the original bug this method had).
+        # Keeping `col = X` would AND-collapse the range back to `col = X`.
         windowed_filters = [
             f
             for f in partition_filters

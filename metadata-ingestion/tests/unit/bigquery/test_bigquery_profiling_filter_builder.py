@@ -10,8 +10,6 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_b
 
 class TestFilterBuilderNumericTypes:
     def test_all_numeric_types_unquoted(self):
-        # Integer and floating-point values on every numeric type must be emitted
-        # unquoted; a quoted literal would be an INT64 = STRING predicate.
         for numeric_type in BIGQUERY_NUMERIC_TYPES:
             int_filter = FilterBuilder.create_safe_filter("col", "123", numeric_type)
             assert int_filter == "`col` = 123", numeric_type
@@ -71,8 +69,7 @@ class TestFilterBuilderEdgeCases:
         assert filter_expr.count("'") == 4  # Opening, 2 escaped, closing
 
     def test_invalid_numeric_value_raises(self):
-        # A non-numeric value for a numeric column would produce an INT64 = STRING
-        # predicate BigQuery rejects at query time, so building it must raise instead.
+        # A string value on a numeric column would build an invalid INT64 = STRING filter.
         with pytest.raises(ValueError, match="Non-numeric value"):
             FilterBuilder.create_safe_filter("int_col", "not_a_number", "INT64")
 

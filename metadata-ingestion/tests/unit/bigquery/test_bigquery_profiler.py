@@ -474,8 +474,6 @@ def test_profiler_should_skip_profiling_due_to_staleness():
 
 
 def test_get_profile_request_stale_table_reports_and_skips():
-    # A stale table must be dropped before partition discovery runs, with a report
-    # warning so operators can see profiling was intentionally skipped.
     config = create_test_config(skip_stale_tables=True, staleness_threshold_days=30)
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
@@ -492,7 +490,6 @@ def test_get_profile_request_stale_table_reports_and_skips():
         )
 
     assert result is None
-    # Staleness is checked before super(): discovery must not have run.
     mock_super.assert_not_called()
     assert any("stale" in str(w).lower() for w in report.warnings)
 
@@ -525,8 +522,6 @@ def test_get_profile_request_partition_profiling_disabled_skips_partitioned_tabl
 
 
 def test_partition_metadata_cache_population_failure_reports_and_empties():
-    # A dataset-wide INFORMATION_SCHEMA.COLUMNS failure must not silently poison the
-    # cache: it caches {} (so tables fall back to probing) and surfaces a warning.
     config = create_test_config()
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
@@ -546,9 +541,8 @@ def test_partition_metadata_cache_population_failure_reports_and_empties():
 
 
 def test_external_table_with_no_columns_reaches_external_discovery():
-    # BLOCKER regression: the external-table discovery subtree used to be unreachable.
-    # An external table with no partition columns from table_info/schema/probe must fall
-    # through to _handle_external_table_partitioning, not be treated as unpartitioned.
+    # An external table with no schema/probe-discoverable columns must reach external
+    # discovery, not be treated as unpartitioned.
     config = create_test_config()
     discovery = PartitionDiscovery(config)
     external_table = create_test_table(name="ext", external=True)
@@ -570,8 +564,8 @@ def test_external_table_with_no_columns_reaches_external_discovery():
 
 
 def test_probe_error_on_internal_table_is_reported():
-    # BLOCKER regression: a probe timeout / IAM error on an internal table must not be
-    # silently reclassified as "unpartitioned"; it must surface in the report.
+    # A probe timeout/IAM error must surface in the report, not be reclassified as
+    # "unpartitioned".
     config = create_test_config()
     report = BigQueryV2Report()
     discovery = PartitionDiscovery(config, report)
@@ -987,9 +981,8 @@ def _build_deferred_external_request(profiler):
 
 
 def test_deferred_external_discovery_failure_is_reported():
-    # BLOCKER regression: when deferred external-table partition discovery returns
-    # None the request must be dropped AND a report warning surfaced (previously it
-    # was only logged, so failures silently disappeared from output).
+    # When deferred external-table discovery returns None the request must be dropped
+    # and a report warning surfaced (not just logged).
     config = create_test_config()
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
@@ -1017,8 +1010,7 @@ def test_deferred_external_discovery_failure_is_reported():
 
 
 def test_deferred_external_discovery_exception_is_reported():
-    # Companion to the None case: a discovery exception must also route through the
-    # report and drop the request rather than crash the thread pool silently.
+    # A discovery exception must also route through the report and drop the request.
     config = create_test_config()
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
@@ -1048,10 +1040,8 @@ def test_deferred_external_discovery_exception_is_reported():
 
 
 def test_deferred_external_worker_unexpected_error_is_reported():
-    # Outer guard regression: the worker's except is narrowed, so an error it does not
-    # catch (e.g. a token RefreshError surfacing as RuntimeError) re-raises from
-    # future.result(). Without the outer try/except that would abort every remaining
-    # table; instead it must be reported and skipped.
+    # An error the worker's narrowed except doesn't catch re-raises from future.result();
+    # the outer guard must report and skip it rather than abort every remaining table.
     config = create_test_config()
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
@@ -1157,9 +1147,7 @@ def test_profiler_apply_partition_date_windowing_comprehensive():
 
         result = profiler._apply_partition_date_windowing(input_filters, table)
 
-        # Windowing replaces the single-date equality with a range rather than
-        # appending one (appending would AND-collapse back to `col = X`), so the
-        # filter count is unchanged but the equality becomes a `>=`/`<=` range.
+        # Windowing replaces the equality with a range, so the count is unchanged.
         assert len(result) == len(input_filters)
         if should_window:
             assert any(">=" in f and "<=" in f for f in result)
@@ -1319,8 +1307,7 @@ def test_partition_datetime_window_days_still_applied_during_profiling():
         discovered_filters, table
     )
 
-    # The single-date equality is replaced by a range so the window actually widens
-    # the scan; the original `= 'X'` must not survive (it would AND-collapse the range).
+    # The equality is replaced by a range, so the original `= 'X'` must not survive.
     assert len(windowed_filters) == len(discovered_filters)
     assert "`event_date` = '2024-10-15'" not in windowed_filters
 
