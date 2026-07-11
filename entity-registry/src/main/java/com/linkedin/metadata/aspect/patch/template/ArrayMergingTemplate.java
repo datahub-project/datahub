@@ -159,9 +159,7 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
     return mergingArray;
   }
 
-  // Resolves the record schema of the array element type for a keyed array field (e.g. the
-  // TagAssociation record behind GlobalTags.tags). Best-effort: returns null when the schema
-  // cannot be resolved, in which case re-injection is skipped rather than guessed.
+  // Best-effort resolution of the array element record schema; null when it can't be resolved.
   default RecordDataSchema resolveArrayItemSchema(String arrayFieldName) {
     try {
       DataSchema aspectSchema = DataTemplateUtil.getSchema(getTemplateType());
@@ -184,13 +182,9 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
     }
   }
 
-  // Restores the key field on elements created by a patch through a deeper path (e.g.
-  // /editableSchemaFieldInfo/<fieldPath>/globalTags/...), which never materializes the key in the
-  // value and would otherwise drop it, failing validation. No-op for normal round-trips that still
-  // carry the key. Only primitive/enum key fields are restored: the map key is a scalar path
-  // segment, so injecting it into a record- or collection-typed field (e.g. an optional
-  // attribution record used as a compound key) would corrupt the element and fail validation.
-  // Compound/nested keys and empty keys are left as-is.
+  // Restores a key field that only lived in the patch path (e.g. a deep-path add) and would
+  // otherwise be dropped. Only primitive/enum keys are restored: the key is a scalar path segment,
+  // so injecting it into a record- or collection-typed key field would corrupt the element.
   private static void reinjectKey(
       ArrayNode elements, String keyField, String key, RecordDataSchema itemSchema) {
     if (key == null

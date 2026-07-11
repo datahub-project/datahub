@@ -244,11 +244,8 @@ public class GenericPatchTemplateTest {
 
   @Test
   public void testRecordTypedFlatKeyFieldIsNotReinjectedAsString() throws Exception {
-    // A flat (non-nested) compound key that names the record-typed `attribution` field. The map key
-    // is a scalar path segment, so re-injecting it into `attribution` would produce a string where
-    // a
-    // record is expected ("record type is not backed by a DataMap"). The rebase must leave the
-    // record-typed key field untouched. See PR that fixed the patch-rebase key re-injection.
+    // Keying by the record-typed `attribution` field must not inject the scalar path segment into
+    // it, which would produce a string where a record is expected and fail validation.
     GlobalTags initialTags = new GlobalTags();
     initialTags.setTags(new TagAssociationArray());
 
@@ -276,7 +273,6 @@ public class GenericPatchTemplateTest {
     Assert.assertEquals(patchedTags.getTags().size(), 1);
     TagAssociation tag = patchedTags.getTags().get(0);
     Assert.assertEquals(tag.getTag().toString(), "urn:li:tag:tag1");
-    // The record-typed key field must not have been coerced into a string.
     Assert.assertNull(tag.getAttribution());
   }
 }
