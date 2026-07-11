@@ -1,11 +1,15 @@
 from typing import Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ExtractedPartitionInfo(BaseModel):
     # Partition columns/values recovered from a BigQuery partition-filter error message.
     # Distinct from bigquery_schema.PartitionInfo (the structural definition from metadata).
+
+    # Callers build this empty and populate fields afterwards, so validators must also
+    # run on assignment (not just construction) to actually check the parsed values.
+    model_config = ConfigDict(validate_assignment=True)
 
     required_columns: List[str] = Field(default_factory=list)
     partition_values: Dict[str, Union[str, int]] = Field(default_factory=dict)

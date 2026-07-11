@@ -14,11 +14,20 @@ from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     BQ_SAFETY_ROW_LIMIT,
     BQ_SAFETY_ROW_LIMIT_THRESHOLD,
+    CUSTOM_SQL_KWARG,
     DATE_FORMAT_PATTERNS,
     DATE_FORMAT_YYYY_MM_DD,
     DATE_FORMAT_YYYYMMDD,
     DATE_LIKE_COLUMN_NAMES,
+    LIMIT_CLAUSE_TEMPLATE,
+    PARTITION_HANDLING_ENABLED,
+    PARTITION_HANDLING_KWARG,
+    PARTITION_METADATA_CACHE_QUERY,
+    PARTITIONING_COLUMN_FLAG,
+    SELECT_ALL_TEMPLATE,
     STRFTIME_FORMATS,
+    TABLESAMPLE_SYSTEM_TEMPLATE,
+    WHERE_CLAUSE_TEMPLATE,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
@@ -151,12 +160,9 @@ class BigqueryProfiler(GenericProfiler):
                 project, dataset, "INFORMATION_SCHEMA.COLUMNS"
             )
 
-            query = f"""
-SELECT table_name, column_name, data_type
-FROM {safe_info_schema_ref}
-WHERE is_partitioning_column = 'YES'
-ORDER BY table_name, ordinal_position
-"""
+            query = PARTITION_METADATA_CACHE_QUERY.format(
+                info_schema_ref=safe_info_schema_ref, flag=PARTITIONING_COLUMN_FLAG
+            )
 
             from google.cloud.bigquery import QueryJobConfig
 
@@ -242,6 +248,9 @@ ORDER BY table_name, ordinal_position
         otherwise the configured row limit. Shared by the inline (internal table) and
         deferred (external table) code paths so their SQL cannot drift.
         """
+        select_all = SELECT_ALL_TEMPLATE.format(table_ref=safe_table_ref)
+        where_clause = WHERE_CLAUSE_TEMPLATE.format(where=partition_where)
+
         rows_count = getattr(bq_table, "rows_count", None)
         if (
             self.config.profiling.use_sampling
@@ -250,17 +259,17 @@ ORDER BY table_name, ordinal_position
         ):
             sample_pc = self.config.profiling.sample_size / rows_count
             sample_percent = min(100 * sample_pc, 100.0)
-            return (
-                f"SELECT * FROM {safe_table_ref}\n"
-                f"TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)\n"
-                f"WHERE {partition_where}"
+            tablesample = TABLESAMPLE_SYSTEM_TEMPLATE.format(
+                sample_percent=sample_percent
             )
+            return f"{select_all}\n{tablesample}\n{where_clause}"
 
         if self.config.profiling.profiling_row_limit > 0:
             row_limit = max(1, int(self.config.profiling.profiling_row_limit))
-            return f"SELECT * FROM {safe_table_ref}\nWHERE {partition_where}\nLIMIT {row_limit}"
+            limit_clause = LIMIT_CLAUSE_TEMPLATE.format(limit=row_limit)
+            return f"{select_all}\n{where_clause}\n{limit_clause}"
 
-        return f"SELECT * FROM {safe_table_ref}\nWHERE {partition_where}"
+        return f"{select_all}\n{where_clause}"
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
@@ -355,8 +364,10 @@ ORDER BY table_name, ordinal_position
             rows_count = bq_table.rows_count or 1
             sample_pc = self.config.profiling.sample_size / rows_count
             sample_percent = min(100 * sample_pc, 100.0)
-            custom_sql = f"""SELECT * FROM {safe_table_ref}
-TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"""
+            custom_sql = (
+                f"{SELECT_ALL_TEMPLATE.format(table_ref=safe_table_ref)}\n"
+                f"{TABLESAMPLE_SYSTEM_TEMPLATE.format(sample_percent=sample_percent)}"
+            )
             logger.info(
                 f"Applied {sample_percent:.4f}% sampling to {table_ref} "
                 f"({bq_table.rows_count:,} rows)"
@@ -370,7 +381,10 @@ TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"""
             # Apply the row limit for non-partitioned tables that exceed it to avoid
             # expensive full-table scans.
             row_limit = max(1, int(self.config.profiling.profiling_row_limit))
-            custom_sql = f"SELECT * FROM {safe_table_ref} LIMIT {row_limit}"
+            custom_sql = (
+                f"{SELECT_ALL_TEMPLATE.format(table_ref=safe_table_ref)} "
+                f"{LIMIT_CLAUSE_TEMPLATE.format(limit=row_limit)}"
+            )
             logger.info(
                 f"Applied row limit ({row_limit:,}) to non-partitioned table {table_ref} ({bq_table.rows_count:,} rows)"
             )
@@ -381,7 +395,10 @@ TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"""
             and self.config.profiling.profiling_row_limit == 0
         ):
             # Safety cap for very large unpartitioned tables when no explicit limit is configured.
-            custom_sql = f"SELECT * FROM {safe_table_ref} LIMIT {BQ_SAFETY_ROW_LIMIT}"
+            custom_sql = (
+                f"{SELECT_ALL_TEMPLATE.format(table_ref=safe_table_ref)} "
+                f"{LIMIT_CLAUSE_TEMPLATE.format(limit=BQ_SAFETY_ROW_LIMIT)}"
+            )
             logger.info(
                 f"Applied safety limit of {BQ_SAFETY_ROW_LIMIT:,} rows to large table {table_ref} ({bq_table.rows_count:,} rows)"
             )
@@ -389,7 +406,12 @@ TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"""
         # let GE profile normally, preserving the default FULL_TABLE partitionSpec on the profile MCP.
 
         if custom_sql:
-            base_kwargs.update({"custom_sql": custom_sql, "partition_handling": "true"})
+            base_kwargs.update(
+                {
+                    CUSTOM_SQL_KWARG: custom_sql,
+                    PARTITION_HANDLING_KWARG: PARTITION_HANDLING_ENABLED,
+                }
+            )
             logger.debug(
                 f"Generated batch kwargs for {table_ref} with custom_sql: {custom_sql[:100]}..."
             )
@@ -431,7 +453,14 @@ TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"""
         table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
 
         if self._should_skip_profiling_due_to_staleness(bq_table):
-            logger.info(f"Skipping profiling of stale table: {table_ref}")
+            # Surface in the report, not just the log: skip_stale_tables defaults to True,
+            # so without this operators silently lose profiling on long-idle tables.
+            self.report.warning(
+                title="Profiling skipped for stale table",
+                message="Table was not modified within profiling.staleness_threshold_days; "
+                "profiling was skipped. Set profiling.skip_stale_tables=false to profile it anyway.",
+                context=table_ref,
+            )
             return None
 
         if bq_table.external and not self.config.profiling.profile_external_tables:
@@ -608,7 +637,10 @@ TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"""
                         )
 
                         request.batch_kwargs.update(
-                            dict(custom_sql=custom_sql, partition_handling="true")
+                            {
+                                CUSTOM_SQL_KWARG: custom_sql,
+                                PARTITION_HANDLING_KWARG: PARTITION_HANDLING_ENABLED,
+                            }
                         )
 
                 delattr(request, "needs_partition_discovery")
@@ -692,8 +724,8 @@ TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"""
 
         if is_stale:
             days_since_modified = (now - last_modified).days
-            logger.info(
-                f"Skipping profiling for stale table {table.name} - "
+            logger.debug(
+                f"Table {table.name} is stale - "
                 f"last modified {days_since_modified} days ago ({last_modified.strftime('%Y-%m-%d')})"
             )
             return True

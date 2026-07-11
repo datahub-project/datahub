@@ -297,3 +297,32 @@ BIGQUERY_NUMERIC_TYPES: Set[str] = {
     "BOOL",
     "BOOLEAN",
 }
+
+
+# ============================================================================
+# SQL Query Templates and Fragments
+# ============================================================================
+
+# INFORMATION_SCHEMA.COLUMNS value flagging a column as part of the partition spec
+PARTITIONING_COLUMN_FLAG = "YES"
+
+# Profiling SELECT fragments. table_ref must already be validated + backtick-escaped.
+# Kept here so the inline (internal table) and deferred (external table) paths that both
+# assemble custom_sql cannot drift apart.
+SELECT_ALL_TEMPLATE = "SELECT * FROM {table_ref}"
+TABLESAMPLE_SYSTEM_TEMPLATE = "TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"
+WHERE_CLAUSE_TEMPLATE = "WHERE {where}"
+LIMIT_CLAUSE_TEMPLATE = "LIMIT {limit}"
+
+# One query per dataset pre-fetches every table's partition columns (profiler cache).
+PARTITION_METADATA_CACHE_QUERY = """
+SELECT table_name, column_name, data_type
+FROM {info_schema_ref}
+WHERE is_partitioning_column = '{flag}'
+ORDER BY table_name, ordinal_position
+"""
+
+# batch_kwargs keys / values shared between the inline and deferred profiling paths
+CUSTOM_SQL_KWARG = "custom_sql"
+PARTITION_HANDLING_KWARG = "partition_handling"
+PARTITION_HANDLING_ENABLED = "true"

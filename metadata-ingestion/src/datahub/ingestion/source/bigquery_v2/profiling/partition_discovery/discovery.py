@@ -27,6 +27,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     MAX_PARTITION_VALUES,
     PARTITION_FILTER_PATTERN,
     PARTITION_PATH_PATTERN,
+    PARTITIONING_COLUMN_FLAG,
     SAMPLING_LIMIT_ROWS,
     SAMPLING_PERCENT,
     TEST_QUERY_LIMIT_ROWS,
@@ -922,7 +923,7 @@ SELECT val, record_count FROM PartitionStats"""
 
             query = f"""SELECT column_name
 FROM {safe_info_schema_ref}
-WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
+WHERE table_name = @table_name AND is_partitioning_column = '{PARTITIONING_COLUMN_FLAG}'"""
 
             job_config = QueryJobConfig(
                 query_parameters=[

@@ -14,6 +14,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DEFAULT_INFO_SCHEMA_PARTITIONS_LIMIT,
     PARTITION_ID_YYYYMMDD_LENGTH,
     PARTITION_ID_YYYYMMDDHH_LENGTH,
+    PARTITIONING_COLUMN_FLAG,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
     FilterBuilder,
@@ -48,7 +49,7 @@ class InfoSchemaQueries:
 
             query = f"""SELECT column_name, data_type
 FROM {safe_info_schema_ref}
-WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
+WHERE table_name = @table_name AND is_partitioning_column = '{PARTITIONING_COLUMN_FLAG}'"""
 
             job_config = QueryJobConfig(
                 query_parameters=[
