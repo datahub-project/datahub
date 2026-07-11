@@ -33,3 +33,5 @@ to avoid colliding with the legacy product-usage rollup package in this module.
 
 - `USAGE_AGGREGATION_ENABLED` — GMS aggregation + flush coordinator
 - `USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED` — Micrometer sink (default on)
+- `USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS` — UTC calendar grid for flush windows
+  (`0` default; e.g. `3600` for hourly). See [usage README](../README.md#flush-alignment).

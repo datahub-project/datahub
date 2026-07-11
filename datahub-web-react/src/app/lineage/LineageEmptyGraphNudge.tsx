@@ -1,4 +1,4 @@
-import { Alert, Button } from '@components';
+import { Alert } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
@@ -59,12 +59,27 @@ export default function LineageEmptyGraphNudge({
         );
     }, [location, history]);
 
+    const action = useMemo(() => {
+        if (reasons.includes('timeFilter')) {
+            return {
+                label: t('emptyGraphNudge.showAllTimeAction'),
+                onClick: onShowAllTime,
+                dataTestId: 'lineage-empty-graph-show-all-time',
+            };
+        }
+        if (reasons.includes('hiddenEdges')) {
+            return {
+                label: t('emptyGraphNudge.showHiddenEdgesAction'),
+                onClick: () => setShowGhostEntities(true),
+                dataTestId: 'lineage-empty-graph-show-hidden-edges',
+            };
+        }
+        return undefined;
+    }, [reasons, t, onShowAllTime, setShowGhostEntities]);
+
     if (loading || !show || dismissed) {
         return null;
     }
-
-    const showAllTimeAction = reasons.includes('timeFilter');
-    const showHiddenEdgesAction = reasons.includes('hiddenEdges');
 
     return (
         <Panel position="top-center">
@@ -72,32 +87,7 @@ export default function LineageEmptyGraphNudge({
                 variant="brand"
                 title={t('emptyGraphNudge.title')}
                 description={description}
-                action={
-                    <>
-                        {showAllTimeAction && (
-                            <Button
-                                size="sm"
-                                variant="text"
-                                color="primary"
-                                data-testid="lineage-empty-graph-show-all-time"
-                                onClick={onShowAllTime}
-                            >
-                                {t('emptyGraphNudge.showAllTimeAction')}
-                            </Button>
-                        )}
-                        {showHiddenEdgesAction && (
-                            <Button
-                                size="sm"
-                                variant="text"
-                                color="primary"
-                                data-testid="lineage-empty-graph-show-hidden-edges"
-                                onClick={() => setShowGhostEntities(true)}
-                            >
-                                {t('emptyGraphNudge.showHiddenEdgesAction')}
-                            </Button>
-                        )}
-                    </>
-                }
+                action={action}
                 onClose={() => setDismissed(true)}
                 data-testid="lineage-empty-graph-nudge"
             />

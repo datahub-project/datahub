@@ -500,6 +500,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.metrics.hookLatency.maxExpectedValue",
           "datahub.metrics.hookLatency.percentiles",
           "datahub.metrics.hookLatency.slo",
+          "datahub.metrics.entityCounts.enabled",
+          "datahub.metrics.entityCounts.updateIntervalSeconds",
+          "datahub.metrics.entityCounts.initialDelaySeconds",
+          "datahub.metrics.entityCounts.skipCache",
           "datahub.plugin.auth.path",
           "datahub.plugin.entityRegistry.loadDelaySeconds",
           "datahub.plugin.entityRegistry.ignoreFailureWhenLoadingRegistry",
@@ -521,6 +525,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.usage.aggregation.flush.scheduledIntervalSeconds",
           "datahub.usage.aggregation.flush.retryAttempts",
           "datahub.usage.aggregation.flush.retryInitialBackoffMillis",
+          "datahub.usage.aggregation.flush.alignmentPeriodSeconds",
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags

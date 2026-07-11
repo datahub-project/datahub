@@ -37,5 +37,11 @@ public class UsageAggregationConfiguration {
      * #retryAttempts} &gt; 1.
      */
     private long retryInitialBackoffMillis = 100;
+
+    /**
+     * Calendar grid size for flush windows (seconds). Boundaries are UTC hour/day truncations. Zero
+     * disables alignment (process-relative windows).
+     */
+    private long alignmentPeriodSeconds;
   }
 }
