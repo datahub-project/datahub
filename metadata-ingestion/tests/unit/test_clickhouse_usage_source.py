@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
+import datahub.ingestion.source.usage.clickhouse_usage as clickhouse_usage
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.usage.clickhouse_usage import (
     ClickHouseUsageConfig,
     ClickHouseUsageSource,
@@ -129,6 +131,29 @@ def test_usage_statistics_generated_via_aggregator(monkeypatch):
     source.close()
 
 
+def test_observed_query_without_username_has_no_user(monkeypatch):
+    rows = [
+        _FakeRow(
+            {
+                "query_id": "q1",
+                "query": "SELECT col_a FROM my_db.events",
+                "username": None,
+                "starttime": datetime(2020, 4, 14, 6, 0, 0),
+                "endtime": datetime(2020, 4, 14, 6, 0, 1),
+                "normalized_query_hash": 12345,
+            }
+        )
+    ]
+    source = _make_source(rows, monkeypatch)
+
+    observed = list(source._get_observed_queries())
+
+    assert len(observed) == 1
+    # No username means no user URN is attributed to the query.
+    assert observed[0].user is None
+    source.close()
+
+
 def test_is_allowed_table_respects_patterns():
     config = ClickHouseUsageConfig.model_validate(
         {
@@ -141,4 +166,38 @@ def test_is_allowed_table_respects_patterns():
 
     assert source._is_allowed_table("my_db.events")
     assert not source._is_allowed_table("system.query_log")
+    source.close()
+
+
+def test_create_builds_source_from_config_dict():
+    source = ClickHouseUsageSource.create(
+        {
+            "host_port": "localhost:8123",
+            "email_domain": "example.com",
+        },
+        PipelineContext(run_id="test"),
+    )
+
+    assert isinstance(source, ClickHouseUsageSource)
+    assert isinstance(source.get_report(), SourceReport)
+    source.close()
+
+
+def test_make_sql_engine_uses_config_url(monkeypatch):
+    captured = {}
+
+    def _fake_create_engine(url, **options):
+        captured["url"] = url
+        captured["options"] = options
+        return "engine-sentinel"
+
+    monkeypatch.setattr(clickhouse_usage, "create_engine", _fake_create_engine)
+
+    source = ClickHouseUsageSource(
+        config=_make_config(), ctx=PipelineContext(run_id="test")
+    )
+
+    assert source._make_sql_engine() == "engine-sentinel"
+    # The engine is built from the config's SQLAlchemy URL.
+    assert captured["url"] == source.config.get_sql_alchemy_url()
     source.close()
