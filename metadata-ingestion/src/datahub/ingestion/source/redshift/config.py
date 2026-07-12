@@ -86,7 +86,11 @@ class RedshiftConfig(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
-    database: str = Field(default="dev", description="database")
+    host_port: str = Field(
+        description="Host and port where Redshift is running.",
+        examples=["redshift.company.us-west-1.redshift.amazonaws.com:5439"],
+    )
+    database: str = Field(default="dev", description="database", examples=["dev"])
 
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect
