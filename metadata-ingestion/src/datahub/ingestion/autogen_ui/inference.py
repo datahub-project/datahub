@@ -14,8 +14,11 @@ from datahub.ingestion.autogen_ui.hints import (
     SECTION_ORDER,
     SECTION_TITLES,
     UI_ALWAYS_SHOW,
+    UI_DEPENDS_ON,
+    UI_ENABLED_WHEN,
     UI_HIDDEN,
     UI_ORDER,
+    UI_PLACEHOLDER,
     UI_SECTION,
     UI_WIDGET,
     UISection,
@@ -235,13 +238,29 @@ def _options(core: Dict) -> Optional[List[FormFieldOption]]:
     return [FormFieldOption(label=str(v), value=str(v)) for v in enum]
 
 
-def _placeholder(core: Dict) -> Optional[str]:
-    # Only string examples make sensible input placeholders. Some configs supply
-    # a dict/list example (e.g. for an object field), which must not become a
+def _placeholder(prop: Dict, core: Dict) -> Optional[str]:
+    # Explicit ui(placeholder=...) hint wins; else the first string example.
+    # Non-string examples (dict/list for object fields) must not become a
     # placeholder string.
+    hint = prop.get(UI_PLACEHOLDER)
+    if isinstance(hint, str):
+        return hint
     for example in core.get("examples") or []:
         if isinstance(example, str):
             return example
+    return None
+
+
+def _auto_dependency(name: str, property_names: set) -> Optional[Tuple[str, bool]]:
+    # Convention: a `X_pattern` filter is only meaningful when the sibling
+    # `include_X` / `include_Xs` toggle is on, so auto-link them (e.g.
+    # view_pattern -> include_views) without a per-connector hint.
+    if not name.endswith("_pattern"):
+        return None
+    base = name[: -len("_pattern")]
+    for candidate in (f"include_{base}", f"include_{base}s"):
+        if candidate in property_names:
+            return candidate, True
     return None
 
 
@@ -251,11 +270,19 @@ def _build_field(
     defs: Dict,
     required: bool,
     field_path: str,
+    property_names: Optional[set] = None,
 ) -> Tuple[FormField, Optional[str]]:
     core, ref_name = _resolve(prop, defs)
     secret = _is_secret(prop)
     widget = prop.get(UI_WIDGET) or _infer_widget(name, core, ref_name, secret)
     always_show = bool(prop.get(UI_ALWAYS_SHOW)) or required or secret
+
+    depends_on = prop.get(UI_DEPENDS_ON)
+    enabled_when = prop.get(UI_ENABLED_WHEN)
+    if depends_on is None and property_names is not None:
+        auto = _auto_dependency(name, property_names)
+        if auto is not None:
+            depends_on, enabled_when = auto
 
     field = FormField(
         name=name,
@@ -267,9 +294,11 @@ def _build_field(
         secret=secret,
         deprecated=bool(prop.get("deprecated")),
         default=prop.get("default"),
-        placeholder=_placeholder(core),
+        placeholder=_placeholder(prop, core),
         options=_options(core),
         always_show=always_show,
+        depends_on=depends_on,
+        enabled_when=enabled_when,
     )
     return field, ref_name
 
@@ -281,6 +310,7 @@ def build_form(
     defs = schema.get("$defs", {})
     properties: Dict[str, Dict] = schema.get("properties", {})
     required_names = set(schema.get("required", []))
+    property_names = set(properties.keys())
 
     buckets: Dict[UISection, List[Tuple[int, int, FormField]]] = {
         s: [] for s in SECTION_ORDER
@@ -326,7 +356,9 @@ def build_form(
                 )
             continue
 
-        field, _ = _build_field(name, prop, defs, required, f"{RECIPE_PREFIX}.{name}")
+        field, _ = _build_field(
+            name, prop, defs, required, f"{RECIPE_PREFIX}.{name}", property_names
+        )
 
         # Ordering: explicit ui_order wins; then the common-field default order;
         # env/options/platform_instance sink to the bottom of their section.

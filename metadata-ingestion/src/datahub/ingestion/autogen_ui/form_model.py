@@ -25,6 +25,10 @@ class FormField(pydantic.BaseModel):
     options: Optional[List[FormFieldOption]] = None
     # Shown inline vs. collapsed. Derived from section + always_show/required/secret.
     always_show: bool = False
+    # Conditional enable: this field is only enabled when `depends_on` (another
+    # field's name) equals `enabled_when`. e.g. view_pattern depends_on include_views.
+    depends_on: Optional[str] = None
+    enabled_when: Optional[object] = None
 
 
 class FormSection(pydantic.BaseModel):
