@@ -50,21 +50,32 @@ def test_form_field_paths_resolve_and_sections_are_ordered(connector: str) -> No
     defs = schema.get("$defs", {})
     top_props = schema.get("properties", {})
 
+    def all_fields(fields):
+        for f in fields:
+            yield f
+            if f.group_fields:
+                yield from all_fields(f.group_fields)
+
+    def resolves(parts):
+        # Walk each dotted segment through the schema, following $refs, so nested
+        # group paths (source.config.profiling.operation_config.x) are validated.
+        props = top_props
+        for p in parts:
+            if p not in props:
+                return False
+            core, _ = _resolve(props[p], defs)
+            props = core.get("properties") or {}
+        return True
+
     for section in form.sections:
-        for field in section.fields:
+        for field in all_fields(section.fields):
             assert field.field_path.startswith(RECIPE_PREFIX), (
                 f"{connector}: {field.field_path} does not start with {RECIPE_PREFIX}"
             )
             parts = field.field_path[len(RECIPE_PREFIX) :].split(".")
-            assert parts[0] in top_props, (
-                f"{connector}: {field.field_path} -> '{parts[0]}' not a config field"
+            assert resolves(parts), (
+                f"{connector}: {field.field_path} does not resolve in the config schema"
             )
-            if len(parts) == 2:
-                core, _ = _resolve(top_props[parts[0]], defs)
-                child_props = core.get("properties") or {}
-                assert parts[1] in child_props, (
-                    f"{connector}: {field.field_path} -> '{parts[1]}' not in {parts[0]}"
-                )
 
     present = [s.key for s in form.sections]
     expected = [s.value for s in SECTION_ORDER if s.value in present]

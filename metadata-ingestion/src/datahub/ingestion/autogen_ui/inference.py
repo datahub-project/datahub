@@ -391,33 +391,56 @@ def _build_field(
     return field, ref_name
 
 
+_MAX_GROUP_DEPTH = 3
+
+
+def _is_submodel(core: Dict, ref_name: Optional[str]) -> bool:
+    # A nested config model worth rendering as a group: has its own properties and
+    # is not an AllowDenyPattern (which owns a dedicated widget).
+    return bool(core.get("properties")) and ref_name != "AllowDenyPattern"
+
+
 def _build_group(
     name: str,
     prop: Dict,
     core: Dict,
     defs: Dict,
     container_required: bool,
+    path_prefix: str,
+    depth: int = 0,
 ) -> FormField:
-    # Render a nested credential/config sub-model (e.g. Snowflake's oauth_config)
-    # as a collapsible group of individual fields, rather than flattening its
-    # (possibly secret) fields into the parent or showing an opaque blob.
+    # Render a structured sub-model (oauth_config, profiling, ...) as a collapsible
+    # group of its fields. Child sub-models become nested groups (recursively), so
+    # e.g. profiling.operation_config is a group, not an opaque keyvalue blob.
     child_required = set(core.get("required", []))
     children: List[FormField] = []
     for child_name, child_prop in (core.get("properties") or {}).items():
         if child_prop.get(UI_HIDDEN):
             continue
-        child_field, _ = _build_field(
-            child_name,
-            child_prop,
-            defs,
-            child_name in child_required and container_required,
-            f"{RECIPE_PREFIX}.{name}.{child_name}",
-        )
-        children.append(child_field)
+        child_required_flag = child_name in child_required and container_required
+        child_path = f"{path_prefix}.{child_name}"
+        child_core, child_ref = _resolve(child_prop, defs)
+        if _is_submodel(child_core, child_ref) and depth < _MAX_GROUP_DEPTH:
+            children.append(
+                _build_group(
+                    child_name,
+                    child_prop,
+                    child_core,
+                    defs,
+                    child_required_flag,
+                    child_path,
+                    depth + 1,
+                )
+            )
+        else:
+            child_field, _ = _build_field(
+                child_name, child_prop, defs, child_required_flag, child_path
+            )
+            children.append(child_field)
     return FormField(
         name=name,
         label=prop.get(UI_LABEL) or _label(name, prop),
-        field_path=f"{RECIPE_PREFIX}.{name}",
+        field_path=path_prefix,
         widget="group",
         icon=prop.get(UI_ICON),
         description=prop.get("description") or core.get("description"),
@@ -495,29 +518,25 @@ def build_form(
                 _place(UISection.CONNECTION, 50, decl_index * 100 + i, cf)
             continue
 
-        if child_props and _contains_secret(core):
-            # Credential sub-model (e.g. oauth_config): collapsible group so its
-            # fields (incl. masked secrets) stay together. Credentials -> Connection.
-            group = _build_group(name, prop, core, defs, container_required)
-            group_section = (
-                UISection(explicit_section)
-                if explicit_section
-                else UISection.CONNECTION
+        if child_props:
+            # Any other structured sub-model (oauth_config, profiling,
+            # stateful_ingestion, classification, ...): render as a collapsible
+            # group so its structure shows without a long flat dump or an opaque
+            # blob. A secret-bearing block is a credential -> Connection; otherwise
+            # it stays in its classified section.
+            group = _build_group(
+                name, prop, core, defs, container_required, f"{RECIPE_PREFIX}.{name}"
             )
+            if explicit_section:
+                group_section = UISection(explicit_section)
+            elif _contains_secret(core):
+                group_section = UISection.CONNECTION
+            else:
+                group_section = section
             ui_order = prop.get(UI_ORDER)
             if ui_order is None:
                 ui_order = _DEFAULT_ORDER.get(name, _DEFAULT_ORDER_FALLBACK)
             _place(group_section, ui_order, decl_index, group)
-            continue
-
-        if child_props:
-            # Any other structured sub-config (profiling, stateful_ingestion,
-            # classification, *_lineage_config): flatten its fields into the
-            # section it classified into, so its well-defined structure shows.
-            for i, cf in enumerate(
-                _flatten_children(name, core, defs, container_required)
-            ):
-                _place(section, decl_index * 100, decl_index * 100 + i, cf)
             continue
 
         field, _ = _build_field(
