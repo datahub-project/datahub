@@ -7,3 +7,4 @@
 **/build
 **/.gradle
 **/.pytest_cache
+src/app/ingestV2/source/builder/ui_forms.json

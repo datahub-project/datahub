@@ -4,3 +4,4 @@ build/
 node_modules/
 **/*.generated.ts
 scripts/
+dev-demo/
