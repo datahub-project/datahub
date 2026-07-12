@@ -104,6 +104,20 @@ _TAG_CLASS_RE = re.compile(r"classification|tag|structured_propert|owner")
 _SCOPE_INCLUDE_RE = re.compile(r"^(include|ingest)_")
 _PATTERN_NAME_RE = re.compile(r"_pattern$")
 
+# Descriptions occasionally embed a PEM example (e.g. Snowflake private_key), which
+# is multi-line and trips secret scanners in the generated bundle. Collapse such
+# blocks and flatten whitespace so descriptions stay single-line tooltip text.
+# `-{5}` matches the 5 PEM dashes at runtime without putting the literal PEM
+# header in this source file (which would itself trip the secret scanner).
+_PEM_RE = re.compile(r"-{5}BEGIN [A-Z0-9 ]+-{5}.*?-{5}END [A-Z0-9 ]+-{5}", re.DOTALL)
+
+
+def _clean_description(desc: Optional[str]) -> Optional[str]:
+    if not desc:
+        return desc
+    return " ".join(_PEM_RE.sub("<PEM block>", desc).split())
+
+
 # Default intra-section ordering for common connection fields so the host/endpoint
 # leads and credentials follow -- the natural reading order operators expect,
 # without requiring a per-connector ui_order hint. Lower sorts first.
@@ -376,7 +390,9 @@ def _build_field(
         field_path=field_path,
         widget=widget,
         icon=prop.get(UI_ICON),
-        description=prop.get("description") or core.get("description"),
+        description=_clean_description(
+            prop.get("description") or core.get("description")
+        ),
         required=required,
         secret=secret,
         deprecated=bool(prop.get("deprecated")),
@@ -443,7 +459,9 @@ def _build_group(
         field_path=path_prefix,
         widget="group",
         icon=prop.get(UI_ICON),
-        description=prop.get("description") or core.get("description"),
+        description=_clean_description(
+            prop.get("description") or core.get("description")
+        ),
         depends_on=prop.get(UI_DEPENDS_ON),
         enabled_when=prop.get(UI_ENABLED_WHEN),
         group_fields=children,
