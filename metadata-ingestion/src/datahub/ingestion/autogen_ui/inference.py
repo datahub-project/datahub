@@ -23,6 +23,11 @@ from datahub.ingestion.autogen_ui.hints import (
 
 RECIPE_PREFIX = "source.config"
 
+# Above this many total properties, non-Connection sections start collapsed so
+# the heaviest connectors do not overwhelm on open.
+_LARGE_CONFIG_THRESHOLD = 40
+_LARGE_SECTION_THRESHOLD = 8
+
 # Sub-config containers that are always demoted to Advanced, regardless of name.
 _ADVANCED_CONTAINERS = {
     "profiling",
@@ -279,11 +284,22 @@ def build_form(
         fields = [f for _, _, f in entries]
         if not fields:
             continue
+
+        if s == UISection.CONNECTION:
+            expanded = True
+        elif (
+            len(properties) > _LARGE_CONFIG_THRESHOLD
+            or len(fields) > _LARGE_SECTION_THRESHOLD
+        ):
+            expanded = False
+        else:
+            expanded = SECTION_EXPANDED_BY_DEFAULT[s]
+
         sections.append(
             FormSection(
                 key=s.value,
                 title=SECTION_TITLES[s],
-                expanded=SECTION_EXPANDED_BY_DEFAULT[s],
+                expanded=expanded,
                 fields=fields,
             )
         )
