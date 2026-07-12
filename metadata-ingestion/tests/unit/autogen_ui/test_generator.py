@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import Set
+from unittest.mock import patch
 
 from datahub.ingestion.autogen_ui.generator import (
     generate_bundle,
@@ -44,3 +45,14 @@ def test_write_ui_form_bundle_writes_valid_json(tmp_path: Path) -> None:
     data = json.loads(output_path.read_text())
     assert data["version"] == 1
     assert data["forms"][0]["connector"] == "mysql"
+
+
+def test_generate_form_is_crash_isolated_from_build_form() -> None:
+    with patch(
+        "datahub.ingestion.autogen_ui.generator.build_form",
+        side_effect=RuntimeError("boom"),
+    ):
+        assert generate_form("mysql") is None
+
+        bundle = generate_bundle(["mysql"])
+        assert bundle == {"version": 1, "forms": []}

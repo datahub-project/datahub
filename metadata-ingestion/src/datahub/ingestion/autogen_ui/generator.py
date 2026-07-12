@@ -22,19 +22,26 @@ def generate_form(connector: str) -> Optional[ConnectorForm]:
     if get_config_class is None:
         logger.warning(f"Connector '{connector}' has no get_config_class()")
         return None
-    config_class = get_config_class()
 
-    display_name = connector
-    get_platform_name = getattr(source_cls, "get_platform_name", None)
-    if get_platform_name is not None:
-        try:
-            platform_name = get_platform_name()
-        except Exception:
-            platform_name = None
-        if platform_name:
-            display_name = platform_name
+    try:
+        config_class = get_config_class()
 
-    return build_form(connector, display_name, config_class)
+        display_name = connector
+        get_platform_name = getattr(source_cls, "get_platform_name", None)
+        if get_platform_name is not None:
+            try:
+                platform_name = get_platform_name()
+            except Exception:
+                platform_name = None
+            if platform_name:
+                display_name = platform_name
+
+        return build_form(connector, display_name, config_class)
+    except Exception:
+        logger.warning(
+            f"Could not build UI form for connector '{connector}'", exc_info=True
+        )
+        return None
 
 
 def generate_bundle(connectors: List[str]) -> Dict[str, object]:

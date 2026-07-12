@@ -131,6 +131,13 @@ def _is_secret(prop_schema: Dict) -> bool:
     return False
 
 
+def _contains_secret(core: Dict) -> bool:
+    # True if this (already-resolved) nested-model schema has a direct property
+    # that is a secret (format:password). One level deep, which covers credential
+    # sub-configs like AwsConnectionConfig. (Deeper nesting is a known follow-up.)
+    return any(_is_secret(prop) for prop in (core.get("properties") or {}).values())
+
+
 def _infer_widget(name: str, core: Dict, ref_name: Optional[str], secret: bool) -> str:
     if secret:
         return "password"
@@ -259,8 +266,9 @@ def build_form(
         # (e.g. Kafka bootstrap servers) surface in Connection instead of an
         # opaque object blob.
         child_props = core.get("properties")
-        if name in _CONNECTION_CONTAINERS and child_props:
+        if child_props and (name in _CONNECTION_CONTAINERS or _contains_secret(core)):
             child_required = set(core.get("required", []))
+            container_required = name in required_names
             for child_index, (child_name, child_prop) in enumerate(child_props.items()):
                 if child_prop.get(UI_HIDDEN):
                     continue
@@ -268,7 +276,7 @@ def build_form(
                     child_name,
                     child_prop,
                     defs,
-                    child_name in child_required,
+                    child_name in child_required and container_required,
                     f"{RECIPE_PREFIX}.{name}.{child_name}",
                 )
                 _place(
