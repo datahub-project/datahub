@@ -4,8 +4,11 @@ import YAML from 'yamljs';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
+import { useSchemaDrivenFormsEnabled } from '@app/ingestV2/hooks/useSchemaDrivenFormsEnabled';
 import { CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
+import SchemaForm from '@app/ingestV2/source/builder/SchemaForm/SchemaForm';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
+import { useSchemaForm } from '@app/ingestV2/source/builder/useSchemaForm';
 import { YamlEditor } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/YamlEditor';
 import RecipeForm from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/RecipeForm';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
@@ -21,6 +24,11 @@ interface Props {
 export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe }: Props) {
     const { type } = state;
     const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS.has(type), [type]);
+    // When the flag is on and the connector has a generated schema, render the
+    // schema-driven <SchemaForm>; otherwise fall back to the hand-written RecipeForm.
+    const schemaDrivenEnabled = useSchemaDrivenFormsEnabled();
+    const schemaForm = useSchemaForm(type ?? '');
+    const useSchemaDrivenForm = schemaDrivenEnabled && !!schemaForm;
     const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
     const {
         state: { ingestionSource: existingIngestionSource },
@@ -75,7 +83,16 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
             {
                 key: 'form',
                 name: 'Form',
-                component: (
+                component: useSchemaDrivenForm ? (
+                    <SchemaForm
+                        state={state}
+                        form={form}
+                        runFormValidation={runFormValidation}
+                        displayRecipe={displayRecipe}
+                        sourceConfigs={sourceConfigs}
+                        setStagedRecipe={setStagedRecipe}
+                    />
+                ) : (
                     <RecipeForm
                         state={state}
                         form={form}
@@ -93,7 +110,7 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                 dataTestId: 'yaml-editor-tab',
             },
         ],
-        [displayRecipe, state, sourceConfigs, setStagedRecipe, form, runFormValidation],
+        [displayRecipe, state, sourceConfigs, setStagedRecipe, form, runFormValidation, useSchemaDrivenForm],
     );
 
     if (hasForm) {
