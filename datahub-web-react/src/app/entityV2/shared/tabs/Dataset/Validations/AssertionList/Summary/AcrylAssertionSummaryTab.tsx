@@ -1,5 +1,6 @@
 import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AcrylAssertionSummaryCard } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryCard';
@@ -24,6 +25,7 @@ const AcrylAssertionSummaryContainer = styled.div`
     overflow: auto;
 `;
 export const AcrylAssertionSummaryTab = () => {
+    const { t } = useTranslation('entity.profile.validations');
     const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -58,7 +60,7 @@ export const AcrylAssertionSummaryTab = () => {
                 </AcrylAssertionSummaryContainer>
             );
         }
-        return <Empty description="No assertions created yet." image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <Empty description={t('assertionSummary.noAssertionsCreated')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
     return <>{renderSummaryTab()}</>;
 };

@@ -1,9 +1,10 @@
-import { Select } from 'antd';
-import moment from 'moment-timezone';
+import { SimpleSelect } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-const StyledSelect = styled(Select)`
+import { getSupportedTimezones } from '@app/shared/time/timeUtils';
+
+const SelectContainer = styled.div`
     max-width: 300px;
 `;
 
@@ -13,16 +14,24 @@ type Props = {
 };
 
 export const TimezoneSelect = ({ value, onChange }: Props) => {
-    const timezones = moment.tz.names();
+    const timezones = getSupportedTimezones();
+    const options = timezones.map((timezone) => {
+        return {
+            value: timezone,
+            label: timezone,
+        };
+    });
+
     return (
-        <>
-            <StyledSelect showSearch value={value} onChange={onChange}>
-                {timezones.map((timezone) => (
-                    <Select.Option key={timezone} value={timezone}>
-                        {timezone}
-                    </Select.Option>
-                ))}
-            </StyledSelect>
-        </>
+        <SelectContainer>
+            <SimpleSelect
+                options={options}
+                showSearch
+                onUpdate={(values) => onChange(values[0])}
+                initialValues={[value]}
+                showClear={false}
+                width="full"
+            />
+        </SelectContainer>
     );
 };

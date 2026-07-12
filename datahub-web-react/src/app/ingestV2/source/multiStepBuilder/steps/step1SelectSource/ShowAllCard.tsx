@@ -1,5 +1,6 @@
 import { Button, Card } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export default function ShowAllCard({ hiddenSources, onShowAll }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const firstSixSources = hiddenSources.slice(0, 5);
 
     return (
@@ -45,7 +47,7 @@ export default function ShowAllCard({ hiddenSources, onShowAll }: Props) {
                 </LogosContainer>
                 <ButtonContainer>
                     <Button variant="outline" size="xs" onClick={onShowAll}>
-                        Show All
+                        {t('multiStep.selectSource.showAll')}
                     </Button>
                 </ButtonContainer>
             </CardContentWrapper>

@@ -15,6 +15,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.config.DebeziumConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -26,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -63,6 +64,7 @@ public class ConfigureDebeziumConnectorStepTest {
       ebeanConfig.setPassword("testpass");
 
       kafkaConfig = new KafkaConfiguration();
+      kafkaConfig.setProducer(new ProducerConfiguration());
       kafkaConfig.setBootstrapServers("localhost:9092");
 
       kafkaProperties = new KafkaProperties();

@@ -46,9 +46,11 @@ lint_requirements = {
 
 base_requirements = {
     f"acryl-datahub[datahub-kafka]{_self_pin}",
+    # pg_queue event source imports metadata-ingestion connection helpers that require psycopg2.
+    "psycopg2-binary<3.0.0",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=2.0.0,<3.0.0",
+    "pydantic>=2.4.0,<3.0.0",
     "ratelimit",
     # Lower bounds on httpcore and h11 due to CVE-2025-43859.
     "httpcore>=1.0.9",
@@ -74,11 +76,11 @@ framework_common = {
 plugins: Dict[str, Set[str]] = {
     # Source Plugins
     "kafka": {
-        "confluent-kafka[schemaregistry]",
+        "confluent-kafka[schemaregistry]<2.13.0",
     },
     # Action Plugins
     "executor": {
-        "acryl-executor==0.3.2",
+        "acryl-executor>=0.3.11,<1"
     },
     "slack": {
         "slack-bolt>=1.15.5",
@@ -92,6 +94,10 @@ plugins: Dict[str, Set[str]] = {
         f"acryl-datahub[snowflake-slim]{_self_pin}",
     },
     "doc_propagation": set(),
+    "observability": {
+        "opentelemetry-api>=1.20.0",
+        "opentelemetry-sdk>=1.20.0",
+    },
     # Transformer Plugins (None yet)
 }
 
@@ -180,6 +186,7 @@ entry_points = {
     ],
     "datahub_actions.transformer.plugins": [],
     "datahub_actions.source.plugins": [],
+    "datahub_actions.filter.plugins": [],
 }
 
 
@@ -187,14 +194,15 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://docs.datahub.com/",
+    url="https://datahub.com/",
     project_urls={
-        "Documentation": "https://docs.datahub.com/docs/actions",
-        "Source": "https://github.com/acryldata/datahub-actions",
-        "Changelog": "https://github.com/acryldata/datahub-actions/releases",
+        "Documentation": "https://docs.datahub.com/",
+        "Source": "https://github.com/datahub-project/datahub",
+        "Changelog": "https://github.com/acryldata/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache-2.0",
-    description="An action framework to work with DataHub real time changes.",
+    description="Event-driven action framework for DataHub — trigger automations and workflows in response to real-time metadata changes",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[
@@ -202,6 +210,7 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -213,7 +222,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

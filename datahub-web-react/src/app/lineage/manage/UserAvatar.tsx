@@ -1,25 +1,15 @@
 import { PartitionOutlined } from '@ant-design/icons';
-import { Avatar, Popover } from 'antd';
+import { Avatar, Popover } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import getAvatarColor from '@app/shared/avatar/getAvatarColor';
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { toLocalDateTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, EntityType } from '@types';
-
-const StyledAvatar = styled(Avatar)<{ backgroundColor: string }>`
-    color: #fff;
-    background-color: ${(props) => props.backgroundColor};
-    margin-right: 20px;
-    height: 22px;
-    width: 22px;
-    .ant-avatar-string {
-        text-align: center;
-        line-height: 22px;
-    }
-`;
 
 const LineageIcon = styled(PartitionOutlined)`
     font-size: 16px;
@@ -29,6 +19,10 @@ const LineageIcon = styled(PartitionOutlined)`
 const PopoverWrapper = styled.div`
     display: flex;
     align-items: center;
+`;
+
+const AvatarWrapper = styled.div`
+    margin-right: 20px;
 `;
 
 interface Props {
@@ -45,18 +39,26 @@ export default function UserAvatar({ createdActor, createdOn }: Props) {
         <Popover
             content={
                 <PopoverWrapper>
-                    <LineageIcon /> Relationship added by&nbsp;<strong>{userName}</strong>&nbsp;
-                    {createdOn && (
-                        <>
-                            on <strong>{toLocalDateTimeString(createdOn)}</strong>
-                        </>
+                    <LineageIcon />{' '}
+                    {createdOn ? (
+                        <Trans
+                            i18nKey="lineage:manualLineage.userAvatar.relationshipAddedByWithDate"
+                            components={{ bold: <strong /> }}
+                            values={{ userName, date: toLocalDateTimeString(createdOn) }}
+                        />
+                    ) : (
+                        <Trans
+                            i18nKey="lineage:manualLineage.userAvatar.relationshipAddedBy"
+                            components={{ bold: <strong /> }}
+                            values={{ userName }}
+                        />
                     )}
                 </PopoverWrapper>
             }
         >
-            <StyledAvatar src={avatarPhotoUrl} backgroundColor={getAvatarColor(userName)}>
-                {userName.charAt(0).toUpperCase()}
-            </StyledAvatar>
+            <AvatarWrapper>
+                <Avatar name={userName || ''} imageUrl={avatarPhotoUrl} type={AvatarType.user} size="sm" />
+            </AvatarWrapper>
         </Popover>
     );
 }

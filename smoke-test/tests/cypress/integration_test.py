@@ -21,6 +21,7 @@ from tests.utils import (
     delete_urns_from_file,
     get_admin_username,
     ingest_file_via_rest,
+    wait_for_writes_to_sync,
 )
 
 logger = logging.getLogger(__name__)
@@ -153,6 +154,23 @@ def ingest_data(auth_session, graph_client):
     logger.info("updating timestamps in fixture files")
     update_fixture_timestamps(CYPRESS_TEST_DATA_DIR)
 
+    # Pre-delete for idempotency: clear stale data from previous runs
+    logger.info("pre-deleting test data for idempotency")
+    delete_urns_from_file(graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}"
+    )
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}"
+    )
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
+    )
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_INCIDENT_DATA_FILENAME}"
+    )
+    delete_urns(graph_client, get_time_lineage_urns())
+
     print_now()
     logger.info("ingesting test data")
     ingest_file_via_rest(auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
@@ -169,6 +187,7 @@ def ingest_data(auth_session, graph_client):
         auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_INCIDENT_DATA_FILENAME}"
     )
     ingest_time_lineage(graph_client)
+    wait_for_writes_to_sync()
     print_now()
     logger.info("completed ingesting test data")
 
@@ -193,6 +212,7 @@ def ingest_cleanup_data(auth_session, graph_client):
     delete_urns_from_file(
         graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_INCIDENT_DATA_FILENAME}"
     )
+    wait_for_writes_to_sync()
 
     print_now()
     logger.info("deleting onboarding data file")
@@ -242,6 +262,33 @@ def _get_cypress_tests_batch():
     return test_batches[env_vars.get_batch_number()]
 
 
+def _get_filtered_or_batched_tests():
+    """
+    Read tests from a file if FILTERED_TESTS env var is set, pointing to a file.
+    Otherwise, fall back to normal batching logic.
+
+    This allows running a specific subset of tests for any purpose (flaky tests,
+    smoke tests, regression tests, etc.) by setting FILTERED_TESTS=/path/to/file.
+
+    Returns list of test file paths relative to cypress/e2e/
+    """
+    filtered_tests_file = env_vars.get_filtered_tests_file()
+    if filtered_tests_file:
+        logger.info(f"Reading filtered tests from {filtered_tests_file}")
+        with open(filtered_tests_file) as f:
+            # Read non-empty lines, strip whitespace, ignore comments
+            tests = [
+                line.strip()
+                for line in f
+                if line.strip() and not line.strip().startswith("#")
+            ]
+        logger.info(f"Found {len(tests)} filtered tests to run")
+        return tests
+    else:
+        logger.info("No FILTERED_TESTS set, using batching logic")
+        return _get_cypress_tests_batch()
+
+
 def test_run_cypress(auth_session):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = env_vars.get_cypress_record_key()
@@ -249,9 +296,9 @@ def test_run_cypress(auth_session):
     test_strategy = env_vars.get_test_strategy()
     if record_key:
         record_arg = " --record "
-        batch_number = os.getenv("BATCH_NUMBER")
-        batch_count = os.getenv("BATCH_COUNT")
-        if batch_number and batch_count:
+        batch_number = env_vars.get_batch_number()
+        batch_count = env_vars.get_batch_count()
+        if batch_count > 1:
             batch_suffix = f"-{batch_number}{batch_count}"
         else:
             batch_suffix = ""
@@ -261,7 +308,7 @@ def test_run_cypress(auth_session):
 
     logger.info(f"test strategy is {test_strategy}")
     test_spec_arg = ""
-    specs_str = ",".join([f"**/{f}" for f in _get_cypress_tests_batch()])
+    specs_str = ",".join([f"**/{f}" for f in _get_filtered_or_batched_tests()])
     test_spec_arg = f" --spec '{specs_str}' "
 
     logger.info("Running Cypress tests with command")

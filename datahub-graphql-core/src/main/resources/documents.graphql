@@ -44,17 +44,19 @@ extend type Mutation {
   updateDocumentSubType(input: UpdateDocumentSubTypeInput!): Boolean!
 
   """
-  Merge a draft document into its parent (the document it is a draft of).
-  This copies the draft's content to the published document and optionally deletes the draft.
-  Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for both documents, or MANAGE_DOCUMENTS platform privilege.
-  """
-  mergeDraft(input: MergeDraftInput!): Boolean!
-
-  """
   Update the settings of a Document (e.g., visibility in sidebar).
   Requires the EDIT_ENTITY_DOCS or EDIT_ENTITY privilege for the document, or MANAGE_DOCUMENTS platform privilege.
   """
   updateDocumentSettings(input: UpdateDocumentSettingsInput!): Boolean!
+
+  """
+  Import documents from pre-parsed file contents. The caller is responsible for text extraction
+  (e.g. reading .md/.txt as text, converting .docx via mammoth in the browser).
+  Requires the MANAGE_DOCUMENTS platform privilege.
+  """
+  importDocumentsFromFiles(
+    input: ImportDocumentsFromFilesInput!
+  ): ImportDocumentsResult!
 }
 
 extend type Query {
@@ -66,14 +68,17 @@ extend type Query {
 
   """
   Search Documents with hybrid semantic search and filtering support.
-  Supports filtering by parent document, types, domains, and semantic query.
+  Supports filtering by parent document, types, domains, and query.
 
-  Results are automatically filtered based on document visibility:
+  Results are automatically filtered based on document status:
   - PUBLISHED documents are shown to all users
-  - UNPUBLISHED documents are only shown if owned by the current user or a group they belong to
+  - UNPUBLISHED documents are only shown if owned by the current calling user or a group they belong to
 
   This ensures that unpublished documents remain private to their owners while published
   documents are discoverable by everyone.
+
+  Additionally, this API does NOT return documents that have should not be shown in "global" context via
+  their document settings.
   """
   searchDocuments(input: SearchDocumentsInput!): SearchDocumentsResult!
 }
@@ -91,6 +96,11 @@ type Document implements Entity {
   A standard Entity Type
   """
   type: EntityType!
+
+  """
+  The timestamp of the last time this Document was ingested
+  """
+  lastIngested: Long
 
   """
   Information about the Document
@@ -113,6 +123,12 @@ type Document implements Entity {
   dataPlatformInstance: DataPlatformInstance
 
   """
+  The platform that this Document originates in. For example, "Notion" for representing docs ingested from Notion.
+  For documents natively authored on DataHub, the platform will be "DataHub".
+  """
+  platform: DataPlatform!
+
+  """
   Ownership metadata of the Document
   """
   ownership: Ownership
@@ -126,6 +142,12 @@ type Document implements Entity {
   Tags applied to the Document
   """
   tags: GlobalTags
+
+  """
+  Deprecated, use tags field instead.
+  The structured tags associated with the Document.
+  """
+  globalTags: GlobalTags @deprecated(reason: "Use tags field instead")
 
   """
   Glossary terms associated with the Document
@@ -159,16 +181,19 @@ type Document implements Entity {
   structuredProperties: StructuredProperties
 
   """
+  References to internal resources related to the Document (links)
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
 
   """
-  All draft documents that have this document as their draftOf target.
-  These are UNPUBLISHED documents being worked on as potential new versions.
-  Note: This field requires a separate query/batch loader to fetch.
+  Documentation aspect containing editable description for this Document
   """
-  drafts: [Document!]
+  documentation: Documentation
 
   """
   Change history for this document.
@@ -230,12 +255,12 @@ type DocumentInfo {
   """
   The audit stamp for when the document was created
   """
-  created: AuditStamp!
+  created: ResolvedAuditStamp!
 
   """
   The audit stamp for when the document was last modified (any field)
   """
-  lastModified: AuditStamp!
+  lastModified: ResolvedAuditStamp!
 
   """
   Assets referenced by or related to this Document
@@ -251,12 +276,6 @@ type DocumentInfo {
   The parent document of this Document
   """
   parentDocument: DocumentParentDocument
-
-  """
-  If this document is a draft, the document it is a draft of.
-  When set, this document should be hidden from normal knowledge base browsing.
-  """
-  draftOf: DocumentDraftOf
 
   """
   Custom properties of the Document
@@ -335,16 +354,6 @@ The parent document of the document
 type DocumentParentDocument {
   """
   The hierarchical parent document for this document
-  """
-  document: Document!
-}
-
-"""
-Indicates this document is a draft of another document
-"""
-type DocumentDraftOf {
-  """
-  The document that this document is a draft of
   """
   document: Document!
 }
@@ -436,12 +445,6 @@ input CreateDocumentInput {
   Optional URNs of related documents
   """
   relatedDocuments: [String!]
-
-  """
-  If provided, the new document will be created as a draft of the specified published document URN.
-  Draft documents should have UNPUBLISHED state and will be hidden from normal knowledge base browsing.
-  """
-  draftFor: String
 
   """
   Optional settings for the document. If not provided, defaults will be used.
@@ -603,13 +606,7 @@ input SearchDocumentsInput {
   query: String
 
   """
-  Optional parent document URN to filter by (for hierarchical browsing)
-  """
-  parentDocument: String
-
-  """
-  Optional list of parent document URNs to filter by (for batch child lookups).
-  If both parentDocument and parentDocuments are provided, parentDocuments takes precedence.
+  Optional list of parent document URNs to filter by (for batch child lookups)
   """
   parentDocuments: [String!]
 
@@ -636,38 +633,17 @@ input SearchDocumentsInput {
   relatedAssets: [String!]
 
   """
-  DEPRECATED: This field is no longer used for filtering.
-
-  Document visibility is now automatically determined by ownership:
-  - PUBLISHED documents are shown to all users
-  - UNPUBLISHED documents are only shown if owned by the current user or their groups
-
-  This field is maintained for backward compatibility but has no effect on search results.
-  """
-  states: [DocumentState!]
-
-  """
   Optional document source type to filter by.
   If not provided, searches all documents regardless of source.
   """
   sourceType: DocumentSourceType
 
   """
-  Whether to include draft documents in the search results.
-  Draft documents have draftOf set and are hidden from normal browsing by default.
-  Defaults to false (excludes drafts).
+  Optional - the URN of a View to apply to the search. When provided, the View's
+  filter is combined with the document search filter so that document results are
+  scoped to the active View (mirrors searchAcrossEntities view scoping).
   """
-  includeDrafts: Boolean
-
-  """
-  Optional facet filters to apply
-  """
-  filters: [FacetFilterInput!]
-
-  """
-  Optional flags controlling search options
-  """
-  searchFlags: SearchFlags
+  viewUrn: String
 }
 
 """
@@ -701,18 +677,77 @@ type SearchDocumentsResult {
 }
 
 """
-Input required to merge a draft into its parent document
+Input for querying context documents related to an entity.
+The relatedAssets filter is automatically set to the parent entity's URN.
+This returns all documents related to the asset, including those hidden from global context.
 """
-input MergeDraftInput {
+input RelatedDocumentsInput {
   """
-  The URN of the draft document to merge
+  The starting offset of the result set
   """
-  draftUrn: String!
+  start: Int
 
   """
-  Whether to delete the draft document after merging. Defaults to true.
+  The maximum number of Documents to return
   """
-  deleteDraft: Boolean
+  count: Int
+
+  """
+  Optional list of parent document URNs to filter by (for batch child lookups)
+  """
+  parentDocuments: [String!]
+
+  """
+  If true, only returns documents with no parent (root-level documents).
+  If false or not provided, returns all documents regardless of parent.
+  """
+  rootOnly: Boolean
+
+  """
+  Optional list of document types to filter by (ANDed with other filters)
+  """
+  types: [String!]
+
+  """
+  Optional list of domain URNs to filter by (ANDed with other filters)
+  """
+  domains: [String!]
+
+  """
+  Optional document source type to filter by.
+  """
+  sourceType: DocumentSourceType
+}
+
+"""
+Result containing context documents related to an entity.
+Same structure as SearchDocumentsResult.
+"""
+type RelatedDocumentsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Documents in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Documents in the result set
+  """
+  total: Int!
+
+  """
+  The Documents themselves
+  """
+  documents: [Document!]!
+
+  """
+  Facets for filtering search results
+  """
+  facets: [FacetMetadata!]
 }
 
 """
@@ -805,4 +840,82 @@ type ParentDocumentsResult {
   The ordered list of parent documents, starting with the direct parent
   """
   documents: [Document!]!
+}
+
+"""
+Internal use case for document import. Determines subtype and default settings.
+"""
+enum DocumentImportUseCase {
+  CONTEXT_DOCUMENT
+  SKILL
+}
+
+"""
+Result of a document import operation.
+"""
+type ImportDocumentsResult {
+  """
+  Number of documents newly created.
+  """
+  createdCount: Int!
+
+  """
+  Number of documents updated (already existed).
+  """
+  updatedCount: Int!
+
+  """
+  Number of documents that failed to import.
+  """
+  failedCount: Int!
+
+  """
+  Error messages for failed imports.
+  """
+  errors: [String!]!
+
+  """
+  URNs of all successfully imported documents.
+  """
+  documentUrns: [String!]!
+}
+
+"""
+Input for importing documents from pre-parsed file contents.
+"""
+input ImportDocumentsFromFilesInput {
+  """
+  List of documents to import, each with a filename and pre-extracted text content.
+  """
+  documents: [DocumentFileInput!]!
+
+  """
+  Whether imported documents should appear in global context. Defaults to true.
+  """
+  showInGlobalContext: Boolean
+
+  """
+  Internal use case that determines document subtype. Defaults to CONTEXT_DOCUMENT.
+  """
+  useCase: DocumentImportUseCase
+
+  """
+  Optional parent document URN. All imported documents become children of this document.
+  """
+  parentDocumentUrn: String
+}
+
+"""
+A single document to import, with pre-extracted text content.
+"""
+input DocumentFileInput {
+  """
+  Original filename (used for title generation and source ID).
+  """
+  fileName: String!
+
+  """
+  Pre-extracted text content of the file.
+  """
+  content: String!
 }

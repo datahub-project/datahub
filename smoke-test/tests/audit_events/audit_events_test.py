@@ -1,11 +1,11 @@
 import logging
 import os
 import time
-from typing import List
+from typing import Dict, List, Set
 
 import pytest
 
-from tests.tokens.token_utils import listUsers, removeUser
+from tests.tokens.token_utils import removeUser, wait_for_user_in_list
 from tests.utils import (
     get_admin_credentials,
     get_frontend_url,
@@ -21,8 +21,9 @@ pytestmark = pytest.mark.no_cypress_suite1
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 (admin_user, admin_pass) = get_admin_credentials()
-
-previous_policy_urn = ""
+# Valid email for auth.native.signUp.enforceValidEmail (Play EmailValidator).
+AUDIT_SUITE_USER_EMAIL = "audit.events.user@smoke.datahub.test"
+AUDIT_SUITE_USER_URN = f"urn:li:corpuser:{AUDIT_SUITE_USER_EMAIL}"
 
 
 @pytest.fixture()
@@ -40,11 +41,13 @@ def custom_user_setup():
     admin_session = login_as(admin_user, admin_pass)
     try:
         """Fixture to execute setup before and tear down after all tests are run"""
-        res_data = removeUser(admin_session, "urn:li:corpuser:user")
+        res_data = removeUser(admin_session, AUDIT_SUITE_USER_URN)
         assert res_data
         assert "error" not in res_data
+        wait_for_writes_to_sync()
+        wait_for_user_in_list(admin_session, AUDIT_SUITE_USER_EMAIL, present=False)
 
-        # Test getting the invite token
+        # Regenerate invite token (createInviteToken) so sign-up gets a fresh token.
         get_invite_token_json = {
             "query": """mutation createInviteToken($input: CreateInviteTokenInput!) {
                 createInviteToken(input: $input){
@@ -66,12 +69,11 @@ def custom_user_setup():
             "inviteToken"
         ]
         assert invite_token is not None
-        assert "error" not in invite_token
 
         # Pass the invite token when creating the user
         sign_up_json = {
             "fullName": "Test User",
-            "email": "user",
+            "email": AUDIT_SUITE_USER_EMAIL,
             "password": "user",
             "title": "Data Engineer",
             "inviteToken": invite_token,
@@ -81,22 +83,12 @@ def custom_user_setup():
             f"{get_frontend_url()}/signUp", json=sign_up_json
         )
         sign_up_response.raise_for_status()
-        assert sign_up_response
-        assert "error" not in sign_up_response
-        # Sleep for eventual consistency
-        wait_for_writes_to_sync(
-            consumer_group="datahub-usage-event-consumer-job-client"
-        )
-
         # signUp will override the session cookie to the new user to be signed up.
         admin_session.cookies.clear()
         admin_session = login_as(admin_user, admin_pass)
 
-        # Make user created user is there.
-        res_data = listUsers(admin_session)
-        assert res_data["data"]
-        assert res_data["data"]["listUsers"]
-        assert {"username": "user"} in res_data["data"]["listUsers"]["users"]
+        wait_for_writes_to_sync()
+        wait_for_user_in_list(admin_session, AUDIT_SUITE_USER_EMAIL, present=True)
         admin_session.cookies.clear()
 
         yield
@@ -104,20 +96,12 @@ def custom_user_setup():
     finally:
         # Delete created user
         admin_session = login_as(admin_user, admin_pass)
-        res_data = removeUser(admin_session, "urn:li:corpuser:user")
+        res_data = removeUser(admin_session, AUDIT_SUITE_USER_URN)
         assert res_data
         assert res_data["data"]
         assert res_data["data"]["removeUser"] is True
-        # Sleep for eventual consistency
-        wait_for_writes_to_sync(
-            consumer_group="datahub-usage-event-consumer-job-client"
-        )
-
-        # Make user created user is not there.
-        res_data = listUsers(admin_session)
-        assert res_data["data"]
-        assert res_data["data"]["listUsers"]
-        assert {"username": "user"} not in res_data["data"]["listUsers"]["users"]
+        wait_for_writes_to_sync()
+        wait_for_user_in_list(admin_session, AUDIT_SUITE_USER_EMAIL, present=False)
 
 
 @pytest.fixture(autouse=True)
@@ -149,17 +133,17 @@ def access_token_setup(auth_session, auth_exclude_filter):
 
 
 def test_audit_token_events(auth_exclude_filter):
-    user_session = login_as("user", "user")
+    user_session = login_as(AUDIT_SUITE_USER_EMAIL, "user")
 
     # Normal user should be able to generate token for himself.
-    res_data = generateAccessToken_v2(user_session, "urn:li:corpuser:user")
+    res_data = generateAccessToken_v2(user_session, AUDIT_SUITE_USER_URN)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert (
         res_data["data"]["createAccessToken"]["metadata"]["actorUrn"]
-        == "urn:li:corpuser:user"
+        == AUDIT_SUITE_USER_URN
     )
     user_token_id = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
@@ -181,7 +165,7 @@ def test_audit_token_events(auth_exclude_filter):
             "CreateAccessTokenEvent",
             "RevokeAccessTokenEvent",
         ],
-        ["urn:li:corpuser:user"],
+        [AUDIT_SUITE_USER_URN],
         [],
     )
     logger.info(res_data)
@@ -201,7 +185,7 @@ def test_audit_token_events(auth_exclude_filter):
 
 
 def test_login_events(auth_exclude_filter):
-    user_session = login_as("user", "user")
+    user_session = login_as(AUDIT_SUITE_USER_EMAIL, "user")
     time.sleep(10)
 
     # Audit events for create & revoke should show
@@ -211,7 +195,7 @@ def test_login_events(auth_exclude_filter):
         [
             "LogInEvent",
         ],
-        ["urn:li:corpuser:user"],
+        [AUDIT_SUITE_USER_URN],
         [],
     )
     logger.info(res_data)
@@ -225,7 +209,7 @@ def test_login_events(auth_exclude_filter):
 
 def test_failed_login_events(auth_exclude_filter):
     try:
-        user_session = login_as("user", "NOTMYPASSWORD")
+        user_session = login_as(AUDIT_SUITE_USER_EMAIL, "NOTMYPASSWORD")
     except Exception:
         pass
 
@@ -238,7 +222,7 @@ def test_failed_login_events(auth_exclude_filter):
         user_session,
         1,
         ["FailedLogInEvent", "LogInEvent"],
-        ["urn:li:corpuser:user"],
+        [AUDIT_SUITE_USER_URN],
         [],
     )
     logger.info(res_data)
@@ -318,38 +302,13 @@ def test_policy_events(auth_exclude_filter):
     assert res_data["data"]["updatePolicy"] == new_urn
 
     wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
-    res_data = searchForAuditEvents(
+    wait_for_audit_event_types_for_entity(
         user_session,
-        3,
+        new_urn,
+        {"CreatePolicyEvent", "UpdatePolicyEvent"},
         ["CreatePolicyEvent", "UpdatePolicyEvent"],
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
-        [],
     )
-    logger.info(res_data)
-    assert res_data
-    assert res_data["usageEvents"]
-    assert len(res_data["usageEvents"]) == 3 or len(res_data["usageEvents"]) == 2
-    assert (
-        res_data["usageEvents"][0]["eventType"] == "CreatePolicyEvent"
-        or res_data["usageEvents"][0]["eventType"] == "UpdatePolicyEvent"
-    )
-    assert res_data["usageEvents"][0]["entityUrn"] == new_urn
-    assert (
-        res_data["usageEvents"][1]["eventType"] == "CreatePolicyEvent"
-        or res_data["usageEvents"][1]["eventType"] == "UpdatePolicyEvent"
-    )
-    assert res_data["usageEvents"][1]["entityUrn"] == new_urn
-    global previous_policy_urn
-    if len(res_data["usageEvents"]) == 3:
-        assert (
-            res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
-            or res_data["usageEvents"][2]["eventType"] == "UpdatePolicyEvent"
-        )
-        assert (
-            res_data["usageEvents"][2]["entityUrn"] == new_urn
-            or res_data["usageEvents"][2]["entityUrn"] == previous_policy_urn
-        )
-    previous_policy_urn = new_urn
     user_session.cookies.clear()
 
 
@@ -414,21 +373,13 @@ def test_ingestion_source_events(auth_exclude_filter):
     assert res_data["data"]["updateIngestionSource"]
     wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
 
-    res_data = searchForAuditEvents(
+    wait_for_audit_event_types_for_entity(
         user_session,
-        2,
+        ingestion_source_urn,
+        {"CreateIngestionSourceEvent", "UpdateIngestionSourceEvent"},
         ["CreateIngestionSourceEvent", "UpdateIngestionSourceEvent"],
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
-        [],
     )
-    logger.info(res_data)
-    assert res_data
-    assert res_data["usageEvents"]
-    assert len(res_data["usageEvents"]) == 2
-    assert res_data["usageEvents"][0]["eventType"] == "UpdateIngestionSourceEvent"
-    assert res_data["usageEvents"][0]["entityUrn"] == ingestion_source_urn
-    assert res_data["usageEvents"][1]["eventType"] == "CreateIngestionSourceEvent"
-    assert res_data["usageEvents"][1]["entityUrn"] == ingestion_source_urn
     user_session.cookies.clear()
 
 
@@ -448,12 +399,12 @@ def test_user_events(auth_exclude_filter):
     logger.info(res_data)
     assert len(res_data["usageEvents"]) == 4
     assert res_data["usageEvents"][0]["eventType"] == "UpdateUserEvent"
-    assert res_data["usageEvents"][0]["entityUrn"] == "urn:li:corpuser:user"
+    assert res_data["usageEvents"][0]["entityUrn"] == AUDIT_SUITE_USER_URN
     # Credentials and settings are in random order due to async
     assert res_data["usageEvents"][0]["aspectName"] == "corpUserCredentials"
 
     assert res_data["usageEvents"][1]["eventType"] == "UpdateUserEvent"
-    assert res_data["usageEvents"][1]["entityUrn"] == "urn:li:corpuser:user"
+    assert res_data["usageEvents"][1]["entityUrn"] == AUDIT_SUITE_USER_URN
     assert res_data["usageEvents"][1]["aspectName"] == "corpUserStatus"
 
     # These get created at the same time
@@ -461,7 +412,7 @@ def test_user_events(auth_exclude_filter):
         res_data["usageEvents"][2]["eventType"] == "UpdateUserEvent"
         or res_data["usageEvents"][2]["eventType"] == "CreateUserEvent"
     )
-    assert res_data["usageEvents"][2]["entityUrn"] == "urn:li:corpuser:user"
+    assert res_data["usageEvents"][2]["entityUrn"] == AUDIT_SUITE_USER_URN
     assert (
         res_data["usageEvents"][2]["aspectName"] == "corpUserInfo"
         or res_data["usageEvents"][2]["aspectName"] == "corpUserKey"
@@ -471,7 +422,7 @@ def test_user_events(auth_exclude_filter):
         res_data["usageEvents"][3]["eventType"] == "UpdateUserEvent"
         or res_data["usageEvents"][3]["eventType"] == "CreateUserEvent"
     )
-    assert res_data["usageEvents"][3]["entityUrn"] == "urn:li:corpuser:user"
+    assert res_data["usageEvents"][3]["entityUrn"] == AUDIT_SUITE_USER_URN
     assert (
         res_data["usageEvents"][3]["aspectName"] == "corpUserInfo"
         or res_data["usageEvents"][3]["aspectName"] == "corpUserKey"
@@ -535,38 +486,13 @@ def test_policy_create_delete(auth_exclude_filter):
     assert res_data["data"]["deletePolicy"] == new_urn
 
     wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
-    res_data = searchForAuditEvents(
+    wait_for_audit_event_types_for_entity(
         user_session,
-        3,
+        new_urn,
+        {"CreatePolicyEvent", "DeletePolicyEvent"},
         ["CreatePolicyEvent", "DeletePolicyEvent"],
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
-        [],
     )
-    logger.info(res_data)
-    assert res_data
-    assert res_data["usageEvents"]
-    assert len(res_data["usageEvents"]) == 3 or len(res_data["usageEvents"]) == 2
-    assert (
-        res_data["usageEvents"][0]["eventType"] == "CreatePolicyEvent"
-        or res_data["usageEvents"][0]["eventType"] == "DeletePolicyEvent"
-    )
-    assert res_data["usageEvents"][0]["entityUrn"] == new_urn
-    assert (
-        res_data["usageEvents"][1]["eventType"] == "CreatePolicyEvent"
-        or res_data["usageEvents"][1]["eventType"] == "DeletePolicyEvent"
-    )
-    assert res_data["usageEvents"][1]["entityUrn"] == new_urn
-    global previous_policy_urn
-    if len(res_data["usageEvents"]) == 3:
-        assert (
-            res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
-            or res_data["usageEvents"][2]["eventType"] == "DeletePolicyEvent"
-        )
-        assert (
-            res_data["usageEvents"][2]["entityUrn"] == new_urn
-            or res_data["usageEvents"][2]["entityUrn"] == previous_policy_urn
-        )
-    previous_policy_urn = new_urn
     user_session.cookies.clear()
 
 
@@ -660,3 +586,58 @@ def searchForAuditEvents(
     response.raise_for_status()
 
     return response.json()
+
+
+def audit_events_for_entity(events: List[Dict], entity_urn: str) -> List[Dict]:
+    return [event for event in events if event.get("entityUrn") == entity_urn]
+
+
+def assert_audit_event_types_for_entity(
+    events: List[Dict], entity_urn: str, expected_types: Set[str]
+) -> None:
+    entity_events = audit_events_for_entity(events, entity_urn)
+    found_types = {event["eventType"] for event in entity_events}
+    assert expected_types <= found_types, entity_events
+
+
+def wait_for_audit_event_types_for_entity(
+    session,
+    entity_urn: str,
+    expected_types: Set[str],
+    event_types: List[str],
+    actor_urns: List[str],
+    aspect_names: List | None = None,
+    *,
+    search_size: int = 10,
+    timeout_sec: int = 60,
+) -> None:
+    """Poll audit search until each expected event type is indexed for entity_urn.
+
+    Audit search sorts by timestamp DESC then event type ASC, so list order is not
+    stable across Kafka/pgQueue/CDC profiles or when timestamps tie. Filtering by
+    entity URN checks the contract we care about: every mutation emitted an event.
+
+    Entity creates write key + info aspects, so the same event type (e.g.
+    UpdatePolicyEvent) may appear more than once per entity. We assert on the set of
+    event types present, not the total event count.
+    """
+    deadline = time.time() + timeout_sec
+    last_entity_events: List[Dict] = []
+    while time.time() < deadline:
+        res_data = searchForAuditEvents(
+            session, search_size, event_types, actor_urns, aspect_names or []
+        )
+        last_entity_events = audit_events_for_entity(
+            res_data.get("usageEvents", []), entity_urn
+        )
+        found_types = {event["eventType"] for event in last_entity_events}
+        if expected_types <= found_types:
+            logger.info(
+                "Audit events ready for %s: %s",
+                entity_urn,
+                sorted(found_types),
+            )
+            return
+        time.sleep(2)
+
+    assert_audit_event_types_for_entity(last_entity_events, entity_urn, expected_types)

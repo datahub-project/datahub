@@ -230,7 +230,7 @@ def test_source_initialization(source):
     assert source.platform == "neo4j"
     assert source.config.env == "PROD"
     assert source.config.username == "test"
-    assert source.config.password == "test"
+    assert source.config.password.get_secret_value() == "test"
 
 
 def test_process_nodes(source, mock_data):

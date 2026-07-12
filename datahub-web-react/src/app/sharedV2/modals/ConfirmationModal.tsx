@@ -1,12 +1,15 @@
 import { Modal, Text, typography } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-export const StyledModal = styled(Modal)`
+import { ModalButton } from '@components/components/Modal/Modal';
+
+const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+        box-shadow: ${(props) => props.theme.colors.shadowLg};
         border-radius: 12px;
     }
 
@@ -28,8 +31,10 @@ interface Props {
     modalTitle?: string;
     modalText?: string | React.ReactNode;
     closeButtonText?: string;
+    closeButtonColor?: ModalButton['color'];
     confirmButtonText?: string;
     isDeleteModal?: boolean;
+    closeOnPrimaryAction?: boolean;
 }
 
 export const ConfirmationModal = ({
@@ -39,33 +44,38 @@ export const ConfirmationModal = ({
     modalTitle,
     modalText,
     closeButtonText,
+    closeButtonColor,
     confirmButtonText,
     isDeleteModal,
+    closeOnPrimaryAction,
 }: Props) => {
+    const { t } = useTranslation('shared.misc');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <StyledModal
             open={isOpen}
-            onCancel={handleClose}
+            onCancel={closeOnPrimaryAction ? handleConfirm : handleClose}
             centered
             buttons={[
                 {
                     variant: 'text',
                     onClick: handleClose,
                     buttonDataTestId: 'modal-cancel-button',
-                    text: closeButtonText || 'Cancel',
+                    text: closeButtonText || tc('cancel'),
+                    color: closeButtonColor,
                 },
                 {
                     variant: 'filled',
                     onClick: handleConfirm,
                     buttonDataTestId: 'modal-confirm-button',
-                    text: confirmButtonText || 'Yes',
+                    text: confirmButtonText || tc('yes'),
                     color: isDeleteModal ? 'red' : 'primary',
                 },
             ]}
-            title={modalTitle || 'Confirm'}
+            title={modalTitle || tc('confirm')}
         >
-            <Text color="gray" size="lg">
-                {modalText || 'Are you sure?'}
+            <Text size="lg" color="gray">
+                {modalText || t('confirmationModal.areYouSure')}
             </Text>
         </StyledModal>
     );

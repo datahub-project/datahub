@@ -33,8 +33,14 @@ public class DataHubConfiguration {
 
   private S3Configuration s3;
 
+  /** Neutral API usage aggregation (OSS). */
+  private UsageConfiguration usage;
+
+  private ValidationConfiguration validation;
+
   @Data
   public static class DataHubMetrics {
     private MetricsOptions hookLatency;
+    private EntityCountMetricsConfiguration entityCounts;
   }
 }

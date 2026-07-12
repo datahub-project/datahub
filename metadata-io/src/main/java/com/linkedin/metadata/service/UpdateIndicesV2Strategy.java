@@ -6,6 +6,9 @@ import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_T
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -14,6 +17,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -22,6 +26,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuil
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -30,10 +35,14 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -42,9 +51,22 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * V2 update indices strategy implementation for UpdateIndicesService. This handles the legacy v2
  * mapping approach with per-entity indices.
+ *
+ * <p>When semantic search is enabled, this strategy also writes to the corresponding semantic
+ * indices (with "_semantic" suffix) to keep them in sync with the base V2 indices. Dual-write
+ * occurs when all three conditions are met:
+ *
+ * <ol>
+ *   <li>Semantic search is globally enabled
+ *   <li>The entity type is in the list of enabled entities for semantic search
+ *   <li>The semantic index exists in OpenSearch
+ * </ol>
  */
 @Slf4j
 public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
+
+  /** Cache TTL for semantic index existence checks (5 minutes) */
+  private static final long SEMANTIC_INDEX_CACHE_TTL_MINUTES = 5;
 
   private final EntityIndexVersionConfiguration v2Config;
   private final ElasticSearchService elasticSearchService;
@@ -52,23 +74,75 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   private final TimeseriesAspectService timeseriesAspectService;
   private final String idHashAlgo;
   private final V2MappingsBuilder mappingsBuilder;
+  private final boolean coalesceBatchUpdates;
 
+  // Semantic search configuration (optional - null if semantic search not configured)
+  @Nullable private final SemanticSearchConfiguration semanticSearchConfig;
+  @Nullable private final IndexConvention indexConvention;
+
+  // Cache for semantic index existence checks to avoid repeated HEAD requests
+  private final Cache<String, Boolean> semanticIndexExistsCache;
+
+  // Throttle cache for timeseries aspect writes
+  @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
+
+  /**
+   * Creates an UpdateIndicesV2Strategy with optional semantic search support.
+   *
+   * @param v2Config V2 index configuration
+   * @param elasticSearchService Elasticsearch service for index operations
+   * @param searchDocumentTransformer Document transformer for search documents
+   * @param timeseriesAspectService Service for timeseries aspect operations
+   * @param idHashAlgo Hash algorithm for document IDs
+   * @param semanticSearchConfig Semantic search configuration (null to disable dual-write)
+   * @param indexConvention Index naming convention for deriving semantic index names (required)
+   * @param coalesceBatchUpdates If true, coalesce multiple updates to the same (urn, aspect) in a
+   *     batch to a single update with the last state. This is a performance optimization that can
+   *     be disabled for more granular updates at the cost of more writes. Note: timeseries aspects
+   *     are always processed per-event and not coalesced.
+   * @param mappingsBuilder Pre-built V2 mappings builder. Engine-specific mapping quirks (e.g.
+   *     ES8's stripping of {@code doc_values: false} on round-trip) are supplied to the builder by
+   *     its factory via {@link
+   *     com.linkedin.metadata.utils.elasticsearch.SearchClientShim#partialNgramConfig()}, keeping
+   *     engine-version knowledge out of this strategy.
+   */
   public UpdateIndicesV2Strategy(
       @Nonnull EntityIndexVersionConfiguration v2Config,
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nonnull String idHashAlgo) {
+      @Nonnull String idHashAlgo,
+      @Nullable SemanticSearchConfiguration semanticSearchConfig,
+      @Nonnull IndexConvention indexConvention,
+      boolean coalesceBatchUpdates,
+      @Nonnull V2MappingsBuilder mappingsBuilder,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
     this.v2Config = v2Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.timeseriesAspectService = timeseriesAspectService;
     this.idHashAlgo = idHashAlgo;
-    this.mappingsBuilder =
-        new V2MappingsBuilder(
-            com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
-                .v2(v2Config)
-                .build());
+    this.semanticSearchConfig = semanticSearchConfig;
+    this.indexConvention = indexConvention;
+    this.coalesceBatchUpdates = coalesceBatchUpdates;
+    this.mappingsBuilder = mappingsBuilder;
+    this.timeseriesThrottleCache = timeseriesThrottleCache;
+    this.semanticIndexExistsCache =
+        CacheBuilder.newBuilder()
+            .expireAfterWrite(SEMANTIC_INDEX_CACHE_TTL_MINUTES, TimeUnit.MINUTES)
+            .maximumSize(150)
+            .build();
+
+    // Log semantic search configuration at initialization
+    if (semanticSearchConfig == null) {
+      log.info(
+          "UpdateIndicesV2Strategy initialized: semantic dual-write DISABLED (config is null)");
+    } else {
+      log.info(
+          "UpdateIndicesV2Strategy initialized: semantic dual-write enabled={}, enabledEntities={}",
+          semanticSearchConfig.isEnabled(),
+          semanticSearchConfig.getEnabledEntities());
+    }
   }
 
   @Override
@@ -77,32 +151,46 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull Map<Urn, List<MCLItem>> groupedEvents,
       boolean structuredPropertiesHookEnabled) {
 
+    TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary =
+        timeseriesThrottleCache != null ? timeseriesThrottleCache.newSummary() : null;
+
     // Process each group of events for the same URN
     for (List<MCLItem> urnEvents : groupedEvents.values()) {
 
       // Process update events
       List<MCLItem> updateEvents =
           urnEvents.stream()
-              .filter(
-                  event ->
-                      UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType()))
+              .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
               .collect(Collectors.toList());
 
       if (!updateEvents.isEmpty()) {
-        updateEvents.forEach(
-            event -> {
-              if (structuredPropertiesHookEnabled) {
-                updateIndexMappings(opContext, event);
-              }
-              updateSearchIndicesForEvent(opContext, event);
-              updateTimeseriesFieldsForEvent(opContext, event);
-            });
+        if (coalesceBatchUpdates) {
+          LinkedHashMap<String, List<MCLItem>> byAspect =
+              UpdateIndicesUtil.groupUpdatesByAspect(updateEvents);
+          for (List<MCLItem> aspectEvents : byAspect.values()) {
+            processAspectGroup(
+                opContext, aspectEvents, structuredPropertiesHookEnabled, throttleSummary);
+          }
+        } else {
+          // Legacy per-event behavior preserved for rollback via flag.
+          for (MCLItem event : updateEvents) {
+            if (structuredPropertiesHookEnabled) {
+              updateIndexMappings(opContext, event);
+            }
+            processTimeseriesThrottled(
+                opContext,
+                event,
+                throttleSummary,
+                () -> updateSearchIndicesForEvent(opContext, event),
+                () -> updateTimeseriesFieldsForEvent(opContext, event));
+          }
+        }
       }
 
       // Process delete events
       List<MCLItem> deleteEvents =
           urnEvents.stream()
-              .filter(event -> event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
+              .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
               .collect(Collectors.toList());
 
       for (MCLItem deleteEvent : deleteEvents) {
@@ -121,9 +209,172 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         }
       }
     }
+
+    if (throttleSummary != null) {
+      throttleSummary.logIfSuppressed();
+    }
+  }
+
+  /**
+   * Process a single (urn, aspect) group of update events. Timeseries aspects are processed per
+   * event; non-timeseries aspects are coalesced to last-write-wins so a batch with N updates to the
+   * same (urn, aspect) emits one upsert. RunIds from coalesced predecessors are still appended so
+   * rollback-by-run remains accurate.
+   */
+  private void processAspectGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MCLItem> aspectEvents,
+      boolean structuredPropertiesHookEnabled,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+    if (aspectEvents.isEmpty()) {
+      return;
+    }
+    if (aspectEvents.get(0).getAspectSpec().isTimeseries()) {
+      for (MCLItem event : aspectEvents) {
+        if (structuredPropertiesHookEnabled) {
+          updateIndexMappings(opContext, event);
+        }
+        processTimeseriesThrottled(
+            opContext,
+            event,
+            throttleSummary,
+            () -> updateSearchIndicesForEvent(opContext, event),
+            () -> updateTimeseriesFieldsForEvent(opContext, event));
+      }
+      return;
+    }
+
+    // Coalesced branch: last-write-wins for non-timeseries aspects.
+    MCLItem survivor = aspectEvents.get(aspectEvents.size() - 1);
+    // Use the oldest predecessor's previousRecordTemplate as the diff baseline, since that is
+    // what ES actually had before the batch began. Otherwise the diff would compare against the
+    // intermediate in-batch state and incorrectly skip the upsert when a no-op tail follows real
+    // changes earlier in the group. This baseline is also the right one for the structured-
+    // property mapping diff: any entityType added by an earlier MCL in the group must still be
+    // applied to ES even though the survivor's own previousRecordTemplate already contains it.
+    RecordTemplate baseline = aspectEvents.get(0).getPreviousRecordTemplate();
+    if (structuredPropertiesHookEnabled) {
+      updateIndexMappings(
+          opContext,
+          survivor.getUrn(),
+          survivor.getEntitySpec(),
+          survivor.getAspectSpec(),
+          survivor.getRecordTemplate(),
+          baseline);
+    }
+    updateSearchIndicesForEvent(opContext, survivor, baseline);
+    updateTimeseriesFieldsForEvent(opContext, survivor);
+    appendCoalescedRunIds(opContext, survivor, aspectEvents);
+  }
+
+  /**
+   * Applies timeseries throttle checks around entity-index and timeseries-index writes. For
+   * non-timeseries aspects, both writes execute unconditionally.
+   */
+  private void processTimeseriesThrottled(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem event,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary,
+      @Nonnull Runnable entityIndexWrite,
+      @Nonnull Runnable timeseriesIndexWrite) {
+
+    if (!event.getAspectSpec().isTimeseries() || timeseriesThrottleCache == null) {
+      entityIndexWrite.run();
+      timeseriesIndexWrite.run();
+      return;
+    }
+
+    boolean entityEnabled = timeseriesThrottleCache.isEntityIndexEnabled();
+    boolean tsEnabled = timeseriesThrottleCache.isTimeseriesIndexEnabled();
+    boolean observeEnabled = timeseriesThrottleCache.isObserveEnabled();
+
+    // Short-circuit: if no throttle paths are active, skip the cache lookup entirely
+    if (!entityEnabled && !tsEnabled && !observeEnabled) {
+      entityIndexWrite.run();
+      timeseriesIndexWrite.run();
+      return;
+    }
+
+    String entityName = event.getEntitySpec().getName();
+    String urnStr = event.getUrn().toString();
+    String aspectName = event.getAspectName();
+    long eventTimeMs =
+        event.getAuditStamp() != null
+            ? event.getAuditStamp().getTime()
+            : System.currentTimeMillis();
+
+    boolean throttled =
+        timeseriesThrottleCache.shouldThrottle(entityName, urnStr, aspectName, eventTimeMs);
+
+    // Entity index path
+    if (throttled && entityEnabled) {
+      if (throttleSummary != null) {
+        throttleSummary.recordSuppressed(TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
+      }
+    } else {
+      entityIndexWrite.run();
+      if (throttleSummary != null) {
+        throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
+      }
+    }
+
+    // Timeseries index path
+    if (throttled && tsEnabled) {
+      if (throttleSummary != null) {
+        throttleSummary.recordSuppressed(
+            TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+      }
+    } else {
+      timeseriesIndexWrite.run();
+      if (throttleSummary != null) {
+        throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+      }
+    }
+
+    // Observe mode: log what would have been throttled without suppressing
+    if (throttled && observeEnabled && throttleSummary != null) {
+      throttleSummary.recordObserved();
+    }
+    // recordWrite is handled by UpdateIndicesService after all strategies have processed
+  }
+
+  /**
+   * After the survivor's upsert (which already appended its own runId), append any additional
+   * distinct runIds carried by predecessors so rollback-by-run still finds the URN for those runs.
+   */
+  private void appendCoalescedRunIds(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem survivor,
+      @Nonnull List<MCLItem> aspectEvents) {
+    if (aspectEvents.size() <= 1) {
+      return;
+    }
+    SystemMetadata survivorSm = survivor.getSystemMetadata();
+    String survivorRunId =
+        (survivorSm != null && survivorSm.hasRunId()) ? survivorSm.getRunId() : null;
+    LinkedHashSet<String> additionalRunIds = new LinkedHashSet<>();
+    for (int i = 0; i < aspectEvents.size() - 1; i++) {
+      SystemMetadata sm = aspectEvents.get(i).getSystemMetadata();
+      if (sm != null && sm.hasRunId()) {
+        String runId = sm.getRunId();
+        if (!runId.equals(survivorRunId)) {
+          additionalRunIds.add(runId);
+        }
+      }
+    }
+    for (String runId : additionalRunIds) {
+      elasticSearchService.appendRunId(opContext, survivor.getUrn(), runId);
+    }
   }
 
   void updateSearchIndicesForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
+    updateSearchIndicesForEvent(opContext, event, event.getPreviousRecordTemplate());
+  }
+
+  void updateSearchIndicesForEvent(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem event,
+      @Nullable RecordTemplate previousAspect) {
     // V2 search index update logic - full implementation
     log.debug("Updating V2 search indices for entity: {}", event.getUrn());
 
@@ -131,7 +382,6 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     RecordTemplate aspect = event.getRecordTemplate();
     AspectSpec aspectSpec = event.getAspectSpec();
     SystemMetadata systemMetadata = event.getSystemMetadata();
-    RecordTemplate previousAspect = event.getPreviousRecordTemplate();
     String entityName = event.getEntitySpec().getName();
 
     Optional<ObjectNode> searchDocument;
@@ -193,7 +443,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       if (previousSearchDocument.isPresent()) {
         if (searchDocument.get().toString().equals(previousSearchDocument.get().toString())) {
           // No changes to search document, skip writing no-op update
-          log.info(
+          log.debug(
               "No changes detected for V2 search document for urn: {} aspect: {}",
               urn,
               aspectSpec.getName());
@@ -212,7 +462,30 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
                 searchDocument.get(), previousSearchDocument.orElse(null))
             .toString();
 
+    // Write to V2 index
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
+
+    // #region agent debug log - dual-write decision point
+    log.debug(
+        "[DEBUG-DUALWRITE] About to check shouldWriteToSemanticIndex for entity='{}', docId='{}'",
+        entityName,
+        docId);
+    boolean shouldWrite = shouldWriteToSemanticIndex(opContext, entityName);
+    log.debug(
+        "[DEBUG-DUALWRITE] shouldWriteToSemanticIndex returned: {} for entity='{}'",
+        shouldWrite,
+        entityName);
+    // #endregion
+
+    // Dual-write to semantic index if enabled for this entity
+    if (shouldWrite) {
+      writeToSemanticIndex(opContext, entityName, finalDocument, docId);
+    }
+
+    // Append runId to search document so rollback/list runs can find touched URNs (MAE path)
+    if (systemMetadata != null && systemMetadata.hasRunId()) {
+      elasticSearchService.appendRunId(opContext, urn, systemMetadata.getRunId());
+    }
   }
 
   void deleteSearchData(
@@ -235,7 +508,13 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     }
 
     if (isKeyAspect) {
+      // Delete from V2 index
       elasticSearchService.deleteDocument(opContext, entityName, docId);
+
+      // Also delete from semantic index if enabled
+      if (shouldWriteToSemanticIndex(opContext, entityName)) {
+        deleteFromSemanticIndex(opContext, entityName, docId);
+      }
       return;
     }
 
@@ -345,7 +624,9 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
                           "Applying new V2 structured property {} to index {}",
                           newDefinition,
                           reindexState.name());
-                      elasticSearchService.getIndexBuilder().applyMappings(reindexState, false);
+                      elasticSearchService
+                          .getIndexBuilder()
+                          .applyMappings(opContext, reindexState, false);
                     } catch (IOException e) {
                       throw new RuntimeException(e);
                     }
@@ -374,6 +655,132 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   @Override
   public boolean isEnabled() {
     return v2Config.isEnabled();
+  }
+
+  /**
+   * Checks whether we should write to the semantic index for the given entity.
+   *
+   * <p>Returns true only if ALL three conditions are met:
+   *
+   * <ol>
+   *   <li>Semantic search is globally enabled (semanticSearchConfig.isEnabled())
+   *   <li>The entity is in the list of enabled entities for semantic search
+   *   <li>The semantic index exists in OpenSearch
+   * </ol>
+   *
+   * @param opContext Operation context for index checks
+   * @param entityName The entity name to check
+   * @return true if we should write to the semantic index
+   */
+  @VisibleForTesting
+  boolean shouldWriteToSemanticIndex(
+      @Nonnull OperationContext opContext, @Nonnull String entityName) {
+    // Condition 1: Semantic search must be configured and enabled
+    if (semanticSearchConfig == null) {
+      log.debug(
+          "Semantic dual-write check for '{}': SKIP - semanticSearchConfig is null", entityName);
+      return false;
+    }
+    if (!semanticSearchConfig.isEnabled()) {
+      log.debug(
+          "Semantic dual-write check for '{}': SKIP - semantic search disabled (enabled={})",
+          entityName,
+          semanticSearchConfig.isEnabled());
+      return false;
+    }
+
+    // Condition 2: Entity must be in the enabled entities list
+    Set<String> enabledEntities = semanticSearchConfig.getEnabledEntities();
+    if (enabledEntities == null || !enabledEntities.contains(entityName)) {
+      log.debug(
+          "Semantic dual-write check for '{}': SKIP - entity not in enabled list (enabledEntities={})",
+          entityName,
+          enabledEntities);
+      return false;
+    }
+
+    // Condition 3: Semantic index must exist
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    Boolean indexExists = semanticIndexExistsCache.getIfPresent(semanticIndexName);
+    if (indexExists == null) {
+      // Check if the index exists and cache the result
+      indexExists = checkSemanticIndexExists(opContext, semanticIndexName);
+      semanticIndexExistsCache.put(semanticIndexName, indexExists);
+      log.debug(
+          "Semantic dual-write check for '{}': index existence check for '{}' = {} (cached)",
+          entityName,
+          semanticIndexName,
+          indexExists);
+    }
+
+    if (!indexExists) {
+      log.debug(
+          "Semantic dual-write check for '{}': SKIP - semantic index '{}' does not exist",
+          entityName,
+          semanticIndexName);
+      return false;
+    }
+
+    log.debug(
+        "Semantic dual-write check for '{}': ENABLED - will write to '{}'",
+        entityName,
+        semanticIndexName);
+    return true;
+  }
+
+  /**
+   * Checks if the semantic index exists in OpenSearch.
+   *
+   * @param semanticIndexName The semantic index name to check
+   * @return true if the index exists
+   */
+  private boolean checkSemanticIndexExists(
+      @Nonnull OperationContext opContext, @Nonnull String semanticIndexName) {
+    try {
+      return elasticSearchService.indexExists(opContext, semanticIndexName);
+    } catch (Exception e) {
+      log.warn("Error checking if semantic index {} exists: {}", semanticIndexName, e.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Writes a document to the semantic index for the given entity.
+   *
+   * @param entityName Entity name
+   * @param document The document to write
+   * @param docId Document ID
+   */
+  private void writeToSemanticIndex(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String document,
+      @Nonnull String docId) {
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    log.info(
+        "Semantic dual-write: UPSERT to '{}' for entity '{}', docId='{}', docSize={}",
+        semanticIndexName,
+        entityName,
+        docId,
+        document.length());
+    elasticSearchService.upsertDocumentByIndexName(opContext, semanticIndexName, document, docId);
+  }
+
+  /**
+   * Deletes a document from the semantic index for the given entity.
+   *
+   * @param entityName Entity name
+   * @param docId Document ID
+   */
+  private void deleteFromSemanticIndex(
+      @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    log.info(
+        "Semantic dual-write: DELETE from '{}' for entity '{}', docId='{}'",
+        semanticIndexName,
+        entityName,
+        docId);
+    elasticSearchService.deleteDocumentByIndexName(opContext, semanticIndexName, docId);
   }
 
   // Package-level methods for testing

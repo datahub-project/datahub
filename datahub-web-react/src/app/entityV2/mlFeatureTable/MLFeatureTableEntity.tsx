@@ -1,4 +1,9 @@
-import { ChartScatter, Database, FileText, ListBullets, Table } from '@phosphor-icons/react';
+import { ChartScatter } from '@phosphor-icons/react/dist/csr/ChartScatter';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -38,25 +43,12 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
     type: EntityType = EntityType.MlfeatureTable;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ChartScatter className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} weight="regular" />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <ChartScatter
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#9633b9' }}
-                    weight="regular"
-                />
-            );
-        }
-
         return (
             <ChartScatter
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
-                weight="regular"
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -73,9 +65,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getPathName = () => 'featureTables';
 
-    getEntityName = () => 'Feature Table';
+    getEntityName = () => i18next.t('entity.types:mlFeatureTable.name');
 
-    getCollectionName = () => 'Feature Tables';
+    getCollectionName = () => i18next.t('entity.types:mlFeatureTable.namePlural');
 
     getOverridePropertiesFromEntity = (_?: MlFeatureTable | null): GenericEntityProperties => {
         return {};
@@ -93,22 +85,22 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Features',
+                    name: i18next.t('entity.types:mlFeature.namePlural'),
                     component: MlFeatureTableFeatures,
                     icon: Table,
                 },
                 {
-                    name: 'Sources',
+                    name: i18next.t('entity.types:mlFeatureTable.sourcesTab'),
                     component: Sources,
                     icon: Database,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
@@ -156,9 +148,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -238,6 +230,8 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

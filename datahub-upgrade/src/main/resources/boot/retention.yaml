@@ -1,0 +1,34 @@
+- entity: "dataHubExecutionRequest"
+  aspect: "dataHubExecutionRequestResult"
+  forceOverwrite: true
+  config:
+    retention:
+      version:
+        maxVersions: 1
+- entity: "dataHubRemoteExecutor"
+  aspect: "dataHubRemoteExecutorStatus"
+  forceOverwrite: true
+  config:
+    retention:
+      version:
+        maxVersions: 1
+- entity: "dataHubAction"
+  aspect: "dataHubActionStatus"
+  forceOverwrite: true
+  config:
+    retention:
+      version:
+        maxVersions: 1
+- entity: "actionRequest"
+  aspect: "actionRequestStatus"
+  forceOverwrite: true
+  config:
+    retention:
+      version:
+        maxVersions: 1
+- entity: "*"
+  aspect: "*"
+  config:
+    retention:
+      version:
+        maxVersions: 20

@@ -45,7 +45,11 @@ public class RedshiftRelationVisitor<D extends OpenLineage.Dataset>
             ScalaConversionUtils.asJavaOptional(params.table().map(TableName::toString));
     Optional<String> query = ScalaConversionUtils.asJavaOptional(params.query());
     return Collections.singletonList(
-        factory.getDataset(dbtable.orElse(""), REDSHIFT_NAMESPACE, relation.schema()));
+        factory
+            .sparkDatasetBuilder()
+            .dataset(dbtable.orElse(""), REDSHIFT_NAMESPACE)
+            .schema(relation.schema())
+            .build());
   }
 
   protected boolean isRedshiftClass(LogicalPlan plan) {

@@ -8,7 +8,7 @@ from datahub_airflow_plugin.entities import Dataset, Urn
 with DAG(
     "dag_to_skip",
     start_date=datetime(2023, 1, 1),
-    schedule_interval=None,
+    schedule=None,
     catchup=False,
 ) as dag:
     task1 = BashOperator(

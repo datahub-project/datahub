@@ -1,8 +1,9 @@
-import { Breadcrumb, colors } from '@components';
-import { Divider } from 'antd';
+import { Breadcrumb } from '@components';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router';
-import styled from 'styled-components';
+
+import { VerticalDivider } from '@components/components/Breadcrumb/components';
 
 import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
 import { formatDateTime } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
@@ -12,14 +13,8 @@ import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 
-const VerticalDivider = styled(Divider)`
-    color: ${colors.gray[100]};
-    height: 16px;
-    width: 2px;
-    margin: 0 4px;
-`;
-
 export default function IngestionRunDetailsPage() {
+    const { t } = useTranslation('ingestion');
     const { urn } = useParams<{ urn: string }>();
 
     const { state } = useLocation();
@@ -51,13 +46,18 @@ export default function IngestionRunDetailsPage() {
         <Breadcrumb
             items={[
                 {
-                    label: fromUrl === tabUrlMap[TabType.RunHistory] ? 'Run history' : 'Manage Data Sources',
+                    key: 'back',
+                    label:
+                        fromUrl === tabUrlMap[TabType.RunHistory]
+                            ? t('runDetails.breadcrumbRunHistory')
+                            : t('page.title'),
                     href: fromUrl ?? tabUrlMap[TabType.Sources],
                     separator: <VerticalDivider type="vertical" />,
                 },
                 ...(name
                     ? [
                           {
+                              key: 'source',
                               label: name,
                           },
                       ]
@@ -65,6 +65,7 @@ export default function IngestionRunDetailsPage() {
                 ...(runTime
                     ? [
                           {
+                              key: 'run',
                               label: formatDateTime(runTime),
                           },
                       ]
@@ -74,7 +75,12 @@ export default function IngestionRunDetailsPage() {
     );
 
     return (
-        <PageLayout title="Run Details" titlePill={titlePill} rightPanelContent={<AIChat />} topBreadcrumb={breadCrumb}>
+        <PageLayout
+            title={t('runDetails.title')}
+            titlePill={titlePill}
+            rightPanelContent={<AIChat />}
+            topBreadcrumb={breadCrumb}
+        >
             <RunDetailsContent
                 urn={urn}
                 data={data}

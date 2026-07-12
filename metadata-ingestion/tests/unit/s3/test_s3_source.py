@@ -1,21 +1,29 @@
 import logging
 from datetime import datetime, timezone
 from typing import List, Tuple
-from unittest.mock import Mock, call, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
+import boto3
 import pytest
+import time_machine
 from boto3.session import Session
-from freezegun import freeze_time
-from moto import mock_s3
+from botocore.stub import Stubber
+from moto import mock_aws
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.s3_boto_utils import (
+    LIST_OBJECTS_PAGE_SIZE,
+    list_objects_recursive,
+)
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.source import (
     Folder,
     S3Source,
+    TableData,
     partitioned_folder_comparator,
 )
 
@@ -26,7 +34,7 @@ logging.getLogger("s3transfer").setLevel(logging.INFO)
 
 @pytest.fixture(autouse=True)
 def s3():
-    with mock_s3():
+    with mock_aws():
         conn = Session(
             aws_access_key_id="test",
             aws_secret_access_key="test",
@@ -306,9 +314,9 @@ def test_get_folder_info_returns_latest_file_in_each_folder(s3_resource):
 
     bucket = s3_resource.Bucket("my-bucket")
     bucket.create()
-    with freeze_time("2025-01-01 01:00:00"):
+    with time_machine.travel("2025-01-01 01:00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0001.csv")
-    with freeze_time("2025-01-01 02:00:00"):
+    with time_machine.travel("2025-01-01 02:00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0002.csv")
         bucket.put_object(Key="my-folder/dir2/0001.csv")
 
@@ -323,6 +331,67 @@ def test_get_folder_info_returns_latest_file_in_each_folder(s3_resource):
     assert len(res) == 2
     assert res[0].sample_file == "s3://my-bucket/my-folder/dir1/0002.csv"
     assert res[1].sample_file == "s3://my-bucket/my-folder/dir2/0001.csv"
+
+
+def test_get_folder_info_records_listing_instrumentation(s3_resource):
+    """get_folder_info records the number of objects listed and listing time."""
+    path_spec = PathSpec(
+        include="s3://my-bucket/{table}/{partition0}/*.csv",
+        table_name="{table}",
+    )
+
+    bucket = s3_resource.Bucket("my-bucket")
+    bucket.create()
+    bucket.put_object(Key="my-folder/dir1/0001.csv")
+    bucket.put_object(Key="my-folder/dir1/0002.csv")
+    bucket.put_object(Key="my-folder/dir2/0001.csv")
+
+    source = _get_s3_source(path_spec)
+    list(source.get_folder_info(path_spec, "s3://my-bucket/my-folder"))
+
+    assert source.report.objects_listed == 3
+
+
+def test_ingest_table_records_schema_and_tagging_instrumentation(s3_resource):
+    """ingest_table times schema inference and counts tables tagged."""
+    path_spec = PathSpec(
+        include="s3://my-bucket/my-folder/{table}/*.csv",
+        table_name="{table}",
+    )
+
+    bucket = s3_resource.Bucket("my-bucket")
+    bucket.create()
+    bucket.put_object(Key="my-folder/table1/data.csv", Body="a,b\n1,2\n3,4\n")
+
+    source = S3Source.create(
+        config_dict={
+            "path_spec": {
+                "include": path_spec.include,
+                "table_name": path_spec.table_name,
+            },
+            "aws_config": {
+                "aws_access_key_id": "test",
+                "aws_secret_access_key": "test",
+            },
+            "use_s3_object_tags": True,
+        },
+        ctx=PipelineContext(run_id="test-s3"),
+    )
+
+    full_path = "s3://my-bucket/my-folder/table1/data.csv"
+    table_data = TableData(
+        display_name="table1",
+        is_s3=True,
+        full_path=full_path,
+        timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        table_path=full_path,
+        size_in_bytes=12,
+        number_of_files=1,
+    )
+
+    list(source.ingest_table(table_data, path_spec))
+
+    assert source.report.tables_tagged == 1
 
 
 def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
@@ -372,9 +441,9 @@ def test_get_folder_info_returns_expected_folder(s3_resource):
 
     bucket = s3_resource.Bucket("my-bucket")
     bucket.create()
-    with freeze_time("2025-01-01 01:00:00"):
+    with time_machine.travel("2025-01-01 01:00:00+00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0001.csv")
-    with freeze_time("2025-01-01 02:00:00"):
+    with time_machine.travel("2025-01-01 02:00:00+00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0002.csv", Body=" " * 150)
 
     # act
@@ -662,3 +731,94 @@ class TestResolveTemplatedFolders:
         # assert
         expected = ["s3://my-bucket/data/", "s3://my-bucket-1/data/"]
         assert result == expected
+
+
+def test_list_objects_recursive_paginates_large_hive_partitioned_directory(
+    s3_client,
+):
+    s3_client.create_bucket(Bucket="test-bucket")
+
+    # 2500 forces 3 pages (1000+1000+500), exercising multiple pagination steps rather than just the boundary.
+    prefix = "clickstream/EVENTS/partition_date=2023-03-11/"
+    for i in range(2500):
+        s3_client.put_object(
+            Bucket="test-bucket", Key=f"{prefix}part-{i:05d}.parquet", Body=b"x"
+        )
+
+    aws_config = AwsConnectionConfig(
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+        aws_region="us-east-1",
+    )
+
+    results = list(list_objects_recursive("test-bucket", prefix, aws_config))
+
+    assert len(results) == 2500
+    assert all(obj.bucket_name == "test-bucket" for obj in results)
+    assert all(obj.key.startswith(prefix) for obj in results)
+    assert all(obj.size == 1 for obj in results)
+
+
+def test_list_objects_recursive_paginates_with_continuation_token(s3_client):
+    # Regression guard: only list_objects_v2 responses are stubbed — reverting to v1 yields 0 results or raises StubResponseError.
+    prefix = "data/partition_date=2023-03-11/"
+    ts = datetime(2023, 3, 11, tzinfo=timezone.utc)
+    token = "opaque-continuation-token"
+
+    def _obj(i: int) -> dict:
+        return {
+            "Key": f"{prefix}part-{i:05d}.parquet",
+            "LastModified": ts,
+            "ETag": '"abc"',
+            "Size": 1,
+            "StorageClass": "STANDARD",
+        }
+
+    stubbed_client = boto3.client(
+        "s3",
+        region_name="us-east-1",
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+    )
+    mock_config = MagicMock()
+    mock_config.get_s3_client.return_value = stubbed_client
+
+    with Stubber(stubbed_client) as stubber:
+        stubber.add_response(
+            "list_objects_v2",
+            {
+                "IsTruncated": True,
+                "Contents": [_obj(i) for i in range(LIST_OBJECTS_PAGE_SIZE)],
+                "Name": "bucket",
+                "Prefix": prefix,
+                "MaxKeys": LIST_OBJECTS_PAGE_SIZE,
+                "NextContinuationToken": token,
+            },
+            {"Bucket": "bucket", "Prefix": prefix, "MaxKeys": LIST_OBJECTS_PAGE_SIZE},
+        )
+        stubber.add_response(
+            "list_objects_v2",
+            {
+                "IsTruncated": False,
+                "Contents": [
+                    _obj(i)
+                    for i in range(LIST_OBJECTS_PAGE_SIZE, LIST_OBJECTS_PAGE_SIZE + 500)
+                ],
+                "Name": "bucket",
+                "Prefix": prefix,
+                "MaxKeys": LIST_OBJECTS_PAGE_SIZE,
+            },
+            {
+                "Bucket": "bucket",
+                "Prefix": prefix,
+                "MaxKeys": LIST_OBJECTS_PAGE_SIZE,
+                "ContinuationToken": token,
+            },
+        )
+
+        results = list(list_objects_recursive("bucket", prefix, mock_config))
+
+    assert len(results) == LIST_OBJECTS_PAGE_SIZE + 500
+    assert all(obj.bucket_name == "bucket" for obj in results)
+    assert all(obj.key.startswith(prefix) for obj in results)
+    assert all(obj.size == 1 for obj in results)

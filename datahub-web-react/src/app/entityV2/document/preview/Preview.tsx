@@ -1,13 +1,12 @@
-import { FileText } from '@phosphor-icons/react';
 import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { PreviewType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Document, DocumentState, EntityType, Owner, SearchInsight } from '@types';
+import { Document, EntityType, Owner, SearchInsight } from '@types';
 
 export const Preview = ({
     document,
@@ -39,13 +38,7 @@ export const Preview = ({
     previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const status = document.info?.status?.state;
-    const isPublished = status === DocumentState.Published;
-
-    // Get external URL from source if document is external
-    const externalUrl = document.info?.source?.externalUrl || null;
-
-    // Truncate description for preview
+    const externalUrl = data?.externalUrl || null;
     const truncatedDescription =
         description && description.length > 200 ? `${description.substring(0, 200)}...` : description;
 
@@ -60,14 +53,13 @@ export const Preview = ({
             platform={platformName}
             logoUrl={platformLogo || undefined}
             platformInstanceId={platformInstanceId}
-            typeIcon={<FileText size={14} color="#BFBFBF" weight="duotone" />}
+            typeIcon={entityRegistry.getIcon(EntityType.Document, 14, IconStyleType.ACCENT)}
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}
             parentEntities={
                 document.parentDocuments?.documents ? (document.parentDocuments.documents as any[]) : undefined
             }
-            entityIcon={<FileText size={28} color={isPublished ? '#1890ff' : '#8c8c8c'} weight="duotone" />}
             externalUrl={externalUrl}
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}

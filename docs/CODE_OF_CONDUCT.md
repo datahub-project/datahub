@@ -1,3 +1,7 @@
+---
+description: "The DataHub project Code of Conduct establishes community standards for respectful and harassment-free participation."
+---
+
 # Code of Conduct
 
 ## Our Pledge

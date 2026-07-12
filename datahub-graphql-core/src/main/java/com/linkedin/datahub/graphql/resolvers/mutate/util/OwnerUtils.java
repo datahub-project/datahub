@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipSourceType;
@@ -18,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -152,26 +154,54 @@ public class OwnerUtils {
   }
 
   public static void validateAuthorizedToUpdateOwners(
-      @Nonnull QueryContext context, Urn resourceUrn, EntityClient entityClient) {
+      @Nonnull QueryContext context,
+      Urn resourceUrn,
+      EntityClient entityClient,
+      EntityService<?> entityService) {
 
     if (GlossaryUtils.canUpdateGlossaryEntity(resourceUrn, context, entityClient)) {
       return;
     }
 
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType()))));
-
-    boolean authorized =
-        AuthorizationUtils.isAuthorized(
-            context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
-    if (!authorized) {
-      throw new AuthorizationException(
-          "Unauthorized to update owners. Please contact your DataHub administrator.");
+    if (isAuthorizedToUpdateOwners(context, resourceUrn)) {
+      return;
     }
+
+    // Assertions are scoped to their assertee: actors who can edit assertions or owners on the
+    // assertee can also manage assertion ownership.
+    if (Constants.ASSERTION_ENTITY_NAME.equals(resourceUrn.getEntityType())
+        && isAuthorizedToUpdateOwnersFromAssertee(context, resourceUrn, entityService)) {
+      return;
+    }
+
+    throw new AuthorizationException(
+        "Unauthorized to update owners. Please contact your DataHub administrator.");
+  }
+
+  /**
+   * For an assertion URN, fetch the assertee and check whether the actor can edit owners or
+   * assertions on it. Mirrors the precedent set by {@link
+   * AssertionUtils#isAuthorizedToEditAssertionFromAssertee} for assertion CRUD: assertions are
+   * managed via their assertee's permissions, not their own URN.
+   */
+  private static boolean isAuthorizedToUpdateOwnersFromAssertee(
+      @Nonnull QueryContext context,
+      @Nonnull Urn assertionUrn,
+      @Nonnull EntityService<?> entityService) {
+    final AssertionInfo info =
+        (AssertionInfo)
+            EntityUtils.getAspectFromEntity(
+                context.getOperationContext(),
+                assertionUrn.toString(),
+                Constants.ASSERTION_INFO_ASPECT_NAME,
+                entityService,
+                null);
+    if (info == null) {
+      return false;
+    }
+    final Urn asserteeUrn = AssertionUtils.getAsserteeUrnFromInfo(info);
+    return isAuthorizedToUpdateOwners(context, asserteeUrn)
+        || AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn);
   }
 
   public static void validateAddOwnerInput(
@@ -303,5 +333,18 @@ public class OwnerUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(
         context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
+  }
+
+  /**
+   * Whether the actor can edit owners on assertions belonging to {@code entityUrn}. Used to gate UI
+   * affordances at the parent-entity level before any specific assertion URN exists or is known.
+   *
+   * <p>Mirrors the assertee-delegation logic in {@link #validateAuthorizedToUpdateOwners}: anyone
+   * who can edit owners or edit assertions on the parent entity can manage assertion ownership.
+   */
+  public static boolean isAuthorizedToUpdateAssertionOwnersOnEntity(
+      @Nonnull QueryContext context, @Nonnull Urn entityUrn) {
+    return isAuthorizedToUpdateOwners(context, entityUrn)
+        || AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, entityUrn);
   }
 }

@@ -62,11 +62,17 @@ def test_ge_ingest(
         mock.patch(
             "datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp"
         ) as mock_emit_mcp,
+        mock.patch(
+            "datahub.emitter.rest_emitter.DatahubRestEmitter.to_graph"
+        ) as mock_to_graph,
     ):
         wait_for_port(docker_services, "ge_postgres", 5432)
 
         emitter = MockDatahubEmitter("")
         mock_emit_mcp.side_effect = emitter.emit_mcp
+        mock_graph = mock.Mock()
+        mock_graph.get_aspect.return_value = None
+        mock_to_graph.return_value = mock_graph
 
         gx_context_folder_name = "gx" if use_gx_folder else "great_expectations"
         shutil.copytree(

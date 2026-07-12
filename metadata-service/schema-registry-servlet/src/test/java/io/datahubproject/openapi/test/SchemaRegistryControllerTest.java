@@ -2,6 +2,7 @@ package io.datahubproject.openapi.test;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
+import static io.datahubproject.test.metadata.context.TestOperationContexts.systemContextNoSearchAuthorization;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
@@ -11,13 +12,16 @@ import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -28,6 +32,7 @@ import com.linkedin.mxe.Topics;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.ServerSocket;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -56,6 +61,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -74,7 +80,12 @@ import org.testng.annotations.Test;
 @EnableKafka
 @TestPropertySource(properties = {"kafka.consumer.stopOnDeserializationError=false"})
 public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTests {
+  @MockitoBean KafkaHealthChecker kafkaHealthChecker;
+  @MockitoBean EntityRegistry entityRegistry;
+  @MockitoBean MetricUtils metricUtils;
+
   private static final String CONFLUENT_PLATFORM_VERSION = "7.4.10";
+  private static final int SERVER_PORT = allocateFreePort();
 
   static KafkaContainer kafka =
       new KafkaContainer(
@@ -86,9 +97,21 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   @DynamicPropertySource
   static void kafkaProperties(DynamicPropertyRegistry registry) {
     kafka.start();
+    registry.add("server.port", () -> SERVER_PORT);
+    registry.add("local.server.port", () -> SERVER_PORT);
     registry.add("kafka.bootstrapServers", kafka::getBootstrapServers);
     registry.add("kafka.schemaRegistry.type", () -> "INTERNAL");
-    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/schema-registry/api/");
+    registry.add(
+        "kafka.schemaRegistry.url",
+        () -> "http://localhost:" + SERVER_PORT + "/schema-registry/api/");
+  }
+
+  private static int allocateFreePort() {
+    try (ServerSocket socket = new ServerSocket(0)) {
+      return socket.getLocalPort();
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to allocate free port for schema registry test", e);
+    }
   }
 
   @Autowired EventProducer _producer;
@@ -129,7 +152,9 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
 
-    _producer.produceMetadataChangeProposal(entityUrn, gmce).get(10, TimeUnit.SECONDS);
+    _producer
+        .produceMetadataChangeProposal(systemContextNoSearchAuthorization(), entityUrn, gmce)
+        .get(10, TimeUnit.SECONDS);
     // Wait for message to be consumed and deserialized
     final boolean messageConsumed = getLatch(entityUrn.toString()).await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
@@ -177,7 +202,8 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
         entitySpec.createAspectSpec(datasetProperties, DATASET_PROPERTIES_ASPECT_NAME);
 
     _producer
-        .produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog)
+        .produceMetadataChangeLog(
+            systemContextNoSearchAuthorization(), entityUrn, aspectSpec, metadataChangeLog)
         .get(10, TimeUnit.SECONDS);
     final boolean messageConsumed = getLatch(entityUrn.toString()).await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
@@ -192,7 +218,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     final Urn entityUrn =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testPEConsumption,PROD)");
     final EntityChangeEvent changeEvent = new EntityChangeEvent();
-    final ChangeCategory category = ChangeCategory.OWNER;
+    final ChangeCategory category = ChangeCategory.OWNERSHIP;
     final ChangeOperation operation = ChangeOperation.ADD;
 
     changeEvent.setEntityType(DATASET_ENTITY_NAME);
@@ -208,7 +234,11 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
 
     _producer
-        .producePlatformEvent(CHANGE_EVENT_PLATFORM_EVENT_NAME, "testPEConsumption", platformEvent)
+        .producePlatformEvent(
+            systemContextNoSearchAuthorization(),
+            CHANGE_EVENT_PLATFORM_EVENT_NAME,
+            "testPEConsumption",
+            platformEvent)
         .get(10, TimeUnit.SECONDS);
 
     final boolean messageConsumed = getLatch("testPEConsumption").await(10, TimeUnit.SECONDS);

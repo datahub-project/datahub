@@ -26,9 +26,6 @@ public class CreateDocumentResolverTest {
 
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:testUser");
   private static final Urn TEST_DOCUMENT_URN = UrnUtils.getUrn("urn:li:document:test-document");
-  private static final Urn TEST_PUBLISHED_URN =
-      UrnUtils.getUrn("urn:li:document:published-document");
-  private static final Urn TEST_DRAFT_URN = UrnUtils.getUrn("urn:li:document:draft-document");
 
   private DocumentService mockService;
   private EntityService mockEntityService;
@@ -63,7 +60,6 @@ public class CreateDocumentResolverTest {
             any(), // parent
             any(), // related assets
             any(), // related documents
-            any(), // draftOfUrn
             any(), // showInGlobalContext
             any(Urn.class))) // actor
         .thenReturn(TEST_DOCUMENT_URN);
@@ -100,7 +96,6 @@ public class CreateDocumentResolverTest {
             any(), // parent
             any(), // related assets
             any(), // related documents
-            any(), // draftOfUrn
             any(), // showInGlobalContext
             any(Urn.class)); // actor URN
 
@@ -134,7 +129,6 @@ public class CreateDocumentResolverTest {
             any(), // parent
             any(), // related assets
             any(), // related documents
-            any(), // draftOfUrn
             any(), // showInGlobalContext
             any()); // actor
   }
@@ -165,7 +159,6 @@ public class CreateDocumentResolverTest {
             any(), // parent
             any(), // related assets
             any(), // related documents
-            any(), // draftOfUrn
             any(), // showInGlobalContext
             any()); // actor
   }
@@ -235,59 +228,10 @@ public class CreateDocumentResolverTest {
             any(), // parent
             any(), // related assets
             any(), // related documents
-            any(), // draftOfUrn
             any(), // showInGlobalContext
             any())) // actor
         .thenThrow(new RuntimeException("Service error"));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-  }
-
-  @Test
-  public void testCreateDocumentDraft() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockEnv.getContext()).thenReturn(mockContext);
-    when(mockContext.getActorUrn()).thenReturn(TEST_USER_URN.toString());
-
-    // Set draftFor to create a draft
-    input.setDraftFor(TEST_PUBLISHED_URN.toString());
-
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-    when(mockService.createDocument(
-            any(OperationContext.class),
-            any(), // id
-            any(), // subTypes list
-            any(), // title
-            any(), // source
-            any(), // state
-            any(), // content
-            any(), // parent
-            any(), // related assets
-            any(), // related documents
-            any(), // draftOfUrn
-            any(), // showInGlobalContext
-            any(Urn.class))) // actor
-        .thenReturn(TEST_DRAFT_URN);
-
-    String result = resolver.get(mockEnv).get();
-
-    assertEquals(result, TEST_DRAFT_URN.toString());
-
-    // Verify document was created with UNPUBLISHED state and draftOf set
-    verify(mockService, times(1))
-        .createDocument(
-            any(OperationContext.class),
-            any(), // id
-            any(), // subTypes
-            eq("Test Document"), // title
-            any(), // source
-            eq(com.linkedin.knowledge.DocumentState.UNPUBLISHED), // state forced to UNPUBLISHED
-            any(), // content
-            any(), // parent
-            any(), // related assets
-            any(), // related documents
-            eq(TEST_PUBLISHED_URN), // draftOfUrn
-            any(), // showInGlobalContext
-            any(Urn.class)); // actor
   }
 }

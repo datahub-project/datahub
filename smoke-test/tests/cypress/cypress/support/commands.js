@@ -54,8 +54,8 @@ Cypress.Commands.add("loginWithCredentials", (username, password) => {
     password || Cypress.env("ADMIN_PASSWORD"),
     { delay: 0 },
   );
-  cy.contains("Sign In").click();
-  cy.get(".ant-avatar-circle").should("be.visible");
+  cy.get("[data-testid='sign-in']").click();
+  cy.get("[data-testid='search-input']").should("be.visible");
   notFirstTimeVisit();
 });
 
@@ -64,7 +64,7 @@ Cypress.Commands.add("visitWithLogin", (url) => {
   cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
   cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
   notFirstTimeVisit();
-  cy.contains("Sign In").click();
+  cy.get("[data-testid='sign-in']").click();
 });
 
 // Login commands for onboarding tour testing (without setting skipOnboardingTour)
@@ -269,7 +269,11 @@ Cypress.Commands.add("openThreeDotMenu", () => {
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
-  cy.contains(text).should("be.visible").click();
+  // Entity profile pages often render the same name in multiple places (header,
+  // breadcrumbs, self-referencing links inside hidden tab panes). Filter to
+  // visible matches before asserting so a `<a>` inside an inactive (display:none)
+  // `.ant-tabs-tabpane` doesn't win the lookup and fail visibility check.
+  cy.contains(text).filter(":visible").first().should("be.visible").click();
 });
 
 Cypress.Commands.add("clickFirstOptionWithText", (text) => {
@@ -297,7 +301,13 @@ Cypress.Commands.add("clickOptionInScrollView", (text, selector) => {
 
 Cypress.Commands.add("deleteFromDropdown", () => {
   cy.openThreeDotDropdown();
+  cy.waitTextVisible("Delete");
+  // Wait for button is enabled
+  cy.getWithTestId("entity-menu-delete-button")
+    .closest("li")
+    .should("have.attr", "aria-disabled", "false");
   cy.clickOptionWithText("Delete");
+  cy.waitTextVisible("Yes");
   cy.clickOptionWithText("Yes");
 });
 
@@ -313,7 +323,11 @@ Cypress.Commands.add("addViaModal", (text, modelHeader, value, dataTestId) => {
     .first()
     .type(text);
   cy.get(`[data-testid="${dataTestId}"]`).click();
-  cy.contains(value).should("be.visible");
+  // After the modal closes the test may land on the new entity's profile page,
+  // where the entity name appears in multiple DOM nodes (page header, breadcrumbs,
+  // hidden tab panes, self-referencing links). Filter to visible matches before
+  // asserting so an `<a>` inside a `display: none` tab pane doesn't win the lookup.
+  cy.contains(value).filter(":visible").first().should("be.visible");
 });
 
 Cypress.Commands.add(
@@ -459,8 +473,14 @@ Cypress.Commands.add(
 );
 
 Cypress.Commands.add("selectOptionInTagTermModal", (text) => {
-  cy.enterTextInTestId("tag-term-modal-input", text);
-  cy.clickOptionWithTestId("tag-term-option");
+  // AddTagsModal / AddTermsModal both use alchemy SimpleSelect: the trigger
+  // opens a portal-rendered dropdown containing the search input and the
+  // options.
+  cy.getWithTestId("tag-term-modal-input").click();
+  cy.get('[data-testid="dropdown-search-input"]').type(text);
+  cy.get(`[data-testid="tag-term-option-${text}"]`)
+    .first()
+    .click({ force: true });
   const btn_id = "add-tag-term-from-modal-btn";
   cy.clickOptionWithTestId(btn_id);
   cy.get(selectorWithtestId(btn_id)).should("not.exist");
@@ -479,7 +499,7 @@ Cypress.Commands.add(
   (urn, dataset_name, domain_urn) => {
     cy.goToDataset(urn, dataset_name);
     cy.get(
-      `.sidebar-domain-section [href="/domain/${domain_urn}"] .anticon-close`,
+      `.sidebar-domain-section [href="/domain/${domain_urn}"] [data-testid="remove-icon"]`,
     ).click();
     cy.clickOptionWithText("Yes");
   },
@@ -489,7 +509,7 @@ Cypress.Commands.add(
   "removeApplicationFromDataset",
   (urn, dataset_name, application_urn) => {
     cy.goToDataset(urn, dataset_name);
-    cy.get(`.sidebar-application-section .anticon-close`).click();
+    cy.get(`.sidebar-application-section [data-testid="remove-icon"]`).click();
     cy.clickOptionWithText("Yes");
   },
 );
@@ -519,9 +539,7 @@ Cypress.Commands.add("createUser", (name, password, email) => {
     cy.enterTextInTestId("name", name);
     cy.enterTextInTestId("password", password);
     cy.enterTextInTestId("confirmPassword", password);
-    cy.mouseover("#title").click();
-    cy.waitTextVisible("Other").click();
-    cy.get("[type=submit]").click();
+    cy.get('[data-testid="sign-up"]').click();
     cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
     cy.waitTextVisible(name);
@@ -532,7 +550,7 @@ Cypress.Commands.add("createUser", (name, password, email) => {
 
 Cypress.Commands.add("createGroup", (name, description, group_id) => {
   cy.visit("/settings/identities/groups");
-  cy.clickOptionWithText("Create group");
+  cy.clickOptionWithText("Create Group");
   cy.waitTextVisible("Create new group");
   cy.get("#name").type(name);
   cy.get("#description").type(description);
@@ -550,11 +568,18 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
   cy.contains(group_name).should("be.visible");
   cy.get('[role="tab"]').contains("Members").click();
   cy.clickOptionWithText("Add Member");
-  cy.contains("Search for users...").click({ force: true });
-  cy.focused().type(member_name);
-  cy.contains(member_name).click();
-  cy.focused().blur();
-  cy.contains(member_name).should("have.length", 1);
+  cy.get('[data-testid="add-members-select"]', { timeout: 10000 }).should(
+    "be.visible",
+  );
+  cy.get('[data-testid="add-members-select-base"]', { timeout: 10000 })
+    .should("exist")
+    .click({ force: true });
+  cy.get('[data-testid="dropdown-search-input"]', { timeout: 10000 })
+    .should("be.visible")
+    .type(member_name);
+  cy.get('[data-testid="add-members-select-dropdown"]', { timeout: 10000 })
+    .contains(member_name)
+    .click({ force: true });
   cy.get('[role="dialog"] button').contains("Add").click({ force: true });
   cy.waitTextVisible("Group members added!");
   cy.contains(member_name, { timeout: 10000 }).should("be.visible");
@@ -607,21 +632,13 @@ Cypress.Commands.add("deleteStructuredProperty", (prop) => {
   cy.get('[data-testid="modal-confirm-button"').click();
 });
 
-Cypress.Commands.add("setIsThemeV2Enabled", (isEnabled) => {
-  // set the theme V2 enabled flag on/off to show the V2 UI or not
+Cypress.Commands.add("setFeatureFlags", (updateFeatureFlags) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
       req.alias = "gqlappConfigQuery";
 
       req.on("response", (res) => {
-        res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
-        res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
-        res.body.data.appConfig.featureFlags.showNavBarRedesign = isEnabled;
-      });
-    } else if (hasOperationName(req, "getMe")) {
-      req.alias = "gqlgetMeQuery";
-      req.on("response", (res) => {
-        res.body.data.me.corpUser.settings.appearance.showThemeV2 = isEnabled;
+        updateFeatureFlags(res);
       });
     }
   });
@@ -646,7 +663,7 @@ Cypress.on("uncaught:exception", (err) => {
   const resizeObserverLoopErrMessage =
     "ResizeObserver loop completed with undelivered notifications.";
 
-  /* returning false here prevents Cypress from failing the test */
+  /* returning false here prevents Cypress from failing the test. */
   if (
     err.message.includes(resizeObserverLoopLimitErrMessage) ||
     err.message.includes(resizeObserverLoopErrMessage)

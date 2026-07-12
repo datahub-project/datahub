@@ -212,6 +212,14 @@
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
+      "name" : "filterExistingUrns",
+      "javaMethodName" : "filterExistingUrns",
+      "parameters" : [ {
+        "name" : "request",
+        "type" : "com.linkedin.entity.FilterExistingUrnsRequest"
+      } ],
+      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+    }, {
       "name" : "getBrowsePaths",
       "javaMethodName" : "getBrowsePaths",
       "parameters" : [ {

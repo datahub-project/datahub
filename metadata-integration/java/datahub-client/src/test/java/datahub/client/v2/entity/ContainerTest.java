@@ -706,4 +706,24 @@ public class ContainerTest {
     assertNotNull(container.getCustomProperties());
     assertTrue(container.getCustomProperties().size() >= 3);
   }
+
+  @Test
+  public void testContainerGetDefaultAspects() {
+    Container container =
+        Container.builder().platform("snowflake").displayName("My Database").build();
+
+    List<?> aspects = container.getDefaultAspects();
+    assertNotNull(aspects);
+    assertFalse("Default aspects should not be empty", aspects.isEmpty());
+    assertTrue(
+        "Should include ContainerProperties",
+        aspects.contains(com.linkedin.container.ContainerProperties.class));
+    assertTrue("Should include Ownership", aspects.contains(com.linkedin.common.Ownership.class));
+    try {
+      ((List) aspects).clear();
+      fail("getDefaultAspects() should return an immutable list");
+    } catch (UnsupportedOperationException expected) {
+      // expected
+    }
+  }
 }

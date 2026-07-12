@@ -1,5 +1,6 @@
 ---
-title: Overview
+title: Compliance Forms Overview
+description: "DataHub Compliance Forms enable structured, crowdsourced documentation and classification of critical data assets across your organization."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -7,6 +8,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 # About DataHub Compliance Forms
 
 <FeatureAvailability/>
+
+:::note
+In self-hosted DataHub (OSS), Compliance Forms are available via API only. The full UI experience — including form creation, assignment, Task Center notifications, and analytics — is available in DataHub Cloud. If you are using DataHub Core, please refer to the [Compliance Forms API Guide](../../../api/tutorials/forms.md).
+:::
 
 **DataHub Compliance Forms** streamline the process of documenting, annotating, and classifying your most critical Data Assets through a collaborative, crowdsourced approach.
 

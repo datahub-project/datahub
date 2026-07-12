@@ -8,7 +8,7 @@ Currently we only support datasets and by extension schema fields for logical mo
 
 A logical model represents the concept and structure of a database table, without being tied to any single physical instantiation in some source system. Like any DataHub dataset entity, a logical model describes its columns, including data types and descriptions, and can be attributed with other metadata like tags, terms, owners, and custom properties. But unlike physical datasets, logical models do not represent a table in a source system that actually exists, in which data is stored and can be queried.
 
-Logical models are useful for those who have multiple tables that represent the same type or shap of data, or store the same data. This is common for multi-cloud data ecosystems, in which the same table may be replicated across several cloud providers, e.g. Snowflake, Redshift, and BigQuery. It is also useful in cases where multiple replicas exist in a single system, such as gold/silver/bronze layers. Logical models should be linked to each physical representation to expose this relationship DataHub. DataHub Cloud customers can take advantage further with [Centralized Management](./centralized-management.md), in which every physical child's metadata can be managed at the logical model level.
+Logical models are useful for those who have multiple tables that represent the same type or shape of data, or store the same data. This is common for multi-cloud data ecosystems, in which the same table may be replicated across several cloud providers, e.g. Snowflake, Redshift, and BigQuery. It is also useful in cases where multiple replicas exist in a single system, such as gold/silver/bronze layers. Logical models should be linked to each physical representation to expose this relationship in DataHub. DataHub Cloud customers can take advantage further with [Centralized Management](./centralized-management.md), in which every physical child's metadata can be managed at the logical model level.
 
 ## How It Looks
 
@@ -98,7 +98,7 @@ All DataHub datasets require a platform, representing where the dataset exists. 
 
 ## Linking Logical Models
 
-At its core, the logical -> physical relationship is created by the [`LogicalParent`](../../../generated/metamodel/entities/dataset.md#logicalparent) aspect. To link columns, this aspect must also be created on each child schmea field entity. However, for ease of use, we recommend the OpenAPI endpoint.
+At its core, the logical -> physical relationship is created by the [`LogicalParent`](../../../generated/metamodel/entities/dataset.md#logicalparent) aspect. To link columns, this aspect must also be created on each child schema field entity. However, for ease of use, we recommend the OpenAPI endpoint.
 
 ### OpenAPI
 
@@ -155,3 +155,13 @@ The relationship can also be removed:
 
     client._graph.emit(MetadataChangeProposalWrapper(entityUrn=child_urn, aspect=LogicalParentClass(parent=None)))
 ```
+
+## Authorization
+
+Linking or unlinking a physical dataset to a logical parent writes the [`LogicalParent`](../../../generated/metamodel/entities/dataset.md#logicalparent) aspect on the **child** entity (dataset and, for column links, schema field). Authorization requires **Edit Entity** on **both** the child and proposed parent when setting a link; clearing a parent requires **Edit Entity** on the child only.
+
+Each side is checked independently: **datasets** require **Edit Entity** on that dataset; **schema fields** accept **Edit Entity** on the containing dataset or on the schema field URN. The child and parent sides may use different grant types (for example, a dataset policy on the physical side and a schema-field policy on the logical side). OpenAPI logical-model endpoints apply the same rules before batch-writing MCPs.
+
+This applies to MCP ingestion, GraphQL (`setLogicalParent`), and OpenAPI relationship endpoints.
+
+See [Metadata Policies — derived authorization rules](../../../authorization/policies.md#logical-parent-logicalparent-aspect).

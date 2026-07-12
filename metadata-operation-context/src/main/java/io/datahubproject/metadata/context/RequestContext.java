@@ -1,18 +1,25 @@
 package io.datahubproject.metadata.context;
 
-import static com.linkedin.metadata.Constants.DATAHUB_ACTOR;
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_API_ATTR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_ID_ATTR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.USER_ID_ATTR;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.net.HttpHeaders;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.server.ResourceContext;
+import io.datahubproject.metadata.context.graphql.GraphQLOperationKind;
+import io.datahubproject.metadata.context.usage.AuthChannel;
+import io.datahubproject.metadata.context.usage.UsageActorClass;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.context.Context;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -27,12 +34,17 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import nl.basjes.parse.useragent.UserAgent;
 import nl.basjes.parse.useragent.UserAgentAnalyzer;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.MDC;
 
 @Slf4j
 @Getter
 @Builder(toBuilder = true)
 public class RequestContext implements ContextInterface {
+  public static final String MDC_USAGE_OPERATION = "usageOperation";
+  public static final String MDC_AUTH_CHANNEL = "authChannel";
+  public static final String MDC_USAGE_QUANTITY = "usageQuantity";
+
   public static final UserAgentAnalyzer UAA =
       UserAgentAnalyzer.newBuilder()
           .hideMatcherLoadStats()
@@ -61,10 +73,34 @@ public class RequestContext implements ContextInterface {
   @Nonnull private final String requestID;
 
   @Nonnull private final String userAgent;
-  @Nonnull private final String agentClass;
+  @Nonnull private final AgentClass agentClass;
   @Nonnull private final String agentName;
   @Nullable private final MetricUtils metricUtils;
   @Nullable private final String traceId;
+
+  /** Surface-neutral usage operation registry key (e.g. dimensions.usage_operation). */
+  @Nullable private final String usageOperation;
+
+  /** Stable usage identity string for distinct actor counting (MAU-style metrics). */
+  @Nullable private final String usageIdentity;
+
+  @Nullable private final AuthChannel authChannel;
+  @Nullable private final GraphQLOperationKind graphqlOperationKind;
+
+  /** Decoded request body length when fully materialized; null when omitted (streaming). */
+  @Nullable private final Long inputBytes;
+
+  /** Decoded response body length when fully materialized; null when omitted. */
+  @Nullable private final Long outputBytes;
+
+  /** Whether the request body was fully buffered for byte measurement. */
+  private final boolean requestBodyMaterialized;
+
+  /** Whether the response body was fully buffered for byte measurement. */
+  private final boolean responseBodyMaterialized;
+
+  /** Multiplier for per-proposal ingest cost profiling (batch size). Defaults to 1. */
+  @Builder.Default private final int usageQuantity = 1;
 
   public RequestContext(
       MetricUtils metricUtils,
@@ -73,6 +109,73 @@ public class RequestContext implements ContextInterface {
       @Nonnull RequestAPI requestAPI,
       @Nonnull String requestID,
       @Nonnull String userAgent) {
+    this(
+        metricUtils,
+        actorUrn,
+        sourceIP,
+        requestAPI,
+        requestID,
+        userAgent,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        false,
+        false,
+        1);
+  }
+
+  public RequestContext(
+      MetricUtils metricUtils,
+      @Nonnull String actorUrn,
+      @Nonnull String sourceIP,
+      @Nonnull RequestAPI requestAPI,
+      @Nonnull String requestID,
+      @Nonnull String userAgent,
+      @Nullable String usageOperation,
+      @Nullable String usageIdentity,
+      @Nullable AuthChannel authChannel,
+      @Nullable GraphQLOperationKind graphqlOperationKind,
+      @Nullable Long inputBytes,
+      @Nullable Long outputBytes,
+      boolean requestBodyMaterialized,
+      boolean responseBodyMaterialized) {
+    this(
+        metricUtils,
+        actorUrn,
+        sourceIP,
+        requestAPI,
+        requestID,
+        userAgent,
+        usageOperation,
+        usageIdentity,
+        authChannel,
+        graphqlOperationKind,
+        inputBytes,
+        outputBytes,
+        requestBodyMaterialized,
+        responseBodyMaterialized,
+        1);
+  }
+
+  public RequestContext(
+      MetricUtils metricUtils,
+      @Nonnull String actorUrn,
+      @Nonnull String sourceIP,
+      @Nonnull RequestAPI requestAPI,
+      @Nonnull String requestID,
+      @Nonnull String userAgent,
+      @Nullable String usageOperation,
+      @Nullable String usageIdentity,
+      @Nullable AuthChannel authChannel,
+      @Nullable GraphQLOperationKind graphqlOperationKind,
+      @Nullable Long inputBytes,
+      @Nullable Long outputBytes,
+      boolean requestBodyMaterialized,
+      boolean responseBodyMaterialized,
+      int usageQuantity) {
     this.actorUrn = actorUrn;
     this.sourceIP = sourceIP;
     this.requestAPI = requestAPI;
@@ -96,10 +199,10 @@ public class RequestContext implements ContextInterface {
      */
     if (this.userAgent != null && !this.userAgent.isEmpty()) {
       UserAgent ua = UAA.parse(this.userAgent);
-      this.agentClass = ua.get(UserAgent.AGENT_CLASS).getValue();
+      this.agentClass = AgentClass.fromRawUserAgentClass(ua.get(UserAgent.AGENT_CLASS).getValue());
       this.agentName = ua.get(UserAgent.AGENT_NAME).getValue();
     } else {
-      this.agentClass = "Unknown";
+      this.agentClass = AgentClass.UNKNOWN;
       this.agentName = "Unknown";
     }
 
@@ -113,9 +216,20 @@ public class RequestContext implements ContextInterface {
       }
     }
     this.traceId = traceId;
+    this.usageOperation = usageOperation;
+    this.usageIdentity = usageIdentity;
+    this.authChannel = authChannel;
+    this.graphqlOperationKind = graphqlOperationKind;
+    this.inputBytes = inputBytes;
+    this.outputBytes = outputBytes;
+    this.requestBodyMaterialized = requestBodyMaterialized;
+    this.responseBodyMaterialized = responseBodyMaterialized;
+    this.usageQuantity = Math.max(1, usageQuantity);
+
+    putUsageFieldsInMdc();
 
     // Uniform common logging of requests across APIs
-    log.info(toString());
+    log.debug("{}", this);
 
     // API metrics
     if (metricUtils != null) {
@@ -128,7 +242,114 @@ public class RequestContext implements ContextInterface {
     return Optional.empty();
   }
 
+  /** Counts JSON array elements for ingest batch usage quantity; returns 1 when not an array. */
+  public static int resolveIngestUsageQuantity(
+      @Nonnull String jsonBody, @Nonnull ObjectMapper objectMapper) {
+    try {
+      JsonNode node = objectMapper.readTree(jsonBody);
+      if (node.isArray()) {
+        return Math.max(1, node.size());
+      }
+    } catch (JsonProcessingException e) {
+      log.debug("Could not parse ingest body for usage quantity", e);
+    }
+    return 1;
+  }
+
+  /** Sums array sizes under a JSON object keyed by entity type (generic multi-type ingest). */
+  public static int resolveIngestUsageQuantity(@Nonnull JsonNode rootObject) {
+    if (!rootObject.isObject()) {
+      return 1;
+    }
+    int total = 0;
+    for (JsonNode value : rootObject) {
+      if (value.isArray()) {
+        total += value.size();
+      } else {
+        total += 1;
+      }
+    }
+    return Math.max(1, total);
+  }
+
+  /** Resolves request wire bytes from servlet {@code Content-Length} when not streaming/chunked. */
+  @Nullable
+  public static Long resolveRequestInputBytes(@Nonnull HttpServletRequest request) {
+    return wireBytesFromContentLength(
+        request.getContentLengthLong(), isStreamingOrChunkedHttpRequest(request));
+  }
+
+  /** Resolves request wire bytes from Rest.li {@code Content-Length} request headers only. */
+  @Nullable
+  public static Long resolveRequestInputBytes(@Nullable ResourceContext resourceContext) {
+    if (resourceContext == null) {
+      return null;
+    }
+    Map<String, String> headers = resourceContext.getRequestHeaders();
+    long contentLength = parseContentLengthHeader(headers.get(HttpHeaders.CONTENT_LENGTH));
+    return wireBytesFromContentLength(
+        contentLength, isChunkedTransferEncoding(headers.get(HttpHeaders.TRANSFER_ENCODING)));
+  }
+
+  /** Resolves response wire bytes from {@code Content-Length} when not streaming/chunked. */
+  @Nullable
+  public static Long resolveResponseOutputBytes(@Nonnull HttpServletResponse response) {
+    return resolveResponseOutputBytes(response, 0L);
+  }
+
+  /**
+   * Resolves response bytes, preferring measured bytes written to the response body when {@code
+   * measuredBytesWritten} is positive (for example from {@link
+   * CountingHttpServletResponseWrapper}). Falls back to {@code Content-Length} when no body bytes
+   * were measured.
+   */
+  @Nullable
+  public static Long resolveResponseOutputBytes(
+      @Nonnull HttpServletResponse response, long measuredBytesWritten) {
+    if (measuredBytesWritten > 0) {
+      return measuredBytesWritten;
+    }
+    long contentLength = parseContentLengthHeader(response.getHeader(HttpHeaders.CONTENT_LENGTH));
+    boolean streaming =
+        contentLength < 0
+            || isChunkedTransferEncoding(response.getHeader(HttpHeaders.TRANSFER_ENCODING));
+    return wireBytesFromContentLength(contentLength, streaming);
+  }
+
+  @Nullable
+  static Long wireBytesFromContentLength(long contentLength, boolean streamingOrChunked) {
+    if (streamingOrChunked || contentLength < 0) {
+      return null;
+    }
+    return contentLength;
+  }
+
+  static long parseContentLengthHeader(@Nullable String header) {
+    if (header == null || header.isBlank()) {
+      return -1L;
+    }
+    return NumberUtils.toLong(header.trim(), -1L);
+  }
+
+  static boolean isChunkedTransferEncoding(@Nullable String transferEncoding) {
+    return transferEncoding != null && transferEncoding.toLowerCase().contains("chunked");
+  }
+
+  static boolean isStreamingOrChunkedHttpRequest(@Nonnull HttpServletRequest request) {
+    if (request.getContentLengthLong() < 0) {
+      return true;
+    }
+    return isChunkedTransferEncoding(request.getHeader(HttpHeaders.TRANSFER_ENCODING));
+  }
+
   public static class RequestContextBuilder {
+
+    private int usageQuantity = 1;
+
+    public RequestContextBuilder usageQuantity(int usageQuantity) {
+      this.usageQuantity = Math.max(1, usageQuantity);
+      return this;
+    }
 
     public RequestContext build() {
       // Add context for tracing
@@ -150,7 +371,16 @@ public class RequestContext implements ContextInterface {
           this.sourceIP,
           this.requestAPI,
           this.requestID,
-          this.userAgent);
+          this.userAgent,
+          this.usageOperation,
+          this.usageIdentity,
+          this.authChannel,
+          this.graphqlOperationKind,
+          this.inputBytes,
+          this.outputBytes,
+          this.requestBodyMaterialized,
+          this.responseBodyMaterialized,
+          this.usageQuantity);
     }
 
     public RequestContextBuilder buildGraphql(
@@ -163,6 +393,9 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.GRAPHQL);
       requestID(buildRequestId(queryName, Set.of()));
       userAgent(extractUserAgent(request));
+      if (peekInputBytes() == null) {
+        withWireInput(request);
+      }
       return this;
     }
 
@@ -202,6 +435,9 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.RESTLI);
       requestID(buildRequestId(action, entityNames));
       userAgent(resourceContext == null ? "" : extractUserAgent(resourceContext));
+      if (resourceContext != null && peekInputBytes() == null) {
+        withWireInput(resourceContext);
+      }
       return this;
     }
 
@@ -224,6 +460,9 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.OPENAPI);
       requestID(buildRequestId(action, entityNames));
       userAgent(request == null ? "" : extractUserAgent(request));
+      if (request != null && peekInputBytes() == null) {
+        withWireInput(request);
+      }
       return this;
     }
 
@@ -254,24 +493,122 @@ public class RequestContext implements ContextInterface {
               resourceContext.getRequestHeaders().get(HttpHeaders.X_FORWARDED_FOR))
           .orElse(resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR").toString());
     }
+
+    public RequestAPI peekRequestAPI() {
+      return this.requestAPI;
+    }
+
+    public String peekRequestID() {
+      return this.requestID;
+    }
+
+    public String peekActorUrn() {
+      return this.actorUrn;
+    }
+
+    public String peekUserAgent() {
+      return this.userAgent;
+    }
+
+    public GraphQLOperationKind peekGraphqlOperationKind() {
+      return this.graphqlOperationKind;
+    }
+
+    public Long peekInputBytes() {
+      return this.inputBytes;
+    }
+
+    @Nullable
+    public String peekUsageOperation() {
+      return this.usageOperation;
+    }
+
+    @Nonnull
+    public RequestContextBuilder withClientHeaders(
+        @Nullable String xForwardedFor, @Nullable String userAgentHeader) {
+      if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+        sourceIP(xForwardedFor);
+      }
+      if (userAgentHeader != null && !userAgentHeader.isEmpty()) {
+        userAgent(userAgentHeader);
+      }
+      return this;
+    }
+
+    @Nonnull
+    public RequestContextBuilder withUsageOperation(@Nonnull UsageOperation operation) {
+      return usageOperation(operation.key());
+    }
+
+    @Nonnull
+    public RequestContextBuilder withUsageQuantity(int quantity) {
+      return usageQuantity(Math.max(1, quantity));
+    }
+
+    @Nonnull
+    public RequestContextBuilder withMaterializedOutputBytes(long outputByteCount) {
+      if (outputByteCount <= 0) {
+        return this;
+      }
+      outputBytes(outputByteCount);
+      responseBodyMaterialized(true);
+      return this;
+    }
+
+    @Nonnull
+    public RequestContextBuilder withWireInput(@Nonnull HttpServletRequest request) {
+      if (peekInputBytes() != null) {
+        return this;
+      }
+      Long inputByteCount = resolveRequestInputBytes(request);
+      if (inputByteCount != null) {
+        inputBytes(inputByteCount);
+        requestBodyMaterialized(true);
+      }
+      return this;
+    }
+
+    @Nonnull
+    public RequestContextBuilder withWireInput(@Nullable ResourceContext resourceContext) {
+      if (peekInputBytes() != null) {
+        return this;
+      }
+      Long inputByteCount = resolveRequestInputBytes(resourceContext);
+      if (inputByteCount != null) {
+        inputBytes(inputByteCount);
+        requestBodyMaterialized(true);
+      }
+      return this;
+    }
+
+    /**
+     * Records input size from an already-parsed UTF-8 request body (for example
+     * {@code @RequestBody} {@code String} on OpenAPI ingest handlers). Fills the gap when {@link
+     * #withWireInput} cannot use {@code Content-Length} because the client sent chunked transfer
+     * encoding.
+     */
+    @Nonnull
+    public RequestContextBuilder withMaterializedInputUtf8Bytes(@Nonnull String bodyUtf8) {
+      if (peekInputBytes() != null || bodyUtf8.isEmpty()) {
+        return this;
+      }
+      inputBytes((long) bodyUtf8.getBytes(StandardCharsets.UTF_8).length);
+      requestBodyMaterialized(true);
+      return this;
+    }
   }
 
   private static void captureAPIMetrics(MetricUtils metricUtils, RequestContext requestContext) {
-    // System user?
-    final String userCategory;
-    if (SYSTEM_ACTOR.equals(requestContext.actorUrn)) {
-      userCategory = "system";
-    } else if (DATAHUB_ACTOR.equals(requestContext.actorUrn)) {
-      userCategory = "admin";
-    } else {
-      userCategory = "regular";
-    }
+    final String userCategory =
+        UsageActorClass.fromActorUrn(requestContext.actorUrn).toLegacyUserCategoryTag();
 
     if (requestContext.getRequestAPI() != RequestAPI.TEST && metricUtils != null) {
-      String agentClass = requestContext.getAgentClass().toLowerCase().replaceAll("\\s+", "");
-      String requestAPI = requestContext.getRequestAPI().toString().toLowerCase();
+      String agentClass = requestContext.getAgentClass().toMetricLabel();
+      String requestAPI = requestContext.getRequestAPI().toMetricLabel();
       metricUtils.increment(
           String.format("requestContext_%s_%s_%s", userCategory, agentClass, requestAPI), 1);
+      // Per-request Micrometer counter. When USAGE_AGGREGATION_ENABLED is on, the flush path also
+      // exports datahub_request_count; keep this until aggregation is the default in smoke/dev.
       metricUtils.incrementMicrometer(
           MetricUtils.DATAHUB_REQUEST_COUNT,
           1,
@@ -284,36 +621,84 @@ public class RequestContext implements ContextInterface {
     }
   }
 
+  /** Populates MDC with low-cardinality usage dimensions when this request is tagged. */
+  private void putUsageFieldsInMdc() {
+    if (usageOperation == null || usageOperation.isEmpty()) {
+      return;
+    }
+    MDC.put(MDC_USAGE_OPERATION, usageOperation);
+    if (authChannel != null) {
+      MDC.put(MDC_AUTH_CHANNEL, authChannel.dimensionValue());
+    }
+    if (usageQuantity > 1) {
+      MDC.put(MDC_USAGE_QUANTITY, String.valueOf(usageQuantity));
+    }
+  }
+
+  /** Clears usage MDC keys; call at end of servlet request to avoid thread-pool leakage. */
+  public static void clearUsageFieldsFromMdc() {
+    MDC.remove(MDC_USAGE_OPERATION);
+    MDC.remove(MDC_AUTH_CHANNEL);
+    MDC.remove(MDC_USAGE_QUANTITY);
+  }
+
   @Override
   public String toString() {
-    return "RequestContext{"
-        + "actorUrn='"
-        + actorUrn
-        + '\''
-        + ", sourceIP='"
-        + sourceIP
-        + '\''
-        + ", requestAPI="
-        + requestAPI
-        + ", requestID='"
-        + requestID
-        + '\''
-        + ", userAgent='"
-        + userAgent
-        + '\''
-        + ", agentClass='"
-        + agentClass
-        + '\''
-        + ", traceId='"
-        + traceId
-        + '\''
-        + '}';
+    StringBuilder sb =
+        new StringBuilder("RequestContext{")
+            .append("actorUrn='")
+            .append(actorUrn)
+            .append('\'')
+            .append(", sourceIP='")
+            .append(sourceIP)
+            .append('\'')
+            .append(", requestAPI=")
+            .append(requestAPI)
+            .append(", requestID='")
+            .append(requestID)
+            .append('\'')
+            .append(", userAgent='")
+            .append(userAgent)
+            .append('\'')
+            .append(", agentClass=")
+            .append(agentClass)
+            .append(", traceId='")
+            .append(traceId)
+            .append('\'');
+    appendUsageFieldsToString(sb);
+    return sb.append('}').toString();
+  }
+
+  private void appendUsageFieldsToString(StringBuilder sb) {
+    if (usageOperation == null || usageOperation.isEmpty()) {
+      return;
+    }
+    sb.append(", usageOperation='").append(usageOperation).append('\'');
+    if (authChannel != null) {
+      sb.append(", authChannel=").append(authChannel);
+    }
+    if (graphqlOperationKind != null) {
+      sb.append(", graphqlOperationKind=").append(graphqlOperationKind);
+    }
+    if (inputBytes != null) {
+      sb.append(", inputBytes=").append(inputBytes);
+    }
+    if (usageQuantity > 1) {
+      sb.append(", usageQuantity=").append(usageQuantity);
+    }
   }
 
   public enum RequestAPI {
     TEST,
     RESTLI,
     OPENAPI,
-    GRAPHQL
+    GRAPHQL,
+    /** Kafka / pgQueue MCP consumption (MCE consumer), not HTTP. */
+    MESSAGING;
+
+    @Nonnull
+    public String toMetricLabel() {
+      return name().toLowerCase();
+    }
   }
 }

@@ -1,6 +1,8 @@
 package com.linkedin.metadata.timeseries.elastic;
 
+import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
+import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
 import com.codahale.metrics.Timer;
@@ -53,9 +55,17 @@ public class UsageServiceUtil {
         Integer.parseInt(
             System.getenv()
                 .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    int maxNameLength =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
     OBJECT_MAPPER
         .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+        .setStreamReadConstraints(
+            StreamReadConstraints.builder()
+                .maxStringLength(maxSize)
+                .maxNameLength(maxNameLength)
+                .build());
   }
 
   private UsageServiceUtil() {}
@@ -113,7 +123,7 @@ public class UsageServiceUtil {
                     opContext, timeseriesAspectService, filter, resource, duration, timeZone),
             MetricUtils.DROPWIZARD_NAME,
             MetricUtils.name(UsageServiceUtil.class, "getBuckets"));
-    log.info("Usage stats for resource {} returned {} buckets", resource, buckets.size());
+    log.debug("Usage stats for resource {} returned {} buckets", resource, buckets.size());
 
     // 3. Get aggregations.
     UsageQueryResultAggregations aggregations =
@@ -122,7 +132,7 @@ public class UsageServiceUtil {
             () -> getAggregations(opContext, timeseriesAspectService, filter),
             MetricUtils.DROPWIZARD_NAME,
             MetricUtils.name(UsageServiceUtil.class, "getAggregations"));
-    log.info("Usage stats aggregation for resource {}", resource);
+    log.debug("Usage stats aggregation for resource {}", resource);
 
     // 4. Compute totalSqlQuery count from the buckets itself.
     // We want to avoid issuing an additional query with a sum aggregation.

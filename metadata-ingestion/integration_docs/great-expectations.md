@@ -1,3 +1,7 @@
+---
+description: "Send Great Expectations assertion results to DataHub using the DataHubValidationAction and the Python REST emitter integration."
+---
+
 # Great Expectations
 
 This guide helps to setup and configure `DataHubValidationAction` in Great Expectations to send assertions(expectations) and their results to DataHub using DataHub's Python Rest emitter.
@@ -9,15 +13,21 @@ This guide helps to setup and configure `DataHubValidationAction` in Great Expec
 - **Assertion Details**: Details of assertions (i.e. expectation) set on a Dataset (Table).
 - **Assertion Results**: Evaluation results for an assertion tracked over time.
 
-This integration supports v3 api datasources using SqlAlchemyExecutionEngine.
+This integration supports v3 api datasources using SqlAlchemyExecutionEngine and SparkDFExecutionEngine.
+
+For SparkDFExecutionEngine, DataHubValidationAction would map the **Data Asset** of GX to dataSet's entity name when constructing datasets URN.
 
 ## Limitations
 
 This integration does not support
 
 - v2 Datasources such as SqlAlchemyDataset
-- v3 Datasources using execution engine other than SqlAlchemyExecutionEngine (Spark, Pandas)
+- v3 Datasources using execution engine other than SqlAlchemyExecutionEngine,SparkDFExecutionEngine (Pandas)
 - Cross-dataset expectations (those involving > 1 table)
+
+## Compatibility
+
+- DataHubValidationAction with SparkDFExecutionEngine has only been tested with **Great Expectation >= 0.18.0, <1.0.0**. Other versions may not be compatible
 
 ## Setting up
 
@@ -50,6 +60,7 @@ This integration does not support
    - `extra_headers` (optional): Extra headers which will be added to the datahub request.
    - `parse_table_names_from_sql` (defaults to false): The integration can use an SQL parser to try to parse the datasets being asserted. This parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`. The parser is based on the [`sqllineage`](https://pypi.org/project/sqllineage/) package.
    - `convert_urns_to_lowercase` (optional): Whether to convert dataset urns to lowercase.
+   - `emit_mode` (defaults to `ASYNC`): Emit mode for writes to DataHub. `ASYNC` avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees.
 
 ## Debugging
 

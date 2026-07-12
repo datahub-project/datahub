@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { DocumentEditType, EventType } from '@app/analytics';
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
@@ -26,6 +27,7 @@ import { DocumentState } from '@types';
 // ==================== 1. CREATE DOCUMENT ====================
 
 export function useCreateDocumentTreeMutation() {
+    const { t } = useTranslation('misc');
     const { addNode, deleteNode } = useDocumentTree();
     const [createDocumentMutation] = useCreateDocumentMutation();
 
@@ -61,6 +63,7 @@ export function useCreateDocumentTreeMutation() {
 
                 const newUrn = result.data?.createDocument;
                 if (!newUrn) {
+                    /* untranslated-text -- internal error, not user-visible */
                     throw new Error('Failed to create document');
                 }
 
@@ -86,7 +89,7 @@ export function useCreateDocumentTreeMutation() {
                 return newUrn;
             } catch (error) {
                 console.error('Failed to create document:', error);
-                message.error('Failed to create document');
+                message.error(t('document.createError'));
 
                 // 4. Rollback - remove optimistic node
                 deleteNode(tempUrn);
@@ -94,7 +97,7 @@ export function useCreateDocumentTreeMutation() {
                 return null;
             }
         },
-        [addNode, deleteNode, createDocumentMutation],
+        [addNode, deleteNode, createDocumentMutation, t],
     );
 
     return { createDocument };
@@ -103,6 +106,7 @@ export function useCreateDocumentTreeMutation() {
 // ==================== 2. EDIT DOCUMENT TITLE ====================
 
 export function useUpdateDocumentTitleMutation() {
+    const { t } = useTranslation('misc');
     const { updateNodeTitle, getNode } = useDocumentTree();
     const [updateContentsMutation] = useUpdateDocumentContentsMutation();
 
@@ -123,6 +127,7 @@ export function useUpdateDocumentTitleMutation() {
                 });
 
                 if (!result.data?.updateDocumentContents) {
+                    /* untranslated-text -- internal error, not user-visible */
                     throw new Error('Failed to update title');
                 }
 
@@ -136,7 +141,7 @@ export function useUpdateDocumentTitleMutation() {
                 return true;
             } catch (error) {
                 console.error('Failed to update title:', error);
-                message.error('Failed to update title');
+                message.error(t('document.updateTitleError'));
 
                 // 3. Rollback on error
                 if (oldTitle) {
@@ -146,7 +151,7 @@ export function useUpdateDocumentTitleMutation() {
                 return false;
             }
         },
-        [updateNodeTitle, getNode, updateContentsMutation],
+        [updateNodeTitle, getNode, updateContentsMutation, t],
     );
 
     return { updateTitle };
@@ -155,6 +160,7 @@ export function useUpdateDocumentTitleMutation() {
 // ==================== 3. MOVE DOCUMENT ====================
 
 export function useMoveDocumentTreeMutation() {
+    const { t } = useTranslation('misc');
     const { moveNode, getNode } = useDocumentTree();
     const [moveDocumentMutation] = useMoveDocumentMutation();
 
@@ -184,6 +190,7 @@ export function useMoveDocumentTreeMutation() {
                 });
 
                 if (!result.data?.moveDocument) {
+                    /* untranslated-text -- internal error, not user-visible */
                     throw new Error('Failed to move document');
                 }
 
@@ -195,11 +202,11 @@ export function useMoveDocumentTreeMutation() {
                     newParentDocumentUrn: newParentUrn || undefined,
                 });
 
-                message.success('Document moved successfully');
+                message.success(t('document.moveSuccess'));
                 return true;
             } catch (error) {
                 console.error('Failed to move document:', error);
-                message.error('Failed to move document');
+                message.error(t('document.moveError'));
 
                 // 3. Rollback on error
                 moveNode(urn, oldParentUrn);
@@ -207,7 +214,7 @@ export function useMoveDocumentTreeMutation() {
                 return false;
             }
         },
-        [moveNode, getNode, moveDocumentMutation],
+        [moveNode, getNode, moveDocumentMutation, t],
     );
 
     return { moveDocument };
@@ -216,29 +223,28 @@ export function useMoveDocumentTreeMutation() {
 // ==================== 4. DELETE DOCUMENT ====================
 
 export function useDeleteDocumentTreeMutation() {
+    const { t } = useTranslation('misc');
     const { deleteNode, getNode, addNode } = useDocumentTree();
     const [deleteDocumentMutation] = useDeleteDocumentMutation();
 
     const deleteDocument = useCallback(
         async (urn: string) => {
-            // Get node for rollback
+            // Get node for rollback (may be null if document isn't in tree, e.g., opened in modal)
             const node = getNode(urn);
 
-            if (!node) {
-                console.error('Document not found in tree:', urn);
-                return false;
+            // 1. Optimistically update tree state (only if node exists in tree)
+            if (node) {
+                deleteNode(urn);
             }
 
-            // 1. Optimistically update tree state
-            deleteNode(urn);
-
             try {
-                // 2. Call backend mutation
+                // 2. Call backend mutation (always call, even if not in tree)
                 const result = await deleteDocumentMutation({
                     variables: { urn },
                 });
 
                 if (!result.data?.deleteDocument) {
+                    /* untranslated-text -- internal error, not user-visible */
                     throw new Error('Failed to delete document');
                 }
 
@@ -248,19 +254,20 @@ export function useDeleteDocumentTreeMutation() {
                     documentUrn: urn,
                 });
 
-                message.success('Document deleted');
                 return true;
             } catch (error) {
                 console.error('Failed to delete document:', error);
-                message.error('Failed to delete document');
+                message.error(t('document.deleteError'));
 
-                // 3. Rollback on error
-                addNode(node);
+                // 3. Rollback on error (only if node was in tree)
+                if (node) {
+                    addNode(node);
+                }
 
                 return false;
             }
         },
-        [deleteNode, getNode, addNode, deleteDocumentMutation],
+        [deleteNode, getNode, addNode, deleteDocumentMutation, t],
     );
 
     return { deleteDocument };

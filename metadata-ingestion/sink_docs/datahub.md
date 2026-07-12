@@ -1,3 +1,8 @@
+---
+title: DataHub Sink
+description: "Configure the DataHub REST sink to emit metadata events from ingestion pipelines to a DataHub GMS or DataHub Cloud instance."
+---
+
 # DataHub
 
 ## DataHub Rest
@@ -68,23 +73,34 @@ If you are using [UI based ingestion](../../docs/ui-ingestion.md) then where GMS
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                      | Required | Default              | Description                                                                                        |
-| -------------------------- | -------- | -------------------- | -------------------------------------------------------------------------------------------------- |
-| `server`                   | ✅       |                      | URL of DataHub GMS endpoint.                                                                       |
-| `token`                    |          |                      | Bearer token used for authentication.                                                              |
-| `timeout_sec`              |          | 30                   | Per-HTTP request timeout.                                                                          |
-| `retry_max_times`          |          | 1                    | Maximum times to retry if HTTP request fails. The delay between retries is increased exponentially |
-| `retry_status_codes`       |          | [429, 502, 503, 504] | Retry HTTP request also on these status codes                                                      |
-| `extra_headers`            |          |                      | Extra headers which will be added to the request.                                                  |
-| `max_threads`              |          | `15`                 | Max parallelism for REST API calls                                                                 |
-| `mode`                     |          | `ASYNC_BATCH`        | [Advanced] Mode of operation - `SYNC`, `ASYNC`, or `ASYNC_BATCH`                                   |
-| `ca_certificate_path`      |          |                      | Path to server's CA certificate for verification of HTTPS communications                           |
-| `client_certificate_path`  |          |                      | Path to client's CA certificate for HTTPS communications                                           |
-| `disable_ssl_verification` |          | false                | Disable ssl certificate validation                                                                 |
+| Field                      | Required | Default              | Description                                                                                                                                             |
+| -------------------------- | -------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server`                   | ✅       |                      | URL of DataHub GMS endpoint.                                                                                                                            |
+| `token`                    |          |                      | Bearer token used for authentication.                                                                                                                   |
+| `timeout_sec`              |          | 30                   | Per-HTTP request timeout.                                                                                                                               |
+| `retry_max_times`          |          | 1                    | Maximum times to retry if HTTP request fails. The delay between retries is increased exponentially                                                      |
+| `retry_status_codes`       |          | [429, 502, 503, 504] | Retry HTTP request also on these status codes                                                                                                           |
+| `extra_headers`            |          |                      | Extra headers which will be added to the request.                                                                                                       |
+| `max_threads`              |          | `15`                 | Max parallelism for REST API calls                                                                                                                      |
+| `mode`                     |          | `ASYNC_BATCH`        | [Advanced] Mode of operation - `SYNC`, `ASYNC`, or `ASYNC_BATCH`                                                                                        |
+| `ca_certificate_path`      |          |                      | Path to server's CA certificate for verification of HTTPS communications                                                                                |
+| `client_certificate_path`  |          |                      | Path to client's CA certificate for HTTPS communications                                                                                                |
+| `disable_ssl_verification` |          | false                | Disable ssl certificate validation                                                                                                                      |
+| `respect_mcp_sync_marker`  |          | false                | [Advanced] Upgrade a batch to synchronous when any MCP carries the `emitModeMarker=sync` system-metadata marker. See limitation and requirements below. |
+
+#### Marker-aware sync routing (`respect_mcp_sync_marker`)
+
+When enabled, a batch is upgraded to synchronous (`async=false`) if any of its MCPs carries the `emitModeMarker=sync` marker in its system metadata; otherwise the configured `mode` is honored unchanged. It only ever forces more synchronicity, never less. The marker is read, not produced, by the sink: a producer must populate the `emitModeMarker` system-metadata property (to `sync`) on the writes that must remain synchronous (e.g. via a custom aspect mutator/validator or an upstream processing step).
+
+This feature is supported only in specific configurations of DataHub Cloud and only when adopted under specific direction of DataHub. This feature requires a dedicated pool of logical model propagation workers and that MCP throttling be enabled.
 
 ## DataHub Kafka
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
+
+#### Note: Not Supported in DataHub Cloud
+
+The `datahub-kafka` sink requires direct network access to the Kafka cluster, which is only available in self-hosted DataHub environments (like OSS). For DataHub Cloud, use the `datahub-rest` sink instead.
 
 ### Setup
 
@@ -113,6 +129,31 @@ sink:
       schema_registry_url: "http://localhost:8081"
 ```
 
+#### Kafka with OAuth
+
+E.g. for AWS MSK clusters using IAM authentication:
+
+```yml
+source:
+  # source configs
+sink:
+  type: "datahub-kafka"
+  config:
+    topic_routes:
+      MetadataChangeEvent: "custom_mce_topic_name" # Optional override
+      MetadataChangeProposal: "custom_mcp_topic_name" # Optional override
+    connection:
+      bootstrap: "b-1.your-msk-cluster.region.amazonaws.com:9098"
+      schema_registry_url: "http://datahub-gms:8080/schema-registry/api/"
+      producer_config:
+        security.protocol: "SASL_SSL"
+        sasl.mechanism: "OAUTHBEARER"
+        sasl.oauthbearer.method: "default"
+        oauth_cb: "datahub_actions.utils.kafka_msk_iam:oauth_cb" # OAuth callback
+```
+
+**Note:** MSK IAM authentication requires `pip install 'acryl-datahub-actions>=1.3.1.2'` for the OAuth callback.
+
 ### Config details
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
@@ -121,6 +162,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | -------------------------------------------- | -------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `connection.bootstrap`                       | ✅       |                        | Kafka bootstrap URL.                                                                                                                                     |
 | `connection.producer_config.<option>`        |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                  |
+| `connection.producer_config.oauth_cb`        |          |                        | OAuth callback function for authentication (e.g., `datahub_actions.utils.kafka_msk_iam:oauth_cb` for MSK IAM)                                            |
 | `connection.schema_registry_url`             | ✅       |                        | URL of schema registry being used.                                                                                                                       |
 | `connection.schema_registry_config.<option>` |          |                        | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient |
 | `topic_routes.MetadataChangeEvent`           |          | MetadataChangeEvent    | Overridden Kafka topic name for the MetadataChangeEvent                                                                                                  |

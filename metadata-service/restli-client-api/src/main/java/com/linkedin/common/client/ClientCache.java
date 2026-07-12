@@ -45,6 +45,14 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
     cache.refresh(key);
   }
 
+  public void invalidateAll(@Nonnull Iterable<? extends K> keys) {
+    cache.invalidateAll(keys);
+  }
+
+  public Set<K> keySet() {
+    return cache.asMap().keySet();
+  }
+
   public static class ClientCacheBuilder<K, V, C extends ClientCacheConfig> {
 
     private ClientCacheBuilder<K, V, C> cache(LoadingCache<K, V> cache) {

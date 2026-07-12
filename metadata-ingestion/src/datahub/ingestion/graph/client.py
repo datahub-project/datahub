@@ -4,7 +4,6 @@ import json
 import logging
 import textwrap
 import time
-from dataclasses import dataclass
 from datetime import datetime
 from json.decoder import JSONDecodeError
 from typing import (
@@ -17,6 +16,7 @@ from typing import (
     Literal,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Type,
     Union,
@@ -28,17 +28,16 @@ from pydantic import BaseModel
 from requests.models import HTTPError
 from typing_extensions import deprecated
 
-from datahub._codegen.aspect import _Aspect
 from datahub.cli import config_utils
 from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import (
-    DatahubRestEmitter,
-)
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.emitter.token_provider import TokenProviderAuth
+from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import (
     ClientMode,
     DatahubClientConfig as DatahubClientConfig,
@@ -47,6 +46,7 @@ from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
 )
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.ingestion.graph.entity_versioning import EntityVersioningAPI
 from datahub.ingestion.graph.filters import (
     RawSearchFilter,
@@ -55,6 +55,11 @@ from datahub.ingestion.graph.filters import (
     generate_filter,
 )
 from datahub.ingestion.graph.links import make_url_for_urn
+from datahub.ingestion.graph.openapi import (
+    LineageDirection,
+    OpenApiAPI,
+    RelationshipDirection,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -87,8 +92,7 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.telemetry.telemetry import telemetry_instance
-from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.str_enum import StrEnum
+from datahub.utilities.server_state_disk_cache import ServerStateDiskCache
 from datahub.utilities.urns.urn import guess_entity_type
 
 if TYPE_CHECKING:
@@ -105,23 +109,20 @@ if TYPE_CHECKING:
         SchemaResolverReport,
     )
     from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+    from datahub.utilities.graphql_query_adapter import QueryProjector
 
 
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
 
+# Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
+# survives across short-lived processes and invalidates on server upgrade.
+_ENTITY_SPECS_CACHE = ServerStateDiskCache("entity_aspect_specs")
 
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
 DataHubGraphConfig = DatahubClientConfig
-
-
-@dataclass
-class RelatedEntity:
-    urn: str
-    relationship_type: str
-    via: Optional[str] = None
 
 
 def entity_type_to_graphql(entity_type: str) -> str:
@@ -161,26 +162,77 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
     return entity_type_to_graphql(entity_type)
 
 
-class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
+class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
+    # Redefine for backwards compatibility
+    RelationshipDirection = RelationshipDirection
+    LineageDirection = LineageDirection
+
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
+        resolved_auth = None
+        if self.config.auth is not None:
+            resolved_auth = TokenProviderAuth(build_token_provider(self.config.auth))
         super().__init__(
+            default_emit_mode=self.config.default_emit_mode,
             gms_server=self.config.server,
             token=self.config.token,
+            auth=resolved_auth,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
             retry_status_codes=self.config.retry_status_codes,
             retry_max_times=self.config.retry_max_times,
+            pool_connections=self.config.pool_connections,
+            pool_maxsize=self.config.pool_maxsize,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
+            client_key_path=self.config.client_key_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
             openapi_ingestion=self.config.openapi_ingestion,
+            respect_mcp_sync_marker=self.config.respect_mcp_sync_marker,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             server_config_refresh_interval=config.server_config_refresh_interval,
+            tcp_keepalive=self.config.tcp_keepalive,
         )
         self.server_id: str = _MISSING_SERVER_ID
+        self._query_projector: Optional["QueryProjector"] = None
+        self._graphql_input_fields_cache: Dict[str, Set[str]] = {}
+        # The memoized specs paired with the commit hash they were built
+        # against, so the memo invalidates on a server upgrade.
+        self._entity_aspect_specs: Optional[
+            Tuple[Optional[str], "EntityAspectSpecs"]
+        ] = None
+
+    def _graphql_input_type_has_field(self, input_type: str, field_name: str) -> bool:
+        if input_type not in self._graphql_input_fields_cache:
+            response = self.execute_graphql(
+                textwrap.dedent(
+                    """
+                    query inputTypeFields($name: String!) {
+                      __type(name: $name) {
+                        inputFields {
+                          name
+                        }
+                      }
+                    }
+                    """
+                ),
+                variables={"name": input_type},
+            )
+            input_fields = (response.get("__type") or {}).get("inputFields") or []
+            self._graphql_input_fields_cache[input_type] = {
+                field["name"] for field in input_fields if field.get("name")
+            }
+
+        return field_name in self._graphql_input_fields_cache[input_type]
+
+    def _ensure_search_flag_supported(self, field_name: str) -> None:
+        if not self._graphql_input_type_has_field("SearchFlags", field_name):
+            raise ValueError(
+                f"SearchFlags.{field_name} is not supported by this DataHub server. "
+                "Upgrade GMS or disable the corresponding option."
+            )
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -241,7 +293,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             timeout_sec: Optional[float] = session_config.timeout[0]
         else:
             timeout_sec = session_config.timeout
-        return cls(
+        graph = cls(
             DatahubClientConfig(
                 server=emitter._gms_server,
                 token=emitter._token,
@@ -252,11 +304,32 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 disable_ssl_verification=session_config.disable_ssl_verification,
                 ca_certificate_path=session_config.ca_certificate_path,
                 client_certificate_path=session_config.client_certificate_path,
+                client_key_path=session_config.client_key_path,
                 client_mode=session_config.client_mode,
                 datahub_component=session_config.datahub_component,
                 server_config_refresh_interval=emitter._server_config_refresh_interval,
-            )
+                tcp_keepalive=session_config.tcp_keepalive,
+                # Preserve the source emitter's default emit mode so converting an
+                # emitter to a graph (e.g. emitter.to_graph()) doesn't silently
+                # revert to the global default.
+                default_emit_mode=emitter._default_emit_mode,
+            ),
         )
+        if emitter._session.auth is not None:
+            # The declarative AuthConfig is not recoverable from a live emitter,
+            # so carry the resolved requests auth object onto the new session —
+            # otherwise a graph built from an OAuth-authenticated emitter would
+            # silently lose its credentials.
+            #
+            # Known edge: the derived graph's config.auth stays None, so anything
+            # that re-derives a client from this graph's CONFIG (rather than its
+            # session) — e.g. emit_all()/make_rest_sink() via
+            # _make_rest_sink_config() — only picks up env-based OAuth
+            # (DATAHUB_AUTH_TYPE), not auth that came from a recipe sink block.
+            # TODO(oauth): retain the declarative AuthConfig alongside the
+            # resolved auth so derived configs keep it.
+            graph._session.auth = emitter._session.auth
+        return graph
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
         try:
@@ -278,8 +351,21 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def _get_generic(self, url: str, params: Optional[Dict] = None) -> Dict:
         return self._send_restli_request("GET", url, params=params)
 
-    def _post_generic(self, url: str, payload_dict: Dict) -> Dict:
-        return self._send_restli_request("POST", url, json=payload_dict)
+    def _post_generic(
+        self, url: str, payload_dict: Dict, params: Optional[Dict] = None
+    ) -> Dict:
+        return self._send_restli_request("POST", url, json=payload_dict, params=params)
+
+    def _paginate_offset(self, url: str, *, page_size: int = 100) -> Iterator[dict]:
+        """Yield ``elements`` from an offset-paginated GMS endpoint (start/count/total)."""
+        start = 0
+        while True:
+            data = self._get_generic(url, params={"start": start, "count": page_size})
+            yield from data.get("elements", [])
+            count = data.get("count", 0)
+            start += count
+            if count == 0 or start >= data.get("total", 0):
+                break
 
     def _make_rest_sink_config(
         self, extra_config: Optional[Dict] = None
@@ -396,6 +482,59 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
     def get_config(self) -> Dict[str, Any]:
         return self.server_config.raw_config
+
+    def get_entity_aspect_specs(self) -> Optional["EntityAspectSpecs"]:
+        """The server's entity/aspect specs for capability detection.
+
+        Memoized in memory per client, and cached on disk keyed by server URL +
+        commit hash so it survives across short-lived processes and invalidates
+        on server upgrade. Returns ``None`` if the fetch fails.
+        """
+        commit_hash: Optional[str] = None
+        try:
+            commit_hash = self.server_config.commit_hash
+        except Exception:
+            logger.debug("Could not get commit hash for specs cache key", exc_info=True)
+
+        # Only serve the in-memory memo if it was built against the server's
+        # current commit hash; otherwise a long-running client would keep
+        # returning stale specs after a server upgrade.
+        if self._entity_aspect_specs is not None:
+            memo_hash, memo_specs = self._entity_aspect_specs
+            if memo_hash == commit_hash:
+                return memo_specs
+
+        if commit_hash:
+            cached = _ENTITY_SPECS_CACHE.get(self._gms_server, commit_hash)
+            if cached is not None:
+                try:
+                    specs = EntityAspectSpecs.from_dict(cached)
+                except Exception:
+                    # Valid JSON but not a usable specs payload (e.g. shape
+                    # changed across a code upgrade) — re-fetch.
+                    logger.debug(
+                        "Ignoring unusable cached entity aspect specs",
+                        exc_info=True,
+                    )
+                else:
+                    self._entity_aspect_specs = (commit_hash, specs)
+                    return specs
+
+        url = f"{self._gms_server}/openapi/v1/registry/models/entity/specifications"
+        try:
+            elements = list(self._paginate_offset(url))
+        except Exception:
+            logger.warning(
+                "Could not fetch entity aspect specs for capability detection.",
+                exc_info=True,
+            )
+            return None
+
+        specs = EntityAspectSpecs.from_registry_api_elements(elements)
+        if commit_hash:
+            _ENTITY_SPECS_CACHE.put(self._gms_server, commit_hash, specs.to_dict())
+        self._entity_aspect_specs = (commit_hash, specs)
+        return specs
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=OwnershipClass)
@@ -676,10 +815,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         return f"{self._gms_server}/entities?action=search"
 
     @property
-    def _relationships_endpoint(self):
-        return f"{self._gms_server}/openapi/relationships/v1/"
-
-    @property
     def _aspect_count_endpoint(self):
         return f"{self._gms_server}/aspects?action=getCount"
 
@@ -926,6 +1061,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
         skip_cache: bool = False,
+        include_hidden_lifecycle_stages: bool = False,
+        include_draft: bool = False,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -945,6 +1082,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
         :param skip_cache: Whether to bypass caching. Defaults to False.
+        :param include_hidden_lifecycle_stages: Whether to include entities hidden by lifecycle stage.
+        :param include_draft: Whether to include entities in DRAFT lifecycle state.
 
         :return: An iterable of urns that match the filters.
         """
@@ -965,6 +1104,27 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             extra_or_filters=extra_or_filters,
         )
 
+        optional_variable_defs = ""
+        optional_search_flag_fields = ""
+        optional_variables: Dict[str, bool] = {}
+        if include_hidden_lifecycle_stages:
+            self._ensure_search_flag_supported("includeHiddenLifecycleStages")
+            optional_variable_defs += (
+                "\n                $includeHiddenLifecycleStages: Boolean!,"
+            )
+            optional_search_flag_fields += (
+                "\n                        includeHiddenLifecycleStages: "
+                "$includeHiddenLifecycleStages"
+            )
+            optional_variables["includeHiddenLifecycleStages"] = True
+        if include_draft:
+            self._ensure_search_flag_supported("includeDraft")
+            optional_variable_defs += "\n                $includeDraft: Boolean!,"
+            optional_search_flag_fields += (
+                "\n                        includeDraft: $includeDraft"
+            )
+            optional_variables["includeDraft"] = True
+
         graphql_query = textwrap.dedent(
             """
             query scrollUrnsWithFilters(
@@ -974,6 +1134,9 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 $batchSize: Int!,
                 $scrollId: String,
                 $skipCache: Boolean!,
+            """
+            + optional_variable_defs
+            + """
                 $includeSoftDeleted: Boolean) {
 
                 scrollAcrossEntities(input: {
@@ -986,6 +1149,9 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                         skipHighlighting: true
                         skipAggregates: true
                         skipCache: $skipCache
+            """
+            + optional_search_flag_fields
+            + """
                         includeSoftDeleted: $includeSoftDeleted
                     }
                 }) {
@@ -993,6 +1159,10 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     searchResults {
                         entity {
                             urn
+                        }
+                        extraProperties {
+                            name
+                            value
                         }
                     }
                 }
@@ -1012,6 +1182,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 else status != RemovedStatusFilter.NOT_SOFT_DELETED
             ),
         }
+        variables.update(optional_variables)
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
@@ -1234,7 +1405,82 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         variables: Optional[Dict] = None,
         operation_name: Optional[str] = None,
         format_exception: bool = True,
+        strip_unsupported_fields: bool = False,
+        required_fields: Optional[List[str]] = None,
     ) -> Dict:
+        """Execute a GraphQL query against the DataHub server.
+
+        Args:
+            query: The GraphQL query string.
+            variables: Optional variables for the query.
+            operation_name: Optional GraphQL operation name.
+            format_exception: If True, format GraphQL errors into a readable message.
+            strip_unsupported_fields: Controls schema-compatibility projection.
+                When True, fields and types not present in the server's schema are
+                automatically removed so the query succeeds. Callers should treat
+                projected-away fields as absent in the response rather than assuming
+                they will always be returned. Recommended for agentic / exploratory
+                callers (MCP tools, CLI) that can tolerate missing fields.
+                When False (default), the query is sent as-is and the server will
+                return a GraphQL error if it references unknown fields. Use this
+                when the caller requires specific fields and needs a hard failure
+                if they are unavailable.
+            required_fields: Optional list of dot-separated field paths that must
+                survive projection. Only meaningful when strip_unsupported_fields
+                is True. If any required path would be removed, raises
+                RequiredFieldUnsupportedError instead of silently stripping.
+                Paths can be type-anchored (``Dataset.properties``) or
+                root-anchored (``searchAcrossEntities``). See
+                :class:`~datahub.utilities.graphql_query_adapter.RequiredFieldUnsupportedError`.
+        """
+        # Whether the query was already minified by adapt_query() above —
+        # avoids a redundant parse+print round-trip on the happy path.
+        already_minified = False
+
+        if strip_unsupported_fields:
+            try:
+                if self._query_projector is None:
+                    from datahub.utilities.graphql_query_adapter import QueryProjector
+
+                    self._query_projector = QueryProjector()
+                query, removed = self._query_projector.adapt_query(
+                    query, self, required_fields=required_fields
+                )
+                already_minified = True
+                if removed:
+                    logger.info(f"Stripped unsupported fields from query: {removed}")
+            except Exception as e:
+                # Let RequiredFieldUnsupportedError propagate — the caller
+                # explicitly declared these fields as mandatory.
+                try:
+                    from datahub.utilities.graphql_query_adapter import (
+                        RequiredFieldUnsupportedError,
+                    )
+
+                    if isinstance(e, RequiredFieldUnsupportedError):
+                        raise
+                except ImportError:
+                    pass
+                logger.warning(
+                    f"Failed to adapt query for schema compatibility, "
+                    f"falling back to original query: {e}"
+                )
+
+        # Always minify before sending — covers strip=False, the projection
+        # fallback path, and any caller that hands us a pretty-printed query.
+        # The projector's output is already minified; skip the redundant
+        # parse+print there. Falls back silently to the original query if
+        # minification raises (e.g. unparseable input from a caller).
+        if not already_minified:
+            try:
+                from datahub.utilities.graphql_query_adapter import (
+                    minify_graphql_query,
+                )
+
+                query = minify_graphql_query(query)
+            except Exception:
+                pass
+
         url = f"{self._gms_server}/api/graphql"
 
         body: Dict = {
@@ -1256,40 +1502,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 raise GraphError(result["errors"])
 
         return result["data"]
-
-    class RelationshipDirection(StrEnum):
-        INCOMING = "INCOMING"
-        OUTGOING = "OUTGOING"
-
-    def get_related_entities(
-        self,
-        entity_urn: str,
-        relationship_types: List[str],
-        direction: RelationshipDirection,
-    ) -> Iterable[RelatedEntity]:
-        relationship_endpoint = self._relationships_endpoint
-        done = False
-        start = 0
-        while not done:
-            response = self._get_generic(
-                url=relationship_endpoint,
-                params={
-                    "urn": entity_urn,
-                    "direction": direction.value,
-                    "relationshipTypes": relationship_types,
-                    "start": start,
-                },
-            )
-            for related_entity in response.get("entities", []):
-                yield RelatedEntity(
-                    urn=related_entity["urn"],
-                    relationship_type=related_entity["relationshipType"],
-                    via=related_entity.get("via"),
-                )
-            done = response.get("count", 0) == 0 or response.get("count", 0) < len(
-                response.get("entities", [])
-            )
-            start = start + response.get("count", 0)
 
     def exists(self, entity_urn: str) -> bool:
         entity_urn_parsed: Urn = Urn.from_string(entity_urn)
@@ -1460,31 +1672,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
 
-    def get_kafka_consumer_offsets(
-        self,
-    ) -> dict:
-        """
-        Get Kafka consumer offsets from the DataHub API.
-
-        Args:
-            graph (DataHubGraph): The DataHub graph client
-
-        """
-        urls = {
-            "mcp": f"{self.config.server}/openapi/operations/kafka/mcp/consumer/offsets",
-            "mcl": f"{self.config.server}/openapi/operations/kafka/mcl/consumer/offsets",
-            "mcl-timeseries": f"{self.config.server}/openapi/operations/kafka/mcl-timeseries/consumer/offsets",
-        }
-
-        params = {"skipCache": "true", "detailed": "true"}
-        results = {}
-        for key, url in urls.items():
-            response = self._get_generic(url=url, params=params)
-            results[key] = response
-            if "errors" in response:
-                logger.error(f"Error: {response['errors']}")
-        return results
-
     def _restore_index_call(self, payload_obj: dict) -> None:
         result = self._post_generic(
             f"{self._gms_server}/operations?action=restoreIndices", payload_obj
@@ -1556,45 +1743,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             report=report,
         )
 
-    def initialize_schema_resolver_from_datahub(
-        self,
-        platform: str,
-        platform_instance: Optional[str],
-        env: str,
-        batch_size: int = 100,
-        report: Optional["SchemaResolverReport"] = None,
-    ) -> "SchemaResolver":
-        logger.info("Initializing schema resolver")
-        schema_resolver = self._make_schema_resolver(
-            platform, platform_instance, env, include_graph=False, report=report
-        )
-
-        logger.info(f"Fetching schemas for platform {platform}, env {env}")
-        count = 0
-        with PerfTimer() as timer:
-            for urn, schema_info in self._bulk_fetch_schema_info_by_filter(
-                platform=platform,
-                platform_instance=platform_instance,
-                env=env,
-                batch_size=batch_size,
-            ):
-                try:
-                    schema_resolver.add_graphql_schema_metadata(urn, schema_info)
-                    count += 1
-                except Exception:
-                    logger.warning("Failed to add schema info", exc_info=True)
-
-                if count % 1000 == 0:
-                    logger.debug(
-                        f"Loaded {count} schema info in {timer.elapsed_seconds()} seconds"
-                    )
-            logger.info(
-                f"Finished loading total {count} schema info in {timer.elapsed_seconds()} seconds"
-            )
-
-        logger.info("Finished initializing schema resolver")
-        return schema_resolver
-
     def parse_sql_lineage(
         self,
         sql: str,
@@ -1661,6 +1809,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         fragment: str = """
              fragment assertionResult on AssertionResult {
                  type
+                 severity
                  rowCount
                  missingCount
                  unexpectedCount
@@ -1711,28 +1860,44 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def run_assertion(
         self,
         urn: str,
-        save_result: bool = True,
+        save_result: Optional[bool] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if parameters is None:
-            parameters = {}
+        """
+        Run a DataHub assertion on-demand.
+
+        Args:
+            urn: The URN of the assertion to run.
+            save_result: Whether to save the result to DataHub's backend. If not specified,
+                the backend default is True (results will be saved and visible in the UI).
+            parameters: Dynamic parameters to inject into the assertion's SQL fragment.
+            async_flag: Whether to run the assertion asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing the assertion result with type (SUCCESS/FAILURE/ERROR) and details.
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
-            mutation runAssertion($assertionUrn: String!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertion($assertionUrn: String!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertion(urn: $assertionUrn, saveResult: $saveResult, parameters: $parameters, async: $async) {
                     ... assertionResult
                 }
             }
         """ % (self._assertion_result_shared())
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assertionUrn": urn,
-            "saveResult": save_result,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if save_result is not None:
+            variables["saveResult"] = save_result
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,
@@ -1744,17 +1909,29 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def run_assertions(
         self,
         urns: List[str],
-        save_result: bool = True,
+        save_result: Optional[bool] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if parameters is None:
-            parameters = {}
+        """
+        Run multiple DataHub assertions on-demand.
+
+        Args:
+            urns: List of assertion URNs to run.
+            save_result: Whether to save the results to DataHub's backend. If not specified,
+                the backend default is True (results will be saved and visible in the UI).
+            parameters: Dynamic parameters to inject into the assertions' SQL fragments.
+            async_flag: Whether to run the assertions asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing pass/fail/error counts and individual assertion results.
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
             %s
-            mutation runAssertions($assertionUrns: [String!]!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertions($assertionUrns: [String!]!, $saveResult: Boolean, $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertions(urns: $assertionUrns, saveResults: $saveResult, parameters: $parameters, async: $async) {
                     passingCount
                     failingCount
@@ -1769,12 +1946,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             self._run_assertion_result_shared(),
         )
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assertionUrns": urns,
-            "saveResult": save_result,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if save_result is not None:
+            variables["saveResult"] = save_result
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,
@@ -1788,17 +1969,31 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         urn: str,
         tag_urns: Optional[List[str]] = None,
         parameters: Optional[Dict[str, str]] = None,
-        async_flag: bool = False,
+        async_flag: Optional[bool] = None,
     ) -> Dict:
-        if tag_urns is None:
-            tag_urns = []
-        if parameters is None:
-            parameters = {}
+        """
+        Run all assertions (or tagged subset) for a data asset on-demand.
+
+        Args:
+            urn: The URN of the data asset (e.g., dataset) whose assertions to run.
+            tag_urns: Optional list of tag URNs to filter which assertions to run.
+                If not specified, all assertions for the asset will be run.
+            parameters: Dynamic parameters to inject into the assertions' SQL fragments.
+            async_flag: Whether to run the assertions asynchronously. If not specified,
+                the backend default is False (synchronous execution with 30-second timeout).
+
+        Returns:
+            Dict containing pass/fail/error counts and individual assertion results.
+
+        Note:
+            This method does not support the save_result parameter. Results are always
+            saved to DataHub's backend (equivalent to save_result=True).
+        """
         params = self._run_assertion_build_params(parameters)
         graph_query: str = """
             %s
             %s
-            mutation runAssertionsForAsset($assetUrn: String!, $tagUrns: [String!], $parameters: [StringMapEntryInput!], $async: Boolean!) {
+            mutation runAssertionsForAsset($assetUrn: String!, $tagUrns: [String!], $parameters: [StringMapEntryInput!], $async: Boolean) {
                 runAssertionsForAsset(urn: $assetUrn, tagUrns: $tagUrns, parameters: $parameters, async: $async) {
                     passingCount
                     failingCount
@@ -1813,12 +2008,16 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             self._run_assertion_result_shared(),
         )
 
-        variables = {
+        variables: Dict[str, Any] = {
             "assetUrn": urn,
-            "tagUrns": tag_urns,
             "parameters": params,
-            "async": async_flag,
         }
+
+        if tag_urns is not None:
+            variables["tagUrns"] = tag_urns
+
+        if async_flag is not None:
+            variables["async"] = async_flag
 
         res = self.execute_graphql(
             query=graph_query,
@@ -1826,148 +2025,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         )
 
         return res["runAssertionsForAsset"]
-
-    @deprecated("Use get_entities instead which returns typed aspects")
-    def get_entities_v2(
-        self,
-        entity_name: str,
-        urns: List[str],
-        aspects: Optional[List[str]] = None,
-        with_system_metadata: bool = False,
-    ) -> Dict[str, Any]:
-        aspects = aspects or []
-        payload = {
-            "urns": urns,
-            "aspectNames": aspects,
-            "withSystemMetadata": with_system_metadata,
-        }
-        headers: Dict[str, Any] = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        url = f"{self._gms_server}/openapi/v2/entity/batch/{entity_name}"
-        response = self._session.post(url, data=json.dumps(payload), headers=headers)
-        response.raise_for_status()
-
-        json_resp = response.json()
-        entities = json_resp.get("entities", [])
-        aspects_set = set(aspects)
-        retval: Dict[str, Any] = {}
-
-        for entity in entities:
-            entity_aspects = entity.get("aspects", {})
-            entity_urn = entity.get("urn", None)
-
-            if entity_urn is None:
-                continue
-            for aspect_key, aspect_value in entity_aspects.items():
-                # Include all aspects if aspect filter is empty
-                if len(aspects) == 0 or aspect_key in aspects_set:
-                    retval.setdefault(entity_urn, {})
-                    retval[entity_urn][aspect_key] = aspect_value
-        return retval
-
-    def get_entities(
-        self,
-        entity_name: str,
-        urns: List[str],
-        aspects: Optional[List[str]] = None,
-        with_system_metadata: bool = False,
-    ) -> Dict[str, Dict[str, Tuple[_Aspect, Optional[SystemMetadataClass]]]]:
-        """
-        Get entities using the OpenAPI v3 endpoint, deserializing aspects into typed objects.
-
-        Args:
-            entity_name: The entity type name
-            urns: List of entity URNs to fetch
-            aspects: Optional list of aspect names to fetch. If None, all aspects will be fetched.
-            with_system_metadata: If True, return system metadata along with each aspect.
-
-        Returns:
-            A dictionary mapping URNs to a dictionary of aspect name to tuples of
-            (typed aspect object, system metadata). If with_system_metadata is False,
-            the system metadata in the tuple will be None.
-        """
-        aspects = aspects or []
-
-        request_payload = []
-        for urn in urns:
-            entity_request: Dict[str, Any] = {"urn": urn}
-            for aspect_name in aspects:
-                entity_request[aspect_name] = {}
-            request_payload.append(entity_request)
-
-        headers: Dict[str, Any] = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-
-        url = f"{self._gms_server}/openapi/v3/entity/{entity_name}/batchGet"
-        if with_system_metadata:
-            url += "?systemMetadata=true"
-
-        response = self._session.post(
-            url, data=json.dumps(request_payload), headers=headers
-        )
-        response.raise_for_status()
-        entities = response.json()
-
-        result: Dict[str, Dict[str, Tuple[_Aspect, Optional[SystemMetadataClass]]]] = {}
-
-        for entity in entities:
-            entity_urn = entity.get("urn")
-            if entity_urn is None:
-                logger.warning(
-                    f"Missing URN in entity response: {entity}, skipping deserialization"
-                )
-                continue
-
-            entity_aspects: Dict[
-                str, Tuple[_Aspect, Optional[SystemMetadataClass]]
-            ] = {}
-
-            for aspect_name, aspect_obj in entity.items():
-                if aspect_name == "urn":
-                    continue
-
-                aspect_class = ASPECT_NAME_MAP.get(aspect_name)
-                if aspect_class is None:
-                    logger.warning(
-                        f"Unknown aspect type {aspect_name}, skipping deserialization"
-                    )
-                    continue
-
-                aspect_value = aspect_obj.get("value")
-                if aspect_value is None:
-                    logger.warning(
-                        f"Unknown aspect value for aspect {aspect_name}, skipping deserialization"
-                    )
-                    continue
-
-                try:
-                    post_json_obj = post_json_transform(aspect_value)
-                    typed_aspect = aspect_class.from_obj(post_json_obj)
-                    assert isinstance(typed_aspect, aspect_class) and isinstance(
-                        typed_aspect, _Aspect
-                    )
-
-                    system_metadata = None
-                    if with_system_metadata:
-                        system_metadata_obj = aspect_obj.get("systemMetadata")
-                        if system_metadata_obj:
-                            system_metadata = SystemMetadataClass.from_obj(
-                                system_metadata_obj
-                            )
-
-                    entity_aspects[aspect_name] = (typed_aspect, system_metadata)
-                except Exception as e:
-                    logger.error(f"Error deserializing aspect {aspect_name}: {e}")
-                    raise
-
-            if entity_aspects:
-                result[entity_urn] = entity_aspects
-
-        return result
 
     def upsert_custom_assertion(
         self,
@@ -2038,6 +2095,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         external_url: Optional[str] = None,
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
+        severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
     ) -> bool:
         graph_query: str = """
             mutation reportAssertionResult(
@@ -2047,6 +2105,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 $properties: [StringMapEntryInput!],
                 $externalUrl: String,
                 $error: AssertionResultErrorInput,
+                $severity: AssertionResultSeverity,
             ) {
                 reportAssertionResult(urn: $assertionUrn, result: {
                     timestampMillis: $timestampMillis
@@ -2054,6 +2113,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     properties: $properties
                     externalUrl: $externalUrl
                     error: $error
+                    severity: $severity
                 })
             }
         """
@@ -2067,6 +2127,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "error": (
                 {"type": error_type, "message": error_message} if error_type else None
             ),
+            "severity": severity,
         }
 
         res = self.execute_graphql(

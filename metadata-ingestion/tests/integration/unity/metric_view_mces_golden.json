@@ -1,0 +1,862 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "metric_catalog"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/metric_catalog",
+            "name": "metric_catalog",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Catalog"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "metric_catalog",
+                "unity_schema": "analytics"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/metric_catalog/analytics",
+            "name": "analytics",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199",
+                    "urn": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "data_source_format": "DELTA",
+                "table_type": "MANAGED",
+                "created_by": "abc@acryl.io",
+                "table_id": "orders-id",
+                "owner": "abc@acryl.io",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2023-11-14 22:13:30+00:00",
+                "created_at": "2023-11-14 22:13:20+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/metric_catalog/analytics/orders",
+            "name": "orders",
+            "qualifiedName": "metric_catalog.analytics.orders",
+            "created": {
+                "time": 1700000000000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1700000010000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "metric_catalog.analytics.orders",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "o_orderdate",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "o_totalprice",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199",
+                    "urn": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199"
+                },
+                {
+                    "id": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29",
+                    "urn": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "data_source_format": "DELTA",
+                "table_type": "METRIC_VIEW",
+                "created_by": "abc@acryl.io",
+                "metric_view.from.name": "metric_catalog.analytics.orders",
+                "metric_view.from.type": "ASSET",
+                "metric_view.materialization.enabled": "true",
+                "table_id": "metric-view-id",
+                "owner": "abc@acryl.io",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2023-11-14 22:13:30+00:00",
+                "metric_view.filter": "o_orderstatus = 'F'",
+                "metric_view.spec_version": "1.1",
+                "metric_view.joins": "[{\"name\":\"customer\",\"source\":\"metric_catalog.analytics.customer\",\"on\":\"o_custkey = c_custkey\"}]",
+                "metric_view.materialization.schedule": "every 6 hours",
+                "metric_view.materialization.mode": "relaxed",
+                "metric_view.field.order_date.display_name": "Order Date",
+                "metric_view.field.order_date.synonyms": "date,day",
+                "metric_view.field.total_revenue.synonyms": "revenue,sales",
+                "metric_view.field.total_revenue.format.type": "currency",
+                "metric_view.field.total_revenue.format.currency_code": "USD",
+                "metric_view.field.aov.format.type": "currency",
+                "metric_view.field.aov.format.currency_code": "USD",
+                "metric_view.field.rolling_7d.window.order": "order_date",
+                "metric_view.field.rolling_7d.window.range": "trailing 7 day",
+                "metric_view.field.rolling_7d.window.semiadditive": "last",
+                "created_at": "2023-11-14 22:13:20+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/metric_catalog/analytics/revenue_metrics",
+            "name": "revenue_metrics",
+            "qualifiedName": "metric_catalog.analytics.revenue_metrics",
+            "description": "Aggregated revenue metric view.",
+            "created": {
+                "time": 1700000000000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1700000010000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": true,
+            "viewLogic": "version: 1.1\nsource: metric_catalog.analytics.orders\nfilter: \"o_orderstatus = 'F'\"\njoins:\n  - name: customer\n    source: metric_catalog.analytics.customer\n    on: o_custkey = c_custkey\nmaterialization:\n  schedule: every 6 hours\n  mode: relaxed\ndimensions:\n  - name: order_date\n    expr: o_orderdate\n    comment: Calendar date the order was placed.\n    display_name: Order Date\n    synonyms: [date, day]\nmeasures:\n  - name: total_revenue\n    expr: SUM(o_totalprice)\n    comment: Sum of order totals in USD.\n    synonyms: [revenue, sales]\n    format:\n      type: currency\n      currency_code: USD\n  - name: order_count\n    expr: COUNT(1)\n    comment: Number of orders placed.\n  - name: aov\n    expr: MEASURE(total_revenue) / MEASURE(order_count)\n    comment: Average order value.\n    format:\n      type: currency\n      currency_code: USD\n  - name: rolling_7d\n    expr: COUNT(DISTINCT o_orderkey)\n    comment: Rolling 7-day distinct order count.\n    window:\n      - order: order_date\n        range: trailing 7 day\n        semiadditive: last\n",
+            "viewLanguage": "YAML"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Metric View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "metric_catalog.analytics.revenue_metrics",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_date",
+                    "nullable": true,
+                    "description": "Calendar date the order was placed.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension",
+                                "attribution": {
+                                    "time": 1638860400000,
+                                    "actor": "urn:li:corpuser:datahub",
+                                    "source": "urn:li:dataPlatform:unity-catalog",
+                                    "sourceDetail": {}
+                                }
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_revenue",
+                    "nullable": true,
+                    "description": "Sum of order totals in USD.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure",
+                                "attribution": {
+                                    "time": 1638860400000,
+                                    "actor": "urn:li:corpuser:datahub",
+                                    "source": "urn:li:dataPlatform:unity-catalog",
+                                    "sourceDetail": {}
+                                }
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "order_count",
+                    "nullable": true,
+                    "description": "Number of orders placed.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "long",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure",
+                                "attribution": {
+                                    "time": 1638860400000,
+                                    "actor": "urn:li:corpuser:datahub",
+                                    "source": "urn:li:dataPlatform:unity-catalog",
+                                    "sourceDetail": {}
+                                }
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "aov",
+                    "nullable": true,
+                    "description": "Average order value.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure",
+                                "attribution": {
+                                    "time": 1638860400000,
+                                    "actor": "urn:li:corpuser:datahub",
+                                    "source": "urn:li:dataPlatform:unity-catalog",
+                                    "sourceDetail": {}
+                                }
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "rolling_7d",
+                    "nullable": true,
+                    "description": "Rolling 7-day distinct order count.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "long",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure",
+                                "attribution": {
+                                    "time": 1638860400000,
+                                    "actor": "urn:li:corpuser:datahub",
+                                    "source": "urn:li:dataPlatform:unity-catalog",
+                                    "sourceDetail": {}
+                                }
+                            },
+                            {
+                                "tag": "urn:li:tag:Window Measure",
+                                "attribution": {
+                                    "time": 1638860400000,
+                                    "actor": "urn:li:corpuser:datahub",
+                                    "source": "urn:li:dataPlatform:unity-catalog",
+                                    "sourceDetail": {}
+                                }
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.customer,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD),o_orderdate)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD),order_date)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD),o_totalprice)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD),total_revenue)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD),o_orderkey)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD),rolling_7d)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD),total_revenue)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD),aov)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD),order_count)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD),aov)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199",
+                    "urn": "urn:li:container:9e75e731a1807c5ef0bdb6b8dc8dc199"
+                },
+                {
+                    "id": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29",
+                    "urn": "urn:li:container:2158153a53957d66b2cf4b8f4bfb3a29"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Dimension"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Measure"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Window Measure",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Window Measure"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-metric-view-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-metric-view-test-pipeline"
+    }
+}
+]

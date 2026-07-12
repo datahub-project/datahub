@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.update;
 
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
@@ -46,6 +47,15 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default private Long retryInterval = 1L;
   @Builder.Default private Integer threadCount = 1; // Default to single processor
   @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
+
+  /**
+   * HTTP {@link RequestOptions} for by-query operations (delete/update-by-query, async submit,
+   * etc.). Same tuning for GMS and MAE ({@code
+   * elasticsearch.bulkProcessor.slowByQueryOperationTimeoutSeconds}); MAE-specific RestClient
+   * settings are configured separately on {@link SearchClientShim}.
+   */
+  @Builder.Default @Nonnull private RequestOptions byQueryRequestOptions = RequestOptions.DEFAULT;
+
   @Getter private final WriteRequest.RefreshPolicy writeRequestRefreshPolicy;
 
   private final MetricUtils metricUtils;
@@ -60,6 +70,7 @@ public class ESBulkProcessor implements Closeable {
       Long retryInterval,
       Integer threadCount,
       TimeValue defaultTimeout,
+      @Nonnull RequestOptions byQueryRequestOptions,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
       MetricUtils metricUtils) {
     this.searchClient = searchClient;
@@ -71,6 +82,7 @@ public class ESBulkProcessor implements Closeable {
     this.retryInterval = retryInterval;
     this.threadCount = threadCount;
     this.defaultTimeout = defaultTimeout;
+    this.byQueryRequestOptions = byQueryRequestOptions;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
     if (async) {
       searchClient.generateAsyncBulkProcessor(
@@ -94,17 +106,6 @@ public class ESBulkProcessor implements Closeable {
     this.metricUtils = metricUtils;
   }
 
-  public ESBulkProcessor add(DocWriteRequest<?> request) {
-    if (metricUtils != null) metricUtils.increment(this.getClass(), ES_WRITES_METRIC, 1);
-    searchClient.addBulk(request);
-    log.debug(
-        "Added request id: {}, operation type: {}, index: {}",
-        request.id(),
-        request.opType(),
-        request.index());
-    return this;
-  }
-
   /**
    * Add a request with URN-based routing for entity document consistency. This method routes all
    * operations for the same URN to the same BulkProcessor to ensure consistent ordering and avoid
@@ -114,9 +115,12 @@ public class ESBulkProcessor implements Closeable {
    * @param request the document write request
    * @return this ESBulkProcessor instance
    */
-  public ESBulkProcessor add(@Nonnull String urn, @Nonnull DocWriteRequest<?> request) {
+  public ESBulkProcessor add(
+      @Nonnull OperationContext opContext,
+      @Nonnull String urn,
+      @Nonnull DocWriteRequest<?> request) {
     if (metricUtils != null) metricUtils.increment(this.getClass(), ES_WRITES_METRIC, 1);
-    searchClient.addBulk(urn, request);
+    searchClient.addBulk(opContext, urn, request);
     log.debug(
         "Added URN-aware request urn: {}, id: {}, operation type: {}, index: {}",
         urn,
@@ -127,25 +131,31 @@ public class ESBulkProcessor implements Closeable {
   }
 
   public Optional<BulkByScrollResponse> deleteByQuery(
-      QueryBuilder queryBuilder, String... indices) {
-    return deleteByQuery(queryBuilder, true, bulkRequestsLimit, defaultTimeout, indices);
+      @Nonnull OperationContext opContext, QueryBuilder queryBuilder, String... indices) {
+    return deleteByQuery(opContext, queryBuilder, true, bulkRequestsLimit, defaultTimeout, indices);
   }
 
   public Optional<BulkByScrollResponse> deleteByQuery(
-      QueryBuilder queryBuilder, boolean refresh, String... indices) {
-    return deleteByQuery(queryBuilder, refresh, bulkRequestsLimit, defaultTimeout, indices);
+      @Nonnull OperationContext opContext,
+      QueryBuilder queryBuilder,
+      boolean refresh,
+      String... indices) {
+    return deleteByQuery(
+        opContext, queryBuilder, refresh, bulkRequestsLimit, defaultTimeout, indices);
   }
 
   public Optional<BulkByScrollResponse> updateByQuery(
-      Script script, QueryBuilder queryBuilder, String... indices) {
-    // Create an UpdateByQueryRequest
+      @Nonnull OperationContext opContext,
+      Script script,
+      QueryBuilder queryBuilder,
+      String... indices) {
     UpdateByQueryRequest updateByQuery = new UpdateByQueryRequest(indices);
     updateByQuery.setQuery(queryBuilder);
     updateByQuery.setScript(script);
 
     try {
       final BulkByScrollResponse updateResponse =
-          searchClient.updateByQuery(updateByQuery, RequestOptions.DEFAULT);
+          searchClient.updateByQuery(opContext, updateByQuery, byQueryRequestOptions);
       if (metricUtils != null)
         metricUtils.increment(this.getClass(), ES_WRITES_METRIC, updateResponse.getTotal());
       return Optional.of(updateResponse);
@@ -159,7 +169,12 @@ public class ESBulkProcessor implements Closeable {
   }
 
   public Optional<BulkByScrollResponse> deleteByQuery(
-      QueryBuilder queryBuilder, boolean refresh, int limit, TimeValue timeout, String... indices) {
+      @Nonnull OperationContext opContext,
+      QueryBuilder queryBuilder,
+      boolean refresh,
+      int limit,
+      TimeValue timeout,
+      String... indices) {
     DeleteByQueryRequest deleteByQueryRequest =
         new DeleteByQueryRequest()
             .setQuery(queryBuilder)
@@ -172,12 +187,10 @@ public class ESBulkProcessor implements Closeable {
 
     try {
       if (!batchDelete) {
-        // flush pending writes
         searchClient.flushBulkProcessor();
       }
-      // perform delete after local flush
       final BulkByScrollResponse deleteResponse =
-          searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
+          searchClient.deleteByQuery(opContext, deleteByQueryRequest, byQueryRequestOptions);
       if (metricUtils != null)
         metricUtils.increment(this.getClass(), ES_WRITES_METRIC, deleteResponse.getTotal());
       return Optional.of(deleteResponse);
@@ -191,6 +204,7 @@ public class ESBulkProcessor implements Closeable {
   }
 
   public Optional<String> deleteByQueryAsync(
+      @Nonnull OperationContext opContext,
       QueryBuilder queryBuilder,
       boolean refresh,
       int limit,
@@ -206,14 +220,13 @@ public class ESBulkProcessor implements Closeable {
     if (timeout != null) {
       deleteByQueryRequest.setTimeout(timeout);
     }
-    // count the number of conflicts, but do not abort the operation
     deleteByQueryRequest.setConflicts("proceed");
     deleteByQueryRequest.indices(indices);
     try {
-      // flush pending writes
       searchClient.flushBulkProcessor();
       String resp =
-          searchClient.submitDeleteByQueryTask(deleteByQueryRequest, RequestOptions.DEFAULT);
+          searchClient.submitDeleteByQueryTask(
+              opContext, deleteByQueryRequest, byQueryRequestOptions);
       if (metricUtils != null) metricUtils.increment(this.getClass(), ES_BATCHES_METRIC, 1);
       return Optional.of(resp);
     } catch (Exception e) {
@@ -228,7 +241,7 @@ public class ESBulkProcessor implements Closeable {
 
   @Override
   public void close() throws IOException {
-    flush(); // Make sure pending operations are flushed
+    flush();
     searchClient.closeBulkProcessor();
   }
 

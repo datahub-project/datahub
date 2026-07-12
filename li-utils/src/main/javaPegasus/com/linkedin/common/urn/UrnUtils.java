@@ -37,6 +37,23 @@ public class UrnUtils {
   }
 
   /**
+   * Parses a required URN string, rejecting null/blank values and surfacing parse failures as
+   * {@link IllegalArgumentException} for API layers that map client errors to 4xx responses.
+   */
+  @Nonnull
+  public static Urn requireUrn(@Nullable String urnStr) {
+    if (urnStr == null || urnStr.isBlank()) {
+      throw new IllegalArgumentException("URN must not be null or empty");
+    }
+    try {
+      return Urn.createFromString(urnStr);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(
+          String.format("Failed to parse URN %s: %s", urnStr, e.getMessage()), e);
+    }
+  }
+
+  /**
    * Get audit stamp without time. If actor is null, set as Unknown Application URN.
    *
    * @param actor Urn

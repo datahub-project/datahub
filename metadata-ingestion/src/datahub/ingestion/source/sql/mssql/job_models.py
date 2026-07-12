@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataPlatformInstanceClass,
+    QueryLanguageClass,
     SubTypesClass,
 )
 
@@ -147,7 +148,7 @@ class StoredProcedure:
             comment=None,
             argument_signature=None,
             return_type=None,
-            language="SQL",
+            language=QueryLanguageClass.SQL,
             extra_properties=None,
         )
 
@@ -315,7 +316,7 @@ class MSSQLDataFlow:
         type = (
             FlowContainerSubTypes.MSSQL_JOB
             if isinstance(self.entity, MSSQLJob)
-            else FlowContainerSubTypes.MSSQL_PROCEDURE_CONTAINER
+            else FlowContainerSubTypes.PROCEDURE_CONTAINER
         )
         return SubTypesClass(
             typeNames=[type],

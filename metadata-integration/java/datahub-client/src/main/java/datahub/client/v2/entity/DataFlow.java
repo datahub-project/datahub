@@ -7,6 +7,8 @@ import com.linkedin.datajob.DataFlowInfo;
 import com.linkedin.metadata.aspect.patch.builder.DataFlowInfoPatchBuilder;
 import datahub.client.v2.annotations.RequiresMutable;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -52,7 +54,8 @@ public class DataFlow extends Entity
         HasOwners<DataFlow>,
         HasDomains<DataFlow>,
         HasSubTypes<DataFlow>,
-        HasStructuredProperties<DataFlow> {
+        HasStructuredProperties<DataFlow>,
+        HasDocumentation<DataFlow> {
 
   private static final String ENTITY_TYPE = "dataFlow";
 
@@ -130,15 +133,16 @@ public class DataFlow extends Entity
   @Nonnull
   public java.util.List<Class<? extends com.linkedin.data.template.RecordTemplate>>
       getDefaultAspects() {
-    return java.util.List.of(
-        com.linkedin.common.Ownership.class,
-        com.linkedin.common.GlobalTags.class,
-        com.linkedin.common.GlossaryTerms.class,
-        com.linkedin.domain.Domains.class,
-        com.linkedin.common.Status.class,
-        com.linkedin.common.InstitutionalMemory.class,
-        DataFlowInfo.class,
-        com.linkedin.datajob.EditableDataFlowProperties.class);
+    return Collections.unmodifiableList(
+        Arrays.asList(
+            com.linkedin.common.Ownership.class,
+            com.linkedin.common.GlobalTags.class,
+            com.linkedin.common.GlossaryTerms.class,
+            com.linkedin.domain.Domains.class,
+            com.linkedin.common.Status.class,
+            com.linkedin.common.InstitutionalMemory.class,
+            DataFlowInfo.class,
+            com.linkedin.datajob.EditableDataFlowProperties.class));
   }
 
   /**

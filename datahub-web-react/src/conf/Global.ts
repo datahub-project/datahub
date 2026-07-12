@@ -14,7 +14,6 @@ export enum PageRoutes {
     SEARCH = '/search',
     BROWSE = '/browse',
     BROWSE_RESULTS = '/browse/:type',
-    DATASETS = '/datasets',
     ANALYTICS = '/analytics',
     POLICIES = '/policies',
     SETTINGS_POLICIES = '/settings/policies',
@@ -33,13 +32,15 @@ export enum PageRoutes {
     SETTINGS_VIEWS = '/settings/views',
     EMBED = '/embed',
     EMBED_LOOKUP = '/embed/lookup/:url',
-    SETTINGS_POSTS = '/settings/posts',
     BUSINESS_ATTRIBUTE = '/business-attribute',
     INTRODUCE = '/introduce',
     // Temporary route to view all data products
     DATA_PRODUCTS = '/search?filter__entityType___false___EQUAL___0=DATA_PRODUCT&page=1&query=%2A&unionType=0',
     MANAGE_TAGS = '/tags',
     MANAGE_APPLICATIONS = '/applications',
+    CONTEXT = '/context',
+    CONTEXT_DOCUMENTS = '/context/documents',
+    METRICS = '/metrics',
 }
 
 export enum HelpLinkRoutes {

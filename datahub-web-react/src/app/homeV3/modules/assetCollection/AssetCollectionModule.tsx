@@ -1,5 +1,7 @@
 import { InfiniteScrollList } from '@components';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
@@ -21,6 +23,7 @@ const ContentWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 const AssetCollectionModule = (props: ModuleProps) => {
+    const { t } = useTranslation('modules');
     const [isFirstFetch, setIsFirstFetch] = useState(true);
     const assetUrns = useMemo(
         () =>
@@ -171,9 +174,9 @@ const AssetCollectionModule = (props: ModuleProps) => {
                     pageSize={DEFAULT_PAGE_SIZE}
                     emptyState={
                         <EmptyContent
-                            icon="Stack"
-                            title="No Assets"
-                            description="Edit the module and add assets to see them in this list"
+                            icon={Stack}
+                            title={t('assetCollection.emptyTitle')}
+                            description={t('assetCollection.emptyDescription')}
                         />
                     }
                     totalItemCount={totalForInfiniteScroll}

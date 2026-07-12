@@ -21,6 +21,13 @@ source:
     #scheme: 'hive+https' # set this if Thrift should use the HTTP with SSL transport
     #scheme: 'sparksql' # set this for Spark Thrift Server
 
+    # Storage Lineage Configuration (Optional)
+    # Enables lineage between Hive tables and their underlying storage locations
+    #emit_storage_lineage: false  # Set to true to enable storage lineage
+    #hive_storage_lineage_direction: upstream  # Direction: 'upstream' (storage -> Hive) or 'downstream' (Hive -> storage)
+    #include_column_lineage: true  # Set to false to disable column-level lineage
+    #storage_platform_instance: "prod-s3"  # Optional: platform instance for storage URNs
+
 sink:
   # sink configs
 

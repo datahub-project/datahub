@@ -1,46 +1,43 @@
 import { useApolloClient } from '@apollo/client';
-import { Loader } from '@components';
+import { Loader, Text } from '@components';
 import { message } from 'antd';
-import React, { useCallback, useMemo } from 'react';
+import deepEqual from 'fast-deep-equal';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation, useParams } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
-import { SourceBuilderState } from '@app/ingestV2/source/builder/types';
+import { useIngestionContext } from '@app/ingestV2/IngestionContext';
 import { updateListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useUpdateIngestionSource } from '@app/ingestV2/source/hooks/useUpdateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
-import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
-import { IngestionSourceFormStep } from '@app/ingestV2/source/multiStepBuilder/types';
+import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
+import {
+    IngestionSourceFormStep,
+    MultiStepSourceBuilderState,
+    SubmitOptions,
+} from '@app/ingestV2/source/multiStepBuilder/types';
 import {
     buildOwnerEntities,
     getIngestionSourceMutationInput,
     mapSourceTypeAliases,
     removeExecutionsFromIngestionSource,
 } from '@app/ingestV2/source/utils';
+import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { PageRoutes } from '@conf/Global';
 
 import { useGetIngestionSourceQuery } from '@graphql/ingestion.generated';
 import { IngestionSource } from '@types';
 
-const STEPS: IngestionSourceFormStep[] = [
-    {
-        label: 'Connection Details',
-        key: 'connectionDetails',
-        content: <ConnectionDetailsStep />,
-    },
-    {
-        label: 'Sync Schedule ',
-        key: 'syncSchedule',
-        content: <ScheduleStep />,
-    },
-];
-
 export function IngestionSourceUpdatePage() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const history = useHistory();
     const location = useLocation();
     const client = useApolloClient();
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const { setCreatedOrUpdatedSource, setShouldRunCreatedOrUpdatedSource } = useIngestionContext();
 
     const ingestionSourcesListQueryInputs = useMemo(() => location.state?.queryInputs, [location.state]);
     const ingestionSourcesListBackUrl = useMemo(() => location.state?.backUrl, [location.state]);
@@ -57,15 +54,31 @@ export function IngestionSourceUpdatePage() {
 
     const updateIngestionSource = useUpdateIngestionSource();
 
-    const onSubmit = useCallback(
-        async (data: SourceBuilderState | undefined) => {
-            if (!data) return undefined;
+    const STEPS: IngestionSourceFormStep[] = useMemo(
+        () => [
+            {
+                label: t('multiStep.builder.connectionDetailsStepLabel'),
+                subTitle: <ConnectionDetailsSubTitle />,
+                key: 'connectionDetails',
+                content: <ConnectionDetailsStep />,
+            },
+        ],
+        [t],
+    );
 
-            const shouldRun = true; // TODO:: set a real value
+    const onSubmit = useCallback(
+        async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
+            if (!data) return undefined;
+            setIsSubmitting(true);
+
+            const shouldRun = options?.shouldRun;
             try {
                 const source = ingestionSourceData?.ingestionSource as IngestionSource | undefined;
-                const input = getIngestionSourceMutationInput(data);
+                const input = getIngestionSourceMutationInput(data, source);
                 await updateIngestionSource(urn, input, data.owners, source?.ownership?.owners || []);
+
+                setCreatedOrUpdatedSource(urn);
+                setShouldRunCreatedOrUpdatedSource(!!shouldRun);
 
                 if (ingestionSourcesListQueryInputs) {
                     const updatedSource = {
@@ -91,16 +104,22 @@ export function IngestionSourceUpdatePage() {
                     interval: input.schedule?.interval,
                     numOwners: data.owners?.length,
                     outcome: shouldRun ? 'save_and_run' : 'save',
+                    ingestionOnboardingRedesignV1: true,
+                });
+
+                analytics.event({
+                    type: EventType.IngestionExitConfigurationEvent,
+                    sourceType: input.type,
+                    exitType: shouldRun ? 'save_and_run' : 'save_draft',
                 });
 
                 message.success({
-                    content: `Successfully updated ingestion source!`,
+                    content: t('multiStep.updatePage.successMessage'),
                     duration: 3,
                 });
 
                 history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
-                    createdOrUpdatedSourceUrn: urn,
-                    shouldRun,
+                    sourcesListQueryInputs: ingestionSourcesListQueryInputs,
                 });
             } catch (e: unknown) {
                 message.destroy();
@@ -111,10 +130,14 @@ export function IngestionSourceUpdatePage() {
                     });
                 }
             }
+
+            setIsSubmitting(false);
             return undefined;
         },
         [
             updateIngestionSource,
+            setCreatedOrUpdatedSource,
+            setShouldRunCreatedOrUpdatedSource,
             urn,
             history,
             ingestionSourceData,
@@ -122,25 +145,89 @@ export function IngestionSourceUpdatePage() {
             ingestionSourcesListQueryInputs,
             ingestionSourcesListBackUrl,
             defaultOwnershipType,
+            t,
         ],
     );
 
     const onCancel = useCallback(() => {
-        history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION);
-    }, [history, ingestionSourcesListBackUrl]);
+        analytics.event({
+            type: EventType.IngestionExitConfigurationEvent,
+            sourceType: ingestionSourceData?.ingestionSource?.type,
+            exitType: 'cancel',
+        });
+        history.push(ingestionSourcesListBackUrl ?? PageRoutes.INGESTION, {
+            createdOrUpdatedSourceUrn: urn,
+            sourcesListQueryInputs: ingestionSourcesListQueryInputs,
+        });
+    }, [
+        history,
+        ingestionSourceData?.ingestionSource?.type,
+        ingestionSourcesListBackUrl,
+        urn,
+        ingestionSourcesListQueryInputs,
+    ]);
+
+    const isDirtyChecker = useCallback(
+        (
+            initialStateToCheck: MultiStepSourceBuilderState | undefined,
+            currentStateToCheck: MultiStepSourceBuilderState | undefined,
+        ) => {
+            // These fields could have differences without real changes so we exclude them from deepEqual comparison
+            const excludedFieldsFromComparison = {
+                isConnectionDetailsValid: null,
+                owners: null,
+                ingestionSource: null,
+            };
+            const initialStateToCompare = {
+                ...(initialStateToCheck ?? {}),
+                ...excludedFieldsFromComparison,
+            };
+            const currentStateToCompare = { ...(currentStateToCheck ?? {}), ...excludedFieldsFromComparison };
+
+            if (!deepEqual(initialStateToCompare, currentStateToCompare)) {
+                return true;
+            }
+
+            const initialOwnersUrns = new Set(
+                initialStateToCheck?.ingestionSource?.ownership?.owners?.map((owner) => owner.owner.urn) ?? [],
+            );
+            const currentOwnersUrns = new Set(currentStateToCheck?.owners?.map((owner) => owner.urn) ?? []);
+
+            // Check if the owner sets are different
+            return !(
+                initialOwnersUrns.size === currentOwnersUrns.size &&
+                [...initialOwnersUrns].every((value) => currentOwnersUrns.has(value))
+            );
+        },
+        [],
+    );
 
     if (!ingestionSourceData?.ingestionSource || loading) {
         return <Loader />;
     }
 
     return (
-        <IngestionSourceBuilder
-            steps={STEPS}
-            onSubmit={onSubmit}
-            onCancel={onCancel}
-            initialState={mapSourceTypeAliases(
-                removeExecutionsFromIngestionSource(ingestionSourceData.ingestionSource),
-            )}
-        />
+        <DiscardUnsavedChangesConfirmationProvider
+            enableRedirectHandling={!isSubmitting}
+            confirmationModalTitle={t('multiStep.builder.discard.title')}
+            confirmationModalContent={
+                <Text color="gray" colorLevel={1700}>
+                    {t('multiStep.builder.discard.description')}
+                </Text>
+            }
+            confirmButtonText={t('multiStep.builder.discard.confirm')}
+            closeButtonText={t('multiStep.builder.discard.close')}
+        >
+            <IngestionSourceBuilder
+                steps={STEPS}
+                onSubmit={onSubmit}
+                onCancel={onCancel}
+                initialState={{
+                    ...mapSourceTypeAliases(removeExecutionsFromIngestionSource(ingestionSourceData.ingestionSource)),
+                    ...{ isEditing: true, ingestionSource: ingestionSourceData.ingestionSource as IngestionSource },
+                }}
+                isDirtyChecker={isDirtyChecker}
+            />
+        </DiscardUnsavedChangesConfirmationProvider>
     );
 }

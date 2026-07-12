@@ -16,7 +16,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceReport,
     TestableSource,
     TestConnectionReport,
@@ -47,9 +46,6 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     SpaceKey,
 )
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -594,26 +590,23 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_DATASET]),
         ).as_workunit()
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method
         """
         logger.info("Qlik Sense plugin execution is started")
-        for space in self._get_allowed_spaces():
-            yield from self._gen_space_workunit(space)
-        for item in self.qlik_api.get_items():
-            if isinstance(item, App):
-                yield from self._gen_app_workunit(item)
-            elif isinstance(item, QlikDataset):
-                yield from self._gen_dataset_workunit(item)
+        allowed_spaces = self._get_allowed_spaces()
+        for allowed_space in allowed_spaces:
+            yield from self._gen_space_workunit(allowed_space)
+            for item in self.qlik_api.get_items(
+                "personal"
+                if allowed_space.id == Constant.PERSONAL_SPACE_ID
+                else allowed_space.id
+            ):
+                if isinstance(item, App):
+                    yield from self._gen_app_workunit(item)
+                elif isinstance(item, QlikDataset):
+                    yield from self._gen_dataset_workunit(item)
 
     def get_report(self) -> SourceReport:
         return self.reporter

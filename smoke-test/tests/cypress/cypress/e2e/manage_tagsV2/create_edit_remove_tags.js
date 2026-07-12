@@ -2,9 +2,9 @@ import TagsPageHelper from "./helpers/tags_page_helper";
 
 const test_id = `manage_tagsV2_${new Date().getTime()}`;
 
-describe("tags - create/edit/remove", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("tags - create/edit/remove", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

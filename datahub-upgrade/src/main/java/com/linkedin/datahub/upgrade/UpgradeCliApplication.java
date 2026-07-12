@@ -32,7 +32,7 @@ import org.springframework.context.ConfigurableApplicationContext;
  *   <li><strong>SystemUpdateBlocking</strong> - Executes blocking system updates that require
  *       service downtime
  *   <li><strong>SystemUpdateNonBlocking</strong> - Executes non-blocking system updates that can
- *       run while services are active
+ *       run while services are active. Use -n to run a specific upgrade by name.
  *   <li><strong>SystemUpdateCron</strong> - Scheduled system updates for maintenance operations
  *   <li><strong>ReindexDebug</strong> - Debug tool for reindexing operations
  * </ul>
@@ -43,6 +43,7 @@ import org.springframework.context.ConfigurableApplicationContext;
  * java -jar datahub-upgrade.jar -u SqlSetup
  * java -jar datahub-upgrade.jar -u SystemUpdate
  * java -jar datahub-upgrade.jar -u RestoreIndices -a batchSize=1000
+ * java -jar datahub-upgrade.jar -u SystemUpdateNonBlocking -n BackfillBrowsePathsV2
  * </pre>
  *
  * <h3>Configuration:</h3>

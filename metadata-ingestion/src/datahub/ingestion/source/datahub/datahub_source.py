@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from functools import partial
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Type
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -13,14 +12,14 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
-from datahub.ingestion.api.source_helpers import (
-    auto_fix_duplicate_schema_field_paths,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
-from datahub.ingestion.source.datahub.config import DataHubSourceConfig
+from datahub.ingestion.source.datahub.config import (
+    DEFAULT_URN_DENY_PATTERNS,
+    DataHubSourceConfig,
+)
 from datahub.ingestion.source.datahub.datahub_api_reader import DataHubApiReader
 from datahub.ingestion.source.datahub.datahub_database_reader import (
     DataHubDatabaseReader,
@@ -31,6 +30,12 @@ from datahub.ingestion.source.datahub.state import StatefulDataHubIngestionHandl
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
+from datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths import (
+    ValidateDuplicateSchemaFieldPathsProcessor,
+)
 from datahub.metadata.schema_classes import ChangeTypeClass
 from datahub.utilities.progress_timer import ProgressTimer
 
@@ -39,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("DataHub")
 @config_class(DataHubSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -58,6 +63,16 @@ class DataHubSource(StatefulIngestionSourceBase):
             self.urn_pattern = self.config.urn_pattern
 
         self.report: DataHubSourceReport = DataHubSourceReport()
+
+        # Warn if user has explicitly customized urn_pattern
+        if self.config._urn_pattern_was_set:
+            warning_msg = (
+                "You have customized 'urn_pattern' which overrides default behavior. "
+                f"Ensure your configuration excludes these sensitive entity patterns: {', '.join(DEFAULT_URN_DENY_PATTERNS)}. "
+                "These defaults prevent copying credentials and creating invalid entities."
+            )
+            self.report.report_warning("urn_pattern_override", warning_msg)
+
         self.stateful_ingestion_handler = StatefulDataHubIngestionHandler(self)
 
     @classmethod
@@ -68,16 +83,12 @@ class DataHubSource(StatefulIngestionSourceBase):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # Exactly replicate data from DataHub source
-        return [
-            (
-                auto_fix_duplicate_schema_field_paths
-                if self.config.drop_duplicate_schema_fields
-                else None
-            ),
-            partial(auto_workunit_reporter, self.get_report()),
-        ]
+    def get_allowed_workunit_processors(self):
+        # Exactly replicate data from DataHub source — avoid processors that create/remove workunits
+        processors: List[Type[WorkunitProcessor]] = [AutoWorkunitsReporterProcessor]
+        if self.config.drop_duplicate_schema_fields:
+            processors.insert(0, ValidateDuplicateSchemaFieldPathsProcessor)
+        return processors
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.report.stop_time = datetime.now(tz=timezone.utc)

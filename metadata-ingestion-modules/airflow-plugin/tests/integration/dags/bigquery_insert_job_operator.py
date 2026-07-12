@@ -39,7 +39,7 @@ def _fake_insert_job(*args, **kwargs):
 with DAG(
     "bigquery_insert_job_operator",
     start_date=datetime(2023, 1, 1),
-    schedule_interval=None,
+    schedule=None,
     catchup=False,
 ) as dag:
     # HACK: We don't want to send real requests to BigQuery. As a workaround,

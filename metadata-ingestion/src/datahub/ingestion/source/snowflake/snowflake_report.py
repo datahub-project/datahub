@@ -105,6 +105,10 @@ class SnowflakeV2Report(
     streams_scanned: int = 0
     procedures_scanned: int = 0
     streamlit_apps_scanned: int = 0
+    semantic_views_scanned: int = 0
+    stages_scanned: int = 0
+    tasks_scanned: int = 0
+    pipes_scanned: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False
@@ -117,7 +121,19 @@ class SnowflakeV2Report(
     num_streams_with_known_upstreams: int = 0
     num_upstream_lineage_edge_parsing_failed: int = 0
     num_secure_views_missing_definition: int = 0
+    num_dynamic_tables_missing_definition: int = 0
     num_structured_property_templates_created: int = 0
+
+    marketplace_listings_scanned: int = 0
+    marketplace_listings_filtered: int = 0
+    marketplace_purchases_scanned: int = 0
+    marketplace_usage_events_processed: int = 0
+    marketplace_data_products_created: int = 0
+    marketplace_enhanced_datasets: int = 0
+
+    # Lineage consistency tracking
+    num_tables_added_from_column_lineage: int = 0
+    num_queries_with_empty_directsources: int = 0
 
     data_dictionary_cache: Optional["SnowflakeDataDictionary"] = None
 
@@ -128,11 +144,6 @@ class SnowflakeV2Report(
     # This will result in overall increase in time complexity
     num_get_tables_for_schema_queries: int = 0
     num_get_views_for_schema_queries: int = 0
-
-    # these will be non-zero if the user choses to enable the extract_tags = "with_lineage" option, which requires
-    # individual queries per object (database, schema, table) and an extra query per table to get the tags on the columns.
-    num_get_tags_for_object_queries: int = 0
-    num_get_tags_on_columns_for_table_queries: int = 0
 
     num_get_streams_for_schema_queries: int = 0
 
@@ -151,6 +162,8 @@ class SnowflakeV2Report(
             self.tables_scanned += 1
         elif ent_type == "view":
             self.views_scanned += 1
+        elif ent_type == "semantic view":
+            self.semantic_views_scanned += 1
         elif ent_type == "schema":
             self.schemas_scanned += 1
         elif ent_type == "database":
@@ -179,3 +192,21 @@ class SnowflakeV2Report(
 
     def report_tag_processed(self, tag_name: str) -> None:
         self._processed_tags.add(tag_name)
+
+    def report_marketplace_listing_scanned(self) -> None:
+        self.marketplace_listings_scanned += 1
+
+    def report_marketplace_listing_filtered(self) -> None:
+        self.marketplace_listings_filtered += 1
+
+    def report_marketplace_purchase_scanned(self) -> None:
+        self.marketplace_purchases_scanned += 1
+
+    def report_marketplace_data_product_created(self) -> None:
+        self.marketplace_data_products_created += 1
+
+    def report_marketplace_dataset_enhanced(self) -> None:
+        self.marketplace_enhanced_datasets += 1
+
+    def report_marketplace_usage_events_processed(self, count: int) -> None:
+        self.marketplace_usage_events_processed += count

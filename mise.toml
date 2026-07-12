@@ -1,0 +1,12 @@
+[tools]
+actionlint = "1.7.11"
+betterleaks = "1.6.1"
+java = "21"
+node = "22"
+python = "3.11"
+shellcheck = "0.11.0"
+yarn = "1.22.22"
+
+[tasks.regenerate-pre-commit]
+description = "Regenerate the pre-commit configuration to add new/removed projects"
+run = "python3 .github/scripts/generate_pre_commit.py"

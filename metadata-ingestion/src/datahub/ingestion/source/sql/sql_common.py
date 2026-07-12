@@ -1,6 +1,5 @@
 import contextlib
 import datetime
-import functools
 import logging
 import traceback
 from dataclasses import dataclass, field
@@ -36,12 +35,11 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import capability
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -56,7 +54,11 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    FlowContainerSubTypes,
     SourceCapabilityModifier,
+)
+from datahub.ingestion.source.profiling.common import (
+    create_datahub_ge_profiler,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -77,9 +79,6 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
     generate_procedure_container_workunits,
     generate_procedure_workunits,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -126,9 +125,12 @@ from datahub.utilities.sqlalchemy_type_converter import (
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import (
-        DatahubGEProfiler,
-        GEProfilerRequest,
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    from datahub.ingestion.source.profiling.common import (
+        ProfilerRequest as GEProfilerRequest,
+    )
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
     )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -286,11 +288,6 @@ class ProfileMetadata:
 
 
 @capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
-@capability(
     SourceCapability.SCHEMA_METADATA,
     "Enabled by default",
     supported=True,
@@ -370,16 +367,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.views_failed_parsing: Set[str] = set()
 
         self.discovered_datasets: Set[str] = set()
-        self.aggregator = SqlParsingAggregator(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            graph=self.ctx.graph,
-            generate_lineage=self.include_lineage,
-            generate_usage_statistics=False,
-            generate_operations=False,
-            eager_graph_load=False,
-        )
+        self.aggregator = self._create_aggregator()
         self.report.sql_aggregator = self.aggregator.report
 
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
@@ -395,6 +383,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
+            if config_dict.get("stateful_ingestion", {}).get("enabled", False):
+                # Connection test should only care about config for connecting to the source
+                # Ingestion-only details like whether stateful_ingestion is enabled are irrelevant
+                # And specifically, stateful_ingestion requires a connection to DataHub
+                # which should not be required to test a connection
+                config_dict = {
+                    **config_dict,
+                    "stateful_ingestion": {"enabled": False},
+                }
             source = cast(
                 SQLAlchemySource,
                 cls.create(config_dict, PipelineContext(run_id="test_connection")),
@@ -556,17 +553,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
@@ -627,10 +613,45 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     profile_requests, profiler, platform=self.platform
                 )
 
+    def _create_aggregator(self) -> SqlParsingAggregator:
+        """Construct the SqlParsingAggregator used for lineage extraction.
+
+        Subclasses may override to enable query-history processing or usage
+        stats. All upstreamLineage MCPs MUST flow through this single
+        aggregator; spinning up a second aggregator alongside it causes
+        duplicate emits that SET-overwrite v0 with a partial payload.
+
+        Called from ``__init__`` before the subclass ``__init__`` body runs, so
+        overrides may only read attributes set by this point: ``self.config``,
+        ``self.platform`` and ``self.ctx``.
+        """
+        return SqlParsingAggregator(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            graph=self.ctx.graph,
+            generate_lineage=self.include_lineage,
+            generate_usage_statistics=False,
+            generate_operations=False,
+            eager_graph_load=False,
+        )
+
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Generate work units from SQL parsing aggregator. Can be overridden by subclasses."""
-        for mcp in self.aggregator.gen_metadata():
-            yield mcp.as_workunit()
+        # gen_metadata() runs the deferred SQL parsing, schema resolution and
+        # (with eager_graph_load=False) lazy graph lookups, any of which can raise.
+        # This is the single funnel for all lineage/usage, so a failure here must
+        # be reported rather than aborting the run after tables/views were emitted.
+        try:
+            for mcp in self.aggregator.gen_metadata():
+                yield mcp.as_workunit()
+        except Exception as e:
+            self.report.failure(
+                title="Failed to generate lineage/usage from SQL parsing",
+                message="Could not emit aggregated SQL parsing results. "
+                "Other ingested metadata is unaffected.",
+                exc=e,
+            )
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
@@ -718,7 +739,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         continue
 
                     self.report.report_entity_scanned(dataset_name, ent_type="table")
+                    logger.debug(f"Scanning table: {dataset_name}")
                     if not sql_config.table_pattern.allowed(dataset_name):
+                        logger.debug(f"Dropped table by table_pattern: {dataset_name}")
                         self.report.report_dropped(dataset_name)
                         continue
 
@@ -1121,8 +1144,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     schema=schema, entity=view, inspector=inspector
                 )
                 self.report.report_entity_scanned(dataset_name, ent_type="view")
+                logger.debug(f"Scanning view: {dataset_name}")
 
                 if not sql_config.view_pattern.allowed(dataset_name):
+                    logger.debug(f"Dropped view by view_pattern: {dataset_name}")
                     self.report.report_dropped(dataset_name)
                     continue
 
@@ -1154,6 +1179,35 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             return str(view_definition) if view_definition else ""
         except NotImplementedError:
             return ""
+
+    def get_view_default_db_schema(
+        self, _inspector: Inspector, dataset_identifier: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        # Most systems will resolve unqualified names in view definitions to the
+        # same database and schema that the view itself lives in. However, some
+        # systems (like IBM Db2), use different implicit databases/schemas that
+        # must be looked up, so this function exists as an override point for subclasses.
+        # TODO: database/schema should be passed directly, instead of being serialized
+        # into a dataset identifier string and then parsed back out.
+        return self.get_db_schema(dataset_identifier)
+
+    def _add_view_to_aggregator(
+        self,
+        view_urn: str,
+        view_definition: str,
+        default_db: Optional[str],
+        default_schema: Optional[str],
+    ) -> None:
+        """Add a view definition to the aggregator for lineage processing.
+
+        Override this method in subclasses to customize how view lineage is registered.
+        """
+        self.aggregator.add_view_definition(
+            view_urn=view_urn,
+            view_definition=view_definition,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
 
     def _process_view(
         self,
@@ -1201,10 +1255,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             default_db = None
             default_schema = None
             try:
-                default_db, default_schema = self.get_db_schema(dataset_name)
-            except ValueError:
-                logger.warning(f"Invalid view identifier: {dataset_name}")
-            self.aggregator.add_view_definition(
+                default_db, default_schema = self.get_view_default_db_schema(
+                    inspector, dataset_name
+                )
+            except Exception as e:
+                self.report.warning(
+                    "Failed to get default db and schema names for view",
+                    context=dataset_name,
+                    exc=e,
+                )
+
+            self._add_view_to_aggregator(
                 view_urn=dataset_urn,
                 view_definition=view_definition,
                 default_db=default_db,
@@ -1269,16 +1330,36 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         database, schema, _view = dataset_identifier.split(".", 2)
         return database, schema
 
-    def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
-        from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-
-        return DatahubGEProfiler(
-            conn=inspector.bind,
-            report=self.report,
-            config=self.config.profiling,
-            platform=self.platform,
-            env=self.config.env,
+    def get_profiler_instance(
+        self, inspector: Inspector
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+        # Import custom profiler first (no GE dependency)
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
         )
+
+        if self.config.profiling.method == "sqlalchemy":
+            logger.info(
+                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+            )
+            return SQLAlchemyProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        else:
+            logger.info(
+                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
+            )
+            return create_datahub_ge_profiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
 
     def get_profile_args(self) -> Dict:
         """Passed down to GE profiler"""
@@ -1331,7 +1412,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable["GEProfilerRequest"]:
-        from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+        from datahub.ingestion.source.profiling.common import (
+            ProfilerRequest as GEProfilerRequest,
+        )
 
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
@@ -1420,7 +1503,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def loop_profiler(
         self,
         profile_requests: List["GEProfilerRequest"],
-        profiler: "DatahubGEProfiler",
+        profiler: Union["DatahubGEProfiler", "SQLAlchemyProfiler"],
         platform: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(
@@ -1489,8 +1572,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
         try:
-            raw_procedures: List[BaseProcedure] = self.get_procedures_for_schema(
-                inspector, schema, db_name
+            raw_procedures = list(
+                self.get_procedures_for_schema(inspector, schema, db_name)
             )
             procedures: List[BaseProcedure] = []
             for procedure in raw_procedures:
@@ -1521,9 +1604,37 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
-    ) -> List[BaseProcedure]:
+    ) -> Iterable[BaseProcedure]:
         raise NotImplementedError(
             "Subclasses must implement the 'get_procedures_for_schema' method."
+        )
+
+    def _get_procedure_database_key(self, db_name: str) -> DatabaseKey:
+        return gen_database_key(
+            database=db_name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def _get_procedure_schema_key(
+        self, db_name: str, schema: str
+    ) -> Optional[SchemaKey]:
+        """Schema container key for stored procedures, or None when the source
+        has no schema layer.
+
+        Two-tier sources (MySQL, MariaDB, Hive, Clickhouse, Teradata, …) pass
+        ``db_name == schema`` here; including a SchemaKey in that case would
+        produce flow names like ``test_db.test_db.stored_procedures``. Those
+        sources override this hook to return None and let the flow name fall
+        back to ``{database}.stored_procedures``.
+        """
+        return gen_schema_key(
+            db_name=db_name,
+            schema=schema,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
     def _process_procedures(
@@ -1533,46 +1644,56 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
     ) -> Iterable[MetadataWorkUnit]:
         if procedures:
+            database_key = self._get_procedure_database_key(db_name)
+            schema_key = self._get_procedure_schema_key(db_name, schema)
+
+            # Create a single stored_procedures container for all procedures and functions
+            # Individual procedures/functions will have their own subtype (FUNCTION or STORED_PROCEDURE)
             yield from generate_procedure_container_workunits(
-                database_key=gen_database_key(
-                    database=db_name,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-                schema_key=gen_schema_key(
-                    db_name=db_name,
-                    schema=schema,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
+                database_key=database_key,
+                schema_key=schema_key,
+                subtype=FlowContainerSubTypes.PROCEDURE_CONTAINER,
             )
+
+        # Build procedure registry for resolving procedure-to-procedure lineage
+        # Maps "schema.procedure_name" -> full identifier (with hash if overloaded)
+        # This registry includes ALL procedures/functions regardless of subtype
+        procedure_registry: Dict[str, str] = {}
+        for proc in procedures:
+            registry_key = f"{schema.lower()}.{proc.name.lower()}"
+            procedure_registry[registry_key] = proc.get_procedure_identifier()
+
         for procedure in procedures:
-            yield from self._process_procedure(procedure, schema, db_name)
+            yield from self._process_procedure(
+                procedure, schema, db_name, procedure_registry
+            )
 
     def _process_procedure(
         self,
         procedure: BaseProcedure,
         schema: str,
         db_name: str,
+        procedure_registry: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        """
+        Process a single stored procedure.
+
+        Override this method in subclasses to add source-specific logic like
+        procedure-to-procedure lineage from system metadata.
+
+        Args:
+            procedure: Stored procedure metadata
+            schema: Schema name containing the procedure
+            db_name: Database name
+            procedure_registry: Map of "schema.procedure_name" -> full DataJob identifier
+                               (with hash suffix if overloaded). Used for resolving
+                               procedure-to-procedure lineage dependencies.
+        """
         try:
             yield from generate_procedure_workunits(
                 procedure=procedure,
-                database_key=gen_database_key(
-                    database=db_name,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-                schema_key=gen_schema_key(
-                    db_name=db_name,
-                    schema=schema,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
+                database_key=self._get_procedure_database_key(db_name),
+                schema_key=self._get_procedure_schema_key(db_name, schema),
                 schema_resolver=self.get_schema_resolver(),
             )
         except Exception as e:

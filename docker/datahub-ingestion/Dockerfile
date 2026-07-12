@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # This image has two variants: full and slim.
 # The full variant has a larger set of ingestion sources, but is a larger image.
 ARG APP_ENV=full
@@ -35,47 +36,34 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
         echo "Creating new user datahub with UID 1000"; \
         adduser --disabled-password --uid 1000 --gid 1000 --home $HOME datahub; \
     fi && \
-    # Create and set proper permissions for datahub directories
+    # Create and set proper permissions for datahub directories \
     mkdir -p $HOME && \
     chown -R datahub:datahub $HOME && \
     chmod g-s $HOME
 
-# Setup the PPA for alternative Python versions.
-# TODO: Eventually we should switch to using uv's support for python-build-standalone.
-RUN apt-get update && apt-get install -y \
-    software-properties-common \
-    lsb-release \
-    gnupg \
-    ca-certificates \
-    && add-apt-repository --no-update ppa:deadsnakes/ppa \
-    && rm -rf /var/lib/apt/lists/*
-
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
-RUN apt-get update && apt-get install -y \
-    python${PYTHON_VERSION} \
-    python${PYTHON_VERSION}-venv \
-    python${PYTHON_VERSION}-dev \
-    python${PYTHON_VERSION}-distutils \
-    python-is-python3 \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
+    ca-certificates \
     git \
     wget \
     curl \
     zip \
     unzip \
-    nano \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set the default python version.
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
-    && update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+    nano
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-ENV UV_INDEX_URL=${PIP_MIRROR_URL}
+# Install Python via uv (python-build-standalone) instead of deadsnakes PPA.
+# Avoids PPA availability issues and missing distutils on Noble (Ubuntu 24.04).
+# UV_NO_CACHE=1 prevents root-owned cache files that cause permission errors
+# when subsequent steps run as the datahub user.
+ENV UV_PYTHON_INSTALL_DIR=/opt/python
+ENV UV_NO_CACHE=1
+RUN uv python install ${PYTHON_VERSION}
 
 USER datahub
 WORKDIR $HOME
@@ -89,11 +77,24 @@ ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 # uv uses a different mechanism. See https://github.com/astral-sh/uv/issues/1474.
 ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
 
+ARG UV_PROFILE=default
+ARG DEFAULT_INDEX_URL=""
+ARG EXTRA_INDEX_URLS=""
+RUN --mount=type=bind,source=./docker/snippets/uv,target=/tmp/uv-config \
+    mkdir -p $HOME/.config/uv && \
+    if [ "${UV_PROFILE}" = "custom" ]; then \
+        DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL}" EXTRA_INDEX_URLS="${EXTRA_INDEX_URLS}" bash /tmp/uv-config/generate-config.sh > $HOME/.config/uv/uv.toml; \
+    else \
+        cp /tmp/uv-config/profiles/${UV_PROFILE}.toml $HOME/.config/uv/uv.toml; \
+    fi
+
 
 FROM python-base AS ingestion-base-slim
 
 USER 0
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     python3-ldap \
     libldap2-dev \
     libsasl2-dev \
@@ -107,21 +108,28 @@ RUN apt-get update && apt-get install -y \
     librdkafka-dev \
     ldap-utils \
     unixodbc \
-    libodbc2 \
-    && rm -rf /var/lib/apt/lists/*
+    libodbc2
 USER datahub
 
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
-# We need to install build-essential in order to build some Python packages (e.g. python-ldap)
-RUN apt-get update && apt-get install --no-install-recommends -y -qq \
-    default-jre-headless \
+# We need to install build-essential in order to build some Python packages (e.g. python-ldap, kerberos)
+# gcc and g++ are explicitly listed to ensure compilers are available on all architectures
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
+    openjdk-25-jre-headless \
     build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    gcc \
+    g++ \
+    make
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
+
+RUN --mount=type=bind,source=./docker/snippets/mssql_odbc.sh,target=/mssql_odbc.sh \
+    /mssql_odbc.sh
 
 USER datahub
 
@@ -129,40 +137,80 @@ USER datahub
 FROM ingestion-base-slim AS ingestion-base-locked
 # INLINE-END
 
-FROM ingestion-base-${APP_ENV} AS add-code
+# =============================================================================
+# ADD-CODE STAGES - Separate stages for each variant to avoid caching issues
+# with parameterized FROM statements in multi-platform builds
+# =============================================================================
 
+FROM ingestion-base-slim AS add-code-slim
 COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
-
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN test -d /metadata-ingestion/src/datahub/metadata  # codegen must be run prior to building the image
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
     python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-FROM add-code AS install-slim
+FROM ingestion-base-full AS add-code-full
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"
+RUN test -d /metadata-ingestion/src/datahub/metadata
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+FROM ingestion-base-locked AS add-code-locked
+COPY --chown=datahub ./metadata-ingestion /metadata-ingestion
+ARG RELEASE_VERSION
+RUN test -n "$RELEASE_VERSION"
+RUN test -d /metadata-ingestion/src/datahub/metadata
+RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1
+
+# =============================================================================
+# FINAL STAGES - Ubuntu variants
+# =============================================================================
+
+FROM add-code-slim AS final-slim
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
+RUN rm -rf $HOME/.config/uv
 
-FROM add-code AS install-full
+FROM add-code-full AS final-full
 
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
+
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
+RUN rm -rf $HOME/.config/uv
 
-FROM add-code AS install-locked
+FROM add-code-locked AS final-locked
+
+ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 # Locked variant: minimal install with s3-slim, network will be blocked
-RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
+RUN rm -rf $HOME/.config/uv
 
 # Block network access to PyPI in locked variant
-ENV UV_INDEX_URL=http://127.0.0.1:1/simple
+ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
-FROM install-${APP_ENV} AS final
+
+# =============================================================================
+# DEFAULT EXPORT - Use APP_ENV to select variant (defaults to full)
+# =============================================================================
+
+FROM final-${APP_ENV} AS final
 
 ENTRYPOINT [ "datahub" ]

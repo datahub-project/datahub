@@ -6,13 +6,14 @@ from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 from packaging import version
+from pydantic import SecretStr
 from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
@@ -23,13 +24,11 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -145,7 +144,9 @@ class QualifiedNameParser:
     def get_segments(self, table_name: str) -> Dict:
         segments = table_name.split(self.split_char)
         segments.reverse()
-        self.segments_dict = dict(zip(list(reversed(self.names)), segments))
+        self.segments_dict = dict(
+            zip(list(reversed(self.names)), segments, strict=False)
+        )
         return self.segments_dict
 
     def get_full_qualified_name(self, database_name: str, table_name: str) -> str:
@@ -255,7 +256,9 @@ class RedashConfig(
     connect_uri: str = Field(
         default="http://localhost:5000", description="Redash base URL."
     )
-    api_key: str = Field(default="REDASH_API_KEY", description="Redash user API key.")
+    api_key: TransparentSecretStr = Field(
+        default=SecretStr("REDASH_API_KEY"), description="Redash user API key."
+    )
 
     # Optionals
     dashboard_patterns: AllowDenyPattern = Field(
@@ -338,7 +341,9 @@ class RedashSource(StatefulIngestionSourceBase):
         # Handle trailing slash removal
         self.config.connect_uri = self.config.connect_uri.strip("/")
 
-        self.client = Redash(self.config.connect_uri, self.config.api_key)
+        self.client = Redash(
+            self.config.connect_uri, self.config.api_key.get_secret_value()
+        )
         self.client.session.headers.update(
             {
                 "Content-Type": "application/json",
@@ -739,14 +744,6 @@ class RedashSource(StatefulIngestionSourceBase):
 
     def add_config_to_report(self) -> None:
         self.report.api_page_limit = self.config.api_page_limit
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.validate_connection()

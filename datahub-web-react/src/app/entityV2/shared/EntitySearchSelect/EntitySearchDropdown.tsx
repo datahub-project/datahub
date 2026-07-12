@@ -1,9 +1,12 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import Dropdown from '@components/components/Dropdown/Dropdown';
 import { Input } from '@components/components/Input/Input';
+import { Loader } from '@components/components/Loader/Loader';
 import {
     DropdownContainer,
     LabelContainer,
@@ -13,9 +16,10 @@ import {
 } from '@components/components/Select/components';
 
 import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
+import { useGetEntitySearchResultsAutoCompleteFieldsLazyQuery } from '@graphql/search.generated';
 import { AndFilterInput, Entity, EntityType } from '@types';
 
 const SearchInputContainer = styled.div({
@@ -33,7 +37,7 @@ const EntityOptionContainer = styled.div`
 const LoadingState = styled.div`
     padding: 16px 12px;
     text-align: center;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -43,11 +47,11 @@ const LoadingState = styled.div`
 const EmptyState = styled.div`
     padding: 16px 12px;
     text-align: center;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textTertiary};
     font-style: italic;
 `;
 
-export interface EntitySearchDropdownProps {
+interface EntitySearchDropdownProps {
     entityTypes: EntityType[];
     selectedUrns: string[];
     onSelectionChange: (urns: string[]) => void;
@@ -75,7 +79,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
     entityTypes,
     selectedUrns,
     onSelectionChange,
-    placeholder = 'Search for entities...',
+    placeholder,
     isMultiSelect = true,
     onEntitySelect,
     defaultFilters,
@@ -88,6 +92,8 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
     actionButtons,
     dropdownContainerStyle,
 }) => {
+    const { t } = useTranslation('entity.shared.selectors');
+    const resolvedPlaceholder = placeholder ?? t('entitySearch.placeholder');
     const entityRegistry = useEntityRegistry();
     const [searchQuery, setSearchQuery] = useState('');
     const prevOpenRef = useRef<boolean>(false);
@@ -95,7 +101,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
 
     // Search functionality
     const [searchResources, { data: resourcesSearchData, loading: searchLoading }] =
-        useGetSearchResultsForMultipleLazyQuery();
+        useGetEntitySearchResultsAutoCompleteFieldsLazyQuery();
 
     // Issue a default search when dropdown opens
     useEffect(() => {
@@ -117,24 +123,30 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
         prevOpenRef.current = open;
     }, [open, entityTypes, searchResources, defaultFilters, viewUrn]);
 
-    const handleSearchChange = useCallback(
-        (value: string) => {
-            setSearchQuery(value);
-            searchResources({
-                variables: {
-                    input: {
-                        types: entityTypes,
-                        query: value || '*',
-                        start: 0,
-                        count: 10,
-                        orFilters: defaultFilters,
-                        viewUrn: viewUrn || undefined,
+    useDebounce(
+        () => {
+            if (open) {
+                searchResources({
+                    variables: {
+                        input: {
+                            types: entityTypes,
+                            query: searchQuery || '*',
+                            start: 0,
+                            count: 10,
+                            orFilters: defaultFilters,
+                            viewUrn: viewUrn || undefined,
+                        },
                     },
-                },
-            });
+                });
+            }
         },
-        [entityTypes, searchResources, defaultFilters, viewUrn],
+        DEBOUNCE_SEARCH_MS,
+        [searchQuery, entityTypes, defaultFilters, viewUrn, open],
     );
+
+    const handleSearchChange = useCallback((value: string) => {
+        setSearchQuery(value);
+    }, []);
 
     const entityOptions = useMemo(() => {
         const results = resourcesSearchData?.searchAcrossEntities?.searchResults || [];
@@ -169,22 +181,21 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                 <Input
                     label=""
                     value={searchQuery}
-                    setValue={(value) => {
-                        const newValue = typeof value === 'function' ? value(searchQuery) : value;
-                        handleSearchChange(newValue);
-                    }}
-                    placeholder={placeholder}
-                    icon={{ icon: 'Search' }}
+                    setValue={handleSearchChange}
+                    placeholder={resolvedPlaceholder}
+                    icon={{ icon: MagnifyingGlass }}
                     data-testid="entity-search-select-input"
                 />
             </SearchInputContainer>
             <OptionList>
                 {searchLoading && (
                     <LoadingState>
-                        <LoadingOutlined />
+                        <Loader size="sm" />
                     </LoadingState>
                 )}
-                {!searchLoading && entityOptions.length === 0 && <EmptyState>No entities found</EmptyState>}
+                {!searchLoading && entityOptions.length === 0 && (
+                    <EmptyState>{t('entitySearch.noEntitiesFound')}</EmptyState>
+                )}
                 {!searchLoading &&
                     entityOptions.map((option) => (
                         <OptionLabel
@@ -208,11 +219,9 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                                         <EntitySearchInputResultV2 entity={option.entity} />
                                     </EntityOptionContainer>
                                     <StyledCheckbox
-                                        onClick={(e) => {
-                                            e.stopPropagation(); // Prevent double-triggering
-                                            handleOptionClick(option);
-                                        }}
-                                        checked={selectedUrns.includes(option.value)}
+                                        onCheckboxChange={() => handleOptionClick(option)}
+                                        isChecked={selectedUrns.includes(option.value)}
+                                        size="sm"
                                     />
                                 </LabelContainer>
                             ) : (

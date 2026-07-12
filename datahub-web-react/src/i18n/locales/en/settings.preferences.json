@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "Manage your appearance settings.",
+    "appearance.title": "Appearance",
+    "language.description": "Choose your preferred display language",
+    "language.title": "User interface language",
+    "noSettings": "No appearance settings found.",
+    "showApplications.description": "Applications are another way to organize your data, similar to Domains. They are hidden by default.",
+    "showApplications.successMessage": "Setting updated!",
+    "showApplications.title": "Show Applications"
+}

@@ -2,11 +2,11 @@ package com.linkedin.metadata.system_info;
 
 import com.linkedin.metadata.system_info.collectors.PropertiesCollector;
 import com.linkedin.metadata.system_info.collectors.SpringComponentsCollector;
+import jakarta.annotation.PreDestroy;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

@@ -1,11 +1,7 @@
-import { ApiOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import * as cronParser from 'cron-parser';
-import cronstrue from 'cronstrue';
-import * as moment from 'moment-timezone';
+import { ApiOutlined } from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
-
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@components/theme/foundations/colors';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
@@ -13,8 +9,9 @@ import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/as
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
+import { cronToString } from '@utils/cronstrue';
 
-import { Assertion, AssertionResultType, AssertionType, CronSchedule, EntityType } from '@types';
+import { Assertion, AssertionResultType, AssertionType, EntityType } from '@types';
 
 const StyledApiOutlined = styled(ApiOutlined)`
     && {
@@ -22,33 +19,6 @@ const StyledApiOutlined = styled(ApiOutlined)`
         padding: 0px;
         margin-right: 8px;
         font-size: 18px;
-    }
-`;
-
-const StyledCheckOutlined = styled(CheckOutlined)`
-    && {
-        color: ${SUCCESS_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
-    }
-`;
-
-const StyledCloseOutlined = styled(CloseOutlined)`
-    && {
-        color: ${FAILURE_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
-    }
-`;
-
-const StyledExclamationOutlined = styled(ExclamationCircleOutlined)`
-    && {
-        color: ${WARNING_COLOR_HEX};
-        font-size: 14px;
-        padding: 0px;
-        margin: 0px;
     }
 `;
 
@@ -71,8 +41,12 @@ const getStyledIconComponent = (type: AssertionType) => {
 
 export const ASSERTION_INFO = [
     {
-        name: 'Freshness',
-        description: 'Define & monitor your expectations about when this dataset should be updated',
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.freshness');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.freshness');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.Freshness)),
         type: AssertionType.Freshness,
         entityTypes: [EntityType.Dataset],
@@ -80,8 +54,12 @@ export const ASSERTION_INFO = [
         visible: true,
     },
     {
-        name: 'Volume',
-        description: 'Define & monitor your expectations about the size of this dataset',
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.volume');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.volume');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.Volume)),
         type: AssertionType.Volume,
         entityTypes: [EntityType.Dataset],
@@ -89,8 +67,12 @@ export const ASSERTION_INFO = [
         visible: true,
     },
     {
-        name: 'Column',
-        description: 'Define & monitor your expectations about the values in a column',
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.column');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.column');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.Field)),
         type: AssertionType.Field,
         entityTypes: [EntityType.Dataset],
@@ -99,8 +81,12 @@ export const ASSERTION_INFO = [
         requiresConnectionSupportedByMonitors: false,
     },
     {
-        name: 'Schema',
-        description: "Define & monitor your expectations about the table's columns and their types",
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.schema');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.schema');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.DataSchema)),
         type: AssertionType.DataSchema,
         entityTypes: [EntityType.Dataset],
@@ -108,8 +94,12 @@ export const ASSERTION_INFO = [
         visible: true,
     },
     {
-        name: 'SQL',
-        description: 'Define & monitor your expectations using custom SQL rules',
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.sql');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.sql');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.Sql)),
         type: AssertionType.Sql,
         entityTypes: [EntityType.Dataset],
@@ -118,8 +108,12 @@ export const ASSERTION_INFO = [
         requiresConnectionSupportedByMonitors: true,
     },
     {
-        name: 'Other',
-        description: 'Other assertions that are defined and maintained outside of DataHub.',
+        get name() {
+            return i18next.t('entity.profile.validations:assertionType.other');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.other');
+        },
         icon: React.createElement(getStyledIconComponent(AssertionType.Dataset)),
         type: AssertionType.Dataset,
         entityTypes: [EntityType.Dataset],
@@ -137,7 +131,7 @@ export const getAssertionGroupName = (type: string): string => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
-export const getAssertionGroupTypeIcon = (type: string) => {
+const getAssertionGroupTypeIcon = (type: string) => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
 };
 
@@ -183,21 +177,6 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
     return summary;
 };
 
-/**
- * TODO: We will remove this mapping code once we replace the OSS legacy assertions summary with the new
- * format.
- */
-export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
-    const newSummary = getAssertionsSummary(assertions);
-    return {
-        failedRuns: newSummary.failing,
-        succeededRuns: newSummary.passing,
-        erroredRuns: newSummary.erroring,
-        totalRuns: newSummary.total,
-        totalAssertions: newSummary.totalAssertions,
-    };
-};
-
 export const getAssertionType = (assertion: Assertion): string | undefined => {
     return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
 };
@@ -240,89 +219,12 @@ export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGr
     return assertionGroups;
 };
 
-// TODO: Make this the default inside DatasetAssertionsSummary.tsx.
-export const getAssertionGroupSummaryIcon = (summary: AssertionStatusSummary) => {
-    if (summary.total === 0) {
-        return null;
-    }
-    if (summary.passing === summary.total) {
-        return <StyledCheckOutlined />;
-    }
-    if (summary.erroring > 0) {
-        return <StyledExclamationOutlined />;
-    }
-    return <StyledCloseOutlined />;
-};
-
-// TODO: Make this the default inside DatasetAssertionsSummary.tsx.
-export const getAssertionGroupSummaryMessage = (summary: AssertionStatusSummary) => {
-    if (summary.total === 0) {
-        return 'No assertions have run';
-    }
-    if (summary.passing === summary.total) {
-        return 'All assertions are passing';
-    }
-    if (summary.erroring > 0) {
-        return 'An error is preventing some assertions from running';
-    }
-    if (summary.failing === summary.total) {
-        return 'All assertions are failing';
-    }
-    return 'Some assertions are failing';
-};
-
-/**
- * Returns the next scheduled run of a cron schedule, in the local timezone of the user.
- *
- * @param schedule a cron schedule
- */
-export const getNextScheduleEvaluationTimeMs = (schedule: CronSchedule) => {
-    try {
-        const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
-        const nextDate = interval.next().toDate(); // Get next date as JavaScript Date object
-        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const nextDateInUserTz = moment.tz(nextDate, userTimezone); // Convert to user's timezone
-        return nextDateInUserTz.valueOf();
-    } catch (e) {
-        console.log('Failed to parse cron expression', e);
-        return undefined;
-    }
-};
-
-/**
- * Returns the previously scheduled run of a cron schedule, in the local timezone of the user.
- *
- * @param schedule a cron schedule
- * @param maybeFromDateTS
- */
-export const getPreviousScheduleEvaluationTimeMs = (schedule: CronSchedule, maybeFromDateTS?: number) => {
-    try {
-        const interval = cronParser.parseExpression(schedule.cron, { tz: schedule.timezone });
-        if (typeof maybeFromDateTS !== 'undefined') {
-            interval.reset(maybeFromDateTS);
-        }
-        const prevDate = interval.prev().toDate(); // Get prev date as JavaScript Date object
-        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const prevDateInUserTz = moment.tz(prevDate, userTimezone); // Convert to user's timezone
-        return prevDateInUserTz.valueOf();
-    } catch (e) {
-        console.log('Failed to parse cron expression', e);
-        return undefined;
-    }
-};
-export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsConnectionForEntityExists: boolean) => {
-    return ASSERTION_INFO.filter((type) => type.entityTypes.includes(entityType)).map((type) => ({
-        ...type,
-        enabled: type.enabled && (!type.requiresConnectionSupportedByMonitors || monitorsConnectionForEntityExists),
-    }));
-};
-
 export const getCronAsText = (interval: string, options: { verbose: boolean } = { verbose: false }) => {
     const { verbose } = options;
     if (interval) {
         try {
             return {
-                text: `${lowerFirstLetter(cronstrue.toString(interval, { verbose }))}.`,
+                text: `${lowerFirstLetter(cronToString(interval, { verbose }))}.`,
                 error: false,
             };
         } catch (e) {

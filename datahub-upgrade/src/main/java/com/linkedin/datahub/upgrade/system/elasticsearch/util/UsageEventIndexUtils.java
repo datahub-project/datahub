@@ -45,6 +45,7 @@ public class UsageEventIndexUtils {
    * @throws ResponseException if the request fails with a non-409 status code
    */
   public static void createIlmPolicy(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String policyName)
       throws IOException {
@@ -63,7 +64,7 @@ public class UsageEventIndexUtils {
               () -> {
                 try {
                   RawResponse response =
-                      IndexUtils.performPutRequest(esComponents, endpoint, policyJson);
+                      IndexUtils.performPutRequest(opContext, esComponents, endpoint, policyJson);
 
                   int statusCode = response.getStatusLine().getStatusCode();
                   if (statusCode == 200 || statusCode == 201) {
@@ -149,7 +150,8 @@ public class UsageEventIndexUtils {
               2000,
               () -> {
                 try {
-                  RawResponse getResponse = IndexUtils.performGetRequest(esComponents, endpoint);
+                  RawResponse getResponse =
+                      IndexUtils.performGetRequest(operationContext, esComponents, endpoint);
                   return handleGetResponse(
                       getResponse,
                       esComponents,
@@ -195,11 +197,11 @@ public class UsageEventIndexUtils {
     int getStatusCode = getResponse.getStatusLine().getStatusCode();
 
     if (getStatusCode == 200) {
-      return handleExistingPolicy(esComponents, policyName, prefix, operationContext);
+      return handleExistingPolicy(operationContext, esComponents, policyName, prefix);
     }
 
     if (getStatusCode == 404) {
-      return createNewPolicy(esComponents, endpoint, policyJson, policyName);
+      return createNewPolicy(operationContext, esComponents, endpoint, policyJson, policyName);
     }
 
     // Handle other GET errors - these are retryable (like the Docker script)
@@ -237,12 +239,12 @@ public class UsageEventIndexUtils {
 
     if (statusCode == 200) {
       log.info("ISM policy {} already exists (from exception), updating it", policyName);
-      return handleExistingPolicy(esComponents, policyName, prefix, operationContext);
+      return handleExistingPolicy(operationContext, esComponents, policyName, prefix);
     }
 
     if (statusCode == 404) {
       log.info("ISM policy {} doesn't exist (from exception), creating it", policyName);
-      return createNewPolicy(esComponents, endpoint, policyJson, policyName);
+      return createNewPolicy(operationContext, esComponents, endpoint, policyJson, policyName);
     }
 
     // Handle all other errors as retryable (including 400 with .opendistro-ism-config)
@@ -256,17 +258,17 @@ public class UsageEventIndexUtils {
   /**
    * Handles the case when an ISM policy already exists by updating it.
    *
+   * @param operationContext the operation context for JSON parsing
    * @param esComponents the Elasticsearch components factory
    * @param policyName the name of the ISM policy
    * @param prefix the prefix for index patterns
-   * @param operationContext the operation context for JSON parsing
    * @return true if successful, false otherwise
    */
   private static boolean handleExistingPolicy(
+      OperationContext operationContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String policyName,
-      String prefix,
-      OperationContext operationContext) {
+      String prefix) {
 
     log.info("ISM policy {} already exists, updating it", policyName);
     try {
@@ -284,6 +286,7 @@ public class UsageEventIndexUtils {
   /**
    * Creates a new ISM policy.
    *
+   * @param operationContext the operation context
    * @param esComponents the Elasticsearch components factory
    * @param endpoint the API endpoint
    * @param policyJson the policy JSON to create
@@ -291,6 +294,7 @@ public class UsageEventIndexUtils {
    * @return true if successful, false otherwise
    */
   private static boolean createNewPolicy(
+      OperationContext operationContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String endpoint,
       String policyJson,
@@ -299,7 +303,8 @@ public class UsageEventIndexUtils {
     log.info("ISM policy {} doesn't exist, creating it", policyName);
 
     try {
-      RawResponse createResponse = IndexUtils.performPutRequest(esComponents, endpoint, policyJson);
+      RawResponse createResponse =
+          IndexUtils.performPutRequest(operationContext, esComponents, endpoint, policyJson);
       int createStatusCode = createResponse.getStatusLine().getStatusCode();
 
       if (createStatusCode == 200 || createStatusCode == 201) {
@@ -399,6 +404,7 @@ public class UsageEventIndexUtils {
    * @throws ResponseException if the request fails with a non-409 status code
    */
   public static void createIndexTemplate(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String templateName,
       String policyName,
@@ -417,7 +423,8 @@ public class UsageEventIndexUtils {
       // Use the low-level client for index templates
       String endpoint = "/_index_template/" + templateName;
 
-      RawResponse response = IndexUtils.performPutRequest(esComponents, endpoint, templateJson);
+      RawResponse response =
+          IndexUtils.performPutRequest(opContext, esComponents, endpoint, templateJson);
 
       if (response.getStatusLine().getStatusCode() == 200
           || response.getStatusLine().getStatusCode() == 201) {
@@ -467,6 +474,7 @@ public class UsageEventIndexUtils {
    * @throws ResponseException if the request fails with a non-409 status code
    */
   public static void createOpenSearchIndexTemplate(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String templateName,
       int numShards,
@@ -488,7 +496,8 @@ public class UsageEventIndexUtils {
       templateJson = templateJson.replace("DUE_REPLICAS", String.valueOf(numReplicas));
 
       // Use the low-level client to make the PUT request
-      RawResponse response = IndexUtils.performPutRequest(esComponents, endpoint, templateJson);
+      RawResponse response =
+          IndexUtils.performPutRequest(opContext, esComponents, endpoint, templateJson);
 
       if (response.getStatusLine().getStatusCode() == 200
           || response.getStatusLine().getStatusCode() == 201) {
@@ -538,29 +547,56 @@ public class UsageEventIndexUtils {
    * @throws OpenSearchStatusException if the creation fails with a non-"already exists" error
    */
   public static void createDataStream(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String dataStreamName)
       throws IOException {
     try {
-      GetIndexRequest getRequest = new GetIndexRequest(dataStreamName);
+      // Check if the data stream already exists first (matches pattern in
+      // createOpenSearchUsageEventIndex)
+      String endpoint = "/_data_stream/" + dataStreamName;
 
-      boolean exists =
-          esComponents.getSearchClient().indexExists(getRequest, RequestOptions.DEFAULT);
+      try {
+        RawResponse getResponse = IndexUtils.performGetRequest(opContext, esComponents, endpoint);
+        int statusCode = getResponse.getStatusLine().getStatusCode();
+        if (statusCode == 200) {
+          log.info("Data stream {} already exists", dataStreamName);
+          return;
+        }
+      } catch (IOException e) {
+        // Handle ResponseException from both ES8 and OpenSearch clients
+        // Check if this is a 404 "not found" exception by examining the message
+        String message = e.getMessage();
+        if (message != null && message.contains("404")) {
+          // Data stream doesn't exist, proceed with creation
+          log.debug("Data stream {} does not exist, will create", dataStreamName);
+        } else {
+          // Unexpected error checking existence
+          throw e;
+        }
+      }
 
-      if (!exists) {
-        // Create data stream by creating an index with the data stream name
-        CreateIndexRequest createRequest = new CreateIndexRequest(dataStreamName);
+      // Use the low-level REST client to create the data stream using the proper API
+      // Elasticsearch requires using PUT /_data_stream/{name} for data stream creation
+      // when the template has "data_stream": {} configured
+      try {
+        RawResponse response = IndexUtils.performPutRequest(opContext, esComponents, endpoint, "");
 
-        CreateIndexResponse response =
-            esComponents.getSearchClient().createIndex(createRequest, RequestOptions.DEFAULT);
-
-        if (response.isAcknowledged()) {
+        int statusCode = response.getStatusLine().getStatusCode();
+        if (statusCode == 200 || statusCode == 201) {
           log.info("Successfully created data stream: {}", dataStreamName);
         } else {
-          log.warn("Data stream creation not acknowledged: {}", dataStreamName);
+          log.warn(
+              "Data stream creation returned unexpected status {}: {}", statusCode, dataStreamName);
         }
-      } else {
-        log.info("Data stream {} already exists", dataStreamName);
+      } catch (IOException e) {
+        // Handle ResponseException from both ES8 and OpenSearch clients
+        String message = e.getMessage();
+        if (message != null && message.contains("resource_already_exists_exception")) {
+          log.info("Data stream {} already exists", dataStreamName);
+        } else {
+          throw e;
+        }
       }
     } catch (OpenSearchStatusException e) {
       if (e.getMessage().contains("resource_already_exists_exception")
@@ -579,12 +615,14 @@ public class UsageEventIndexUtils {
    * an index and assign a write alias atomically. This is more efficient than creating the index
    * and alias separately.
    *
+   * @param opContext the operation context
    * @param esComponents the Elasticsearch/OpenSearch components factory
    * @param indexName the name of the index to create
    * @param aliasName the name of the alias to assign with is_write_index=true
    * @throws IOException if there's an error creating the index
    */
   private static void createIndexWithWriteAlias(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String indexName,
       String aliasName)
@@ -595,7 +633,7 @@ public class UsageEventIndexUtils {
     request.source(indexJson, XContentType.JSON);
 
     CreateIndexResponse response =
-        esComponents.getSearchClient().createIndex(request, RequestOptions.DEFAULT);
+        esComponents.getSearchClient().createIndex(opContext, request, RequestOptions.DEFAULT);
 
     if (response.isAcknowledged()) {
       log.info("Successfully created index: {} with write alias: {}", indexName, aliasName);
@@ -633,6 +671,7 @@ public class UsageEventIndexUtils {
    * @throws OpenSearchStatusException if the creation fails with a non-"already exists" error
    */
   public static void createOpenSearchUsageEventIndex(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String indexName,
       String aliasName)
@@ -641,7 +680,9 @@ public class UsageEventIndexUtils {
       // Check if the specific index already exists
       GetIndexRequest getIndexRequest = new GetIndexRequest(indexName);
       boolean indexExists =
-          esComponents.getSearchClient().indexExists(getIndexRequest, RequestOptions.DEFAULT);
+          esComponents
+              .getSearchClient()
+              .indexExists(opContext, getIndexRequest, RequestOptions.DEFAULT);
 
       if (indexExists) {
         log.info("OpenSearch index {} already exists - skipping creation", indexName);
@@ -651,7 +692,9 @@ public class UsageEventIndexUtils {
       // Check if any index with the expected alias already exists
       GetAliasesRequest aliasRequest = new GetAliasesRequest(aliasName);
       GetAliasesResponse aliasResponse =
-          esComponents.getSearchClient().getIndexAliases(aliasRequest, RequestOptions.DEFAULT);
+          esComponents
+              .getSearchClient()
+              .getIndexAliases(opContext, aliasRequest, RequestOptions.DEFAULT);
 
       if (!aliasResponse.getAliases().isEmpty()) {
         log.info(
@@ -664,7 +707,7 @@ public class UsageEventIndexUtils {
 
       // No index with the alias exists, create a new one
       log.info("Creating new OpenSearch index: {} with alias: {}", indexName, aliasName);
-      createIndexWithWriteAlias(esComponents, indexName, aliasName);
+      createIndexWithWriteAlias(opContext, esComponents, indexName, aliasName);
     } catch (OpenSearchStatusException e) {
       if (e.getMessage().contains("resource_already_exists_exception")
           || (e.status().getStatus() == 400 && e.getMessage().contains("already exists"))) {
@@ -701,7 +744,8 @@ public class UsageEventIndexUtils {
       String endpoint = "/_plugins/_ism/policies/" + policyName;
 
       // Get existing policy to retrieve sequence number and primary term
-      RawResponse getResponse = IndexUtils.performGetRequest(esComponents, endpoint);
+      RawResponse getResponse =
+          IndexUtils.performGetRequest(operationContext, esComponents, endpoint);
 
       if (getResponse.getStatusLine().getStatusCode() != 200) {
         log.warn("Could not get ISM policy {} for update. Ignoring.", policyName);
@@ -733,7 +777,8 @@ public class UsageEventIndexUtils {
       // Update policy with optimistic concurrency control
       String queryParams = "?if_seq_no=" + seqNo + "&if_primary_term=" + primaryTerm;
       RawResponse updateResponse =
-          IndexUtils.performPutRequestWithParams(esComponents, endpoint, queryParams, policyJson);
+          IndexUtils.performPutRequestWithParams(
+              operationContext, esComponents, endpoint, queryParams, policyJson);
 
       if (updateResponse.getStatusLine().getStatusCode() == 200
           || updateResponse.getStatusLine().getStatusCode() == 201) {

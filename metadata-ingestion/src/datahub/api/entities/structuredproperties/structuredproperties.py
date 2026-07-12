@@ -84,6 +84,13 @@ class StructuredProperties(ConfigModel):
     type_qualifier: Optional[TypeQualifierAllowedTypes] = None
     immutable: Optional[bool] = False
 
+    @field_validator("version", mode="before")
+    @classmethod
+    def _coerce_version_to_str(cls, v: Union[str, int, None]) -> Optional[str]:
+        if v is None:
+            return None
+        return str(v)
+
     @field_validator("entity_types", mode="before")
     @classmethod
     def _check_entity_types(cls, v: Union[str, List[str]]) -> Union[str, List[str]]:

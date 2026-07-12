@@ -1,6 +1,10 @@
-import { Collapse, Form, message } from 'antd';
-import React, { useCallback, useState } from 'react';
-import styled from 'styled-components';
+// antd `Form` and `Collapse` are retained because alchemy does not currently provide
+// equivalents for `Form` (with field-level rules / Form.useForm) or collapsible panels.
+import { toast } from '@components';
+import { Collapse, Form } from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { Label } from '@components/components/TextArea/components';
 
@@ -16,9 +20,10 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
-import { Input, Modal, TextArea } from '@src/alchemy-components';
+import { ColorPicker, Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
+import { useUpdateDisplayPropertiesMutation } from '@graphql/mutations.generated';
 import { DataHubPageModuleType, EntityType } from '@types';
 
 const FormItem = styled(Form.Item)`
@@ -51,22 +56,37 @@ const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
+    const { t } = useTranslation('governance.domain');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const [createDomainMutation] = useCreateDomainMutation();
+    const [updateDisplayPropertiesMutation] = useUpdateDisplayPropertiesMutation();
     const { entityData, setNewDomain } = useDomainsContextV2();
+    const theme = useTheme();
     const [selectedParentUrn, setSelectedParentUrn] = useState<string>(
         (isNestedDomainsEnabled && entityData?.urn) || '',
     );
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
+    const [selectedColor, setSelectedColor] = useState<string>(theme.colors.colorPickerDefault);
+    // Whether the user has explicitly picked a color. If false, we let the backend fall back to
+    // the deterministic palette color generated from the URN instead of persisting the default
+    // gray placeholder and overriding it.
+    const [colorWasPicked, setColorWasPicked] = useState(false);
     const [form] = Form.useForm();
+    const { loaded: userLoaded, user } = useUserContext();
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-    const { user } = useUserContext();
+    const [hasInitializedDefaultOwner, setHasInitializedDefaultOwner] = useState(false);
 
-    // Simply provide current user as placeholder - OwnersSection will handle auto-selection
-    const defaultOwners = user ? [user] : [];
+    useEffect(() => {
+        if (!hasInitializedDefaultOwner && userLoaded) {
+            setSelectedOwnerUrns(user?.urn ? [user.urn] : []);
+            setHasInitializedDefaultOwner(true);
+        }
+    }, [hasInitializedDefaultOwner, user?.urn, userLoaded]);
 
     // Stable callback for setting owner URNs
-    const handleSetSelectedOwnerUrns = useCallback((ownerUrns: React.SetStateAction<string[]>) => {
+    const handleSetSelectedOwnerUrns = useCallback((ownerUrns: string[]) => {
         setSelectedOwnerUrns(ownerUrns);
     }, []);
 
@@ -93,19 +113,31 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         type: EventType.CreateDomainEvent,
                         parentDomainUrn: selectedParentUrn || undefined,
                     });
-                    message.success({
-                        content: `Created domain!`,
-                        duration: 3,
-                    });
+                    toast.success(t('create.success'), { duration: 3 });
+                    const newDomainUrn = data?.createDomain || '';
+                    // Only persist the color if the user actually picked one. Otherwise we'd
+                    // save the gray placeholder default and override the deterministic palette
+                    // color the UI would have generated from the URN. Best-effort follow-up so
+                    // a color failure doesn't block creation.
+                    if (newDomainUrn && colorWasPicked) {
+                        updateDisplayPropertiesMutation({
+                            variables: {
+                                urn: newDomainUrn,
+                                input: { colorHex: selectedColor },
+                            },
+                        }).catch((e) => {
+                            console.error('Failed to set domain color after creation', e);
+                        });
+                    }
                     onCreate?.(
-                        data?.createDomain || '',
+                        newDomainUrn,
                         form.getFieldValue(ID_FIELD_NAME),
                         form.getFieldValue(NAME_FIELD_NAME),
                         form.getFieldValue(DESCRIPTION_FIELD_NAME),
                         selectedParentUrn || undefined,
                     );
                     const newDomain: UpdatedDomain = {
-                        urn: data?.createDomain || '',
+                        urn: newDomainUrn,
                         type: EntityType.Domain,
                         id: form.getFieldValue(ID_FIELD_NAME),
                         properties: {
@@ -125,8 +157,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to create Domain!: \n ${e.message || ''}`, duration: 3 });
+                toast.error(t('create.error', { errorMessage: e.message || '' }), { duration: 3 });
             })
             .finally(() => {
                 onClose();
@@ -140,21 +171,21 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
 
     return (
         <Modal
-            title="Create New Domain"
+            title={t('create.title')}
             open
             onCancel={onClose}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                 },
                 {
-                    text: 'Save',
+                    text: tc('save'),
                     id: 'createDomainButton',
                     buttonDataTestId: 'create-domain-button',
                     onClick: onCreateDomain,
-                    disabled: !createButtonEnabled,
+                    disabled: !createButtonEnabled || !hasInitializedDefaultOwner,
                 },
             ]}
         >
@@ -171,14 +202,18 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     rules={[
                         {
                             required: true,
-                            message: 'Enter a Domain name.',
+                            message: t('create.nameRequired'),
                         },
                         { whitespace: true },
                         { min: 1, max: 150 },
                     ]}
                     hasFeedback
                 >
-                    <Input label="Name" data-testid="create-domain-name" placeholder="A name for your domain" />
+                    <Input
+                        label={tl('name')}
+                        data-testid="create-domain-name"
+                        placeholder={t('create.namePlaceholder')}
+                    />
                 </FormItemWithMargin>
                 <FormItemWithMargin
                     name={DESCRIPTION_FIELD_NAME}
@@ -186,18 +221,28 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     hasFeedback
                 >
                     <TextArea
-                        label="Description"
-                        placeholder="A description for your domain"
+                        label={tl('description')}
+                        placeholder={t('create.descriptionPlaceholder')}
                         data-testid="create-domain-description"
+                    />
+                </FormItemWithMargin>
+                <FormItemWithMargin>
+                    <Label>{tl('color')}</Label>
+                    <ColorPicker
+                        initialColor={selectedColor}
+                        onChange={(c) => {
+                            setSelectedColor(c);
+                            setColorWasPicked(true);
+                        }}
                     />
                 </FormItemWithMargin>
                 {isNestedDomainsEnabled && (
                     <FormItemWithMargin>
-                        <Label>Parent Domains</Label>
+                        <Label>{t('create.parentLabel')}</Label>
                         <DomainSelector
                             selectedDomains={selectedParentUrn ? [selectedParentUrn] : []}
                             onDomainsChange={(selectedDomainUrns) => setSelectedParentUrn(selectedDomainUrns[0] || '')}
-                            placeholder="Select parent domain"
+                            placeholder={t('create.parentPlaceholder')}
                             label=""
                             isMultiSelect={false}
                         />
@@ -208,11 +253,12 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     <OwnersSection
                         selectedOwnerUrns={selectedOwnerUrns}
                         setSelectedOwnerUrns={handleSetSelectedOwnerUrns}
-                        defaultOwners={defaultOwners}
+                        isDisabled={!hasInitializedDefaultOwner}
+                        isLoading={!hasInitializedDefaultOwner}
                     />
                 </FormItemNoMargin>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Label>Advanced Options</Label>} key="1">
+                    <Collapse.Panel header={<Label>{t('create.advancedOptions')}</Label>} key="1">
                         <FormItemWithMargin
                             name={ID_FIELD_NAME}
                             rules={[
@@ -221,12 +267,16 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                         if (value && validateCustomUrnId(value)) {
                                             return Promise.resolve();
                                         }
-                                        return Promise.reject(new Error('Please enter a valid Domain id'));
+                                        return Promise.reject(new Error(t('create.idInvalid')));
                                     },
                                 }),
                             ]}
                         >
-                            <Input label="Custom Id" data-testid="create-domain-id" placeholder="engineering" />
+                            <Input
+                                label={t('create.idLabel')}
+                                data-testid="create-domain-id"
+                                placeholder={t('create.idPlaceholder')}
+                            />
                         </FormItemWithMargin>
                     </Collapse.Panel>
                 </Collapse>

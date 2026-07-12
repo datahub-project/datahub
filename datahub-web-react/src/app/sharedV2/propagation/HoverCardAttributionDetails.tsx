@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { usePropagationDetails } from '@app/entity/shared/propagation/utils';
@@ -18,8 +19,16 @@ interface Props {
 }
 
 export default function HoverCardAttributionDetails({ propagationDetails, addMargin }: Props) {
+    const { t } = useTranslation('shared.propagation');
     const sourceDetail = usePropagationDetails(propagationDetails?.attribution?.sourceDetail);
-    const context = propagationDetails?.context ? (JSON.parse(propagationDetails.context) as PropagationContext) : null;
+    let context: PropagationContext | null = null;
+    if (propagationDetails?.context) {
+        try {
+            context = JSON.parse(propagationDetails.context) as PropagationContext;
+        } catch (e) {
+            console.warn('Failed to parse propagation context as JSON:', propagationDetails.context, e);
+        }
+    }
     const contextEntities = usePropagationContextEntities(context);
     const isPropagated = sourceDetail.isPropagated || context?.propagated;
 
@@ -32,7 +41,7 @@ export default function HoverCardAttributionDetails({ propagationDetails, addMar
     return (
         <DetailsWrapper $addMargin={addMargin}>
             <Text color="gray" weight="bold" colorLevel={600} size="sm">
-                Propagated
+                {t('propagated')}
             </Text>
             {time && (
                 <>
@@ -44,7 +53,7 @@ export default function HoverCardAttributionDetails({ propagationDetails, addMar
             {originEntity && (
                 <div>
                     <Text color="gray" weight="bold" colorLevel={1700} size="sm">
-                        origin
+                        {t('origin')}
                     </Text>
                     <AutoCompleteEntityItem entity={originEntity} hideType padding="4px 4px 4px 0" />
                 </div>
@@ -52,7 +61,7 @@ export default function HoverCardAttributionDetails({ propagationDetails, addMar
             {viaEntity && (
                 <div>
                     <Text color="gray" weight="bold" colorLevel={1700} size="sm">
-                        via
+                        {t('via')}
                     </Text>
                     <AutoCompleteEntityItem entity={viaEntity} hideType padding="4px 4px 4px 0" />
                 </div>

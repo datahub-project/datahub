@@ -4,7 +4,6 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import partial
 from typing import Any, ClassVar, Iterable, List, Optional, Union, cast
 
 import smart_open
@@ -30,19 +29,23 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
-    auto_incremental_lineage,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     Source,
     SourceCapability,
     SourceReport,
 )
-from datahub.ingestion.api.source_helpers import auto_workunit, auto_workunit_reporter
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+    AutoIncrementalLineageProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverReport
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -124,50 +127,16 @@ class SqlQueriesSourceReport(SourceReport):
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
 @capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
+@capability(SourceCapability.OPERATION_CAPTURE, "Parsed from non-SELECT SQL queries")
 class SqlQueriesSource(Source):
     """
-    This source reads a newline-delimited JSON file containing SQL queries and parses them to generate lineage.
+    Source that parses SQL queries from a newline-delimited JSON file to generate lineage.
 
-    ### Query File Format
-    This file should contain one JSON object per line, with the following fields:
-    - query: string - The SQL query to parse.
-    - timestamp (optional): number - The timestamp of the query, in seconds since the epoch.
-    - user (optional): string - The user who ran the query.
-    This user value will be directly converted into a DataHub user urn.
-    - operation_type (optional): string - Platform-specific operation type, used if the operation type can't be parsed.
-    - session_id (optional): string - Session identifier for temporary table resolution across queries.
-    - downstream_tables (optional): string[] - Fallback list of tables that the query writes to,
-     used if the query can't be parsed.
-    - upstream_tables (optional): string[] - Fallback list of tables the query reads from,
-     used if the query can't be parsed.
-
-    **Lazy Schema Loading**:
-    - Fetches schemas on-demand during query parsing instead of bulk loading all schemas upfront
-    - Caches fetched schemas for future lookups to avoid repeated network requests
-    - Reduces initial startup time and memory usage significantly
-    - Automatically handles large platforms efficiently without memory issues
-
-    **Query Processing**:
-    - Loads the entire query file into memory at once
-    - Processes all queries sequentially before generating metadata work units
-    - Preserves temp table mappings and lineage relationships to ensure consistent lineage tracking
-    - Query deduplication is handled automatically by the SQL parsing aggregator
-
-    ### Incremental Lineage
-    When `incremental_lineage` is enabled, this source will emit lineage as patches rather than full overwrites.
-    This allows you to add lineage edges without removing existing ones, which is useful for:
-    - Gradually building up lineage from multiple sources
-    - Preserving manually curated lineage
-    - Avoiding conflicts when multiple ingestion processes target the same datasets
-
-    Note: Incremental lineage only applies to UpstreamLineage aspects. Other aspects like queries and usage
-    statistics will still be emitted normally.
-
-    ### Temporary Table Support
-    For platforms like Athena that don't have native temporary tables, you can use the `temp_table_patterns`
-    configuration to specify regex patterns that identify fake temporary tables. This allows the source to
-    process these tables like other sources that support native temp tables, enabling proper lineage tracking
-    across temporary table operations.
+    Implementation notes:
+    - Uses SqlParsingAggregator for query parsing and deduplication
+    - Optionally uses SchemaResolver to fetch table schemas from DataHub for better parsing accuracy
+    - Supports lazy schema loading to reduce memory usage and startup time
+    - Maintains temp table mappings across queries using session_id
     """
 
     schema_resolver: Optional[SchemaResolver]
@@ -233,13 +202,10 @@ class SqlQueriesSource(Source):
     def get_report(self) -> SqlQueriesSourceReport:
         return self.report
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+    def get_allowed_workunit_processors(self):
         return [
-            partial(auto_workunit_reporter, self.get_report()),
-            partial(
-                auto_incremental_lineage,
-                self.config.incremental_lineage,
-            ),
+            AutoWorkunitsReporterProcessor,
+            AutoIncrementalLineageProcessor,
         ]
 
     def get_workunits_internal(

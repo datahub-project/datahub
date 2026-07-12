@@ -3,7 +3,7 @@ import pathlib
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from requests.models import HTTPError
 
 from datahub.configuration.common import PipelineExecutionError
@@ -54,7 +54,7 @@ class MockResponse:
             self.json_data = data
         return self.json_data
 
-    def get(self, url):
+    def get(self, url, params=None):
         self.url = url
         return self
 
@@ -162,7 +162,7 @@ def test_pipeline(pytestconfig, tmp_path):
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_metabase_ingest_success(
     pytestconfig, tmp_path, test_pipeline, mock_datahub_graph, default_json_response_map
 ):
@@ -204,7 +204,7 @@ def test_metabase_ingest_success(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_stateful_ingestion(
     test_pipeline, mock_datahub_graph, default_json_response_map
 ):
@@ -271,7 +271,7 @@ def test_stateful_ingestion(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_metabase_ingest_failure(pytestconfig, tmp_path, default_json_response_map):
     with (
         patch(
@@ -317,8 +317,8 @@ def test_metabase_ingest_failure(pytestconfig, tmp_path, default_json_response_m
             pipeline.raise_from_status()
         except PipelineExecutionError as exec_error:
             assert exec_error.args[0] == "Source reported errors"
-            assert len(exec_error.args[1].failures) == 1
-            assert list(exec_error.args[1].failures.keys())[0] == "metabase-dashboard"
+            # exec_error.args[1] is the failures LossyList directly
+            assert len(exec_error.args[1]) == 1
 
 
 def test_strip_template_expressions():

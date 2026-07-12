@@ -1,9 +1,54 @@
 import logging
+import time
+from collections.abc import Callable
+from typing import Any, Optional
 
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import get_admin_credentials, get_frontend_url, login_as
 
 logger = logging.getLogger(__name__)
+
+# Smoke quickstart sets POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10; allow scheduled refresh
+# plus async invalidate/rebuild under full-suite CI load.
+DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS = 30
+
+
+def is_graphql_auth_denied(res: dict[str, Any]) -> bool:
+    errors = res.get("errors", [])
+    if not errors:
+        return False
+    code = errors[0].get("extensions", {}).get("code")
+    return code in (401, 403)
+
+
+def wait_until_graphql_auth_denied(
+    request_fn: Callable[[], dict[str, Any]],
+    *,
+    timeout_seconds: float = DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS,
+    poll_interval_seconds: float = 1.0,
+    description: str = "authorization denial",
+) -> dict[str, Any]:
+    """Poll until request_fn returns a GraphQL authorization error.
+
+    GMS policy cache refresh is async; after deletePolicy, authorization may remain
+    permissive until the cache is rebuilt.
+    """
+    deadline = time.time() + timeout_seconds
+    last_res: dict[str, Any] = {}
+    while time.time() < deadline:
+        last_res = request_fn()
+        if is_graphql_auth_denied(last_res):
+            return last_res
+        logger.info(
+            "Waiting for policy cache to reflect %s (%.0fs remaining)",
+            description,
+            max(0.0, deadline - time.time()),
+        )
+        time.sleep(poll_interval_seconds)
+    raise AssertionError(
+        f"Timed out after {timeout_seconds}s waiting for {description}; "
+        f"last response: {last_res}"
+    )
 
 
 def get_current_user_info(session):
@@ -199,6 +244,7 @@ def set_view_entity_profile_privileges_policy_status(status, session):
 
 
 def create_user(session, email, password):
+    """Create a native user via /signUp; ``email`` must be valid if enforceValidEmail is enabled."""
     # Remove user if exists
     res_data = remove_user(session, f"urn:li:corpuser:{email}")
     assert res_data
@@ -338,6 +384,66 @@ def assign_role(session, role_urn, actor_urns):
     assert res_data["data"]["batchAssignRole"]
     wait_for_writes_to_sync()
     return res_data["data"]["batchAssignRole"]
+
+
+def create_metadata_policy(
+    session,
+    *,
+    name: str,
+    description: str,
+    privileges: list,
+    user_urn: str,
+    resource_urn: Optional[str] = None,
+    resource_type: Optional[str] = None,
+):
+    """Create an active METADATA policy scoped to a user and optional resource URN."""
+    resources: dict
+    if resource_urn:
+        resources = {
+            "filter": {
+                "criteria": [
+                    {
+                        "field": "URN",
+                        "values": [resource_urn],
+                        "condition": "EQUALS",
+                    }
+                ]
+            }
+        }
+    elif resource_type:
+        resources = {"type": resource_type, "allResources": True}
+    else:
+        resources = {"filter": {"criteria": []}}
+
+    policy = {
+        "query": """mutation createPolicy($input: PolicyUpdateInput!) {
+            createPolicy(input: $input) }""",
+        "variables": {
+            "input": {
+                "type": "METADATA",
+                "name": name,
+                "description": description,
+                "state": "ACTIVE",
+                "resources": resources,
+                "privileges": privileges,
+                "actors": {
+                    "users": [user_urn],
+                    "resourceOwners": False,
+                    "allUsers": False,
+                    "allGroups": False,
+                },
+            }
+        },
+    }
+
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data.get("data") and res_data["data"].get("createPolicy"), (
+        f"createPolicy failed: {res_data}"
+    )
+    wait_for_writes_to_sync()
+    return res_data["data"]["createPolicy"]
 
 
 def create_user_policy(user_urn, privileges, session):

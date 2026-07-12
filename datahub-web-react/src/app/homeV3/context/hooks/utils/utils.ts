@@ -4,6 +4,7 @@ import {
     COLUMNS_MODULE,
     DATA_PRODUCTS_MODULE,
     LINEAGE_MODULE,
+    OUTPUT_PORTS_MODULE,
     RELATED_TERMS_MODULE,
 } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
@@ -12,6 +13,7 @@ import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElement,
 
 const CREATED = { elementType: SummaryElementType.Created };
 const LAST_MODIFIED = { elementType: SummaryElementType.LastModified };
+const LAST_INGESTED = { elementType: SummaryElementType.LastIngested };
 const OWNERS = { elementType: SummaryElementType.Owners };
 const DOMAIN = { elementType: SummaryElementType.Domain };
 const TAGS = { elementType: SummaryElementType.Tags };
@@ -29,7 +31,7 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             summaryElements = [CREATED, OWNERS];
             break;
         case EntityType.DataProduct:
-            rows = [{ modules: [ASSETS_MODULE] }];
+            rows = [{ modules: [OUTPUT_PORTS_MODULE, ASSETS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.GlossaryTerm:
@@ -46,7 +48,7 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             break;
         case EntityType.Document:
             rows = [{ modules: [] }];
-            summaryElements = [DOCUMENT_TYPE, DOCUMENT_STATUS, CREATED, LAST_MODIFIED, OWNERS];
+            summaryElements = [DOCUMENT_TYPE, DOCUMENT_STATUS, CREATED, LAST_MODIFIED, LAST_INGESTED, OWNERS];
             break;
         default:
             break;

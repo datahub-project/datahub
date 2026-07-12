@@ -54,7 +54,7 @@ class TestPostgresRDSIAMConfig:
 
 
 class TestPostgresSourceRDSIAM:
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_without_rds_iam(self, mock_token_manager):
         config_dict = {
             "host_port": "localhost:5432",
@@ -70,7 +70,7 @@ class TestPostgresSourceRDSIAM:
         assert source._rds_iam_token_manager is None
         mock_token_manager.assert_not_called()
 
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_with_rds_iam(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:5432",
@@ -92,7 +92,7 @@ class TestPostgresSourceRDSIAM:
             aws_config=config.aws_config,
         )
 
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_with_rds_iam_custom_port(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:5433",
@@ -113,7 +113,7 @@ class TestPostgresSourceRDSIAM:
             aws_config=config.aws_config,
         )
 
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_with_rds_iam_no_username(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:5432",
@@ -127,7 +127,7 @@ class TestPostgresSourceRDSIAM:
         with pytest.raises(ValueError, match="username is required"):
             PostgresSource(config, ctx)
 
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_with_rds_iam_invalid_port(self, mock_token_manager):
         config_dict = {
             "host_port": "test.rds.amazonaws.com:invalid",
@@ -149,7 +149,7 @@ class TestPostgresSourceRDSIAM:
             aws_config=config.aws_config,
         )
 
-    @patch("datahub.ingestion.source.sql.postgres.RDSIAMTokenManager")
+    @patch("datahub.ingestion.source.sql.postgres.source.RDSIAMTokenManager")
     def test_init_with_rds_iam_stores_hostname_and_port(self, mock_token_manager):
         """Test that hostname and port are passed to token manager."""
         config_dict = {

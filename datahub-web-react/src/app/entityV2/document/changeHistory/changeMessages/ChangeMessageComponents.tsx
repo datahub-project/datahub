@@ -1,22 +1,22 @@
+import { Sparkle } from '@phosphor-icons/react/dist/csr/Sparkle';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useParentDocumentTitle } from '@app/entityV2/document/changeHistory/hooks/useParentDocumentTitle';
 import { isSystemActor } from '@app/entityV2/document/changeHistory/utils/changeUtils';
+import { useGetEntities } from '@app/sharedV2/useGetEntities';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Icon } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { DocumentChangeType, EntityType } from '@types';
 
 const ActionText = styled.div`
     font-size: 14px;
     line-height: 20px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
+    overflow-wrap: break-word;
 `;
 
 const ActorName = styled.span`
@@ -28,18 +28,18 @@ const ActorName = styled.span`
 
 const ClickableText = styled(Link)`
     font-weight: bold;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     text-decoration: none;
     cursor: pointer;
 
     &:hover {
         text-decoration: underline;
-        color: ${colors.gray[800]};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
 const SeeVersionLink = styled.a`
-    color: ${colors.primary[500]};
+    color: ${(props) => props.theme.colors.textBrand};
     cursor: pointer;
     text-decoration: none;
 
@@ -69,7 +69,7 @@ const ActorDisplay: React.FC<ActorDisplayProps> = ({ actorName, actor }) => {
     if (isSystem) {
         return (
             <ActorName>
-                <Icon icon="Sparkle" color="violet" size="sm" />
+                <Icon icon={Sparkle} color="iconBrand" size="sm" />
                 {actorName}
             </ActorName>
         );
@@ -100,18 +100,32 @@ interface ActorWithDetailsProps {
     details: Record<string, string>;
 }
 
-export const CreatedMessage: React.FC<ActorOnlyProps> = ({ actorName, actor }) => (
-    <ActionText>
-        <ActorDisplay actorName={actorName} actor={actor} /> created document
-    </ActionText>
-);
+const CreatedMessage: React.FC<ActorOnlyProps> = ({ actorName, actor }) => {
+    const { t } = useTranslation('entity.types');
+    return (
+        <ActionText>
+            <Trans
+                t={t}
+                i18nKey="document.changeCreated"
+                components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+            />
+        </ActionText>
+    );
+};
 
-export const TitleChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => (
-    <ActionText>
-        <ActorDisplay actorName={actorName} actor={actor} /> changed title to{' '}
-        <ActorName>{details.newTitle || 'Untitled'}</ActorName>
-    </ActionText>
-);
+const TitleChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+    const { t } = useTranslation('entity.types');
+    return (
+        <ActionText>
+            <Trans
+                t={t}
+                i18nKey="document.changeTitleChanged"
+                values={{ title: details.newTitle || t('document.untitledFallback') }}
+                components={{ actor: <ActorDisplay actorName={actorName} actor={actor} />, bold: <ActorName /> }}
+            />
+        </ActionText>
+    );
+};
 
 interface TextChangedMessageProps {
     actorName: string;
@@ -119,20 +133,34 @@ interface TextChangedMessageProps {
     onSeeVersion: () => void;
 }
 
-export const TextChangedMessage: React.FC<TextChangedMessageProps> = ({ actorName, actor, onSeeVersion }) => (
-    <ActionText>
-        <ActorDisplay actorName={actorName} actor={actor} /> edited the document.{' '}
-        <SeeVersionLink onClick={onSeeVersion}>View previous</SeeVersionLink>
-    </ActionText>
-);
+const TextChangedMessage: React.FC<TextChangedMessageProps> = ({ actorName, actor, onSeeVersion }) => {
+    const { t } = useTranslation('entity.types');
+    return (
+        <ActionText>
+            <Trans
+                t={t}
+                i18nKey="document.changeTextEdited"
+                components={{
+                    actor: <ActorDisplay actorName={actorName} actor={actor} />,
+                    anchor: <SeeVersionLink onClick={onSeeVersion} />,
+                }}
+            />
+        </ActionText>
+    );
+};
 
-export const StateChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+const StateChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+    const { t } = useTranslation('entity.types');
     const { newState } = details;
 
     if (newState === 'PUBLISHED') {
         return (
             <ActionText>
-                <ActorDisplay actorName={actorName} actor={actor} /> published document
+                <Trans
+                    t={t}
+                    i18nKey="document.changePublished"
+                    components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+                />
             </ActionText>
         );
     }
@@ -140,19 +168,29 @@ export const StateChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName
     if (newState === 'UNPUBLISHED') {
         return (
             <ActionText>
-                <ActorDisplay actorName={actorName} actor={actor} /> unpublished document
+                <Trans
+                    t={t}
+                    i18nKey="document.changeUnpublished"
+                    components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+                />
             </ActionText>
         );
     }
 
     return (
         <ActionText>
-            <ActorDisplay actorName={actorName} actor={actor} /> changed state to {newState}
+            <Trans
+                t={t}
+                i18nKey="document.changeStateChanged"
+                values={{ state: newState }}
+                components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+            />
         </ActionText>
     );
 };
 
-export const ParentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+const ParentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const { oldParent, newParent } = details;
 
@@ -166,9 +204,16 @@ export const ParentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorNam
         const newParentUrl = entityRegistry.getEntityUrl(EntityType.Document, newParent);
         return (
             <ActionText>
-                <ActorDisplay actorName={actorName} actor={actor} /> moved document from{' '}
-                <ClickableText to={oldParentUrl}>{oldParentTitle}</ClickableText> to{' '}
-                <ClickableText to={newParentUrl}>{newParentTitle}</ClickableText>
+                <Trans
+                    t={t}
+                    i18nKey="document.changeMovedFromTo"
+                    values={{ from: oldParentTitle, to: newParentTitle }}
+                    components={{
+                        actor: <ActorDisplay actorName={actorName} actor={actor} />,
+                        fromLink: <ClickableText to={oldParentUrl} />,
+                        toLink: <ClickableText to={newParentUrl} />,
+                    }}
+                />
             </ActionText>
         );
     }
@@ -178,8 +223,15 @@ export const ParentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorNam
         const newParentUrl = entityRegistry.getEntityUrl(EntityType.Document, newParent);
         return (
             <ActionText>
-                <ActorDisplay actorName={actorName} actor={actor} /> moved document to{' '}
-                <ClickableText to={newParentUrl}>{newParentTitle}</ClickableText>
+                <Trans
+                    t={t}
+                    i18nKey="document.changeMovedTo"
+                    values={{ to: newParentTitle }}
+                    components={{
+                        actor: <ActorDisplay actorName={actorName} actor={actor} />,
+                        toLink: <ClickableText to={newParentUrl} />,
+                    }}
+                />
             </ActionText>
         );
     }
@@ -189,8 +241,15 @@ export const ParentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorNam
         const oldParentUrl = entityRegistry.getEntityUrl(EntityType.Document, oldParent);
         return (
             <ActionText>
-                <ActorDisplay actorName={actorName} actor={actor} /> moved document from{' '}
-                <ClickableText to={oldParentUrl}>{oldParentTitle}</ClickableText> to root level
+                <Trans
+                    t={t}
+                    i18nKey="document.changeMovedFromToRoot"
+                    values={{ from: oldParentTitle }}
+                    components={{
+                        actor: <ActorDisplay actorName={actorName} actor={actor} />,
+                        fromLink: <ClickableText to={oldParentUrl} />,
+                    }}
+                />
             </ActionText>
         );
     }
@@ -198,16 +257,135 @@ export const ParentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorNam
     // Fallback: Moved to root level (no old parent specified)
     return (
         <ActionText>
-            <ActorDisplay actorName={actorName} actor={actor} /> moved document to root level
+            <Trans
+                t={t}
+                i18nKey="document.changeMovedToRoot"
+                components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+            />
         </ActionText>
     );
 };
 
-export const DeletedMessage: React.FC<ActorOnlyProps> = ({ actorName, actor }) => (
-    <ActionText>
-        <ActorDisplay actorName={actorName} actor={actor} /> deleted document
-    </ActionText>
-);
+const DeletedMessage: React.FC<ActorOnlyProps> = ({ actorName, actor }) => {
+    const { t } = useTranslation('entity.types');
+    return (
+        <ActionText>
+            <Trans
+                t={t}
+                i18nKey="document.changeDeleted"
+                components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+            />
+        </ActionText>
+    );
+};
+
+const RelatedAssetChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+    const { t } = useTranslation('entity.types');
+    const entityRegistry = useEntityRegistry();
+    const { entityUrn, operation } = details;
+    const { entities, loading } = useGetEntities(entityUrn ? [entityUrn] : []);
+    const entity = entities[0];
+
+    const action = operation === 'ADD' ? t('document.addedRelatedAsset') : t('document.removedRelatedAsset');
+
+    // While loading, show action without the entity name
+    if (loading && entityUrn) {
+        return (
+            <ActionText>
+                <Trans
+                    t={t}
+                    i18nKey="document.changeRelatedAction"
+                    values={{ action }}
+                    components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+                />
+            </ActionText>
+        );
+    }
+
+    // If we found an entity, show clickable display name
+    if (entity && entityUrn) {
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        const entityUrl = entityRegistry.getEntityUrl(entity.type, entity.urn);
+        return (
+            <ActionText>
+                <Trans
+                    t={t}
+                    i18nKey="document.changeRelatedActionEntity"
+                    values={{ action, name: displayName }}
+                    components={{
+                        actor: <ActorDisplay actorName={actorName} actor={actor} />,
+                        entity: <ClickableText to={entityUrl} />,
+                    }}
+                />
+            </ActionText>
+        );
+    }
+
+    return (
+        <ActionText>
+            <Trans
+                t={t}
+                i18nKey="document.changeRelatedAction"
+                values={{ action }}
+                components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+            />
+        </ActionText>
+    );
+};
+
+const RelatedDocumentChangedMessage: React.FC<ActorWithDetailsProps> = ({ actorName, actor, details }) => {
+    const { t } = useTranslation('entity.types');
+    const entityRegistry = useEntityRegistry();
+    const { entityUrn, operation } = details;
+    const { entities, loading } = useGetEntities(entityUrn ? [entityUrn] : []);
+    const entity = entities[0];
+
+    const action = operation === 'ADD' ? t('document.addedRelatedDocument') : t('document.removedRelatedDocument');
+
+    // While loading, show action without the entity name
+    if (loading && entityUrn) {
+        return (
+            <ActionText>
+                <Trans
+                    t={t}
+                    i18nKey="document.changeRelatedAction"
+                    values={{ action }}
+                    components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+                />
+            </ActionText>
+        );
+    }
+
+    // If we found an entity, show clickable display name
+    if (entity && entityUrn) {
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        const entityUrl = entityRegistry.getEntityUrl(entity.type, entity.urn);
+        return (
+            <ActionText>
+                <Trans
+                    t={t}
+                    i18nKey="document.changeRelatedActionEntity"
+                    values={{ action, name: displayName }}
+                    components={{
+                        actor: <ActorDisplay actorName={actorName} actor={actor} />,
+                        entity: <ClickableText to={entityUrl} />,
+                    }}
+                />
+            </ActionText>
+        );
+    }
+
+    return (
+        <ActionText>
+            <Trans
+                t={t}
+                i18nKey="document.changeRelatedAction"
+                values={{ action }}
+                components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+            />
+        </ActionText>
+    );
+};
 
 interface DefaultMessageProps {
     actorName: string;
@@ -215,11 +393,19 @@ interface DefaultMessageProps {
     description: string;
 }
 
-export const DefaultMessage: React.FC<DefaultMessageProps> = ({ actorName, actor, description }) => (
-    <ActionText>
-        <ActorDisplay actorName={actorName} actor={actor} /> {description}
-    </ActionText>
-);
+const DefaultMessage: React.FC<DefaultMessageProps> = ({ actorName, actor, description }) => {
+    const { t } = useTranslation('entity.types');
+    return (
+        <ActionText>
+            <Trans
+                t={t}
+                i18nKey="document.changeDefault"
+                values={{ description }}
+                components={{ actor: <ActorDisplay actorName={actorName} actor={actor} /> }}
+            />
+        </ActionText>
+    );
+};
 
 // ============================================================================
 // Main Router Component
@@ -268,6 +454,12 @@ export const ChangeMessage: React.FC<ChangeMessageProps> = ({
 
         case DocumentChangeType.Deleted:
             return <DeletedMessage actorName={actorName} actor={actor} />;
+
+        case DocumentChangeType.RelatedAssetsChanged:
+            return <RelatedAssetChangedMessage actorName={actorName} actor={actor} details={details} />;
+
+        case DocumentChangeType.RelatedDocumentsChanged:
+            return <RelatedDocumentChangedMessage actorName={actorName} actor={actor} details={details} />;
 
         default:
             return <DefaultMessage actorName={actorName} actor={actor} description={description} />;

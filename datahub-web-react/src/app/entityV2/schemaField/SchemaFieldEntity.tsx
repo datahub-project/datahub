@@ -1,12 +1,14 @@
-import { PartitionOutlined, PicCenterOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { TreeStructure } from '@phosphor-icons/react';
+import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/schemaField/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
@@ -14,6 +16,7 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
+import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { FetchedEntity } from '@app/lineage/types';
 import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
 import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
@@ -27,8 +30,13 @@ const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNO
 export class SchemaFieldEntity implements Entity<SchemaField> {
     type: EntityType = EntityType.SchemaField;
 
-    icon = (fontSize?: number, styleType?: IconStyleType, color = 'inherit') => (
-        <PicCenterOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />
+    icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => (
+        <Rows
+            className={TYPE_ICON_CLASS_NAME}
+            size={fontSize || 14}
+            color={color || 'currentColor'}
+            weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
+        />
     );
 
     isSearchEnabled = () => true;
@@ -42,9 +50,9 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
 
     getPathName = () => 'schemaField';
 
-    getEntityName = () => 'Column';
+    getEntityName = () => i18next.t('entity.types:schemaField.name');
 
-    getCollectionName = () => 'Columns';
+    getCollectionName = () => i18next.t('entity.types:schemaField.namePlural');
 
     useEntityQuery = useGetSchemaFieldQuery;
 
@@ -57,13 +65,13 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                 headerDropdownItems={headerDropdownItems}
                 tabs={[
                     {
-                        name: 'Lineage',
+                        name: i18next.t('entity.types:tab.lineage'),
                         component: LineageTab,
                         icon: PartitionOutlined,
                         supportsFullsize: true,
                     },
                     {
-                        name: 'Properties',
+                        name: i18next.t('entity.types:tab.properties'),
                         component: PropertiesTab,
                         icon: UnorderedListOutlined,
                     },
@@ -78,9 +86,9 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
