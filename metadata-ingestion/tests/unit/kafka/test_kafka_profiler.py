@@ -256,7 +256,7 @@ def test_ge_profiling_config_inheritance():
 
 
 def test_flatten_json_max_depth():
-    from datahub.ingestion.source.kafka.kafka_profiler import flatten_json
+    from datahub.ingestion.source.kafka.kafka_utils import flatten_json
 
     nested_data: Dict[str, Any] = {
         "level1": {"level2": {"level3": {"level4": "deep_value"}}}

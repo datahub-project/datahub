@@ -7,7 +7,8 @@ from datahub.ingestion.source.kafka.kafka_config import (
     KafkaSourceConfig,
     ProfilerConfig,
 )
-from datahub.ingestion.source.kafka.kafka_profiler import KafkaProfiler, flatten_json
+from datahub.ingestion.source.kafka.kafka_profiler import KafkaProfiler
+from datahub.ingestion.source.kafka.kafka_utils import flatten_json
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,

@@ -71,9 +71,13 @@ class KafkaSourceConfig(
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
-    connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
+    connection: KafkaConsumerConnectionConfig = Field(
+        default_factory=KafkaConsumerConnectionConfig
+    )
 
-    topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
+    topic_patterns: AllowDenyPattern = Field(
+        default_factory=lambda: AllowDenyPattern(allow=[".*"], deny=["^_.*"])
+    )
     domain: Dict[str, AllowDenyPattern] = Field(
         default={},
         description="A map of domain names to allow deny patterns. Domains can be urn-based (`urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810`) or bare (`13ae4d85-d955-49fc-8474-9004c663a810`).",

@@ -32,9 +32,15 @@ logger = logging.getLogger(__name__)
 class SchemaResolutionResult:
     schema: Optional[Schema]
     fields: List[SchemaField]
+    # Diagnostic label describing which strategy produced this result. Not the
+    # success discriminant — use is_resolved for that.
     resolution_method: ResolutionMethod
     subject_name: Optional[str] = None
     record_name: Optional[str] = None
+
+    @property
+    def is_resolved(self) -> bool:
+        return self.schema is not None or bool(self.fields)
 
 
 @dataclass
@@ -92,7 +98,7 @@ class KafkaSchemaResolver:
             # Try all registry-based strategies first
             result = self._resolve_from_registry(topic, is_key_schema)
 
-            if result.schema or result.fields:
+            if result.is_resolved:
                 results[topic] = result
             else:
                 # Mark for schema inference as final fallback

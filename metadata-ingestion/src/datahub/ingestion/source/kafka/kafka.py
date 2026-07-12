@@ -7,9 +7,11 @@ import threading
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta
+from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -32,6 +34,7 @@ from datahub.ingestion.source.kafka.kafka_schema_inference import (
 )
 from datahub.ingestion.source.kafka.kafka_utils import (
     decode_kafka_message_value,
+    flatten_json,
 )
 from datahub.ingestion.source.kafka.schema_resolution import (
     KafkaSchemaResolver,
@@ -84,7 +87,6 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_profiler import (
     KafkaProfiler,
-    flatten_json,
 )
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
@@ -124,6 +126,28 @@ def _needs_schema_resolution(schema_and_fields: Optional[SchemaAndFields]) -> bo
     return schema_and_fields is None or (
         schema_and_fields.schema is None and not schema_and_fields.fields
     )
+
+
+# Given a partition's (low, high) watermark and the per-partition sample size,
+# return the (start_offset, expected_message_count) for a sampling strategy.
+OffsetFn = Callable[[int, int, int], Tuple[int, int]]
+
+
+def _latest_offset(low: int, high: int, sample_size: int) -> Tuple[int, int]:
+    start = max(low, high - sample_size)
+    return start, high - start
+
+
+def _full_offset(low: int, high: int, sample_size: int) -> Tuple[int, int]:
+    return low, high - low
+
+
+def _random_offset(low: int, high: int, sample_size: int) -> Tuple[int, int]:
+    range_size = high - low
+    if range_size <= sample_size:
+        return low, range_size
+    start = low + random.randint(0, range_size - sample_size)
+    return start, sample_size
 
 
 class KafkaConnectivityError(Exception):
@@ -394,7 +418,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         # Report scanned and dropped topics
         for topic, _ in topics.items():
-            self.report.report_topic_scanned(topic)
+            self.report.report_topic_scanned()
             if not self.source_config.topic_patterns.allowed(topic):
                 self.report.report_dropped(topic)
 
@@ -555,20 +579,23 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 low, high = _consumer.get_watermark_offsets(partition)
                 watermarks[partition.partition] = (low, high)
 
-            # All samplers share the same signature, so dispatch by strategy.
+            # All samplers share the same signature, so dispatch by strategy. The
+            # three offset-based strategies differ only in how they pick each
+            # partition's start offset, so they share one method via offset_fn.
             strategy = self.source_config.profiling.sampling_strategy
-            samplers = {
-                SamplingStrategy.LATEST: self._get_latest_samples,
-                SamplingStrategy.RANDOM: self._get_random_samples,
+            samplers: Dict[SamplingStrategy, Callable[..., None]] = {
+                SamplingStrategy.LATEST: partial(
+                    self._get_offset_based_samples, offset_fn=_latest_offset
+                ),
+                SamplingStrategy.RANDOM: partial(
+                    self._get_offset_based_samples, offset_fn=_random_offset
+                ),
+                SamplingStrategy.FULL: partial(
+                    self._get_offset_based_samples, offset_fn=_full_offset
+                ),
                 SamplingStrategy.STRATIFIED: self._get_stratified_samples,
-                SamplingStrategy.FULL: self._get_full_samples,
             }
-            sampler = samplers.get(strategy)
-            if sampler is None:
-                logger.warning(
-                    f"Unrecognized sampling strategy: {strategy}, using 'latest'"
-                )
-                sampler = self._get_latest_samples
+            sampler = samplers[strategy]
 
             sampler(
                 partitions,
@@ -602,7 +629,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         return samples
 
-    def _get_latest_samples(
+    def _get_offset_based_samples(
         self,
         partitions: List[confluent_kafka.TopicPartition],
         watermarks: Dict[int, Tuple[int, int]],
@@ -611,50 +638,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         topic: str,
         schema_metadata: Optional[SchemaMetadataClass],
         consumer: Optional[confluent_kafka.Consumer] = None,
+        *,
+        offset_fn: OffsetFn,
     ) -> None:
         total_available = 0
         for partition in partitions:
             low, high = watermarks[partition.partition]
             if high <= low:
                 continue
-            start_offset = max(low, high - partition_sample_size)
-            partition.offset = start_offset
-            total_available += high - start_offset
-
-        self._read_messages_in_batches(
-            partitions,
-            samples,
-            topic,
-            schema_metadata,
-            consumer=consumer,
-            max_available=total_available,
-        )
-
-    def _get_random_samples(
-        self,
-        partitions: List[confluent_kafka.TopicPartition],
-        watermarks: Dict[int, Tuple[int, int]],
-        partition_sample_size: int,
-        samples: List[Dict[str, Any]],
-        topic: str,
-        schema_metadata: Optional[SchemaMetadataClass],
-        consumer: Optional[confluent_kafka.Consumer] = None,
-    ) -> None:
-        total_available = 0
-        for partition in partitions:
-            low, high = watermarks[partition.partition]
-            if high <= low:
-                continue
-            range_size = high - low
-            if range_size <= partition_sample_size:
-                partition.offset = low
-                total_available += range_size
-            else:
-                random_start = low + random.randint(
-                    0, range_size - partition_sample_size
-                )
-                partition.offset = random_start
-                total_available += partition_sample_size
+            partition.offset, available = offset_fn(low, high, partition_sample_size)
+            total_available += available
 
         self._read_messages_in_batches(
             partitions,
@@ -723,33 +716,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         self._process_message_to_sample(
                             msg, samples, topic, schema_metadata
                         )
-
-    def _get_full_samples(
-        self,
-        partitions: List[confluent_kafka.TopicPartition],
-        watermarks: Dict[int, Tuple[int, int]],
-        partition_sample_size: int,
-        samples: List[Dict[str, Any]],
-        topic: str,
-        schema_metadata: Optional[SchemaMetadataClass],
-        consumer: Optional[confluent_kafka.Consumer] = None,
-    ) -> None:
-        total_available = 0
-        for partition in partitions:
-            low, high = watermarks[partition.partition]
-            if high <= low:
-                continue
-            partition.offset = low
-            total_available += high - low
-
-        self._read_messages_in_batches(
-            partitions,
-            samples,
-            topic,
-            schema_metadata,
-            consumer=consumer,
-            max_available=total_available,
-        )
 
     def _read_messages_in_batches(
         self,
@@ -1100,7 +1066,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             value_result = value_resolution_results.get(topic)
             key_result = key_resolution_results.get(topic)
 
-            if value_result and (value_result.schema or value_result.fields):
+            if value_result and value_result.is_resolved:
                 topic_value_schemas[topic] = SchemaAndFields(
                     schema=value_result.schema,
                     fields=value_result.fields,
@@ -1112,7 +1078,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             elif topic not in topic_value_schemas:
                 topic_value_schemas[topic] = SchemaAndFields()
 
-            if key_result and (key_result.schema or key_result.fields):
+            if key_result and key_result.is_resolved:
                 topic_key_schemas[topic] = SchemaAndFields(
                     schema=key_result.schema,
                     fields=key_result.fields,

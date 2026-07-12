@@ -5,7 +5,7 @@ import warnings
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Union
 
 import avro.io
 import avro.schema
@@ -15,10 +15,7 @@ from datahub.ingestion.source.kafka.kafka_config import ProfilerConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_HISTOGRAM_BUCKETS,
     DEFAULT_MAX_FIELDS_TO_PROFILE,
-    DEFAULT_NESTED_FIELD_MAX_DEPTH,
     MAX_DISTINCT_VALUE_FREQUENCIES,
-    MAX_FLATTEN_DICT_KEYS,
-    MAX_FLATTEN_LIST_ITEMS,
     MAX_SAMPLE_VALUE_STR_LENGTH,
     PROFILER_BOOLEAN_TYPES,
     PROFILER_DATETIME_TYPES,
@@ -124,94 +121,6 @@ def clean_field_path(field_path: str) -> str:
             return part.split("[key=")[0]
 
     return field_path
-
-
-def flatten_json(
-    nested_json: Union[Dict[str, MessageValue], List[MessageValue]],
-    parent_key: str = "",
-    flattened_dict: Optional[Dict[str, str]] = None,
-    max_depth: int = DEFAULT_NESTED_FIELD_MAX_DEPTH,
-    current_depth: int = 0,
-    seen_objects: Optional[Set[int]] = None,
-) -> Dict[str, str]:
-    if flattened_dict is None:
-        flattened_dict = {}
-
-    if seen_objects is None:
-        seen_objects = set()
-
-    # Check recursion depth limit
-    if current_depth >= max_depth:
-        flattened_dict[parent_key or "truncated"] = f"<truncated at depth {max_depth}>"
-        return flattened_dict
-
-    # Check for circular references
-    obj_id = id(nested_json)
-    if obj_id in seen_objects:
-        flattened_dict[parent_key or "circular"] = "<circular reference>"
-        return flattened_dict
-
-    # Add current object to seen set for circular reference detection
-    if isinstance(nested_json, (dict, list)):
-        seen_objects.add(obj_id)
-
-    try:
-        if isinstance(nested_json, dict):
-            # Limit the number of keys processed to prevent excessive expansion
-            keys = list(nested_json.keys())[:MAX_FLATTEN_DICT_KEYS]
-            for key in keys:
-                value = nested_json[key]
-                new_key = f"{parent_key}.{key}" if parent_key else key
-
-                if isinstance(value, (dict, list)):
-                    flatten_json(
-                        {"value": value} if isinstance(value, list) else value,
-                        new_key,
-                        flattened_dict,
-                        max_depth,
-                        current_depth + 1,
-                        seen_objects,
-                    )
-                else:
-                    # Convert value to string and limit length to prevent memory issues
-                    str_value = str(value)
-                    if len(str_value) > MAX_SAMPLE_VALUE_STR_LENGTH:
-                        str_value = str_value[:MAX_SAMPLE_VALUE_STR_LENGTH] + "..."
-                    flattened_dict[new_key] = str_value
-
-        elif isinstance(nested_json, list):
-            # Limit array processing to prevent excessive expansion
-            items = nested_json[:MAX_FLATTEN_LIST_ITEMS]
-            for i, item in enumerate(items):
-                new_key = f"{parent_key}[{i}]"
-                if isinstance(item, (dict, list)):
-                    flatten_json(
-                        {"item": item},
-                        new_key,
-                        flattened_dict,
-                        max_depth,
-                        current_depth + 1,
-                        seen_objects,
-                    )
-                else:
-                    # Convert value to string and limit length
-                    str_value = str(item)
-                    if len(str_value) > MAX_SAMPLE_VALUE_STR_LENGTH:
-                        str_value = str_value[:MAX_SAMPLE_VALUE_STR_LENGTH] + "..."
-                    flattened_dict[new_key] = str_value
-        else:
-            # Convert value to string and limit length
-            str_value = str(nested_json)
-            if len(str_value) > MAX_SAMPLE_VALUE_STR_LENGTH:
-                str_value = str_value[:MAX_SAMPLE_VALUE_STR_LENGTH] + "..."
-            flattened_dict[parent_key] = str_value
-
-    finally:
-        # Remove current object from seen set when done
-        if isinstance(nested_json, (dict, list)) and obj_id in seen_objects:
-            seen_objects.discard(obj_id)
-
-    return flattened_dict
 
 
 class KafkaProfiler:

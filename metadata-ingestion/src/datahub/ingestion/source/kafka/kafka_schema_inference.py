@@ -17,6 +17,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_utils import (
     MessageValue,
+    flatten_json,
     process_kafka_message_for_sampling,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -318,9 +319,9 @@ class KafkaSchemaInference:
                 continue
 
             try:
-                # For schema inference, we need to preserve original types, so we'll flatten manually
-                # instead of using the string-converting flatten_json function
-                flattened = self._flatten_for_schema_inference(message)
+                # Keep native Python types (stringify_values=False) so each field
+                # can be classified by type below.
+                flattened = flatten_json(message, stringify_values=False)
 
                 for field_path, value in flattened.items():
                     if field_path not in field_info:
@@ -396,42 +397,3 @@ class KafkaSchemaInference:
                 continue
 
         return schema_fields
-
-    def _flatten_for_schema_inference(
-        self,
-        obj: Union[dict, list],
-        parent_key: str = "",
-        max_depth: int = 5,
-        current_depth: int = 0,
-    ) -> Dict[str, Union[str, int, float, bool, list, dict, None]]:
-        # Like flatten_json but keeps original Python types for schema inference.
-        result = {}
-
-        if current_depth >= max_depth:
-            return {parent_key or "truncated": obj}
-
-        if isinstance(obj, dict):
-            for key, value in obj.items():
-                new_key = f"{parent_key}.{key}" if parent_key else key
-
-                if isinstance(value, (dict, list)) and current_depth < max_depth - 1:
-                    # Recursively flatten nested structures
-                    nested = self._flatten_for_schema_inference(
-                        value, new_key, max_depth, current_depth + 1
-                    )
-                    result.update(nested)
-                else:
-                    # Keep the original type
-                    result[new_key] = value
-
-        elif isinstance(obj, list):
-            # For arrays, we'll create a single field representing the array type
-            if parent_key:
-                result[parent_key] = obj
-            else:
-                result["item"] = obj
-        else:
-            # Primitive value
-            result[parent_key or "value"] = obj
-
-        return result

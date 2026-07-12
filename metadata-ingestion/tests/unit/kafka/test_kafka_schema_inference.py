@@ -9,6 +9,7 @@ from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_inference import (
     KafkaSchemaInference,
 )
+from datahub.ingestion.source.kafka.kafka_utils import flatten_json
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
@@ -319,13 +320,13 @@ class TestKafkaSchemaInference:
         assert report.warnings
         assert scripted.closed
 
-    def test_flatten_for_schema_inference(self, schema_inference):
+    def test_flatten_for_schema_inference(self):
         nested_obj = {
             "field1": "string_value",
             "nested": {"field2": 123, "field3": True},
             "array": [1, 2, 3],
         }
-        result = schema_inference._flatten_for_schema_inference(nested_obj)
+        result = flatten_json(nested_obj, stringify_values=False)
 
         assert result["field1"] == "string_value"
         assert result["nested.field2"] == 123

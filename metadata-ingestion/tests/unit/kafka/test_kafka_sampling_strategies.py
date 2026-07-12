@@ -5,7 +5,13 @@ import confluent_kafka
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
+from datahub.ingestion.source.kafka.kafka import (
+    KafkaSource,
+    KafkaSourceConfig,
+    _full_offset,
+    _latest_offset,
+    _random_offset,
+)
 from datahub.metadata.schema_classes import (
     KafkaSchemaClass,
     SchemaMetadataClass,
@@ -70,8 +76,15 @@ def test_latest_strategy_seeks_near_end(kafka_source):
     partitions, watermarks = _single_partition()
     fake = FakeConsumer()
 
-    kafka_source._get_latest_samples(
-        partitions, watermarks, 200, [], TOPIC, None, consumer=fake
+    kafka_source._get_offset_based_samples(
+        partitions,
+        watermarks,
+        200,
+        [],
+        TOPIC,
+        None,
+        consumer=fake,
+        offset_fn=_latest_offset,
     )
 
     # latest: start_offset = max(low, high - partition_sample_size) = 1000 - 200
@@ -82,8 +95,15 @@ def test_full_strategy_seeks_to_low(kafka_source):
     partitions, watermarks = _single_partition()
     fake = FakeConsumer()
 
-    kafka_source._get_full_samples(
-        partitions, watermarks, 200, [], TOPIC, None, consumer=fake
+    kafka_source._get_offset_based_samples(
+        partitions,
+        watermarks,
+        200,
+        [],
+        TOPIC,
+        None,
+        consumer=fake,
+        offset_fn=_full_offset,
     )
 
     assert fake.assigned_offsets == [0]
@@ -96,8 +116,15 @@ def test_random_strategy_seeks_within_valid_window(kafka_source):
     # randint is called with (0, range_size - partition_sample_size) = (0, 800);
     # pin it so the assertion is deterministic.
     with patch("datahub.ingestion.source.kafka.kafka.random.randint", return_value=123):
-        kafka_source._get_random_samples(
-            partitions, watermarks, 200, [], TOPIC, None, consumer=fake
+        kafka_source._get_offset_based_samples(
+            partitions,
+            watermarks,
+            200,
+            [],
+            TOPIC,
+            None,
+            consumer=fake,
+            offset_fn=_random_offset,
         )
 
     # random_start = low + randint(...) = 0 + 123
@@ -110,8 +137,15 @@ def test_random_strategy_never_seeks_past_available_window(kafka_source):
 
     # Largest legal randint result keeps start + sample_size within [low, high].
     with patch("datahub.ingestion.source.kafka.kafka.random.randint", return_value=800):
-        kafka_source._get_random_samples(
-            partitions, watermarks, 200, [], TOPIC, None, consumer=fake
+        kafka_source._get_offset_based_samples(
+            partitions,
+            watermarks,
+            200,
+            [],
+            TOPIC,
+            None,
+            consumer=fake,
+            offset_fn=_random_offset,
         )
 
     start = fake.assigned_offsets[0]
@@ -136,8 +170,15 @@ def test_strategy_skips_empty_partition(kafka_source):
     watermarks = {0: (500, 500)}  # high == low -> nothing to read
     fake = FakeConsumer()
 
-    kafka_source._get_latest_samples(
-        [partition], watermarks, 200, [], TOPIC, None, consumer=fake
+    kafka_source._get_offset_based_samples(
+        [partition],
+        watermarks,
+        200,
+        [],
+        TOPIC,
+        None,
+        consumer=fake,
+        offset_fn=_latest_offset,
     )
 
     # No offset should be set; the read loop still assigns the (unchanged) partition.

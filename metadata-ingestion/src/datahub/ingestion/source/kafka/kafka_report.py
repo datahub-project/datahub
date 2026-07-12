@@ -21,7 +21,7 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
     schema_inference_no_fields: int = 0
     schema_registry_connectivity_failures: int = 0
 
-    def report_topic_scanned(self, topic: str) -> None:
+    def report_topic_scanned(self) -> None:
         self.topics_scanned += 1
 
     def report_dropped(self, topic: str) -> None:

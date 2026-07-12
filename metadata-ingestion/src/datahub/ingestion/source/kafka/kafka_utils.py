@@ -1,17 +1,121 @@
 import base64
 import json
 import logging
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Union
 
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_NESTED_FIELD_MAX_DEPTH,
+    MAX_FLATTEN_DICT_KEYS,
+    MAX_FLATTEN_LIST_ITEMS,
+    MAX_SAMPLE_VALUE_STR_LENGTH,
 )
 
 logger = logging.getLogger(__name__)
 
 MessageValue = Union[str, bytes, dict, list, int, float, bool, None]
 
-FlattenJsonFunc = Callable[..., Dict[str, str]]
+FlattenJsonFunc = Callable[..., Dict[str, Any]]
+
+
+def _render_leaf(value: Any, stringify: bool) -> Any:
+    # Profiling renders every leaf as a (length-capped) string so unrelated
+    # value types share one column; schema inference keeps the native type so it
+    # can be classified (int/float/bool/str/...).
+    if not stringify:
+        return value
+    text = str(value)
+    if len(text) > MAX_SAMPLE_VALUE_STR_LENGTH:
+        text = text[:MAX_SAMPLE_VALUE_STR_LENGTH] + "..."
+    return text
+
+
+def flatten_json(
+    nested_json: Union[Dict[str, Any], List[Any]],
+    parent_key: str = "",
+    flattened_dict: Optional[Dict[str, Any]] = None,
+    max_depth: int = DEFAULT_NESTED_FIELD_MAX_DEPTH,
+    current_depth: int = 0,
+    seen_objects: Optional[Set[int]] = None,
+    stringify_values: bool = True,
+) -> Dict[str, Any]:
+    # Flatten nested JSON into dotted field paths. stringify_values=True (profiling)
+    # stringifies leaves and expands lists into indexed keys; stringify_values=False
+    # (schema inference) keeps native types and stores lists whole so they can be
+    # typed as arrays.
+    if flattened_dict is None:
+        flattened_dict = {}
+    if seen_objects is None:
+        seen_objects = set()
+
+    if current_depth >= max_depth:
+        flattened_dict[parent_key or "truncated"] = (
+            f"<truncated at depth {max_depth}>" if stringify_values else nested_json
+        )
+        return flattened_dict
+
+    obj_id = id(nested_json)
+    if obj_id in seen_objects:
+        flattened_dict[parent_key or "circular"] = "<circular reference>"
+        return flattened_dict
+    if isinstance(nested_json, (dict, list)):
+        seen_objects.add(obj_id)
+
+    try:
+        if isinstance(nested_json, dict):
+            for key in list(nested_json.keys())[:MAX_FLATTEN_DICT_KEYS]:
+                value = nested_json[key]
+                new_key = f"{parent_key}.{key}" if parent_key else key
+                if stringify_values and isinstance(value, (dict, list)):
+                    flatten_json(
+                        {"value": value} if isinstance(value, list) else value,
+                        new_key,
+                        flattened_dict,
+                        max_depth,
+                        current_depth + 1,
+                        seen_objects,
+                        stringify_values=True,
+                    )
+                elif (
+                    not stringify_values
+                    and isinstance(value, dict)
+                    and current_depth < max_depth - 1
+                ):
+                    flatten_json(
+                        value,
+                        new_key,
+                        flattened_dict,
+                        max_depth,
+                        current_depth + 1,
+                        seen_objects,
+                        stringify_values=False,
+                    )
+                else:
+                    flattened_dict[new_key] = _render_leaf(value, stringify_values)
+        elif isinstance(nested_json, list) and stringify_values:
+            for i, item in enumerate(nested_json[:MAX_FLATTEN_LIST_ITEMS]):
+                new_key = f"{parent_key}[{i}]"
+                if isinstance(item, (dict, list)):
+                    flatten_json(
+                        {"item": item},
+                        new_key,
+                        flattened_dict,
+                        max_depth,
+                        current_depth + 1,
+                        seen_objects,
+                        stringify_values=True,
+                    )
+                else:
+                    flattened_dict[new_key] = _render_leaf(item, True)
+        elif isinstance(nested_json, list):
+            flattened_dict[parent_key or "item"] = nested_json
+        else:
+            key = parent_key if stringify_values else (parent_key or "value")
+            flattened_dict[key] = _render_leaf(nested_json, stringify_values)
+    finally:
+        if isinstance(nested_json, (dict, list)) and obj_id in seen_objects:
+            seen_objects.discard(obj_id)
+
+    return flattened_dict
 
 
 def decode_kafka_message_value(
