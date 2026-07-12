@@ -86,3 +86,31 @@ def test_large_scope_section_collapses_even_with_small_total() -> None:
     expanded = _sections_by_key(form)
     assert expanded["connection"] is True
     assert expanded["scope"] is False
+
+
+def _scope_config_with_n_patterns(n: int) -> Type[pydantic.BaseModel]:
+    fields: Dict[str, Any] = {
+        "host": (str, pydantic.Field(description="Host name.")),
+    }
+    for i in range(n):
+        fields[f"pattern_{i}_pattern"] = (
+            AllowDenyPattern,
+            pydantic.Field(
+                default_factory=AllowDenyPattern, description=f"Filter {i}."
+            ),
+        )
+    return pydantic.create_model(f"ScopeConfig{n}", **fields)
+
+
+def test_scope_at_section_boundary_stays_expanded() -> None:
+    # Exactly _LARGE_SECTION_THRESHOLD (8) scope fields must NOT collapse: the rule
+    # is strict `> 8`. This guards against a `>`->`>=` regression. Total (9) is well
+    # under the large-config threshold, so only the per-section rule is in play.
+    form = build_form("boundary", "boundary", _scope_config_with_n_patterns(8))
+    assert form.total_properties <= 40
+    scope_section = next(s for s in form.sections if s.key == "scope")
+    assert len(scope_section.fields) == 8
+
+    expanded = _sections_by_key(form)
+    assert expanded["connection"] is True
+    assert expanded["scope"] is True
