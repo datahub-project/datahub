@@ -16,10 +16,16 @@ UI_ENABLED_WHEN = "ui_enabled_when"
 class UISection(str, Enum):
     # The canonical, framework-owned section order. Connectors tag a field into a
     # section; they can never reorder the sections themselves. This is what makes
-    # "Connection is first everywhere" a structural guarantee rather than a convention.
+    # "Connection is first everywhere" a structural guarantee rather than a
+    # convention. Fields are grouped by feature area (lineage, usage, profiling,
+    # ...) so related settings sit together instead of in one flat "enrichment" list.
     CONNECTION = "connection"
     SCOPE = "scope"
-    ENRICHMENT = "enrichment"
+    LINEAGE = "lineage"
+    USAGE = "usage"
+    PROFILING = "profiling"
+    CLASSIFICATION = "classification"
+    STATEFUL = "stateful"
     ADVANCED = "advanced"
 
 
@@ -27,21 +33,35 @@ class UISection(str, Enum):
 SECTION_ORDER: List[UISection] = [
     UISection.CONNECTION,
     UISection.SCOPE,
-    UISection.ENRICHMENT,
+    UISection.LINEAGE,
+    UISection.USAGE,
+    UISection.PROFILING,
+    UISection.CLASSIFICATION,
+    UISection.STATEFUL,
     UISection.ADVANCED,
 ]
 
 SECTION_TITLES: Dict[UISection, str] = {
     UISection.CONNECTION: "Connection",
     UISection.SCOPE: "Scope & Filters",
-    UISection.ENRICHMENT: "Enrichment",
+    UISection.LINEAGE: "Lineage",
+    UISection.USAGE: "Usage & Queries",
+    UISection.PROFILING: "Profiling",
+    UISection.CLASSIFICATION: "Classification & Tags",
+    UISection.STATEFUL: "Stateful Ingestion",
     UISection.ADVANCED: "Advanced",
 }
 
+# Only Connection and Scope open by default; feature sections start collapsed so
+# the form is not overwhelming.
 SECTION_EXPANDED_BY_DEFAULT: Dict[UISection, bool] = {
     UISection.CONNECTION: True,
     UISection.SCOPE: True,
-    UISection.ENRICHMENT: False,
+    UISection.LINEAGE: False,
+    UISection.USAGE: False,
+    UISection.PROFILING: False,
+    UISection.CLASSIFICATION: False,
+    UISection.STATEFUL: False,
     UISection.ADVANCED: False,
 }
 

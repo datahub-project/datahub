@@ -31,14 +31,6 @@ RECIPE_PREFIX = "source.config"
 _LARGE_CONFIG_THRESHOLD = 40
 _LARGE_SECTION_THRESHOLD = 8
 
-# Sub-config containers that are always demoted to Advanced, regardless of name.
-_ADVANCED_CONTAINERS = {
-    "profiling",
-    "stateful_ingestion",
-    "classification",
-    "profile_pattern",
-}
-
 # Field names that belong in Connection when they are not otherwise classified.
 # Kept deliberately tight so a 100-property config does not dump 40 fields here.
 _CONNECTION_NAMES = {
@@ -95,9 +87,16 @@ _SCOPE_NAMES = {
     "include_views",
 }
 
-_ENRICHMENT_RE = re.compile(
-    r"^(include|extract|ingest|emit|enable)_.*|.*(lineage|usage|ownership|_tags|_owners)$"
-)
+# Feature-area routing. Checked in priority order in _classify so a field lands
+# in the section for the feature it configures (all lineage together, etc.).
+_STATEFUL_RE = re.compile(r"stateful")  # stateful_ingestion, enable_stateful_*
+_LINEAGE_RE = re.compile(r"lineage")
+_USAGE_RE = re.compile(r"usage|operational_stats|top_n_queries|query|queries")
+_TAG_CLASS_RE = re.compile(r"classification|tag|structured_propert|owner")
+# `include_`/`ingest_` toggles that survive the feature checks are "what to
+# ingest" -> Scope (object types, schema detail). `enable_`/`extract_` are NOT
+# included here (they're usually feature flags handled above or advanced tuning).
+_SCOPE_INCLUDE_RE = re.compile(r"^(include|ingest)_")
 _PATTERN_NAME_RE = re.compile(r"_pattern$")
 
 # Default intra-section ordering for common connection fields so the host/endpoint
@@ -199,6 +198,44 @@ def _infer_widget(name: str, core: Dict, ref_name: Optional[str], secret: bool) 
     return "text"
 
 
+def _field_declarers(config_class: Type[pydantic.BaseModel]) -> Dict[str, str]:
+    # Map each field name to the name of the most-base class in the MRO that
+    # declares it. DataHub configs are composed of feature mixins/bases
+    # (SnowflakeConnectionConfig, BaseUsageConfig, ClassificationSourceConfigMixin,
+    # ...), so the declaring class IS the logical group -- more robust than guessing
+    # from field names. model_json_schema() flattens this away, so we read it from
+    # the class directly. __mro__ is leaf-first; overwriting leaves the most-base
+    # (the mixin that introduced the field) as the final value.
+    declarers: Dict[str, str] = {}
+    for klass in config_class.__mro__:
+        for fname in vars(klass).get("__annotations__", {}):
+            declarers[fname] = klass.__name__
+    return declarers
+
+
+def _class_to_section(class_name: Optional[str]) -> Optional[UISection]:
+    # Derive a section from the declaring class's name. Order matters: Stateful
+    # wins over Profiling/Lineage/Usage (StatefulProfilingConfigMixin is a stateful
+    # toggle, not profiling config).
+    if not class_name:
+        return None
+    if "Stateful" in class_name:
+        return UISection.STATEFUL
+    if "Connection" in class_name:
+        return UISection.CONNECTION
+    if "Filter" in class_name:
+        return UISection.SCOPE
+    if "Classification" in class_name:
+        return UISection.CLASSIFICATION
+    if "Lineage" in class_name:
+        return UISection.LINEAGE
+    if "Usage" in class_name:
+        return UISection.USAGE
+    if "Profiling" in class_name:
+        return UISection.PROFILING
+    return None
+
+
 def _classify(
     name: str,
     core: Dict,
@@ -206,19 +243,38 @@ def _classify(
     required: bool,
     secret: bool,
     explicit: Optional[str],
+    mixin_section: Optional[UISection],
 ) -> UISection:
     if explicit:
         return UISection(explicit)
-    if name in _ADVANCED_CONTAINERS or ref_name in {"GEProfilingConfig"}:
+    # Universal mixin fields that should never be promoted out of Advanced.
+    if name in ("env", "options", "platform_instance"):
         return UISection.ADVANCED
+    # Structure first: the declaring mixin/base is the most reliable group signal.
+    if mixin_section is not None:
+        return mixin_section
+    # Fallback: name heuristics for fields declared directly on the leaf connector
+    # config (no feature mixin to key off).
+    # Profiling and stateful are dedicated feature sections (sub-configs + flags).
+    if name in ("profiling", "profile_pattern") or ref_name == "GEProfilingConfig":
+        return UISection.PROFILING
+    if _STATEFUL_RE.search(name):
+        return UISection.STATEFUL
+    # Classification & tags (incl. tag/structured-property filters and ownership).
+    if _TAG_CLASS_RE.search(name):
+        return UISection.CLASSIFICATION
+    if _LINEAGE_RE.search(name):
+        return UISection.LINEAGE
+    if _USAGE_RE.search(name):
+        return UISection.USAGE
+    # What/how much to ingest: allow/deny patterns, scope selectors, include_ toggles.
     if (
         ref_name == "AllowDenyPattern"
         or _PATTERN_NAME_RE.search(name)
         or name in _SCOPE_NAMES
+        or _SCOPE_INCLUDE_RE.match(name)
     ):
         return UISection.SCOPE
-    if core.get("type") == "boolean" and _ENRICHMENT_RE.match(name):
-        return UISection.ENRICHMENT
     if required or secret or name in _CONNECTION_NAMES:
         return UISection.CONNECTION
     return UISection.ADVANCED
@@ -311,6 +367,7 @@ def build_form(
     properties: Dict[str, Dict] = schema.get("properties", {})
     required_names = set(schema.get("required", []))
     property_names = set(properties.keys())
+    declarers = _field_declarers(config_class)
 
     buckets: Dict[UISection, List[Tuple[int, int, FormField]]] = {
         s: [] for s in SECTION_ORDER
@@ -329,7 +386,10 @@ def build_form(
         secret = _is_secret(prop)
         required = name in required_names
         explicit_section = prop.get(UI_SECTION)
-        section = _classify(name, core, ref_name, required, secret, explicit_section)
+        mixin_section = _class_to_section(declarers.get(name))
+        section = _classify(
+            name, core, ref_name, required, secret, explicit_section, mixin_section
+        )
 
         # Flatten connection/credential sub-models one level so their fields
         # (e.g. Kafka bootstrap servers) surface in Connection instead of an

@@ -57,8 +57,8 @@ def test_large_total_property_count_collapses_non_connection_sections() -> None:
 
     expanded = _sections_by_key(form)
     assert expanded["connection"] is True
-    assert expanded["scope"] is False
-    assert expanded["enrichment"] is False
+    # Every non-Connection section collapses on a large config.
+    assert all(v is False for k, v in expanded.items() if k != "connection")
 
 
 def _make_large_scope_section_config() -> Type[pydantic.BaseModel]:
