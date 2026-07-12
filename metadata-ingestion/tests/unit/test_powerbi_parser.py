@@ -1,5 +1,3 @@
-import types
-
 import pytest
 
 from datahub.configuration.source_common import PlatformDetail
@@ -23,7 +21,11 @@ from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     OracleLineage,
     _remap_column_lineage_to_pbi_fields,
 )
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Column,
+    Table,
+)
+from datahub.metadata.schema_classes import StringTypeClass
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -1348,8 +1350,11 @@ def test_oracle_native_query_tns_extracts_tables(oracle_lineage_tns):
 
     lineage = oracle_lineage_tns.create_lineage(detail)
 
-    assert len(lineage.upstreams) >= 1
-    assert any("orders" in u.urn.lower() for u in lineage.upstreams)
+    assert len(lineage.upstreams) == 1
+    assert (
+        lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.sales.orders,PROD)"
+    )
 
 
 def test_oracle_native_query_takes_precedence_over_hierarchical(oracle_lineage_tns):
@@ -1391,8 +1396,13 @@ def _make_cll(
     )
 
 
-def _pbi_col(name: str) -> types.SimpleNamespace:
-    return types.SimpleNamespace(name=name)
+def _pbi_col(name: str) -> Column:
+    return Column(
+        name=name,
+        dataType="string",
+        isHidden=False,
+        datahubDataType=StringTypeClass(),
+    )
 
 
 def test_remap_returns_unchanged_when_no_pbi_columns():

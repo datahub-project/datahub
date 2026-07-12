@@ -11,19 +11,27 @@ Tests cover:
 - exclude_personal_collections config
 """
 
-from typing import Dict, Iterator, List
+from typing import Dict, Iterator, List, cast
 from unittest.mock import MagicMock, patch
 
 import requests
 from requests.models import HTTPError
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.mode import (
     HTTPError429,
     HTTPError504,
     ModeConfig,
     ModeSource,
     _is_http_404,
+)
+from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+    SqlParsingResult,
 )
 
 # ──────────────────────────────────────────────────────────────────────
@@ -463,6 +471,52 @@ def _make_workunit(id: str) -> MagicMock:
     wu = MagicMock()
     wu.id = id
     return wu
+
+
+# ──────────────────────────────────────────────────────────────────────
+# get_upstream_lineage_for_parsed_sql
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestGetUpstreamLineageForParsedSql:
+    def test_skips_unresolved_upstream_column(self):
+        """An upstream ColumnRef with an empty column (sqlglot couldn't
+        resolve it) is dropped instead of producing an invalid
+        schemaField URN."""
+        source = _make_source()
+        upstream_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.upstream,PROD)"
+        )
+        parsed = SqlParsingResult(
+            in_tables=[upstream_table_urn],
+            out_tables=[],
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(column="my_col"),
+                    upstreams=[
+                        ColumnRef(table=upstream_table_urn, column=""),
+                        ColumnRef(table=upstream_table_urn, column="resolved_col"),
+                    ],
+                )
+            ],
+        )
+
+        wus = list(
+            source.get_upstream_lineage_for_parsed_sql(
+                query_urn="urn:li:query:(mode,q1)",
+                query_data={"id": "q1", "last_run_id": "r1", "data_source_id": "ds1"},
+                parsed_query_object=parsed,
+            )
+        )
+
+        assert len(wus) == 1
+        mcpw = cast(MetadataChangeProposalWrapper, wus[0].metadata)
+        upstream_lineage = cast(UpstreamLineageClass, mcpw.aspect)
+        assert upstream_lineage.fineGrainedLineages is not None
+        fgl = upstream_lineage.fineGrainedLineages[0]
+        assert fgl.upstreams == [
+            f"urn:li:schemaField:({upstream_table_urn},resolved_col)"
+        ]
 
 
 # ──────────────────────────────────────────────────────────────────────

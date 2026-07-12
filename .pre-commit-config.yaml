@@ -598,3 +598,10 @@ repos:
         entry: python .github/scripts/bump_schema_versions.py
         language: python
         pass_filenames: false
+      
+      - id: betterleaks
+        name: Detect hardcoded secrets
+        description: Detect hardcoded secrets using Betterleaks (system-installed binary)
+        entry: betterleaks git --staged --redact --verbose --config .betterleaks.toml
+        language: system
+        pass_filenames: false

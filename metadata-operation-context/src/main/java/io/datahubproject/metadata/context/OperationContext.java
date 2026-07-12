@@ -13,6 +13,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEnricher;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.exception.OperationContextException;
 import io.datahubproject.metadata.exception.TraceException;
@@ -93,19 +95,28 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
       boolean allowSystemAuthentication,
       boolean skipCache)
       throws ActorAccessException {
-    return systemOperationContext.toBuilder()
-        .operationContextConfig(
-            // update allowed system authentication
-            systemOperationContext.getOperationContextConfig().toBuilder()
-                .allowSystemAuthentication(allowSystemAuthentication)
-                .build())
-        .authorizationContext(AuthorizationContext.builder().authorizer(authorizer).build())
-        .requestContext(
-            requestContext
-                .metricUtils(systemOperationContext.getMetricUtils().orElse(null))
-                .build())
-        .validationContext(systemOperationContext.getValidationContext())
-        .build(sessionAuthentication, skipCache);
+    OperationContextConfig sessionConfig =
+        systemOperationContext.getOperationContextConfig().toBuilder()
+            .allowSystemAuthentication(allowSystemAuthentication)
+            .build();
+    SessionContextEnricher enricher = sessionConfig.getSessionContextEnricher();
+    RequestContext.RequestContextBuilder sessionRequestBuilder =
+        requestContext.metricUtils(systemOperationContext.getMetricUtils().orElse(null));
+    if (enricher != null) {
+      enricher.enrichBeforeBuild(sessionRequestBuilder, sessionAuthentication);
+    }
+    RequestContext builtRequestContext = sessionRequestBuilder.build();
+    OperationContext sessionContext =
+        systemOperationContext.toBuilder()
+            .operationContextConfig(sessionConfig)
+            .authorizationContext(AuthorizationContext.builder().authorizer(authorizer).build())
+            .requestContext(builtRequestContext)
+            .validationContext(systemOperationContext.getValidationContext())
+            .build(sessionAuthentication, skipCache);
+    if (enricher != null) {
+      enricher.onSessionReady(sessionContext);
+    }
+    return sessionContext;
   }
 
   /**
@@ -408,6 +419,11 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   @Nonnull
   public AspectRetriever getAspectRetriever() {
     return retrieverContext.getAspectRetriever();
+  }
+
+  @Nonnull
+  public EntityGraphCache getEntityGraphCache() {
+    return retrieverContext.getEntityGraphCache();
   }
 
   /**

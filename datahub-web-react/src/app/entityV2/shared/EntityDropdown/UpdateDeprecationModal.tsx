@@ -1,7 +1,7 @@
-import { Form, Select, Skeleton, message } from 'antd';
-import TextArea from 'antd/lib/input/TextArea';
-import React from 'react';
+import { Button, DatePicker, Loader, Modal, SimpleSelect, TextArea, toast } from '@components';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
@@ -12,37 +12,75 @@ import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils'
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { decommissionTimeToSeconds } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button, Modal } from '@src/alchemy-components';
-import DatePicker from '@utils/DayjsDatePicker';
+import type { Dayjs } from '@utils/dayjs';
 import dayjs from '@utils/dayjs';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { ResourceRefInput, SubResourceType } from '@types';
+import { Deprecation, Entity, ResourceRefInput, SubResourceType } from '@types';
+
+type DeprecationModalResult = {
+    note?: string | null;
+    decommissionTime?: number | null;
+    replacement?: Entity | null;
+};
 
 type Props = {
     urns: string[];
     // if you need to provide context for subresources, resourceRefs should be provided and will take precedence over urns
     resourceRefs?: ResourceRefInput[];
+    initialDeprecation?: Deprecation | null;
     onClose: () => void;
-    refetch?: () => void;
+    refetch?: (result?: DeprecationModalResult) => void;
     zIndexOverride?: number;
 };
 
 const SCHEMA_FIELD_PREFIX = 'urn:li:schemaField:';
 
-export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, zIndexOverride }: Props) => {
+const getInitialFormValues = (initialDeprecation?: Deprecation | null) => ({
+    note: initialDeprecation?.note ?? '',
+    decommissionTime: initialDeprecation?.decommissionTime
+        ? dayjs.unix(decommissionTimeToSeconds(initialDeprecation.decommissionTime))
+        : undefined,
+    replacementUrn: initialDeprecation?.replacement?.urn ?? null,
+});
+
+const FieldGroup = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+`;
+
+const ReplacementControls = styled.div`
+    align-self: flex-start;
+`;
+
+export const UpdateDeprecationModal = ({
+    urns,
+    resourceRefs,
+    initialDeprecation,
+    onClose,
+    refetch,
+    zIndexOverride,
+}: Props) => {
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
     const { entityWithSchema } = useGetEntityWithSchema();
     const schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
+    const entityRegistry = useEntityRegistry();
+    const isEditMode = !!initialDeprecation;
 
     const [batchUpdateDeprecation] = useBatchUpdateDeprecationMutation();
-    const [isReplacementModalVisible, setIsReplacementModalVisible] = React.useState(false);
-    const [replacementUrn, setReplacementUrn] = React.useState<string | null>(null);
-    const entityRegistry = useEntityRegistry();
+    const [isReplacementModalVisible, setIsReplacementModalVisible] = useState(false);
+    const initialFormValues = getInitialFormValues(initialDeprecation);
+    const [replacementUrn, setReplacementUrn] = useState<string | null>(initialFormValues.replacementUrn);
+    const [note, setNote] = useState<string>(initialFormValues.note);
+    const [decommissionTime, setDecommissionTime] = useState<Dayjs | null | undefined>(
+        initialFormValues.decommissionTime,
+    );
 
     const isDeprecatingFields =
         !!resourceRefs && resourceRefs.length > 0 && resourceRefs[0].subResourceType === SubResourceType.DatasetField;
@@ -55,23 +93,23 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
         skip: !replacementUrn || replacementUrn?.startsWith(SCHEMA_FIELD_PREFIX),
     });
 
-    const [form] = Form.useForm();
+    useEffect(() => {
+        const nextValues = getInitialFormValues(initialDeprecation);
+        setNote(nextValues.note);
+        setDecommissionTime(nextValues.decommissionTime);
+        setReplacementUrn(nextValues.replacementUrn);
+    }, [initialDeprecation]);
 
-    const handleClose = () => {
-        form.resetFields();
-        onClose();
-    };
-
-    const handleOk = async (formData: any) => {
-        message.loading({ content: tcf('updating') });
+    const handleSubmit = async () => {
+        toast.loading(tcf('updating'));
         try {
             await batchUpdateDeprecation({
                 variables: {
                     input: {
                         resources: resourceRefs || urns.map((resourceUrn) => ({ resourceUrn })),
                         deprecated: true,
-                        note: formData.note,
-                        decommissionTime: formData.decommissionTime && formData.decommissionTime.unix() * 1000,
+                        note,
+                        decommissionTime: decommissionTime ? decommissionTime.unix() * 1000 : null,
                         replacement: replacementUrn,
                     },
                 },
@@ -82,136 +120,135 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
                 deprecated: true,
                 resources: isDeprecatingFields ? resourceRefs : undefined,
             });
-            message.destroy();
-            message.success({ content: t('deprecation.updated'), duration: 2 });
+            toast.destroy();
+            toast.success(isEditMode ? t('deprecation.updated') : t('deprecation.markedDeprecatedSuccess'), {
+                duration: 2,
+            });
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error(
-                    handleBatchError(urns, e, {
-                        content: t('deprecation.updateError', { errorMessage: e.message || '' }),
-                        duration: 2,
-                    }),
-                );
+                const fallback = {
+                    content: t('deprecation.updateError', { errorMessage: e.message || '' }),
+                    duration: 2,
+                };
+                const { content, duration } = handleBatchError(urns, e, fallback);
+                toast.error(content, { duration });
             }
         }
-        refetch?.();
-        handleClose();
+        refetch?.({
+            note: note || null,
+            decommissionTime: decommissionTime ? decommissionTime.unix() * 1000 : null,
+            replacement: replacementData?.entities?.[0] ?? null,
+        });
+        onClose();
     };
 
     return (
         <Modal
-            title={t('deprecation.modalTitle')}
+            title={isEditMode ? t('deprecation.editTitle') : t('deprecation.modalTitle')}
             zIndex={zIndexOverride ?? 1000}
-            onCancel={handleClose}
-            keyboard
+            onCancel={onClose}
             buttons={[
                 {
                     text: tc('cancel'),
                     variant: 'text',
-                    onClick: handleClose,
+                    onClick: onClose,
                 },
                 {
-                    buttonDataTestId: 'add',
-                    text: tc('save'),
-                    onClick: form.submit,
+                    buttonDataTestId: 'add-deprecation-submit',
+                    text: isEditMode ? tc('save') : t('deprecation.ok'),
+                    onClick: handleSubmit,
                 },
             ]}
         >
-            <Form form={form} name="addDeprecationForm" onFinish={handleOk} layout="vertical">
-                <Form.Item
-                    name="note"
+            <FieldGroup>
+                <TextArea
                     label={t('deprecation.reasonLabel')}
-                    rules={[{ whitespace: true }, { min: 0, max: 1000 }]}
-                >
-                    <TextArea placeholder={t('deprecation.reasonPlaceholder')} autoFocus rows={4} />
-                </Form.Item>
-                <Form.Item
-                    name="decommissionTime"
-                    label={t('deprecation.decommissionDateLabel')}
-                    initialValue={dayjs()}
-                >
-                    <DatePicker style={{ width: '100%' }} defaultValue={dayjs()} />
-                </Form.Item>
-                <Form.Item name="replacement" label={t('deprecation.replacementLabel')}>
-                    {isReplacementModalVisible && !isDeprecatingFields && (
-                        <SearchSelectModal
-                            limit={1}
-                            titleText={t('deprecation.replacementSearchTitle')}
-                            continueText={t('deprecation.setReplacement')}
-                            onContinue={(entityUrns) => {
-                                if (entityUrns.length > 0) {
-                                    setReplacementUrn(entityUrns[0]);
-                                }
-                                setIsReplacementModalVisible(false);
-                            }}
-                            onCancel={() => setIsReplacementModalVisible(false)}
-                            fixedEntityTypes={Array.from(
-                                entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DEPRECATION),
-                            )}
-                        />
-                    )}
-                    {isReplacementModalVisible && isDeprecatingFields && (
-                        <Modal
-                            open
-                            title={t('deprecation.selectReplacement')}
-                            onCancel={() => setIsReplacementModalVisible(false)}
-                            onOk={() => setIsReplacementModalVisible(false)}
-                            buttons={[]}
-                        >
-                            <Select
-                                style={{ width: 250 }}
-                                dropdownMatchSelectWidth
-                                placeholder={t('deprecation.selectReplacement')}
-                                onChange={(value) =>
+                    placeholder={t('deprecation.reasonPlaceholder')}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={4}
+                    autoFocus
+                />
+                <DatePicker
+                    key={initialDeprecation?.decommissionTime ?? 'new-deprecation'}
+                    placeholder={t('deprecation.decommissionDateLabel')}
+                    value={decommissionTime}
+                    onChange={(v) => setDecommissionTime(v)}
+                />
+
+                {isReplacementModalVisible && !isDeprecatingFields && (
+                    <SearchSelectModal
+                        limit={1}
+                        titleText={t('deprecation.replacementSearchTitle')}
+                        continueText={t('deprecation.setReplacement')}
+                        onContinue={(entityUrns) => {
+                            if (entityUrns.length > 0) {
+                                setReplacementUrn(entityUrns[0]);
+                            }
+                            setIsReplacementModalVisible(false);
+                        }}
+                        onCancel={() => setIsReplacementModalVisible(false)}
+                        fixedEntityTypes={Array.from(
+                            entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DEPRECATION),
+                        )}
+                    />
+                )}
+                {isReplacementModalVisible && isDeprecatingFields && (
+                    <Modal
+                        title={t('deprecation.selectReplacement')}
+                        onCancel={() => setIsReplacementModalVisible(false)}
+                        buttons={[
+                            {
+                                text: tc('cancel'),
+                                variant: 'text',
+                                onClick: () => setIsReplacementModalVisible(false),
+                            },
+                            {
+                                text: tc('save'),
+                                onClick: () => setIsReplacementModalVisible(false),
+                            },
+                        ]}
+                    >
+                        <SimpleSelect
+                            placeholder={t('deprecation.selectReplacement')}
+                            options={
+                                schemaMetadata?.fields?.map((field: any) => ({
+                                    value: field.fieldPath,
+                                    label: downgradeV2FieldPath(field.fieldPath),
+                                })) || []
+                            }
+                            onUpdate={(vals) => {
+                                if (vals.length > 0) {
                                     setReplacementUrn(
-                                        generateSchemaFieldUrn(value, resourceFromWhichReplacementIsSelected || ''),
-                                    )
+                                        generateSchemaFieldUrn(vals[0], resourceFromWhichReplacementIsSelected || ''),
+                                    );
                                 }
-                            >
-                                {schemaMetadata?.fields?.map((field: any) => (
-                                    <Select.Option key={field.fieldPath} value={field.fieldPath}>
-                                        {downgradeV2FieldPath(field.fieldPath)}
-                                    </Select.Option>
-                                ))}
-                            </Select>
-                        </Modal>
-                    )}
-                    {replacementUrn && replacementLoading && <Skeleton />}
+                            }}
+                        />
+                    </Modal>
+                )}
+
+                <ReplacementControls>
+                    {replacementUrn && replacementLoading && <Loader size="sm" />}
                     {replacementUrn && !replacementLoading && !!replacementData?.entities?.[0] && (
                         <EntityLink
-                            onClick={() => {
-                                setIsReplacementModalVisible(true);
-                            }}
+                            onClick={() => setIsReplacementModalVisible(true)}
                             entity={replacementData?.entities?.[0] as any}
                         />
                     )}
                     {replacementUrn && isDeprecatingFields && (
-                        <Button
-                            variant="text"
-                            style={{
-                                padding: 5,
-                                marginLeft: -5,
-                            }}
-                            onClick={() => {
-                                setIsReplacementModalVisible(true);
-                            }}
-                        >
+                        <Button variant="text" onClick={() => setIsReplacementModalVisible(true)}>
                             {getV1FieldPathFromSchemaFieldUrn(replacementUrn)}
                         </Button>
                     )}
                     {!replacementUrn && (
-                        <Button
-                            variant="outline"
-                            type="button"
-                            size="sm"
-                            onClick={() => setIsReplacementModalVisible(true)}
-                        >
+                        <Button variant="secondary" size="sm" onClick={() => setIsReplacementModalVisible(true)}>
                             {t('deprecation.selectReplacement')}
                         </Button>
                     )}
-                </Form.Item>
-            </Form>
+                </ReplacementControls>
+            </FieldGroup>
         </Modal>
     );
 };

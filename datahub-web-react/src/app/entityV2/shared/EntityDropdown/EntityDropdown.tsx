@@ -1,7 +1,7 @@
-import { Menu } from '@components';
-import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
+import { Menu, toast } from '@components';
 import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
 import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { FolderPlus } from '@phosphor-icons/react/dist/csr/FolderPlus';
@@ -10,16 +10,15 @@ import { Link } from '@phosphor-icons/react/dist/csr/Link';
 import { LinkBreak } from '@phosphor-icons/react/dist/csr/LinkBreak';
 import { MegaphoneSimple } from '@phosphor-icons/react/dist/csr/MegaphoneSimple';
 import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Share } from '@phosphor-icons/react/dist/csr/Share';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-import { message } from 'antd';
 import qs from 'query-string';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory } from 'react-router';
-import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -27,12 +26,19 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { DrawerType, GenericEntityProperties } from '@app/entity/shared/types';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { DeprecatedMenuIcon } from '@app/entityV2/shared/EntityDropdown/DeprecatedMenuIcon';
+import EditGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/EditGlossaryEntityModal';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
 import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
 import {
+    DeprecationFormData,
+    useHandleDeprecateDomain,
+} from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
+import {
+    getDeprecationMenuActions,
     isDeleteDisabled,
     isMoveDisabled,
     shouldDisplayChildDeletionWarning,
@@ -52,24 +58,10 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { EntityType } from '@types';
-
-import DeprecatedIcon from '@images/deprecated-status.svg?react';
+import { Deprecation, EntityType } from '@types';
 
 // Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
 const INCIDENTS_TAB_NAME = 'Incidents';
-
-const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
-    &&& {
-        display: flex;
-        font-size: 20px;
-        padding: 2px;
-
-        :hover {
-            color: ${(p) => p.theme.colors.textBrand};
-        }
-    }
-`;
 
 interface Options {
     hideDeleteMessage?: boolean;
@@ -88,11 +80,11 @@ interface Props {
     onDeleteEntity?: () => void;
     onEditEntity?: () => void;
     triggerType?: ('click' | 'contextMenu' | 'hover')[] | undefined;
+    refetchDeprecation?: (formData?: DeprecationFormData) => void;
 }
 
 const EntityDropdown = (props: Props) => {
     const history = useHistory();
-    const theme = useTheme();
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
@@ -109,6 +101,7 @@ const EntityDropdown = (props: Props) => {
         onEditEntity: onEdit,
         options,
         triggerType = ['click'],
+        refetchDeprecation,
     } = props;
     const { urn: entityProfileUrn, setDrawer } = useEntityContext();
     const onEntityProfile = entityProfileUrn === urn;
@@ -118,6 +111,7 @@ const EntityDropdown = (props: Props) => {
     const versioningEnabled = useAppConfig().config.featureFlags.entityVersioningEnabled;
 
     const [updateDeprecation] = useUpdateDeprecationMutation();
+    const { handleDeprecateDomainComplete } = useHandleDeprecateDomain(urn);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
@@ -132,7 +126,9 @@ const EntityDropdown = (props: Props) => {
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState(false);
+    const [isEditGlossaryModalVisible, setIsEditGlossaryModalVisible] = useState(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
+    const [deprecationModalInitialValues, setDeprecationModalInitialValues] = useState<Deprecation | null>(null);
     const [isEntityAnnouncementModalVisible, setIsEntityAnnouncementModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
@@ -141,7 +137,7 @@ const EntityDropdown = (props: Props) => {
     const [isChangeHistoryOpen, setIsChangeHistoryOpen] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
-        message.loading({ content: tcf('updating') });
+        toast.loading(tcf('updating'));
         try {
             await updateDeprecation({
                 variables: {
@@ -153,20 +149,29 @@ const EntityDropdown = (props: Props) => {
                     },
                 },
             });
-            message.destroy();
-            message.success({ content: t('deprecation.updated'), duration: 2 });
+            toast.destroy();
+            toast.success(
+                deprecatedStatus
+                    ? t('deprecation.markedDeprecatedSuccess')
+                    : t('deprecation.markedUnDeprecatedSuccess'),
+                { duration: 2 },
+            );
             analytics.event({
                 type: EventType.SetDeprecation,
                 entityUrns: [urn],
                 deprecated: deprecatedStatus,
             });
+            if (entityType === EntityType.Domain) {
+                handleDeprecateDomainComplete(deprecatedStatus);
+            } else if (!deprecatedStatus) {
+                // Mirror the deprecate-modal optimistic path for un-deprecate from this menu,
+                // so the badge and menu item flip immediately (no search refetch needed).
+                refetchDeprecation?.();
+            }
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error({
-                    content: t('deprecation.updateError', { errorMessage: e.message || '' }),
-                    duration: 2,
-                });
+                toast.error(t('deprecation.updateError', { errorMessage: e.message || '' }), { duration: 2 });
             }
         }
         refetchForEntity?.();
@@ -194,76 +199,51 @@ const EntityDropdown = (props: Props) => {
             icon: Link,
             onClick: () => {
                 navigator.clipboard.writeText(pageUrl);
-                message.info(t('menuItem.copiedUrl'), 1.2);
+                toast.info(t('menuItem.copiedUrl'), { duration: 1.2 });
             },
         });
     }
 
     if (menuItems.has(EntityMenuItems.UPDATE_DEPRECATION)) {
-        menuItemsList.push({
-            type: 'item' as const,
-            key: '1',
-            title: !entityData?.deprecation?.deprecated
-                ? t('deprecation.markDeprecated')
-                : t('deprecation.markUnDeprecated'),
-            render: () => (
-                <div
-                    data-testid="entity-menu-deprecate-button"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '8px',
-                        gap: '8px',
-                    }}
-                >
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexShrink: 0,
-                            width: '20px',
-                            height: '20px',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}
-                    >
-                        <DeprecatedIcon
-                            style={{
-                                width: '16px',
-                                height: '16px',
-                                color: theme.colors.icon,
-                            }}
-                        />
-                    </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        <span
-                            style={{
-                                fontFamily: 'Mulish',
-                                fontWeight: 600,
-                                color: theme.colors.text,
-                                fontSize: '14px',
-                            }}
-                        >
-                            {!entityData?.deprecation?.deprecated
-                                ? t('deprecation.markDeprecated')
-                                : t('deprecation.markUnDeprecated')}
-                        </span>
-                    </div>
-                </div>
-            ),
-            onClick: () => {
-                if (!entityData?.deprecation?.deprecated) {
-                    setIsDeprecationModalVisible(true);
-                } else {
-                    handleUpdateDeprecation(false);
-                }
-            },
+        const deprecationActions = getDeprecationMenuActions(
+            !!entityData?.deprecation?.deprecated,
+            entityData?.privileges,
+        );
+        deprecationActions.forEach((action) => {
+            if (action === 'markDeprecated') {
+                menuItemsList.push({
+                    type: 'item' as const,
+                    key: '1',
+                    title: t('deprecation.markDeprecated'),
+                    icon: DeprecatedMenuIcon,
+                    'data-testid': 'entity-menu-deprecate-button',
+                    onClick: () => {
+                        setDeprecationModalInitialValues(null);
+                        setIsDeprecationModalVisible(true);
+                    },
+                });
+            } else if (action === 'editDeprecated') {
+                menuItemsList.push({
+                    type: 'item' as const,
+                    key: '1-edit',
+                    title: t('deprecation.editDeprecated'),
+                    icon: DeprecatedMenuIcon,
+                    'data-testid': 'entity-menu-edit-deprecation-button',
+                    onClick: () => {
+                        setDeprecationModalInitialValues(entityData?.deprecation ?? null);
+                        setIsDeprecationModalVisible(true);
+                    },
+                });
+            } else {
+                menuItemsList.push({
+                    type: 'item' as const,
+                    key: '1',
+                    title: t('deprecation.markUnDeprecated'),
+                    icon: DeprecatedMenuIcon,
+                    'data-testid': 'entity-menu-deprecate-button',
+                    onClick: () => handleUpdateDeprecation(false),
+                });
+            }
         });
     }
 
@@ -317,6 +297,17 @@ const EntityDropdown = (props: Props) => {
             title: tc('edit'),
             icon: Pencil,
             onClick: onEdit,
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.EDIT_GLOSSARY)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '9b',
+            title: tc('edit'),
+            icon: PencilSimple,
+            onClick: () => setIsEditGlossaryModalVisible(true),
+            'data-testid': 'entity-menu-edit-glossary-button',
         });
     }
 
@@ -502,7 +493,7 @@ const EntityDropdown = (props: Props) => {
     return (
         <>
             <Menu items={menuItemsList} trigger={triggerType} overlayStyle={{ minWidth: 150 }}>
-                <StyledMoreIcon />
+                <DotsThreeVertical data-testid="MoreVertOutlinedIcon" size={20} weight="bold" />
             </Menu>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
@@ -529,11 +520,34 @@ const EntityDropdown = (props: Props) => {
                     isCloning
                 />
             )}
+            {isEditGlossaryModalVisible && isGlossaryEntity && (
+                <EditGlossaryEntityModal
+                    urn={urn}
+                    entityType={entityType}
+                    entityData={entityData}
+                    onClose={() => setIsEditGlossaryModalVisible(false)}
+                    refetchData={refetchForEntity}
+                />
+            )}
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}
-                    onClose={() => setIsDeprecationModalVisible(false)}
-                    refetch={refetchForEntity}
+                    initialDeprecation={deprecationModalInitialValues}
+                    onClose={() => {
+                        setIsDeprecationModalVisible(false);
+                        setDeprecationModalInitialValues(null);
+                    }}
+                    refetch={(formData) => {
+                        refetchForEntity?.();
+                        if (entityType === EntityType.Domain) {
+                            handleDeprecateDomainComplete(true, formData);
+                        } else {
+                            // For non-domain entities (e.g. data products), let the preview
+                            // optimistically update its local deprecation copy so the badge
+                            // shows up immediately without waiting on a search refetch.
+                            refetchDeprecation?.(formData);
+                        }
+                    }}
                 />
             )}
             {isEntityAnnouncementModalVisible && (

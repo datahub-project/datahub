@@ -110,14 +110,15 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=_version,
-    url="https://docs.datahub.com/",
+    url="https://datahub.com/",
     project_urls={
-        "Documentation": "https://docs.datahub.com/docs/",
+        "Documentation": "https://docs.datahub.com/",
         "Source": "https://github.com/datahub-project/datahub",
-        "Changelog": "https://github.com/datahub-project/datahub/releases",
+        "Changelog": "https://github.com/acryldata/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache-2.0",
-    description="Datahub Airflow plugin to capture executions and send to Datahub",
+    description="DataHub Airflow plugin — automatically capture pipeline lineage, run history, and task metadata from Apache Airflow",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[
@@ -125,6 +126,8 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

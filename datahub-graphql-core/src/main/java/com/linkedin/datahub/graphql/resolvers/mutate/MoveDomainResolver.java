@@ -18,6 +18,8 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.graph.cache.client.BoundHierarchyAccess;
+import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -71,6 +73,16 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
               }
               if (!_entityService.exists(context.getOperationContext(), newParentDomainUrn, true)) {
                 throw new IllegalArgumentException("Parent entity does not exist.");
+              }
+              if (newParentDomainUrn.equals(resourceUrn)
+                  || BoundHierarchyAccess.isDescendant(
+                      context.getOperationContext(),
+                      HierarchyBindings.domainSpec(context.getOperationContext()),
+                      newParentDomainUrn,
+                      resourceUrn)) {
+                throw new DataHubGraphQLException(
+                    "Cannot move a domain under one of its own descendants.",
+                    DataHubGraphQLErrorCode.BAD_REQUEST);
               }
             }
 

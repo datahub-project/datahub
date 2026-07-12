@@ -1,4 +1,3 @@
-const fs = require('fs');
 const path = require('path');
 
 // --------------------------------------------------------------------------
@@ -55,12 +54,29 @@ const COLOR_ENFORCEMENT_RULES = {
 // --------------------------------------------------------------------------
 // i18n string enforcement
 //
-// Only runs on files listed in translated-files.txt. Add a file path to that
-// list once its translations are wired up to opt it into the rule.
+// Global — everything under src/**, except I18N_RULE_EXCLUDED_FILES — so new
+// files/directories are covered automatically and can't silently ship
+// hardcoded English. Add a path here only for legacy areas still being
+// migrated; once a legacy area is migrated, remove its entry instead of
+// adding new ones.
 // --------------------------------------------------------------------------
-const translatedFilesPath = path.resolve(__dirname, 'translated-files.txt');
-const translatedFilesContent = fs.existsSync(translatedFilesPath) ? fs.readFileSync(translatedFilesPath, 'utf8') : '';
-const translatedFiles = new Set(translatedFilesContent.split('\n').filter(Boolean));
+const I18N_RULE_EXCLUDED_FILES = [
+    // Legacy v1 ingestion UI, superseded by ingestV2/. Migration deferred because
+    // live and dead code interleave (no clean glob) — same rationale as this
+    // directory's exclusion from COLOR_RULE_EXCLUDED_FILES below.
+    'src/app/ingest/**',
+    // Generated GraphQL types/mocks — not authored, not user-facing UI copy.
+    'src/graphql/**',
+    'src/graphql-mock/**',
+    // Mock fixtures, tests, and Storybook demos — never production UI.
+    '**/__tests__/**',
+    '**/*.test.ts',
+    '**/*.test.tsx',
+    '**/*.stories.tsx',
+    // The alchemy rich-text Editor is not yet migrated; excluded so a directory-level
+    // glob can lock the rest of alchemy-components under enforcement without failing on it.
+    '**/alchemy-components/components/Editor/**',
+];
 
 const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'to',
@@ -74,8 +90,12 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     // must never be translated. Exempt any `displayName`/`*DisplayName` property or attribute.
     '.*[Dd]isplayName$',
     'form',
+    'htmlFor',
     'entityTypeName',
-    'commandName',
+    'propertyName',
+    'typeName',
+    // Styled-components transient props ($-prefixed) are never user-visible
+    '^\\$',
     'autoComplete',
     'preload',
     'placement',
@@ -85,20 +105,29 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     'justifyContent',
     'field',
     'tab',
+    'optionFilterProp',
+    'paramsField',
     'commandName',
     'optionLabelProp',
     'classNames',
-    // SVG / format / placement presentation attributes — never user-visible text.
-    'optionFilterProp',
-    '.*[Aa]lign$',
+    // SVG presentation attributes — coordinates, font names, marker refs, dash patterns;
+    // never user-visible text.
+    'dx',
     'dy',
-    'fontFamily',
-    'format',
-    'pointerEvents',
-    'textAnchor',
     'textDecoration',
-    'tooltipPlacement',
+    '.*[Aa]lign$',
     'viewBox',
+    'textAnchor',
+    'fontFamily',
+    'pointerEvents',
+    'markerEnd',
+    'markerStart',
+    'stroke',
+    'strokeDasharray',
+    'transform',
+    // Date/number format tokens (e.g. dayjs 'll') and tooltip position enums.
+    'format',
+    'tooltipPlacement',
     '.*Path$',
     '.*background$',
     '.*Background$',
@@ -110,19 +139,20 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     '.*Color$',
     '.*height$',
     '.*Height$',
+    '.*icon$',
+    '.*Icon$',
     '.*id$',
     '.*Id$',
     '.*key$',
     '.*Key$',
-    '.*margin$',
-    '.*Margin$',
-    '.*padding$',
-    '.*Padding$',
+    '.*[Mm]argin.*',
+    '.*[Pp]adding.*',
     '.*size$',
     '.*Size$',
     '.*testid$',
     '.*TestId$',
     '.*TestID$',
+    '.*TestIdPrefix$',
     '.*variant$',
     '.*Variant$',
     '.*weight$',
@@ -153,9 +183,8 @@ const COLOR_RULE_EXCLUDED_FILES = [
     '**/*.test.tsx',
     '**/__tests__/**',
     '**/*.stories.tsx',
-    // Deferred to a design-led pass: chart series palette + static style objects.
+    // Deferred to a design-led pass: chart series palette.
     'src/app/dataviz/**',
-    'src/alchemy-components/components/commonStyles.ts',
 ];
 
 module.exports = {
@@ -305,52 +334,43 @@ module.exports = {
             excludedFiles: COLOR_RULE_EXCLUDED_FILES,
             rules: COLOR_ENFORCEMENT_RULES,
         },
-        // i18n enforcement — only on files listed in translated-files.txt
-        ...(translatedFiles.size > 0
-            ? [
-                  {
-                      files: [...translatedFiles],
-                      excludedFiles: [
-                          '**/__tests__/**',
-                          '**/*.test.ts',
-                          '**/*.test.tsx',
-                          // Storybook demo files render only in Storybook, never in the production app — their
-                          // demo strings must not be enforced as translatable.
-                          '**/*.stories.tsx',
-                          // The alchemy rich-text Editor is not yet migrated; excluded so a directory-level
-                          // glob can lock the rest of alchemy-components under enforcement without failing on it.
-                          '**/alchemy-components/components/Editor/**',
-                      ],
-                      rules: {
-                          'i18next/no-literal-string': [
-                              'error',
-                              {
-                                  mode: 'jsx-only',
-                                  'jsx-attributes': {
-                                      exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
-                                  },
-                                  'object-properties': {
-                                      exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
-                                  },
-                                  words: {
-                                      exclude: [
-                                          '^_blank$',
-                                          '^noopener noreferrer$',
-                                          '^\\*+$',
-                                          '^-$',
-                                          '^[A-Z0-9_]+$',
-                                          '^:\\s*$',
-                                          '^[()]+$',
-                                          // CSS length values in inline styles (e.g. '4px', '0px', '1.5rem')
-                                          '^\\d+(\\.\\d+)?(px|rem|em|%|vw|vh)$',
-                                      ],
-                                  },
-                              },
-                          ],
-                          'rulesdir/no-manual-pluralize-in-i18n': 'error',
-                      },
-                  },
-              ]
-            : []),
+        // i18n enforcement — global; everything except I18N_RULE_EXCLUDED_FILES.
+        {
+            files: ['src/**/*.ts', 'src/**/*.tsx'],
+            excludedFiles: I18N_RULE_EXCLUDED_FILES,
+            rules: {
+                'i18next/no-literal-string': [
+                    'error',
+                    {
+                        mode: 'jsx-only',
+                        'jsx-attributes': {
+                            exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                        },
+                        'object-properties': {
+                            exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                        },
+                        words: {
+                            exclude: [
+                                '^_blank$',
+                                '^noopener noreferrer$',
+                                '^\\*+$',
+                                '^-$',
+                                '^—$',
+                                '^[A-Z0-9_]+$',
+                                '^:\\s*$',
+                                '^[()]+$',
+                                '^\\.+$',
+                                // CSS length values in inline styles (e.g. '4px', '0px', '1.5rem')
+                                '^\\d+(\\.\\d+)?(px|rem|em|%|vw|vh)$',
+                                // Bare slash or pipe separators between values (e.g. "{index} / {total}", "{a} | {b}")
+                                '^\\s*/\\s*$',
+                                '^\\s*\\|\\s*$',
+                            ],
+                        },
+                    },
+                ],
+                'rulesdir/no-manual-pluralize-in-i18n': 'error',
+            },
+        },
     ],
 };

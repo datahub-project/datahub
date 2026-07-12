@@ -1412,10 +1412,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     and cll_info.downstream.column is not None
                     else []
                 )
-                upstreams = [
-                    builder.make_schema_field_urn(column_ref.table, column_ref.column)
-                    for column_ref in cll_info.upstreams
-                ]
+                upstreams = cll_info.upstream_schema_field_urns()
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
                         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,

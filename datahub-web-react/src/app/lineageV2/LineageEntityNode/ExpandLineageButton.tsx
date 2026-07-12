@@ -1,4 +1,5 @@
-import { KeyboardArrowRight, KeyboardDoubleArrowRight } from '@mui/icons-material';
+import { CaretDoubleRight } from '@phosphor-icons/react/dist/csr/CaretDoubleRight';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -74,7 +75,7 @@ export function ExpandLineageButton({ urn, type, direction, display, fetchStatus
                 onMouseLeave={(e) => e.stopPropagation()}
                 data-testid={`expand-one-${urn}-button`}
             >
-                <KeyboardArrowRight viewBox="3 3 18 18" fontSize="inherit" />
+                <CaretRight size="1em" />
             </Button>
             {showExpandAll && (
                 <>
@@ -85,7 +86,7 @@ export function ExpandLineageButton({ urn, type, direction, display, fetchStatus
                         onMouseLeave={(e) => e.stopPropagation()}
                         data-testid={`expand-all-${urn}-button`}
                     >
-                        <KeyboardDoubleArrowRight viewBox="3 3 18 18" fontSize="inherit" />
+                        <CaretDoubleRight size="1em" />
                     </Button>
                 </>
             )}

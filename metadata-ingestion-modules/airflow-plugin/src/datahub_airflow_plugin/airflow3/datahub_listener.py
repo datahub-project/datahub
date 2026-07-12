@@ -10,6 +10,7 @@ from typing import (
     Callable,
     Dict,
     List,
+    Mapping,
     Optional,
     Tuple,
     TypeVar,
@@ -52,7 +53,12 @@ from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from datahub.telemetry import telemetry
 
 # Import Airflow 3.x specific shims (clean, no cross-version complexity)
-from datahub_airflow_plugin._airflow_asset_adapter import extract_urns_from_iolets
+from datahub_airflow_plugin._airflow_asset_adapter import (
+    extract_urns_from_iolets,
+    extract_urns_from_resolved_alias_events,
+    extract_urns_from_task_instance_outlet_events,
+    is_airflow_asset_alias,
+)
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._version import __package_name__, __version__
@@ -159,6 +165,111 @@ _RUN_IN_THREAD_TIMEOUT = float(
 _DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
 
 KILL_SWITCH_VARIABLE_NAME = "datahub_airflow_plugin_disable_listener"
+
+_RUNTIME_TI_PATCHED = False
+
+
+def _patch_runtime_ti_for_outlet_events() -> None:
+    """Patch RuntimeTaskInstance.get_template_context to cache outlet_events on the instance.
+
+    Airflow 3.1.x: ``get_template_context()`` creates an ``OutletEventAccessors`` object
+    and returns it inside the ``Context`` dict, but does NOT store it on the
+    ``RuntimeTaskInstance``.  When ``on_task_instance_success`` fires, the outlet
+    events are therefore inaccessible — DB access is blocked in the task worker
+    process and the context dict is not attached to ``ti``.
+
+    This patch wraps ``get_template_context()`` to store the
+    ``OutletEventAccessors`` reference directly on ``ti`` via
+    ``object.__setattr__``, bypassing Pydantic's ``__setattr__``.  The
+    ``OutletEventAccessors`` is mutated *in-place* as the task runs, so the
+    reference we store reflects all outlet events emitted by the task by the
+    time ``on_task_instance_success`` fires.
+
+    Airflow 3.2.x natively stores ``_cached_template_context`` as a
+    ``PrivateAttr``; ``extract_urns_from_task_instance_outlet_events`` still
+    works there via the fallback path, but installing this patch is harmless.
+
+    Failure modes (silent — patch becomes a no-op, AssetAlias lineage falls back
+    to the DB query path which itself depends on Airflow passing a session to
+    the listener hook):
+
+    1. ``airflow.sdk.execution_time.task_runner.RuntimeTaskInstance`` is removed
+       or renamed in a future Airflow release — the ImportError branch returns
+       early, ``_RUNTIME_TI_PATCHED`` stays ``False``, and we keep retrying on
+       every ``on_starting`` (still cheap, just no caching).
+    2. ``RuntimeTaskInstance`` is converted to use ``__slots__`` or otherwise
+       blocks attribute assignment — ``object.__setattr__`` raises and the
+       wrapped ``get_template_context`` lets the exception propagate the first
+       time the patched method runs.  Tasks would fail; if Airflow ships this
+       change we need to detect it here and skip the patch instead.
+    3. ``get_template_context()`` is removed, renamed, or no longer puts
+       ``outlet_events`` in its returned Context — ``context.get("outlet_events")``
+       returns ``None`` and we silently store nothing.  Detectable only by
+       missing AssetAlias lineage; consider a version check + warning if a
+       future Airflow drops the key.
+    4. Another plugin patches the same method.  Whichever patch runs last wins
+       its wrapping; both should still chain correctly because each wraps the
+       previously-bound ``get_template_context``, but ordering is undefined.
+
+    Verified against Airflow 3.1.x and 3.2.x.  Re-validate on each minor Airflow
+    upgrade — search this codebase for ``RuntimeTaskInstance`` and confirm the
+    private attribute names (``_datahub_outlet_events`` /
+    ``_cached_template_context`` / ``__pydantic_private__``) still match what
+    ``extract_urns_from_task_instance_outlet_events`` reads.
+    """
+    global _RUNTIME_TI_PATCHED
+    # Fast path: already patched, no lock needed
+    if _RUNTIME_TI_PATCHED:
+        return
+
+    # Slow path: use the existing listener lock with double-checked locking to
+    # match the established pattern in get_airflow_plugin_listener() and avoid
+    # doubly wrapping get_template_context on concurrent on_starting calls.
+    with _airflow_listener_lock:
+        if _RUNTIME_TI_PATCHED:
+            return
+
+        try:
+            from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
+        except ImportError:
+            return
+
+        original_get_template_context = RuntimeTaskInstance.get_template_context
+
+        def _patched_get_template_context(self: Any) -> Any:
+            # Call Airflow's real method OUTSIDE the try so genuine Airflow
+            # errors propagate normally — DataHub bookkeeping must never be the
+            # cause of a task failure.
+            context = original_get_template_context(self)
+            try:
+                # Store a reference to the mutable OutletEventAccessors so our
+                # on_task_instance_success listener can read it without DB access.
+                # Guard the whole side-effect: object.__setattr__ can raise (e.g.
+                # if a future Airflow gives RuntimeTaskInstance __slots__ —
+                # failure-mode #2 above), and context.get assumes a Mapping.
+                # On any failure we degrade to the DB-query fallback path rather
+                # than failing the user's task.
+                outlet_events = (
+                    context.get("outlet_events")
+                    if isinstance(context, Mapping)
+                    else None
+                )
+                if outlet_events is not None:
+                    object.__setattr__(self, "_datahub_outlet_events", outlet_events)
+            except Exception as e:
+                logger.warning(
+                    f"DataHub: failed to cache outlet_events on RuntimeTaskInstance "
+                    f"({type(e).__name__}: {e}); AssetAlias lineage will fall back "
+                    f"to the DB query path.",
+                )
+            return context
+
+        RuntimeTaskInstance.get_template_context = _patched_get_template_context  # type: ignore[method-assign]
+        _RUNTIME_TI_PATCHED = True
+        logger.debug(
+            "DataHub: patched RuntimeTaskInstance.get_template_context "
+            "to cache outlet_events for AssetAlias runtime resolution"
+        )
 
 
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
@@ -499,6 +610,7 @@ class DataHubListener:
                     token,
                     client_mode=ClientMode.INGESTION,
                     datahub_component="airflow-plugin",
+                    default_emit_mode=self.config.emit_mode,
                     **extra_args,
                 )
         except Exception as e:
@@ -749,6 +861,73 @@ class DataHubListener:
 
         return input_urns, output_urns, fine_grained_lineages
 
+    def _get_outlet_urns(
+        self,
+        task: "Operator",
+        dagrun: "DagRun",
+        task_instance: "TaskInstance",
+        complete: bool,
+        session: Optional[Any] = None,
+    ) -> List[str]:
+        """Return outlet URNs for a task, handling AssetAlias runtime resolution.
+
+        For regular outlets (Assets, DataHub entities) the URNs are always derived
+        statically from the task definition.  AssetAlias outlets are treated
+        differently because the real dataset URI is only known at task runtime:
+
+        • At task start (complete=False): AssetAlias outlets are omitted entirely —
+          we don't know the real URI yet.
+        • At task completion (complete=True): outlet events accumulated during task
+          execution are read from the in-process context.  Only resolved URNs are
+          emitted; if the task never called outlet_events[alias].add(...), nothing
+          is emitted for that alias.
+        """
+        outlets = list(get_task_outlets(task))
+        alias_outlets = [o for o in outlets if is_airflow_asset_alias(o)]
+        non_alias_outlets = [o for o in outlets if not is_airflow_asset_alias(o)]
+
+        urns: List[str] = list(
+            extract_urns_from_iolets(
+                non_alias_outlets,
+                capture_airflow_assets=self.config.capture_airflow_assets,
+                env=self.config.cluster,
+            )
+        )
+
+        if not alias_outlets:
+            return urns
+
+        if not complete:
+            # Alias URIs unknown at task start — omit to avoid phantom nodes
+            return urns
+
+        # Primary path: read outlet events from the in-process execution context
+        # (no DB needed).  Requires the on_starting patch or Airflow 3.2+ native
+        # _cached_template_context.
+        resolved_urns = extract_urns_from_task_instance_outlet_events(
+            task_instance, env=self.config.cluster
+        )
+        if not resolved_urns:
+            # DB fallback: used when the in-process context is unavailable (e.g.
+            # the on_starting patch did not fire, or we're running in a test
+            # harness).  Requires Airflow 3.x AssetEvent ORM.
+            resolved_urns = extract_urns_from_resolved_alias_events(
+                dag_id=dagrun.dag_id,
+                task_id=task.task_id,
+                run_id=dagrun.run_id,
+                map_index=getattr(task_instance, "map_index", -1),
+                env=self.config.cluster,
+                session=session,
+            )
+
+        if resolved_urns:
+            logger.debug(
+                f"Using {len(resolved_urns)} runtime-resolved alias URN(s) "
+                f"for task {task.task_id}: {resolved_urns}"
+            )
+        urns.extend(resolved_urns)
+        return urns
+
     def _extract_lineage(
         self,
         datajob: DataJob,
@@ -756,6 +935,7 @@ class DataHubListener:
         task: "Operator",
         task_instance: "TaskInstance",
         complete: bool = False,
+        session: Optional[Any] = None,
     ) -> None:
         """
         Combine lineage (including column lineage) from task inlets/outlets and
@@ -824,7 +1004,8 @@ class DataHubListener:
 
         fine_grained_lineages.extend(sql_fine_grained_lineages)
 
-        # Add DataHub-native inlets/outlets and Airflow Assets
+        # Add DataHub-native inlets/outlets and Airflow Assets.
+        # Inlets are always extracted statically.
         input_urns.extend(
             extract_urns_from_iolets(
                 get_task_inlets(task),
@@ -832,13 +1013,25 @@ class DataHubListener:
                 env=self.config.cluster,
             )
         )
-        output_urns.extend(
-            extract_urns_from_iolets(
-                get_task_outlets(task),
-                self.config.capture_airflow_assets,
-                env=self.config.cluster,
+
+        # Outlets: delegate to _get_outlet_urns which handles AssetAlias runtime
+        # resolution and prevents static alias placeholders from being merged into
+        # the completion lineage when real URNs are available.
+        if self.config.capture_airflow_assets:
+            output_urns.extend(
+                self._get_outlet_urns(
+                    task, dagrun, task_instance, complete, session=session
+                )
             )
-        )
+        else:
+            # capture_airflow_assets disabled: DataHub-native entities only
+            output_urns.extend(
+                extract_urns_from_iolets(
+                    get_task_outlets(task),
+                    capture_airflow_assets=False,
+                    env=self.config.cluster,
+                )
+            )
 
         # Write the lineage to the datajob object
         datajob.inlets.extend(entities_to_dataset_urn_list(input_urns))
@@ -944,6 +1137,7 @@ class DataHubListener:
         dag: "DAG",
         task_instance: "TaskInstance",
         complete: bool = False,
+        session: Optional[Any] = None,
     ) -> DataJob:
         """
         Generate DataJob with lineage and emit it to DataHub.
@@ -974,7 +1168,7 @@ class DataHubListener:
                 config=self.config,
             )
             self._extract_lineage(
-                datajob, dagrun, task, task_instance, complete=complete
+                datajob, dagrun, task, task_instance, complete=complete, session=session
             )  # type: ignore[arg-type]
             return datajob
 
@@ -988,7 +1182,9 @@ class DataHubListener:
         )
 
         # Add lineage info
-        self._extract_lineage(datajob, dagrun, task, task_instance, complete=complete)  # type: ignore[arg-type]
+        self._extract_lineage(
+            datajob, dagrun, task, task_instance, complete=complete, session=session
+        )  # type: ignore[arg-type]
 
         # Emit DataJob MCPs
         # Skip dataJobInputOutput aspects on task start to avoid file emitter merging duplicates
@@ -1014,6 +1210,39 @@ class DataHubListener:
         logger.debug(f"Emitted DataHub Datajob {status_text}: {datajob}")
 
         return datajob
+
+    @hookimpl
+    def on_starting(self, component: Any) -> None:  # type: ignore[no-untyped-def]
+        """Install the RuntimeTaskInstance patch when running inside a task worker.
+
+        ``on_starting`` fires in ``startup()`` before ``get_template_context()``
+        is called.  We use it to patch ``RuntimeTaskInstance.get_template_context``
+        so it stores a reference to the ``OutletEventAccessors`` on the instance.
+        This reference is mutated in-place during task execution and is read by
+        our ``on_task_instance_success`` listener to resolve AssetAlias events.
+
+        The patch is only meaningful (and safe) when running in the Airflow 3.x
+        task worker process — the ``TaskRunnerMarker`` check ensures we don't
+        install it on the scheduler or other Airflow components.
+        """
+        if not self.config.capture_airflow_assets:
+            return
+        try:
+            from airflow.sdk.execution_time.task_runner import TaskRunnerMarker
+
+            if isinstance(component, TaskRunnerMarker):
+                _patch_runtime_ti_for_outlet_events()
+        except ImportError:
+            # Airflow <3.x / 3.0: TaskRunnerMarker doesn't exist — nothing to patch.
+            pass
+        except Exception as e:
+            # Best-effort lineage setup must never disrupt worker startup
+            # (on_starting runs synchronously on Airflow's startup path).
+            logger.warning(
+                f"DataHub: failed to install RuntimeTaskInstance patch for "
+                f"AssetAlias resolution ({type(e).__name__}: {e}); "
+                f"alias lineage will fall back to the DB query path.",
+            )
 
     @hookimpl
     @run_in_thread
@@ -1135,7 +1364,10 @@ class DataHubListener:
                         logger.warning(f"Dataset {str(inlet)} not materialized")
 
     def on_task_instance_finish(
-        self, task_instance: "TaskInstance", status: InstanceRunResult
+        self,
+        task_instance: "TaskInstance",
+        status: InstanceRunResult,
+        session: Optional[Any] = None,
     ) -> None:
         logger.debug(
             f"on_task_instance_finish called for task {task_instance.task_id} (dag_id={task_instance.dag_id}, status={status})"
@@ -1158,7 +1390,7 @@ class DataHubListener:
             f"Generating and emitting DataJob for task {task_instance.task_id} (complete=True)"
         )
         datajob = self._generate_and_emit_datajob(
-            dagrun, task, dag, task_instance, complete=True
+            dagrun, task, dag, task_instance, complete=True, session=session
         )
 
         # Emit process instance if capturing executions
@@ -1204,7 +1436,13 @@ class DataHubListener:
         logger.debug(
             f"DataHub listener got notification about task instance success for {task_instance.task_id}"
         )
-        self.on_task_instance_finish(task_instance, status=InstanceRunResult.SUCCESS)
+        # Extract the session Airflow provides so it can be passed to DB queries
+        # in _get_outlet_urns.  In Airflow 3.0, create_session() is blocked inside
+        # listener threads; using the caller-provided session is the correct pattern.
+        airflow_session = kwargs.get("session")
+        self.on_task_instance_finish(
+            task_instance, status=InstanceRunResult.SUCCESS, session=airflow_session
+        )
         logger.debug(
             f"DataHub listener finished processing task instance success for {task_instance.task_id}"
         )
@@ -1225,7 +1463,13 @@ class DataHubListener:
 
         # TODO: Handle UP_FOR_RETRY state.
         # TODO: Use the error parameter (available in kwargs for Airflow 3.0+) for better error reporting
-        self.on_task_instance_finish(task_instance, status=InstanceRunResult.FAILURE)
+        # Extract the session Airflow provides so it can be passed to DB queries
+        # in _get_outlet_urns.  In Airflow 3.0, create_session() is blocked inside
+        # listener threads; using the caller-provided session is the correct pattern.
+        airflow_session = kwargs.get("session")
+        self.on_task_instance_finish(
+            task_instance, status=InstanceRunResult.FAILURE, session=airflow_session
+        )
         logger.debug(
             f"DataHub listener finished processing task instance failure for {task_instance.task_id}"
         )

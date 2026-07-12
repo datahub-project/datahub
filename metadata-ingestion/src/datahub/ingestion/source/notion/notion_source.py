@@ -24,6 +24,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
+from datahub.ingestion.source.notion.notion_hierarchy import NotionHierarchyExtractor
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -344,6 +345,18 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         # Notion parent metadata tracking
         self.notion_parent_metadata: Dict[str, Any] = {}
+
+        # page_id -> emitted document title, used to label browse-path ancestors
+        self.notion_page_titles: Dict[str, str] = {}
+
+        # When the user scopes ingestion via page_ids/database_ids, browse paths
+        # are anchored at those roots instead of walking up to un-ingested parents.
+        if config.page_ids or config.database_ids:
+            self._browse_path_root_ids: Set[str] = set(config.page_ids) | set(
+                config.database_ids
+            )
+        else:
+            self._browse_path_root_ids = set()
 
         # Initialize stateful ingestion handler for stale entity removal
 
@@ -1730,6 +1743,32 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 if page_id:
                     ingested_page_ids.add(page_id)
 
+                    # Pre-compute the title so browse-path ancestor labels match
+                    # the titles emitted on the ancestor documents themselves.
+                    # This is best-effort: a failure only affects ancestor labels
+                    # (which fall back to the page ID), so never fail the page.
+                    try:
+                        self._inject_notion_url(metadata)
+                        page_elements = data.get("elements", [])
+                        title = self.document_builder.title_extractor.extract_title(
+                            page_elements if isinstance(page_elements, list) else [],
+                            metadata.get("filename", "unknown"),
+                            metadata,
+                        )
+                        if title:
+                            self.notion_page_titles[page_id] = title
+                    except Exception as e:
+                        self.report.warning(
+                            title="Browse path label resolution failed",
+                            message=(
+                                "Failed to pre-compute a Notion page title for "
+                                "browse-path labels; ancestor entries may fall "
+                                "back to the raw page ID."
+                            ),
+                            context=f"page_id={page_id}",
+                            exc=e,
+                        )
+
                 # Save for second pass
                 files_to_process.append(data)
 
@@ -1978,15 +2017,41 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
         # Generate parent URN using same ID pattern as documents
-        parent_doc_id = self.document_builder.id_generator.generate_id(
-            filename=f"{parent_id}.html",
-            directory="",
-            metadata={"source_record_locator": f"page_id={parent_id}"},
-        )
+        return self._build_notion_document_urn(parent_id)
 
-        # Construct URN
-        parent_urn = f"urn:li:document:{parent_doc_id}"
-        return parent_urn
+    def _build_notion_document_urn(self, page_id: str) -> str:
+        """Construct the DataHub document URN for a Notion page ID.
+
+        Uses the same id-generation logic as emitted documents so that
+        references (parent links, browse paths) resolve to real entities.
+        """
+        doc_id = self.document_builder.id_generator.generate_id(
+            filename=f"{page_id}.html",
+            directory="",
+            metadata={"source_record_locator": f"page_id={page_id}"},
+        )
+        return f"urn:li:document:{doc_id}"
+
+    def _inject_notion_url(self, metadata: Dict[str, Any]) -> Optional[str]:
+        """Resolve a page's Notion URL and inject it into ``data_source``.
+
+        The DocumentSource aspect and title extraction both read the URL from
+        ``metadata["data_source"]["url"]``. Returns the resolved URL (if any).
+        """
+        notion_url = self._extract_notion_url(metadata)
+        if notion_url:
+            if "data_source" not in metadata:
+                metadata["data_source"] = {}
+            metadata["data_source"]["url"] = notion_url
+        return notion_url
+
+    def _notion_title_for_page(self, page_id: str) -> str:
+        """Resolve a display label for a browse-path ancestor.
+
+        Prefers the title actually emitted for the page; falls back to the raw
+        page ID for ancestors outside the ingestion scope (which carry no URN).
+        """
+        return self.notion_page_titles.get(page_id) or page_id
 
     def _create_document_entity(
         self, data: dict, ingested_page_ids: Optional[Set[str]] = None
@@ -2028,13 +2093,8 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             self.config.processing.partition.strategy
         )
 
-        # Extract Notion URL from additional_metadata
-        notion_url = self._extract_notion_url(metadata)
-        if notion_url:
-            # Inject URL into data_source for DocumentSource aspect
-            if "data_source" not in metadata:
-                metadata["data_source"] = {}
-            metadata["data_source"]["url"] = notion_url
+        # Inject Notion URL into data_source for DocumentSource aspect
+        self._inject_notion_url(metadata)
 
         # Determine parent URN
         parent_urn = None
@@ -2064,6 +2124,35 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             platform="urn:li:dataPlatform:notion"
         )
         doc._set_aspect(platform_instance)
+
+        # Add BrowsePathsV2 for hierarchical navigation, mirroring Confluence.
+        # Notion exposes only the immediate parent per page, so the extractor
+        # reconstructs the full ancestor chain from the parent-metadata map.
+        # Browse paths are a navigation enhancement, not core document data, so
+        # any failure here must degrade gracefully rather than drop the document.
+        if self.config.hierarchy.enabled:
+            try:
+                browse_path_v2 = NotionHierarchyExtractor.build_browse_path_v2(
+                    page_id=page_id,
+                    parent_metadata=self.notion_parent_metadata,
+                    urn_builder=self._build_notion_document_urn,
+                    title_resolver=self._notion_title_for_page,
+                    ingested_page_ids=ingested_page_ids,
+                    browse_path_root_ids=self._browse_path_root_ids or None,
+                )
+                if browse_path_v2:
+                    doc._set_aspect(browse_path_v2)
+            except Exception as e:
+                self.report.warning(
+                    title="Browse path generation failed",
+                    message=(
+                        "Failed to build the browse path for a Notion page; it "
+                        "was emitted without one. Hierarchical navigation may be "
+                        "incomplete for the affected page."
+                    ),
+                    context=f"page_id={page_id}",
+                    exc=e,
+                )
 
         # Get document URN for chunking/embedding (convert to string)
         document_urn = str(doc.urn)

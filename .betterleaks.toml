@@ -1,0 +1,26 @@
+title = "DataHub betterleaks config"
+
+# Native betterleaks (Expr) config. `filter` is a global expression evaluated per
+# finding; when it returns true the finding is dropped. The patterns below match
+# specific known-safe fixtures, so any OTHER secret — even in the same files — is
+# still reported:
+#   MIIyourkey              -> dataplex docs placeholder private key
+#   MIIEvQIBADAN...HjpPX     -> archive.py documented public RSA test key (mocked replay tests)
+#   suppproject-id-1234567  -> dataplex docs sample GCP service account
+#   YOUR_ACCESS_TOKEN       -> action-workflows docs curl placeholder bearer token
+#
+# matchesAny (regex) is used rather than containsAny: containsAny misses multi-line
+# matches (e.g. the multi-line RSA key block in archive.py).
+filter = '''
+filter.matchesAny(finding["match"], [
+  "MIIyourkey",
+  "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDHjpPX",
+  "suppproject-id-1234567",
+  "YOUR_ACCESS_TOKEN",
+])
+'''
+
+# Start from betterleaks' built-in ruleset. Without this, ZERO rules are loaded and
+# every scan reports "no leaks found" — a silent false-clean.
+[extend]
+useDefault = true

@@ -288,11 +288,6 @@ class ProfileMetadata:
 
 
 @capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
-@capability(
     SourceCapability.SCHEMA_METADATA,
     "Enabled by default",
     supported=True,
@@ -744,7 +739,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         continue
 
                     self.report.report_entity_scanned(dataset_name, ent_type="table")
+                    logger.debug(f"Scanning table: {dataset_name}")
                     if not sql_config.table_pattern.allowed(dataset_name):
+                        logger.debug(f"Dropped table by table_pattern: {dataset_name}")
                         self.report.report_dropped(dataset_name)
                         continue
 
@@ -1147,8 +1144,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     schema=schema, entity=view, inspector=inspector
                 )
                 self.report.report_entity_scanned(dataset_name, ent_type="view")
+                logger.debug(f"Scanning view: {dataset_name}")
 
                 if not sql_config.view_pattern.allowed(dataset_name):
+                    logger.debug(f"Dropped view by view_pattern: {dataset_name}")
                     self.report.report_dropped(dataset_name)
                     continue
 

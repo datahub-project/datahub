@@ -629,7 +629,12 @@ def test_upstream_attribution_dedupes_prs_across_sources(monkeypatch):
 
 
 def test_aggregate_per_pr_verdict_priority_order():
-    """Highest-priority verdict wins: spurious > needed > done > bump_not_needed."""
+    """Highest-priority verdict wins: needed > spurious > done > bump_not_needed.
+
+    An *unreconciled* bump_needed outranks bump_spurious: a needed bump is a
+    release-blocking, silent-migration hazard, while a spurious bump is merely
+    informational. A coexisting spurious slice must never mask the blocker.
+    """
     assert (
             rac._aggregate_per_pr_verdict(
                 [
@@ -638,7 +643,7 @@ def test_aggregate_per_pr_verdict_priority_order():
                     {"bump_status": rac.BUMP_NEEDED},
                 ]
             )
-            == rac.BUMP_SPURIOUS
+            == rac.BUMP_NEEDED
     )
     assert (
             rac._aggregate_per_pr_verdict(
@@ -712,6 +717,54 @@ def test_aggregator_returns_needed_when_some_needed_slices_unreconciled():
         },
         {"pr": "C", "bump_status": rac.BUMP_NEEDED},  # not in catch_up_for_prs
     ]
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
+
+
+def test_aggregator_unreconciled_needed_outranks_earlier_spurious_bump():
+    """Regression (MonitorSuiteInfo): an EARLIER spurious bump must not mask a
+    LATER, genuinely-unreconciled bump_needed.
+
+    Real case behind this test: a v1.1.0 release catch-up bump (no schema
+    change in its own commit) landed as a duplicate commit inside the report
+    window — because the same bump shipped on both the cloud release branch
+    (#9687) and acryl-main (#9684) — so it surfaces as a BUMP_SPURIOUS slice.
+    A *later* PR (#9814) then made a real transitive change (the
+    EntityChangeType enum grew) with no accompanying bump → BUMP_NEEDED.
+
+    A bump can only pay debt for changes that preceded it (catch-up flows
+    oldest→newest), so the earlier spurious bump cannot pre-pay #9814's change.
+    The file therefore genuinely needs a bump and must land in bump_needed, not
+    bump_spurious.
+    """
+    entries = [
+        {"pr": "9684", "date": "2026-05-19", "bump_status": rac.BUMP_SPURIOUS},
+        {"pr": "9814", "date": "2026-05-26", "bump_status": rac.BUMP_NEEDED},
+    ]
+    # Run the real reconciliation pipeline: catch-up must NOT reconcile the
+    # later needed against the earlier spurious bump.
+    rac._apply_catchup_reclassification(entries)
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
+
+
+def test_aggregator_direct_change_needed_not_masked_by_earlier_spurious_bump():
+    """Regression (AssertionRunEvent): a later DIRECT schema change shipped
+    without a bump must not be hidden by an earlier spurious bump.
+
+    Real slices behind this test: an earlier spurious schemaVersion bump
+    (#9658, 4→5, no change in that commit) precedes PR #9696, which ADDED an
+    optional field (`executedQuery`) to the aspect without bumping. The added
+    field is a genuine, unreconciled bump_needed and must surface — a bump only
+    pays debt for changes that preceded it, so the earlier spurious bump cannot
+    cover #9696's later change. This is the higher-stakes variant of the masking
+    bug: a direct, unbumped field addition is exactly the silent-migration
+    hazard the report exists to flag.
+    """
+    entries = [
+        {"pr": None, "date": "2026-05-21", "bump_status": rac.BUMP_NEEDED},  # transitive via BoundsValueSpace
+        {"pr": "9658", "date": "2026-05-21", "bump_status": rac.BUMP_SPURIOUS},  # 4→5, no change in slice
+        {"pr": "9696", "date": "2026-05-28", "bump_status": rac.BUMP_NEEDED},  # added executedQuery, no bump
+    ]
+    rac._apply_catchup_reclassification(entries)
     assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
 
 
@@ -1249,6 +1302,135 @@ def test_main_routes_two_hop_transitive_aspect_to_transitive_section(
     assert "bumped with NO structural change" not in text
 
 
+# ---------------------------------------------------------------------------
+# Transitive BFS seed filtering — must match bump_schema_versions semantics:
+# a non-aspect edit seeds the transitive bump BFS iff it is NOT comment-only
+# (comments/whitespace stripped via bsv.normalize_pdl_for_compare). Created and
+# deleted files count as real changes.
+# ---------------------------------------------------------------------------
+
+
+def _seed_window(monkeypatch, changed, contents, reached):
+    """Drive _classify_window with mocked git/file plumbing.
+
+    changed:   list of changed paths (changed_pdls return)
+    contents:  {path: (base_text, head_text)} — "" means absent at that ref
+    reached:   {source_path: {aspect_path, ...}} for the transitive BFS spy
+    Returns (findings_by_basename, captured_seed_sources).
+    """
+    captured: dict[str, list[str]] = {}
+
+    def fake_file_at(ref, path):
+        pair = contents.get(path)
+        if pair is None:
+            return None
+        return pair[0] if ref == "BASE" else pair[1]
+
+    def spy_per_source(sources):
+        captured["sources"] = list(sources)
+        return {s: set(reached.get(s, set())) for s in sources if s in reached}
+
+    monkeypatch.setattr(rac, "changed_pdls", lambda base, head: list(changed))
+    monkeypatch.setattr(rac, "file_at", fake_file_at)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+    monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: [])
+    monkeypatch.setattr(rac, "last_author_for_file", lambda *a: None)
+    monkeypatch.setattr(rac, "latest_commit_date_for_file", lambda *a: None)
+    monkeypatch.setattr(rac, "find_transitive_aspects_per_source", spy_per_source)
+    monkeypatch.setattr(
+        rac, "upstream_attribution_for_transitive", lambda sources, head, base: ([], None, None)
+    )
+    findings = rac._classify_window("BASE", "HEAD")
+    import os
+    return {os.path.basename(f.path): f for f in findings}, captured.get("sources", [])
+
+
+_D = "metadata-models/src/main/pegasus/com/linkedin/x"
+
+
+def test_comment_only_nonaspect_does_not_seed_transitive_bump(monkeypatch):
+    """A comment/doc-only edit to a non-aspect record must NOT seed the BFS,
+    while a real structural change to a sibling still does.
+
+    Matches bump_schema_versions.is_comment_only_change: the canonical form
+    (comments stripped, whitespace collapsed) is unchanged, so the edit is
+    dropped from the seed and the aspect that references it is not flagged.
+    """
+    comment = f"{_D}/CommentOnly.pdl"
+    real = f"{_D}/RealChange.pdl"
+    aspect_c = f"{_D}/AspectViaComment.pdl"
+    aspect_r = f"{_D}/AspectViaReal.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[comment, real],
+        contents={
+            comment: (
+                "record CommentOnly {\n  x: string\n}",
+                "record CommentOnly {\n  /** new doc */\n  x: string\n}",
+            ),
+            real: (
+                "record RealChange {\n  y: string\n}",
+                "record RealChange {\n  y: string\n  z: optional string\n}",
+            ),
+            aspect_c: ('@Aspect = {"name": "c", "schemaVersion": 3}\nrecord A { a: string }',) * 2,
+            aspect_r: ('@Aspect = {"name": "r", "schemaVersion": 3}\nrecord B { b: string }',) * 2,
+        },
+        reached={comment: {aspect_c}, real: {aspect_r}},
+    )
+    # Comment-only excluded from the seed; structural sibling kept.
+    assert sources == [real]
+    assert "AspectViaComment.pdl" not in by
+    assert by["AspectViaReal.pdl"].bump_status == rac.BUMP_NEEDED
+
+
+def test_noncomment_nonstructural_change_seeds_transitive_bump(monkeypatch):
+    """Parity guard with the bumper: a NON-comment change that analyze_file does
+    not model as structural (here, a field default-value change) must STILL seed
+    the BFS, because bsv.normalize_pdl_for_compare sees a real diff.
+
+    This is the case the previous has_structural-based filter got wrong: it
+    dropped default/includes/annotation changes that the actual bumper bumps on.
+    """
+    default = f"{_D}/DefaultChange.pdl"
+    aspect = f"{_D}/AspectViaDefault.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[default],
+        contents={
+            default: (
+                'record DefaultChange {\n  mode: string = "ENABLED"\n}',
+                'record DefaultChange {\n  mode: string = "DISABLED"\n}',
+            ),
+            aspect: ('@Aspect = {"name": "d", "schemaVersion": 5}\nrecord D { d: string }',) * 2,
+        },
+        reached={default: {aspect}},
+    )
+    # has_structural is False (analyze_file doesn't model defaults), but the
+    # change is NOT comment-only, so it must still seed the BFS like the bumper.
+    assert by["DefaultChange.pdl"].has_structural is False
+    assert sources == [default]
+    assert by["AspectViaDefault.pdl"].bump_status == rac.BUMP_NEEDED
+
+
+def test_deleted_nonaspect_seeds_transitive_bump(monkeypatch):
+    """A deleted non-aspect record is a real change (one ref empty), so it is
+    NOT comment-only and still seeds the BFS — consistent with the bumper, which
+    never silently drops removed files."""
+    deleted = f"{_D}/Deleted.pdl"
+    aspect = f"{_D}/AspectViaDeleted.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[deleted],
+        contents={
+            deleted: ("record Deleted {\n  z: string\n}", ""),  # gone at head
+            aspect: ('@Aspect = {"name": "dl", "schemaVersion": 4}\nrecord E { e: string }',) * 2,
+        },
+        reached={deleted: {aspect}},
+    )
+    assert sources == [deleted]
+    assert by["AspectViaDeleted.pdl"].bump_status == rac.BUMP_NEEDED
+
+
 def test_pr_numbers_for_file_returns_all_prs_in_window(monkeypatch):
     """When multiple PRs touch a file in base..head, ALL get returned."""
     log_output = (
@@ -1476,6 +1658,45 @@ def test_catchup_sorts_by_date_not_input_order():
     assert statuses["9192"] == rac.BUMP_NEEDED
     assert statuses["9534"] == rac.BUMP_DONE
     assert statuses["9579"] == rac.BUMP_SPURIOUS
+
+
+def test_catchup_reconciles_no_pr_debt_by_sha():
+    """Regression (AssertionRunEvent): a real change committed with NO PR still
+    incurs schemaVersion debt, and a later cumulative catch-up bump must pay it
+    down. Reconciliation keyed on PR number alone dropped the no-PR debt, so the
+    file leaked a false bump_needed even though its version was genuinely bumped.
+
+    Slices mirror AssertionRunEvent: a no-PR transitive change, then a bump in
+    the same window. The bump must be recognized as a catch-up for the no-PR
+    change (keyed by sha), and the file aggregate must be bump_done, not
+    bump_needed.
+    """
+    entries = [
+        # no-PR transitive change, no bump → unbumped debt
+        {"sha": "aaaa111", "pr": None, "date": "2026-05-21", "bump_status": rac.BUMP_NEEDED},
+        # later bump with no change of its own → catch-up for the no-PR debt
+        {"sha": "bbbb222", "pr": "9658", "date": "2026-05-21", "bump_status": rac.BUMP_SPURIOUS},
+    ]
+    rac._apply_catchup_reclassification(entries)
+    by_sha = {e["sha"]: e for e in entries}
+
+    # The bump is reclassified as a catch-up that paid the no-PR debt (by sha).
+    assert by_sha["bbbb222"]["bump_status"] == rac.BUMP_DONE
+    assert "aaaa111" in (by_sha["bbbb222"].get("catch_up_shas") or [])
+
+    # The file aggregate is bump_done — the no-PR debt is reconciled, not leaked
+    # as a false bump_needed.
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_DONE
+
+
+def test_aggregator_unreconciled_no_pr_needed_still_surfaces():
+    """Guard the other direction: a no-PR bump_needed that is NOT paid by any
+    later bump must still surface as bump_needed (we didn't just silence no-PR
+    debt)."""
+    entries = [
+        {"sha": "cccc333", "pr": None, "date": "2026-05-21", "bump_status": rac.BUMP_NEEDED},
+    ]
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
 
 
 def test_describe_per_pr_slice_renders_catchup_annotation():

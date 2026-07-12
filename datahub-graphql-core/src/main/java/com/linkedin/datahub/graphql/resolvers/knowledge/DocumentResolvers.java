@@ -11,9 +11,12 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import graphql.schema.idl.RuntimeWiring;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Configures resolvers for Document query, mutation, and type wiring. */
 public class DocumentResolvers {
@@ -31,6 +34,8 @@ public class DocumentResolvers {
   private final com.linkedin.metadata.graph.GraphClient graphClient;
   private final EntityRegistry entityRegistry;
   private final TimelineService timelineService;
+  private final ViewService viewService;
+  @Nullable private final DocumentImportService documentImportService;
 
   public DocumentResolvers(
       @Nonnull DocumentService documentService,
@@ -42,7 +47,9 @@ public class DocumentResolvers {
       @Nonnull EntityService entityService,
       @Nonnull com.linkedin.metadata.graph.GraphClient graphClient,
       @Nonnull EntityRegistry entityRegistry,
-      @Nonnull TimelineService timelineService) {
+      @Nonnull TimelineService timelineService,
+      @Nonnull ViewService viewService,
+      @Nullable DocumentImportService documentImportService) {
     this.documentService = documentService;
     this.entityTypes = entityTypes;
     this.documentType = documentType;
@@ -53,6 +60,8 @@ public class DocumentResolvers {
     this.graphClient = graphClient;
     this.entityRegistry = entityRegistry;
     this.timelineService = timelineService;
+    this.viewService = viewService;
+    this.documentImportService = documentImportService;
   }
 
   public void configureResolvers(final RuntimeWiring.Builder builder) {
@@ -68,45 +77,52 @@ public class DocumentResolvers {
                 .dataFetcher(
                     "searchDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.SearchDocumentsResolver(
-                        documentService, entityClient)));
+                        documentService, entityClient, viewService)));
 
     // Mutation resolvers
     builder.type(
         MUTATION_TYPE,
-        typeWiring ->
-            typeWiring
-                .dataFetcher(
-                    "createDocument",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.CreateDocumentResolver(
-                        documentService, entityService))
-                .dataFetcher(
-                    "updateDocumentContents",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentContentsResolver(documentService))
-                .dataFetcher(
-                    "updateDocumentRelatedEntities",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentRelatedEntitiesResolver(documentService))
-                .dataFetcher(
-                    "moveDocument",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.MoveDocumentResolver(
-                        documentService))
-                .dataFetcher(
-                    "deleteDocument",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.DeleteDocumentResolver(
-                        documentService))
-                .dataFetcher(
-                    "updateDocumentStatus",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentStatusResolver(documentService))
-                .dataFetcher(
-                    "updateDocumentSubType",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentSubTypeResolver(documentService))
-                .dataFetcher(
-                    "updateDocumentSettings",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentSettingsResolver(documentService)));
+        typeWiring -> {
+          typeWiring
+              .dataFetcher(
+                  "createDocument",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge.CreateDocumentResolver(
+                      documentService, entityService))
+              .dataFetcher(
+                  "updateDocumentContents",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge
+                      .UpdateDocumentContentsResolver(documentService))
+              .dataFetcher(
+                  "updateDocumentRelatedEntities",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge
+                      .UpdateDocumentRelatedEntitiesResolver(documentService))
+              .dataFetcher(
+                  "moveDocument",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge.MoveDocumentResolver(
+                      documentService))
+              .dataFetcher(
+                  "deleteDocument",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge.DeleteDocumentResolver(
+                      documentService))
+              .dataFetcher(
+                  "updateDocumentStatus",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge.UpdateDocumentStatusResolver(
+                      documentService))
+              .dataFetcher(
+                  "updateDocumentSubType",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge
+                      .UpdateDocumentSubTypeResolver(documentService))
+              .dataFetcher(
+                  "updateDocumentSettings",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge
+                      .UpdateDocumentSettingsResolver(documentService));
+          if (documentImportService != null) {
+            typeWiring.dataFetcher(
+                "importDocumentsFromFiles",
+                new ImportDocumentsFromFilesResolver(documentImportService));
+          }
+          return typeWiring;
+        });
 
     // Type wiring for Document root
     builder.type(

@@ -68,6 +68,7 @@ M_QUERIES = [
     'let\n    Source = AmazonAthena.Databases("us-east-1"),\n    awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],\n    analytics_db = awsdatacatalog{[Name="analytics"]}[Data],\n    sales_table = analytics_db{[Name="sales_data"]}[Data]\nin\n    sales_table',
     'let\n    Source = Oracle.Database("oracle-tns.example.com", [HierarchicalNavigation=true]),\n    SALES = Source{[Schema="SALES"]}[Data],\n    ORDERS = SALES{[Name="ORDERS"]}[Data]\nin\n    ORDERS',
     'let\n    Source = Oracle.Database("oracle-tns.example.com", [Query="SELECT * FROM SALES.ORDERS"])\nin\n    Source',
+    'let\n    Source = Odbc.DataSource("driver={Cloudera ODBC Driver for Apache Hive};server=hive.example.com;dsn=hive_prod", [HierarchicalNavigation=true]),\n    HIVE_Database = Source{[Name="HIVE",Kind="Database"]}[Data],\n    product_analytics_Schema = HIVE_Database{[Name="product_analytics",Kind="Schema"]}[Data],\n    user_profile_Table = product_analytics_Schema{[Name="vg_a1_user_profile",Kind="Table"]}[Data]\nin\n    user_profile_Table',
 ]
 
 
@@ -1439,6 +1440,40 @@ def test_mysql_odbc_regular_case():
 
 
 @pytest.mark.integration
+def test_hive_odbc_regular_case():
+    # End-to-end Hive ODBC case exercising the full M-Query -> Odbc.DataSource dispatch ->
+    # driver->platform resolution -> expression_lineage path. Hive is a two-tier platform,
+    # so the pseudo-catalog "HIVE" Database node must be dropped and the upstream emitted
+    # under the `hive` platform (not `hadoop`) as `schema.table`, matching the Hive connector.
+    q: str = M_QUERIES[40]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="user_profile",
+        full_name="product_analytics.user_profile",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
+    )
+
+
+@pytest.mark.integration
 def test_mysql_odbc_query():
     q: str = M_QUERIES[36]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
@@ -1725,8 +1760,12 @@ def test_oracle_native_query_with_platform_instance():
 
     reporter = PowerBiDashboardSourceReport()
 
+    # get_default_instances defaults this flag off, gating the native-query path.
     ctx, config, platform_instance_resolver = get_default_instances(
-        override_config=_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE
+        override_config={
+            **_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE,
+            "enable_advance_lineage_sql_construct": True,
+        }
     )
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(

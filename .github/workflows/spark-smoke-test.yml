@@ -7,17 +7,19 @@ on:
       - master
       - releases/**
     paths:
-      - "metadata_models/**"
-      - "metadata-integration/java/datahub-client/**"
-      - "metadata-integration/java/acryl-spark-lineage/**"
+      # Run only when the Spark plugin or what it builds on changes.
+      - "metadata-integration/java/acryl-spark-lineage/**" # the Spark listener/plugin
+      - "metadata-integration/java/openlineage-converter/**" # OpenLineage -> DataHub conversion
+      - "metadata-integration/java/datahub-client/**" # the DataHub emitter client it uses
       - ".github/workflows/spark-smoke-test.yml"
   pull_request:
     branches:
       - "**"
     paths:
-      - "metadata_models/**"
-      - "metadata-integration/java/datahub-client/**"
-      - "metadata-integration/java/acryl-spark-lineage/**"
+      # Run only when the Spark plugin or what it builds on changes.
+      - "metadata-integration/java/acryl-spark-lineage/**" # the Spark listener/plugin
+      - "metadata-integration/java/openlineage-converter/**" # OpenLineage -> DataHub conversion
+      - "metadata-integration/java/datahub-client/**" # the DataHub emitter client it uses
       - ".github/workflows/spark-smoke-test.yml"
   release:
     types: [published]
@@ -29,6 +31,10 @@ concurrency:
 jobs:
   spark-smoke-test:
     runs-on: ubuntu-latest
+    # Fail fast instead of hanging toward the 6h default: the docker-based smoke test (quickstart +
+    # Spark image build + spark-submit) has stalled for >1h on flaky network fetches during image
+    # builds. A bounded timeout turns such stalls into a quick, actionable red.
+    timeout-minutes: 60
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Set up JDK 21
@@ -49,6 +55,23 @@ jobs:
         uses: ./.github/actions/free-disk-space
       - name: Disk Check
         run: df -h . && docker images
+      - name: Spark listener unit + real-Spark smoke tests
+        run: |
+          ./gradlew :metadata-integration:java:acryl-spark-lineage:test \
+                    :metadata-integration:java:acryl-spark-lineage:sparkRealSmokeTest \
+                    :metadata-integration:java:acryl-spark-lineage:sparkSmoke4Test \
+                    :metadata-integration:java:acryl-spark-lineage:jacocoTestReport
+      - name: Upload spark-lineage coverage to Codecov
+        if: ${{ !cancelled() && github.event_name != 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./build/coverage-reports/metadata-integration/java/acryl-spark-lineage/jacoco-acryl-spark-lineage.xml
+          disable_search: true
+          fail_ci_if_error: false
+          flags: backend
+          name: spark-smoke-test
+          verbose: true
       - name: Smoke test
         run: |
           ./gradlew :metadata-integration:java:acryl-spark-lineage:integrationTest \
@@ -84,7 +107,13 @@ jobs:
           artifact-name: Test Results (smoke tests)
           test-results-paths: |
             **/build/reports/tests/test/**
+            **/build/reports/tests/sparkRealSmokeTest/**
+            **/build/reports/tests/sparkSmoke4Test/**
             **/build/test-results/test/**
+            **/build/test-results/sparkRealSmokeTest/**
+            **/build/test-results/sparkSmoke4Test/**
             !**/binary/**
           junit-file-globs: |
             **/build/test-results/test/**/*.xml
+            **/build/test-results/sparkRealSmokeTest/**/*.xml
+            **/build/test-results/sparkSmoke4Test/**/*.xml
