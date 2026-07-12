@@ -142,7 +142,8 @@ def _avro_field_kind(field_type: AvroFieldType) -> ColumnKind:
         if logical_type in AVRO_TEMPORAL_LOGICAL_TYPES:
             return ColumnKind.TEMPORAL
         return _avro_field_kind(field_type.get("type", ""))
-    return ColumnKind.OTHER
+    # Avro field types are always str/list/dict.
+    return ColumnKind.OTHER  # pragma: no cover
 
 
 def read_avro(file_obj: IO[bytes]) -> AvroSource:

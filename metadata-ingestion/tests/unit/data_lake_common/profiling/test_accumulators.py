@@ -228,3 +228,31 @@ def test_unknown_column_in_batch_is_ignored() -> None:
 
     assert stats.column_count == 1
     assert [c.column for c in stats.columns] == ["id"]
+
+
+def test_add_row_with_none_value_counts_as_null() -> None:
+    acc = TableAccumulator(columns=["id"], column_kinds={"id": ColumnKind.NUMERIC})
+    acc.add_row({"id": 5})
+    acc.add_row({"id": None})
+    stats = acc.finalize().columns[0]
+
+    assert stats.non_null_count == 1
+    assert stats.null_count == 1
+
+
+def test_temporal_low_cardinality_gets_distinct_value_frequencies() -> None:
+    from datetime import datetime
+
+    acc = TableAccumulator(columns=["d"], column_kinds={"d": ColumnKind.TEMPORAL})
+    for _ in range(10):
+        acc.add_row({"d": datetime(2023, 1, 1)})
+        acc.add_row({"d": datetime(2023, 1, 2)})
+    stats = acc.finalize().columns[0]
+
+    assert stats.min_value == datetime(2023, 1, 1)
+    assert stats.max_value == datetime(2023, 1, 2)
+    assert stats.distinct_value_frequencies is not None
+    assert {v for v, _ in stats.distinct_value_frequencies} == {
+        "2023-01-01 00:00:00",
+        "2023-01-02 00:00:00",
+    }

@@ -6,6 +6,7 @@ import boto3
 import fastavro
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 from moto import mock_aws
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -274,3 +275,51 @@ def test_profiles_partitioned_s3_table_lists_all_files() -> None:
     profile = get_profile(work_units[0])
     # Both partition files (200 rows each) are streamed into one profile.
     assert profile.rowCount == 400
+
+
+def test_s3_path_without_aws_config_reports_warning() -> None:
+    profiler = make_profiler()  # aws_config=None
+    table_data = SimpleNamespace(
+        display_name="demo",
+        full_path="s3://test-bucket/data/demo.parquet",
+        table_path="s3://test-bucket/data/demo.parquet",
+        partitions=None,
+    )
+    work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+
+    assert work_units == []
+    assert profiler.report.warnings.total_elements > 0
+
+
+def test_partitioned_s3_without_aws_config_raises() -> None:
+    profiler = make_profiler()  # aws_config=None
+    table_data = SimpleNamespace(
+        display_name="demo",
+        full_path="s3://test-bucket/data/year=2023/part.parquet",
+        table_path="s3://test-bucket/data",
+        partitions=["year=2023"],
+    )
+    with pytest.raises(ValueError, match="AWS config is required"):
+        list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+
+
+def test_profiles_partitioned_local_directory(tmp_path: Path) -> None:
+    table_dir = tmp_path / "events"
+    for part in ("year=2023", "year=2024"):
+        d = table_dir / part
+        d.mkdir(parents=True)
+        pq.write_table(
+            pa.table({"id": pa.array(HIGH_CARDINALITY_IDS, type=pa.int64())}),
+            str(d / "part.parquet"),
+        )
+
+    profiler = make_profiler()
+    table_data = SimpleNamespace(
+        display_name="events",
+        full_path=str(table_dir / "year=2023" / "part.parquet"),
+        table_path=str(table_dir),
+        partitions=["year=2023", "year=2024"],
+    )
+    work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+
+    assert get_profile(work_units[0]).rowCount == 400

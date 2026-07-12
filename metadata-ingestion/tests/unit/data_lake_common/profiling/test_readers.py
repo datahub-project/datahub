@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import fastavro
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 
 from datahub.ingestion.source.data_lake_common.profiling.accumulators import ColumnKind
 from datahub.ingestion.source.data_lake_common.profiling.readers import (
@@ -174,3 +175,20 @@ def test_avro_field_kinds_cover_other_and_nested_types() -> None:
         "price": ColumnKind.NUMERIC,
         "nested": ColumnKind.OTHER,
     }
+
+
+def test_read_csv_reflow_pads_and_truncates_mixed_width_rows() -> None:
+    # A too-wide row makes pyarrow raise (triggering reflow); the reflow path
+    # then truncates the wide row and pads the short one to the header width.
+    csv_bytes = b"id,name\n1,a,extra\n2\n3,c\n"
+
+    source = read_csv(io.BytesIO(csv_bytes))
+
+    assert source.columns == ["id", "name"]
+    assert sum(batch.num_rows for batch in source.batches) == 3
+
+
+def test_read_csv_empty_input_raises() -> None:
+    with pytest.raises((ValueError, pa.ArrowInvalid)):
+        source = read_csv(io.BytesIO(b""))
+        list(source.batches)

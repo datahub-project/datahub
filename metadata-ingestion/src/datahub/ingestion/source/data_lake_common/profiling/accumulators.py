@@ -167,7 +167,8 @@ class ColumnAccumulator:
         # mean, variance) into the running aggregate without ever
         # materializing the full column, and without the cancellation error a
         # naive sum-of-squares would accumulate over many batches.
-        if batch_count == 0:
+        # Defensive: callers only invoke this with a positive count.
+        if batch_count == 0:  # pragma: no cover
             return
         batch_m2 = batch_variance * batch_count
         if self._numeric_count == 0:
@@ -241,13 +242,17 @@ class ColumnAccumulator:
             self._median.update(x)
 
     def _frequency_list(self) -> Optional[List[Tuple[str, int]]]:
-        if not self._frequencies:
+        # Only called for low-cardinality columns, which always have frequencies.
+        if not self._frequencies:  # pragma: no cover
             return None
         return sorted(self._frequencies.items())
 
     def _continuous_histogram(self) -> Optional[Tuple[List[str], List[float]]]:
         assert self._median is not None
-        if self._min is None or self._max is None or self._min == self._max:
+        # Histogram only runs for high-cardinality numerics, where min != max.
+        if (
+            self._min is None or self._max is None or self._min == self._max
+        ):  # pragma: no cover
             return None
         edges = [
             self._min + (self._max - self._min) * i / HISTOGRAM_BINS
