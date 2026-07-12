@@ -699,7 +699,7 @@ class AmazonRedshiftLineage(AbstractLineage):
 class OracleLineage(AbstractLineage):
     # Hyphens are valid in host names and TNS aliases (e.g. "oracle-tns.example.com").
     _TNS_ALIAS_RE = re.compile(r"^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$")
-    _TNS_SERVICE_NAME_RE = re.compile(r"service_name\s*=\s*([A-Za-z0-9_.]+)")
+    _TNS_SERVICE_NAME_RE = re.compile(r"service_name\s*=\s*([A-Za-z0-9_.-]+)")
 
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.ORACLE.value
@@ -778,12 +778,13 @@ class OracleLineage(AbstractLineage):
 
         schema_name: Optional[str] = accessor.items.get("Schema")
         table_name: Optional[str] = accessor.next.items.get("Name")
+        if schema_name is None or table_name is None:
+            return Lineage.empty()
 
         # A bare TNS alias has no database, so emit a 2-part `<schema>.<table>` URN.
-        if db_name is None:
-            qualified_table_name: str = f"{schema_name}.{table_name}"
-        else:
-            qualified_table_name = f"{db_name}.{schema_name}.{table_name}"
+        qualified_table_name: str = f"{schema_name}.{table_name}"
+        if db_name is not None:
+            qualified_table_name = f"{db_name}.{qualified_table_name}"
 
         urn = make_urn(
             config=self.config,
