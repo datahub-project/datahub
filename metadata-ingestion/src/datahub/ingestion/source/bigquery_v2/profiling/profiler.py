@@ -1,7 +1,7 @@
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from google.api_core.exceptions import GoogleAPICallError
 from sqlalchemy import create_engine, inspect
@@ -41,21 +41,17 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
     validate_bigquery_identifier,
 )
+from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.profiling.common import create_datahub_ge_profiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+    SQLAlchemyProfiler,
+)
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
-
-if TYPE_CHECKING:
-    # Hint-only: these profilers pull in heavy optional deps, so they stay lazily
-    # imported at runtime (as in the parent GenericProfiler).
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
-        SQLAlchemyProfiler,
-    )
 
 logger = logging.getLogger(__name__)
 
@@ -95,16 +91,12 @@ class BigqueryProfiler(GenericProfiler):
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+    ) -> Union[DatahubGEProfiler, SQLAlchemyProfiler]:
         # Override the parent so the SQLAlchemy engine reuses our in-memory
         # bigquery.Client (built with explicit credentials) instead of letting
         # the dialect fall back to google.auth.default() — which would require
         # the GOOGLE_APPLICATION_CREDENTIALS env var to be set and would leak
         # the service account key through the process environment.
-        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
-            SQLAlchemyProfiler,
-        )
-
         logger.debug(f"Getting profiler instance from {self.platform}")
         url = self.config.get_sql_alchemy_url()
         connect_args: Dict[str, object] = {}

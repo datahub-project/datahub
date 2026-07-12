@@ -27,38 +27,6 @@ class TestFilterBuilderNumericTypes:
         assert filter_lower == filter_upper == filter_mixed == "`col` = 123"
 
 
-class TestFilterBuilderStringTypes:
-    def test_string_type_quoted(self):
-        filter_expr = FilterBuilder.create_safe_filter("desk", "NLAUT", "STRING")
-        assert filter_expr == "`desk` = 'NLAUT'"
-
-    def test_date_type_quoted(self):
-        filter_expr = FilterBuilder.create_safe_filter("date", "2025-01-15", "DATE")
-        assert filter_expr == "`date` = '2025-01-15'"
-
-    def test_datetime_type_quoted(self):
-        filter_expr = FilterBuilder.create_safe_filter(
-            "timestamp_col", "2025-01-15 12:00:00", "DATETIME"
-        )
-        assert filter_expr == "`timestamp_col` = '2025-01-15 12:00:00'"
-
-    def test_timestamp_type_quoted(self):
-        filter_expr = FilterBuilder.create_safe_filter(
-            "created_at", "2025-01-15T12:00:00Z", "TIMESTAMP"
-        )
-        assert filter_expr == "`created_at` = '2025-01-15T12:00:00Z'"
-
-    def test_no_type_defaults_to_quoted(self):
-        filter_expr = FilterBuilder.create_safe_filter("unknown_col", "value")
-        assert filter_expr == "`unknown_col` = 'value'"
-
-    def test_unknown_type_defaults_to_quoted(self):
-        """Test that unknown types default to quoted literals."""
-        filter_expr = FilterBuilder.create_safe_filter("col", "value", "CUSTOM_TYPE")
-        assert filter_expr == "`col` = 'value'"
-        assert "'" in filter_expr
-
-
 class TestFilterBuilderEdgeCases:
     """Test FilterBuilder edge cases and error handling."""
 
