@@ -189,6 +189,16 @@ def _options(core: Dict) -> Optional[List[FormFieldOption]]:
     return [FormFieldOption(label=str(v), value=str(v)) for v in enum]
 
 
+def _placeholder(core: Dict) -> Optional[str]:
+    # Only string examples make sensible input placeholders. Some configs supply
+    # a dict/list example (e.g. for an object field), which must not become a
+    # placeholder string.
+    for example in core.get("examples") or []:
+        if isinstance(example, str):
+            return example
+    return None
+
+
 def _build_field(
     name: str,
     prop: Dict,
@@ -211,7 +221,7 @@ def _build_field(
         secret=secret,
         deprecated=bool(prop.get("deprecated")),
         default=prop.get("default"),
-        placeholder=(core.get("examples") or [None])[0],
+        placeholder=_placeholder(core),
         options=_options(core),
         always_show=always_show,
     )
