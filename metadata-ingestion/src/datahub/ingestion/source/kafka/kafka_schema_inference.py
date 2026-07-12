@@ -319,8 +319,6 @@ class KafkaSchemaInference:
                 continue
 
             try:
-                # Keep native Python types (stringify_values=False) so each field
-                # can be classified by type below.
                 flattened = flatten_json(message, stringify_values=False)
 
                 for field_path, value in flattened.items():

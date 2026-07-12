@@ -18,9 +18,6 @@ FlattenJsonFunc = Callable[..., Dict[str, Any]]
 
 
 def _render_leaf(value: Any, stringify: bool) -> Any:
-    # Profiling renders every leaf as a (length-capped) string so unrelated
-    # value types share one column; schema inference keeps the native type so it
-    # can be classified (int/float/bool/str/...).
     if not stringify:
         return value
     text = str(value)
@@ -38,10 +35,8 @@ def flatten_json(
     seen_objects: Optional[Set[int]] = None,
     stringify_values: bool = True,
 ) -> Dict[str, Any]:
-    # Flatten nested JSON into dotted field paths. stringify_values=True (profiling)
-    # stringifies leaves and expands lists into indexed keys; stringify_values=False
-    # (schema inference) keeps native types and stores lists whole so they can be
-    # typed as arrays.
+    # stringify_values=True (profiling) stringifies leaves and expands lists into
+    # indexed keys; False (schema inference) keeps native types so fields can be typed.
     if flattened_dict is None:
         flattened_dict = {}
     if seen_objects is None:

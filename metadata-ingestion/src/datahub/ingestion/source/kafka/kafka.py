@@ -128,8 +128,7 @@ def _needs_schema_resolution(schema_and_fields: Optional[SchemaAndFields]) -> bo
     )
 
 
-# Given a partition's (low, high) watermark and the per-partition sample size,
-# return the (start_offset, expected_message_count) for a sampling strategy.
+# (low, high, sample_size) -> (start_offset, expected_message_count)
 OffsetFn = Callable[[int, int, int], Tuple[int, int]]
 
 
@@ -579,9 +578,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 low, high = _consumer.get_watermark_offsets(partition)
                 watermarks[partition.partition] = (low, high)
 
-            # All samplers share the same signature, so dispatch by strategy. The
-            # three offset-based strategies differ only in how they pick each
-            # partition's start offset, so they share one method via offset_fn.
+            # The three offset-based strategies differ only in the start offset
+            # they pick, so they share one method parameterized by offset_fn.
             strategy = self.source_config.profiling.sampling_strategy
             samplers: Dict[SamplingStrategy, Callable[..., None]] = {
                 SamplingStrategy.LATEST: partial(

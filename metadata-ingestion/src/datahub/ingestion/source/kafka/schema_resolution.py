@@ -32,8 +32,7 @@ logger = logging.getLogger(__name__)
 class SchemaResolutionResult:
     schema: Optional[Schema]
     fields: List[SchemaField]
-    # Diagnostic label describing which strategy produced this result. Not the
-    # success discriminant — use is_resolved for that.
+    # Diagnostic label only; use is_resolved to test for success.
     resolution_method: ResolutionMethod
     subject_name: Optional[str] = None
     record_name: Optional[str] = None
