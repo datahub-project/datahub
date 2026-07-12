@@ -18,19 +18,24 @@ class HostConfig(pydantic.BaseModel):
     )
 
 
-def test_nested_secret_container_flattens_and_masks_child() -> None:
+def test_nested_secret_container_renders_as_group_and_masks_child() -> None:
     form = build_form("s3like", "s3like", HostConfig)
     connection = next(s for s in form.sections if s.key == "connection")
 
+    # The secret-bearing sub-model becomes a collapsible group in Connection.
+    group = next(f for f in connection.fields if f.name == "aws_config")
+    assert group.widget == "group"
+    assert group.group_fields is not None
+
     secret_field = next(
-        f for f in connection.fields if f.name == "aws_secret_access_key"
+        f for f in group.group_fields if f.name == "aws_secret_access_key"
     )
     assert secret_field.secret is True
     assert secret_field.widget == "password"
     assert secret_field.field_path == "source.config.aws_config.aws_secret_access_key"
 
-    assert not any(f.name == "aws_config" for f in connection.fields)
-    assert not any(f.name == "aws_config" for s in form.sections for f in s.fields)
+    # It is not rendered as an opaque object blob at the top level.
+    assert group.widget != "keyvalue"
 
 
 class RequiredSubModel(pydantic.BaseModel):
@@ -50,13 +55,17 @@ class RequiredContainerConfig(pydantic.BaseModel):
     aws_config: RequiredSubModel = pydantic.Field(description="AWS credentials.")
 
 
+def _group_child(form, group_name, child_name):
+    group = next(f for s in form.sections for f in s.fields if f.name == group_name)
+    assert group.group_fields is not None
+    return next(c for c in group.group_fields if c.name == child_name)
+
+
 def test_optional_container_does_not_force_child_required() -> None:
     form = build_form(
         "optional_container", "optional_container", OptionalContainerConfig
     )
-    connection = next(s for s in form.sections if s.key == "connection")
-
-    child_field = next(f for f in connection.fields if f.name == "aws_access_key_id")
+    child_field = _group_child(form, "aws_config", "aws_access_key_id")
     assert child_field.required is False
 
 
@@ -64,7 +73,5 @@ def test_required_container_keeps_child_required() -> None:
     form = build_form(
         "required_container", "required_container", RequiredContainerConfig
     )
-    connection = next(s for s in form.sections if s.key == "connection")
-
-    child_field = next(f for f in connection.fields if f.name == "aws_access_key_id")
+    child_field = _group_child(form, "aws_config", "aws_access_key_id")
     assert child_field.required is True

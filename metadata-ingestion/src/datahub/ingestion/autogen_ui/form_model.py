@@ -29,6 +29,9 @@ class FormField(pydantic.BaseModel):
     # field's name) equals `enabled_when`. e.g. view_pattern depends_on include_views.
     depends_on: Optional[str] = None
     enabled_when: Optional[object] = None
+    # When set (widget == "group"), this field is a nested sub-model rendered as a
+    # collapsible group of its own fields (e.g. an OAuth credential block).
+    group_fields: Optional[List["FormField"]] = None
 
 
 class FormSection(pydantic.BaseModel):

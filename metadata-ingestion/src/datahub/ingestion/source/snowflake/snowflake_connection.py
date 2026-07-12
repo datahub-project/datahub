@@ -33,6 +33,7 @@ from datahub.configuration.common import (
 from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.closeable import Closeable
+from datahub.ingestion.autogen_ui.hints import ui
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
@@ -103,10 +104,14 @@ class SnowflakeConnectionConfig(ConfigModel):
     oauth_config: Optional[OAuthConfiguration] = pydantic.Field(
         default=None,
         description="oauth configuration - https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-with-oauth",
+        json_schema_extra=ui(
+            depends_on="authentication_type", enabled_when="OAUTH_AUTHENTICATOR"
+        ),
     )
     authentication_type: str = pydantic.Field(
         default="DEFAULT_AUTHENTICATOR",
         description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "OAUTH_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
+        json_schema_extra=ui(widget="select", options=list(_VALID_AUTH_TYPES.keys())),
     )
     account_id: str = pydantic.Field(
         description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details.",

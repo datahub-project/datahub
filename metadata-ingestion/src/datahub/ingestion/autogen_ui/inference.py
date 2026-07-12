@@ -17,6 +17,7 @@ from datahub.ingestion.autogen_ui.hints import (
     UI_DEPENDS_ON,
     UI_ENABLED_WHEN,
     UI_HIDDEN,
+    UI_OPTIONS,
     UI_ORDER,
     UI_PLACEHOLDER,
     UI_SECTION,
@@ -287,11 +288,13 @@ def _label(name: str, prop: Dict) -> str:
     return prop.get("title") or name.replace("_", " ").title()
 
 
-def _options(core: Dict) -> Optional[List[FormFieldOption]]:
-    enum = core.get("enum")
-    if not enum:
+def _options(prop: Dict, core: Dict) -> Optional[List[FormFieldOption]]:
+    # Explicit ui(options=[...]) hint wins (for string fields whose valid values
+    # aren't expressed as a JSON Schema enum); else the schema enum.
+    values = prop.get(UI_OPTIONS) or core.get("enum")
+    if not values:
         return None
-    return [FormFieldOption(label=str(v), value=str(v)) for v in enum]
+    return [FormFieldOption(label=str(v), value=str(v)) for v in values]
 
 
 def _placeholder(prop: Dict, core: Dict) -> Optional[str]:
@@ -330,7 +333,10 @@ def _build_field(
 ) -> Tuple[FormField, Optional[str]]:
     core, ref_name = _resolve(prop, defs)
     secret = _is_secret(prop)
+    options = _options(prop, core)
     widget = prop.get(UI_WIDGET) or _infer_widget(name, core, ref_name, secret)
+    if options is not None and prop.get(UI_WIDGET) is None and not secret:
+        widget = "select"
     always_show = bool(prop.get(UI_ALWAYS_SHOW)) or required or secret
 
     depends_on = prop.get(UI_DEPENDS_ON)
@@ -351,12 +357,47 @@ def _build_field(
         deprecated=bool(prop.get("deprecated")),
         default=prop.get("default"),
         placeholder=_placeholder(prop, core),
-        options=_options(core),
+        options=options,
         always_show=always_show,
         depends_on=depends_on,
         enabled_when=enabled_when,
     )
     return field, ref_name
+
+
+def _build_group(
+    name: str,
+    prop: Dict,
+    core: Dict,
+    defs: Dict,
+    container_required: bool,
+) -> FormField:
+    # Render a nested credential/config sub-model (e.g. Snowflake's oauth_config)
+    # as a collapsible group of individual fields, rather than flattening its
+    # (possibly secret) fields into the parent or showing an opaque blob.
+    child_required = set(core.get("required", []))
+    children: List[FormField] = []
+    for child_name, child_prop in (core.get("properties") or {}).items():
+        if child_prop.get(UI_HIDDEN):
+            continue
+        child_field, _ = _build_field(
+            child_name,
+            child_prop,
+            defs,
+            child_name in child_required and container_required,
+            f"{RECIPE_PREFIX}.{name}.{child_name}",
+        )
+        children.append(child_field)
+    return FormField(
+        name=name,
+        label=_label(name, prop),
+        field_path=f"{RECIPE_PREFIX}.{name}",
+        widget="group",
+        description=prop.get("description") or core.get("description"),
+        depends_on=prop.get(UI_DEPENDS_ON),
+        enabled_when=prop.get(UI_ENABLED_WHEN),
+        group_fields=children,
+    )
 
 
 def build_form(
@@ -391,11 +432,10 @@ def build_form(
             name, core, ref_name, required, secret, explicit_section, mixin_section
         )
 
-        # Flatten connection/credential sub-models one level so their fields
-        # (e.g. Kafka bootstrap servers) surface in Connection instead of an
-        # opaque object blob.
         child_props = core.get("properties")
-        if child_props and (name in _CONNECTION_CONTAINERS or _contains_secret(core)):
+        if child_props and name in _CONNECTION_CONTAINERS:
+            # Primary connection container (e.g. Kafka's `connection`): flatten its
+            # fields directly into Connection so bootstrap/etc. show individually.
             child_required = set(core.get("required", []))
             container_required = name in required_names
             for child_index, (child_name, child_prop) in enumerate(child_props.items()):
@@ -414,6 +454,23 @@ def build_form(
                     decl_index * 100 + child_index,
                     child_field,
                 )
+            continue
+
+        if child_props and _contains_secret(core):
+            # Auxiliary credential sub-model (e.g. Snowflake's oauth_config): render
+            # as a collapsible group so its fields (incl. masked secrets) stay
+            # together. A secret-bearing block is a credential -> Connection, unless
+            # an explicit ui_section says otherwise.
+            group = _build_group(name, prop, core, defs, name in required_names)
+            group_section = (
+                UISection(explicit_section)
+                if explicit_section
+                else UISection.CONNECTION
+            )
+            ui_order = prop.get(UI_ORDER)
+            if ui_order is None:
+                ui_order = _DEFAULT_ORDER.get(name, _DEFAULT_ORDER_FALLBACK)
+            _place(group_section, ui_order, decl_index, group)
             continue
 
         field, _ = _build_field(

@@ -11,6 +11,7 @@ UI_HIDDEN = "ui_hidden"
 UI_PLACEHOLDER = "ui_placeholder"
 UI_DEPENDS_ON = "ui_depends_on"
 UI_ENABLED_WHEN = "ui_enabled_when"
+UI_OPTIONS = "ui_options"
 
 
 class UISection(str, Enum):
@@ -76,6 +77,7 @@ def ui(
     placeholder: Optional[str] = None,
     depends_on: Optional[str] = None,
     enabled_when: Optional[Union[bool, str]] = None,
+    options: Optional[List[str]] = None,
 ) -> Dict[str, Any]:  # pydantic Field(json_schema_extra=) expects a JsonDict
     """Build a json_schema_extra payload for a pydantic Field.
 
@@ -112,4 +114,6 @@ def ui(
     if depends_on is not None:
         extra[UI_DEPENDS_ON] = depends_on
         extra[UI_ENABLED_WHEN] = True if enabled_when is None else enabled_when
+    if options is not None:
+        extra[UI_OPTIONS] = options
     return extra
