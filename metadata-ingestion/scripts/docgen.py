@@ -21,6 +21,7 @@ from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
 )
+from datahub.ingestion.autogen_ui.generator import write_ui_form_bundle
 from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
@@ -711,6 +712,17 @@ def generate(  # noqa: C901
                     name=plugin.platform_name,
                 ),
             ).add_plugin(plugin_name=plugin.name, plugin=plugin)
+
+    # Emit the UI form bundle consumed by the frontend's generated recipe forms.
+    # generate_bundle skips connectors without a config class or with uninstalled
+    # extras, so passing the full source-registry key set is safe.
+    ui_bundle_connectors = sorted(source_registry.mapping.keys())
+    ui_bundle_path = os.path.join(out_dir, "ui_forms.json")
+    write_ui_form_bundle(ui_bundle_path, ui_bundle_connectors)
+    logger.info(
+        f"Wrote UI form bundle to {ui_bundle_path} "
+        f"({len(ui_bundle_connectors)} connectors considered)"
+    )
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
