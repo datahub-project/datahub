@@ -271,6 +271,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowManageTags(_featureFlags.isShowManageTags())
             .setShowIntroducePage(_featureFlags.isShowIntroducePage())
             .setShowIngestionPageRedesign(_featureFlags.isShowIngestionPageRedesign())
+            .setSchemaDrivenFormsEnabled(_featureFlags.isSchemaDrivenFormsEnabled())
             .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
             .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())

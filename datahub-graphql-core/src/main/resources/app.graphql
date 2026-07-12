@@ -795,6 +795,12 @@ type FeatureFlagsConfig {
   showIngestionPageRedesign: Boolean!
 
   """
+  If turned on, ingestion source connection forms are generated from the connector's
+  config schema instead of the hand-written per-connector forms
+  """
+  schemaDrivenFormsEnabled: Boolean!
+
+  """
   If enabled, show the expand more button (>>) in the lineage graph
   """
   showLineageExpandMore: Boolean!
