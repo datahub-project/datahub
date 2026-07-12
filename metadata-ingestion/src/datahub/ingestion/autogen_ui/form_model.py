@@ -16,6 +16,8 @@ class FormField(pydantic.BaseModel):
     # Derived from the schema path, never hand-written -> the #1 drift source is gone.
     field_path: str
     widget: str
+    # Optional icon-name token (for group fields), rendered by the frontend.
+    icon: Optional[str] = None
     description: Optional[str] = None
     required: bool = False
     secret: bool = False
@@ -37,6 +39,7 @@ class FormField(pydantic.BaseModel):
 class FormSection(pydantic.BaseModel):
     key: str
     title: str
+    icon: Optional[str] = None
     expanded: bool
     fields: List[FormField]
 

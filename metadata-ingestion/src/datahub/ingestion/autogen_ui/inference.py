@@ -11,12 +11,15 @@ from datahub.ingestion.autogen_ui.form_model import (
 )
 from datahub.ingestion.autogen_ui.hints import (
     SECTION_EXPANDED_BY_DEFAULT,
+    SECTION_ICONS,
     SECTION_ORDER,
     SECTION_TITLES,
     UI_ALWAYS_SHOW,
     UI_DEPENDS_ON,
     UI_ENABLED_WHEN,
     UI_HIDDEN,
+    UI_ICON,
+    UI_LABEL,
     UI_OPTIONS,
     UI_ORDER,
     UI_PLACEHOLDER,
@@ -348,9 +351,10 @@ def _build_field(
 
     field = FormField(
         name=name,
-        label=_label(name, prop),
+        label=prop.get(UI_LABEL) or _label(name, prop),
         field_path=field_path,
         widget=widget,
+        icon=prop.get(UI_ICON),
         description=prop.get("description") or core.get("description"),
         required=required,
         secret=secret,
@@ -390,9 +394,10 @@ def _build_group(
         children.append(child_field)
     return FormField(
         name=name,
-        label=_label(name, prop),
+        label=prop.get(UI_LABEL) or _label(name, prop),
         field_path=f"{RECIPE_PREFIX}.{name}",
         widget="group",
+        icon=prop.get(UI_ICON),
         description=prop.get("description") or core.get("description"),
         depends_on=prop.get(UI_DEPENDS_ON),
         enabled_when=prop.get(UI_ENABLED_WHEN),
@@ -508,6 +513,7 @@ def build_form(
             FormSection(
                 key=s.value,
                 title=SECTION_TITLES[s],
+                icon=SECTION_ICONS.get(s),
                 expanded=expanded,
                 fields=fields,
             )

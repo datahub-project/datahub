@@ -105,7 +105,10 @@ class SnowflakeConnectionConfig(ConfigModel):
         default=None,
         description="oauth configuration - https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-with-oauth",
         json_schema_extra=ui(
-            depends_on="authentication_type", enabled_when="OAUTH_AUTHENTICATOR"
+            depends_on="authentication_type",
+            enabled_when="OAUTH_AUTHENTICATOR",
+            label="OAuth",
+            icon="key",
         ),
     )
     authentication_type: str = pydantic.Field(

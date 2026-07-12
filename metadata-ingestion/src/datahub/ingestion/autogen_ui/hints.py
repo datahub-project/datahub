@@ -12,6 +12,8 @@ UI_PLACEHOLDER = "ui_placeholder"
 UI_DEPENDS_ON = "ui_depends_on"
 UI_ENABLED_WHEN = "ui_enabled_when"
 UI_OPTIONS = "ui_options"
+UI_LABEL = "ui_label"
+UI_ICON = "ui_icon"
 
 
 class UISection(str, Enum):
@@ -53,6 +55,20 @@ SECTION_TITLES: Dict[UISection, str] = {
     UISection.ADVANCED: "Advanced",
 }
 
+# Framework-owned icon name per section (a stable, connector-agnostic token the
+# frontend maps to its own icon set) so every connector renders the same icon for
+# the same section.
+SECTION_ICONS: Dict[UISection, str] = {
+    UISection.CONNECTION: "link",
+    UISection.SCOPE: "filter",
+    UISection.LINEAGE: "flow",
+    UISection.USAGE: "chart",
+    UISection.PROFILING: "gauge",
+    UISection.CLASSIFICATION: "tag",
+    UISection.STATEFUL: "refresh",
+    UISection.ADVANCED: "gear",
+}
+
 # Only Connection and Scope open by default; feature sections start collapsed so
 # the form is not overwhelming.
 SECTION_EXPANDED_BY_DEFAULT: Dict[UISection, bool] = {
@@ -78,6 +94,8 @@ def ui(
     depends_on: Optional[str] = None,
     enabled_when: Optional[Union[bool, str]] = None,
     options: Optional[List[str]] = None,
+    label: Optional[str] = None,
+    icon: Optional[str] = None,
 ) -> Dict[str, Any]:  # pydantic Field(json_schema_extra=) expects a JsonDict
     """Build a json_schema_extra payload for a pydantic Field.
 
@@ -116,4 +134,8 @@ def ui(
         extra[UI_ENABLED_WHEN] = True if enabled_when is None else enabled_when
     if options is not None:
         extra[UI_OPTIONS] = options
+    if label is not None:
+        extra[UI_LABEL] = label
+    if icon is not None:
+        extra[UI_ICON] = icon
     return extra
