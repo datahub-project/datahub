@@ -8,6 +8,21 @@ class FormFieldOption(pydantic.BaseModel):
     value: str
 
 
+class FieldConstraints(pydantic.BaseModel):
+    # Declarative validation lifted straight from the JSON Schema (which mirrors
+    # the pydantic Field constraints / constrained types). The frontend enforces
+    # these client-side; custom @field_validator logic is validated server-side by
+    # constructing the real config.
+    minimum: Optional[float] = None
+    maximum: Optional[float] = None
+    exclusive_minimum: Optional[float] = None
+    exclusive_maximum: Optional[float] = None
+    min_length: Optional[int] = None
+    max_length: Optional[int] = None
+    pattern: Optional[str] = None
+    format: Optional[str] = None
+
+
 class FormField(pydantic.BaseModel):
     # A single rendered input in the generated form.
     name: str
@@ -25,6 +40,7 @@ class FormField(pydantic.BaseModel):
     default: Optional[object] = None
     placeholder: Optional[str] = None
     options: Optional[List[FormFieldOption]] = None
+    constraints: Optional[FieldConstraints] = None
     # Shown inline vs. collapsed. Derived from section + always_show/required/secret.
     always_show: bool = False
     # Conditional enable: this field is only enabled when `depends_on` (another

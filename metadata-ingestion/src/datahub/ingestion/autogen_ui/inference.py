@@ -5,6 +5,7 @@ import pydantic
 
 from datahub.ingestion.autogen_ui.form_model import (
     ConnectorForm,
+    FieldConstraints,
     FormField,
     FormFieldOption,
     FormSection,
@@ -300,6 +301,26 @@ def _options(prop: Dict, core: Dict) -> Optional[List[FormFieldOption]]:
     return [FormFieldOption(label=str(v), value=str(v)) for v in values]
 
 
+def _constraints(core: Dict) -> Optional[FieldConstraints]:
+    # Lift declarative JSON Schema validation (mirrors pydantic Field constraints /
+    # constrained types) so the frontend can enforce it client-side. `format:
+    # password` is a secret marker, not a user-facing constraint, so it is skipped.
+    fmt = core.get("format")
+    if fmt == "password":
+        fmt = None
+    c = FieldConstraints(
+        minimum=core.get("minimum"),
+        maximum=core.get("maximum"),
+        exclusive_minimum=core.get("exclusiveMinimum"),
+        exclusive_maximum=core.get("exclusiveMaximum"),
+        min_length=core.get("minLength"),
+        max_length=core.get("maxLength"),
+        pattern=core.get("pattern"),
+        format=fmt,
+    )
+    return c if c.model_dump(exclude_none=True) else None
+
+
 def _placeholder(prop: Dict, core: Dict) -> Optional[str]:
     # Explicit ui(placeholder=...) hint wins; else the first string example.
     # Non-string examples (dict/list for object fields) must not become a
@@ -362,6 +383,7 @@ def _build_field(
         default=prop.get("default"),
         placeholder=_placeholder(prop, core),
         options=options,
+        constraints=_constraints(core),
         always_show=always_show,
         depends_on=depends_on,
         enabled_when=enabled_when,
@@ -405,6 +427,27 @@ def _build_group(
     )
 
 
+def _flatten_children(
+    name: str, core: Dict, defs: Dict, container_required: bool
+) -> List[FormField]:
+    # Turn a nested sub-model's fields into individual FormFields with dotted
+    # paths (source.config.<name>.<child>), one level deep.
+    child_required = set(core.get("required", []))
+    out: List[FormField] = []
+    for child_name, child_prop in (core.get("properties") or {}).items():
+        if child_prop.get(UI_HIDDEN):
+            continue
+        child_field, _ = _build_field(
+            child_name,
+            child_prop,
+            defs,
+            child_name in child_required and container_required,
+            f"{RECIPE_PREFIX}.{name}.{child_name}",
+        )
+        out.append(child_field)
+    return out
+
+
 def build_form(
     connector: str, display_name: str, config_class: Type[pydantic.BaseModel]
 ) -> ConnectorForm:
@@ -437,36 +480,25 @@ def build_form(
             name, core, ref_name, required, secret, explicit_section, mixin_section
         )
 
-        child_props = core.get("properties")
+        # Nested sub-model handling. A field whose value is another config model
+        # (has `properties`) should never render as an opaque keyvalue blob.
+        # AllowDenyPattern has properties too but owns a dedicated widget, so it is
+        # excluded here and falls through to _build_field.
+        child_props = core.get("properties") if ref_name != "AllowDenyPattern" else None
+        container_required = name in required_names
         if child_props and name in _CONNECTION_CONTAINERS:
             # Primary connection container (e.g. Kafka's `connection`): flatten its
             # fields directly into Connection so bootstrap/etc. show individually.
-            child_required = set(core.get("required", []))
-            container_required = name in required_names
-            for child_index, (child_name, child_prop) in enumerate(child_props.items()):
-                if child_prop.get(UI_HIDDEN):
-                    continue
-                child_field, _ = _build_field(
-                    child_name,
-                    child_prop,
-                    defs,
-                    child_name in child_required and container_required,
-                    f"{RECIPE_PREFIX}.{name}.{child_name}",
-                )
-                _place(
-                    UISection.CONNECTION,
-                    50,
-                    decl_index * 100 + child_index,
-                    child_field,
-                )
+            for i, cf in enumerate(
+                _flatten_children(name, core, defs, container_required)
+            ):
+                _place(UISection.CONNECTION, 50, decl_index * 100 + i, cf)
             continue
 
         if child_props and _contains_secret(core):
-            # Auxiliary credential sub-model (e.g. Snowflake's oauth_config): render
-            # as a collapsible group so its fields (incl. masked secrets) stay
-            # together. A secret-bearing block is a credential -> Connection, unless
-            # an explicit ui_section says otherwise.
-            group = _build_group(name, prop, core, defs, name in required_names)
+            # Credential sub-model (e.g. oauth_config): collapsible group so its
+            # fields (incl. masked secrets) stay together. Credentials -> Connection.
+            group = _build_group(name, prop, core, defs, container_required)
             group_section = (
                 UISection(explicit_section)
                 if explicit_section
@@ -476,6 +508,16 @@ def build_form(
             if ui_order is None:
                 ui_order = _DEFAULT_ORDER.get(name, _DEFAULT_ORDER_FALLBACK)
             _place(group_section, ui_order, decl_index, group)
+            continue
+
+        if child_props:
+            # Any other structured sub-config (profiling, stateful_ingestion,
+            # classification, *_lineage_config): flatten its fields into the
+            # section it classified into, so its well-defined structure shows.
+            for i, cf in enumerate(
+                _flatten_children(name, core, defs, container_required)
+            ):
+                _place(section, decl_index * 100, decl_index * 100 + i, cf)
             continue
 
         field, _ = _build_field(
