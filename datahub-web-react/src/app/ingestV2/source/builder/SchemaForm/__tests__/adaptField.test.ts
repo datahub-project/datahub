@@ -37,8 +37,8 @@ describe('adaptField', () => {
         expect(result[1].fieldPath).toBe('source.config.schema_pattern.deny');
         expect(result[0].label).toBe('Schema Pattern — Allow');
         expect(result[1].label).toBe('Schema Pattern — Deny');
-        expect(result[0].name).toBe('schema_pattern.allow');
-        expect(result[1].name).toBe('schema_pattern.deny');
+        expect(result[0].name).toBe('source.config.schema_pattern.allow');
+        expect(result[1].name).toBe('source.config.schema_pattern.deny');
     });
 
     it('derives a rejecting rule for exclusive_minimum constraints', async () => {
@@ -92,5 +92,27 @@ describe('adaptField', () => {
 
         expect(rf.type).toBe(FieldType.SELECT);
         expect(rf.options).toEqual([{ label: 'PROD', value: 'PROD' }]);
+    });
+
+    it('uses the unique field_path as the form name so same-named group fields do not collide', () => {
+        const profilingEnabled: SchemaFormField = {
+            name: 'enabled',
+            label: 'Enabled',
+            field_path: 'source.config.profiling.enabled',
+            widget: 'toggle',
+        };
+        const statefulEnabled: SchemaFormField = {
+            name: 'enabled',
+            label: 'Enabled',
+            field_path: 'source.config.stateful_ingestion.enabled',
+            widget: 'toggle',
+        };
+
+        const [a] = adaptField(profilingEnabled);
+        const [b] = adaptField(statefulEnabled);
+
+        expect(a.name).toBe('source.config.profiling.enabled');
+        expect(b.name).toBe('source.config.stateful_ingestion.enabled');
+        expect(a.name).not.toBe(b.name);
     });
 });

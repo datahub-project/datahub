@@ -136,13 +136,15 @@ function buildAllowDenyFields(f: SchemaFormField): RecipeField[] {
     return [
         {
             ...shared,
-            name: `${f.name}.allow`,
+            // Use the full field_path as the antd form name: it is unique across
+            // groups (short names like `enabled` recur in profiling/stateful/...).
+            name: `${f.field_path}.allow`,
             label: `${f.label} — Allow`,
             fieldPath: `${f.field_path}.allow`,
         },
         {
             ...shared,
-            name: `${f.name}.deny`,
+            name: `${f.field_path}.deny`,
             label: `${f.label} — Deny`,
             fieldPath: `${f.field_path}.deny`,
         },
@@ -151,7 +153,9 @@ function buildAllowDenyFields(f: SchemaFormField): RecipeField[] {
 
 function buildLeafField(f: SchemaFormField): RecipeField {
     return {
-        name: f.name,
+        // field_path is unique; short `name` collides across groups (e.g. `enabled`
+        // in profiling/stateful/classification) and would clash as an antd form key.
+        name: f.field_path,
         label: f.label,
         tooltip: f.description ?? '',
         type: resolveFieldType(f),
