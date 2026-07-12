@@ -82,12 +82,12 @@ _CONNECTION_NAMES = {
 _CONNECTION_CONTAINERS = {"connection", "credential", "credentials"}
 
 # Scope selectors (in addition to any AllowDenyPattern / *_pattern field).
+# Note: plain `database`/`catalog` are connection targets (which DB to connect to),
+# not filters -- they live in _CONNECTION_NAMES. The filter equivalents are the
+# `*_pattern` fields, caught separately.
 _SCOPE_NAMES = {
-    "database",
-    "schema",
     "project_ids",
     "projects",
-    "catalog",
     "include_tables",
     "include_views",
 }
@@ -96,6 +96,45 @@ _ENRICHMENT_RE = re.compile(
     r"^(include|extract|ingest|emit|enable)_.*|.*(lineage|usage|ownership|_tags|_owners)$"
 )
 _PATTERN_NAME_RE = re.compile(r"_pattern$")
+
+# Default intra-section ordering for common connection fields so the host/endpoint
+# leads and credentials follow -- the natural reading order operators expect,
+# without requiring a per-connector ui_order hint. Lower sorts first.
+_DEFAULT_ORDER = {
+    "host": 10,
+    "host_port": 10,
+    "account_id": 10,
+    "account": 10,
+    "url": 10,
+    "uri": 10,
+    "host_url": 10,
+    "workspace_url": 10,
+    "server": 10,
+    "base_url": 10,
+    "connect_uri": 10,
+    "database": 20,
+    "catalog": 20,
+    "project_id": 20,
+    "project": 20,
+    "warehouse": 30,
+    "region": 30,
+    "role": 32,
+    "scheme": 34,
+    "tenant_id": 36,
+    "authentication_type": 38,
+    "username": 50,
+    "user": 50,
+    "client_id": 52,
+    "password": 54,
+    "client_secret": 54,
+    "token": 56,
+    "api_key": 56,
+    "private_key": 58,
+    "private_key_password": 59,
+}
+_DEFAULT_ORDER_FALLBACK = 100
+_DEFAULT_ORDER_DEMOTED = 10_000
+_DEMOTED_NAMES = {"env", "options", "platform_instance"}
 
 
 def _resolve(schema: Dict, defs: Dict) -> Tuple[Dict, Optional[str]]:
@@ -289,11 +328,14 @@ def build_form(
 
         field, _ = _build_field(name, prop, defs, required, f"{RECIPE_PREFIX}.{name}")
 
-        # Ordering: explicit ui_order wins; env/options sink to the bottom of Advanced.
+        # Ordering: explicit ui_order wins; then the common-field default order;
+        # env/options/platform_instance sink to the bottom of their section.
         ui_order = prop.get(UI_ORDER)
         if ui_order is None:
-            demote = name in ("env", "options", "platform_instance")
-            ui_order = 10_000 if demote else 100
+            if name in _DEMOTED_NAMES:
+                ui_order = _DEFAULT_ORDER_DEMOTED
+            else:
+                ui_order = _DEFAULT_ORDER.get(name, _DEFAULT_ORDER_FALLBACK)
         _place(section, ui_order, decl_index, field)
 
     sections: List[FormSection] = []
