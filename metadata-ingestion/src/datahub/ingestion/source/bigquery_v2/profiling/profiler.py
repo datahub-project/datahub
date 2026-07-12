@@ -1,7 +1,7 @@
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from google.api_core.exceptions import GoogleAPICallError
 from sqlalchemy import create_engine, inspect
@@ -41,15 +41,11 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
     validate_bigquery_identifier,
 )
-from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.profiling.common import create_datahub_ge_profiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
-)
-from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
-    SQLAlchemyProfiler,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
@@ -89,14 +85,20 @@ class BigqueryProfiler(GenericProfiler):
         self._cache_hits = 0
         self._cache_misses = 0
 
-    def get_profiler_instance(
-        self, db_name: Optional[str] = None
-    ) -> Union[DatahubGEProfiler, SQLAlchemyProfiler]:
+    # Return type is left unannotated on purpose: annotating it would need
+    # DatahubGEProfiler, whose import pulls in great_expectations at module
+    # load, and profiler modules must import without great_expectations
+    # installed (enforced by tests/unit/test_no_ge_dependency.py).
+    def get_profiler_instance(self, db_name=None):
         # Override the parent so the SQLAlchemy engine reuses our in-memory
         # bigquery.Client (built with explicit credentials) instead of letting
         # the dialect fall back to google.auth.default() — which would require
         # the GOOGLE_APPLICATION_CREDENTIALS env var to be set and would leak
         # the service account key through the process environment.
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
         logger.debug(f"Getting profiler instance from {self.platform}")
         url = self.config.get_sql_alchemy_url()
         connect_args: Dict[str, object] = {}
