@@ -62,6 +62,73 @@ describe('adaptField', () => {
         await expect(rule?.validator(undefined, 1)).resolves.toBeUndefined();
     });
 
+    it('derives a coercing rule for minimum constraints that accepts in-range strings', async () => {
+        const field: SchemaFormField = {
+            name: 'sample_size',
+            label: 'Sample Size',
+            field_path: 'source.config.profiling.sample_size',
+            widget: 'number',
+            constraints: { minimum: 1 },
+        };
+
+        const [rf] = adaptField(field);
+
+        expect(rf.rules).not.toBeNull();
+        const rule = (rf.rules ?? []).find(
+            (r): r is { validator: (rule: unknown, value: string) => Promise<void> } =>
+                typeof (r as { validator?: unknown }).validator === 'function',
+        );
+        expect(rule).toBeDefined();
+        await expect(rule?.validator(undefined, '0')).rejects.toThrow();
+        await expect(rule?.validator(undefined, '-5')).rejects.toThrow();
+        await expect(rule?.validator(undefined, '1')).resolves.toBeUndefined();
+        await expect(rule?.validator(undefined, '10')).resolves.toBeUndefined();
+        await expect(rule?.validator(undefined, '')).resolves.toBeUndefined();
+        await expect(rule?.validator(undefined, 'abc')).rejects.toThrow();
+    });
+
+    it('derives a coercing rule for maximum constraints that accepts in-range strings', async () => {
+        const field: SchemaFormField = {
+            name: 'sample_size',
+            label: 'Sample Size',
+            field_path: 'source.config.profiling.sample_size',
+            widget: 'number',
+            constraints: { maximum: 100 },
+        };
+
+        const [rf] = adaptField(field);
+
+        const rule = (rf.rules ?? []).find(
+            (r): r is { validator: (rule: unknown, value: string) => Promise<void> } =>
+                typeof (r as { validator?: unknown }).validator === 'function',
+        );
+        expect(rule).toBeDefined();
+        await expect(rule?.validator(undefined, '101')).rejects.toThrow();
+        await expect(rule?.validator(undefined, '100')).resolves.toBeUndefined();
+        await expect(rule?.validator(undefined, '50')).resolves.toBeUndefined();
+    });
+
+    it('derives a coercing rule for combined minimum/maximum constraints', async () => {
+        const field: SchemaFormField = {
+            name: 'sample_size',
+            label: 'Sample Size',
+            field_path: 'source.config.profiling.sample_size',
+            widget: 'number',
+            constraints: { minimum: 1, maximum: 10 },
+        };
+
+        const [rf] = adaptField(field);
+
+        const rule = (rf.rules ?? []).find(
+            (r): r is { validator: (rule: unknown, value: string) => Promise<void> } =>
+                typeof (r as { validator?: unknown }).validator === 'function',
+        );
+        expect(rule).toBeDefined();
+        await expect(rule?.validator(undefined, '0')).rejects.toThrow();
+        await expect(rule?.validator(undefined, '11')).rejects.toThrow();
+        await expect(rule?.validator(undefined, '5')).resolves.toBeUndefined();
+    });
+
     it('maps depends_on/enabled_when to dynamicHidden', () => {
         const field: SchemaFormField = {
             name: 'view_pattern',

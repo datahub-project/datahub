@@ -72,6 +72,31 @@ function buildExclusiveRule(exclusiveValue: number, isMinimum: boolean): FormRul
     };
 }
 
+// Fields with `minimum`/`maximum` constraints render through FieldType.TEXT, whose onChange
+// always yields a string. A plain `{ type: 'number', min, max }` rule runs async-validator's
+// built-in type check first, which fails unconditionally for a string value even when it's
+// in range. A custom validator (mirroring buildExclusiveRule) skips that type check and
+// coerces the value instead.
+function buildRangeRule(minimum: number | undefined, maximum: number | undefined): FormRule {
+    const message = `Must be between ${minimum ?? '-∞'} and ${maximum ?? '∞'}`;
+    return {
+        type: 'number',
+        validator: (_, value) => {
+            if (value === null || value === undefined || value === '') {
+                return Promise.resolve();
+            }
+            const numericValue = Number(value);
+            if (Number.isNaN(numericValue)) {
+                return Promise.reject(new Error('Must be a number'));
+            }
+            const isValid =
+                (minimum === undefined || numericValue >= minimum) &&
+                (maximum === undefined || numericValue <= maximum);
+            return isValid ? Promise.resolve() : Promise.reject(new Error(message));
+        },
+    };
+}
+
 function buildRules(f: SchemaFormField): FormRule[] | null {
     const c = f.constraints;
     if (!c) {
@@ -87,12 +112,7 @@ function buildRules(f: SchemaFormField): FormRule[] | null {
         rules.push(buildExclusiveRule(c.exclusive_maximum, false));
     }
     if (c.minimum !== undefined || c.maximum !== undefined) {
-        rules.push({
-            type: 'number',
-            ...(c.minimum !== undefined ? { min: c.minimum } : {}),
-            ...(c.maximum !== undefined ? { max: c.maximum } : {}),
-            message: `Must be between ${c.minimum ?? '-∞'} and ${c.maximum ?? '∞'}`,
-        });
+        rules.push(buildRangeRule(c.minimum, c.maximum));
     }
     if (c.min_length !== undefined || c.max_length !== undefined) {
         rules.push({
