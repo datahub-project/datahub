@@ -731,6 +731,17 @@ class OracleLineage(AbstractLineage):
         )
         return None, None
 
+    def _default_database(self, server: str) -> Optional[str]:
+        platform_detail = self.platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=self.get_platform_pair(),
+                data_platform_server=server,
+            )
+        )
+        if isinstance(platform_detail, OraclePlatformDetail):
+            return platform_detail.default_database
+        return None
+
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
@@ -781,10 +792,14 @@ class OracleLineage(AbstractLineage):
         if schema_name is None or table_name is None:
             return Lineage.empty()
 
-        # A bare TNS alias has no database, so emit a 2-part `<schema>.<table>` URN.
+        # A bare TNS alias / descriptor carries no database; `default_database`
+        # supplies one for Oracle ingestions using 3-part URNs, else stay 2-part.
+        effective_db: Optional[str] = (
+            db_name if db_name is not None else self._default_database(server)
+        )
         qualified_table_name: str = f"{schema_name}.{table_name}"
-        if db_name is not None:
-            qualified_table_name = f"{db_name}.{qualified_table_name}"
+        if effective_db is not None:
+            qualified_table_name = f"{effective_db}.{qualified_table_name}"
 
         urn = make_urn(
             config=self.config,
@@ -829,11 +844,11 @@ class OracleLineage(AbstractLineage):
             )
         )
 
-        default_schema: Optional[str] = (
-            platform_detail.default_schema
-            if isinstance(platform_detail, OraclePlatformDetail)
-            else None
-        )
+        default_schema: Optional[str] = None
+        default_database: Optional[str] = None
+        if isinstance(platform_detail, OraclePlatformDetail):
+            default_schema = platform_detail.default_schema
+            default_database = platform_detail.default_database
 
         if default_schema is None and self._sql_has_unqualified_tables(query):
             self.reporter.warning(
@@ -847,12 +862,12 @@ class OracleLineage(AbstractLineage):
                 context=f"table={self.table.full_name}, server={server}",
             )
 
-        # database=None yields 2-part `<schema>.<table>` URNs to match Oracle
-        # ingestion's default URN shape.
+        # `default_database` is None for the default 2-part URN shape; set, it
+        # produces 3-part URNs matching `add_database_name_to_urn: true`.
         lineage = self.parse_custom_sql(
             query=query,
             server=server,
-            database=None,
+            database=default_database,
             schema=default_schema,
             platform_detail=platform_detail,
         )

@@ -4,6 +4,7 @@ from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     AthenaPlatformOverride,
+    OraclePlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
@@ -1382,6 +1383,122 @@ def test_oracle_native_query_takes_precedence_over_hierarchical(oracle_lineage_t
     urns = [u.urn.lower() for u in lineage.upstreams]
     assert any("orders" in u for u in urns)
     assert not any("some_other_table" in u for u in urns)
+
+
+def _oracle_lineage_with(server_map: dict) -> OracleLineage:
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        server_to_platform_instance=server_map,
+    )
+    return OracleLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=Table(name="orders", full_name="SALES.orders"),
+        reporter=PowerBiDashboardSourceReport(),
+        config=config,
+        platform_instance_resolver=ResolvePlatformInstanceFromServerToPlatformInstance(
+            config
+        ),
+    )
+
+
+def test_oracle_hierarchical_tns_default_database_adds_db_segment():
+    # A bare TNS alias carries no database; default_database supplies the segment
+    # so the URN matches an Oracle ingestion running add_database_name_to_urn=true.
+    lineage = _oracle_lineage_with(
+        {
+            "oracle-tns.example.com": OraclePlatformDetail(
+                platform_instance="oracle_prod", default_database="edwprd"
+            )
+        }
+    )
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "ORDERS"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="source", items={"Schema": "SALES"}, next=table_accessor
+    )
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com", {"HierarchicalNavigation": "true"}
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=schema_accessor,
+        node_map={},
+    )
+
+    result = lineage.create_lineage(detail)
+
+    assert len(result.upstreams) == 1
+    assert "oracle_prod.edwprd.sales.orders" in result.upstreams[0].urn.lower()
+
+
+def test_oracle_native_query_default_database_adds_db_segment():
+    lineage = _oracle_lineage_with(
+        {
+            "oracle-tns.example.com": OraclePlatformDetail(
+                platform_instance="oracle_prod",
+                default_database="edwprd",
+                default_schema="sales",
+            )
+        }
+    )
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com",
+        {"Query": "SELECT * FROM ORDERS"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=None,
+        node_map={},
+    )
+
+    result = lineage.create_lineage(detail)
+
+    assert len(result.upstreams) == 1
+    assert "oracle_prod.edwprd.sales.orders" in result.upstreams[0].urn.lower()
+
+
+def test_oracle_platform_detail_requires_at_least_one_default():
+    with pytest.raises(ValueError):
+        OraclePlatformDetail(platform_instance="oracle_prod")
+
+
+def test_oracle_platform_detail_rejects_blank_default():
+    with pytest.raises(ValueError):
+        OraclePlatformDetail(default_schema="   ")
+
+
+def test_oracle_platform_detail_accepts_only_default_database():
+    detail = OraclePlatformDetail(default_database="edwprd")
+    assert detail.default_database == "edwprd"
+    assert detail.default_schema is None
+
+
+def test_server_to_platform_instance_union_disambiguation():
+    # A plain entry resolves to PlatformDetail; an Oracle-only knob resolves to
+    # OraclePlatformDetail (the "at least one default" rule keeps them distinct).
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        server_to_platform_instance={
+            "plain-host": {"platform_instance": "pi"},
+            "oracle-alias": {"default_database": "edwprd"},
+        },
+    )
+
+    plain = config.server_to_platform_instance["plain-host"]
+    assert isinstance(plain, PlatformDetail)
+    assert not isinstance(plain, OraclePlatformDetail)
+
+    oracle = config.server_to_platform_instance["oracle-alias"]
+    assert isinstance(oracle, OraclePlatformDetail)
+    assert oracle.default_database == "edwprd"
+    assert oracle.default_schema is None
 
 
 _ORACLE_URN = "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.edw.orders,PROD)"
