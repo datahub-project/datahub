@@ -18,3 +18,4 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
     # Lineage counters
     native_sql_parse_failures: int = 0
     mbql_field_refs_by_name_dropped: int = 0
+    query_builder_cll_dropped: int = 0

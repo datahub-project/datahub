@@ -2571,7 +2571,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.metabase.MetabaseSource",
+      "classname": "datahub.ingestion.source.metabase.source.MetabaseSource",
       "platform_id": "metabase",
       "platform_name": "Metabase",
       "support_status": "CERTIFIED"

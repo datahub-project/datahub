@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Optional, Pattern, Type, Union
+from typing import Dict, FrozenSet, Optional, Pattern, Type, Union
 
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
@@ -23,6 +23,20 @@ _MBQL_REF_AGGREGATION = "aggregation"
 
 # Source-table value prefix when referencing another card
 _CARD_REF_PREFIX = "card__"
+
+# Metabase REST API endpoint paths, appended to connect_uri. Any {placeholder}
+# is filled via str.format at the call site.
+_API_SESSION = "/api/session"
+_API_CURRENT_USER = "/api/user/current"
+_API_USER = "/api/user/{user_id}"
+_API_CARDS = "/api/card"
+_API_CARD = "/api/card/{card_id}"
+_API_DASHBOARD = "/api/dashboard/{dashboard_id}"
+_API_TABLE = "/api/table/{table_id}"
+_API_FIELD = "/api/field/{field_id}"
+_API_DATABASE = "/api/database/{database_id}"
+_API_COLLECTIONS = "/api/collection/"
+_API_COLLECTION_ITEMS = "/api/collection/{collection_id}/items"
 
 _SPECIAL_CHARS_PATTERN: Pattern[str] = re.compile(r"[^a-zA-Z0-9_]")
 _MULTIPLE_UNDERSCORES_PATTERN: Pattern[str] = re.compile(r"_+")
@@ -77,7 +91,7 @@ _ENGINE_TO_DB_DETAIL_FIELD: Dict[str, str] = {
 # three-tier (database.schema.table).  For these platforms the schema component
 # returned by Metabase's /api/table endpoint is omitted from the dataset URN so
 # that lineage URNs match those produced by the corresponding DataHub connector.
-_TWO_TIER_PLATFORMS: frozenset = frozenset[str](
+_TWO_TIER_PLATFORMS: FrozenSet[str] = frozenset(
     {
         "mysql",  # MySQL has no schema layer; "schema" == database
         "mongodb",  # MongoDB: database + collection only
@@ -89,7 +103,7 @@ _TWO_TIER_PLATFORMS: frozenset = frozenset[str](
 # Union of all engines we explicitly handle. The "unrecognised platform" warning
 # is suppressed for these — they either translate via METABASE_ENGINE_TO_DATAHUB_PLATFORM
 # or map 1:1 and are covered by _ENGINE_TO_DB_DETAIL_FIELD.
-_KNOWN_METABASE_ENGINES: frozenset = frozenset[str](
+_KNOWN_METABASE_ENGINES: FrozenSet[str] = frozenset(
     {*METABASE_ENGINE_TO_DATAHUB_PLATFORM, *_ENGINE_TO_DB_DETAIL_FIELD}
 )
 

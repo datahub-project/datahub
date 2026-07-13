@@ -46,7 +46,7 @@ class MetabaseConfig(
         description="Timeout in seconds for each HTTP request to the Metabase API. "
         "Prevents ingestion from hanging indefinitely on an unresponsive server.",
     )
-    database_alias_map: Optional[dict] = Field(
+    database_alias_map: Optional[Dict[str, str]] = Field(
         default=None,
         description="Database name map to use when constructing dataset URN.",
     )

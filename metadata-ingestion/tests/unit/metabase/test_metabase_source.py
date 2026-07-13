@@ -17,6 +17,7 @@ from datahub.ingestion.source.metabase.models import (
     MetabaseCollection,
     MetabaseDatabaseDetails,
     MetabaseDatasetQuery,
+    MetabaseField,
 )
 from datahub.ingestion.source.metabase.report import MetabaseReport
 from datahub.ingestion.source.metabase.source import MetabaseSource
@@ -1000,6 +1001,7 @@ def test_malformed_sql_parsing_failure(mock_post, mock_get, mock_delete):
 
     table_urns = metabase_source._get_table_urns_from_native_query(card)
     assert table_urns == []
+    assert metabase_source.report.native_sql_parse_failures == 1
 
     metabase_source.close()
 
@@ -1293,3 +1295,67 @@ def test_model_subtypes_passthrough_vs_transformed():
         DatasetSubTypes.METABASE_MODEL,
         DatasetSubTypes.VIEW,
     ]
+
+
+def test_query_builder_cll_drops_named_refs():
+    """A query-builder card that selects one column by numeric id and one by name
+    emits CLL only for the resolvable column and counts the dropped named ref."""
+    ctx = PipelineContext(run_id="metabase-test")
+    config = MetabaseConfig(username="un", password=SecretStr("pwd"))
+    metabase = FakeMetabaseSource(ctx, config)
+
+    metabase.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
+    )
+    metabase.get_source_table_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=("public", "orders")
+    )
+    metabase.get_field_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=MetabaseField(id=100, name="col_a", table_id=42)
+    )
+
+    card = MetabaseCard(
+        id=1,
+        name="Mixed Refs",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="query",
+            query={
+                "source-table": 42,
+                "fields": [
+                    ["field", 100, None],
+                    ["field", "computed_col", None],
+                ],
+            },
+        ),
+        result_metadata=[
+            {
+                "name": "col_a",
+                "base_type": "type/Integer",
+                "field_ref": ["field", 100, None],
+            },
+            {
+                "name": "computed_col",
+                "base_type": "type/Text",
+                "field_ref": ["field", "computed_col", None],
+            },
+        ],
+    )
+
+    model_urn = metabase._model_urn(card.id)
+    lineage = metabase._get_cll_from_query_builder(card, model_urn)
+
+    assert lineage is not None
+    assert lineage.fineGrainedLineages is not None
+    # Only the numeric-id column resolves to an upstream; the named ref is dropped.
+    assert len(lineage.fineGrainedLineages) == 1
+    downstream = (lineage.fineGrainedLineages[0].downstreams or [""])[0]
+    assert downstream.rsplit(",", 1)[-1].rstrip(")") == "col_a"
+
+    assert metabase.report.mbql_field_refs_by_name_dropped == 1
+    assert metabase.report.query_builder_cll_dropped == 0

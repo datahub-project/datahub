@@ -2,12 +2,11 @@ import json
 import logging
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeVar, Union, cast
 
 import dateutil.parser as dp
 import requests
 from pydantic import ValidationError
-from requests.models import HTTPError
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -29,6 +28,17 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.metabase.config import MetabaseConfig
 from datahub.ingestion.source.metabase.constants import (
+    _API_CARD,
+    _API_CARDS,
+    _API_COLLECTION_ITEMS,
+    _API_COLLECTIONS,
+    _API_CURRENT_USER,
+    _API_DASHBOARD,
+    _API_DATABASE,
+    _API_FIELD,
+    _API_SESSION,
+    _API_TABLE,
+    _API_USER,
     _CARD_REF_PREFIX,
     _CARD_TYPE_MODEL,
     _KNOWN_METABASE_ENGINES,
@@ -47,6 +57,7 @@ from datahub.ingestion.source.metabase.constants import (
 from datahub.ingestion.source.metabase.mbql import _extract_field_ids_from_mbql
 from datahub.ingestion.source.metabase.models import (
     DatasourceInfo,
+    MetabaseBaseModel,
     MetabaseCard,
     MetabaseCardListItem,
     MetabaseCollection,
@@ -56,6 +67,7 @@ from datahub.ingestion.source.metabase.models import (
     MetabaseDashboardListItem,
     MetabaseDatabase,
     MetabaseField,
+    MetabaseLastEditInfo,
     MetabaseLoginResponse,
     MetabaseResultMetadata,
     MetabaseTable,
@@ -110,6 +122,8 @@ from datahub.sql_parsing.sqlglot_lineage import (
 
 logger = logging.getLogger(__name__)
 
+_ModelT = TypeVar("_ModelT", bound=MetabaseBaseModel)
+
 
 @platform_name("Metabase")
 @config_class(MetabaseConfig)
@@ -133,10 +147,18 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = MetabaseReport()
         self.access_token: Optional[str] = None
+        # url -> validated model, populated only on success so a transient error
+        # for one id does not poison every later reference to it (see _fetch).
+        self._fetch_cache: Dict[str, object] = {}
+        self._ownership_cache: Dict[int, Optional[OwnershipClass]] = {}
+        self._card_items_cache: Optional[List[MetabaseCardListItem]] = None
         self.setup_session()
 
     def _normalize(self, value: str) -> str:
         return value.lower() if self.config.convert_lineage_urns_to_lowercase else value
+
+    def _url(self, path: str, **kwargs: object) -> str:
+        return f"{self.config.connect_uri}{path.format(**kwargs)}"
 
     def _get_json(self, url: str, *, params: Optional[Dict[str, str]] = None) -> object:
         # timeout guards against a server that accepts the connection but never
@@ -147,6 +169,72 @@ class MetabaseSource(StatefulIngestionSourceBase):
         )
         response.raise_for_status()
         return response.json()
+
+    def _fetch(
+        self,
+        model: Type[_ModelT],
+        url: str,
+        *,
+        label: str,
+        context: str,
+        params: Optional[Dict[str, str]] = None,
+    ) -> Optional[_ModelT]:
+        # Single fetch+validate+report path shared by all id-keyed getters.
+        # RequestException covers Timeout/ConnectionError/HTTPError; ValidationError
+        # is a ValueError subclass, so a non-JSON 200 body is caught too.
+        cache_key = url if not params else f"{url}?{sorted(params.items())}"
+        if cache_key in self._fetch_cache:
+            return cast(Optional[_ModelT], self._fetch_cache[cache_key])
+        try:
+            result = model.model_validate(self._get_json(url, params=params))
+        except ValidationError as e:
+            self.report.report_warning(
+                title=f"Invalid {label} Data",
+                message=f"{label} data from Metabase API failed validation.",
+                context=f"{context}, Error: {e}",
+            )
+            return None
+        except (requests.exceptions.RequestException, ValueError) as e:
+            self.report.report_warning(
+                title=f"Failed to Retrieve {label}",
+                message=f"Request to retrieve {label.lower()} from Metabase failed.",
+                context=f"{context}, Error: {e}",
+            )
+            return None
+        self._fetch_cache[cache_key] = result
+        return result
+
+    @staticmethod
+    def _fine_grained_field(
+        upstreams: List[str], downstream: str
+    ) -> FineGrainedLineageClass:
+        return FineGrainedLineageClass(
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            upstreams=upstreams,
+            downstreams=[downstream],
+        )
+
+    def _emit_ownership_and_tags(
+        self,
+        entity_urn: str,
+        creator_id: Optional[int],
+        collection_id: Optional[int],
+    ) -> Iterable[MetadataWorkUnit]:
+        if creator_id:
+            ownership = self._get_ownership(creator_id)
+            if ownership is not None:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=entity_urn,
+                    aspect=ownership,
+                ).as_workunit()
+
+        tags = self._get_tags_from_collection(collection_id)
+        if tags is not None:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=entity_urn,
+                aspect=tags,
+            ).as_workunit()
 
     def _model_urn(self, model_id: Union[int, str]) -> str:
         return builder.make_dataset_urn(
@@ -186,12 +274,14 @@ class MetabaseSource(StatefulIngestionSourceBase):
             fineGrainedLineages=fine_grained if fine_grained else None,
         )
 
-    def _last_modified_stamp(self, last_edit_info: Optional[object]) -> AuditStampClass:
+    def _last_modified_stamp(
+        self, last_edit_info: Optional[MetabaseLastEditInfo]
+    ) -> AuditStampClass:
         email = "unknown"
         timestamp: Optional[str] = None
         if last_edit_info is not None:
-            email = getattr(last_edit_info, "email", None) or "unknown"
-            timestamp = getattr(last_edit_info, "timestamp", None)
+            email = last_edit_info.email or "unknown"
+            timestamp = last_edit_info.timestamp
         modified_actor = builder.make_user_urn(email)
         modified_ts = (
             self.get_timestamp_millis_from_ts_string(timestamp)
@@ -213,7 +303,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         else:
             try:
                 login_response = requests.post(
-                    f"{self.config.connect_uri}/api/session",
+                    self._url(_API_SESSION),
                     None,
                     {
                         "username": self.config.username,
@@ -227,7 +317,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 )
                 login_response.raise_for_status()
                 login_data = MetabaseLoginResponse.model_validate(login_response.json())
-            except (HTTPError, ValueError) as e:
+            except (requests.exceptions.RequestException, ValueError) as e:
                 self.report.report_failure(
                     title="Unable to Authenticate",
                     message="Failed to log in to Metabase with the provided credentials.",
@@ -246,11 +336,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         try:
             test_response = self.session.get(
-                f"{self.config.connect_uri}/api/user/current",
+                self._url(_API_CURRENT_USER),
                 timeout=self.config.request_timeout_sec,
             )
             test_response.raise_for_status()
-        except HTTPError as e:
+        except requests.exceptions.RequestException as e:
             self.report.report_failure(
                 title="Unable to Retrieve Current User",
                 message="Unable to retrieve current user information from Metabase.",
@@ -258,54 +348,41 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
 
     def close(self) -> None:
-        # Only username/password auth creates sessions that need cleanup
-        if not self.config.api_key and self.access_token:
-            response = requests.delete(
-                f"{self.config.connect_uri}/api/session",
-                headers={"X-Metabase-Session": self.access_token},
-                timeout=self.config.request_timeout_sec,
-            )
-            if response.status_code not in (200, 204):
-                self.report.report_failure(
-                    title="Unable to Log User Out",
-                    message="Unable to log the ingestion user out of Metabase.",
-                    context=f"Status code: {response.status_code}",
+        # A teardown network failure must not mask the run's real outcome, so the
+        # logout is best-effort and base cleanup always runs in the finally block.
+        try:
+            # Only username/password auth creates sessions that need cleanup
+            if not self.config.api_key and self.access_token:
+                response = requests.delete(
+                    self._url(_API_SESSION),
+                    headers={"X-Metabase-Session": self.access_token},
+                    timeout=self.config.request_timeout_sec,
                 )
-        super().close()
+                if response.status_code not in (200, 204):
+                    self.report.report_failure(
+                        title="Unable to Log User Out",
+                        message="Unable to log the ingestion user out of Metabase.",
+                        context=f"Status code: {response.status_code}",
+                    )
+        except requests.exceptions.RequestException as e:
+            self.report.report_warning(
+                title="Unable to Log User Out",
+                message="Failed to log the ingestion user out of Metabase during teardown.",
+                context=str(e),
+            )
+        finally:
+            super().close()
 
     def emit_dashboard_workunits(self) -> Iterable[MetadataWorkUnit]:
-        try:
-            collections_data = self._get_json(
-                f"{self.config.connect_uri}/api/collection/"
-                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
-            )
-        except (HTTPError, ValueError) as error:
-            self.report.report_failure(
-                title="Unable to Retrieve Dashboards",
-                message="Request to retrieve dashboards from Metabase failed.",
-                context=str(error),
-            )
-            return
-
-        assert isinstance(collections_data, list)
-        for collection_data in collections_data:
-            try:
-                collection = MetabaseCollection.model_validate(collection_data)
-            except ValidationError as e:
-                self.report.report_warning(
-                    title="Invalid Collection Data",
-                    message="Collection data from Metabase API failed validation.",
-                    context=f"Data: {collection_data}, Error: {str(e)}",
-                )
-                continue
-            if collection.is_root:
-                continue
-
+        # Reuse the cached (non-root) collections rather than re-fetching and
+        # re-validating /api/collection here.
+        for collection in self._get_collections_map().values():
             # Isolate per-collection item failures so one bad collection (e.g. a
             # 403/500) does not abort emitting every later collection.
             try:
                 items_data = self._get_json(
-                    f"{self.config.connect_uri}/api/collection/{collection.id}/items?models=dashboard"
+                    self._url(_API_COLLECTION_ITEMS, collection_id=collection.id),
+                    params={"models": "dashboard"},
                 )
                 collection_dashboards = MetabaseCollectionItemsResponse.model_validate(
                     items_data
@@ -317,7 +394,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     context=f"Collection ID: {collection.id}, Error: {str(e)}",
                 )
                 continue
-            except (HTTPError, ValueError) as error:
+            except (requests.exceptions.RequestException, ValueError) as error:
                 self.report.report_warning(
                     title="Unable to Retrieve Collection Items",
                     message="Request to retrieve collection dashboards failed; skipping this collection.",
@@ -343,7 +420,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self, dashboard_info: MetabaseDashboardListItem
     ) -> Iterable[MetadataWorkUnit]:
         dashboard_id = dashboard_info.id
-        dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
+        dashboard_url = self._url(_API_DASHBOARD, dashboard_id=dashboard_id)
         try:
             dashboard = MetabaseDashboard.model_validate(self._get_json(dashboard_url))
         except ValidationError as e:
@@ -354,7 +431,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 context=f"Dashboard ID: {dashboard_id}, Error: {str(e)}",
             )
             return
-        except (HTTPError, ValueError) as error:
+        except (requests.exceptions.RequestException, ValueError) as error:
             self.report.dashboards_dropped += 1
             self.report.report_warning(
                 title="Unable to Retrieve Dashboard",
@@ -401,20 +478,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
-        if dashboard.creator_id:
-            ownership = self._get_ownership(dashboard.creator_id)
-            if ownership is not None:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dashboard_urn,
-                    aspect=ownership,
-                ).as_workunit()
-
-        tags = self._get_tags_from_collection(dashboard.collection_id)
-        if tags:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_urn,
-                aspect=tags,
-            ).as_workunit()
+        yield from self._emit_ownership_and_tags(
+            dashboard_urn, dashboard.creator_id, dashboard.collection_id
+        )
 
         if dashboard.collection_id is not None:
             yield from add_entity_to_container(
@@ -686,6 +752,14 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         table_urns = self._get_table_urns_from_query_builder(card)
         if not table_urns or len(table_urns) != 1:
+            # A pass-through over zero or several (joined) tables has no clean 1:1
+            # mapping, so column-level lineage is dropped despite result metadata.
+            self.report.query_builder_cll_dropped += 1
+            self.report.report_warning(
+                title="Query-Builder Column Lineage Dropped",
+                message="Pass-through card does not resolve to a single source table; column-level lineage was not emitted.",
+                context=f"Card ID: {card.id}, Source tables: {len(table_urns)}",
+            )
             return None
 
         source_table_urn = table_urns[0]
@@ -696,21 +770,17 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 continue
 
             fine_grained.append(
-                FineGrainedLineageClass(
-                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                self._fine_grained_field(
                     upstreams=[
                         builder.make_schema_field_urn(
                             parent_urn=source_table_urn,
                             field_path=meta.name,
                         )
                     ],
-                    downstreams=[
-                        builder.make_schema_field_urn(
-                            parent_urn=entity_urn,
-                            field_path=meta.name,
-                        )
-                    ],
+                    downstream=builder.make_schema_field_urn(
+                        parent_urn=entity_urn,
+                        field_path=meta.name,
+                    ),
                 )
             )
 
@@ -743,21 +813,33 @@ class MetabaseSource(StatefulIngestionSourceBase):
             upstream_urns = self._resolve_field_ref_upstream_urns(meta.field_ref, ctx)
             if upstream_urns:
                 fine_grained.append(
-                    FineGrainedLineageClass(
-                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    self._fine_grained_field(
                         upstreams=upstream_urns,
-                        downstreams=[
-                            builder.make_schema_field_urn(
-                                parent_urn=entity_urn, field_path=meta.name
-                            )
-                        ],
+                        downstream=builder.make_schema_field_urn(
+                            parent_urn=entity_urn, field_path=meta.name
+                        ),
                     )
                 )
 
         table_urns = self._get_table_urns_from_query_builder(card)
         if not table_urns:
+            self.report.query_builder_cll_dropped += 1
+            self.report.report_warning(
+                title="Query-Builder Column Lineage Dropped",
+                message="Query-builder card produced no resolvable source tables; column-level lineage was not emitted.",
+                context=f"Card ID: {card.id}",
+            )
             return None
+
+        if not fine_grained:
+            # Table-level lineage still emitted below, but no column mapping could
+            # be resolved from the result metadata; surface the gap to operators.
+            self.report.query_builder_cll_dropped += 1
+            self.report.report_warning(
+                title="Query-Builder Column Lineage Dropped",
+                message="Query-builder card produced table-level lineage but no column-level lineage could be resolved.",
+                context=f"Card ID: {card.id}",
+            )
 
         return self._upstream_lineage(
             table_urns, DatasetLineageTypeClass.TRANSFORMED, fine_grained
@@ -798,16 +880,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
                 if upstream_urns:
                     fine_grained.append(
-                        FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        self._fine_grained_field(
                             upstreams=upstream_urns,
-                            downstreams=[
-                                builder.make_schema_field_urn(
-                                    parent_urn=entity_urn,
-                                    field_path=col_lineage.downstream.column,
-                                )
-                            ],
+                            downstream=builder.make_schema_field_urn(
+                                parent_urn=entity_urn,
+                                field_path=col_lineage.downstream.column,
+                            ),
                         )
                     )
 
@@ -815,9 +893,13 @@ class MetabaseSource(StatefulIngestionSourceBase):
             table_urns, DatasetLineageTypeClass.TRANSFORMED, fine_grained
         )
 
-    @lru_cache(maxsize=None)
     def _get_ownership(self, creator_id: int) -> Optional[OwnershipClass]:
-        user_info_url = f"{self.config.connect_uri}/api/user/{creator_id}"
+        # Cache successes and definitive 404s, but not transient errors: a single
+        # timeout for one creator must not suppress ownership for the whole run.
+        if creator_id in self._ownership_cache:
+            return self._ownership_cache[creator_id]
+
+        user_info_url = self._url(_API_USER, user_id=creator_id)
         try:
             user = MetabaseUser.model_validate(self._get_json(user_info_url))
         except ValidationError as e:
@@ -827,21 +909,22 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 context=f"Creator ID: {creator_id}, Error: {str(e)}",
             )
             return None
-        except HTTPError as http_error:
-            if (
-                http_error.response is not None
-                and http_error.response.status_code == 404
-            ):
+        except requests.exceptions.RequestException as req_error:
+            response = getattr(req_error, "response", None)
+            if response is not None and response.status_code == 404:
+                # A 404 is deterministic (user blocked/deleted), so cache it to
+                # avoid re-requesting for every entity the same user created.
                 self.report.report_warning(
                     title="Cannot find user",
                     message="User is blocked in Metabase or missing",
                     context=f"Creator ID: {creator_id}",
                 )
+                self._ownership_cache[creator_id] = None
                 return None
             self.report.report_warning(
                 title="Failed to retrieve user",
                 message="Request to Metabase Failed",
-                context=f"Creator ID: {creator_id}, Error: {str(http_error)}",
+                context=f"Creator ID: {creator_id}, Error: {str(req_error)}",
             )
             return None
         except ValueError as e:
@@ -853,38 +936,39 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return None
 
         owner_urn = builder.make_user_urn(user.email)
-        if owner_urn is not None:
-            return OwnershipClass(
-                owners=[
-                    OwnerClass(
-                        owner=owner_urn,
-                        type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
-            )
-
-        return None
+        ownership = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=owner_urn,
+                    type=OwnershipTypeClass.DATAOWNER,
+                )
+            ]
+        )
+        self._ownership_cache[creator_id] = ownership
+        return ownership
 
     @lru_cache(maxsize=None)
     def _get_collections_map(self) -> Dict[str, MetabaseCollection]:
         """Cached to avoid N+1 API calls when tagging multiple entities."""
+        params = {
+            "exclude-other-user-collections": json.dumps(
+                self.config.exclude_other_user_collections
+            )
+        }
         try:
             collections_data = self._get_json(
-                f"{self.config.connect_uri}/api/collection/"
-                f"?exclude-other-user-collections={json.dumps(self.config.exclude_other_user_collections)}"
+                self._url(_API_COLLECTIONS), params=params
             )
-        except HTTPError as http_error:
-            if (
-                http_error.response is not None
-                and http_error.response.status_code == 404
-            ):
+        except requests.exceptions.RequestException as req_error:
+            response = getattr(req_error, "response", None)
+            if response is not None and response.status_code == 404:
                 # 404 is expected when collection features are disabled or unavailable
-                logger.debug("Collections endpoint not found: %s", str(http_error))
+                logger.debug("Collections endpoint not found: %s", str(req_error))
                 return {}
             self.report.report_warning(
                 title="Failed to retrieve collections",
                 message="Unable to fetch collections from Metabase API",
-                context=f"Error: {str(http_error)} - Check API credentials and permissions",
+                context=f"Error: {str(req_error)} - Check API credentials and permissions",
             )
             return {}
         except ValueError as e:
@@ -895,8 +979,15 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             return {}
 
-        assert isinstance(collections_data, list)
-        collections_dict = {}
+        if not isinstance(collections_data, list):
+            self.report.report_failure(
+                title="Unexpected Collections Response",
+                message="Metabase returned a non-list body for the collections endpoint.",
+                context=f"Type: {type(collections_data).__name__}",
+            )
+            return {}
+
+        collections_dict: Dict[str, MetabaseCollection] = {}
         for coll_data in collections_data:
             try:
                 coll = MetabaseCollection.model_validate(coll_data)
@@ -956,58 +1047,63 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
-    def emit_chart_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def _list_card_items(self) -> List[MetabaseCardListItem]:
+        # Fetched and validated once, then shared by both the chart and model
+        # emitters (which each filter the same list) to avoid a duplicate /api/card
+        # round-trip and re-validation.
+        if self._card_items_cache is not None:
+            return self._card_items_cache
+
         try:
-            cards = self._get_json(f"{self.config.connect_uri}/api/card")
-        except (HTTPError, ValueError) as http_error:
+            cards = self._get_json(self._url(_API_CARDS))
+        except (requests.exceptions.RequestException, ValueError) as error:
             self.report.report_failure(
                 title="Unable to Retrieve Cards",
                 message="Request to retrieve cards from Metabase failed.",
-                context=str(http_error),
+                context=str(error),
             )
-            return
+            return []
 
-        assert isinstance(cards, list)
+        if not isinstance(cards, list):
+            self.report.report_failure(
+                title="Unexpected Cards Response",
+                message="Metabase returned a non-list body for the cards endpoint.",
+                context=f"Type: {type(cards).__name__}",
+            )
+            return []
+
+        items: List[MetabaseCardListItem] = []
         for card_data in cards:
             try:
-                card_info = MetabaseCardListItem.model_validate(card_data)
-                # Models are emitted as datasets by emit_model_workunits()
-                if self.config.extract_models and card_info.is_model:
-                    continue
-
-                yield from self._emit_chart_workunits(card_info)
+                items.append(MetabaseCardListItem.model_validate(card_data))
             except ValidationError as e:
-                self.report.charts_dropped += 1
                 self.report.report_warning(
                     title="Invalid Card List Item",
                     message="Card list item failed validation.",
                     context=f"Error: {str(e)}",
                 )
+        self._card_items_cache = items
+        return items
+
+    def emit_chart_workunits(self) -> Iterable[MetadataWorkUnit]:
+        for card_info in self._list_card_items():
+            # Models are emitted as datasets by emit_model_workunits()
+            if self.config.extract_models and card_info.is_model:
+                continue
+            yield from self._emit_chart_workunits(card_info)
 
     def get_card_details_by_id(
         self, card_id: Union[int, str]
     ) -> Optional[MetabaseCard]:
-        card_url = f"{self.config.connect_uri}/api/card/{card_id}"
-        try:
-            # Use legacy-mbql=true to get MBQL 4 format for compatibility.
-            # Metabase 0.57+ returns MBQL 5 by default which has a different structure.
-            return MetabaseCard.model_validate(
-                self._get_json(card_url, params={"legacy-mbql": "true"})
-            )
-        except ValidationError as e:
-            self.report.report_warning(
-                title="Invalid Card Data",
-                message="Card data from Metabase API failed validation.",
-                context=f"Card ID: {card_id}, Error: {str(e)}",
-            )
-            return None
-        except (HTTPError, ValueError) as http_error:
-            self.report.report_warning(
-                title="Unable to Retrieve Card",
-                message="Request to retrieve Card from Metabase failed.",
-                context=f"Card ID: {card_id}, Error: {str(http_error)}",
-            )
-            return None
+        # Use legacy-mbql=true to get MBQL 4 format for compatibility.
+        # Metabase 0.57+ returns MBQL 5 by default which has a different structure.
+        return self._fetch(
+            MetabaseCard,
+            self._url(_API_CARD, card_id=card_id),
+            label="Card",
+            context=f"Card ID: {card_id}",
+            params={"legacy-mbql": "true"},
+        )
 
     def _create_input_field(
         self, upstream_urn: str, meta: MetabaseResultMetadata
@@ -1143,20 +1239,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     ),
                 ).as_workunit()
 
-        if card_details.creator_id:
-            ownership = self._get_ownership(card_details.creator_id)
-            if ownership is not None:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=chart_urn,
-                    aspect=ownership,
-                ).as_workunit()
-
-        tags = self._get_tags_from_collection(card_details.collection_id)
-        if tags is not None:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=tags,
-            ).as_workunit()
+        yield from self._emit_ownership_and_tags(
+            chart_urn, card_details.creator_id, card_details.collection_id
+        )
 
         input_fields = self._get_input_fields_from_card(card_details)
         if input_fields:
@@ -1214,50 +1299,24 @@ class MetabaseSource(StatefulIngestionSourceBase):
         query_patched = _TEMPLATE_VARIABLE_PATTERN.sub("1", query_patched)
         return query_patched
 
-    @lru_cache(maxsize=None)
     def get_source_table_from_id(
         self, table_id: Union[int, str]
     ) -> Tuple[Optional[str], Optional[str]]:
-        try:
-            table = MetabaseTable.model_validate(
-                self._get_json(f"{self.config.connect_uri}/api/table/{table_id}")
-            )
-            return table.schema_, table.name
-        except ValidationError as e:
-            self.report.report_warning(
-                title="Invalid Source Table Data",
-                message="Source table data from Metabase API failed validation.",
-                context=f"Table ID: {table_id}, Error: {str(e)}",
-            )
-        except (HTTPError, ValueError) as http_error:
-            self.report.report_warning(
-                title="Failed to Retrieve Source Table",
-                message="Request to retrieve source table from Metabase failed.",
-                context=f"Table ID: {table_id}, Error: {str(http_error)}",
-            )
+        table = self._fetch(
+            MetabaseTable,
+            self._url(_API_TABLE, table_id=table_id),
+            label="Source Table",
+            context=f"Table ID: {table_id}",
+        )
+        return (table.schema_, table.name) if table else (None, None)
 
-        return None, None
-
-    @lru_cache(maxsize=None)
     def get_field_from_id(self, field_id: int) -> Optional[MetabaseField]:
-        try:
-            return MetabaseField.model_validate(
-                self._get_json(f"{self.config.connect_uri}/api/field/{field_id}")
-            )
-        except ValidationError as e:
-            self.report.report_warning(
-                title="Invalid Field Data",
-                message="Field data from Metabase API failed validation.",
-                context=f"Field ID: {field_id}, Error: {str(e)}",
-            )
-            return None
-        except (HTTPError, ValueError) as http_error:
-            self.report.report_warning(
-                title="Failed to Retrieve Field",
-                message="Request to retrieve field from Metabase failed",
-                context=f"Field ID: {field_id}, Error: {str(http_error)}",
-            )
-            return None
+        return self._fetch(
+            MetabaseField,
+            self._url(_API_FIELD, field_id=field_id),
+            label="Field",
+            context=f"Field ID: {field_id}",
+        )
 
     @lru_cache(maxsize=None)
     def get_platform_instance(
@@ -1276,29 +1335,16 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
         return platform_instance
 
-    @lru_cache(maxsize=None)
     def get_datasource_from_id(
         self, datasource_id: Union[int, str]
     ) -> Optional[DatasourceInfo]:
-        try:
-            database = MetabaseDatabase.model_validate(
-                self._get_json(
-                    f"{self.config.connect_uri}/api/database/{datasource_id}"
-                )
-            )
-        except ValidationError as e:
-            self.report.report_warning(
-                title="Invalid Database Data",
-                message="Database data from Metabase API failed validation.",
-                context=f"Database ID: {datasource_id}, Error: {str(e)}",
-            )
-            return None
-        except (HTTPError, ValueError) as http_error:
-            self.report.report_warning(
-                title="Unable to Retrieve Data Source",
-                message="Request to retrieve data source from Metabase failed.",
-                context=f"Data Source ID: {datasource_id}, Error: {str(http_error)}",
-            )
+        database = self._fetch(
+            MetabaseDatabase,
+            self._url(_API_DATABASE, database_id=datasource_id),
+            label="Database",
+            context=f"Database ID: {datasource_id}",
+        )
+        if database is None:
             return None
 
         engine = database.engine
@@ -1351,31 +1397,10 @@ class MetabaseSource(StatefulIngestionSourceBase):
         if not self.config.extract_models:
             return
 
-        try:
-            cards = self._get_json(f"{self.config.connect_uri}/api/card")
-        except (HTTPError, ValueError) as http_error:
-            self.report.report_failure(
-                title="Unable to Retrieve Models",
-                message="Request to retrieve models from Metabase failed.",
-                context=str(http_error),
-            )
-            return
-
-        assert isinstance(cards, list)
-        for card_data in cards:
-            try:
-                card_info = MetabaseCardListItem.model_validate(card_data)
-                if not card_info.is_model:
-                    continue
-
-                yield from self._emit_model_workunits(card_info)
-            except ValidationError as e:
-                self.report.models_dropped += 1
-                self.report.report_warning(
-                    title="Invalid Model List Item",
-                    message="Model list item failed validation.",
-                    context=f"Error: {str(e)}",
-                )
+        for card_info in self._list_card_items():
+            if not card_info.is_model:
+                continue
+            yield from self._emit_model_workunits(card_info)
 
     def _map_metabase_type_to_datahub_type(
         self, metabase_type: str
@@ -1585,20 +1610,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 aspect=lineage,
             ).as_workunit()
 
-        if card.creator_id:
-            ownership = self._get_ownership(card.creator_id)
-            if ownership is not None:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=model_urn,
-                    aspect=ownership,
-                ).as_workunit()
-
-        tags = self._get_tags_from_collection(card.collection_id)
-        if tags:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=model_urn,
-                aspect=tags,
-            ).as_workunit()
+        yield from self._emit_ownership_and_tags(
+            model_urn, card.creator_id, card.collection_id
+        )
 
         if card.collection_id is not None:
             yield from add_entity_to_container(

@@ -172,18 +172,6 @@ def test_metabase_query_parses_joins():
     assert query.joins[0].alias == "Actor"
 
 
-def test_metabase_query_parses_expressions():
-    query = MetabaseQuery.model_validate(
-        {
-            "source-table": 10,
-            "expressions": {"profit": ["-", ["field", 5, None], ["field", 6, None]]},
-        }
-    )
-    assert query.expressions is not None
-    assert "profit" in query.expressions
-    assert query.expressions["profit"] == ["-", ["field", 5, None], ["field", 6, None]]
-
-
 # ---------------------------------------------------------------------------
 # _get_table_urns_from_query_builder — join path
 # ---------------------------------------------------------------------------

@@ -37,12 +37,14 @@ class MetabaseResultMetadata(MetabaseBaseModel):
     display_name: Optional[str] = None
     base_type: Optional[str] = None
     semantic_type: Optional[str] = None
-    field_ref: Optional[List] = None  # Heterogeneous list: ["field", "name", {...}]
+    field_ref: Optional[List[object]] = (
+        None  # Heterogeneous list: ["field", "name", {...}]
+    )
 
 
 class MetabaseNativeQuery(MetabaseBaseModel):
     query: Optional[str] = None
-    template_tags: Optional[Dict] = Field(
+    template_tags: Optional[Dict[str, object]] = Field(
         None, alias="template-tags"
     )  # Metabase template tag definitions
 
@@ -109,9 +111,6 @@ class MetabaseQuery(MetabaseBaseModel):
                     refs.extend(extract_mbql_field_refs(expr_clause))
         return refs
 
-    def collect_field_ids(self) -> List[int]:
-        return self.collect_field_refs().ids
-
 
 class MetabaseDatasetQuery(MetabaseBaseModel):
     type: str
@@ -152,11 +151,20 @@ class MetabaseCard(MetabaseBaseModel):
         metrics, dimensions = [], []
         for meta in self.result_metadata:
             display_name = meta.display_name or ""
-            if _MBQL_REF_AGGREGATION in str(meta.field_ref or ""):
+            # An aggregation column has an ["aggregation", ...] field_ref. Inspect
+            # the ref head structurally rather than substring-matching the repr,
+            # which would misclassify a column literally named "aggregation_*".
+            field_ref = meta.field_ref
+            is_metric = (
+                isinstance(field_ref, list)
+                and len(field_ref) > 0
+                and field_ref[0] == _MBQL_REF_AGGREGATION
+            )
+            if is_metric:
                 metrics.append(display_name)
             else:
                 dimensions.append(display_name)
-        filters: List = (
+        filters: List[object] = (
             self.dataset_query.query.filter or []
             if self.dataset_query and self.dataset_query.query
             else []
@@ -250,8 +258,6 @@ class MetabaseLoginResponse(MetabaseBaseModel):
 
 
 class MetabaseDatabaseDetails(MetabaseBaseModel):
-    model_config = ConfigDict(extra="allow")
-
     host: Optional[str] = None
     port: Optional[int] = None
     dbname: Optional[str] = None
