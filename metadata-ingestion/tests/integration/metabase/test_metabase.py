@@ -9,7 +9,7 @@ from requests.models import HTTPError
 
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.metabase import MetabaseSource
+from datahub.ingestion.source.metabase.source import MetabaseSource
 from datahub.testing import mce_helpers
 from tests.integration.metabase.setup.metabase_setup_utils import (
     setup_metabase_test_data,

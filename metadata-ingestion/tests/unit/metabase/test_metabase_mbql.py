@@ -1,35 +1,21 @@
-"""Unit tests for MBQL (query builder) lineage extraction in the Metabase source.
-
-Covers:
-- _extract_field_ids_from_mbql: recursive MBQL field ID extraction
-- _get_table_urns_from_query_builder: join lineage path
-- _get_cll_from_query_builder: full column-level lineage pipeline
-  - direct field refs ["field", id, ...]
-  - aggregations with explicit fields ["avg", ["field", id, ...]]
-  - COUNT(*)-style aggregations with no field argument (fan-in all upstream columns)
-  - calculated expression refs ["expression", "name"]
-  - unknown ref types (should be silently skipped)
-- _emit_model_workunits: CLL path wired for query-builder models
-"""
-
 from unittest.mock import MagicMock, patch
 
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.metabase import (
+from datahub.ingestion.source.metabase.config import MetabaseConfig
+from datahub.ingestion.source.metabase.mbql import _extract_field_ids_from_mbql
+from datahub.ingestion.source.metabase.models import (
     DatasourceInfo,
     MetabaseCard,
     MetabaseCardListItem,
-    MetabaseConfig,
     MetabaseDatasetQuery,
     MetabaseField,
     MetabaseQuery,
     MetabaseResultMetadata,
-    MetabaseSource,
-    _extract_field_ids_from_mbql,
 )
+from datahub.ingestion.source.metabase.source import MetabaseSource
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     UpstreamLineageClass,

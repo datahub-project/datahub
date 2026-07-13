@@ -6,18 +6,20 @@ from requests.exceptions import HTTPError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.metabase import (
+from datahub.ingestion.source.metabase.config import MetabaseConfig
+from datahub.ingestion.source.metabase.constants import (
     DATASOURCE_URN_RECURSION_LIMIT,
+)
+from datahub.ingestion.source.metabase.models import (
     DatasourceInfo,
     MetabaseCard,
     MetabaseCardListItem,
     MetabaseCollection,
-    MetabaseConfig,
     MetabaseDatabaseDetails,
     MetabaseDatasetQuery,
-    MetabaseReport,
-    MetabaseSource,
 )
+from datahub.ingestion.source.metabase.report import MetabaseReport
+from datahub.ingestion.source.metabase.source import MetabaseSource
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     GlobalTagsClass,
