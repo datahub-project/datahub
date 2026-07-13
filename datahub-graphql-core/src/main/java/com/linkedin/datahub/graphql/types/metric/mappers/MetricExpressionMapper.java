@@ -3,18 +3,17 @@ package com.linkedin.datahub.graphql.types.metric.mappers;
 import com.linkedin.datahub.graphql.generated.Dialect;
 import com.linkedin.datahub.graphql.generated.DialectExpression;
 import com.linkedin.datahub.graphql.generated.MetricExpression;
+import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Maps {@link com.linkedin.metric.MetricExpression} Pegasus records to the generated GraphQL {@link
  * MetricExpression}.
  */
-@Slf4j
 public class MetricExpressionMapper {
 
   private MetricExpressionMapper() {}
@@ -45,18 +44,7 @@ public class MetricExpressionMapper {
       @Nonnull com.linkedin.metric.DialectExpression pdl) {
     DialectExpression result = new DialectExpression();
     result.setExpression(pdl.getExpression());
-
-    Dialect dialect;
-    try {
-      dialect = Dialect.valueOf(pdl.getDialect().name());
-    } catch (IllegalArgumentException e) {
-      log.warn(
-          "MetricExpressionMapper: unknown Dialect value '{}', falling back to OTHER",
-          pdl.getDialect().name());
-      dialect = Dialect.OTHER;
-    }
-    result.setDialect(dialect);
-
+    result.setDialect(PdlEnumMapper.map(Dialect.class, pdl.getDialect(), Dialect.OTHER));
     return result;
   }
 }
