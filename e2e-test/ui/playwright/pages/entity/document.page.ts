@@ -177,7 +177,7 @@ export class DocumentPage extends BasePage {
     await expect(editor).toContainText(text);
   }
 
-  async updateDocumentStatus(status: string): Promise<void> {
+  async updateDocumentStatus(statusOptionValue: string, expectedLabel: string): Promise<void> {
     await expect(this.statusSelect).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
 
     const trigger = this.getStatusSelectTrigger();
@@ -185,13 +185,13 @@ export class DocumentPage extends BasePage {
     await trigger.click({ force: true });
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
-    const option = this.getDropdownOption(status);
+    const option = this.getDropdownOption(statusOptionValue);
     await expect(option).toBeVisible({ timeout: TIMEOUTS.LONG });
     await option.click();
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     // Verify optimistic update with case-insensitive match
-    await expect(this.statusSelect).toContainText(new RegExp(status, 'i'));
+    await expect(this.statusSelect).toContainText(new RegExp(expectedLabel, 'i'));
 
     // Wait for network and database persistence before allowing reload
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);

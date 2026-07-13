@@ -31,7 +31,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/ownership-types.yaml"
 
     - name: lifecycle-stages
-      version: v2
+      version: v3
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/lifecycle-stages.yaml"

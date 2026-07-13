@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAsp
 import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -192,10 +193,12 @@ public class DocumentMapper {
       }
     }
 
-    // Map Status aspect for soft delete
+    // Map Status aspect (soft delete + lifecycle stage)
     final EnvelopedAspect envelopedStatus = aspects.get(Constants.STATUS_ASPECT_NAME);
     if (envelopedStatus != null) {
-      result.setExists(!new Status(envelopedStatus.getValue().data()).isRemoved());
+      final Status status = new Status(envelopedStatus.getValue().data());
+      result.setExists(!status.isRemoved());
+      result.setStatus(StatusMapper.map(context, status));
     }
 
     // Map Documentation aspect
