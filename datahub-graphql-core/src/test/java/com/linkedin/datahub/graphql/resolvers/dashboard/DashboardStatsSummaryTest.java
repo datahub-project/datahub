@@ -6,15 +6,18 @@ import static org.mockito.ArgumentMatchers.any;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardUsageStatistics;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
+import com.linkedin.datahub.graphql.resolvers.load.DashboardStatsSummaryBatchLoader;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -29,6 +32,9 @@ import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.concurrent.CompletableFuture;
+import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderRegistry;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -50,7 +56,10 @@ public class DashboardStatsSummaryTest {
     TimeseriesAspectService mockClient = initTestAspectService();
 
     // Execute resolver
-    DashboardStatsSummaryResolver resolver = new DashboardStatsSummaryResolver(mockClient);
+    FeatureFlags featureFlags = new FeatureFlags();
+    featureFlags.setTimeseriesAspectAggBatchLoadEnabled(false);
+    DashboardStatsSummaryResolver resolver =
+        new DashboardStatsSummaryResolver(mockClient, featureFlags);
     QueryContext mockContext = getMockAllowContext();
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -135,6 +144,107 @@ public class DashboardStatsSummaryTest {
     Assert.assertNull(result);
   }
 
+  @Test
+  public void testGetWithNullUsageCount() throws Exception {
+    TimeseriesAspectService mockClient = initTestAspectServiceWithNullUsageCount();
+
+    FeatureFlags featureFlags = new FeatureFlags();
+    featureFlags.setTimeseriesAspectAggBatchLoadEnabled(false);
+    DashboardStatsSummaryResolver resolver =
+        new DashboardStatsSummaryResolver(mockClient, featureFlags);
+    QueryContext mockContext = getMockAllowContext();
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // Should not throw when usageCount is NULL
+    DashboardStatsSummary result = resolver.get(mockEnv).get();
+
+    Assert.assertEquals((int) result.getViewCount(), 20);
+    Assert.assertEquals((int) result.getUniqueUserCountLast30Days(), 2);
+    // User 2 (usageCount=10) should be sorted before User 1 (usageCount=null)
+    Assert.assertEquals(result.getTopUsersLast30Days().get(0).getUrn(), TEST_USER_URN_2);
+    Assert.assertEquals(result.getTopUsersLast30Days().get(1).getUrn(), TEST_USER_URN_1);
+  }
+
+  @Test
+  public void testGetWithViewsCountButNoUsageCount() throws Exception {
+    TimeseriesAspectService mockClient = initTestAspectServiceWithViewsCountOnly();
+
+    FeatureFlags featureFlags = new FeatureFlags();
+    featureFlags.setTimeseriesAspectAggBatchLoadEnabled(false);
+    DashboardStatsSummaryResolver resolver =
+        new DashboardStatsSummaryResolver(mockClient, featureFlags);
+    QueryContext mockContext = getMockAllowContext();
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    DashboardStatsSummary result = resolver.get(mockEnv).get();
+
+    Assert.assertEquals((int) result.getViewCount(), 20);
+    Assert.assertEquals((int) result.getUniqueUserCountLast30Days(), 2);
+  }
+
+  @Test
+  public void testGetWithAllNullOptionalValues() throws Exception {
+    TimeseriesAspectService mockClient = initTestAspectServiceWithAllNullValues();
+
+    FeatureFlags featureFlags = new FeatureFlags();
+    featureFlags.setTimeseriesAspectAggBatchLoadEnabled(false);
+    DashboardStatsSummaryResolver resolver =
+        new DashboardStatsSummaryResolver(mockClient, featureFlags);
+    QueryContext mockContext = getMockAllowContext();
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // Should not throw when all optional values are NULL
+    DashboardStatsSummary result = resolver.get(mockEnv).get();
+
+    Assert.assertEquals((int) result.getViewCount(), 20);
+    Assert.assertEquals((int) result.getUniqueUserCountLast30Days(), 2);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testGetBatchPathUsesDataLoader() throws Exception {
+    TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
+
+    FeatureFlags featureFlags = new FeatureFlags();
+    featureFlags.setTimeseriesAspectAggBatchLoadEnabled(true);
+
+    DashboardStatsSummaryResolver resolver =
+        new DashboardStatsSummaryResolver(mockAspectService, featureFlags);
+
+    DashboardStatsSummary expectedSummary = new DashboardStatsSummary();
+    expectedSummary.setViewCount(42);
+    expectedSummary.setUniqueUserCountLast30Days(3);
+
+    DataLoader<Urn, DashboardStatsSummary> mockLoader = Mockito.mock(DataLoader.class);
+    Mockito.when(mockLoader.load(UrnUtils.getUrn(TEST_DASHBOARD_URN)))
+        .thenReturn(CompletableFuture.completedFuture(expectedSummary));
+
+    DataLoaderRegistry mockRegistry = Mockito.mock(DataLoaderRegistry.class);
+    Mockito.doReturn(mockLoader)
+        .when(mockRegistry)
+        .getDataLoader(DashboardStatsSummaryBatchLoader.LOADER_NAME);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getDataLoaderRegistry()).thenReturn(mockRegistry);
+
+    DashboardStatsSummary result = resolver.get(mockEnv).get();
+
+    Assert.assertEquals(result, expectedSummary);
+    Mockito.verifyNoInteractions(mockAspectService);
+  }
+
   private TimeseriesAspectService initTestAspectService() {
 
     TimeseriesAspectService mockClient = Mockito.mock(TimeseriesAspectService.class);
@@ -179,6 +289,155 @@ public class DashboardStatsSummaryTest {
                             ImmutableList.of(TEST_USER_URN_1, "10", "20", "30", "1", "1", "1")),
                         new StringArray(
                             ImmutableList.of(TEST_USER_URN_2, "20", "30", "40", "1", "1", "1"))))
+                .setColumnNames(new StringArray())
+                .setColumnTypes(new StringArray()));
+
+    return mockClient;
+  }
+
+  private TimeseriesAspectService initTestAspectServiceWithNullUsageCount() {
+    TimeseriesAspectService mockClient = Mockito.mock(TimeseriesAspectService.class);
+
+    DashboardUsageStatistics latestUsageStats =
+        new DashboardUsageStatistics()
+            .setTimestampMillis(0L)
+            .setLastViewedAt(0L)
+            .setExecutionsCount(10)
+            .setFavoritesCount(5)
+            .setViewsCount(20);
+    EnvelopedAspect envelopedLatestStats =
+        new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(latestUsageStats));
+
+    Filter filterForLatestStats = createUsageFilter(TEST_DASHBOARD_URN, null, null, false);
+    Mockito.when(
+            mockClient.getAspectValues(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
+                Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
+                Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
+                Mockito.eq(null),
+                Mockito.eq(null),
+                Mockito.eq(1),
+                Mockito.eq(filterForLatestStats)))
+        .thenReturn(ImmutableList.of(envelopedLatestStats));
+
+    Mockito.when(
+            mockClient.getAggregatedStats(
+                any(),
+                Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
+                Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
+                Mockito.any(),
+                Mockito.any(Filter.class),
+                Mockito.any()))
+        .thenReturn(
+            new GenericTable()
+                .setRows(
+                    new StringArrayArray(
+                        // User 1 with usageCount=NULL (should default to 0)
+                        new StringArray(
+                            ImmutableList.of(TEST_USER_URN_1, "NULL", "20", "30", "0", "1", "1")),
+                        // User 2 with usageCount=10 (should be sorted first)
+                        new StringArray(
+                            ImmutableList.of(TEST_USER_URN_2, "10", "30", "40", "1", "1", "1"))))
+                .setColumnNames(new StringArray())
+                .setColumnTypes(new StringArray()));
+
+    return mockClient;
+  }
+
+  private TimeseriesAspectService initTestAspectServiceWithAllNullValues() {
+    TimeseriesAspectService mockClient = Mockito.mock(TimeseriesAspectService.class);
+
+    DashboardUsageStatistics latestUsageStats =
+        new DashboardUsageStatistics()
+            .setTimestampMillis(0L)
+            .setLastViewedAt(0L)
+            .setExecutionsCount(10)
+            .setFavoritesCount(5)
+            .setViewsCount(20);
+    EnvelopedAspect envelopedLatestStats =
+        new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(latestUsageStats));
+
+    Filter filterForLatestStats = createUsageFilter(TEST_DASHBOARD_URN, null, null, false);
+    Mockito.when(
+            mockClient.getAspectValues(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
+                Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
+                Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
+                Mockito.eq(null),
+                Mockito.eq(null),
+                Mockito.eq(1),
+                Mockito.eq(filterForLatestStats)))
+        .thenReturn(ImmutableList.of(envelopedLatestStats));
+
+    Mockito.when(
+            mockClient.getAggregatedStats(
+                any(),
+                Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
+                Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
+                Mockito.any(),
+                Mockito.any(Filter.class),
+                Mockito.any()))
+        .thenReturn(
+            new GenericTable()
+                .setRows(
+                    new StringArrayArray(
+                        // User 1 with all optional values NULL
+                        new StringArray(
+                            ImmutableList.of(
+                                TEST_USER_URN_1, "NULL", "NULL", "NULL", "0", "0", "0")),
+                        // User 2 with all optional values NULL
+                        new StringArray(
+                            ImmutableList.of(
+                                TEST_USER_URN_2, "NULL", "NULL", "NULL", "0", "0", "0"))))
+                .setColumnNames(new StringArray())
+                .setColumnTypes(new StringArray()));
+
+    return mockClient;
+  }
+
+  private TimeseriesAspectService initTestAspectServiceWithViewsCountOnly() {
+    TimeseriesAspectService mockClient = Mockito.mock(TimeseriesAspectService.class);
+
+    DashboardUsageStatistics latestUsageStats =
+        new DashboardUsageStatistics().setTimestampMillis(0L).setLastViewedAt(0L).setViewsCount(20);
+    EnvelopedAspect envelopedLatestStats =
+        new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(latestUsageStats));
+
+    Filter filterForLatestStats = createUsageFilter(TEST_DASHBOARD_URN, null, null, false);
+    Mockito.when(
+            mockClient.getAspectValues(
+                any(),
+                Mockito.eq(UrnUtils.getUrn(TEST_DASHBOARD_URN)),
+                Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
+                Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
+                Mockito.eq(null),
+                Mockito.eq(null),
+                Mockito.eq(1),
+                Mockito.eq(filterForLatestStats)))
+        .thenReturn(ImmutableList.of(envelopedLatestStats));
+
+    Mockito.when(
+            mockClient.getAggregatedStats(
+                any(),
+                Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
+                Mockito.eq(Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME),
+                Mockito.any(),
+                Mockito.any(Filter.class),
+                Mockito.any()))
+        .thenReturn(
+            new GenericTable()
+                .setRows(
+                    new StringArrayArray(
+                        // User 1: viewsCount=30, usageCount=NULL, cardinalities: usage=0, views=1,
+                        // exec=0
+                        new StringArray(
+                            ImmutableList.of(TEST_USER_URN_1, "NULL", "30", "NULL", "0", "1", "0")),
+                        // User 2: viewsCount=12, usageCount=NULL
+                        new StringArray(
+                            ImmutableList.of(
+                                TEST_USER_URN_2, "NULL", "12", "NULL", "0", "1", "0"))))
                 .setColumnNames(new StringArray())
                 .setColumnTypes(new StringArray()));
 

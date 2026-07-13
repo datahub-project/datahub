@@ -134,6 +134,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "consistencyChecks.checks.*.*",
           "consistencyChecks.gracePeriodSeconds",
 
+          // Entity consistency per-check upgrade config
+          "systemUpdate.entityConsistency.checks.*.*",
+          // Indexed list binding when systemMetadataFilterConfig.entityTypes (or sibling lists)
+          // have non-empty defaults; bare keys alone do not match entityTypes[0] etc.
+          "systemUpdate.entityConsistency.entityTypes[*]",
+          "systemUpdate.entityConsistency.checkIds[*]",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.aspectFilters[*]",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.entityTypes[*]",
+
           // Kafka topic Configs
           "kafka.topics.*.name",
           "kafka.topics.*.displayName",
@@ -263,6 +272,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cache.client.usageClient.statsEnabled",
           "cache.client.usageClient.statsIntervalSeconds",
           "cache.homepage.entityCounts.ttlSeconds",
+          "cache.entityCounts.keyAspect.enabled",
+          "cache.entityCounts.keyAspect.maxEntityTypes",
+          "cache.entityCounts.keyAspect.ttlSeconds",
+          "cache.entityCounts.keyAspect.singleFlight.pollIntervalMillis",
+          "cache.entityCounts.keyAspect.singleFlight.staleBuildingMillis",
+          "cache.entityCounts.keyAspect.singleFlight.waiterMaxMillis",
           "cache.primary.maxSize",
           "cache.primary.ttlSeconds",
           "cache.search.lineage.lightningThreshold",
@@ -485,6 +500,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.metrics.hookLatency.maxExpectedValue",
           "datahub.metrics.hookLatency.percentiles",
           "datahub.metrics.hookLatency.slo",
+          "datahub.metrics.entityCounts.enabled",
+          "datahub.metrics.entityCounts.updateIntervalSeconds",
+          "datahub.metrics.entityCounts.initialDelaySeconds",
+          "datahub.metrics.entityCounts.skipCache",
           "datahub.plugin.auth.path",
           "datahub.plugin.entityRegistry.loadDelaySeconds",
           "datahub.plugin.entityRegistry.ignoreFailureWhenLoadingRegistry",
@@ -499,6 +518,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
           "datahub.readOnly",
+          "datahub.usage.aggregation.enabled",
+          "datahub.usage.aggregation.micrometerExport.enabled",
+          "datahub.usage.aggregation.flush.maxWindowSeconds",
+          "datahub.usage.aggregation.flush.maxCardinality",
+          "datahub.usage.aggregation.flush.scheduledIntervalSeconds",
+          "datahub.usage.aggregation.flush.retryAttempts",
+          "datahub.usage.aggregation.flush.retryInitialBackoffMillis",
+          "datahub.usage.aggregation.flush.alignmentPeriodSeconds",
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags
@@ -557,6 +584,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showTestsInHealthIcon",
           "featureFlags.i18nEnabled",
           "featureFlags.timeseriesAspectBatchLoadEnabled",
+          "featureFlags.timeseriesAspectAggBatchLoadEnabled",
           "featureFlags.themeV2Default",
           "featureFlags.themeV2Enabled",
           "featureFlags.themeV2Toggleable",
@@ -878,8 +906,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.entityConsistency.entityTypes",
           "systemUpdate.entityConsistency.gracePeriodSeconds",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.aspectFilters",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.entityTypes",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.gePitEpochMs",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.includeSoftDeleted",
+          "systemUpdate.entityConsistency.systemMetadataFilterConfig.keyAspectOnly",
           "systemUpdate.entityConsistency.systemMetadataFilterConfig.lePitEpochMs",
           // Additional configuration
           "metadataChangeProposal.consumer.batch.enabled",
@@ -952,6 +982,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "telemetry.enabledIngestion",
           "telemetry.enabledServer",
           "telemetry.enableThirdPartyLogging",
+          "timeseriesAspectService.batchAggMaxUrnsPerBatch",
           "timeseriesAspectService.batchLoadEnabled",
           "timeseriesAspectService.limit.results.apiDefault",
           "timeseriesAspectService.limit.results.max",

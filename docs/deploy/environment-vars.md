@@ -1071,6 +1071,28 @@ The following environment variables are used in the codebase but may not be expl
 | `USAGE_CLIENT_NUM_RETRIES`                            | `0`     | Usage client number of retries                      | GMS, MAE Consumer, PE Consumer |
 | `USAGE_CLIENT_TIMEOUT_MS`                             | `3000`  | Usage client timeout in milliseconds                | GMS, MAE Consumer, PE Consumer |
 
+### API usage aggregation (GMS)
+
+These variables configure **`InMemoryUsageAggregationStore`** (API traffic).
+
+| Environment Variable                                   | Default                                             | Description                                                                      | Service           |
+| ------------------------------------------------------ | --------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------- |
+| `USAGE_AGGREGATION_ENABLED`                            | `false` (`true` in Docker quickstart/debug compose) | Enable in-memory usage aggregation and Micrometer export                         | GMS, MCE consumer |
+| `USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED`          | `true`                                              | Export aggregation to Micrometer on flush                                        | GMS, MCE consumer |
+| `USAGE_AGGREGATION_MAX_WINDOW_SECONDS`                 | `300`                                               | Max in-memory window before flush                                                | GMS, MCE consumer |
+| `USAGE_AGGREGATION_MAX_CARDINALITY`                    | `10000`                                             | Cardinality threshold for early flush                                            | GMS, MCE consumer |
+| `USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS`             | `60`                                                | Scheduled flush interval                                                         | GMS, MCE consumer |
+| `USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS`           | `0`                                                 | UTC calendar grid for flush windows (`3600` = hourly, `900` = 15 min; `0` = off) | GMS, MCE consumer |
+| `USAGE_AGGREGATION_FLUSH_RETRY_ATTEMPTS`               | `3`                                                 | Publish retry attempts before re-merge on failure                                | GMS, MCE consumer |
+| `USAGE_AGGREGATION_FLUSH_RETRY_INITIAL_BACKOFF_MILLIS` | `100`                                               | Initial backoff between flush publish retries (ms)                               | GMS, MCE consumer |
+
+**GMS** records HTTP API traffic (`UsageMetricsSessionEnricher`). **MCE consumer** records direct Kafka/pgQueue
+`metadata_ingest` via `UsageQueueIngestRecorder` when enabled (same env var). MAE and upgrade services keep
+`datahub.usage.aggregation.enabled=false`. Scrape **both** GMS and MCE Actuator Prometheus endpoints and sum
+`metadata_ingest` across services for total ingest volume.
+
+See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api-usage-aggregation-metrics) for exported Micrometer series and tags.
+
 ### Cache Configuration
 
 | Environment Variable                                | Default     | Description                                              | Components                     |

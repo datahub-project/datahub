@@ -478,7 +478,12 @@ class AbstractLineage(ABC):
                 upstreams = [
                     ColumnRef(
                         table=urn,
-                        column=column.name.lower(),
+                        # Preserve the source column casing so the upstream
+                        # schemaField URN matches the warehouse's field, which
+                        # stores columns in their original casing. Lowercasing is
+                        # governed for the dataset portion by
+                        # convert_lineage_urns_to_lowercase downstream in powerbi.py.
+                        column=column.name,
                     )
                 ]
 
