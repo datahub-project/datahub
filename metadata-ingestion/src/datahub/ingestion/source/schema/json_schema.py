@@ -115,6 +115,14 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
         description="Apply a string match-replace on the computed display name. "
         "Runs after dataset_name_strategy is applied.",
     )
+    max_schema_depth: int = Field(
+        default=50,
+        description="Maximum nesting depth when traversing JSON Schema fields. "
+        "Deeply nested schemas (many levels of $ref, oneOf, arrays-of-objects) "
+        "can produce thousands of SchemaField objects that exceed the payload "
+        "size limit. Lower this value to cap field generation earlier. "
+        "Fields beyond this depth are marked as recursive.",
+    )
 
     @field_validator("path", mode="after")
     def download_http_url_to_temp_file(cls, v):
@@ -352,6 +360,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 name=dataset_name,
                 json_schema=schema_dict,
                 raw_schema_string=schema_string,
+                max_depth=self.config.max_schema_depth,
             )
             dataset_urn = make_dataset_urn_with_platform_instance(
                 platform=self.config.platform,
@@ -431,10 +440,10 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                             file_name=file_name,
                         )
                     except Exception as e:
-                        self.report.report_failure(
+                        self.report.report_warning(
                             f"{root}/{file_name}", f"Failed to process due to {e}"
                         )
-                        logger.error(
+                        logger.warning(
                             f"Failed to process file {root}/{file_name}", exc_info=e
                         )
 
@@ -448,10 +457,10 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                     file_name=str(self.config.path),
                 )
             except Exception as e:
-                self.report.report_failure(
+                self.report.report_warning(
                     str(self.config.path), f"Failed to process due to {e}"
                 )
-                logger.error(f"Failed to process file {self.config.path}", exc_info=e)
+                logger.warning(f"Failed to process file {self.config.path}", exc_info=e)
 
     def get_report(self):
         return self.report
