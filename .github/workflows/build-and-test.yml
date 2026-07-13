@@ -414,8 +414,8 @@ jobs:
   # the update-test-weights workflow; falls back to an even split if absent). Each shard runs
   # WHOLE modules (`:module:test`, never --tests) so no test can be silently dropped; a heavy
   # module just lands alone on a shard via LPT and is parallelized within it by maxParallelForks.
-  # NOTE: shard count is set in TWO places that must stay in sync — the `batch:` matrix and
-  # `--split-total` in backend-test-shard below.
+  # Shard count lives in ONE place — the `batch:` matrix length below. --split-index / --split-total
+  # are derived from GitHub's native strategy.job-index / strategy.job-total (no duplicated count).
   backend-seed:
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 40
@@ -469,11 +469,13 @@ jobs:
           restore-keys: |
             gradle-backend-build-cache-
       - name: Build + non-test checks once (assemble, spotless, etc.)
-        # Mirrors build-except-metadata-ingestion's `build` MINUS tests, so the sharded path
-        # still runs assemble / spotless / other verification exactly once (the shards then run
-        # the tests). Also warms the build cache the shards restore. Excludes match the old job.
+        # Mirrors build-except-metadata-ingestion's `build` MINUS running tests, so the sharded
+        # path still runs assemble / spotless / other verification exactly once, and warms the
+        # build cache the shards restore. `testClasses` is requested explicitly: `-x test` would
+        # otherwise skip test compilation (it's only a dependency of the excluded `test` task),
+        # forcing every shard to recompile its tests. Excludes match the old job.
         run: |
-          ./gradlew build -x test --build-cache --max-workers="$(nproc)" \
+          ./gradlew build testClasses -x test --build-cache --max-workers="$(nproc)" \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
             -x :docs-website:build \
@@ -501,8 +503,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Shard count: KEEP IN SYNC with --split-total in the "Compute this shard's modules" step.
-        batch: [0, 1, 2, 3, 4, 5]
+        # Shard count = this list's length (the ONLY place it's defined). The values are unused;
+        # --split-index/--split-total are read from strategy.job-index/strategy.job-total below.
+        batch: [1, 2, 3, 4, 5, 6]
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 40
     steps:
@@ -534,10 +537,14 @@ jobs:
             gradle-backend-build-cache-
       - name: Compute this shard's modules
         # Broad globs: a module is included by having ANY test source, so nothing depends on
-        # class naming — each shard runs `:module:test` whole. Excludes mirror build-except.
+        # class naming — each shard runs `:module:test` whole. Excludes mirror build-except's
+        # `-x` list (keep in parity), so these tests are NOT skipped, just run elsewhere:
+        #   - metadata-io: runs in its own workflow (metadata-io.yml → `./gradlew :metadata-io:test`)
+        #   - datahub-frontend: built/tested in the frontend jobs
+        #   - acryl-spark-lineage / schematron:cli: excluded by build-except today
         run: |
           python3 .github/scripts/split_gradle_tests.py \
-            --split-index "${{ matrix.batch }}" --split-total 6 \
+            --split-index "${{ strategy.job-index }}" --split-total "${{ strategy.job-total }}" \
             --repo-root . \
             --weights .github/gradle_test_weights.json \
             --glob '**/src/test/**/*.java' \
@@ -586,8 +593,10 @@ jobs:
           {
             echo "BACKEND_FILES=$(find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade|jacoco-merged)' | xargs | tr ' ' ',')"
           } >> "$GITHUB_ENV"
+      # One step each (not release-split ×2): override_branch is only set on release, empty
+      # otherwise (= Codecov's default branch detection). Halves the per-shard upload steps.
       - name: Upload backend coverage to Codecov
-        if: ${{ !cancelled() && github.event_name != 'release' }}
+        if: ${{ !cancelled() }}
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -597,31 +606,14 @@ jobs:
           flags: backend
           name: backend-shard${{ matrix.batch }}
           verbose: true
-      - name: Upload backend coverage to Codecov on release
-        if: ${{ !cancelled() && github.event_name == 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ${{ env.BACKEND_FILES }}
-          disable_search: true
-          fail_ci_if_error: false
-          flags: backend
-          name: backend-shard${{ matrix.batch }}
-          verbose: true
-          override_branch: ${{ github.head_ref || github.ref_name }}
+          override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() && github.event_name != 'release' }}
+        if: ${{ !cancelled() }}
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
-      - name: Upload test results to Codecov on release
-        if: ${{ !cancelled() && github.event_name == 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: test_results
-          override_branch: ${{ github.head_ref || github.ref_name }}
+          override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
 
   event-file:
     runs-on: ubuntu-latest
