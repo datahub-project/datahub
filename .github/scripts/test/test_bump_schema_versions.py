@@ -741,6 +741,94 @@ def test_detect_default_branch_fallback_to_master(monkeypatch):
     assert bsv.detect_default_branch() == "master"
 
 
+# ---------------------------------------------------------------------------
+# is_release_or_hotfix_branch
+# ---------------------------------------------------------------------------
+
+
+def test_is_release_or_hotfix_branch_bare_names():
+    assert bsv.is_release_or_hotfix_branch("releases/v0.3.12") is True
+    assert bsv.is_release_or_hotfix_branch("hotfixes/v0.3.12.1") is True
+
+
+def test_is_release_or_hotfix_branch_strips_remote_prefixes():
+    assert bsv.is_release_or_hotfix_branch("origin/releases/v0.3.12") is True
+    assert bsv.is_release_or_hotfix_branch(
+        "refs/remotes/origin/hotfixes/v0.3.12.1"
+    ) is True
+
+
+def test_is_release_or_hotfix_branch_rejects_non_release():
+    assert bsv.is_release_or_hotfix_branch("acryl-main") is False
+    assert bsv.is_release_or_hotfix_branch("master") is False
+    # Substring, not prefix — must be rejected.
+    assert bsv.is_release_or_hotfix_branch("feature/releases-thing") is False
+
+
+# ---------------------------------------------------------------------------
+# _merge_base_distance
+# ---------------------------------------------------------------------------
+
+
+def test_merge_base_distance_returns_count(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _make_proc(0, "3\n"))
+    assert bsv._merge_base_distance("origin/releases/x") == 3
+
+
+def test_merge_base_distance_none_on_failure(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _make_proc(1))
+    assert bsv._merge_base_distance("origin/releases/x") is None
+
+
+# ---------------------------------------------------------------------------
+# find_nearest_ancestor_release_branch
+# ---------------------------------------------------------------------------
+
+
+def test_nearest_ancestor_no_candidates_returns_none(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs", lambda: [])
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
+def test_nearest_ancestor_release_branch_wins(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/releases/v0.3.12"])
+    # release branch 2 commits back, default branch 10 commits back
+    dist = {"origin/releases/v0.3.12": 2,
+            "refs/remotes/origin/acryl-main": 10, "acryl-main": 10}
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    assert (bsv.find_nearest_ancestor_release_branch("acryl-main")
+            == "origin/releases/v0.3.12")
+
+
+def test_nearest_ancestor_default_nearer_returns_none(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/releases/v0.3.12"])
+    dist = {"origin/releases/v0.3.12": 10,
+            "refs/remotes/origin/acryl-main": 2, "acryl-main": 2}
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
+def test_nearest_ancestor_tie_prefers_default(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/hotfixes/v0.3.12.1"])
+    dist = {"origin/hotfixes/v0.3.12.1": 5,
+            "refs/remotes/origin/acryl-main": 5, "acryl-main": 5}
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    # A tie means HEAD shares the same fork point with both — that's a trunk
+    # branch, so the default branch wins and the check must run.
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
+def test_nearest_ancestor_unresolvable_default_returns_none(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/releases/v0.3.12"])
+    dist = {"origin/releases/v0.3.12": 2}  # default branch unresolvable → None
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
 def test_get_merge_base_returns_sha(monkeypatch):
     monkeypatch.setattr(subprocess, "run",
                         lambda *a, **kw: _make_proc(0, "abc123def456\n"))
@@ -982,3 +1070,40 @@ def test_check_mode_passes_for_comment_only_change(tmp_path, monkeypatch):
     rc = _run_check(tmp_path, monkeypatch, [enum_file], {str(enum_file): enum_base})
 
     assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# main() release/hotfix skip
+# ---------------------------------------------------------------------------
+
+
+def test_main_skips_on_explicit_release_base(monkeypatch):
+    monkeypatch.setattr(
+        sys, "argv",
+        ["bump_schema_versions.py", "--check", "--base-branch", "releases/v0.3.12"],
+    )
+    # If the skip fails, main() would call get_merge_base — make that explode.
+    monkeypatch.setattr(bsv, "get_merge_base",
+                        lambda _ref: pytest.fail("must skip before git"))
+    assert bsv.main() == 0
+
+
+def test_main_skips_when_nearest_ancestor_is_release(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["bump_schema_versions.py"])
+    monkeypatch.setattr(bsv, "detect_default_branch", lambda: "acryl-main")
+    monkeypatch.setattr(bsv, "find_nearest_ancestor_release_branch",
+                        lambda _default: "origin/releases/v0.3.12")
+    monkeypatch.setattr(bsv, "get_merge_base",
+                        lambda _ref: pytest.fail("must skip before git"))
+    assert bsv.main() == 0
+
+
+def test_main_local_no_release_ancestor_proceeds(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["bump_schema_versions.py"])
+    monkeypatch.setattr(bsv, "detect_default_branch", lambda: "acryl-main")
+    monkeypatch.setattr(bsv, "find_nearest_ancestor_release_branch",
+                        lambda _default: None)
+    monkeypatch.setattr(bsv, "get_merge_base", lambda _ref: "deadbeef")
+    monkeypatch.setattr(bsv, "get_changed_pdl_files", lambda _ref: [])
+    # No changed PDL files → main() returns 0 after resolving the default base.
+    assert bsv.main() == 0

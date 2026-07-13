@@ -236,6 +236,10 @@ enum DataHubPageModuleType {
   """
   ASSETS
   """
+  Module displaying the output ports of a data product
+  """
+  OUTPUT_PORTS
+  """
   Module displaying the hierarchy of the children of a given entity. Glossary or Domains.
   """
   CHILD_HIERARCHY

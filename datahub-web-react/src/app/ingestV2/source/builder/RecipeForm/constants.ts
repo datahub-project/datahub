@@ -14,6 +14,23 @@ import {
     USER_DENY,
 } from '@app/ingestV2/source/builder/RecipeForm/azure';
 import {
+    BIGID_ACCESS_TOKEN,
+    BIGID_CONFIDENCE_LEVEL_TAG,
+    BIGID_CONNECTION_ALLOW,
+    BIGID_CONNECTION_DENY,
+    BIGID_CREATE_DATASETS,
+    BIGID_ENV,
+    BIGID_MIN_CONFIDENCE,
+    BIGID_PLATFORM_INSTANCE,
+    BIGID_STATEFUL_INGESTION,
+    BIGID_SYNC_IDSOR,
+    BIGID_SYNC_TAGS,
+    BIGID_SYNC_UNLINKED_CLASSIFIERS,
+    BIGID_SYNC_UNSTRUCTURED,
+    BIGID_URL,
+    BIGID_USER_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/bigid';
+import {
     BIGQUERY_CLIENT_EMAIL,
     BIGQUERY_CLIENT_ID,
     BIGQUERY_PRIVATE_KEY,
@@ -90,6 +107,11 @@ import {
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingestV2/source/builder/RecipeForm/dbt_cloud';
 import {
+    CONFLUENCE_DOCUMENTS_IMPORT_MODE,
+    GITHUB_DOCUMENTS_IMPORT_MODE,
+    NOTION_DOCUMENTS_IMPORT_MODE,
+} from '@app/ingestV2/source/builder/RecipeForm/documentImportMode';
+import {
     DORIS,
     DORIS_DATABASE,
     DORIS_HOST_PORT,
@@ -113,6 +135,14 @@ import {
     DREMIO_TLS,
     DREMIO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/dremio';
+import {
+    GITHUB_DOCUMENTS_BRANCH,
+    GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT,
+    GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+    GITHUB_DOCUMENTS_PATH_PREFIX,
+    GITHUB_DOCUMENTS_REPOSITORY,
+    GITHUB_DOCUMENTS_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/github-documents';
 import {
     GLUE,
     GLUE_AWS_ACCESS_KEY_ID,
@@ -199,6 +229,40 @@ import {
     MATILLION_STREAMING_ALLOW,
     MATILLION_STREAMING_DENY,
 } from '@app/ingestV2/source/builder/RecipeForm/matillion-dpc';
+import {
+    MICROSTRATEGY_AUTH_TYPE,
+    MICROSTRATEGY_BASE_URL,
+    MICROSTRATEGY_DASHBOARD_ALLOW,
+    MICROSTRATEGY_DASHBOARD_DENY,
+    MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES,
+    MICROSTRATEGY_EXTRACT_CHARTS,
+    MICROSTRATEGY_EXTRACT_CUBES,
+    MICROSTRATEGY_EXTRACT_DASHBOARDS,
+    MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES,
+    MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS,
+    MICROSTRATEGY_EXTRACT_LINEAGE,
+    MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS,
+    MICROSTRATEGY_EXTRACT_MODEL_LINEAGE,
+    MICROSTRATEGY_EXTRACT_REPORTS,
+    MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE,
+    MICROSTRATEGY_EXTRACT_SOURCE_WAREHOUSES,
+    MICROSTRATEGY_EXTRACT_USAGE_STATISTICS,
+    MICROSTRATEGY_EXTRACT_VISUALIZATION_DETAILS,
+    MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE,
+    MICROSTRATEGY_FOLDER_ALLOW,
+    MICROSTRATEGY_FOLDER_DENY,
+    MICROSTRATEGY_INCLUDE_HIDDEN,
+    MICROSTRATEGY_INGEST_OWNER,
+    MICROSTRATEGY_PASSWORD,
+    MICROSTRATEGY_PLATFORM_INSTANCE,
+    MICROSTRATEGY_PROJECT_ALLOW,
+    MICROSTRATEGY_PROJECT_DENY,
+    MICROSTRATEGY_REPORT_ALLOW,
+    MICROSTRATEGY_REPORT_DENY,
+    MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS,
+    MICROSTRATEGY_USERNAME,
+    MICROSTRATEGY_VERIFY_SSL,
+} from '@app/ingestV2/source/builder/RecipeForm/microstrategy';
 import {
     MSSQL,
     MSSQL_DATABASE,
@@ -351,11 +415,14 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/vertica';
 import {
     AZURE,
+    BIGID,
     CONFLUENCE,
     CSV,
     DATABRICKS,
     DBT_CLOUD,
+    GITHUB_DOCUMENTS,
     MATILLION_DPC,
+    MICROSTRATEGY,
     MYSQL,
     NOTION,
     OKTA,
@@ -666,6 +733,21 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific dbt Node (resources) from ingestion.',
     },
+    [BIGID]: {
+        fields: [BIGID_URL, BIGID_USER_TOKEN, BIGID_ACCESS_TOKEN, BIGID_ENV, BIGID_PLATFORM_INSTANCE],
+        filterFields: [BIGID_CONNECTION_ALLOW, BIGID_CONNECTION_DENY],
+        advancedFields: [
+            BIGID_MIN_CONFIDENCE,
+            BIGID_CREATE_DATASETS,
+            BIGID_CONFIDENCE_LEVEL_TAG,
+            BIGID_SYNC_TAGS,
+            BIGID_SYNC_UNLINKED_CLASSIFIERS,
+            BIGID_SYNC_IDSOR,
+            BIGID_SYNC_UNSTRUCTURED,
+            BIGID_STATEFUL_INGESTION,
+        ],
+        filterSectionTooltip: 'Include or exclude specific BigID connections (data sources) from ingestion.',
+    },
     [MATILLION_DPC]: {
         fields: [
             MATILLION_CLIENT_ID,
@@ -701,6 +783,49 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific PowerBI Workspaces from ingestion.',
+    },
+    [MICROSTRATEGY]: {
+        fields: [
+            MICROSTRATEGY_BASE_URL,
+            MICROSTRATEGY_AUTH_TYPE,
+            MICROSTRATEGY_USERNAME,
+            MICROSTRATEGY_PASSWORD,
+            MICROSTRATEGY_PLATFORM_INSTANCE,
+        ],
+        filterFields: [
+            MICROSTRATEGY_PROJECT_ALLOW,
+            MICROSTRATEGY_PROJECT_DENY,
+            MICROSTRATEGY_FOLDER_ALLOW,
+            MICROSTRATEGY_FOLDER_DENY,
+            MICROSTRATEGY_DASHBOARD_ALLOW,
+            MICROSTRATEGY_DASHBOARD_DENY,
+            MICROSTRATEGY_REPORT_ALLOW,
+            MICROSTRATEGY_REPORT_DENY,
+        ],
+        advancedFields: [
+            MICROSTRATEGY_EXTRACT_DASHBOARDS,
+            MICROSTRATEGY_EXTRACT_CHARTS,
+            MICROSTRATEGY_EXTRACT_CUBES,
+            MICROSTRATEGY_EXTRACT_REPORTS,
+            MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS,
+            MICROSTRATEGY_EXTRACT_LINEAGE,
+            MICROSTRATEGY_EXTRACT_VISUALIZATION_DETAILS,
+            MICROSTRATEGY_EXTRACT_SOURCE_WAREHOUSES,
+            MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES,
+            MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS,
+            MICROSTRATEGY_EXTRACT_MODEL_LINEAGE,
+            MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE,
+            MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE,
+            MICROSTRATEGY_EXTRACT_USAGE_STATISTICS,
+            MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES,
+            MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS,
+            MICROSTRATEGY_INGEST_OWNER,
+            MICROSTRATEGY_INCLUDE_HIDDEN,
+            MICROSTRATEGY_VERIFY_SSL,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip:
+            'Include or exclude specific Projects, Folders, Dashboards, and Reports from MicroStrategy ingestion.',
     },
     [VERTICA]: {
         fields: [VERTICA_HOST_PORT, VERTICA_DATABASE, VERTICA_USERNAME, VERTICA_PASSWORD],
@@ -745,9 +870,21 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific Hex Projects from ingestion.',
     },
     [NOTION]: {
-        fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
+        fields: [NOTION_API_KEY, NOTION_PAGE_IDS, NOTION_DOCUMENTS_IMPORT_MODE],
         filterFields: [],
         advancedFields: [],
+    },
+    [GITHUB_DOCUMENTS]: {
+        fields: [
+            GITHUB_DOCUMENTS_TOKEN,
+            GITHUB_DOCUMENTS_REPOSITORY,
+            GITHUB_DOCUMENTS_BRANCH,
+            GITHUB_DOCUMENTS_PATH_PREFIX,
+            GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+            GITHUB_DOCUMENTS_IMPORT_MODE,
+        ],
+        filterFields: [],
+        advancedFields: [GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT],
     },
     [CONFLUENCE]: {
         fields: [
@@ -756,6 +893,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             CONFLUENCE_USERNAME,
             CONFLUENCE_API_TOKEN,
             CONFLUENCE_PERSONAL_ACCESS_TOKEN,
+            CONFLUENCE_DOCUMENTS_IMPORT_MODE,
         ],
         filterFields: [CONFLUENCE_SPACE_ALLOW, CONFLUENCE_SPACE_DENY, CONFLUENCE_PAGE_ALLOW, CONFLUENCE_PAGE_DENY],
         advancedFields: [],

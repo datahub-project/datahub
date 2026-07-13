@@ -16,6 +16,7 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
+    LineageQuery,
     TeradataConfig,
     TeradataSource,
     TeradataTable,
@@ -191,7 +192,6 @@ class TestEndToEndWorkflow:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=f"SELECT {i}",
                 )
                 for i in range(5)
             ]
@@ -259,7 +259,6 @@ class TestEndToEndWorkflow:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=f"SELECT {i}",
                 )
                 for i in range(3)
             ]
@@ -441,7 +440,9 @@ class TestComplexQueryScenarios:
             with patch.object(
                 source,
                 "_make_lineage_queries",
-                return_value=["SELECT * FROM large_table"],
+                return_value=[
+                    LineageQuery(sql="SELECT * FROM large_table", label="current_only")
+                ],
             ):
                 # Create large result set simulation
                 total_entries = 15000  # Larger than batch size
@@ -653,7 +654,9 @@ class TestResourceManagement:
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
             with patch.object(
-                source, "_make_lineage_queries", return_value=["SELECT 1"]
+                source,
+                "_make_lineage_queries",
+                return_value=[LineageQuery(sql="SELECT 1", label="current_only")],
             ):
                 mock_engine = MagicMock()
 
@@ -716,7 +719,6 @@ class TestViewProcessingHangProtection:
                 create_timestamp=datetime.now(),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=f"SELECT * FROM {name}",
             )
             for name in view_names
         ]

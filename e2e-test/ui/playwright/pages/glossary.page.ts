@@ -31,7 +31,8 @@ export class GlossaryPage extends BasePage {
 
   // ── Move modal (MoveGlossaryEntityModal) ─────────────────────────────────────
   readonly moveModalContainer: Locator;
-  readonly moveModalSelectInput: Locator;
+  readonly moveModalSelectTrigger: Locator;
+  readonly moveModalSelectSearchInput: Locator;
   readonly moveModalSubmitButton: Locator;
 
   // ── Three-dot entity menu (EntityDropdown) ────────────────────────────────────
@@ -93,8 +94,11 @@ export class GlossaryPage extends BasePage {
     // Target inner visible dialog content — the AntD modal root is just a wrapper.
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design modal content CSS class; no data-testid or ARIA role on this wrapper
     this.moveModalContainer = page.getByTestId('move-glossary-entity-modal').locator('.ant-modal-content');
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select search input; compound CSS selector with no data-testid
-    this.moveModalSelectInput = this.moveModalContainer.locator('.ant-select-selector input');
+    // NodeParentSelect is now an alchemy SimpleSelect: the `-base` testid is the trigger that
+    // toggles the dropdown, and `dropdown-search-input` is the search bar inside the portaled
+    // dropdown (so it's scoped to page, not the modal).
+    this.moveModalSelectTrigger = page.getByTestId('node-parent-select-base');
+    this.moveModalSelectSearchInput = page.getByTestId('dropdown-search-input');
     this.moveModalSubmitButton = page.getByTestId('glossary-entity-modal-move-button');
 
     // MoreVertOutlinedIcon is the data-testid set by EntityDropdown.tsx on the three-dot icon button.
@@ -132,8 +136,9 @@ export class GlossaryPage extends BasePage {
   // ── Dynamic locator getters ───────────────────────────────────────────────────
 
   getMoveDropdownOption(name: string): Locator {
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select dropdown class; no ARIA role on the dropdown container
-    return this.page.locator('.ant-select-dropdown').getByText(name, { exact: true });
+    // Each rendered option in NodeParentSelect carries `node-parent-option-{label}`.
+    // Since the dropdown is portaled to body, the option testid is page-scoped.
+    return this.page.getByTestId(`node-parent-option-${name}`);
   }
 
   getFacetTagCheckbox(tagUrn: string): Locator {
@@ -293,13 +298,22 @@ export class GlossaryPage extends BasePage {
     // Use the entity-menu-move-button testid to avoid matching hidden DnD accessibility elements.
     await this.entityMenuMoveButton.click();
     await expect(this.moveModalContainer).toBeVisible();
-    // Type into the AntD Select search input to filter results — more reliable than
-    // scrolling through the GlossaryBrowser tree which accumulates entries across test runs.
-    await this.moveModalSelectInput.click();
-    await this.moveModalSelectInput.fill(targetName);
-    // The dropdown shows search results (not the tree browser) when a query is present.
+    // Click the SimpleSelect trigger to open the portaled dropdown, then type into the search
+    // bar (which routes through `onSearchChange` → autocomplete query). More reliable than
+    // browsing the tree because the tree accumulates entries across test runs.
+    await this.moveModalSelectTrigger.click();
+    await this.moveModalSelectSearchInput.fill(targetName);
+    // ES indexing for the just-created target group can take 60+ s in this environment, so the
+    // autocomplete results may not appear immediately. `toBeVisible`'s default timeout is short;
+    // poll up to 90s by reopening + refilling the search until the option shows up.
     const option = this.getMoveDropdownOption(targetName);
-    await expect(option).toBeVisible();
+    await expect(async () => {
+      if (!(await option.isVisible())) {
+        await this.moveModalSelectSearchInput.fill('');
+        await this.moveModalSelectSearchInput.fill(targetName);
+      }
+      await expect(option).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 90000, intervals: [5000] });
     await option.click();
     await this.moveModalSubmitButton.click();
     await this.toast.expectVisible(/Moved .+!/);

@@ -56,6 +56,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
     SqlParsingResult,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 
 logger = logging.getLogger(__name__)
 
@@ -367,12 +368,22 @@ class AbstractLineage(ABC):
         return None
 
     @staticmethod
-    def is_sql_query(query: Optional[str]) -> bool:
+    def is_sql_query(query: Optional[str], platform: Optional[str] = None) -> bool:
         if not query:
             return False
         query = native_sql_parser.remove_special_characters(query)
+        # Use the platform dialect so platform-specific syntax (e.g. BigQuery
+        # backtick-quoted, hyphenated project ids) parses as SQL. Platforms
+        # sqlglot has no dialect for (e.g. db2, vertica) fall back to the
+        # default dialect rather than raising.
+        dialect: Optional[sqlglot.Dialect] = None
+        if platform:
+            try:
+                dialect = get_dialect(platform)
+            except ValueError:
+                dialect = None
         try:
-            expression = sqlglot.parse_one(query)
+            expression = sqlglot.parse_one(query, dialect=dialect)
             return isinstance(expression, exp.Select)
         except (ParseError, Exception):
             logger.debug(f"Failed to parse query as SQL: {query}")
@@ -467,7 +478,12 @@ class AbstractLineage(ABC):
                 upstreams = [
                     ColumnRef(
                         table=urn,
-                        column=column.name.lower(),
+                        # Preserve the source column casing so the upstream
+                        # schemaField URN matches the warehouse's field, which
+                        # stores columns in their original casing. Lowercasing is
+                        # governed for the dataset portion by
+                        # convert_lineage_urns_to_lowercase downstream in powerbi.py.
+                        column=column.name,
                     )
                 ]
 
@@ -1522,6 +1538,13 @@ class NativeQueryLineage(AbstractLineage):
         )
 
 
+# Two-tier platforms whose connector URNs are schema.table. Their ODBC
+# navigation exposes a pseudo-catalog (e.g. Hive's constant "HIVE") that must be
+# dropped so URNs match (HiveSource is a TwoTierSQLAlchemySource). Derived from
+# the enum so a platform-name rename can't silently disable the catalog drop.
+ODBC_TWO_TIER_PLATFORMS = {SupportedDataPlatform.HIVE.value.datahub_data_platform_name}
+
+
 class OdbcLineage(AbstractLineage):
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -1589,7 +1612,7 @@ class OdbcLineage(AbstractLineage):
         elif not server_name:
             server_name = "unknown"
 
-        if self.is_sql_query(query):
+        if self.is_sql_query(query, platform_pair.datahub_data_platform_name):
             return self.query_lineage(query, platform_pair, server_name, dsn)
         else:
             return self.expression_lineage(
@@ -1825,7 +1848,9 @@ class OdbcLineage(AbstractLineage):
             if temp_accessor.items.get("Kind") == "Schema":
                 schema_name = temp_accessor.items["Name"]
 
-            if temp_accessor.items.get("Kind") == "Table":
+            # A view leaf uses Kind="View"; treat it as a table leaf
+            # (cf. create_reference_table).
+            if temp_accessor.items.get("Kind") in ("Table", "View"):
                 table_name = temp_accessor.items["Name"]
 
             if temp_accessor.next is not None:
@@ -1833,7 +1858,20 @@ class OdbcLineage(AbstractLineage):
             else:
                 break
 
-        if (
+        if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
+            if schema_name is not None:
+                # Drop the pseudo-catalog database_name for two-tier platforms.
+                qualified_table_name = f"{schema_name}.{table_name}"
+            else:
+                # database_name here is the pseudo-catalog (e.g. "HIVE"), not a real
+                # schema; emitting it would produce a dangling URN. Surface instead.
+                self.reporter.warning(
+                    title="Cannot build two-tier ODBC table name",
+                    message="Two-tier ODBC navigation had no schema level; skipping lineage.",
+                    context=f"table-name={self.table.full_name}, data-platform={data_platform}, database={database_name}, table={table_name}",
+                )
+                return Lineage.empty()
+        elif (
             database_name is not None
             and schema_name is not None
             and table_name is not None

@@ -7,8 +7,9 @@ import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
 
 import cachetools
@@ -18,6 +19,7 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     ColumnInfo,
+    ConnectionInfo,
     GetMetastoreSummaryResponse,
     MetastoreInfo,
     ModelVersionInfo,
@@ -43,6 +45,7 @@ from databricks.sql.types import Row
 from typing_extensions import assert_never
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
@@ -55,7 +58,6 @@ from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
 from datahub.ingestion.source.unity.proxy_types import (
-    ALLOWED_STATEMENT_TYPES,
     Catalog,
     Column,
     CustomCatalogType,
@@ -72,6 +74,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    usage_statement_types,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -122,7 +125,16 @@ class QueryFilterWithStatementTypes(QueryFilter):
     statement_types: List[QueryStatementType] = dataclasses.field(default_factory=list)
 
     def as_dict(self) -> dict:
-        return {**super().as_dict(), "statement_types": self.statement_types}
+        # Emit the enum *values* (strings), not the QueryStatementType objects —
+        # the filter is JSON-serialized into the REST query-history request body,
+        # and raw enum objects are not JSON serializable.
+        return {
+            **super().as_dict(),
+            "statement_types": [
+                t.value if isinstance(t, QueryStatementType) else t
+                for t in self.statement_types
+            ],
+        }
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "QueryFilterWithStatementTypes":
@@ -174,6 +186,113 @@ class TableLineageInfo:
     )
 
 
+def _build_catalog_column_filter(
+    column_expr: str, catalog_pattern: AllowDenyPattern
+) -> tuple[str, list[str]]:
+    """Build RLIKE filter for a single table_lineage catalog column.
+
+    Returns the SQL predicate and bind parameters for RLIKE patterns so recipe
+    catalog_pattern values are never interpolated into the query string.
+    """
+    pattern_parts: List[str] = []
+    bind_params: list[str] = []
+
+    def transform(pattern: str) -> str:
+        return pattern.upper() if catalog_pattern.ignoreCase else pattern
+
+    col_expr = f"UPPER({column_expr})" if catalog_pattern.ignoreCase else column_expr
+
+    allow_patterns = catalog_pattern.allow
+    if allow_patterns and allow_patterns != [".*"]:
+        allow_conditions = []
+        for pattern in allow_patterns:
+            allow_conditions.append(f"{col_expr} RLIKE %s")
+            bind_params.append(transform(pattern))
+        if allow_conditions:
+            pattern_parts.append(
+                allow_conditions[0]
+                if len(allow_conditions) == 1
+                else f"({' OR '.join(allow_conditions)})"
+            )
+
+    deny_patterns = catalog_pattern.deny
+    if deny_patterns:
+        deny_conditions = []
+        for pattern in deny_patterns:
+            deny_conditions.append(f"{col_expr} NOT RLIKE %s")
+            bind_params.append(transform(pattern))
+        if deny_conditions:
+            pattern_parts.append(
+                deny_conditions[0]
+                if len(deny_conditions) == 1
+                else f"({' AND '.join(deny_conditions)})"
+            )
+
+    if not pattern_parts:
+        return "TRUE", []
+    sql = (
+        pattern_parts[0]
+        if len(pattern_parts) == 1
+        else f"({' AND '.join(pattern_parts)})"
+    )
+    return sql, bind_params
+
+
+def _build_table_lineage_catalog_filter_condition(
+    catalog_pattern: AllowDenyPattern,
+) -> tuple[str, list[str]]:
+    """Build catalog allow/deny filter for system.access.table_lineage pushdown."""
+    source_filter, source_params = _build_catalog_column_filter(
+        "tl2.source_table_catalog", catalog_pattern
+    )
+    target_filter, target_params = _build_catalog_column_filter(
+        "tl2.target_table_catalog", catalog_pattern
+    )
+
+    if source_filter == "TRUE" and target_filter == "TRUE":
+        return "TRUE", []
+
+    parts: List[str] = []
+    bind_params: list[str] = []
+    if source_filter != "TRUE":
+        parts.append(f"({source_filter} AND tl2.source_table_catalog IS NOT NULL)")
+        bind_params.extend(source_params)
+    if target_filter != "TRUE":
+        parts.append(f"({target_filter} AND tl2.target_table_catalog IS NOT NULL)")
+        bind_params.extend(target_params)
+    sql = parts[0] if len(parts) == 1 else f"({' OR '.join(parts)})"
+    return sql, bind_params
+
+
+# Raised when constructing a Query from a query-history row fails (e.g. an
+# invalid statement_type enum value) — bucketed as a query-parse failure.
+_ROW_PARSE_EXCEPTIONS = (AttributeError, ValueError)
+# Raised when reading an individual lineage column off a row — bucketed as a
+# field-read error. Kept identical to what _optional_row_field catches so the
+# outer handler can't mis-bucket field reads as query parses.
+_ROW_FIELD_READ_EXCEPTIONS = (AttributeError, ValueError)
+
+
+def _optional_row_field(
+    row: object,
+    field: str,
+    report: Optional[UnityCatalogReport] = None,
+) -> Optional[str]:
+    try:
+        value = getattr(row, field)
+    except _ROW_FIELD_READ_EXCEPTIONS:
+        if report is not None:
+            report.num_lineage_row_field_read_errors += 1
+        return None
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        if report is not None:
+            report.num_lineage_row_field_read_errors += 1
+        return None
+    return value
+
+
 class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     _workspace_client: WorkspaceClient
     _workspace_url: str
@@ -198,6 +317,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.lineage_data_source = lineage_data_source
         self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
+        self._connections_cache: Optional[Dict[str, ConnectionInfo]] = None
         # Initialize MLflow APIs
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
         self._files_api = FilesAPI(self._workspace_client.api_client)
@@ -434,6 +554,43 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return None
 
+    def connections(self) -> Dict[str, ConnectionInfo]:
+        """Return Unity Catalog connections keyed by name (cached).
+
+        Lakehouse Federation foreign catalogs reference a connection by name; the
+        connection carries the external system's type. Listing connections requires
+        metastore-admin or connection-ownership; on permission/other errors we return
+        an empty map so the source can fall back to config overrides.
+        """
+        if self._connections_cache is not None:
+            return self._connections_cache
+        result: Dict[str, ConnectionInfo] = {}
+        try:
+            response = self._workspace_client.connections.list(
+                max_results=self.databricks_api_page_size
+            )
+            for connection in response or []:
+                if connection.name:
+                    result[connection.name] = connection
+        except Exception as e:
+            # Federation is supplemental: never let a connections-listing failure
+            # crash ingestion, but surface it in the report since it silently
+            # degrades federation links/structured properties for this run.
+            self.report.num_federation_connections_list_failed += 1
+            self.report.report_warning(
+                title="Failed to list Unity Catalog connections",
+                message=(
+                    "Lakehouse Federation links and structured properties will be "
+                    "degraded this run; grant the service principal metastore-admin "
+                    "or connection ownership, or set federation_connection_details "
+                    "overrides."
+                ),
+                context="listing Unity Catalog connections",
+                exc=e,
+            )
+        self._connections_cache = result
+        return result
+
     def schemas(self, catalog: Catalog) -> Iterable[Schema]:
         if (
             self.hive_metastore_proxy
@@ -550,12 +707,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self,
         start_time: datetime,
         end_time: datetime,
+        *,
+        include_operational_stats: bool = True,
     ) -> Iterable[Query]:
         """Returns all queries that were run between start_time and end_time with relevant statement_type.
 
         Raises:
             DatabricksError: If the query history API returns an error.
         """
+        statement_types = usage_statement_types(include_operational_stats)
         filter_by = QueryFilterWithStatementTypes.from_dict(
             {
                 "query_start_time_range": {
@@ -563,7 +723,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     "end_time_ms": end_time.timestamp() * 1000,
                 },
                 "statuses": [QueryStatus.FINISHED],
-                "statement_types": [typ.value for typ in ALLOWED_STATEMENT_TYPES],
+                "statement_types": [typ.value for typ in statement_types],
             }
         )
         for query_info in self._query_history(filter_by=filter_by):
@@ -572,8 +732,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if optional_query:
                     yield optional_query
             except Exception as e:
-                logger.warning(f"Error parsing query: {e}")
-                self.report.report_warning("query-parse", str(e))
+                logger.warning("Error parsing query", exc_info=True)
+                self.report.report_warning(
+                    title="Failed to parse query",
+                    message="A query from query history could not be parsed and was skipped.",
+                    context=f"query_id={getattr(query_info, 'query_id', None)}",
+                    exc=e,
+                )
 
     def _query_history(
         self,
@@ -614,70 +779,196 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self,
         start_time: datetime,
         end_time: datetime,
+        *,
+        catalog_pattern: Optional[AllowDenyPattern] = None,
+        include_operational_stats: bool = True,
     ) -> Iterable[Query]:
-        """Get query history using system.query.history table.
+        """Get query history using system.query.history joined with table lineage.
 
-        This method provides an alternative to the REST API for fetching query history,
-        offering better performance and richer data for large query volumes.
+        Joins system.access.table_lineage on statement_id so each query carries
+        pre-resolved source/target table names, avoiding sqlglot parsing during
+        usage extraction.
+
+        When catalog_pattern is provided, filters queries via a semi-join on
+        table_lineage so only statements touching matching catalogs are fetched.
         """
         logger.info(
             f"Fetching query history from system.query.history for period: {start_time} to {end_time}"
         )
 
-        allowed_types = [typ.value for typ in ALLOWED_STATEMENT_TYPES]
+        allowed_types = [
+            typ.value for typ in usage_statement_types(include_operational_stats)
+        ]
         statement_type_filter = ", ".join(f"'{typ}'" for typ in allowed_types)
+
+        catalog_pushdown_clause = ""
+        catalog_filter_params: list[str] = []
+        if catalog_pattern is not None:
+            catalog_filter, catalog_filter_params = (
+                _build_table_lineage_catalog_filter_condition(catalog_pattern)
+            )
+            catalog_pushdown_clause = f"""
+                AND qh.statement_id IN (
+                    SELECT DISTINCT tl2.statement_id
+                    FROM system.access.table_lineage tl2
+                    WHERE tl2.event_time >= %s
+                        AND tl2.event_time <= %s
+                        AND {catalog_filter}
+                )"""
 
         query = f"""
             SELECT
-                statement_id,
-                statement_text,
-                statement_type,
-                start_time,
-                end_time,
-                executed_by,
-                executed_as,
-                executed_by_user_id,
-                executed_as_user_id
-            FROM system.query.history
+                qh.statement_id,
+                qh.statement_text,
+                qh.statement_type,
+                qh.start_time,
+                qh.end_time,
+                qh.executed_by,
+                qh.executed_as,
+                qh.executed_by_user_id,
+                qh.executed_as_user_id,
+                tl.source_table_full_name,
+                tl.target_table_full_name
+            FROM system.query.history qh
+            LEFT JOIN system.access.table_lineage tl
+                ON qh.statement_id = tl.statement_id
+                AND tl.event_time >= %s
+                AND tl.event_time <= %s
             WHERE
-                start_time >= %s
-                AND end_time <= %s
-                AND execution_status = 'FINISHED'
-                AND statement_type IN ({statement_type_filter})
-            ORDER BY start_time
+                qh.start_time >= %s
+                AND qh.end_time <= %s
+                AND qh.execution_status = 'FINISHED'
+                AND qh.statement_type IN ({statement_type_filter}){catalog_pushdown_clause}
+            ORDER BY qh.start_time, qh.statement_id
         """
 
+        params_list: list[Any] = [start_time, end_time, start_time, end_time]
+        if catalog_pattern is not None:
+            params_list.extend([start_time, end_time, *catalog_filter_params])
+        params = tuple(params_list)
+
+        def _query_from_row(row: Row) -> Optional[Query]:
+            if not row.statement_text or not row.start_time or not row.end_time:
+                return None
+            return Query(
+                query_id=row.statement_id,
+                query_text=row.statement_text,
+                statement_type=(
+                    QueryStatementType(row.statement_type)
+                    if row.statement_type
+                    else None
+                ),
+                start_time=row.start_time,
+                end_time=row.end_time,
+                user_id=row.executed_by_user_id,
+                user_name=row.executed_by,
+                executed_as_user_id=row.executed_as_user_id,
+                executed_as_user_name=row.executed_as,
+            )
+
+        current_statement_id: Optional[str] = None
+        current_query: Optional[Query] = None
+        source_names: set[str] = set()
+        target_names: set[str] = set()
+
+        def _flush_current() -> Iterable[Query]:
+            nonlocal current_query, source_names, target_names
+            if current_query is None:
+                source_names = set()
+                target_names = set()
+                return
+            yield dataclasses.replace(
+                current_query,
+                source_table_full_names=sorted(source_names),
+                target_table_full_names=sorted(target_names),
+            )
+            current_query = None
+            source_names = set()
+            target_names = set()
+
+        missing_info_before = self.report.num_queries_missing_info
+        row_field_errors_before = self.report.num_lineage_row_field_read_errors
         try:
-            rows = self._execute_sql_query(query, (start_time, end_time))
-            for row in rows:
-                try:
-                    yield Query(
-                        query_id=row.statement_id,
-                        query_text=row.statement_text,
-                        statement_type=(
-                            QueryStatementType(row.statement_type)
-                            if row.statement_type
-                            else None
-                        ),
-                        start_time=row.start_time,
-                        end_time=row.end_time,
-                        user_id=row.executed_by_user_id,
-                        user_name=row.executed_by,
-                        executed_as_user_id=row.executed_as_user_id,
-                        executed_as_user_name=row.executed_as,
+            with closing(self._execute_sql_query_streaming(query, params)) as rows:
+                for row in rows:
+                    try:
+                        statement_id = row.statement_id
+                    except _ROW_FIELD_READ_EXCEPTIONS:
+                        # Can't determine grouping for this row. Skip it without
+                        # disturbing the in-progress statement so a single bad row
+                        # doesn't split a statement into duplicate emissions.
+                        self.report.num_lineage_row_field_read_errors += 1
+                        logger.debug(
+                            "Skipping system.query.history row with unreadable "
+                            "statement_id",
+                            exc_info=True,
+                        )
+                        continue
+
+                    if statement_id != current_statement_id:
+                        yield from _flush_current()
+                        current_statement_id = statement_id
+                        try:
+                            parsed = _query_from_row(row)
+                        except _ROW_PARSE_EXCEPTIONS:
+                            logger.debug(
+                                "Skipping unparseable statement from "
+                                "system.query.history (statement_id=%s)",
+                                statement_id,
+                                exc_info=True,
+                            )
+                            self.report.num_queries_missing_info += 1
+                            current_statement_id = None
+                            current_query = None
+                            continue
+                        if parsed is None:
+                            self.report.num_queries_missing_info += 1
+                            current_statement_id = None
+                            current_query = None
+                            continue
+                        current_query = parsed
+
+                    if current_query is None:
+                        continue
+
+                    # Field-read errors are owned by _optional_row_field, which
+                    # counts them and returns None — accumulation continues into the
+                    # same statement group rather than flushing a partial result.
+                    source_name = _optional_row_field(
+                        row, "source_table_full_name", self.report
                     )
-                except Exception as e:
-                    logger.warning(f"Error parsing query from system table: {e}")
-                    self.report.report_warning("query-parse-system-table", str(e))
-        except Exception as e:
-            logger.error(
-                f"Error fetching query history from system tables: {e}", exc_info=True
+                    if source_name:
+                        source_names.add(source_name)
+                    target_name = _optional_row_field(
+                        row, "target_table_full_name", self.report
+                    )
+                    if target_name:
+                        target_names.add(target_name)
+
+            yield from _flush_current()
+        finally:
+            parse_failures = self.report.num_queries_missing_info - missing_info_before
+            if parse_failures > 0:
+                self.report.report_warning(
+                    title="Failed to parse queries from system tables",
+                    message=(
+                        "Statements from system.query.history could not be parsed "
+                        "and were skipped."
+                    ),
+                    context=f"count={parse_failures}",
+                )
+            row_field_errors = (
+                self.report.num_lineage_row_field_read_errors - row_field_errors_before
             )
-            self.report.report_failure(
-                title="Failed to fetch query history from system tables",
-                message="Error querying system.query.history table",
-                context=f"Query period: {start_time} to {end_time}",
-            )
+            if row_field_errors > 0:
+                self.report.report_warning(
+                    title="Failed to read lineage row fields",
+                    message=(
+                        "Lineage column values from system.access.table_lineage "
+                        "could not be read and were skipped."
+                    ),
+                    context=f"count={row_field_errors}",
+                )
 
     def _build_datetime_where_conditions(
         self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
@@ -1127,6 +1418,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             comment=obj.comment,
             owner=obj.owner,
             type=obj.catalog_type,
+            connection_name=obj.connection_name,
+            options=obj.options,
         )
 
     def _create_schema(self, catalog: Catalog, obj: SchemaInfo) -> Optional[Schema]:
@@ -1310,44 +1603,93 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             executed_as_user_name=info.executed_as_user_name,
         )
 
-    def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
-        """Execute SQL query using databricks-sql connector for better performance"""
-        logger.debug(f"Executing SQL query with {len(params)} parameters")
-        if logger.isEnabledFor(logging.DEBUG):
-            # Only log full query in debug mode to avoid performance overhead
-            logger.debug(f"Full SQL query: {query}")
-            if params:
-                logger.debug(f"Query parameters: {params}")
+    def _check_warehouse_configured(self) -> bool:
+        """Return True if a warehouse is configured for SQL operations.
 
-        # Check if warehouse_id is available for SQL operations
-        if not self.warehouse_id:
-            self.report.report_warning(
-                "Cannot execute SQL query",
-                "warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration",
-            )
-            logger.warning(
-                "Cannot execute SQL query: warehouse_id is not configured. "
-                "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
-            )
-            return []
+        Reports a warning and returns False otherwise, so callers can short-circuit
+        with an empty result instead of raising.
+        """
+        if self.warehouse_id:
+            return True
+        self.report.report_warning(
+            title="Cannot execute SQL query",
+            message="warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration.",
+        )
+        logger.warning(
+            "Cannot execute SQL query: warehouse_id is not configured. "
+            "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
+        )
+        return False
 
-        # Log connection parameters (with masked token)
-        sql_connection_params = get_sql_connection_params(self._workspace_client)
-        logger.debug(f"Using connection parameters: {sql_connection_params}")
-
-        # Log proxy environment variables that affect SQL connections
+    def _detected_proxy_env_vars(self) -> Dict[str, str]:
+        """Return proxy-related env vars (masked) that affect SQL connections."""
         proxy_env_debug = {}
         for var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
             value = os.environ.get(var)
             if value:
                 proxy_env_debug[var] = mask_proxy_credentials(value)
+        return proxy_env_debug
 
-        if proxy_env_debug:
-            logger.debug(
-                f"SQL connection will use proxy environment variables: {proxy_env_debug}"
+    def _report_sql_query_failure(
+        self,
+        error: Exception,
+        query: str,
+        params: Sequence[Any],
+        *,
+        count_as_fetch_failure: bool = False,
+    ) -> None:
+        """Log and report a SQL execution failure, flagging likely proxy issues."""
+        logger.warning(f"Failed to execute SQL query: {error}", exc_info=True)
+        if logger.isEnabledFor(logging.DEBUG):
+            # Only log failed query details in debug mode for security
+            logger.debug(f"SQL query that failed: {query}")
+            logger.debug(f"SQL query parameters: {params}")
+
+        error_str = str(error).lower()
+        if any(
+            proxy_keyword in error_str
+            for proxy_keyword in [
+                "proxy",
+                "407",
+                "authentication required",
+                "tunnel",
+                "connect",
+            ]
+        ):
+            # Lazy: only collect proxy env vars when the error looks proxy-related.
+            proxy_env_debug = self._detected_proxy_env_vars()
+            logger.error(
+                "SQL query failure appears to be proxy-related. "
+                "Please check proxy configuration and authentication. "
+                f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
             )
-        else:
-            logger.debug("No proxy environment variables detected for SQL connection")
+
+        self.report.report_warning(
+            title="Failed to run SQL query",
+            message=(
+                f"A SQL query against the Databricks warehouse failed: {error}. Check that the service principal has SELECT on the system.access and system.query schemas and that system schemas are enabled for this workspace."
+            ),
+        )
+        if count_as_fetch_failure:
+            self.report.num_usage_query_fetch_failures += 1
+
+    def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
+        """Execute SQL query using databricks-sql connector and materialize all rows.
+
+        Used by the small-result metadata queries (catalogs, schemas, columns, tags).
+        For large result sets (e.g. query history) prefer _execute_sql_query_streaming,
+        which bounds memory by yielding rows in batches instead of buffering everything.
+        """
+        logger.debug(f"Executing SQL query with {len(params)} parameters")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Full SQL query: {query}")
+            if params:
+                logger.debug(f"Query parameters: {params}")
+
+        if not self._check_warehouse_configured():
+            return []
+
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
 
         try:
             with (
@@ -1355,38 +1697,65 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 connection.cursor() as cursor,
             ):
                 cursor.execute(query, list(params))
-                rows = cursor.fetchall()
-                logger.debug(
-                    f"SQL query executed successfully, returned {len(rows)} rows"
-                )
-                return rows
-
+                return cursor.fetchall()
         except Exception as e:
-            logger.warning(f"Failed to execute SQL query: {e}", exc_info=True)
-            if logger.isEnabledFor(logging.DEBUG):
-                # Only log failed query details in debug mode for security
-                logger.debug(f"SQL query that failed: {query}")
-                logger.debug(f"SQL query parameters: {params}")
-
-            # Check if this might be a proxy-related error
-            error_str = str(e).lower()
-            if any(
-                proxy_keyword in error_str
-                for proxy_keyword in [
-                    "proxy",
-                    "407",
-                    "authentication required",
-                    "tunnel",
-                    "connect",
-                ]
-            ):
-                logger.error(
-                    "SQL query failure appears to be proxy-related. "
-                    "Please check proxy configuration and authentication. "
-                    f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
-                )
-
+            self._report_sql_query_failure(e, query, params)
             return []
+
+    def _execute_sql_query_streaming(
+        self,
+        query: str,
+        params: Sequence[Any] = (),
+        batch_size: int = 10000,
+    ) -> Generator[Row, None, None]:
+        """Execute a SQL query and yield rows in batches.
+
+        The connection stays open for the lifetime of iteration — bounded memory in
+        exchange for a longer-held connection. Callers must fully consume or close the
+        generator to release the connection.
+        On failure, reports a warning, increments num_usage_query_fetch_failures, and
+        yields nothing (does not raise). Consumer errors propagate cleanly because yield
+        is never inside a try/except.
+        """
+        logger.debug(f"Executing SQL query (streaming) with {len(params)} parameters")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Full SQL query: {query}")
+            if params:
+                logger.debug(f"Query parameters: {params}")
+
+        if not self._check_warehouse_configured():
+            return
+
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
+
+        try:
+            connection = connect(**sql_connection_params)
+        except Exception as e:
+            self._report_sql_query_failure(
+                e, query, params, count_as_fetch_failure=True
+            )
+            return
+        with closing(connection):
+            try:
+                cursor = connection.cursor()
+                cursor.execute(query, list(params))
+            except Exception as e:
+                self._report_sql_query_failure(
+                    e, query, params, count_as_fetch_failure=True
+                )
+                return
+            with closing(cursor):
+                while True:
+                    try:
+                        batch = cursor.fetchmany(batch_size)
+                    except Exception as e:
+                        self._report_sql_query_failure(
+                            e, query, params, count_as_fetch_failure=True
+                        )
+                        return
+                    if not batch:
+                        break
+                    yield from batch  # OUTSIDE any try/except — consumer errors propagate cleanly
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:

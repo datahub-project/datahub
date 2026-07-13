@@ -139,6 +139,7 @@ telemetry:
 secretService:
   encryptionKey: "#{systemEnvironment['SECRET_SERVICE_ENCRYPTION_KEY'] ?: 'ENCRYPTION_KEY'}"
   v1AlgorithmEnabled: "${SECRET_SERVICE_V1_ALGORITHM_ENABLED:true}" # Force only v2 algorithm, invalidates all existing v1 encrypted secrets
+  callerGuardMode: "${SECRET_SERVICE_CALLER_GUARD_MODE:ENFORCE}" # ENFORCE (default), AUDIT, or DISABLED (kill-switch)
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
@@ -177,22 +178,20 @@ datahub:
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
-    # GMS HTTP service rate limiting (disabled by default).
-    # Limits incoming GMS API traffic — NOT MCP ingestion or Kafka lag throttle.
-    # Guide: docs/deploy/gms-rate-limiting.md
-    #
-    # Hierarchy: capacity.enabled | endpoint.enabled (by type)
-    #            → capacity.default / capacity.graphql (sub-pools) / capacity.rules
-    #            → endpoint.rules (cluster-wide buckets via Hazelcast when endpoint.enabled)
+    # GMS HTTP API rate limiting (disabled by default; not MCP ingestion or Kafka lag throttle).
+    # Bundled defaults (Tier 1), all env-overridable. Optional mounted RATE_LIMITS_CONFIG_FILE
+    # (Tier 2, see RateLimitEngineFactory) overrides keys per-source; rule lists are index-bound, but
+    # bundled lists are empty so a mounted file simply provides them. Guide: docs/deploy/gms-rate-limiting.md
     rateLimits:
+      enabled: ${RATE_LIMITS_ENABLED:false} # master kill switch
       failOpen: ${RATE_LIMITS_FAIL_OPEN:true}
       minRetryAfterSeconds: ${RATE_LIMITS_MIN_RETRY_AFTER:60}
       retryAfterJitterPercent: ${RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT:10}
+      # Namespaces bucket keys ({tenantId}:actor:{urn}) so deployments sharing a store stay isolated; set to global.id.
+      tenantId: ${RATE_LIMITS_TENANT_ID:}
+      clientClassEnabled: ${RATE_LIMITS_CLIENT_CLASS_ENABLED:false} # select rules by browser/non-browser class
       excludedPaths: ${RATE_LIMITS_EXCLUDED_PATHS:/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**}
-      configFile:
-        enabled: ${RATE_LIMITS_CONFIG_FILE_ENABLED:false}
-        path: ${RATE_LIMITS_CONFIG_FILE:/etc/datahub/rate-limits.yaml}
-      # Adaptive in-flight limits (Netflix Gradient2) — per pod
+      # Adaptive in-flight limits (Netflix Gradient2), per pod.
       capacity:
         enabled: ${RATE_LIMITS_CAPACITY_ENABLED:false}
         default:
@@ -207,14 +206,75 @@ datahub:
           initialLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT:100}
           minLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT:20}
           maxLimit: ${RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT:2000}
-        rules: []
-      # Token-bucket limits (Bucket4j) — cluster-wide via Hazelcast
+        rules: [] # per-path rules via mounted override
+      # Cluster-wide token buckets (Bucket4j) via Hazelcast.
       endpoint:
         enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
         hazelcastMapName: ${RATE_LIMITS_ENDPOINT_HAZELCAST_MAP:gmsRateLimitEndpointBuckets}
-        rules: []
+        bucketMaxIdleSeconds: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS:300}
+        bucketMaxSize: ${RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE:100000}
+        rules: [] # per-path rules via mounted override
+      # Scoped chain: per-actor -> client-class (browser/sdk) -> fleet-global.
+      # heavyResolvers is a per-resolver map, populated via the mounted override.
+      scoped:
+        enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
+        refundDisabled: ${RATE_LIMITS_SCOPED_REFUND_DISABLED:false}
+        # refillTokens defaults to the bucket's capacity (nested placeholder) but can be set
+        # independently; refillPeriodSeconds defaults to 60.
+        actor:
+          capacity: ${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}
+          refillTokens: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_TOKENS:${RATE_LIMITS_SCOPED_ACTOR_CAPACITY:2000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_ACTOR_REFILL_PERIOD_SECONDS:60}
+        browser:
+          # perActor=true keys this class bucket per actor ({tenantId}:browser:{urn}); false (default)
+          # is one shared browser ceiling per tenant. Set independently from sdk.
+          perActor: ${RATE_LIMITS_SCOPED_BROWSER_PER_ACTOR:false}
+          capacity: ${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}
+          refillTokens: ${RATE_LIMITS_SCOPED_BROWSER_REFILL_TOKENS:${RATE_LIMITS_SCOPED_BROWSER_CAPACITY:5000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_BROWSER_REFILL_PERIOD_SECONDS:60}
+        sdk:
+          perActor: ${RATE_LIMITS_SCOPED_SDK_PER_ACTOR:false}
+          capacity: ${RATE_LIMITS_SCOPED_SDK_CAPACITY:1000}
+          refillTokens: ${RATE_LIMITS_SCOPED_SDK_REFILL_TOKENS:${RATE_LIMITS_SCOPED_SDK_CAPACITY:500}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_SDK_REFILL_PERIOD_SECONDS:60}
+        global:
+          capacity: ${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}
+          refillTokens: ${RATE_LIMITS_SCOPED_GLOBAL_REFILL_TOKENS:${RATE_LIMITS_SCOPED_GLOBAL_CAPACITY:20000}}
+          refillPeriodSeconds: ${RATE_LIMITS_SCOPED_GLOBAL_REFILL_PERIOD_SECONDS:60}
+        heavyResolvers: {}
       metrics:
         detailed: ${RATE_LIMITS_METRICS_DETAILED:false}
+
+    # Entity hierarchy graph cache.
+    # Tier 1: application.yaml toggles below (enabled, configFile, configJson; pod-level eviction)
+    # Tier 2: ENTITY_GRAPH_CACHE_CONFIG_FILE — bundled entity-graph-cache.yaml or mounted YAML
+    #         (graph definitions + eviction.nearCache for snapshot IMaps)
+    # Tier 3: ENTITY_GRAPH_CACHE_CONFIG_JSON — JSON overlay merged at startup (like RATE_LIMITS_CONFIG_JSON)
+    entityGraphCache:
+      enabled: ${ENTITY_GRAPH_CACHE_ENABLED:true}
+      configFile:
+        enabled: ${ENTITY_GRAPH_CACHE_CONFIG_FILE_ENABLED:true}
+        path: ${ENTITY_GRAPH_CACHE_CONFIG_FILE:entity-graph-cache.yaml}
+      configJson: ${ENTITY_GRAPH_CACHE_CONFIG_JSON:}
+      eviction:
+        local:
+          enabled: true
+          maxViews: 16
+          maxEstimatedBytes: 268435456
+        memoryPressure:
+          enabled: true
+          checkIntervalSeconds: 30
+          heapUsageThresholdPercent: 85
+          action: EVICT_LOCAL_LRU
+          cooldownSeconds: 120
+          hysteresisPercent: 5
+        hazelcast:
+          evictionPolicy: MAX_SIZE
+          maxSizePerNode: 32
+          maxSizePolicy: PER_NODE
+          heapMaxSizePercent: 0
+          ttlSeconds: 0
+          backupCount: 1
 
   plugin:
     pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
@@ -233,6 +293,11 @@ datahub:
       percentiles: ${DATAHUB_METRICS_HOOK_LATENCY_PERCENTILES:0.5,0.95,0.99,0.999}
       slo: ${DATAHUB_METRICS_HOOK_LATENCY_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
       maxExpectedValue: ${DATAHUB_METRICS_HOOK_LATENCY_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
+    entityCounts:
+      enabled: ${ENTITY_COUNT_METRICS_ENABLED:true}
+      updateIntervalSeconds: ${ENTITY_COUNT_METRICS_UPDATE_INTERVAL_SECONDS:3600}
+      initialDelaySeconds: ${ENTITY_COUNT_METRICS_INITIAL_DELAY_SECONDS:60}
+      skipCache: ${ENTITY_COUNT_METRICS_SKIP_CACHE:false}
 
   policies:
     systemPolicyUrnList: ${DATAHUB_SYSTEM_POLICY_URN_LIST:} # Additional policy urns that should not allow deletion, comma separated list like urn:li:dataHubPolicy:my-policy
@@ -243,6 +308,19 @@ datahub:
     presignedUploadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_UPLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     presignedDownloadUrlExpirationSeconds: ${DATAHUB_PRESIGNED_DOWNLOAD_URL_EXPIRATION_SECONDS:3600} # 60 minutes
     assetPathPrefix: ${DATAHUB_S3_ASSET_PATH_PREFIX:product_assets}
+
+  usage:
+    aggregation:
+      enabled: ${USAGE_AGGREGATION_ENABLED:false}
+      micrometerExport:
+        enabled: ${USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED:true}
+      flush:
+        maxWindowSeconds: ${USAGE_AGGREGATION_MAX_WINDOW_SECONDS:300}
+        maxCardinality: ${USAGE_AGGREGATION_MAX_CARDINALITY:10000}
+        scheduledIntervalSeconds: ${USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS:60}
+        retryAttempts: ${USAGE_AGGREGATION_FLUSH_RETRY_ATTEMPTS:3}
+        retryInitialBackoffMillis: ${USAGE_AGGREGATION_FLUSH_RETRY_INITIAL_BACKOFF_MILLIS:100}
+        alignmentPeriodSeconds: ${USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS:0}
 
   validation:
     aspectSize:
@@ -312,6 +390,7 @@ timeseriesAspectService:
   batchLoadEnabled: ${TIMESERIES_ASPECT_BATCH_LOAD_ENABLED:true} # use top_hits agg batch path; shared env var with featureFlags.timeseriesAspectBatchLoadEnabled
   topHitsThreshold: ${TIMESERIES_ASPECT_SERVICE_TOP_HITS_THRESHOLD:500} # max docs per batch top_hits agg query (limit × URN batch size)
   topHitsPerBucketLimit: ${TIMESERIES_ASPECT_SERVICE_TOP_HITS_PER_BUCKET_LIMIT:100} # per-bucket top_hits size; matches index.max_inner_result_window default — raise both together if larger per-entity batch windows are needed
+  batchAggMaxUrnsPerBatch: ${TIMESERIES_ASPECT_SERVICE_BATCH_AGG_MAX_URNS_PER_BATCH:100} # max URNs per outer-terms-bucket sub-batch for batchGetAggregatedStats
   limit:
     results:
       max: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
@@ -426,7 +505,7 @@ ebean:
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
-  autoCommit: ${EBEAN_DATASOURCE_AUTOCOMMIT:false}
+  autoCommit: ${EBEAN_DATASOURCE_AUTOCOMMIT:true}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
   useIamAuth: ${EBEAN_USE_IAM_AUTH:false} # Generic IAM auth for cross-cloud compatibility
@@ -783,6 +862,9 @@ elasticsearch:
     minimumReplicasForPromotion: ${ELASTICSEARCH_BUILD_INDICES_MINIMUM_REPLICAS_FOR_PROMOTION:1} # Minimum replicas to restore before promotion
     incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
     rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
+    catchUpSqlPageSize: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_SQL_PAGE_SIZE:50} # SQL page size for incremental reindex catch-up MCL emission
+    catchUpFlushInterval: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_INTERVAL:500} # rows between producer flush and checkpoint during catch-up
+    catchUpFlushBytesThreshold: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_BYTES_THRESHOLD:134217728} # metadata-column char proxy for early flush (128 MiB); 0 disables
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
@@ -838,6 +920,7 @@ kafka:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
     autoIncreasePartitions: ${DATAHUB_AUTO_INCREASE_PARTITIONS:false}
     useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
+    reconcileExistingTopicConfigs: ${KAFKA_SETUP_RECONCILE_EXISTING_TOPIC_CONFIGS:false}
 
   # Topic defaults applied when individual topic configuration is missing
   topicDefaults:
@@ -1194,7 +1277,7 @@ systemUpdate:
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_CLL_LIMIT:0}
   restoreColumnLineageIndices:
-    enabled: ${RESTORE_COLUMN_LINEAGE_INDICES_ENABLED:true}
+    enabled: ${RESTORE_COLUMN_LINEAGE_INDICES_ENABLED:false}
   restoreFormInfoIndices:
     enabled: ${RESTORE_FORM_INFO_INDICES_ENABLED:true}
   restoreGlossaryIndices:
@@ -1274,24 +1357,53 @@ systemUpdate:
     numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
   entityConsistency:
     enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ENABLED:true}
-    dryRun: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN:true}  # Set to false to apply fixes
+    # Job-level safety ceiling. False so per-check mode controls writes (assertion checks default dry-run).
+    dryRun: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DRY_RUN:false}
     batchSize: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_BATCH_SIZE:100}
     delayMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_DELAY_MS:1000}
     gracePeriodSeconds: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GRACE_PERIOD_SECONDS:14400}  # 4 hours - exclude recently modified entities to avoid eventual consistency false positives
     limit: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LIMIT:0}
-    entityTypes: []  # Entity types to check. Empty = all types with registered checks.
+    entityTypes: []  # Job-level override of entity types for default checks. Empty = types with registered default checks.
     checkIds: []  # Check IDs to run. Empty = all default checks for the entity types.
     reprocess:
       enabled: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_REPROCESS:false}
+    # Per-check mode/schedule for datahub-upgrade only. Modes: disabled | dry-run | active.
+    # Schedules: every-run | daily | weekly | monthly. Cadence advances on completed pass (active or dry-run).
+    checks:
+      orphan-index-document:
+        mode: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ORPHAN_MODE:active}
+        schedule: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ORPHAN_SCHEDULE:monthly}
+      assertion-invalid-type:
+        mode: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ASSERTION_INVALID_TYPE_MODE:dry-run}
+      assertion-type-mismatch:
+        mode: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_ASSERTION_TYPE_MISMATCH_MODE:dry-run}
     systemMetadataFilterConfig:  # Optional filtering via system metadata index
       gePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_GE_PIT_EPOCH_MS:}  # Only entities modified >= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
+      # Scroll only key-aspect system-metadata docs (e.g. datasetKey). Cuts orphan / large-type scan volume.
+      keyAspectOnly: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_KEY_ASPECT_ONLY:true}
+      # Entity types to include in system-metadata discovery (orphan / SM-filtered scans). Empty = all registry types.
+      entityTypes:
+        - dataset
+        - dashboard
+        - chart
+        - dataFlow
+        - dataJob
+        - mlModel
+        - mlFeature
+        - mlFeatureTable
+        - notebook
+        - container
+        - dataProduct
+        - query
+        - schemaField
+        - dataProcessInstance
   ingestEntityTypes:
     enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
   restoreDbtSiblingsIndices:
-    enabled: ${SYSTEM_UPDATE_RESTORE_DBT_SIBLINGS_INDICES_ENABLED:true}
+    enabled: ${SYSTEM_UPDATE_RESTORE_DBT_SIBLINGS_INDICES_ENABLED:false}
   ingestDefaultGlobalSettings:
     enabled: ${SYSTEM_UPDATE_INGEST_DEFAULT_GLOBAL_SETTINGS_ENABLED:true}
   ingestPolicies:
@@ -1394,16 +1506,20 @@ featureFlags:
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
   datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
+  metricsEnabled: ${METRICS_ENABLED:false} # If turned on, enables the Metrics feature end-to-end (Metrics page in nav, /metrics route, and downstream backend wiring once the Metric entity ships). Defaults off in OSS while the feature is in development.
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
   showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
-  i18nEnabled: ${I18N_ENABLED:false} # If enabled, internationalization (i18n) features are active
+  i18nEnabled: ${I18N_ENABLED:true} # If enabled, internationalization (i18n) features are active
   timeseriesAspectBatchLoadEnabled: ${TIMESERIES_ASPECT_BATCH_LOAD_ENABLED:true} # If enabled, TimeSeriesAspectResolver uses the DataLoader batch path; disable to revert to single-URN queries
+  timeseriesAspectAggBatchLoadEnabled: ${TIMESERIES_ASPECT_AGG_BATCH_LOAD_ENABLED:true} # If enabled, Dashboard.statsSummary uses the batch aggregation DataLoader; disable to revert to per-URN queries
   createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
   aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
+  browserTracingEnabled: ${BROWSER_TRACING_ENABLED:false} # If enabled, the React app emits browser (RUM) OpenTelemetry spans, exported via the frontend /otel/v1/traces proxy and correlated with backend traces.
+  browserWebVitalsEnabled: ${BROWSER_WEB_VITALS_ENABLED:false} # If enabled, the React app emits Core Web Vitals (LCP/CLS/FID/FCP/TTFB) as OTel spans. Requires browserTracingEnabled.
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -1457,6 +1573,15 @@ cache:
   homepage:
     entityCounts:
       ttlSeconds: ${CACHE_ENTITY_COUNTS_TTL_SECONDS:600}
+  entityCounts:
+    keyAspect:
+      enabled: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_ENABLED:true}
+      ttlSeconds: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_TTL_SECONDS:3600}
+      maxEntityTypes: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_MAX_ENTITY_TYPES:200}
+      singleFlight:
+        staleBuildingMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_STALE_BUILDING_MS:120000}
+        waiterMaxMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_WAITER_MAX_MS:60000}
+        pollIntervalMillis: ${CACHE_KEY_ASPECT_ENTITY_COUNTS_POLL_INTERVAL_MS:100}
   search:
     lineage:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day
@@ -1596,6 +1721,17 @@ graphQL:
     # Enable/disable GraphQL OTel instrumentation
     # Override: ENABLE_OTEL_GRAPHQL_TRACES=true
     enableOtelGraphqlTraces: ${ENABLE_OTEL_GRAPHQL_TRACES:false}
+    # Custom, filtered resolver-level spans (resolver names appear in traces without span explosion).
+    # Only registers when enabled; gate alongside enableOtelGraphqlTraces at deploy time.
+    resolverSpans:
+      # Master switch for filtered resolver spans
+      enabled: ${GRAPHQL_OTEL_RESOLVER_SPANS_ENABLED:false}
+      # Trace trivial property/map getters too (noisy — keep false in prod)
+      includeTrivialDataFetchers: ${GRAPHQL_OTEL_RESOLVER_SPANS_INCLUDE_TRIVIAL:false}
+      # Only top-level Query/Mutation fields (safe default); nested fields need allowedPaths
+      topLevelOnly: ${GRAPHQL_OTEL_RESOLVER_SPANS_TOP_LEVEL_ONLY:true}
+      # CSV allow-list of "ParentType.field" (e.g. "Query.searchAcrossEntities,Entity.ownership")
+      allowedPaths: ${GRAPHQL_OTEL_RESOLVER_SPANS_ALLOWED_PATHS:}
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
@@ -1615,7 +1751,7 @@ businessAttribute:
 metadataChangeProposal:
   consumer:
     batch:
-      enabled: ${MCP_CONSUMER_BATCH_ENABLED:false}
+      enabled: ${MCP_CONSUMER_BATCH_ENABLED:true}
       size: ${MCP_CONSUMER_BATCH_SIZE:15744000}
   validation:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}

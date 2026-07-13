@@ -28,7 +28,6 @@ on:
       - "!.github/actions/ci-optimization"
       - "!.github/actions/restore-dependency-caches"
       - "!.github/scripts/check_python_package.py"
-      - "!.github/scripts/parse_failed_cypress_tests.py"
       - "!.github/scripts/parse_failed_pytest_tests.py"
       - "!.github/scripts/docker_logs.sh"
       - "!.github/actions/smoke-test-retry"
@@ -51,7 +50,7 @@ env:
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
-  PLAYWRIGHT_SHARD_COUNT: "5"
+  PLAYWRIGHT_SHARD_COUNT: "8"
 
 permissions:
   contents: read
@@ -237,7 +236,7 @@ jobs:
       - name: Compute Yarn Cache Key
         id: yarn-cache-key
         run: |
-          echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
+          echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
           echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
       - name: Build Playwright shard matrix
@@ -422,20 +421,16 @@ jobs:
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: setup
     outputs:
-      cypress_matrix: ${{ steps.set-matrix.outputs.cypress_matrix }}
       pytest_matrix: ${{ steps.set-matrix.outputs.pytest_matrix }}
     steps:
       - id: set-batch-count
         # Tests are split simply to ensure the configured number of batches for parallelization. This may need some
         # increase as a new tests added increase the duration where an additional parallel batch helps.
         # python_batch_count is used to split pytests in the smoke-test (batches of actual test functions)
-        # cypress_batch_count is used to split the collection of cypress test specs into batches.
         run: |
           if [[ "${{ env.IS_FORK }}" == "true" ]]; then
-            echo "cypress_batch_count=3" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
-            echo "cypress_batch_count=4" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
           fi
 
@@ -447,39 +442,23 @@ jobs:
             pytest_items="$pytest_items"',{"batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
           done
 
-          cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
-          cypress_items='{"batch":"0","batch_count":"'"$cypress_batch_count"'"}'
-          for ((i=1;i<cypress_batch_count;i++)); do
-            cypress_items="$cypress_items"',{"batch_count":"'"$cypress_batch_count"'","batch":"'"$i"'"}'
-          done
-
-          run_both=false
           run_pytest=false
-          run_cypress=false
 
           if [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' || "${{ needs.setup.outputs.publish }}" == 'true' ]]; then
-            run_both=true
-          elif [[ "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
-            run_cypress=true
+            run_pytest=true
           elif [[ "${{ needs.setup.outputs.connector_source_only }}" == 'true' ]]; then
             # Connector-only changes (source implementations, their tests, docs) don't affect
             # smoke tests. Smoke tests exercise the platform via CLI/SDK/APIs, not individual
             # connectors. Skip to save ~140 min of compute.
-            : # both remain false → empty matrices → both jobs skipped
+            : # run_pytest remains false → empty matrix → job skipped
           elif [[ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]]; then
             run_pytest=true
           fi
 
-          if [[ "$run_both" == 'true' || "$run_pytest" == 'true' ]]; then
+          if [[ "$run_pytest" == 'true' ]]; then
             echo "pytest_matrix={\"include\":[$pytest_items]}" >> "$GITHUB_OUTPUT"
           else
             echo "pytest_matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
-          fi
-
-          if [[ "$run_both" == 'true' || "$run_cypress" == 'true' ]]; then
-            echo "cypress_matrix={\"include\":[$cypress_items]}" >> "$GITHUB_OUTPUT"
-          else
-            echo "cypress_matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
           fi
 
   java_integration_tests:
@@ -887,327 +866,6 @@ jobs:
           path: ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
 
-  cypress_tests:
-    name: Cypress Smoke Tests (Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
-    runs-on: ${{ needs.setup.outputs.test_runner_type }}
-    needs: [setup, smoke_test_matrix, base_build]
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.cypress_matrix || '{"include":[]}') }}
-    # A status-check function (always/!failure/!cancelled) is required: without one, an `if`
-    # implies success(), which fails for jobs downstream of the optionally-skipped
-    # base_build (skipped on fork PRs), so this job would be skipped.
-    if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.cypress_matrix != '' && needs.smoke_test_matrix.outputs.cypress_matrix != '{"include":[]}' }}
-    env:
-      MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
-      MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
-    steps:
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-
-      - uses: ./.github/actions/restore-dependency-caches
-        with:
-          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
-          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
-          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
-          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
-        with:
-          distribution: "zulu"
-          java-version: 21
-
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
-
-      - name: Set up Depot CLI
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
-        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Parse previous results for retry
-        id: retry-check
-        if: github.run_attempt > 1
-        uses: ./.github/actions/smoke-test-retry
-        with:
-          test_strategy: cypress
-          batch: ${{ matrix.batch }}
-          run_id: ${{ github.run_id }}
-          github_token: ${{ github.token }}
-
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
-
-      - name: Login to DockerHub
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
-        if: ${{ needs.setup.outputs.docker-login == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
-        with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-
-      - name: Disk Space Analysis
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
-
-      - name: Build images
-        timeout-minutes: 60
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
-        env:
-          DOCKER_CACHE: GITHUB
-        run: |
-          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
-          echo "Using build task: $BUILD_TASK"
-          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
-          docker images
-
-      - name: Pull images from depot
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
-        run: |
-          depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}"
-          docker images
-
-      - name: Disk Space Analysis
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
-
-      - name: Run quickstart
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        env:
-          DATAHUB_TELEMETRY_ENABLED: false
-          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
-          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
-          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
-          PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
-        run: |
-          echo "Using compose profile: $PROFILE_NAME"
-          ./smoke-test/run-quickstart.sh
-
-      - name: Disk Check
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: df -h . && docker images
-
-      - name: Disable ES Disk Threshold
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: |
-          curl -XPUT "http://localhost:9200/_cluster/settings" \
-          -H 'Content-Type: application/json' -d'{
-            "persistent": {
-              "cluster": {
-                "routing": {
-                  "allocation.disk.threshold_enabled": false
-                }
-              }
-            }
-          }'
-
-      - name: Install dependencies
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: ./metadata-ingestion/scripts/install_deps.sh
-
-      - name: Build datahub cli
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        run: ./gradlew :metadata-ingestion:install
-
-      - name: Cypress smoke tests
-        if: steps.retry-check.outputs.parse_result != 'all_passed'
-        env:
-          RUN_QUICKSTART: false
-          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
-          CLEANUP_DATA: "false"
-          TEST_STRATEGY: cypress
-          BATCH_COUNT: ${{ matrix.batch_count }}
-          BATCH_NUMBER: ${{ matrix.batch }}
-          FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
-        run: |
-          if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
-            echo "=========================================="
-            echo "RETRY MODE: Running only failed Cypress tests"
-            echo "=========================================="
-            echo "Failed tests to retry:"
-            cat "$FILTERED_TESTS"
-            echo "=========================================="
-          elif (( ${{ github.run_attempt }} > 1 )); then
-            echo "RETRY MODE: Running all tests (fallback)"
-          fi
-          echo "$DATAHUB_VERSION"
-          ./gradlew --stop
-          ./smoke-test/smoke.sh
-
-      - name: Disk Check
-        run: df -h . && docker images
-
-      - name: Store logs
-        if: failure()
-        run: |
-          docker ps -a
-          TEST_STRATEGY="-cypress-${{ matrix.batch }}"
-          source .github/scripts/docker_logs.sh
-
-      - name: Upload logs
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: failure()
-        with:
-          name: docker-logs-cypress-${{ matrix.batch }}
-          path: "docker_logs/*.log"
-          retention-days: 5
-
-      - name: Stage Cypress screenshots for artifact upload
-        # Copy screenshots alongside the mochawesome JSONs so the post-matrix
-        # cypress_html_report job can embed them into the unified HTML report.
-        if: always()
-        run: |
-          if [ -d smoke-test/tests/cypress/cypress/screenshots ]; then
-            cp -r smoke-test/tests/cypress/cypress/screenshots \
-              smoke-test/tests/cypress/build/mochawesome-report/screenshots
-          fi
-
-      - name: Upload Cypress mochawesome JSON results
-        # cypress-mochawesome-reporter writes one JSON per spec to .jsons/ (a hidden subdir)
-        # via the Cypress after:spec hook — survives Electron crashes. include-hidden-files is
-        # required so upload-artifact picks up that dot-prefixed directory.
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: always()
-        with:
-          name: cypress-mochawesome-json-${{ matrix.batch }}
-          path: smoke-test/tests/cypress/build/mochawesome-report/
-          include-hidden-files: true
-          retention-days: 1
-
-      - name: Upload screenshots
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        if: failure()
-        with:
-          name: cypress-snapshots-cypress-${{ matrix.batch }}
-          path: smoke-test/tests/cypress/cypress/screenshots/
-
-      - name: Report test results
-        if: (!cancelled())
-        uses: ./.github/actions/report-test-results
-        with:
-          artifact-name: Test Results (smoke tests) cypress ${{ matrix.batch }}
-          test-results-paths: |
-            **/smoke-test-results/cypress-test-*.xml
-            !**/binary/**
-          junit-file-globs: |
-            **/smoke-test-results/cypress-test-*.xml
-
-      - name: Send failed test metrics to PostHog
-        if: failure()
-        continue-on-error: true
-        env:
-          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
-          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
-        run: |
-          if [ -z "$POSTHOG_API_KEY" ]; then
-            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
-            exit 0
-          fi
-
-          TEMP_DIR=$(mktemp -d)
-          mkdir -p "$TEMP_DIR/test-results"
-          find . -name "cypress-test-*.xml" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
-
-          python3 .github/scripts/send_failed_tests_to_posthog.py \
-            --input-dir "$TEMP_DIR/test-results" \
-            --posthog-api-key "$POSTHOG_API_KEY" \
-            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
-            --repository "${{ github.repository }}" \
-            --workflow-name "${{ github.workflow }}" \
-            --branch "${GH_HEAD_REF}" \
-            --run-id "${{ github.run_id }}" \
-            --run-attempt "${{ github.run_attempt }}" \
-            --batch "${{ matrix.batch }}" \
-            --batch-count "${{ strategy.job-total }}" \
-            --test-strategy "cypress"
-
-          rm -rf "$TEMP_DIR"
-
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: test_results
-          override_branch: ${{ github.head_ref || github.ref_name }}
-
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
-        with:
-          path: ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
-        with:
-          path: ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-
-  cypress_html_report:
-    name: Generate unified Cypress HTML report
-    runs-on: ubuntu-latest
-    needs: [cypress_tests]
-    if: ${{ !cancelled() && needs.cypress_tests.result != 'skipped' }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Download all Cypress mochawesome JSON artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: cypress-mochawesome-json-*
-          path: mochawesome-results
-          # Do NOT use merge-multiple: all batches write files with the same names
-          # (mochawesome.json, mochawesome_001.json, ...). merge-multiple would cause
-          # later batches to overwrite earlier ones in the same directory. Without it,
-          # each artifact extracts to its own subdirectory:
-          #   mochawesome-results/cypress-mochawesome-json-0/.jsons/mochawesome.json
-          #   mochawesome-results/cypress-mochawesome-json-1/.jsons/mochawesome.json
-          #   ...
-      - name: Generate HTML report
-        run: |
-          # Each artifact extracts to its own subdirectory, so per-spec JSONs land at:
-          #   mochawesome-results/cypress-mochawesome-json-<N>/.jsons/mochawesome_NNN.json
-          mapfile -t JSON_FILES < <(find mochawesome-results -path "*/.jsons/*.json" 2>/dev/null)
-          if [[ ${#JSON_FILES[@]} -gt 0 ]]; then
-            # Collect screenshots from all batch subdirectories into a flat dir.
-            # enhanceReport resolves paths relative to this directory.
-            mkdir -p combined-screenshots
-            find mochawesome-results -mindepth 1 -maxdepth 1 -type d | while read -r batch_dir; do
-              if [ -d "$batch_dir/screenshots" ]; then
-                cp -rn "$batch_dir/screenshots/." combined-screenshots/
-              fi
-            done
-            printf '%s\n' "${JSON_FILES[@]}" > json-file-list.txt
-            npm install --no-save \
-              mochawesome-merge \
-              mochawesome-report-generator \
-              cypress-mochawesome-reporter \
-              fs-extra
-            node .github/scripts/generate-cypress-report.js
-          else
-            echo "No mochawesome JSON files found – all Cypress batches may have been skipped or crashed before any spec completed"
-          fi
-      - name: Upload unified Cypress HTML report
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
-        with:
-          name: cypress-html-report
-          path: cypress-html-report/
-          retention-days: 5
-
   playwright_test:
     name: Playwright E2E Tests
     needs: [setup, base_build]
@@ -1226,6 +884,7 @@ jobs:
       local_build_flags: "-PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=acryldata"
       datahub_version: ${{ needs.setup.outputs.tag }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
+      send_posthog_metrics: true
     secrets: inherit
 
   playwright_report:
@@ -1239,14 +898,7 @@ jobs:
     name: Update quickstart tag after tests pass on master
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
     needs:
-      [
-        setup,
-        base_build,
-        java_integration_tests,
-        pytest_tests,
-        cypress_tests,
-        playwright_test,
-      ]
+      [setup, base_build, java_integration_tests, pytest_tests, playwright_test]
     if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' && github.ref == 'refs/heads/master' }}
     steps:
       - name: Set up Depot CLI
@@ -1303,7 +955,6 @@ jobs:
         setup,
         java_integration_tests,
         pytest_tests,
-        cypress_tests,
         playwright_test,
         publish_images,
       ]

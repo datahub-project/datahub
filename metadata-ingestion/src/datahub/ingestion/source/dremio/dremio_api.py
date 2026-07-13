@@ -3,11 +3,12 @@ import json
 import logging
 import warnings
 from collections import defaultdict
+from contextlib import closing
 from datetime import datetime
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
@@ -28,6 +29,7 @@ from datahub.ingestion.source.dremio.dremio_models import (
 )
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,17 @@ DREMIO_SYSTEM_TABLES_PATTERN = [
 
 class DremioAPIException(Exception):
     pass
+
+
+class _CatalogWideQueryFailed(Exception):
+    """Raised internally when the single catalog-wide datasets query can't run
+    (Dremio-side planning/exec timeout or OOM) before any rows are emitted, so
+    the fetch can safely retry one root container at a time."""
+
+
+# execute_query_iter wraps setup failures as DremioAPIException, but transport
+# errors raised while lazily streaming result pages propagate raw from requests.
+_QUERY_FETCH_ERRORS = (DremioAPIException, requests.RequestException)
 
 
 class DremioEdition(Enum):
@@ -640,8 +653,11 @@ class DremioAPIOperations:
         return dataset_id
 
     def community_get_formatted_tables(
-        self, tables_and_columns: List[Dict[str, Any]]
+        self,
+        tables_and_columns: List[Dict[str, Any]],
+        view_definitions: Optional[Mapping[str, Optional[str]]] = None,
     ) -> List[Dict[str, Any]]:
+        view_definitions = view_definitions or {}
         schema_list = []
         schema_dict_lookup = []
         dataset_list = []
@@ -688,7 +704,6 @@ class DremioAPIOperations:
                         "TABLE_SCHEMA",
                         "TABLE_NAME",
                         "FULL_TABLE_PATH",
-                        "VIEW_DEFINITION",
                     )
                     if key in dictionary
                 ): dictionary
@@ -701,6 +716,7 @@ class DremioAPIOperations:
 
         for table, schemas in product(distinct_tables_list, schema_dict_lookup):
             if table.get("TABLE_SCHEMA") == schemas.get("original_path"):
+                full_table_path = table.get("FULL_TABLE_PATH", "")
                 dataset_list.append(
                     {
                         "TABLE_SCHEMA": "["
@@ -712,7 +728,7 @@ class DremioAPIOperations:
                         "COLUMNS": column_dictionary.get(
                             table.get("FULL_TABLE_PATH", "")
                         ),
-                        "VIEW_DEFINITION": table.get("VIEW_DEFINITION"),
+                        "VIEW_DEFINITION": view_definitions.get(full_table_path),
                         "RESOURCE_ID": self.get_dataset_id(
                             schema=".".join(schemas.get("formatted_path")),
                             dataset=table.get("TABLE_NAME", ""),
@@ -726,34 +742,74 @@ class DremioAPIOperations:
 
         return dataset_list
 
-    def get_pattern_condition(
-        self, patterns: Union[str, List[str]], field: str, allow: bool = True
-    ) -> str:
-        if not patterns:
-            return ""
+    def _get_view_definition_query(self) -> str:
+        if self.edition == DremioEdition.ENTERPRISE:
+            return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_EE
+        elif self.edition == DremioEdition.CLOUD:
+            return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CLOUD
+        return DremioSQLQueries.QUERY_VIEW_DEFINITIONS_CE
 
-        if isinstance(patterns, str):
-            patterns = [patterns.upper()]
+    def _get_view_definitions(
+        self,
+        schema_condition: str,
+        deny_schema_condition: str,
+    ) -> "FileBackedDict[Optional[str]]":
+        """Fetch view definitions keyed by FULL_TABLE_PATH, one row per view.
 
-        if ".*" in patterns and allow:
-            return ""
+        On-disk (FileBackedDict) because view SQL is large; keeping it all in RAM
+        would reintroduce the memory pressure this fix targets. Caller must close.
+        """
+        query_template = self._get_view_definition_query()
+        definitions: "FileBackedDict[Optional[str]]" = FileBackedDict()
 
-        patterns = [p.upper() for p in patterns if p != ".*"]
-        if not patterns:
-            return ""
+        chunk_size = self._chunk_size
+        offset = 0
+        while True:
+            limit_clause = f"LIMIT {chunk_size} OFFSET {offset}"
+            formatted_query = query_template.format(
+                schema_pattern=schema_condition,
+                deny_schema_pattern=deny_schema_condition,
+                limit_clause=limit_clause,
+            )
 
-        operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
-        pattern_str = "|".join(f"({p})" for p in patterns)
-        return f"AND {operator}({field}, '{pattern_str}')"
+            logger.debug(
+                f"Fetching view-definition chunk (offset: {offset}, limit: {chunk_size})"
+            )
+
+            try:
+                chunk_results = list(self.execute_query_iter(query=formatted_query))
+            except _QUERY_FETCH_ERRORS as e:
+                # Partial result: missing views would otherwise look like views
+                # with no definition, so fail loudly.
+                self.report.failure(
+                    message="Failed to fetch Dremio view definitions; view "
+                    "lineage may be incomplete.",
+                    context=f"retrieved {len(definitions)} before failing at offset={offset}",
+                    exc=e,
+                )
+                break
+
+            if not chunk_results:
+                break
+
+            for record in chunk_results:
+                full_path = record.get("FULL_TABLE_PATH")
+                if full_path:
+                    definitions[full_path] = record.get("VIEW_DEFINITION")
+
+            if len(chunk_results) < chunk_size:
+                break
+            offset += chunk_size
+
+        return definitions
 
     def get_all_tables_and_columns(self) -> Iterator[Dict]:
-        """
-        Fetch all tables and columns using a single global query.
+        """Fetch all tables and columns; view definitions are fetched separately and merged by path.
 
-        Runs one SQL query across the entire catalog rather than one per container.
-        This eliminates the ~10s Dremio planning overhead that was incurred for each
-        of thousands of containers (e.g. 10,000 containers × 10s = ~30 hours).
-        Results are still chunked with LIMIT/OFFSET to prevent Dremio OOM errors.
+        Runs a single catalog-wide query (chunked with LIMIT/OFFSET) since it plans
+        once. If Dremio can't execute it (timeout or OOM on very large catalogs),
+        retries one root container at a time so the join and sort cover less. The
+        fallback only triggers before any rows are emitted, so it never double-counts.
         """
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL
@@ -762,24 +818,115 @@ class DremioAPIOperations:
         else:
             query_template = DremioSQLQueries.QUERY_DATASETS_CE_GLOBAL
 
-        schema_field = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
+        schema_field = DremioSQLQueries.SCHEMA_FILTER_FIELD
 
-        schema_condition = self.get_pattern_condition(
+        schema_condition = DremioSQLQueries.pattern_condition(
             self.allow_schema_pattern, schema_field
         )
-        deny_schema_condition = self.get_pattern_condition(
+        deny_schema_condition = DremioSQLQueries.pattern_condition(
             self.deny_schema_pattern, schema_field, allow=False
         )
 
-        yield from self._get_all_tables_global_chunked(
-            query_template, schema_condition, deny_schema_condition
+        with closing(
+            self._get_view_definitions(schema_condition, deny_schema_condition)
+        ) as view_definitions:
+            try:
+                yield from self._get_all_tables_global_chunked(
+                    query_template,
+                    schema_condition,
+                    deny_schema_condition,
+                    view_definitions=view_definitions,
+                    signal_first_chunk_failure=True,
+                )
+            except _CatalogWideQueryFailed as e:
+                logger.warning(
+                    f"Catalog-wide dataset query failed ({e}); retrying one root "
+                    "container at a time to bound Dremio-side query cost."
+                )
+                yield from self._get_all_tables_partitioned_by_container(
+                    query_template,
+                    schema_field,
+                    schema_condition,
+                    deny_schema_condition,
+                    view_definitions=view_definitions,
+                )
+
+    def _get_root_container_names(self) -> List[str]:
+        """Return allowed root container (source/space/home) names.
+
+        Reads only the top-level `/catalog` listing — not the recursive tree
+        walk done by `get_all_containers` — because partitioning only needs the
+        root name to scope each `TABLE_SCHEMA` predicate.
+        """
+        names: List[str] = []
+        response = self.get(url="/catalog")
+        for source in response.get("data", []):
+            if source.get("containerType") not in (
+                DremioEntityContainerType.SOURCE.value,
+                DremioEntityContainerType.SPACE.value,
+                DremioEntityContainerType.HOME.value,
+            ):
+                continue
+            name = (
+                source.get("path", [""])[0]
+                if source.get("path")
+                else source.get("name", "")
+            )
+            if name and self.filter.should_include_container([], name):
+                names.append(name)
+        return names
+
+    def _get_all_tables_partitioned_by_container(
+        self,
+        query_template: str,
+        schema_field: str,
+        schema_condition: str,
+        deny_schema_condition: str,
+        view_definitions: Mapping[str, Optional[str]],
+    ) -> Iterator[Dict]:
+        """Fallback fetch used when the catalog-wide query can't run: one root
+        container at a time, so Dremio's join and sort only cover a single container.
+        Each container is scoped by a pushable COLUMNS-scan filter plus the outer
+        schema filter.
+        """
+        container_names = self._get_root_container_names()
+        if not container_names:
+            self.report.failure(
+                message="Catalog-wide dataset query failed and no root containers "
+                "resolved to retry per container; tables/views may be missing.",
+                context="dataset_fetch_fallback",
+            )
+            return
+
+        logger.info(
+            f"Retrying dataset fetch across {len(container_names)} root container(s)."
         )
+        for container_name in container_names:
+            container_condition = DremioSQLQueries.container_schema_condition(
+                container_name, schema_field
+            )
+            combined_condition = f"{schema_condition} {container_condition}".strip()
+            columns_schema_filter = DremioSQLQueries.container_columns_filter(
+                container_name
+            )
+
+            logger.info(f"Fetching datasets for container '{container_name}'.")
+            yield from self._get_all_tables_global_chunked(
+                query_template,
+                combined_condition,
+                deny_schema_condition,
+                view_definitions=view_definitions,
+                columns_schema_filter=columns_schema_filter,
+            )
 
     def _get_all_tables_global_chunked(
         self,
         query_template: str,
         schema_condition: str,
         deny_schema_condition: str,
+        view_definitions: Mapping[str, Optional[str]],
+        columns_schema_filter: str = "",
+        signal_first_chunk_failure: bool = False,
     ) -> Iterator[Dict]:
         """Yield tables from the global dataset query in LIMIT/OFFSET chunks.
 
@@ -788,6 +935,12 @@ class DremioAPIOperations:
         in-flight table across chunks and flushes on path change — the
         final table is flushed after the loop. Community uses
         `community_get_formatted_tables`, which is per-chunk complete.
+
+        `columns_schema_filter` is injected into the INFORMATION_SCHEMA.COLUMNS
+        scan when fetching per container; empty for the catalog-wide fetch.
+
+        When `signal_first_chunk_failure` is set, a first-chunk failure raises
+        `_CatalogWideQueryFailed` so the caller can fall back to per-container fetching.
         """
         chunk_size = self._chunk_size
         offset = 0
@@ -806,7 +959,7 @@ class DremioAPIOperations:
                 "TABLE_NAME": info.get("TABLE_NAME"),
                 "TABLE_SCHEMA": info.get("TABLE_SCHEMA"),
                 "COLUMNS": columns,
-                "VIEW_DEFINITION": info.get("VIEW_DEFINITION"),
+                "VIEW_DEFINITION": view_definitions.get(path),
                 "RESOURCE_ID": info.get("RESOURCE_ID"),
                 "LOCATION_ID": info.get("LOCATION_ID"),
                 "OWNER": info.get("OWNER"),
@@ -820,10 +973,11 @@ class DremioAPIOperations:
             formatted_query = query_template.format(
                 schema_pattern=schema_condition,
                 deny_schema_pattern=deny_schema_condition,
+                columns_schema_filter=columns_schema_filter,
                 limit_clause=limit_clause,
             )
 
-            logger.info(
+            logger.debug(
                 f"Fetching global dataset chunk (offset: {offset}, limit: {chunk_size})"
             )
 
@@ -835,7 +989,9 @@ class DremioAPIOperations:
                     break
 
                 if self.edition == DremioEdition.COMMUNITY:
-                    for table in self.community_get_formatted_tables(chunk_results):
+                    for table in self.community_get_formatted_tables(
+                        chunk_results, view_definitions=view_definitions
+                    ):
                         yield table
                 else:
                     for record in chunk_results:
@@ -878,7 +1034,6 @@ class DremioAPIOperations:
                             table_metadata[table_full_path] = {
                                 "TABLE_NAME": record.get("TABLE_NAME"),
                                 "TABLE_SCHEMA": record.get("TABLE_SCHEMA"),
-                                "VIEW_DEFINITION": record.get("VIEW_DEFINITION"),
                                 "RESOURCE_ID": record.get("RESOURCE_ID"),
                                 "LOCATION_ID": record.get("LOCATION_ID"),
                                 "OWNER": record.get("OWNER"),
@@ -894,15 +1049,23 @@ class DremioAPIOperations:
 
                 offset += chunk_size
 
-            except DremioAPIException as e:
-                logger.error(f"Error in global dataset query at offset {offset}: {e}")
-                if "'rows'" in str(e):
-                    self.report.report_warning(
-                        f"Dremio crash detected during global dataset fetch "
-                        f"(KeyError: 'rows' - likely OOM). Current chunk_size: {chunk_size}. "
-                        f"Consider reducing chunk size if this persists.",
-                        context="global_dataset_fetch",
-                    )
+            except _QUERY_FETCH_ERRORS as e:
+                if offset == 0 and signal_first_chunk_failure:
+                    # Nothing emitted yet, so fall back instead of silently
+                    # returning no datasets (the original bug).
+                    raise _CatalogWideQueryFailed(str(e)) from e
+                # A later chunk (or a per-container fetch) failed: rows past this
+                # offset are dropped, so fail loudly rather than truncating quietly.
+                oom_hint = (
+                    " KeyError 'rows' suggests a Dremio OOM; try a smaller chunk size."
+                    if "'rows'" in str(e)
+                    else ""
+                )
+                self.report.failure(
+                    message="Dremio dataset fetch failed; some tables/views may be missing.",
+                    context=f"offset={offset}, chunk_size={chunk_size}.{oom_hint}",
+                    exc=e,
+                )
                 break
 
         # Final flush for the EE/Cloud path (Community already emitted).
