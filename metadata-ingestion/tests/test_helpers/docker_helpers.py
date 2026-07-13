@@ -40,13 +40,14 @@ def docker_compose_pull_with_retry(
         files = [compose_file_path]
     else:
         files = list(compose_file_path)
-    file_args = " ".join(f"-f {path}" for path in files)
-    pull_cmd = f"docker compose {file_args} pull"
+    pull_cmd = ["docker", "compose"]
+    for path in files:
+        pull_cmd.extend(["-f", str(path)])
+    pull_cmd.append("pull")
 
     for attempt in range(1, max_attempts + 1):
         result = subprocess.run(
             pull_cmd,
-            shell=True,
             capture_output=True,
             text=True,
         )

@@ -499,6 +499,7 @@ def test_threading_speedup(tmp_path):
             )
             t0 = time.perf_counter()
             pipeline.run()
+            pipeline.raise_from_status()
             elapsed = time.perf_counter() - t0
         return sessions, elapsed
 

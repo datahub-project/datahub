@@ -23,6 +23,7 @@ from tests.integration.airbyte.airbyte_test_setup import (  # type: ignore[impor
     wait_for_airbyte_ready,
 )
 from tests.test_helpers.click_helpers import run_datahub_cmd
+from tests.test_helpers.docker_helpers import docker_compose_pull_with_retry
 
 pytestmark = pytest.mark.integration_batch_5
 
@@ -38,6 +39,10 @@ def test_resources_dir(pytestconfig: Any) -> Path:
 def test_databases(
     test_resources_dir: Path, docker_compose_runner: Any
 ) -> Generator[Any, None, None]:
+    # Pre-pull with retry to absorb transient Docker Hub rate-limit / TLS
+    # handshake timeouts that otherwise abort the whole module before `up`
+    # even gets a chance.
+    docker_compose_pull_with_retry(test_resources_dir / "docker-compose.yml")
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "airbyte-test-dbs"
     ) as docker_services:
