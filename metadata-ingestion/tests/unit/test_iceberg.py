@@ -2300,7 +2300,8 @@ class TestRestCatalogConnectionConfig:
             }
         )
         mock_catalog = MagicMock()
-        mock_catalog.__class__ = RestCatalog
+        # Make isinstance(catalog, RestCatalog) checks pass for the mock.
+        mock_catalog.__class__ = RestCatalog  # type: ignore[assignment]
         with patch(
             "datahub.ingestion.source.iceberg.iceberg_common.load_catalog",
             return_value=mock_catalog,
