@@ -4,11 +4,12 @@ on:
   push:
     branches:
       - master
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
-      - ".github/**"
-      - "!.github/workflows/publish-datahub-jars.yml"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/publish-datahub-jars.yml"
   release:
     types: [published]
 

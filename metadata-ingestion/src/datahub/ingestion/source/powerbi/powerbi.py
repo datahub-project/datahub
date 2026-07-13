@@ -204,10 +204,13 @@ class Mapper:
 
             upstreams = [
                 builder.make_schema_field_urn(
+                    # convert_lineage_urns_to_lowercase lowercases only the dataset
+                    # portion of the upstream schemaField URN — matching sources'
+                    # lowercase_dataset_urns, which never touches the field path.
+                    # Lowercasing the column too would drop the column-level edge
+                    # against warehouses that store columns in their original casing.
                     self.lineage_urn_to_lowercase(column_ref.table),
-                    column_ref.column.lower()
-                    if self.__config.convert_lineage_urns_to_lowercase
-                    else column_ref.column,
+                    column_ref.column,
                 )
                 for column_ref in cll_info.upstreams
                 if column_ref.column

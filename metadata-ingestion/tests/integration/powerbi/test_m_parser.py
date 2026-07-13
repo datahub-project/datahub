@@ -8,6 +8,7 @@ import pytest
 
 import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.source.powerbi.config import (
@@ -24,6 +25,13 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import NativeQueryLineage
+from datahub.ingestion.source.powerbi.powerbi import Mapper
+from datahub.metadata.schema_classes import NumberTypeClass
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -1728,3 +1736,88 @@ def test_native_query_mssql_and_postgres_supported():
     assert NativeQueryLineage.is_native_parsing_supported("Sql.Database")
     assert NativeQueryLineage.is_native_parsing_supported("PostgreSQL.Database")
     assert not NativeQueryLineage.is_native_parsing_supported("Excel.Workbook")
+
+
+def test_cll_upstream_column_casing_preserved_when_lowercasing_lineage():
+    """convert_lineage_urns_to_lowercase must lowercase the dataset portion of an
+    upstream schemaField URN but preserve the column/field path.
+
+    Sources lowercase dataset URNs via lowercase_dataset_urns, which deliberately
+    leaves schemaField field paths untouched. PowerBI additionally lowercasing the
+    column name produces a schemaField URN that no longer matches the warehouse's
+    field, dropping the column-level edge for any warehouse that stores columns in
+    non-lowercase casing.
+    """
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "convert_lineage_urns_to_lowercase": True,
+            "extract_column_level_lineage": True,
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "extract_lineage": True,
+            "extract_dataset_schema": True,
+        }
+    )
+
+    mapper = Mapper(
+        ctx=ctx,
+        config=config,
+        reporter=PowerBiDashboardSourceReport(),
+        dataplatform_instance_resolver=platform_instance_resolver,
+    )
+
+    upstream_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,My_Catalog.My_Schema.Rep_Table,PROD)"
+    lineage = Lineage(
+        upstreams=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=None, column="pbi_col"),
+                upstreams=[ColumnRef(table=upstream_dataset_urn, column="CustomerId")],
+            )
+        ],
+    )
+
+    downstream_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,pbi.dataset,PROD)"
+    fine_grained = mapper.make_fine_grained_lineage_class(lineage, downstream_urn)
+
+    assert len(fine_grained) == 1
+    # Dataset portion lowercased, column/field path preserved.
+    assert fine_grained[0].upstreams == [
+        make_schema_field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.rep_table,PROD)",
+            "CustomerId",
+        )
+    ]
+
+
+def test_direct_table_cll_preserves_upstream_column_casing():
+    """The direct-table 1:1 column lineage path must preserve the source column
+    casing so it can match the warehouse's schemaField URN."""
+    q: str = M_QUERIES[23]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[
+            powerbi_data_classes.Column(
+                name="CustomerId",
+                dataType="Int64",
+                isHidden=False,
+                datahubDataType=NumberTypeClass(),
+            )
+        ],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineage: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineage[0].column_lineage[0].upstreams[0].column == "CustomerId"

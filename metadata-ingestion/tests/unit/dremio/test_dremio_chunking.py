@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from datahub.ingestion.source.dremio.dremio_api import (
+    DREMIO_MAX_JOB_OUTPUT_ROWS,
     DremioAPIException,
     DremioAPIOperations,
     DremioEdition,
@@ -12,6 +13,57 @@ from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.file_backed_collections import FileBackedDict
+
+
+def _make_api_with_batch_size(monkeypatch, batch_size):
+    mock_session = Mock()
+    monkeypatch.setattr("requests.Session", Mock(return_value=mock_session))
+    mock_session.post.return_value.json.return_value = {"token": "dummy-token"}
+    mock_session.post.return_value.status_code = 200
+
+    config = DremioSourceConfig(
+        hostname="dummy-host",
+        port=9047,
+        tls=False,
+        authentication_method="password",
+        username="dummy-user",
+        password="dummy-password",
+        batch_size=batch_size,
+    )
+    report = Mock(spec=DremioSourceReport)
+    return DremioAPIOperations(config, report), report
+
+
+@pytest.mark.parametrize(
+    "configured,expected",
+    [
+        (10000, 10000),
+        (500, 500),
+        # 0 means "as much as possible" -> the safety ceiling.
+        (0, DREMIO_MAX_JOB_OUTPUT_ROWS),
+        # Above the ceiling is clamped so short-page pagination stays correct.
+        (5_000_000, DREMIO_MAX_JOB_OUTPUT_ROWS),
+    ],
+)
+def test_batch_size_resolves_to_chunk_size(monkeypatch, configured, expected):
+    api, _ = _make_api_with_batch_size(monkeypatch, configured)
+    assert api._chunk_size == expected
+
+
+def test_batch_size_over_ceiling_warns(monkeypatch):
+    api, report = _make_api_with_batch_size(monkeypatch, DREMIO_MAX_JOB_OUTPUT_ROWS + 1)
+
+    assert api._chunk_size == DREMIO_MAX_JOB_OUTPUT_ROWS
+    report.warning.assert_called_once()
+
+
+def test_batch_size_at_ceiling_does_not_warn(monkeypatch):
+    # The clamp warning uses `>` while the page-cap nudge uses `>=`; they
+    # intentionally differ. Exactly at the ceiling is a valid value, not a clamp.
+    api, report = _make_api_with_batch_size(monkeypatch, DREMIO_MAX_JOB_OUTPUT_ROWS)
+
+    assert api._chunk_size == DREMIO_MAX_JOB_OUTPUT_ROWS
+    report.warning.assert_not_called()
 
 
 class TestDremioChunking:
@@ -53,7 +105,7 @@ class TestDremioChunking:
 
         dremio_api.execute_query_iter.assert_called_once()
         query_arg = dremio_api.execute_query_iter.call_args[1]["query"]
-        assert "LIMIT 1000 OFFSET 0" in query_arg
+        assert "LIMIT 10000 OFFSET 0" in query_arg
 
     def test_get_queries_chunked_multiple_chunks(self, dremio_api):
         dremio_api._chunk_size = 1
@@ -79,6 +131,40 @@ class TestDremioChunking:
 
         # Three calls: two chunks of data, then an empty chunk that signals completion.
         assert dremio_api.execute_query_iter.call_count == 3
+
+    def test_get_queries_chunked_stops_on_short_nonempty_final_page(self, dremio_api):
+        # A final page shorter than chunk_size but non-empty must terminate the
+        # loop without an extra probing call, and without a truncation warning
+        # (the page is well under the job ceiling).
+        dremio_api._chunk_size = 2
+
+        full_page = [{"query_id": "q1"}, {"query_id": "q2"}]
+        short_page = [{"query_id": "q3"}]
+
+        dremio_api.execute_query_iter = Mock(
+            side_effect=[iter(full_page), iter(short_page)]
+        )
+
+        queries = list(
+            dremio_api._get_queries_chunked("SELECT * FROM jobs {limit_clause}")
+        )
+
+        assert [q["query_id"] for q in queries] == ["q1", "q2", "q3"]
+        assert dremio_api.execute_query_iter.call_count == 2
+        dremio_api.report.warning.assert_not_called()
+
+    def test_warn_if_page_at_job_cap_fires_once(self, dremio_api):
+        # A page filled to the ceiling is indistinguishable from a truncated one,
+        # so warn — but only once per run, no matter how many pages hit it.
+        dremio_api._warn_if_page_at_job_cap(DREMIO_MAX_JOB_OUTPUT_ROWS)
+        dremio_api._warn_if_page_at_job_cap(DREMIO_MAX_JOB_OUTPUT_ROWS)
+
+        dremio_api.report.warning.assert_called_once()
+
+    def test_warn_if_page_at_job_cap_silent_below_ceiling(self, dremio_api):
+        dremio_api._warn_if_page_at_job_cap(DREMIO_MAX_JOB_OUTPUT_ROWS - 1)
+
+        dremio_api.report.warning.assert_not_called()
 
     def test_get_queries_chunked_keyerror_rows(self, dremio_api):
         # KeyError: 'rows' is the symptom of a Dremio OOM crash mid-iteration.
@@ -182,7 +268,7 @@ class TestDremioChunking:
         assert tables[0]["TABLE_NAME"] == "table1"
 
         query_arg = dremio_api.execute_query_iter.call_args[1]["query"]
-        assert "LIMIT 1000 OFFSET 0" in query_arg
+        assert "LIMIT 10000 OFFSET 0" in query_arg
         # Global queries must not contain a LOCATE container filter.
         assert "LOCATE" not in query_arg
 
