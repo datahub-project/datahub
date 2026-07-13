@@ -1,3 +1,4 @@
+import pathlib
 from unittest.mock import MagicMock
 
 import pytest
@@ -531,3 +532,410 @@ class TestTableNameParts:
         assert table_with_parts == table_without_parts, "Equality ignores parts field"
         assert table_with_parts.parts == ("source", "schema", "table")
         assert table_without_parts.parts is None
+
+
+# ---------------------------------------------------------------------------
+# Snapshot / read-only SchemaResolver tests
+# ---------------------------------------------------------------------------
+
+
+def _make_writable_resolver(tmp_path: pathlib.Path) -> SchemaResolver:
+    """Build a file-backed writable SchemaResolver with two known schemas."""
+    cache_file = tmp_path / "schema_cache.db"
+    resolver = SchemaResolver(
+        platform="snowflake",
+        platform_instance="prod",
+        env="PROD",
+        graph=None,
+        _cache_filename=cache_file,
+    )
+    resolver.add_raw_schema_info(
+        urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.orders,PROD)",
+        schema_info={"order_id": "int", "amount": "float"},
+    )
+    resolver.add_raw_schema_info(
+        urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.customers,PROD)",
+        schema_info={"customer_id": "int", "name": "varchar"},
+    )
+    return resolver
+
+
+class TestSnapshotRoundTrip:
+    def test_snapshot_to_creates_file(self, tmp_path: pathlib.Path) -> None:
+        resolver = _make_writable_resolver(tmp_path)
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        assert snap.exists()
+        assert snap.stat().st_size > 0
+
+    def test_load_readonly_returns_same_schemas(self, tmp_path: pathlib.Path) -> None:
+        """load_readonly must return identical schema info for tables added to the original."""
+        resolver = _make_writable_resolver(tmp_path)
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        ro = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        try:
+            urn, info = ro.resolve_table(
+                _TableName(database="db", db_schema="schema", table="orders")
+            )
+            assert info is not None
+            assert info["order_id"] == "int"
+            assert info["amount"] == "float"
+
+            urn2, info2 = ro.resolve_table(
+                _TableName(database="db", db_schema="schema", table="customers")
+            )
+            assert info2 is not None
+            assert info2["customer_id"] == "int"
+            assert info2["name"] == "varchar"
+        finally:
+            ro.close()
+
+    def test_load_readonly_unknown_table_returns_none(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Resolving an unknown table via a read-only resolver returns (urn, None)."""
+        resolver = _make_writable_resolver(tmp_path)
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        ro = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        try:
+            urn, info = ro.resolve_table(
+                _TableName(database="db", db_schema="schema", table="nonexistent")
+            )
+            assert urn is not None  # URN is always synthesized
+            assert info is None
+        finally:
+            ro.close()
+
+    def test_load_readonly_has_no_graph(self, tmp_path: pathlib.Path) -> None:
+        """The read-only resolver must not make graph calls (graph=None)."""
+        resolver = _make_writable_resolver(tmp_path)
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        ro = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        try:
+            assert ro.graph is None
+        finally:
+            ro.close()
+
+    def test_snapshot_flushes_in_memory_cache(self, tmp_path: pathlib.Path) -> None:
+        """snapshot_to must persist entries that are still in the in-memory LRU cache."""
+        cache_file = tmp_path / "schema_cache.db"
+        resolver = SchemaResolver(
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=None,
+            _cache_filename=cache_file,
+        )
+        # Add an entry — it may still be in the LRU cache, not yet written to SQLite.
+        resolver.add_raw_schema_info(
+            urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.s.t,PROD)",
+            schema_info={"col": "text"},
+        )
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        ro = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        try:
+            urn, info = ro.resolve_table(
+                _TableName(database="db", db_schema="s", table="t")
+            )
+            assert info is not None
+            assert info["col"] == "text"
+        finally:
+            ro.close()
+
+
+class TestForWorkerTwoTier:
+    """Two-tier worker resolver: reads schemas from the read-only snapshot but
+    can hold graph-hydrated results and None-miss dedup in a small writable overlay.
+
+    Regression guard: a worker with a graph attached must NOT silently drop
+    graph-hydrated lineage (the bug: writes were no-ops on the read-only snapshot).
+    """
+
+    def _make_snapshot_with_table_a(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        """Snapshot containing only table A (orders)."""
+        cache_file = tmp_path / "schema_cache.db"
+        writable = SchemaResolver(
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=None,
+            _cache_filename=cache_file,
+        )
+        writable.add_raw_schema_info(
+            urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.orders,PROD)",
+            schema_info={"order_id": "int", "amount": "float"},
+        )
+        snap = tmp_path / "snapshot.db"
+        writable.snapshot_to(snap)
+        writable.close()
+        return snap
+
+    def _graph_returning_table_b(self):
+        """Mock graph whose get_entities returns a real SchemaMetadataClass for
+        table B (customers) only — table A is not in the graph."""
+        urn_b = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.customers,PROD)"
+        graph = MagicMock(spec=DataHubGraph)
+
+        def get_entities(entity_name, urns, aspects, with_system_metadata):
+            result: dict = {}
+            if urn_b in urns:
+                result[urn_b] = {
+                    "schemaMetadata": (
+                        create_mock_schema(
+                            [("customer_id", "int"), ("name", "varchar")]
+                        ),
+                        {},
+                    )
+                }
+            return result
+
+        graph.get_entities.side_effect = get_entities
+        return graph
+
+    def test_snapshot_hit_and_graph_hydration_parity(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Table A resolves from the snapshot (no graph call needed); table B
+        resolves via graph hydration (NOT None). Proves no lineage loss."""
+        snap = self._make_snapshot_with_table_a(tmp_path)
+        graph = self._graph_returning_table_b()
+
+        worker = SchemaResolver.for_worker(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=graph,
+        )
+        try:
+            _, info_a = worker.resolve_table(
+                _TableName(database="db", db_schema="schema", table="orders")
+            )
+            assert info_a is not None
+            assert info_a["order_id"] == "int"
+
+            _, info_b = worker.resolve_table(
+                _TableName(database="db", db_schema="schema", table="customers")
+            )
+            assert info_b is not None, "graph-hydrated schema was silently dropped"
+            assert info_b["customer_id"] == "int"
+        finally:
+            worker.close()
+
+    def test_graph_fetch_deduped_via_overlay(self, tmp_path: pathlib.Path) -> None:
+        """Resolving table B twice fetches from the graph only once; the second
+        call is served from the writable overlay."""
+        snap = self._make_snapshot_with_table_a(tmp_path)
+        graph = self._graph_returning_table_b()
+
+        worker = SchemaResolver.for_worker(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=graph,
+        )
+        try:
+            table_b = _TableName(database="db", db_schema="schema", table="customers")
+            _, info1 = worker.resolve_table(table_b)
+            assert info1 is not None
+            first_count = graph.get_entities.call_count
+
+            _, info2 = worker.resolve_table(table_b)
+            assert info2 == info1
+            assert graph.get_entities.call_count == first_count
+        finally:
+            worker.close()
+
+    def test_none_miss_deduped_via_overlay(self, tmp_path: pathlib.Path) -> None:
+        """Table C (in neither snapshot nor graph) returns None and is not re-fetched."""
+        snap = self._make_snapshot_with_table_a(tmp_path)
+        graph = self._graph_returning_table_b()
+
+        worker = SchemaResolver.for_worker(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=graph,
+        )
+        try:
+            table_c = _TableName(database="db", db_schema="schema", table="ghost")
+            _, info1 = worker.resolve_table(table_c)
+            assert info1 is None
+            first_count = graph.get_entities.call_count
+
+            _, info2 = worker.resolve_table(table_c)
+            assert info2 is None
+            assert graph.get_entities.call_count == first_count
+        finally:
+            worker.close()
+
+    def test_for_worker_no_graph_close_after_miss_does_not_raise(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """for_worker without a graph: snapshot reads work and close after a miss
+        does not raise (primary overlay is writable in-memory)."""
+        snap = self._make_snapshot_with_table_a(tmp_path)
+        worker = SchemaResolver.for_worker(
+            snap, platform="snowflake", platform_instance="prod", env="PROD", graph=None
+        )
+        _, info_a = worker.resolve_table(
+            _TableName(database="db", db_schema="schema", table="orders")
+        )
+        assert info_a is not None
+        _, info_miss = worker.resolve_table(
+            _TableName(database="db", db_schema="schema", table="nope")
+        )
+        assert info_miss is None
+        worker.close()
+
+
+class TestConcurrentReadonlyResolvers:
+    def test_two_resolvers_same_snapshot(self, tmp_path: pathlib.Path) -> None:
+        """Two independent read-only resolvers on the same snapshot file work without locking errors."""
+        resolver = _make_writable_resolver(tmp_path)
+        snap = tmp_path / "snapshot.db"
+        resolver.snapshot_to(snap)
+        resolver.close()
+
+        ro1 = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        ro2 = SchemaResolver.load_readonly(
+            snap,
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+        )
+        try:
+            # Both open simultaneously — no locking error expected with immutable=1.
+            urn1, info1 = ro1.resolve_table(
+                _TableName(database="db", db_schema="schema", table="orders")
+            )
+            urn2, info2 = ro2.resolve_table(
+                _TableName(database="db", db_schema="schema", table="customers")
+            )
+            assert info1 is not None
+            assert info2 is not None
+
+            # Cross-check: each resolver can see both tables.
+            _, orders_from_ro2 = ro2.resolve_table(
+                _TableName(database="db", db_schema="schema", table="orders")
+            )
+            _, customers_from_ro1 = ro1.resolve_table(
+                _TableName(database="db", db_schema="schema", table="customers")
+            )
+            assert orders_from_ro2 is not None
+            assert customers_from_ro1 is not None
+        finally:
+            ro1.close()
+            ro2.close()
+
+
+class TestReadOnlyResolverNoWriteOnClose:
+    """Regression test: read-only resolver must not write to SQLite at close/GC time.
+
+    H1 fix verification: FileBackedDict.close() must skip flush() for read-only
+    connections, and _save_to_cache must be a no-op for read-only resolvers so
+    cache-miss paths never dirty the in-memory cache.
+    """
+
+    def test_readonly_resolver_close_after_cache_miss_does_not_raise(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Build a writable resolver, snapshot it, open read-only, trigger a miss,
+        then close — no sqlite3.OperationalError should be raised."""
+        snapshot_path = tmp_path / "schema_cache.db"
+
+        # Build a writable resolver and populate it.
+        writable = SchemaResolver(platform="snowflake", env="PROD", graph=None)
+        writable.add_raw_schema_info(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.known_table,PROD)",
+            {"col_a": "STRING"},
+        )
+        writable.snapshot_to(snapshot_path)
+        writable.close()
+
+        # Open read-only.
+        ro = SchemaResolver.load_readonly(
+            snapshot_path, platform="snowflake", env="PROD"
+        )
+
+        # Trigger a miss on resolve_table (unknown table) — this path calls
+        # _save_to_cache(urn, None) on the writable resolver but must be a no-op here.
+        _, info_table = ro.resolve_table(
+            _TableName(database="db", db_schema="schema", table="unknown_table")
+        )
+        assert info_table is None
+
+        # Trigger a miss on resolve_urn (also calls _resolve_schema_info).
+        _, info_urn = ro.resolve_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.also_missing,PROD)"
+        )
+        assert info_urn is None
+
+        # close() must NOT raise even though misses may have dirtied the in-memory cache
+        # on the old code path.
+        ro.close()  # This was the crash site before the fix.
+
+    def test_readonly_resolver_del_does_not_raise(self, tmp_path: pathlib.Path) -> None:
+        """Simulates GC path: explicitly calling close() after __del__ chain."""
+        snapshot_path = tmp_path / "schema_cache2.db"
+
+        writable = SchemaResolver(platform="redshift", env="PROD", graph=None)
+        writable.add_raw_schema_info(
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,mydb.public.events,PROD)",
+            {"id": "INT"},
+        )
+        writable.snapshot_to(snapshot_path)
+        writable.close()
+
+        ro = SchemaResolver.load_readonly(
+            snapshot_path, platform="redshift", env="PROD"
+        )
+
+        # Miss path — used to dirty the cache, causing flush() → write → error at close.
+        ro.resolve_table(_TableName(database="mydb", db_schema="public", table="ghost"))
+
+        # Simulate what __del__ → close() does at GC time.
+        ro.close()
+        # Calling close() twice must also be safe (idempotent).
+        ro.close()

@@ -6,13 +6,28 @@ import json
 import logging
 import pathlib
 import tempfile
+import threading
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
+from typing import (
+    Callable,
+    ContextManager,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Union,
+    cast,
+)
+
+from pydantic import Field, model_validator
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
+from datahub.configuration import ConfigModel
 from datahub.configuration.env_vars import (
     get_report_info_sample_size,
     get_sql_agg_query_log,
@@ -36,6 +51,11 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.sql_parsing.fingerprint_utils import generate_hash
+from datahub.sql_parsing.parallel_sql_parser import (
+    ParallelParserUnavailable,
+    ParallelSqlParser,
+    ParseTask,
+)
 from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
@@ -74,6 +94,7 @@ from datahub.utilities.file_backed_collections import (
 from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.ordered_set import OrderedSet
+from datahub.utilities.partition_executor import PartitionExecutor
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -94,6 +115,45 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 ]
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
+
+
+class SqlParsingParallelismConfig(ConfigModel):
+    """Mixin that adds parallel SQL-parsing fields to any connector config.
+
+    Inherit from (or embed in) a connector's config class to expose these two
+    fields to users.  Pass them straight through to ``SqlParsingAggregator``.
+    """
+
+    use_parallel_sql_parsing: bool = Field(
+        default=False,
+        description=(
+            "Parse SQL queries across multiple processes to speed up lineage/usage "
+            "extraction. Off by default. When enabled, sql_parsing_workers MUST be "
+            "set explicitly — auto-detection is not available."
+        ),
+    )
+    sql_parsing_workers: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=512,
+        description=(
+            "Number of worker processes for parallel SQL parsing. "
+            "Required when use_parallel_sql_parsing is enabled; "
+            "ignored (and may be None) when parallel parsing is disabled. "
+            "Capped at 512 to prevent accidental process-pool oversubscription."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _require_workers_when_parallel_enabled(self) -> "SqlParsingParallelismConfig":
+        if self.use_parallel_sql_parsing and self.sql_parsing_workers is None:
+            raise ValueError(
+                "sql_parsing_workers must be set (>=1) when use_parallel_sql_parsing "
+                "is enabled. Auto-detection via os.cpu_count() is unsafe on "
+                "virtualized/containerized hosts where the reported CPU count reflects "
+                "the underlying node rather than the cgroup limit."
+            )
+        return self
 
 
 @dataclasses.dataclass
@@ -330,7 +390,23 @@ class SqlAggregatorReport(Report):
     sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_parsing_cache_stats: Optional[dict] = dataclasses.field(default=None)
     parse_statement_cache_stats: Optional[dict] = dataclasses.field(default=None)
+    # Main-process only: on the parallel path formatting runs in workers, so
+    # this cache reflects near-zero hits when parallel parsing is active.
     format_query_cache_stats: Optional[dict] = dataclasses.field(default=None)
+
+    # Preparsed queries.
+    num_preparsed_queries_failed: int = 0
+    preparsed_query_parse_failures: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
+
+    # Parallel SQL parsing (multiprocessing). Off unless use_parallel_sql_parsing.
+    sql_parsing_parallel_enabled: bool = False
+    sql_parsing_parallelism: Optional[int] = None
+    sql_parsing_fell_back_to_serial: bool = False
+    sql_parsing_fell_back_to_serial_reason: Optional[str] = None
+    num_queries_parsed_in_parallel: int = 0
+    sql_parsing_pool_broke: bool = False
 
     # Other lineage loading metrics.
     num_known_query_lineage: int = 0
@@ -418,10 +494,13 @@ class SqlParsingAggregator(Closeable):
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
         query_log: QueryLogSetting = _DEFAULT_QUERY_LOG_SETTING,
+        use_parallel_sql_parsing: bool = False,
+        sql_parsing_workers: Optional[int] = None,
     ) -> None:
         self.platform = DataPlatformUrn(platform)
         self.platform_instance = platform_instance
         self.env = env
+        self._graph = graph
 
         self.generate_lineage = generate_lineage
         self.generate_queries = generate_queries
@@ -601,11 +680,130 @@ class SqlParsingAggregator(Closeable):
         self._tool_meta_extractor = ToolMetaExtractor.create(graph)
         self.report.tool_meta_report = self._tool_meta_extractor.report
 
+        # Parallel SQL parsing. The process pool and thread-based partition
+        # executor are NOT built here — they are created lazily on entering
+        # parallel_sql_parsing_scope(). When disabled, everything runs inline
+        # exactly as before.
+        self._use_parallel_sql_parsing = use_parallel_sql_parsing
+        self._workers: Optional[int] = None
+        if use_parallel_sql_parsing:
+            # Config validation guarantees sql_parsing_workers is set whenever
+            # parallel parsing is enabled (see SqlParsingParallelismConfig).
+            assert sql_parsing_workers is not None
+            self._workers = sql_parsing_workers
+            logger.info(
+                "Parallel SQL parsing requested with %d worker(s).", self._workers
+            )
+        self._parallel_parser: Optional[ParallelSqlParser] = None
+        self._partition_executor: Optional[PartitionExecutor] = None
+        self._parallel_active: bool = False
+        # Serializes the cheap classify/apply steps that mutate shared aggregator
+        # state (temp maps, query map, lineage map) while cross-session parse work
+        # runs concurrently on worker processes.
+        self._apply_lock = threading.Lock()
+
+    def _maybe_apply_lock(self) -> ContextManager[object]:
+        """Return the apply-lock when parallel parsing is active, else a no-op.
+
+        On the parallel path every side effect on shared aggregator state
+        (report counters, the query log, shared ``PerfTimer``s) must be
+        serialized because tasks run on concurrent PartitionExecutor threads.
+        On the serial path there is only one thread, so acquiring a lock would
+        be pure overhead and could subtly change behavior — return a
+        ``nullcontext`` so the serial path is byte-for-byte unchanged.
+        """
+        if self._parallel_active:
+            return self._apply_lock
+        return contextlib.nullcontext()
+
+    @contextlib.contextmanager
+    def parallel_sql_parsing_scope(self) -> Iterator[None]:
+        """Explicit query-processing boundary for parallel SQL parsing.
+
+        Connectors wrap their query loop in ``with aggregator.parallel_sql_parsing_scope():``.
+        Schema extraction must happen BEFORE entering so the snapshot handed to the
+        workers is complete; anything still missing is graph-hydrated in-worker.
+
+        When the feature is off this is a no-op and every query runs inline exactly
+        as it does today.
+        """
+        workers = self._workers
+        if not self._use_parallel_sql_parsing or workers is None:
+            yield
+            return
+
+        with tempfile.TemporaryDirectory() as _tmp_dir:
+            snapshot_path = pathlib.Path(_tmp_dir) / "schema_snapshot.db"
+            self._schema_resolver.snapshot_to(snapshot_path)
+
+            try:
+                self._parallel_parser = ParallelSqlParser(
+                    num_workers=workers,
+                    snapshot_path=snapshot_path,
+                    platform=self.platform.platform_name,
+                    platform_instance=self.platform_instance,
+                    env=self.env,
+                    graph_config=(self._graph.config if self._graph else None),
+                    format_queries=self.format_queries,
+                )
+            except ParallelParserUnavailable as e:
+                logger.warning(
+                    "Parallel SQL parser unavailable (%s); running scope serially.", e
+                )
+                self._populate_parallel_report(workers=None, active=False)
+                self.report.sql_parsing_fell_back_to_serial_reason = str(e)
+                yield
+                return
+
+            # A few tasks per worker in flight bounds memory while keeping workers busy.
+            self._partition_executor = PartitionExecutor(
+                max_workers=workers,
+                max_pending=4 * workers,
+            )
+            self._parallel_active = True
+            self._populate_parallel_report(workers=workers, active=True)
+
+            try:
+                yield
+            finally:
+                self._teardown_parallel()
+
+    def _populate_parallel_report(
+        self, *, workers: Optional[int], active: bool
+    ) -> None:
+        self.report.sql_parsing_parallel_enabled = active
+        self.report.sql_parsing_parallelism = workers if active else None
+        self.report.sql_parsing_fell_back_to_serial = (
+            not active and self._use_parallel_sql_parsing
+        )
+
     def close(self) -> None:
+        # Defensively tear down the parallel machinery in case a connector never
+        # exited the scope (or bypassed it). Never leak worker processes.
+        self._teardown_parallel()
+
         # Compute stats once before closing connections
         self.report.compute_stats()
         self._closed = True
         self._exit_stack.close()
+
+    def _teardown_parallel(self) -> None:
+        if self._partition_executor is not None:
+            try:
+                self._partition_executor.flush()
+                self._partition_executor.close()
+            finally:
+                self._partition_executor = None
+        if self._parallel_parser is not None:
+            if self._parallel_parser.pool_broke.is_set():
+                self.report.sql_parsing_pool_broke = True
+                logger.warning(
+                    "Parallel SQL parser worker pool died; some queries "
+                    "may have been skipped."
+                )
+            self._parallel_parser.close()
+            self._parallel_parser = None
+        self._parallel_active = False
 
     @property
     def _need_schemas(self) -> bool:
@@ -693,14 +891,39 @@ class SqlParsingAggregator(Closeable):
         """
         This assumes that queries come in order of increasing timestamps.
         """
+        if isinstance(item, (ObservedQuery, PreparsedQuery)):
+            # These flow through the per-session partition executor when parallel
+            # parsing is active; the routing lives in their own add_* methods.
+            if isinstance(item, PreparsedQuery):
+                self.add_preparsed_query(item)
+            else:
+                self.add_observed_query(item)
+            return
+
+        # Rarer items (renames, swaps, known lineage) mutate shared state and are
+        # infrequent in the query loop. To keep them correct relative to the
+        # in-flight parallel applies, drain all pending work first, then process
+        # inline under the apply lock so nothing races with them.
+        if self._parallel_active and self._partition_executor is not None:
+            self._partition_executor.flush()
+            with self._apply_lock:
+                self._add_rare_item(item)
+        else:
+            self._add_rare_item(item)
+
+    def _add_rare_item(
+        self,
+        item: Union[
+            KnownQueryLineageInfo,
+            KnownLineageMapping,
+            TableRename,
+            TableSwap,
+        ],
+    ) -> None:
         if isinstance(item, KnownQueryLineageInfo):
             self.add_known_query_lineage(item)
         elif isinstance(item, KnownLineageMapping):
             self.add_known_lineage_mapping(item.upstream_urn, item.downstream_urn)
-        elif isinstance(item, PreparsedQuery):
-            self.add_preparsed_query(item)
-        elif isinstance(item, ObservedQuery):
-            self.add_observed_query(item)
         elif isinstance(item, TableRename):
             self.add_table_rename(item)
         elif isinstance(item, TableSwap):
@@ -877,6 +1100,22 @@ class SqlParsingAggregator(Closeable):
         """
         self.report.num_observed_queries += 1
 
+        if self._parallel_active and self._partition_executor is not None:
+            # Route to the per-session partition executor. The task itself does
+            # classify -> parse -> apply on a worker thread. The PE guarantees at
+            # most one task per session runs at a time and submits the next
+            # same-session task only after this one's future completes, so a temp
+            # producer is always applied before its consumer is classified.
+            session_id = observed.session_id or _MISSING_SESSION_ID
+            self._partition_executor.submit(
+                session_id,
+                self._process_observed_task,
+                observed,
+                is_known_temp_table,
+                require_out_table_schema,
+            )
+            return
+
         # All queries with no session ID are assumed to be part of the same session.
         session_id = observed.session_id or _MISSING_SESSION_ID
 
@@ -910,6 +1149,25 @@ class SqlParsingAggregator(Closeable):
             if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
                 self.report.num_observed_queries_column_timeout += 1
 
+        self._apply_observed_parse_result(
+            observed,
+            session_id,
+            session_has_temp_tables,
+            parsed,
+            is_known_temp_table,
+            require_out_table_schema,
+        )
+
+    def _apply_observed_parse_result(
+        self,
+        observed: ObservedQuery,
+        session_id: str,
+        session_has_temp_tables: bool,
+        parsed: SqlParsingResult,
+        is_known_temp_table: bool,
+        require_out_table_schema: bool,
+        preformatted_query: Optional[str] = None,
+    ) -> None:
         query_fingerprint = observed.query_hash or parsed.query_fingerprint
 
         # Register the first output table (standard single-query behavior).
@@ -940,7 +1198,166 @@ class SqlParsingAggregator(Closeable):
             require_out_table_schema=require_out_table_schema,
             session_has_temp_tables=session_has_temp_tables,
             _is_internal=True,
+            preformatted_query=preformatted_query,
         )
+
+    def _process_observed_task(
+        self,
+        observed: ObservedQuery,
+        is_known_temp_table: bool,
+        require_out_table_schema: bool,
+    ) -> None:
+        """Runs on a PartitionExecutor thread: classify -> parse -> apply.
+
+        Failures are recorded to the report exactly as the serial path would; we
+        never let an exception vanish into the (unused) future.
+        """
+        session_id = observed.session_id or _MISSING_SESSION_ID
+        # On the parallel path the worker pre-formats the query; the inline
+        # temp-table branch below does not, so it stays None and the main thread
+        # formats as on the serial path.
+        preformatted_query: Optional[str] = None
+        try:
+            # Reading the session temp state touches shared maps, so hold the lock.
+            with self._apply_lock:
+                with self.report.make_schema_resolver_timer:
+                    schema_resolver: SchemaResolverInterface = (
+                        self._make_schema_resolver_for_session(session_id)
+                    )
+                    session_has_temp = schema_resolver.includes_temp_tables()
+
+            if session_has_temp:
+                # Temp resolvers hold in-memory temp schemas that cannot be
+                # shipped to a worker process, so parse inline on this thread.
+                parsed = self._run_sql_parser(
+                    observed.query,
+                    default_db=observed.default_db,
+                    default_schema=observed.default_schema,
+                    schema_resolver=schema_resolver,
+                    session_id=session_id,
+                    timestamp=observed.timestamp,
+                    user=observed.user,
+                    override_dialect=observed.override_dialect,
+                )
+            else:
+                assert self._parallel_parser is not None
+                outcome = self._parallel_parser.parse_one(
+                    ParseTask(
+                        key=None,
+                        query=observed.query,
+                        default_db=observed.default_db,
+                        default_schema=observed.default_schema,
+                        override_dialect=(
+                            str(observed.override_dialect)
+                            if observed.override_dialect is not None
+                            else None
+                        ),
+                    )
+                )
+                if outcome.failed:
+                    # Failure bookkeeping mutates shared report state (counter +
+                    # LossyList) from a worker thread, so serialize it.
+                    with self._apply_lock:
+                        self.report.num_observed_queries_failed += 1
+                        self.report.observed_query_parse_failures.append(
+                            f"{outcome.error} on query: {observed.query[:100]}"
+                        )
+                    return
+                # outcome.failed is False here, so result is guaranteed non-None;
+                # assert narrows the Optional for the type checker.
+                assert outcome.result is not None
+                parsed = outcome.result
+                preformatted_query = outcome.formatted_query
+                # _account_parsed_query takes the apply-lock internally.
+                self._account_parsed_query(
+                    observed.query,
+                    default_db=observed.default_db,
+                    default_schema=observed.default_schema,
+                    session_id=session_id,
+                    timestamp=observed.timestamp,
+                    user=observed.user,
+                    parsed=parsed,
+                )
+                with self._apply_lock:
+                    self.report.num_queries_parsed_in_parallel += 1
+
+            # Recording parse-quality counters mutates shared report state
+            # (counters + LossyList) from a worker thread, so serialize it.
+            with self._apply_lock:
+                if parsed.debug_info.error:
+                    self.report.observed_query_parse_failures.append(
+                        f"{parsed.debug_info.error} on query: {observed.query[:100]}"
+                    )
+                if parsed.debug_info.table_error:
+                    self.report.num_observed_queries_failed += 1
+                    return
+                elif parsed.debug_info.column_error:
+                    self.report.num_observed_queries_column_failed += 1
+                    if isinstance(
+                        parsed.debug_info.column_error, CooperativeTimeoutError
+                    ):
+                        self.report.num_observed_queries_column_timeout += 1
+
+            with self._apply_lock:
+                self._apply_observed_parse_result(
+                    observed,
+                    session_id,
+                    session_has_temp,
+                    parsed,
+                    is_known_temp_table,
+                    require_out_table_schema,
+                    preformatted_query=preformatted_query,
+                )
+        except Exception as e:
+            # Serialize the failure bookkeeping — this runs on a worker thread and
+            # mutates shared report state (counter + LossyList).
+            with self._apply_lock:
+                self.report.num_observed_queries_failed += 1
+                self.report.observed_query_parse_failures.append(
+                    f"{e!r} on query: {observed.query[:100]}"
+                )
+            logger.debug("Parallel observed-query task failed", exc_info=e)
+
+    def _account_parsed_query(
+        self,
+        query: str,
+        *,
+        default_db: Optional[str],
+        default_schema: Optional[str],
+        session_id: str,
+        timestamp: Optional[datetime],
+        user: Optional[Union[CorpUserUrn, CorpGroupUrn]],
+        parsed: SqlParsingResult,
+    ) -> None:
+        """Update the same report counters / query log that ``_run_sql_parser``
+        would, for a result produced by a worker process (which cannot mutate the
+        parent's report or query log). Keeps parallel and serial book-keeping
+        identical.
+
+        Runs on a PartitionExecutor thread on the parallel path, so both the
+        ``num_sql_parsed`` increment and the ``_logged_queries.append`` (neither
+        of which is thread-safe: the increment is a non-atomic read-modify-write
+        and ``FileBackedList.append`` mutates a shared length/cache and may write
+        to SQLite) are serialized under the apply-lock."""
+        with self._maybe_apply_lock():
+            self.report.num_sql_parsed += 1
+
+            if self.query_log == QueryLogSetting.STORE_ALL or (
+                self.query_log == QueryLogSetting.STORE_FAILED
+                and parsed.debug_info.error
+            ):
+                self._logged_queries.append(
+                    LoggedQuery(
+                        query=query,
+                        session_id=(
+                            session_id if session_id != _MISSING_SESSION_ID else None
+                        ),
+                        timestamp=timestamp,
+                        user=user.urn() if user else None,
+                        default_db=default_db,
+                        default_schema=default_schema,
+                    )
+                )
 
     def add_preparsed_query(
         self,
@@ -949,6 +1366,79 @@ class SqlParsingAggregator(Closeable):
         require_out_table_schema: bool = False,
         session_has_temp_tables: bool = True,
         _is_internal: bool = False,
+        _skip_parallel_routing: bool = False,
+        preformatted_query: Optional[str] = None,
+    ) -> None:
+        # preformatted_query is only valid on the internal observed-query apply
+        # path (_apply_observed_parse_result sets _is_internal=True). An external
+        # caller passing it has no effect on the serial path and its value would
+        # be silently dropped on the parallel-routing branch, so reject it eagerly.
+        if preformatted_query is not None and not _is_internal:
+            raise ValueError(
+                "preformatted_query is only valid on internal observed-query apply "
+                "(_is_internal=True). External callers must not pass it."
+            )
+        # When parallel parsing is active, an externally-added PreparsedQuery is
+        # routed through the partition executor keyed by session, so it stays
+        # FIFO-ordered relative to the observed queries in the same session. The
+        # internal call from _apply_observed_parse_result sets _is_internal (it
+        # already runs under the apply-lock inside a task), so it is never
+        # re-routed. Rare-item internal calls set _skip_parallel_routing.
+        if (
+            self._parallel_active
+            and self._partition_executor is not None
+            and not _is_internal
+            and not _skip_parallel_routing
+        ):
+            self._partition_executor.submit(
+                parsed.session_id or _MISSING_SESSION_ID,
+                self._process_preparsed_task,
+                parsed,
+                is_known_temp_table,
+                require_out_table_schema,
+            )
+            return
+
+        self._add_preparsed_query_impl(
+            parsed,
+            is_known_temp_table=is_known_temp_table,
+            require_out_table_schema=require_out_table_schema,
+            session_has_temp_tables=session_has_temp_tables,
+            _is_internal=_is_internal,
+            preformatted_query=preformatted_query,
+        )
+
+    def _process_preparsed_task(
+        self,
+        parsed: PreparsedQuery,
+        is_known_temp_table: bool,
+        require_out_table_schema: bool,
+    ) -> None:
+        try:
+            with self._apply_lock:
+                self._add_preparsed_query_impl(
+                    parsed,
+                    is_known_temp_table=is_known_temp_table,
+                    require_out_table_schema=require_out_table_schema,
+                    session_has_temp_tables=True,
+                    _is_internal=False,
+                )
+        except Exception as e:
+            with self._apply_lock:
+                self.report.num_preparsed_queries_failed += 1
+                self.report.preparsed_query_parse_failures.append(
+                    f"{e!r} on query: {parsed.query_text[:100]}"
+                )
+            logger.debug("Parallel preparsed-query task failed", exc_info=e)
+
+    def _add_preparsed_query_impl(
+        self,
+        parsed: PreparsedQuery,
+        is_known_temp_table: bool = False,
+        require_out_table_schema: bool = False,
+        session_has_temp_tables: bool = True,
+        _is_internal: bool = False,
+        preformatted_query: Optional[str] = None,
     ) -> None:
         # Adding tool specific metadata extraction here allows it
         # to work for both ObservedQuery and PreparsedQuery as
@@ -970,8 +1460,15 @@ class SqlParsingAggregator(Closeable):
                 platform=self.platform.platform_name,
             )
 
-        # Format the query.
-        formatted_query = self._maybe_format_query(parsed.query_text)
+        # Format the query. On the parallel path the worker already computed the
+        # formatted query (byte-identical to _maybe_format_query, using the same
+        # try_format_query helper), so reuse it and skip re-formatting on the main
+        # thread. When it is None (serial path, preparsed fast-path, views), format
+        # here as before.
+        if preformatted_query is not None:
+            formatted_query = preformatted_query
+        else:
+            formatted_query = self._maybe_format_query(parsed.query_text)
 
         # Register the query's usage.
         if not self._usage_aggregator:
@@ -1098,7 +1595,8 @@ class SqlParsingAggregator(Closeable):
                 ),
                 session_id=table_rename.session_id,
                 timestamp=table_rename.timestamp,
-            )
+            ),
+            _skip_parallel_routing=True,
         )
 
     def add_table_swap(self, table_swap: TableSwap) -> None:
@@ -1137,7 +1635,8 @@ class SqlParsingAggregator(Closeable):
                     ),
                     session_id=table_swap.session_id,
                     timestamp=table_swap.timestamp,
-                )
+                ),
+                _skip_parallel_routing=True,
             )
 
         if not self.is_temp_table(table_swap.urn1):
@@ -1153,7 +1652,8 @@ class SqlParsingAggregator(Closeable):
                     ),
                     session_id=table_swap.session_id,
                     timestamp=table_swap.timestamp,
-                )
+                ),
+                _skip_parallel_routing=True,
             )
 
     def _make_schema_resolver_for_session(
@@ -1242,29 +1742,40 @@ class SqlParsingAggregator(Closeable):
         user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
         override_dialect: Optional[DialectOrStr] = None,
     ) -> SqlParsingResult:
-        with self.report.sql_parsing_timer:
-            parsed = sqlglot_lineage(
-                query,
-                schema_resolver=schema_resolver,
-                default_db=default_db,
-                default_schema=default_schema,
-                override_dialect=override_dialect,
-            )
-        self.report.num_sql_parsed += 1
+        # On the parallel path this runs on a PartitionExecutor thread (the
+        # temp-session inline-parse case). The shared ``sql_parsing_timer`` is a
+        # non-reentrant ``PerfTimer`` and ``_logged_queries.append`` /
+        # ``num_sql_parsed`` are not thread-safe, so serialize the whole body
+        # under the apply-lock. Temp sessions are the minority and are inherently
+        # serial per session, so this adds no meaningful contention. On the serial
+        # path ``_maybe_apply_lock`` is a nullcontext, leaving behavior unchanged.
+        with self._maybe_apply_lock():
+            with self.report.sql_parsing_timer:
+                parsed = sqlglot_lineage(
+                    query,
+                    schema_resolver=schema_resolver,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                    override_dialect=override_dialect,
+                )
+            self.report.num_sql_parsed += 1
 
-        # Conditionally log the query.
-        if self.query_log == QueryLogSetting.STORE_ALL or (
-            self.query_log == QueryLogSetting.STORE_FAILED and parsed.debug_info.error
-        ):
-            query_log_entry = LoggedQuery(
-                query=query,
-                session_id=session_id if session_id != _MISSING_SESSION_ID else None,
-                timestamp=timestamp,
-                user=user.urn() if user else None,
-                default_db=default_db,
-                default_schema=default_schema,
-            )
-            self._logged_queries.append(query_log_entry)
+            # Conditionally log the query.
+            if self.query_log == QueryLogSetting.STORE_ALL or (
+                self.query_log == QueryLogSetting.STORE_FAILED
+                and parsed.debug_info.error
+            ):
+                query_log_entry = LoggedQuery(
+                    query=query,
+                    session_id=(
+                        session_id if session_id != _MISSING_SESSION_ID else None
+                    ),
+                    timestamp=timestamp,
+                    user=user.urn() if user else None,
+                    default_db=default_db,
+                    default_schema=default_schema,
+                )
+                self._logged_queries.append(query_log_entry)
 
         # Also add some extra logging.
         if parsed.debug_info.error:
@@ -1284,11 +1795,31 @@ class SqlParsingAggregator(Closeable):
         if query_fingerprint in self._query_map:
             current = self._query_map.for_mutation(query_fingerprint)
 
-            # This assumes that queries come in order of increasing timestamps,
-            # so the current query is more authoritative than the previous one.
             current.formatted_query_string = new.formatted_query_string
-            current.latest_timestamp = new.latest_timestamp or current.latest_timestamp
-            current.actor = new.actor or current.actor
+            # Determine which record owns the later timestamp *before* overwriting it,
+            # so actor/session_id track the same winner and are stable across merge orders.
+            _new_ts_wins = new.latest_timestamp is not None and (
+                current.latest_timestamp is None
+                or new.latest_timestamp > current.latest_timestamp
+            )
+            # Take the maximum timestamp so that merge order does not matter.
+            # In serial mode timestamps arrive in ascending order, so max() is
+            # equivalent to the previous last-writer-wins behaviour; in the
+            # parallel path sessions may be applied out of global-timestamp order,
+            # making max() necessary for serial-vs-parallel equivalence.
+            if new.latest_timestamp is None:
+                pass  # keep current
+            elif current.latest_timestamp is None:
+                current.latest_timestamp = new.latest_timestamp
+            else:
+                current.latest_timestamp = max(
+                    current.latest_timestamp, new.latest_timestamp
+                )
+            # Adopt actor from whichever record has the later timestamp so that actor
+            # is tied to the same winner as latest_timestamp and is stable across
+            # merge orders.
+            if _new_ts_wins:
+                current.actor = new.actor
 
             if current.used_temp_tables and not new.used_temp_tables:
                 # If we see the same query again, but in a different session,
@@ -1300,7 +1831,8 @@ class SqlParsingAggregator(Closeable):
                     query_fingerprint
                 )
                 return
-            current.session_id = new.session_id
+            if _new_ts_wins:
+                current.session_id = new.session_id
 
             if not merge_lineage:
                 # An invariant of the fingerprinting is that if two queries have the
@@ -1323,6 +1855,11 @@ class SqlParsingAggregator(Closeable):
             self._query_map[query_fingerprint] = new
 
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
+        # A connector may have forgotten to exit the parallel scope. Defensively
+        # drain and tear down so all queued applies land before we generate.
+        if self._parallel_active or self._partition_executor is not None:
+            self._teardown_parallel()
+
         queries_generated: Set[QueryId] = set()
 
         yield from self._gen_lineage_mcps(queries_generated)
