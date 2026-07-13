@@ -1,6 +1,8 @@
 /**
  * Utility functions for file handling in the editor
  */
+import i18next from 'i18next';
+
 import { FileUploadFailureType } from '@components/components/Editor/types';
 
 export const FILE_ATTRS = {
@@ -195,10 +197,13 @@ export const validateFile = (
 
     // Check file size
     if (file.size > maxSize) {
+        const sizeGb = (file.size / 1000 / 1000 / 1000).toFixed(2);
+        const maxGb = parseFloat((maxSize / 1000 / 1000 / 1000).toFixed(2));
         return {
             isValid: false,
+            /* untranslated-text -- console.error-only diagnostic string, never shown to the user */
             error: `File size (${(file.size / 1000 / 1000).toFixed(2)}MB) exceeds maximum allowed size (${(maxSize / 1000 / 1000).toFixed(2)}MB)`,
-            displayError: `Your file size (${(file.size / 1000 / 1000 / 1000).toFixed(2)}GB) exceeded the max ${parseFloat((maxSize / 1000 / 1000 / 1000).toFixed(2))}GB`,
+            displayError: i18next.t('alchemy:editor.upload.fileTooLarge', { sizeGb, maxGb }),
             failureType: FileUploadFailureType.FILE_SIZE,
         };
     }
@@ -206,10 +211,12 @@ export const validateFile = (
     // Check file type
     if (!isFileTypeSupported(fileType, allowedTypes)) {
         const extension = getExtensionFromFileName(file.name);
+        const extensionSuffix = extension ? `: ${extension.toLocaleUpperCase()}` : '';
         return {
             isValid: false,
+            /* untranslated-text -- console.error-only diagnostic string, never shown to the user */
             error: `File type "${fileType}" is not allowed. Supported types: ${allowedTypes.join(', ')}`,
-            displayError: `File type not supported${extension ? `: ${extension.toLocaleUpperCase()}` : ''}`,
+            displayError: i18next.t('alchemy:editor.upload.fileTypeNotSupported', { extensionSuffix }),
             failureType: FileUploadFailureType.FILE_TYPE,
         };
     }
