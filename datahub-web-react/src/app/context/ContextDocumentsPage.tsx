@@ -37,6 +37,7 @@ const ContentCard = styled.div`
  */
 export default function ContextDocumentsPage() {
     const { t } = useTranslation('misc');
+    const { t: tet } = useTranslation('entity.types');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { getRootNodes } = useDocumentTree();
@@ -58,8 +59,7 @@ export default function ContextDocumentsPage() {
         setIsCreating(true);
         try {
             const newUrn = await createDocument({
-                /* untranslated-text -- default new-document title persisted as backend data, not UI chrome */
-                title: 'New Document',
+                title: tet('document.newDocumentTitle'),
                 parentDocument: null,
             });
 
@@ -73,7 +73,7 @@ export default function ContextDocumentsPage() {
         } finally {
             setIsCreating(false);
         }
-    }, [createDocument]);
+    }, [createDocument, tet]);
 
     useEffect(() => {
         // Wait for tree to load

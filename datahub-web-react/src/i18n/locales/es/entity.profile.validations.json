@@ -463,9 +463,9 @@
     "volumeDescription.changeAtLeastRows": "La tabla debería crecer al menos {{parameter}} filas",
     "volumeDescription.changeAtMostPercent": "La tabla debería crecer como máximo {{parameter}} %",
     "volumeDescription.changeAtMostRows": "La tabla debería crecer como máximo {{parameter}} filas",
-    "volumeDescription.changeBetweenPercent": "La tabla debería crecer entre {{parameter}} %",
-    "volumeDescription.changeBetweenRows": "La tabla debería crecer entre {{parameter}} filas",
+    "volumeDescription.changeBetweenPercent": "La tabla debería crecer entre {{min}} y {{max}} %",
+    "volumeDescription.changeBetweenRows": "La tabla debería crecer entre {{min}} y {{max}} filas",
     "volumeDescription.totalAtLeast": "La tabla tiene al menos {{parameter}} filas",
     "volumeDescription.totalAtMost": "La tabla tiene como máximo {{parameter}} filas",
-    "volumeDescription.totalBetween": "La tabla tiene entre {{parameter}} filas"
+    "volumeDescription.totalBetween": "La tabla tiene entre {{min}} y {{max}} filas"
 }

@@ -26,6 +26,7 @@ import {
 import {
     getIsRowCountChange,
     getParameterDescription,
+    getParameterInterpolation,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -72,7 +73,8 @@ const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionIn
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const isChange = getIsRowCountChange(volumeType);
-    const parameter = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : '';
+    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : undefined;
+    const interpolation = getParameterInterpolation(parameterDescription);
 
     const getOperatorKeyPart = (op: AssertionStdOperator): 'AtLeast' | 'AtMost' | 'Between' => {
         switch (op) {
@@ -99,7 +101,7 @@ const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionIn
         key = `volumeDescription.total${operatorKeyPart}`;
     }
 
-    return i18next.t(`entity.profile.validations:${key}`, { parameter });
+    return i18next.t(`entity.profile.validations:${key}`, interpolation);
 };
 
 /* untranslated-text -- no translation keys exist yet for field assertion sentence patterns */

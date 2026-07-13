@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import {
     getIsRowCountChange,
     getParameterDescription,
+    getParameterInterpolation,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 
@@ -44,8 +45,9 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const isChange = getIsRowCountChange(volumeType);
-    const parameter = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : '';
+    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : undefined;
     const operatorKeyPart = volumeTypeInfo ? getOperatorKeyPart(volumeTypeInfo.operator) : 'AtLeast';
+    const interpolation = getParameterInterpolation(parameterDescription);
 
     let key: string;
     if (isChange) {
@@ -59,7 +61,7 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
 
     return (
         <div>
-            <Typography.Text>{t(key, { parameter })}</Typography.Text>
+            <Typography.Text>{t(key, interpolation)}</Typography.Text>
         </div>
     );
 };
