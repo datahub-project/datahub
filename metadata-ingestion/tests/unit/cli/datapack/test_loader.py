@@ -15,6 +15,7 @@ from datahub.cli.datapack.loader import (
     IndexFileEntry,
     _apply_schema_filter,
     _build_datapack_sink_config,
+    _build_fetch_session,
     _cache_key,
     _cached_path,
     _datapack_emit_mode,
@@ -33,6 +34,18 @@ from datahub.cli.datapack.loader import (
 from datahub.cli.datapack.models import DataPackInfo, TrustTier
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
+
+
+class TestFetchSession:
+    def test_retries_transient_statuses_with_backoff(self) -> None:
+        # Guards the fix for CDN rate-limiting: a transient 429 must be retried
+        # instead of silently dropping a datapack file into a broken load.
+        session = _build_fetch_session()
+        retry = session.get_adapter("https://raw.githubusercontent.com/x").max_retries
+        assert 429 in retry.status_forcelist
+        assert {500, 502, 503, 504}.issubset(set(retry.status_forcelist))
+        assert retry.total and retry.total >= 1
+        assert retry.backoff_factor > 0
 
 
 class TestDatapackSinkConfig:
