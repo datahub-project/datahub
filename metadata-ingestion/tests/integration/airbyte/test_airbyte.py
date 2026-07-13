@@ -211,6 +211,13 @@ def test_airbyte_ingest(
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['source_created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['destination_created_at'\]",
+            # Airbyte's abctl install assigns a random workspace id UUID on
+            # each fresh install (the golden was captured with
+            # 12345678-...-123456789012). The id leaks into customProperties
+            # and the externalUrl, so ignore both to keep the comparison
+            # deterministic across runs.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['workspace_id'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
         ],
     )
 
@@ -240,6 +247,13 @@ def test_airbyte_platform_instance_urns(
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['source_created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['destination_created_at'\]",
+            # Airbyte's abctl install assigns a random workspace id UUID on
+            # each fresh install (the golden was captured with
+            # 12345678-...-123456789012). The id leaks into customProperties
+            # and the externalUrl, so ignore both to keep the comparison
+            # deterministic across runs.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['workspace_id'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
         ],
     )
 
@@ -269,5 +283,12 @@ def test_airbyte_schema_filter(
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['source_created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['destination_created_at'\]",
+            # Airbyte's abctl install assigns a random workspace id UUID on
+            # each fresh install (the golden was captured with
+            # 12345678-...-123456789012). The id leaks into customProperties
+            # and the externalUrl, so ignore both to keep the comparison
+            # deterministic across runs.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['workspace_id'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
         ],
     )

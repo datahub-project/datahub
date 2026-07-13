@@ -20,7 +20,11 @@ from datahub.ingestion.source.cube.constants import (
 )
 from datahub.ingestion.source.cube.cube_api import CubeAPIClient
 from datahub.testing import mce_helpers
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import (
+    cleanup_image,
+    docker_compose_pull_with_retry,
+    wait_for_port,
+)
 
 pytestmark = pytest.mark.integration_batch_4
 
@@ -90,6 +94,10 @@ def _wait_for_cube_model(api_url: str, token: str) -> None:
 
 @pytest.fixture(scope="module")
 def loaded_cube(docker_compose_runner, test_resources_dir: Path, cube_token: str):  # type: ignore[no-untyped-def]
+    # Pre-pull with retry to absorb transient Docker Hub rate-limit / TLS
+    # handshake timeouts (seen intermittently pulling postgres) that otherwise
+    # abort the whole module before `up` even gets a chance.
+    docker_compose_pull_with_retry(test_resources_dir / "docker" / "docker-compose.yml")
     with docker_compose_runner(
         test_resources_dir / "docker" / "docker-compose.yml", "cube"
     ) as docker_services:

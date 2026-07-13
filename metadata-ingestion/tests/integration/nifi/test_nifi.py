@@ -111,8 +111,14 @@ def test_nifi_ingest_standalone(
 
 
 @time_machine.travel(FROZEN_TIME, tick=True)
+@pytest.mark.flaky(reruns=2)
 def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources_dir):
-    # Wait for nifi cluster to execute all lineage processors, max wait time 180 seconds
+    # Wait for nifi cluster to execute all lineage processors, max wait time 180 seconds.
+    # Marked flaky because the cluster's provenance events across the three nodes
+    # (nifi01/02/03) don't always settle within the wait window -- occasionally the
+    # S3/SFTP processor outputs (enriched-topical-chat, sftp_public_host) land just
+    # after ingestion, producing a "Urn removed" golden diff on the first attempt
+    # that passes on an immediate rerun.
     url = "http://localhost:9080/nifi-api/flow/process-groups/root"
     for i in range(36):
         logging.info("waiting...")
