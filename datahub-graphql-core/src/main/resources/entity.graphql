@@ -253,6 +253,13 @@ type Query {
   dataProduct(urn: String!): DataProduct
 
   """
+  Fetch the Data Products that directly contain each of the given entities, in bulk
+  """
+  bulkEntityDataProducts(
+    input: BulkEntityDataProductsInput!
+  ): [EntityDataProducts!]!
+
+  """
   List Custom Ownership Types
   """
   listOwnershipTypes(
@@ -13544,6 +13551,16 @@ type DataProduct implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Lineage information for the Data Product (upstream and downstream entities)
+  """
+  lineage(input: LineageInput!): EntityLineageResult
+
+  """
+  Whether the Data Product exists in DataHub
+  """
+  exists: Boolean
 }
 
 """
@@ -14524,4 +14541,34 @@ type PolicyEvaluationDetail {
   The reason for deny for this policy
   """
   reason: String!
+}
+
+"""
+Input for fetching the Data Products containing a set of entities
+"""
+input BulkEntityDataProductsInput {
+  """
+  The urns of the entities to fetch Data Products for
+  """
+  urns: [String!]!
+}
+
+"""
+The Data Products containing a single entity
+"""
+type EntityDataProducts {
+  """
+  The urn of the entity
+  """
+  urn: String!
+
+  """
+  The Data Products that directly contain the entity
+  """
+  dataProducts: [DataProduct!]!
+
+  """
+  The urns of the Data Products (a subset of dataProducts) for which this entity is an output port.
+  """
+  outputPortInDataProducts: [String!]!
 }

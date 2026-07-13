@@ -71,6 +71,7 @@ import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractRes
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchAddToDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchRemoveFromDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchSetDataProductResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.BulkEntityDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
@@ -1184,6 +1185,8 @@ public class GmsGraphQLEngine {
                     "getQuickFilters",
                     new GetQuickFiltersResolver(this.entityClient, this.viewService))
                 .dataFetcher("dataProduct", getResolver(dataProductType))
+                .dataFetcher(
+                    "bulkEntityDataProducts", new BulkEntityDataProductsResolver(this.entityClient))
                 .dataFetcher("application", getResolver(applicationType))
                 .dataFetcher(
                     "listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
@@ -1720,6 +1723,18 @@ public class GmsGraphQLEngine {
                                   ? relationship.getUpdatedActor()
                                   : null;
                             })))
+        .type(
+            "EntityDataProducts",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "dataProducts",
+                    new LoadableTypeBatchResolver<>(
+                        dataProductType,
+                        (env) ->
+                            ((EntityDataProducts) env.getSource())
+                                .getDataProducts().stream()
+                                    .map(DataProduct::getUrn)
+                                    .collect(Collectors.toList()))))
         .type(
             "ListDomainsResult",
             typeWiring ->
@@ -3236,6 +3251,11 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
