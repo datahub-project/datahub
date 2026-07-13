@@ -1,3 +1,4 @@
+import importlib.metadata
 import json
 import logging
 import socket
@@ -355,7 +356,7 @@ def run_datahub_cmd(
     env: Optional[Dict[str, str]] = None,
 ) -> click.testing.Result:
     # TODO: Unify this with the run_datahub_cmd in the metadata-ingestion directory.
-    click_version: str = click.__version__  # type: ignore
+    click_version: str = importlib.metadata.version("click")
     if version.parse(click_version) >= version.parse("8.2.0"):
         runner = click.testing.CliRunner()
     else:
@@ -501,6 +502,8 @@ class TestSessionWrapper:
        GMS URL so GraphQL calls go to ``{gms_url}/api/graphql``.  ``destroy()``
        is a no-op — the externally-provided token is never revoked.
     """
+
+    __test__ = False
 
     def __init__(self, requests_session, *, prebuilt_token: str | None = None):
         self._upstream = requests_session

@@ -74,6 +74,8 @@ M_QUERIES = [
     'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
     'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", "SELECT transaction_id, account_id, customer_id, transaction_type, transaction_amount FROM bank_demo.transaction")\nin\n    Source',
     'let\n    Source = AmazonAthena.Databases("us-east-1"),\n    awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],\n    analytics_db = awsdatacatalog{[Name="analytics"]}[Data],\n    sales_table = analytics_db{[Name="sales_data"]}[Data]\nin\n    sales_table',
+    'let\n    Source = Oracle.Database("oracle-tns.example.com", [HierarchicalNavigation=true]),\n    SALES = Source{[Schema="SALES"]}[Data],\n    ORDERS = SALES{[Name="ORDERS"]}[Data]\nin\n    ORDERS',
+    'let\n    Source = Oracle.Database("oracle-tns.example.com", [Query="SELECT * FROM SALES.ORDERS"])\nin\n    Source',
     'let\n    Source = Odbc.DataSource("driver={Cloudera ODBC Driver for Apache Hive};server=hive.example.com;dsn=hive_prod", [HierarchicalNavigation=true]),\n    HIVE_Database = Source{[Name="HIVE",Kind="Database"]}[Data],\n    product_analytics_Schema = HIVE_Database{[Name="product_analytics",Kind="Schema"]}[Data],\n    user_profile_Table = product_analytics_Schema{[Name="vg_a1_user_profile",Kind="Table"]}[Data]\nin\n    user_profile_Table',
 ]
 
@@ -1451,7 +1453,7 @@ def test_hive_odbc_regular_case():
     # driver->platform resolution -> expression_lineage path. Hive is a two-tier platform,
     # so the pseudo-catalog "HIVE" Database node must be dropped and the upstream emitted
     # under the `hive` platform (not `hadoop`) as `schema.table`, matching the Hive connector.
-    q: str = M_QUERIES[38]
+    q: str = M_QUERIES[40]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
@@ -1708,6 +1710,84 @@ def test_athena_with_platform_instance():
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:athena,production_athena.analytics.sales_data,PROD)"
+    )
+
+
+_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE = {
+    "server_to_platform_instance": {
+        "oracle-tns.example.com": {
+            "platform_instance": "oracle_prod",
+            "env": "PROD",
+        }
+    }
+}
+
+
+@pytest.mark.integration
+def test_oracle_tns_hierarchical_with_platform_instance():
+    q: str = M_QUERIES[38]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config=_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.sales.orders,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_native_query_with_platform_instance():
+    q: str = M_QUERIES[39]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # get_default_instances defaults this flag off, gating the native-query path.
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            **_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.sales.orders,PROD)"
     )
 
 
