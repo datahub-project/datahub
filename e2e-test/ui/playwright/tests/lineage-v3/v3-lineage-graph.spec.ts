@@ -224,6 +224,14 @@ const SEARCH_TERMS = {
   HEALTH_TEST: 'playwright_health_test',
 } as const;
 
+// showLineageFilterNodes is omitted so most tests run on the backend default; only the filter test overrides it.
+const BASE_FEATURE_FLAGS = {
+  lineageGraphV3: true,
+  themeV2Enabled: true,
+  themeV2Default: true,
+  showNavBarRedesign: true,
+};
+
 // ── Test Suite ───────────────────────────────────────────────────────────────
 
 test.describe('lineage v3 — lineage graph', () => {
@@ -249,12 +257,7 @@ test.describe('lineage v3 — lineage graph', () => {
   test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
     lineagePage = new LineageV3Page(page, logger, logDir);
 
-    await apiMock.setFeatureFlags({
-      lineageGraphV3: true,
-      themeV2Enabled: true,
-      themeV2Default: true,
-      showNavBarRedesign: true,
-    });
+    await apiMock.setFeatureFlags(BASE_FEATURE_FLAGS);
   });
 
   test('can see full history', async () => {
@@ -545,7 +548,10 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkEdgeExists(NODE7_DATAJOB_URN, NODE8_DATASET_URN);
   });
 
-  test('should allow to expand and filter children', async () => {
+  test('should allow to expand and filter children', async ({ apiMock }) => {
+    // The dedicated filter-node UI asserted below only renders when showLineageFilterNodes is on.
+    await apiMock.setFeatureFlags({ ...BASE_FEATURE_FLAGS, showLineageFilterNodes: true });
+
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, FILTERING_NODE7_URN);
 
     await lineagePage.checkNodeExists(FILTERING_NODE7_URN);
@@ -877,6 +883,66 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkNodeExists(FILTERING_NODE18_URN);
     await lineagePage.checkNodeExists(FILTERING_NODE19_URN);
     await lineagePage.checkNodeExists(FILTERING_NODE20_URN);
+  });
+
+  test('paginates and filters children via the contract button', async ({ apiMock }) => {
+    // Filter nodes off: pagination/search lives on the contract button (ContractLineageControl).
+    await apiMock.setFeatureFlags({ ...BASE_FEATURE_FLAGS, showLineageFilterNodes: false });
+
+    await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, FILTERING_NODE7_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE7_URN);
+
+    // No dedicated filter node is rendered in this mode.
+    await expect(lineagePage.getFilterNode(FILTERING_NODE7_URN, 'up')).not.toBeAttached({ timeout: TIMEOUTS.MEDIUM });
+
+    // ── Upstream: initial paginated state ───────────────────────────────────
+    await lineagePage.checkContractControlExists(FILTERING_NODE7_URN, 'up');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'up', '4/6');
+
+    await lineagePage.checkNodeNotExists(FILTERING_NODE1_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE2_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE3_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE4_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE5_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE6_URN);
+
+    // Hover reveals the platform breakdown panel.
+    await lineagePage.openContractControlPanel(FILTERING_NODE7_URN, 'up');
+    await lineagePage.checkContractControlPlatformCounter(FILTERING_NODE7_URN, 'up', 'PostgreSQL', '3');
+    await lineagePage.checkContractControlPlatformCounter(FILTERING_NODE7_URN, 'up', 'Snowflake', '3');
+
+    // ── Search by node name: single match ───────────────────────────────────
+    await lineagePage.filterContractControlChildren(FILTERING_NODE7_URN, 'up', 'node6');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'up', '1/6');
+    await lineagePage.checkContractControlMatches(FILTERING_NODE7_URN, 'up', '1');
+    await lineagePage.checkNodeNotExists(FILTERING_NODE1_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE3_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE6_URN);
+
+    // ── Search by platform: three matches ───────────────────────────────────
+    await lineagePage.filterContractControlChildren(FILTERING_NODE7_URN, 'up', 'postgres');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'up', '3/6');
+    await lineagePage.checkContractControlMatches(FILTERING_NODE7_URN, 'up', '3');
+    await lineagePage.checkNodeExists(FILTERING_NODE1_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE2_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE3_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE4_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE5_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE6_URN);
+
+    // ── Clear search: back to the initial paginated view ────────────────────
+    await lineagePage.clearContractControlFilter(FILTERING_NODE7_URN, 'up');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'up', '4/6');
+
+    // ── Show more: reveal all 6 upstream children ───────────────────────────
+    await lineagePage.contractControlShowMore(FILTERING_NODE7_URN, 'up');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'up', '6/6');
+    await lineagePage.checkNodeExists(FILTERING_NODE1_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE2_URN);
+
+    // ── Downstream control renders its own independent count ────────────────
+    await lineagePage.checkContractControlExists(FILTERING_NODE7_URN, 'down');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'down', '4/13');
   });
 
   test('can switch direction between upstream and downstream in compact mode', async () => {

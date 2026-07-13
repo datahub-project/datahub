@@ -13,10 +13,12 @@ import {
     LINEAGE_NODE_WIDTH,
     LineageBoundingBox,
     LineageEdgeData,
+    LineageFilter,
     LineageTableEdgeData,
     LineageToggles,
     NodeContext,
     VERTICAL_HANDLE,
+    filterAdjacencyList,
 } from '@app/lineageV3/common';
 import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
@@ -47,7 +49,9 @@ export default function computeDataFlowGraph(
     type: EntityType,
     context: Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType'>,
     ignoreSchemaFieldStatus: boolean,
+    showFilterNodes = true,
 ) {
+    const lineageFilters = new Map<string, LineageFilter>();
     const { nodes, edges, adjacencyList, rootType, showDataProcessInstances, showGhostEntities } = context;
     const graphStore = { nodes, edges, adjacencyList };
     console.debug(graphStore);
@@ -136,7 +140,11 @@ export default function computeDataFlowGraph(
             );
 
             if (node.isExpanded.UPSTREAM || node.isExpanded.DOWNSTREAM) {
-                const { flowNodes: newFlowNodes, flowEdges: newFlowEdges } = computeImpactAnalysisGraph(
+                const {
+                    flowNodes: newFlowNodes,
+                    flowEdges: newFlowEdges,
+                    lineageFilters: newLineageFilters,
+                } = computeImpactAnalysisGraph(
                     node.urn,
                     node.type,
                     context,
@@ -144,7 +152,10 @@ export default function computeDataFlowGraph(
                     undefined,
                     offsets,
                     (n) => n.urn === node.urn || n.parentDataJob !== urn,
+                    undefined,
+                    showFilterNodes,
                 );
+                newLineageFilters.forEach((filter, id) => lineageFilters.set(id, filter));
                 flowNodes.push(
                     ...newFlowNodes.filter((n) => n.id !== node.urn && nodes.get(n.id)?.parentDataJob !== urn),
                 );
@@ -224,7 +235,15 @@ export default function computeDataFlowGraph(
                 .filter((e) => !e.data?.hide),
         );
     }
-    return { flowNodes, flowEdges, resetPositions: false };
+    // Note: `newGraphStore` is scoped to this flow's jobs, so the full adjacency is restricted to
+    // shown nodes for highlighting instead
+    return {
+        flowNodes,
+        flowEdges,
+        resetPositions: false,
+        lineageFilters,
+        adjacencyList: filterAdjacencyList(adjacencyList, new Set(flowNodes.map((node) => node.id))),
+    };
 }
 
 function addBoundingBoxDataFlow(

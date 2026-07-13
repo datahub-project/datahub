@@ -43,6 +43,7 @@ public class FeatureFlags {
   private boolean showIngestionPageRedesign = false;
   private boolean ingestionOnboardingRedesignV1 = false;
   private boolean showLineageExpandMore = true;
+  private boolean showLineageFilterNodes = false;
   private boolean showStatsTabRedesign = false;
   private boolean showHomePageRedesign = false;
   private boolean lineageGraphV3 = true;

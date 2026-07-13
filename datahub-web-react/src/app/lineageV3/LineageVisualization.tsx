@@ -39,6 +39,12 @@ const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edg
         `.react-flow__node-lineage-entity:not(.dragging) {
             transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
         }`}
+
+    /* Hovered nodes render above their neighbors, so overlays like the expand/contract
+       controls are not hidden behind other nodes. Overrides React Flow's inline z-index. */
+    .react-flow__node-lineage-entity:hover {
+        z-index: 1000 !important;
+    }
 `;
 
 // TODO: Bring back after figuring out how to no overlap expand / contract actions
