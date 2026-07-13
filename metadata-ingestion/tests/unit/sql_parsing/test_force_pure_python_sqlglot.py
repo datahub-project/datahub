@@ -57,25 +57,25 @@ def test_sqlglotc_loaded_by_default() -> None:
 
 
 def test_pure_python_when_disabled() -> None:
+    # Import a spread of submodules, then report any sqlglot module that still
+    # resolved to a compiled .so. tokenizer_core alone being .py is not enough:
+    # the guard is that *no* sqlglot submodule slipped through to the C path.
     result = _run(
         "import datahub._force_pure_python_sqlglot  # noqa: F401\n"
         "import sqlglot\n"
         "import sqlglot.lineage\n"
         "import sqlglot.optimizer\n"
-        "from sqlglot import tokenizer_core\n"
-        "so_modules = [\n"
+        "compiled = sorted(\n"
         "    name for name, mod in sys.modules.items()\n"
         "    if name.startswith('sqlglot')\n"
         "    and getattr(mod, '__file__', '') and mod.__file__.endswith('.so')\n"
-        "]\n"
-        "print(tokenizer_core.__file__)\n"
-        "print('SO_LEAKS:' + ','.join(sorted(so_modules)))\n",
+        ")\n"
+        "print('\\n'.join(compiled))\n",
         disable_c=True,
     )
     assert result.returncode == 0, result.stderr
-    lines = result.stdout.strip().splitlines()
-    assert lines[0].endswith(".py")
-    assert lines[1] == "SO_LEAKS:"
+    compiled = result.stdout.split()
+    assert not compiled, f"sqlglot modules loaded from .so: {compiled}"
 
 
 def test_sqlglot_functional_in_pure_python_mode() -> None:
@@ -93,8 +93,13 @@ def test_sqlglot_functional_in_pure_python_mode() -> None:
 
 
 def test_hook_noop_when_env_unset() -> None:
+    # Importing the hook without the env var must not touch imports at all: the
+    # finder is never installed, and sqlglot still loads its compiled .so.
     result = _run(
-        "import datahub._force_pure_python_sqlglot  # noqa: F401\n"
+        "from datahub._force_pure_python_sqlglot import _PurePythonSqlglotFinder\n"
+        "assert not any(\n"
+        "    isinstance(f, _PurePythonSqlglotFinder) for f in sys.meta_path\n"
+        "), 'finder was installed despite env var being unset'\n"
         "from sqlglot import tokenizer_core\n"
         "print(tokenizer_core.__file__)\n",
         disable_c=False,
