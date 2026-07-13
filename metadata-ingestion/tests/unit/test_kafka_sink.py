@@ -1266,7 +1266,13 @@ def test_kafka_sink_oversize_rest_failure_blocks_subsequent_delete(
     mock_mcp_producer.flush.return_value = 0
     mock_rest_emitter.emit_mcp.side_effect = Exception("GMS 500")
 
-    oversize_re = RecordEnvelope(record=_make_oversize_upsert_mcp(), metadata={})
+    oversize_re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=_make_oversize_upsert_mcp(), metadata={})
     kafka_sink.write_record_async(oversize_re, MagicMock(spec=WriteCallback))
 
     assert kafka_sink._delivery_failed.is_set()
@@ -1275,7 +1281,13 @@ def test_kafka_sink_oversize_rest_failure_blocks_subsequent_delete(
     mock_mcp_producer.produce.side_effect = None
     mock_rest_emitter.emit_mcp.side_effect = None
     del_callback = MagicMock(spec=WriteCallback)
-    delete_re = RecordEnvelope(record=_make_delete_mcp(), metadata={})
+    delete_re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=_make_delete_mcp(), metadata={})
     kafka_sink.write_record_async(delete_re, del_callback)
 
     # REST emit happened only for the oversize attempt, never for the DELETE.
