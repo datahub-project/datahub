@@ -34,6 +34,23 @@ public class LocalObjectStorageClient implements ObjectStorageClient {
   }
 
   @Override
+  public void deleteObject(@Nonnull ObjectStorageReference ref) {
+    if (!isConfigured()) {
+      throw new IllegalStateException("Local object storage root path is not configured");
+    }
+    String relativeKey =
+        ObjectStorageKeyResolver.joinKey(null, ref.key(), ObjectStorageProvider.LOCAL);
+    Path target = ObjectStoragePathValidator.resolveUnderRoot(Path.of(rootPath), relativeKey);
+    try {
+      Files.deleteIfExists(target);
+      log.info("Deleted object from {}", target);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Failed to delete object from local storage: " + e.getMessage(), e);
+    }
+  }
+
+  @Override
   @Nonnull
   public ObjectStorageProvider provider() {
     return ObjectStorageProvider.LOCAL;
@@ -42,5 +59,11 @@ public class LocalObjectStorageClient implements ObjectStorageClient {
   @Override
   public boolean isConfigured() {
     return rootPath != null && !rootPath.isBlank();
+  }
+
+  @Override
+  @Nullable
+  public String storageBucket() {
+    return rootPath;
   }
 }
