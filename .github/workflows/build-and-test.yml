@@ -262,9 +262,14 @@ jobs:
         with:
           name: frontend-build-artifacts
           retention-days: 1
+          # Only the GraphQL codegen output is shipped to the test shards — that is all
+          # :datahub-web-react:yarnTest (Vitest) consumes. Do NOT re-add datahub-frontend/build:
+          # it is the ~2GB Java/Play output, unused by the React tests, and downloading it in
+          # every shard made download-artifact fail after retries (digest-mismatch). See #16916
+          # for the original split; the Java build still runs above as a build-check, it just
+          # no longer uploads its output.
           path: |
             datahub-web-react/src/**/*.generated.ts
-            datahub-frontend/build
 
   frontend-test:
     strategy:
