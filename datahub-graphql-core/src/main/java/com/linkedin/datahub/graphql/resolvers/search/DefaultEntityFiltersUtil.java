@@ -2,8 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -30,8 +32,14 @@ import javax.annotation.Nullable;
  * entity types may have default filters that should be applied. This utility ensures those filters
  * only affect the target entity types without excluding other entities from search results.
  *
- * <p>Currently supports default filters for: - DOCUMENT: Filters out unpublished documents and
- * optionally filters out documents not meant for global visibility
+ * <p>Currently supports default filters for: - DOCUMENT: Shows only published documents using a
+ * two-clause OR filter consistent with the MCP tool's anchor filter pattern:
+ *
+ * <ol>
+ *   <li>lifecycleStage = PUBLISHED (new field present and published)
+ *   <li>lifecycleStage IS_NULL AND state != UNPUBLISHED (legacy fallback; non-document entities
+ *       also pass through this clause)
+ * </ol>
  */
 public class DefaultEntityFiltersUtil {
 
@@ -40,7 +48,9 @@ public class DefaultEntityFiltersUtil {
    * aggregation results since they are system/hidden filters that shouldn't be shown to users.
    */
   public static final Set<String> DEFAULT_FILTER_FIELDS =
-      ImmutableSet.of("state", "showInGlobalContext");
+      ImmutableSet.of("state", "lifecycleStage", "showInGlobalContext");
+
+  static final String PUBLISHED_LIFECYCLE_STAGE_URN = "urn:li:lifecycleStageType:PUBLISHED";
 
   private DefaultEntityFiltersUtil() {
     // Utility class - prevent instantiation
@@ -109,23 +119,21 @@ public class DefaultEntityFiltersUtil {
   }
 
   /**
-   * Adds default entity-specific filters to the base filter for cross-entity searches.
-   *
-   * <p>The filters use negated EQUAL conditions which naturally pass through for entities that
-   * don't have the filtered fields. For example, `state != UNPUBLISHED` (negated EQUAL) passes for
-   * datasets (which don't have a state field) because the field doesn't exist with the excluded
-   * value.
+   * Adds default entity-specific filters with optional privilege-based bypass.
    *
    * @param baseFilter The existing filter to combine with default filters (can be null)
    * @param entityTypes List of entity type names being searched
    * @param applyShowInGlobalContext Whether to filter out showInGlobalContext=false documents
+   * @param canManageDocuments When true, unpublished documents are not filtered out (for users with
+   *     MANAGE_DOCUMENTS privilege). DRAFT documents remain excluded regardless.
    * @return The combined filter with default entity filters applied
    */
   @Nullable
   public static Filter addDefaultEntityFilters(
       @Nullable Filter baseFilter,
       @Nonnull List<String> entityTypes,
-      boolean applyShowInGlobalContext) {
+      boolean applyShowInGlobalContext,
+      boolean canManageDocuments) {
 
     // Check if any entity types require default filters
     if (!entityTypes.contains(DOCUMENT_ENTITY_NAME)) {
@@ -133,7 +141,8 @@ public class DefaultEntityFiltersUtil {
     }
 
     // Build default filter for documents (uses negated conditions so non-documents pass through)
-    Filter documentDefaults = buildDocumentDefaultFilter(applyShowInGlobalContext);
+    Filter documentDefaults =
+        buildDocumentDefaultFilter(applyShowInGlobalContext, canManageDocuments);
 
     if (baseFilter == null || !baseFilter.hasOr() || baseFilter.getOr().isEmpty()) {
       return documentDefaults;
@@ -143,36 +152,90 @@ public class DefaultEntityFiltersUtil {
   }
 
   /**
-   * Builds default filter for documents using negated EQUAL conditions.
+   * Applies default entity filters (e.g. PUBLISHED-only, showInGlobalContext for documents) to the
+   * given filter, respecting search flags and user privileges. Skips filtering only when the caller
+   * explicitly requests hidden lifecycle stages.
    *
-   * <p>Using negated conditions allows non-document entities to naturally pass through:
+   * <p>This is the single entry point that all cross-entity search resolvers (search, scroll,
+   * aggregate, browse) should use to ensure consistent document visibility filtering.
    *
-   * <ul>
-   *   <li>`state != UNPUBLISHED` (negated) - passes for non-documents (field doesn't exist) and
-   *       published documents
-   *   <li>`showInGlobalContext != false` (negated) - passes for non-documents and documents meant
-   *       for global visibility
-   * </ul>
+   * @param baseFilter The existing filter to combine with default filters (can be null)
+   * @param entityTypes List of entity type names being searched
+   * @param searchFlags The search flags from the request (can be null)
+   * @param context The query context for authorization checks
+   * @return The combined filter with default entity filters applied
+   */
+  @Nullable
+  public static Filter applyDefaultEntityFilters(
+      @Nullable Filter baseFilter,
+      @Nonnull List<String> entityTypes,
+      @Nullable SearchFlags searchFlags,
+      @Nonnull QueryContext context) {
+    if (searchFlags != null && Boolean.TRUE.equals(searchFlags.isIncludeHiddenLifecycleStages())) {
+      return baseFilter;
+    }
+    boolean canManageDocs =
+        entityTypes.contains(DOCUMENT_ENTITY_NAME)
+            && AuthorizationUtils.canManageDocuments(context);
+    return addDefaultEntityFilters(baseFilter, entityTypes, true, canManageDocs);
+  }
+
+  /**
+   * Builds default filter for documents in cross-entity search. Mirrors the MCP tool's anchor
+   * filter pattern: {@code lifecycleStage = PUBLISHED OR (lifecycleStage IS NULL AND state !=
+   * UNPUBLISHED)}.
+   *
+   * <p>Clause 1 matches documents with the new lifecycleStage field set to PUBLISHED. Clause 2
+   * handles legacy documents (no lifecycleStage) and non-document entities (both fields absent —
+   * negated EQUAL and IS_NULL both succeed when the field does not exist).
    *
    * @param applyShowInGlobalContext Whether to filter out showInGlobalContext=false documents
-   * @return Filter with document defaults using negated conditions
+   * @return Filter with document defaults
    */
-  private static Filter buildDocumentDefaultFilter(boolean applyShowInGlobalContext) {
-    List<Criterion> criteria = new ArrayList<>();
+  private static Filter buildDocumentDefaultFilter(
+      boolean applyShowInGlobalContext, boolean canManageDocuments) {
+    List<ConjunctiveCriterion> orClauses = new ArrayList<>();
 
-    // Exclude unpublished documents (non-documents pass through since they don't have this field)
-    // Using negated EQUAL instead of NOT_EQUAL
-    criteria.add(buildNegatedCriterion("state", "UNPUBLISHED"));
-
-    // Optionally exclude documents not meant for global context
+    // Clause 1: lifecycleStage = PUBLISHED
+    List<Criterion> publishedCriteria = new ArrayList<>();
+    publishedCriteria.add(buildEqualCriterion("lifecycleStage", PUBLISHED_LIFECYCLE_STAGE_URN));
     if (applyShowInGlobalContext) {
-      criteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
+      publishedCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
     }
+    orClauses.add(new ConjunctiveCriterion().setAnd(new CriterionArray(publishedCriteria)));
 
-    return new Filter()
-        .setOr(
-            new ConjunctiveCriterionArray(
-                ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
+    // Clause 2: lifecycleStage IS_NULL AND state != UNPUBLISHED (legacy fallback).
+    // Non-document entities also match this clause (both fields absent).
+    // When canManageDocuments is true, skip the state != UNPUBLISHED filter so
+    // privileged users can see unpublished documents.
+    List<Criterion> legacyCriteria = new ArrayList<>();
+    legacyCriteria.add(buildIsNullCriterion("lifecycleStage"));
+    if (!canManageDocuments) {
+      legacyCriteria.add(buildNegatedCriterion("state", "UNPUBLISHED"));
+    }
+    if (applyShowInGlobalContext) {
+      legacyCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
+    }
+    orClauses.add(new ConjunctiveCriterion().setAnd(new CriterionArray(legacyCriteria)));
+
+    return new Filter().setOr(new ConjunctiveCriterionArray(orClauses));
+  }
+
+  private static Criterion buildEqualCriterion(String field, String value) {
+    Criterion criterion = new Criterion();
+    criterion.setField(field);
+    criterion.setCondition(Condition.EQUAL);
+    criterion.setValues(
+        new com.linkedin.data.template.StringArray(Collections.singletonList(value)));
+    return criterion;
+  }
+
+  /** Builds an IS_NULL criterion — matches documents where the field is absent / not set. */
+  private static Criterion buildIsNullCriterion(String field) {
+    Criterion criterion = new Criterion();
+    criterion.setField(field);
+    criterion.setCondition(Condition.IS_NULL);
+    return criterion;
   }
 
   /**

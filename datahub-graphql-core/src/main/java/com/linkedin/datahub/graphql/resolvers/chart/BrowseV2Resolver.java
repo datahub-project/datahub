@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.BrowseResultsV2;
 import com.linkedin.datahub.graphql.generated.BrowseV2Input;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.resolvers.search.DefaultEntityFiltersUtil;
 import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
@@ -76,15 +77,23 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     : "";
             final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
 
+            Filter effectiveFilter =
+                maybeResolvedView != null
+                    ? SearchUtils.combineFilters(
+                        inputFilter, maybeResolvedView.getDefinition().getFilter())
+                    : inputFilter;
+
+            // Add default entity filters (e.g. showInGlobalContext for documents)
+            effectiveFilter =
+                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+                    effectiveFilter, entityNames, searchFlags, context);
+
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     entityNames,
                     pathStr,
-                    maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            inputFilter, maybeResolvedView.getDefinition().getFilter())
-                        : inputFilter,
+                    effectiveFilter,
                     sanitizedQuery,
                     start,
                     count);
