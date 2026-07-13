@@ -627,3 +627,125 @@ def test_fabric_onelake_dml_emits_operation_aspect() -> None:
 
     finally:
         Path(output_file).unlink(missing_ok=True)
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_fabric_onelake_schema_pattern_filters_schemas() -> None:
+    """Schema pattern should exclude tables and schema containers for denied schemas."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        output_file = tmp.name
+
+    try:
+        with (
+            patch.object(
+                OneLakeClient,
+                "list_workspaces",
+                return_value=[FabricWorkspace(id="ws-123", name="Test Workspace")],
+            ),
+            patch.object(
+                OneLakeClient,
+                "list_lakehouses",
+                return_value=[
+                    FabricLakehouse(
+                        id="lh-456",
+                        name="Test Lakehouse",
+                        workspace_id="ws-123",
+                        type="Lakehouse",
+                    )
+                ],
+            ),
+            patch.object(OneLakeClient, "list_warehouses", return_value=[]),
+            patch.object(
+                OneLakeClient,
+                "list_lakehouse_tables",
+                return_value=[
+                    FabricTable(
+                        name="customers",
+                        schema_name="dbo",
+                        item_id="lh-456",
+                        workspace_id="ws-123",
+                    ),
+                    FabricTable(
+                        name="orders",
+                        schema_name="dbo",
+                        item_id="lh-456",
+                        workspace_id="ws-123",
+                    ),
+                    FabricTable(
+                        name="raw_events",
+                        schema_name="staging",
+                        item_id="lh-456",
+                        workspace_id="ws-123",
+                    ),
+                    FabricTable(
+                        name="raw_users",
+                        schema_name="staging",
+                        item_id="lh-456",
+                        workspace_id="ws-123",
+                    ),
+                ],
+            ),
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "fabric-onelake",
+                        "config": {
+                            "credential": {
+                                "authentication_method": "service_principal",
+                                "client_id": "test-client",
+                                "client_secret": "test-secret",
+                                "tenant_id": "test-tenant",
+                            },
+                            "schema_pattern": {
+                                "allow": ["^dbo$"],
+                            },
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": output_file},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            with Path(output_file).open() as f:
+                events = json.load(f)
+
+            # Collect all entity URNs from emitted events
+            dataset_urns = {
+                event["entityUrn"]
+                for event in events
+                if event.get("entityType") == "dataset"
+            }
+
+            # dbo tables should be present
+            assert any("dbo.customers" in urn for urn in dataset_urns), (
+                f"Expected dbo.customers dataset; got {dataset_urns}"
+            )
+            assert any("dbo.orders" in urn for urn in dataset_urns), (
+                f"Expected dbo.orders dataset; got {dataset_urns}"
+            )
+
+            # staging tables should be filtered out
+            assert not any("staging" in urn for urn in dataset_urns), (
+                f"staging tables should be excluded by schema_pattern; got {dataset_urns}"
+            )
+
+            # Verify no staging schema container was emitted
+            schema_containers = [
+                event
+                for event in events
+                if event.get("aspectName") == "containerProperties"
+                and "staging" in event.get("aspect", {}).get("json", {}).get("name", "")
+            ]
+            assert not schema_containers, (
+                "staging schema container should not be emitted when denied by schema_pattern"
+            )
+
+    finally:
+        Path(output_file).unlink(missing_ok=True)
