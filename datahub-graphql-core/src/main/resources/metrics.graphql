@@ -102,7 +102,7 @@ type Metric implements Entity {
   """
   Parent metrics in the metric hierarchy.
   """
-  parentMetrics: ParentMetricsResult
+  parentMetrics: [Metric!]!
 
   """
   Child metrics in the metric hierarchy.
@@ -487,13 +487,6 @@ type AiContext {
   instructions: String
   examples: [String!]
   customInstructions: String
-}
-
-"""
-The ordered chain of ancestor metrics from direct parent up to the root.
-"""
-type ParentMetricsResult {
-  metrics: [Metric!]!
 }
 
 """
