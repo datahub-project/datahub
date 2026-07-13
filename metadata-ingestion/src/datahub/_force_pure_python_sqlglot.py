@@ -12,13 +12,13 @@ Python's import machinery hardcodes .so priority over .py, with no built-in
 knob to flip it. So when the env var is set we install a sys.meta_path finder
 that resolves sqlglot.* imports to their .py source files, bypassing the .so.
 
-This is imported from datahub/__init__.py so it runs before any datahub.*
-module (and thus any sqlglot import) loads. A datahub_force_pure_python_sqlglot.pth
-also installs it at interpreter startup for the earliest possible activation,
-but .pth placement is unreliable across wheel installs, so the __init__ import
-is the mechanism we rely on. It reads the env var directly with os.getenv
-rather than importing datahub.configuration.env_vars, since that would pull in
-pydantic and the rest of the package before this can safely run.
+A datahub_force_pure_python_sqlglot.pth installs this at interpreter startup for
+the earliest possible activation. The import from datahub/__init__.py is the
+safety net: it guarantees the finder is installed whenever a datahub package is
+imported (including custom Python SDK usage), before datahub touches sqlglot, even
+if the .pth did not run. It reads the env var directly with os.getenv rather than
+importing datahub.configuration.env_vars, since that would pull in pydantic and
+the rest of the package before this can safely run.
 
 Manual check:
     DATAHUB_SQLGLOT_DISABLE_C=1 python -c "import datahub; from sqlglot import tokenizer_core; print(tokenizer_core.__file__)"
