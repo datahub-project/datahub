@@ -529,9 +529,7 @@ class JsonSchemaTranslator:
                 items_schema = {"type": "object", "properties": {}, "title": "tuple"}
             items_type = JsonSchemaTranslator._get_type_from_schema(items_schema)
             field_name = (
-                items_schema.get("title", None)
-                if isinstance(items_schema, dict)
-                else None
+                items_schema.get("title") if isinstance(items_schema, dict) else None
             )
             if not field_name:
                 field_name = items_type
