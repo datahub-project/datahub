@@ -86,7 +86,11 @@ def _sqlglot_c_disabled() -> bool:
     )
 
 
-if _sqlglot_c_disabled() and not any(
-    isinstance(finder, _PurePythonSqlglotFinder) for finder in sys.meta_path
-):
-    sys.meta_path.insert(0, _PurePythonSqlglotFinder())
+def _install() -> None:
+    if _sqlglot_c_disabled() and not any(
+        isinstance(finder, _PurePythonSqlglotFinder) for finder in sys.meta_path
+    ):
+        sys.meta_path.insert(0, _PurePythonSqlglotFinder())
+
+
+_install()
