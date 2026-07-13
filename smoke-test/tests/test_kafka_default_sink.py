@@ -26,9 +26,8 @@ def _create_default_sink_pipeline(auth_session, monkeypatch, default_sink):
     monkeypatch.setenv("DATAHUB_GMS_URL", auth_session.gms_url())
     monkeypatch.setenv("DATAHUB_GMS_TOKEN", auth_session.gms_token())
     if default_sink == "kafka":
-        # Both markers required to enable the managed Kafka default.
-        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
-        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        # Selecting the managed Kafka default sink (matches the YAML sink type).
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
         monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", get_kafka_broker_url())
         monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", get_kafka_schema_registry())
     get_default_graph.cache_clear()

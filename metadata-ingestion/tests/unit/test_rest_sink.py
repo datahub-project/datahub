@@ -351,7 +351,7 @@ class TestDatahubRestSinkTcpKeepalive:
     refactor can't silently regress it.
     """
 
-    def test_sinkmake_emitter_passes_tcp_keepalive(self):
+    def test_sink_make_emitter_passes_tcp_keepalive(self):
         """DatahubRestSink.make_emitter must hand tcp_keepalive to the emitter."""
         from requests.adapters import HTTPAdapter
 

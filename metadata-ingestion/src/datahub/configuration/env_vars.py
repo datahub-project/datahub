@@ -88,8 +88,8 @@ def get_ingestion_default_sink() -> str:
     raw = os.getenv("DATAHUB_INGESTION_DEFAULT_SINK", DEFAULT_SINK_REST).strip().lower()
     if raw not in (DEFAULT_SINK_REST, DEFAULT_SINK_KAFKA):
         logger.warning(
-            "Unrecognized DATAHUB_INGESTION_DEFAULT_SINK=%r; using %s. "
-            "Expected %s or %s.",
+            "Unrecognized DATAHUB_INGESTION_DEFAULT_SINK=%r; falling back to %s. "
+            "Accepted values: %s or %s.",
             raw,
             DEFAULT_SINK_REST,
             DEFAULT_SINK_REST,

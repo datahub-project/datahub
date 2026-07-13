@@ -24,6 +24,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.env_vars import (
     DEFAULT_SINK_KAFKA,
+    DEFAULT_SINK_REST,
     get_ingestion_default_sink,
     get_kafka_schema_registry_url,
     get_kafka_sink_bootstrap,
@@ -357,24 +358,29 @@ class Pipeline:
                 # behavior exactly. A recipe with an explicit sink is unaffected.
                 default_sink = get_ingestion_default_sink()
                 if default_sink == DEFAULT_SINK_KAFKA:
-                    logger.info(
-                        "No sink configured, using the default datahub-kafka sink "
-                        "(DATAHUB_INGESTION_DEFAULT_SINK=datahub-kafka)."
-                    )
                     with _add_init_error_context("configure the default kafka sink"):
-                        self.sink_type = "datahub-kafka"
                         self.sink = exit_stack.enter_context(
                             _make_default_kafka_sink(self.ctx)
                         )
                 else:
-                    logger.info(
-                        "No sink configured, attempting to use the default datahub-rest sink."
-                    )
                     with _add_init_error_context("configure the default rest sink"):
-                        self.sink_type = "datahub-rest"
                         self.sink = exit_stack.enter_context(
                             _make_default_rest_sink(self.ctx)
                         )
+                # Derive the reported type from the sink actually created: the
+                # Kafka factory degrades to a REST sink when the broker/registry
+                # is unreachable, so a requested datahub-kafka default can still
+                # yield a DatahubRestSink. DatahubKafkaSink is imported lazily
+                # (optional confluent_kafka extra), so key off the REST class,
+                # which is always available.
+                self.sink_type = (
+                    DEFAULT_SINK_REST
+                    if isinstance(self.sink, DatahubRestSink)
+                    else DEFAULT_SINK_KAFKA
+                )
+                logger.info(
+                    f"No sink configured, using the default {self.sink_type} sink."
+                )
             else:
                 self.sink_type = self.config.sink.type
                 with _add_init_error_context(

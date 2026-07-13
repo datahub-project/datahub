@@ -249,16 +249,12 @@ class DatahubKafkaEmitter(Closeable, Emitter):
                     )
                     raise
             except KafkaException as ke:
-                # A message exceeding message.max.bytes is rejected by librdkafka
-                # at produce time (MSG_SIZE_TOO_LARGE), not retriable and not a
-                # queue-full condition. Convert to MessageTooLargeError so the
-                # sink can degrade the record to its REST fallback. Other
+                # MSG_SIZE_TOO_LARGE is raised synchronously from produce() (the
+                # size check runs before queue insertion), so the sink catches it
+                # around emit() rather than via the async delivery callback -- if
+                # that ever changes, the oversize->REST fallback stops firing. Map
+                # it to MessageTooLargeError (see its docstring); other
                 # KafkaExceptions propagate and are reported as failures.
-                #
-                # confluent-kafka raises this synchronously from produce() (the
-                # size check runs before queue insertion), so the sink sees it as
-                # an exception around emit() -- not via the async delivery callback.
-                # If that ever changes, the oversize->REST fallback would not fire.
                 kerr = ke.args[0] if ke.args else None
                 if kerr is not None and kerr.code() == KafkaError.MSG_SIZE_TOO_LARGE:
                     raise MessageTooLargeError(

@@ -120,8 +120,7 @@ class TestPipeline:
         mock_server_config,
         monkeypatch,
     ):
-        # Kafka default requires BOTH the selector and the executor-managed
-        # marker (set only by the managed executor on spawned subprocesses).
+        # Kafka default is selected purely by DATAHUB_INGESTION_DEFAULT_SINK.
         monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
         monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
         monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
@@ -235,6 +234,9 @@ class TestPipeline:
             }
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
+        # On degrade, sink_type must reflect the sink actually built, not the
+        # requested datahub-kafka default.
+        assert pipeline.sink_type == "datahub-rest"
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
@@ -268,6 +270,7 @@ class TestPipeline:
             }
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
@@ -305,6 +308,7 @@ class TestPipeline:
             }
         )
         assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
