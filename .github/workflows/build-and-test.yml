@@ -50,11 +50,21 @@ jobs:
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
       runner_type: ${{ steps.set-runner.outputs.runner_type }}
+      backend_sharding: ${{ steps.flags.outputs.backend_sharding }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+      - name: Read CI flags from gradle.properties
+        id: flags
+        # In-repo, CI-agnostic flag (not a GitHub repo variable) so it survives a CI migration.
+        run: |
+          if grep -qE '^datahub\.ci\.backendTestSharding=true' gradle.properties; then
+            echo "backend_sharding=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend_sharding=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Determine runner type
         id: set-runner
         # Use depot runners only when a maintainer has explicitly added the "depot" label.
@@ -66,11 +76,13 @@ jobs:
             echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
           fi
 
+  # Runs unless the in-repo sharding flag (gradle.properties datahub.ci.backendTestSharding)
+  # is on. When on, backend-seed + backend-test-shard below replace this single job.
   build-except-metadata-ingestion:
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 60
     needs: setup
-    if: ${{ needs.setup.outputs.backend_change == 'true' }}
+    if: ${{ needs.setup.outputs.backend_change == 'true' && needs.setup.outputs.backend_sharding != 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -91,18 +103,14 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 21
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-      - name: Disk Space Analysis
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - name: Gradle build (and test) for NOT metadata ingestion
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
+        # --max-workers=$(nproc): gradle.properties caps workers at 2 (an 8GB-laptop-safe
+        # default); on CI runners (4+ vCPU) that throttles this multi-module build, so scale
+        # to the runner's actual core count.
         run: |
-          ./gradlew build \
+          ./gradlew build --max-workers="$(nproc)" \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
             -x :docs-website:build \
@@ -122,13 +130,6 @@ jobs:
             -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      - name: Disk Space Analysis
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
       - name: Generate cross-module coverage report
         # --no-configure-on-demand is required so every module is configured and visible to
         # the aggregation task (it reads other modules' outputs without a task dependency).
@@ -248,10 +249,10 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 21
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - name: Gradle build and test for frontend (no JS tests)
         run: |
-          ./gradlew :datahub-frontend:build :datahub-web-react:build \
+          ./gradlew :datahub-frontend:build :datahub-web-react:build --max-workers="$(nproc)" \
             -x :datahub-web-react:yarnTest
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -303,7 +304,11 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 21
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          # Matrix legs read the cache only; the primary build job (build-except-metadata-ingestion)
+          # is the writer. Prevents the 6 shard legs from racing to write the same Gradle cache.
+          cache-read-only: true
       - name: Download frontend build artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -403,6 +408,129 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
+
+  # ── Experimental backend test sharding (behind gradle.properties backendTestSharding) ───
+  # Timing-balanced across shards (committed .github/gradle_test_weights.json, refreshed by
+  # the update-test-weights workflow; falls back to an even split if absent). Whole modules
+  # run as `:module:test`; oversized "whale" modules are class-split across shards. Within a
+  # shard, Gradle's maxParallelForks parallelizes the classes.
+  backend-seed:
+    runs-on: ${{ needs.setup.outputs.runner_type }}
+    timeout-minutes: 40
+    needs: setup
+    if: ${{ needs.setup.outputs.backend_change == 'true' && needs.setup.outputs.backend_sharding == 'true' }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          # setup-gradle handles deps/wrapper; the local build cache is managed explicitly
+          # below with a run-scoped key so shards deterministically restore the seed's output.
+          gradle-home-cache-excludes: caches/build-cache-1
+      - name: Cache Gradle build cache (seed writes; run-scoped key)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-backend-build-cache-${{ github.run_id }}
+          restore-keys: |
+            gradle-backend-build-cache-
+      - name: Warm Gradle build cache (compile main+test, no tests)
+        run: ./gradlew testClasses --build-cache --max-workers="$(nproc)"
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  backend-test-shard:
+    needs: [setup, backend-seed]
+    if: ${{ needs.setup.outputs.backend_change == 'true' && needs.setup.outputs.backend_sharding == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: [0, 1, 2, 3, 4, 5]
+    runs-on: ${{ needs.setup.outputs.runner_type }}
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          # Shards read the seed's cache; only the seed writes. Avoids matrix write races.
+          cache-read-only: true
+          gradle-home-cache-excludes: caches/build-cache-1
+      - name: Restore Gradle build cache (exact key from seed this run)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-backend-build-cache-${{ github.run_id }}
+          restore-keys: |
+            gradle-backend-build-cache-
+      - name: Compute this shard's test tasks
+        # Exclude set mirrors build-except's test exclusions above (keep in parity).
+        run: |
+          python3 .github/scripts/split_gradle_tests.py \
+            --split-index "${{ matrix.batch }}" --split-total 6 \
+            --repo-root . \
+            --weights .github/gradle_test_weights.json \
+            --glob '**/src/test/**/*Test.java' \
+            --glob '**/src/test/**/*Tests.java' \
+            --glob '**/src/test/**/*Test.kt' \
+            --glob '**/src/test/**/*Test.groovy' \
+            --exclude-glob 'metadata-io/src/test/**' \
+            --exclude-glob 'datahub-frontend/src/test/**' \
+            --exclude-glob 'metadata-integration/java/acryl-spark-lineage/src/test/**' \
+            --exclude-glob 'metadata-integration/java/datahub-schematron/cli/src/test/**' \
+            --output-args shard-args.txt
+      - name: Run shard tests
+        # Args array avoids shell word-splitting; empty shard skips cleanly.
+        run: |
+          mapfile -t ARGS < shard-args.txt
+          if [ "${#ARGS[@]}" -eq 0 ]; then
+            echo "No tests assigned to this shard — skipping."
+            exit 0
+          fi
+          ./gradlew "${ARGS[@]}" --build-cache --continue --max-workers="$(nproc)"
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: build-and-test-backend-shard${{ matrix.batch }}
+          test-results-paths: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+            !**/binary/**
+          junit-file-globs: |
+            **/build/test-results/test/**/*.xml
+            **/junit.*.xml
+      # TODO(coverage): sharded runs don't yet merge JaCoCo across runners to Codecov. While
+      # the toggle is off (default) the single build-except job supplies full backend coverage.
+      # Wire per-shard JaCoCo upload (Codecov 'backend' flag, server-side merge) before making
+      # sharding the default.
 
   event-file:
     runs-on: ubuntu-latest
