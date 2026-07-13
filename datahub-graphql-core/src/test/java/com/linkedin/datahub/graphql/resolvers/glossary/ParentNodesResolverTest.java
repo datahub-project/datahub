@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -39,12 +40,14 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -133,6 +136,18 @@ public class ParentNodesResolverTest {
     assertEquals(result.getCount(), 2);
     assertEquals(result.getNodes().get(0).getUrn(), PARENT_NODE_1.toString());
     assertEquals(result.getNodes().get(1).getUrn(), PARENT_NODE_2.toString());
+  }
+
+  @Test
+  public void testThrowsWhenParentNodeNotFound() throws Exception {
+    Urn termUrn = Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
+
+    // The walk yields parent urns, but the batch hydration returns none of them.
+    EntityClient mockClient = mock(EntityClient.class);
+    when(mockClient.batchGetV2(any(), any(), any(), any())).thenReturn(Collections.emptyMap());
+
+    ParentNodesResolver resolver = new ParentNodesResolver(mockClient);
+    assertThrows(ExecutionException.class, () -> resolver.get(mockEnv(termUrn, true)).get());
   }
 
   private static DataFetchingEnvironment mockEnv(Urn sourceUrn, boolean term) {

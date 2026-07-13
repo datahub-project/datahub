@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -161,5 +162,99 @@ public class ParentContainersResolverTest {
     assertEquals(result.getCount(), 2);
     assertEquals(result.getContainers().get(0).getUrn(), parentContainer1.toString());
     assertEquals(result.getContainers().get(1).getUrn(), parentContainer2.toString());
+  }
+
+  @Test
+  public void testGetNoParentContainers() throws Exception {
+    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,no-parents,test)");
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = envWithAncestors(datasetUrn, List.of(), mockClient);
+
+    ParentContainersResult result = new ParentContainersResolver(mockClient).get(mockEnv).get();
+
+    // No ancestors -> empty result and no hydration call at all.
+    assertEquals(result.getCount(), 0);
+    Mockito.verify(mockClient, Mockito.never())
+        .batchGetV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  public void testGetSkipsParentMissingFromBatchResult() throws Exception {
+    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,partial,test)");
+    Urn present = Urn.createFromString("urn:li:container:present");
+    Urn missing = Urn.createFromString("urn:li:container:missing");
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv =
+        envWithAncestors(datasetUrn, List.of(present, missing), mockClient);
+
+    Map<String, EnvelopedAspect> presentAspects = new HashMap<>();
+    presentAspects.put(
+        CONTAINER_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setValue(new Aspect(new ContainerProperties().setName("kept").data())));
+    // batchGetV2 returns only the present urn; the missing/unauthorized urn is absent.
+    Map<Urn, EntityResponse> batchResponse = new HashMap<>();
+    batchResponse.put(
+        present,
+        new EntityResponse()
+            .setEntityName(CONTAINER_ENTITY_NAME)
+            .setUrn(present)
+            .setAspects(new EnvelopedAspectMap(presentAspects)));
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(), Mockito.eq(CONTAINER_ENTITY_NAME), any(), Mockito.eq(null)))
+        .thenReturn(batchResponse);
+
+    ParentContainersResult result = new ParentContainersResolver(mockClient).get(mockEnv).get();
+
+    // The urn absent from the batch response is skipped, not surfaced as null.
+    assertEquals(result.getCount(), 1);
+    assertEquals(result.getContainers().get(0).getUrn(), present.toString());
+  }
+
+  private static DataFetchingEnvironment envWithAncestors(
+      Urn datasetUrn, List<Urn> ancestors, EntityClient mockClient) {
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
+
+    EntityGraphCache entityGraphCache = Mockito.mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("container").source(GraphSnapshotSource.GRAPH).build();
+    Mockito.when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.CONTAINER))
+        .thenReturn(Optional.of(binding));
+    Mockito.when(
+            entityGraphCache.walkOrderedForwardAncestors(
+                eq("container"),
+                eq(GraphSnapshotSource.GRAPH),
+                eq(datasetUrn.toString()),
+                eq(50),
+                eq(ReadMode.CACHED)))
+        .thenReturn(
+            AncestorWalkResult.fromAncestors(
+                ancestors.stream().map(Urn::toString).collect(Collectors.toList())));
+
+    OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(SearchRetriever.EMPTY)
+            .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+            .aspectRetriever(Mockito.mock(AspectRetriever.class))
+            .entityGraphCache(entityGraphCache)
+            .build();
+    OperationContext operationContext =
+        base.toBuilder()
+            .retrieverContext(retrieverContext)
+            .build(base.getSessionAuthentication(), false);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(operationContext);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Dataset datasetEntity = new Dataset();
+    datasetEntity.setUrn(datasetUrn.toString());
+    datasetEntity.setType(EntityType.DATASET);
+    Mockito.when(mockEnv.getSource()).thenReturn(datasetEntity);
+    return mockEnv;
   }
 }
