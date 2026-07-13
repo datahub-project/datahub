@@ -171,7 +171,7 @@ def test_get_table_urns_from_native_query(mock_post, mock_get, mock_delete):
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-    metabase_source.get_datasource_from_id = MagicMock(
+    metabase_source.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=DatasourceInfo(
             platform="postgres",
             database_name="mydb",
@@ -221,7 +221,7 @@ def test_get_table_urns_from_query_builder(mock_post, mock_get, mock_delete):
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-    metabase_source.get_datasource_from_id = MagicMock(
+    metabase_source.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=DatasourceInfo(
             platform="postgres",
             database_name="mydb",
@@ -229,7 +229,7 @@ def test_get_table_urns_from_query_builder(mock_post, mock_get, mock_delete):
             platform_instance=None,
         )
     )
-    metabase_source.get_source_table_from_id = MagicMock(
+    metabase_source.get_source_table_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=("public", "products")
     )
 
@@ -268,7 +268,7 @@ def test_get_table_urns_from_nested_query(mock_post, mock_get, mock_delete):
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-    metabase_source.get_datasource_from_id = MagicMock(
+    metabase_source.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=DatasourceInfo(
             platform="postgres",
             database_name="mydb",
@@ -276,7 +276,7 @@ def test_get_table_urns_from_nested_query(mock_post, mock_get, mock_delete):
             platform_instance=None,
         )
     )
-    metabase_source.get_source_table_from_id = MagicMock(
+    metabase_source.get_source_table_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=("public", "products")
     )
 
@@ -437,7 +437,7 @@ def test_construct_model_from_api_data(mock_post, mock_get, mock_delete):
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-    metabase_source.get_datasource_from_id = MagicMock(
+    metabase_source.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=DatasourceInfo(
             platform="postgres",
             database_name="mydb",
@@ -546,7 +546,7 @@ def test_construct_model_with_lineage(mock_post, mock_get, mock_delete):
     mock_delete.return_value = mock_response
 
     metabase_source = MetabaseSource(ctx, metabase_config)
-    metabase_source.get_datasource_from_id = MagicMock(
+    metabase_source.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=DatasourceInfo(
             platform="postgres",
             database_name="mydb",
@@ -980,7 +980,7 @@ def test_malformed_sql_parsing_failure(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
 
-    metabase_source.get_datasource_from_id = MagicMock(
+    metabase_source.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=DatasourceInfo(
             platform="postgres",
             database_name="mydb",
@@ -1028,7 +1028,7 @@ def test_sql_with_cte_and_subqueries(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
 
-    metabase_source.get_datasource_from_id = MagicMock(
+    metabase_source.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=DatasourceInfo(
             platform="postgres",
             database_name="mydb",
@@ -1130,7 +1130,7 @@ def test_empty_query_returns_empty_list(mock_post, mock_get, mock_delete):
 
     metabase_source = MetabaseSource(ctx, metabase_config)
 
-    metabase_source.get_datasource_from_id = MagicMock(
+    metabase_source.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=DatasourceInfo(
             platform="postgres",
             database_name="mydb",

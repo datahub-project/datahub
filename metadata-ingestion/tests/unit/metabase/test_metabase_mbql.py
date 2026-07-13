@@ -183,7 +183,7 @@ def test_metabase_query_parses_joins():
 def test_join_lineage_returns_both_tables(mock_post, mock_get, mock_delete):
     """A card with source-table + one join should produce two table URNs."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
 
     def resolve_table(table_id):
         return {21: ("default", "film"), 22: ("default", "actor")}.get(
@@ -216,7 +216,7 @@ def test_join_lineage_returns_both_tables(mock_post, mock_get, mock_delete):
 def test_multiple_joins_all_captured(mock_post, mock_get, mock_delete):
     """Three tables (primary + 2 joins) should produce three URNs."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
 
     def resolve_table(table_id):
         mapping = {
@@ -256,7 +256,7 @@ def test_multiple_joins_all_captured(mock_post, mock_get, mock_delete):
 def test_join_with_card_ref_resolves_transitively(mock_post, mock_get, mock_delete):
     """A join whose source-table is a card__ref should resolve through the referenced card."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_source_table_from_id = MagicMock(return_value=("default", "film"))  # type: ignore[method-assign]
 
     referenced_card = MetabaseCard(
@@ -299,7 +299,7 @@ def test_join_with_card_ref_resolves_transitively(mock_post, mock_get, mock_dele
 def test_cll_direct_field_ref(mock_post, mock_get, mock_delete):
     """field_ref: ["field", 131, null] → CLL from film.rating to output column."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_field_from_id = MagicMock(  # type: ignore[method-assign]
         side_effect=lambda fid: _field(131, "rating") if fid == 131 else None
     )
@@ -341,7 +341,7 @@ def test_cll_aggregation_with_explicit_field(mock_post, mock_get, mock_delete):
     """["aggregation", 1] where aggregation[1]=["avg", ["field", 132, null]]
     → CLL from film.rental_rate to avg_rental_rate output column."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_field_from_id = MagicMock(  # type: ignore[method-assign]
         side_effect=lambda fid: _field(132, "rental_rate") if fid == 132 else None
     )
@@ -384,7 +384,7 @@ def test_cll_count_star_fans_in_all_upstream_columns(mock_post, mock_get, mock_d
         132: _field(132, "rental_rate"),
     }
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_field_from_id = MagicMock(side_effect=lambda fid: fields.get(fid))  # type: ignore[method-assign]
     src.get_source_table_from_id = MagicMock(return_value=("default", "film"))  # type: ignore[method-assign]
 
@@ -435,7 +435,7 @@ def test_cll_expression_ref_resolves_constituent_fields(
         20: _field(20, "cost"),
     }
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_field_from_id = MagicMock(side_effect=lambda fid: fields.get(fid))  # type: ignore[method-assign]
     src.get_source_table_from_id = MagicMock(return_value=("default", "film"))  # type: ignore[method-assign]
 
@@ -473,7 +473,7 @@ def test_cll_expression_ref_resolves_constituent_fields(
 def test_cll_unknown_ref_type_produces_no_cll_entry(mock_post, mock_get, mock_delete):
     """An unrecognised field_ref type should be silently skipped (no CLL entry)."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_field_from_id = MagicMock(return_value=None)  # type: ignore[method-assign]
     src.get_source_table_from_id = MagicMock(return_value=("default", "film"))  # type: ignore[method-assign]
 
@@ -507,7 +507,7 @@ def test_cll_unknown_ref_type_produces_no_cll_entry(mock_post, mock_get, mock_de
 @patch("requests.post")
 def test_cll_returns_none_when_no_result_metadata(mock_post, mock_get, mock_delete):
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_field_from_id = MagicMock(return_value=None)  # type: ignore[method-assign]
     src.get_source_table_from_id = MagicMock(return_value=("default", "film"))  # type: ignore[method-assign]
 
@@ -558,7 +558,7 @@ def test_cll_returns_none_when_upstream_table_not_found(
 ):
     """If source-table lookup fails (returns None name), CLL should return None."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_field_from_id = MagicMock(return_value=None)  # type: ignore[method-assign]
     # All table lookups fail
     src.get_source_table_from_id = MagicMock(return_value=(None, None))  # type: ignore[method-assign]
@@ -589,7 +589,7 @@ def test_cll_skips_metadata_with_missing_name_or_field_ref(
 ):
     """result_metadata entries with no name or no field_ref should be skipped without crashing."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_field_from_id = MagicMock(  # type: ignore[method-assign]
         side_effect=lambda fid: _field(131, "rating") if fid == 131 else None
     )
@@ -629,7 +629,7 @@ def test_cll_skips_metadata_with_missing_name_or_field_ref(
 def test_emit_model_uses_cll_for_query_builder(mock_post, mock_get, mock_delete):
     """A query-builder model should emit UpstreamLineageClass with fineGrainedLineages."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src.get_field_from_id = MagicMock(  # type: ignore[method-assign]
         side_effect=lambda fid: _field(131, "rating") if fid == 131 else None
     )
@@ -714,7 +714,7 @@ def test_emit_model_uses_cll_for_query_builder(mock_post, mock_get, mock_delete)
 def test_emit_model_uses_plain_lineage_for_native_sql(mock_post, mock_get, mock_delete):
     """Native SQL models emit UpstreamLineageClass with fineGrainedLineages."""
     src = _make_source(mock_post, mock_get, mock_delete)
-    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)
+    src.get_datasource_from_id = MagicMock(return_value=FILM_DATASOURCE)  # type: ignore[method-assign]
     src._get_collections_map = MagicMock(return_value={})  # type: ignore[method-assign]
 
     card_data = {
