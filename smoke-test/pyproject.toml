@@ -86,6 +86,7 @@ markers = [
     "no_cypress_suite1: main smoke tests, suite 1",
     "test_run_cypress: run cypress tests",
     "integration: marks tests as integration tests requiring a running DataHub stack",
+    "global_policy_mutator: module mutates shared platform policy state (disables All Users defaults and/or heavy policy-cache tests); smoke.sh runs these serially in a second pytest invocation after non-mutators",
 ]
 filterwarnings = [
     # Ignore some warnings that come from dependencies.
