@@ -315,6 +315,20 @@ def get_dataset_urn_to_lower() -> str:
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
 
 
+def get_sqlglot_disable_c() -> bool:
+    """Disable sqlglot[c] mypyc-compiled C extensions, forcing pure Python.
+
+    Useful as a workaround for memory leaks in compiled sqlglot modules.
+    Applied at interpreter startup via .pth hook; see datahub/_force_pure_python_sqlglot.py.
+    """
+    return os.getenv("DATAHUB_SQLGLOT_DISABLE_C", "").strip().lower() not in (
+        "",
+        "0",
+        "false",
+        "no",
+    )
+
+
 # ============================================================================
 # Integration-Specific Configuration
 # ============================================================================

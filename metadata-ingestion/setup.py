@@ -1345,10 +1345,19 @@ setuptools.setup(
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
     },
-    # Install .pth so setproctitle is patched at interpreter startup on macOS (avoids
-    # SIGSEGV when a multi-threaded process forks and something calls setproctitle).
+    # Install .pth files that run at interpreter startup:
+    # - setproctitle patch avoids a SIGSEGV when a multi-threaded process forks
+    #   and something calls setproctitle (macOS).
+    # - force_pure_python_sqlglot honours DATAHUB_SQLGLOT_DISABLE_C by loading
+    #   sqlglot from .py instead of the mypyc .so extensions.
     data_files=[
-        (sysconfig.get_path("purelib"), ["datahub_setproctitle_patch.pth"]),
+        (
+            sysconfig.get_path("purelib"),
+            [
+                "datahub_setproctitle_patch.pth",
+                "datahub_force_pure_python_sqlglot.pth",
+            ],
+        ),
     ],
     entry_points=entry_points,
     # Dependencies.
