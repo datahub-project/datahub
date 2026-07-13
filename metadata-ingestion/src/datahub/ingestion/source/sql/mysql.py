@@ -336,21 +336,40 @@ class MySQLSource(TwoTierSQLAlchemySource):
         engine = create_engine(url, **self.config.options)
         self._setup_rds_iam_event_listener(engine)
 
-        with engine.connect() as conn:
-            inspector = inspect(conn)
-            if self.config.database and self.config.database != "":
-                databases = [self.config.database]
-            else:
-                databases = inspector.get_schema_names()
-            for db in databases:
-                if self.config.database_pattern.allowed(db):
-                    url = self.config.get_sql_alchemy_url(current_db=db)
-                    db_engine = create_engine(url, **self.config.options)
-                    self._setup_rds_iam_event_listener(db_engine, database_name=db)
+        try:
+            with engine.connect() as conn:
+                inspector = inspect(conn)
+                if self.config.database and self.config.database != "":
+                    databases = [self.config.database]
+                else:
+                    databases = inspector.get_schema_names()
+        finally:
+            # Only used to list databases; dispose so it does not hold a pooled
+            # connection open for the whole reflection/profiling run.
+            engine.dispose()
 
-                    with db_engine.connect() as conn:
-                        inspector = inspect(conn)
-                        yield inspector
+        for db in databases:
+            if not self.config.database_pattern.allowed(db):
+                continue
+            db_url = self.config.get_sql_alchemy_url(current_db=db)
+            # config.options carries the max_overflow that _add_default_options injects when
+            # profiling is on, so this per-DB QueuePool can grow to profiling.max_workers
+            # connections (QueuePool accepts it). PR #18319 fixes the mirror-image case where the
+            # same injected option breaks the NullPool usage engine — same root cause.
+            db_engine = create_engine(db_url, **self.config.options)
+            self._setup_rds_iam_event_listener(db_engine, database_name=db)
+            try:
+                with db_engine.connect() as conn:
+                    inspector = inspect(conn)
+                    # Invariant: the caller must complete all reflection + profiling for this db
+                    # before requesting the next inspector — the finally below disposes the engine
+                    # on resume, so deferring work past the yield would run it on a torn-down engine.
+                    yield inspector
+            finally:
+                # Dispose once the inspector is consumed; otherwise each engine's
+                # pool keeps one connection open per database for the whole run,
+                # exhausting servers with a low max_user_connections limit.
+                db_engine.dispose()
 
     def add_profile_metadata(self, inspector: Inspector) -> None:
         if not self.config.is_profiling_enabled():

@@ -113,7 +113,8 @@ public class UsageAggregationFactory {
         flush.getMaxCardinality(),
         flush.getMaxWindowSeconds(),
         flush.getRetryAttempts(),
-        flush.getRetryInitialBackoffMillis());
+        flush.getRetryInitialBackoffMillis(),
+        flush.getAlignmentPeriodSeconds());
   }
 
   @Bean
@@ -124,7 +125,9 @@ public class UsageAggregationFactory {
     UsageAggregationConfiguration config = resolveAggregationConfig(configurationProvider);
     adaptiveFlushCoordinator =
         new AdaptiveFlushCoordinator(
-            usageAggregationStore, config.getFlush().getScheduledIntervalSeconds());
+            usageAggregationStore,
+            config.getFlush().getScheduledIntervalSeconds(),
+            usageAggregationStore.clock());
     return adaptiveFlushCoordinator;
   }
 

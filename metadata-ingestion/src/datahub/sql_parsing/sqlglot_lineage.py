@@ -39,6 +39,7 @@ from datahub.configuration.env_vars import (
     get_sql_agg_skip_joins,
     get_sql_parse_cache_size,
 )
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -327,6 +328,13 @@ class _ColumnLineageInfo(_ParserBaseModel):
     logic: Optional[ColumnTransformation] = None
 
 
+def column_refs_to_schema_field_urns(refs: Iterable[ColumnRef]) -> List[str]:
+    # A ColumnRef can carry an empty column when upstream resolution couldn't
+    # cleanly identify a column (see _translate_internal_column_lineage), so we
+    # filter those out here rather than build an invalid schemaField URN.
+    return [make_schema_field_urn(ref.table, ref.column) for ref in refs if ref.column]
+
+
 class ColumnLineageInfo(_ParserBaseModel):
     """
     TODO: Instead of implementing custom __hash__ function this class should simply inherit from _FrozenModel.
@@ -342,6 +350,14 @@ class ColumnLineageInfo(_ParserBaseModel):
 
     def __hash__(self) -> int:
         return hash((self.downstream, tuple(self.upstreams), self.logic))
+
+    def downstream_schema_field_urn(self) -> Optional[str]:
+        if not self.downstream.table or not self.downstream.column:
+            return None
+        return make_schema_field_urn(self.downstream.table, self.downstream.column)
+
+    def upstream_schema_field_urns(self) -> List[str]:
+        return column_refs_to_schema_field_urns(self.upstreams)
 
 
 class _JoinInfo(_ParserBaseModel):
@@ -1893,7 +1909,12 @@ def _translate_internal_column_lineage(
                 column=upstream.column,
             )
             for upstream in raw_column_lineage.upstreams
-            if upstream.table in table_name_urn_mapping
+            # upstream.column can be empty when sqlglot's column-lineage resolution
+            # can't cleanly resolve a column identifier against the upstream table's
+            # schema (e.g. under a schema/platform mismatch). Filtering it here means
+            # every consumer of ColumnLineageInfo gets a valid schemaField URN instead
+            # of one with an empty field path.
+            if upstream.table in table_name_urn_mapping and upstream.column
         ],
         logic=raw_column_lineage.logic,
     )

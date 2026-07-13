@@ -25,7 +25,7 @@ final class EntityCountsResponseMapper {
         EntityCountsResponseDto.builder()
             .counts(counts)
             .requestedTypes(result.getRequestedTypes())
-            .computedAt(result.getComputedAt())
+            .computedAtMillis(result.getComputedAt().toEpochMilli())
             .cacheHit(result.isCacheHit());
 
     if (includeTotal) {
@@ -48,7 +48,7 @@ final class EntityCountsResponseMapper {
             .keyAspect(entry.getKeyAspect())
             .activeCount(entry.getActiveCount())
             .softDeletedCount(entry.getSoftDeletedCount())
-            .computedAt(result.getComputedAt())
+            .computedAtMillis(result.getComputedAt().toEpochMilli())
             .cacheHit(result.isCacheHit());
 
     if (includeTotal) {
