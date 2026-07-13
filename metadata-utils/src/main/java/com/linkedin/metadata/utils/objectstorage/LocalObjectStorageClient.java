@@ -14,6 +14,20 @@ public class LocalObjectStorageClient implements ObjectStorageClient {
 
   public LocalObjectStorageClient(@Nullable String rootPath) {
     this.rootPath = rootPath;
+    if (isConfigured()) {
+      ensureRootExists();
+    }
+  }
+
+  private void ensureRootExists() {
+    Path root = Path.of(rootPath);
+    try {
+      Files.createDirectories(root);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Failed to create local object storage root directory '" + root + "': " + e.getMessage(),
+          e);
+    }
   }
 
   @Override
