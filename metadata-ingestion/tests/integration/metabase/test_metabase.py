@@ -63,7 +63,7 @@ class MockResponse:
             self.json_data = data
         return self.json_data
 
-    def get(self, url, params=None):
+    def get(self, url, params=None, **kwargs):
         self.url = url
         return self
 
@@ -96,7 +96,7 @@ class MockResponse:
 
     @staticmethod
     def build_mocked_requests_session_post(json_response_map):
-        def mocked_requests_session_post(url, data, json):
+        def mocked_requests_session_post(url, data, json, **kwargs):
             return MockResponse(
                 url=url,
                 data=data,
@@ -108,7 +108,7 @@ class MockResponse:
 
     @staticmethod
     def build_mocked_requests_session_delete(json_response_map):
-        def mocked_requests_session_delete(url, headers):
+        def mocked_requests_session_delete(url, headers, **kwargs):
             return MockResponse(
                 url=url,
                 data=None,
@@ -180,19 +180,19 @@ def test_metabase_ingest_success(
 ):
     with (
         patch(
-            "datahub.ingestion.source.metabase.requests.session",
+            "datahub.ingestion.source.metabase.source.requests.session",
             side_effect=MockResponse.build_mocked_requests_sucess(
                 default_json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.post",
+            "datahub.ingestion.source.metabase.source.requests.post",
             side_effect=MockResponse.build_mocked_requests_session_post(
                 default_json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.delete",
+            "datahub.ingestion.source.metabase.source.requests.delete",
             side_effect=MockResponse.build_mocked_requests_session_delete(
                 default_json_response_map
             ),
@@ -223,17 +223,17 @@ def test_stateful_ingestion(
     json_response_map = default_json_response_map
     with (
         patch(
-            "datahub.ingestion.source.metabase.requests.session",
+            "datahub.ingestion.source.metabase.source.requests.session",
             side_effect=MockResponse.build_mocked_requests_sucess(json_response_map),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.post",
+            "datahub.ingestion.source.metabase.source.requests.post",
             side_effect=MockResponse.build_mocked_requests_session_post(
                 json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.delete",
+            "datahub.ingestion.source.metabase.source.requests.delete",
             side_effect=MockResponse.build_mocked_requests_session_delete(
                 json_response_map
             ),
@@ -287,19 +287,19 @@ def test_stateful_ingestion(
 def test_metabase_ingest_failure(pytestconfig, tmp_path, default_json_response_map):
     with (
         patch(
-            "datahub.ingestion.source.metabase.requests.session",
+            "datahub.ingestion.source.metabase.source.requests.session",
             side_effect=MockResponse.build_mocked_requests_failure(
                 default_json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.post",
+            "datahub.ingestion.source.metabase.source.requests.post",
             side_effect=MockResponse.build_mocked_requests_session_post(
                 default_json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.delete",
+            "datahub.ingestion.source.metabase.source.requests.delete",
             side_effect=MockResponse.build_mocked_requests_session_delete(
                 default_json_response_map
             ),
@@ -393,7 +393,7 @@ def extended_json_response_map():
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_metabase_ingest_with_models_and_collections(
     pytestconfig, tmp_path, extended_json_response_map, mock_datahub_graph
 ):
@@ -408,19 +408,19 @@ def test_metabase_ingest_with_models_and_collections(
     """
     with (
         patch(
-            "datahub.ingestion.source.metabase.requests.session",
+            "datahub.ingestion.source.metabase.source.requests.session",
             side_effect=MockResponse.build_mocked_requests_sucess(
                 extended_json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.post",
+            "datahub.ingestion.source.metabase.source.requests.post",
             side_effect=MockResponse.build_mocked_requests_session_post(
                 extended_json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.delete",
+            "datahub.ingestion.source.metabase.source.requests.delete",
             side_effect=MockResponse.build_mocked_requests_session_delete(
                 extended_json_response_map
             ),
@@ -510,7 +510,7 @@ def mbql_cll_response_map():
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mbql_cll_model(
     pytestconfig, tmp_path, mbql_cll_response_map, mock_datahub_graph
 ):
@@ -528,19 +528,19 @@ def test_mbql_cll_model(
     """
     with (
         patch(
-            "datahub.ingestion.source.metabase.requests.session",
+            "datahub.ingestion.source.metabase.source.requests.session",
             side_effect=MockResponse.build_mocked_requests_sucess(
                 mbql_cll_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.post",
+            "datahub.ingestion.source.metabase.source.requests.post",
             side_effect=MockResponse.build_mocked_requests_session_post(
                 mbql_cll_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.delete",
+            "datahub.ingestion.source.metabase.source.requests.delete",
             side_effect=MockResponse.build_mocked_requests_session_delete(
                 mbql_cll_response_map
             ),
@@ -641,7 +641,7 @@ def test_mbql_cll_model(
         ), f"COUNT(*) should fan in upstream columns, got: {count_upstream_cols}"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_mbql_join_lineage(pytestconfig, tmp_path, mock_datahub_graph):
     """
     Integration test: a query-builder model with a join clause (card_7) should produce
@@ -669,17 +669,17 @@ def test_mbql_join_lineage(pytestconfig, tmp_path, mock_datahub_graph):
 
     with (
         patch(
-            "datahub.ingestion.source.metabase.requests.session",
+            "datahub.ingestion.source.metabase.source.requests.session",
             side_effect=MockResponse.build_mocked_requests_sucess(join_response_map),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.post",
+            "datahub.ingestion.source.metabase.source.requests.post",
             side_effect=MockResponse.build_mocked_requests_session_post(
                 join_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.delete",
+            "datahub.ingestion.source.metabase.source.requests.delete",
             side_effect=MockResponse.build_mocked_requests_session_delete(
                 join_response_map
             ),

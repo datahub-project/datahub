@@ -22,7 +22,8 @@ services:
       - metabase-network
 
   metabase:
-    image: metabase/metabase:latest
+    # Pinned so a new Metabase release cannot silently churn the golden files.
+    image: metabase/metabase:v0.55.9
     container_name: metabase
     environment:
       MB_DB_TYPE: h2

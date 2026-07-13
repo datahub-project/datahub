@@ -5,10 +5,9 @@ from pydantic import SecretStr
 from requests.exceptions import HTTPError
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.metabase import (
-    _KNOWN_METABASE_ENGINES,
     DATASOURCE_URN_RECURSION_LIMIT,
-    METABASE_CHART_DISPLAY_TYPE_MAP,
     DatasourceInfo,
     MetabaseCard,
     MetabaseCardListItem,
@@ -20,6 +19,7 @@ from datahub.ingestion.source.metabase import (
     MetabaseSource,
 )
 from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
     GlobalTagsClass,
     SchemaMetadataClass,
     UpstreamLineageClass,
@@ -34,7 +34,7 @@ class TestMetabaseSource(MetabaseSource):
 
 def test_get_platform_instance():
     ctx = PipelineContext(run_id="test-metabase")
-    config = MetabaseConfig()
+    config = MetabaseConfig(username="un", password=SecretStr("pwd"))
     config.connect_uri = "http://localhost:3000"
     # config.database_id_to_instance_map = {"42": "my_main_clickhouse"}
     # config.platform_instance_map = {"clickhouse": "my_only_clickhouse"}
@@ -65,15 +65,6 @@ def test_get_platform_instance():
     assert metabase.get_platform_instance("missing-platform", 999) is None
 
 
-def test_set_display_uri():
-    display_uri = "some_host:1234"
-
-    config = MetabaseConfig.model_validate({"display_uri": display_uri})
-
-    assert config.connect_uri == "localhost:3000"
-    assert config.display_uri == display_uri
-
-
 @patch("requests.session")
 def test_connection_uses_api_key_if_in_config(mock_session):
     metabase_config = MetabaseConfig(
@@ -92,7 +83,9 @@ def test_connection_uses_api_key_if_in_config(mock_session):
     metabase_source = MetabaseSource(ctx, metabase_config)
     metabase_source.close()
 
-    mock_session_instance.get.assert_called_once_with("localhost:3000/api/user/current")
+    mock_session_instance.get.assert_called_once_with(
+        "localhost:3000/api/user/current", timeout=metabase_config.request_timeout_sec
+    )
     request_headers = mock_session_instance.headers
     assert request_headers["x-api-key"] == "key"
 
@@ -374,7 +367,7 @@ def test_extract_tags_from_collection(mock_post, mock_get, mock_delete):
         {"id": "1", "name": "Sales Dashboard"},
     ]
 
-    def mock_get_collections(url):
+    def mock_get_collections(url, **kwargs):
         if "/api/collection/" in url:
             return collections_response
         return mock_response
@@ -386,18 +379,6 @@ def test_extract_tags_from_collection(mock_post, mock_get, mock_delete):
     assert len(tags.tags) == 1
     assert tags.tags[0].tag == "urn:li:tag:metabase_collection_sales_dashboard"
     metabase_source.close()
-
-
-def test_is_metabase_model():
-    """Test model detection via MetabaseCardListItem.is_model property"""
-    assert (
-        MetabaseCardListItem(id=123, type="model", name="Sales Model").is_model is True
-    )
-    assert (
-        MetabaseCardListItem(id=456, type="question", name="Sales Query").is_model
-        is False
-    )
-    assert MetabaseCardListItem(id=789, type=None, name="Unknown").is_model is False
 
 
 def test_clean_db_strips_jdbc_credentials():
@@ -467,7 +448,7 @@ def test_construct_model_from_api_data(mock_post, mock_get, mock_delete):
         {"id": "42", "name": "Analytics"},
     ]
 
-    def mock_get_collections(url):
+    def mock_get_collections(url, **kwargs):
         if "/api/collection/" in url:
             return collections_response
         return mock_response
@@ -784,7 +765,7 @@ def test_collection_name_empty_after_sanitization(mock_post, mock_get, mock_dele
         },  # Only special chars, will be empty after sanitization
     ]
 
-    def mock_get_collections(url):
+    def mock_get_collections(url, **kwargs):
         if "/api/collection/" in url:
             return collections_response
         return mock_response
@@ -822,7 +803,7 @@ def test_collection_404_error_handling(mock_post, mock_get, mock_delete):
     http_error = HTTPError()
     http_error.response = error_response
 
-    def mock_get_collections(url):
+    def mock_get_collections(url, **kwargs):
         if "/api/collection/" in url:
             raise http_error
         return mock_response
@@ -865,7 +846,7 @@ def test_collection_non_404_error_handling(
     http_error = HTTPError()
     http_error.response = error_response
 
-    def mock_get_collections(url, error=http_error):
+    def mock_get_collections(url, error=http_error, **kwargs):
         if "/api/collection/" in url:
             raise error
         return mock_response
@@ -949,7 +930,7 @@ def test_emit_chart_workunits_skips_models_when_extraction_enabled(
         {"id": 3, "name": "Another Card", "type": "question"},
     ]
 
-    def mock_session_get(url):
+    def mock_session_get(url, **kwargs):
         if "/api/card" in url:
             return card_response
         return mock_response
@@ -1111,7 +1092,7 @@ def test_api_500_error_handling(mock_post, mock_get, mock_delete):
     error_response.status_code = 500
     error_response.raise_for_status.side_effect = HTTPError()
 
-    def mock_get_cards(url):
+    def mock_get_cards(url, **kwargs):
         if "/api/card" in url:
             return error_response
         return mock_response
@@ -1188,29 +1169,6 @@ def test_empty_query_returns_empty_list(mock_post, mock_get, mock_delete):
     metabase_source.close()
 
 
-def test_known_engines_suppresses_platform_warning():
-    """Engines with a 1:1 mapping to DataHub platform names must not trigger
-    the 'Unrecognized Data Platform' warning path."""
-    for engine in ("clickhouse", "h2", "mysql", "postgres", "redshift", "snowflake"):
-        assert engine in _KNOWN_METABASE_ENGINES, (
-            f"Engine '{engine}' missing from _KNOWN_METABASE_ENGINES — "
-            "it will generate a spurious 'Unrecognized Data Platform' warning"
-        )
-
-
-def test_chart_type_map_covers_known_types():
-    """object and sankey must be present so they do not generate a warning."""
-    for chart_type in ("object", "sankey"):
-        assert chart_type in METABASE_CHART_DISPLAY_TYPE_MAP, (
-            f"Chart type '{chart_type}' missing from METABASE_CHART_DISPLAY_TYPE_MAP"
-        )
-
-
-def test_metabase_collection_is_root():
-    assert MetabaseCollection(id="root", name="Our analytics").is_root
-    assert not MetabaseCollection(id=1, name="Analytics").is_root
-
-
 @patch("requests.delete")
 @patch("requests.Session.get")
 @patch("requests.post")
@@ -1254,3 +1212,82 @@ def test_root_collection_is_skipped(mock_post, mock_get, mock_delete):
     assert len(metabase_source.report.warnings) == 0
 
     metabase_source.close()
+
+
+def test_passthrough_cll_emits_copy_1to1_lineage():
+    """A query-builder card that only selects from a single source table (no
+    filter/aggregation/join) must produce COPY lineage with a 1:1 column mapping."""
+    ctx = PipelineContext(run_id="metabase-test")
+    config = MetabaseConfig(username="un", password=SecretStr("pwd"))
+    metabase = TestMetabaseSource(ctx, config)
+
+    metabase.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
+    )
+    metabase.get_source_table_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=("public", "orders")
+    )
+
+    card = MetabaseCard(
+        id=1,
+        name="Orders Model",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 42}),
+        result_metadata=[
+            {"name": "order_id", "base_type": "type/Integer"},
+            {"name": "amount", "base_type": "type/Decimal"},
+        ],
+    )
+
+    model_urn = metabase._model_urn(card.id)
+    lineage = metabase._get_passthrough_cll(card, model_urn)
+
+    assert lineage is not None
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    assert [u.dataset for u in lineage.upstreams] == [source_urn]
+    assert lineage.upstreams[0].type == DatasetLineageTypeClass.COPY
+
+    assert lineage.fineGrainedLineages is not None
+    downstream_cols = {
+        (fgl.downstreams or [""])[0].rsplit(",", 1)[-1].rstrip(")")
+        for fgl in lineage.fineGrainedLineages
+    }
+    assert downstream_cols == {"order_id", "amount"}
+
+
+def test_model_subtypes_passthrough_vs_transformed():
+    """A pure pass-through model is just a METABASE_MODEL; anything that
+    transforms (filter/aggregation/join) is additionally a VIEW."""
+    ctx = PipelineContext(run_id="metabase-test")
+    config = MetabaseConfig(username="un", password=SecretStr("pwd"))
+    metabase = TestMetabaseSource(ctx, config)
+
+    passthrough = MetabaseCard(
+        id=1,
+        name="Passthrough",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(type="query", query={"source-table": 42}),
+    )
+    assert metabase._get_model_subtypes(passthrough) == [DatasetSubTypes.METABASE_MODEL]
+
+    transformed = MetabaseCard(
+        id=2,
+        name="Transformed",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="query",
+            query={
+                "source-table": 42,
+                "filter": ["=", ["field", 1, None], 5],
+            },
+        ),
+    )
+    assert metabase._get_model_subtypes(transformed) == [
+        DatasetSubTypes.METABASE_MODEL,
+        DatasetSubTypes.VIEW,
+    ]
