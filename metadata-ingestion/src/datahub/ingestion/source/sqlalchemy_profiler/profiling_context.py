@@ -30,23 +30,16 @@ class ProfilingContext:
     pretty_name: str
     table: str
     schema: Optional[str] = None
+    # PARTIALLY DEPRECATED: custom_sql should eventually be removed.
+    # It exists because some sources (e.g. BigQuery partitions) tweak the GE profiler
+    # directly, bypassing the adapter layer. New adapters should centralize this
+    # logic in setup_profiling instead.
+    # Blocked on GE profiler removal — once gone, migrating to adapters will be straightforward.
     custom_sql: Optional[str] = None
     partition: Optional[str] = None
 
     # Working state (populated during profiling)
-    # sql_table: SQLAlchemy selectable to profile: sa.sql.FromClause = Table or Subquery
-    # - In most cases: sa.Table (regular tables or temp tables)
-    # - Can also be: sa.sql.expression.Subquery (inline expressions)
-    #
-    # Adapter implementation patterns for custom_sql:
-    # 1. Temp table approach (BigQuery, Athena, Trino):
-    #    - Creates temp table/view from custom_sql
-    #    - Reflects it as sa.Table
-    #    - Requires cleanup in adapter.cleanup()
-    # 2. Inline expression approach (Snowflake):
-    #    - Wraps custom_sql as Subquery
-    #    - No temp objects, no cleanup needed
-    sql_table: Optional[sa.sql.FromClause] = None
+    sql_table: Optional[sa.Table] = None
     row_count: Optional[int] = None
 
     # Platform-specific resources (need cleanup)

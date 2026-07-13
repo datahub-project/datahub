@@ -54,7 +54,7 @@ class ClickHouseAdapter(PlatformAdapter):
         return sa.func.avg(sa.column(column))
 
     def get_column_stdev(
-        self, table: sa.sql.FromClause, column: str, conn: Connection
+        self, table: sa.Table, column: str, conn: Connection
     ) -> Optional[Any]:
         # ClickHouse's `stddev` is an alias for `stddevPop` (population), so we
         # call `stddevSamp` explicitly to match sample-stddev semantics.
@@ -91,7 +91,7 @@ class ClickHouseAdapter(PlatformAdapter):
 
     def get_column_quantiles(
         self,
-        table: sa.sql.FromClause,
+        table: sa.Table,
         column: str,
         conn: Connection,
         quantiles: Optional[List[float]] = None,
@@ -189,9 +189,6 @@ class ClickHouseAdapter(PlatformAdapter):
         return results
 
 
-def _format_context(table: sa.sql.FromClause, column: Optional[str] = None) -> str:
-    # Extract schema and name from table (works for both Table and Subquery)
-    schema = getattr(table, "schema", None)
-    name = getattr(table, "name", None)
-    parts = [p for p in (schema, name, column) if p is not None]
+def _format_context(table: sa.Table, column: Optional[str] = None) -> str:
+    parts = [p for p in (table.schema, table.name, column) if p is not None]
     return ".".join(parts) if parts else "<unknown>"

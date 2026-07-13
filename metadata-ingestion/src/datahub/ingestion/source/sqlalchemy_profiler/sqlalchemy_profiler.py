@@ -472,9 +472,7 @@ class SQLAlchemyProfiler:
 
         self.platform = platform.lower()
 
-    def _get_columns_to_profile(
-        self, table: sa.sql.FromClause, dataset_name: str
-    ) -> List[str]:
+    def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
         if not self.config.any_field_level_metrics_enabled():
             return []
@@ -559,7 +557,7 @@ class SQLAlchemyProfiler:
     def _maybe_add_distinct_value_frequencies(
         self,
         runner: "QueryCombinerRunner",
-        sql_table: "sa.sql.FromClause",
+        sql_table: "sa.Table",
         col_name: str,
         column_profile: DatasetFieldProfileClass,
         cardinality: Optional["Cardinality"],
@@ -608,7 +606,7 @@ class SQLAlchemyProfiler:
     def _add_sample_values(
         self,
         runner: "QueryCombinerRunner",
-        sql_table: "sa.sql.FromClause",
+        sql_table: "sa.Table",
         col_name: str,
         column_profile: DatasetFieldProfileClass,
         non_null_count: Optional[int],
@@ -661,7 +659,7 @@ class SQLAlchemyProfiler:
     def _process_numeric_column_stats(  # noqa: C901
         self,
         runner: "QueryCombinerRunner",
-        sql_table: "sa.sql.FromClause",
+        sql_table: "sa.Table",
         col_name: str,
         column_profile: DatasetFieldProfileClass,
         col_type: "ProfilerDataType",
@@ -877,7 +875,7 @@ class SQLAlchemyProfiler:
     def _process_string_column_stats(
         self,
         runner: "QueryCombinerRunner",
-        sql_table: "sa.sql.FromClause",
+        sql_table: "sa.Table",
         col_name: str,
         column_profile: DatasetFieldProfileClass,
         cardinality: Optional["Cardinality"],
@@ -913,7 +911,7 @@ class SQLAlchemyProfiler:
     def _process_datetime_column_stats(
         self,
         runner: "QueryCombinerRunner",
-        sql_table: "sa.sql.FromClause",
+        sql_table: "sa.Table",
         col_name: str,
         column_profile: DatasetFieldProfileClass,
         cardinality: Optional["Cardinality"],
@@ -984,7 +982,7 @@ class SQLAlchemyProfiler:
     def _process_other_column_stats(
         self,
         runner: "QueryCombinerRunner",
-        sql_table: "sa.sql.FromClause",
+        sql_table: "sa.Table",
         col_name: str,
         column_profile: DatasetFieldProfileClass,
         cardinality: Optional["Cardinality"],
@@ -1118,7 +1116,7 @@ class SQLAlchemyProfiler:
         self,
         runner: QueryCombinerRunner,
         query_combiner: SQLAlchemyQueryCombiner,
-        sql_table: sa.sql.FromClause,
+        sql_table: sa.Table,
         profile: DatasetProfileClass,
         context: ProfilingContext,
         pretty_name: str,
@@ -1216,7 +1214,7 @@ class SQLAlchemyProfiler:
         self,
         runner: QueryCombinerRunner,
         query_combiner: SQLAlchemyQueryCombiner,
-        sql_table: sa.sql.FromClause,
+        sql_table: sa.Table,
         columns_to_profile_set: set,
         pretty_name: str,
     ) -> Dict[str, Dict[str, FutureResult[Any]]]:
@@ -1258,7 +1256,7 @@ class SQLAlchemyProfiler:
 
     def _extract_cardinality_results(
         self,
-        sql_table: sa.sql.FromClause,
+        sql_table: sa.Table,
         field_profiles: List[DatasetFieldProfileClass],
         cardinality_futures: Dict[str, Dict[str, FutureResult[Any]]],
         columns_to_profile_set: set,
@@ -1381,7 +1379,7 @@ class SQLAlchemyProfiler:
         self,
         runner: QueryCombinerRunner,
         query_combiner: SQLAlchemyQueryCombiner,
-        sql_table: sa.sql.FromClause,
+        sql_table: sa.Table,
         columns_with_types: Dict[
             str,
             Tuple[
@@ -1469,7 +1467,7 @@ class SQLAlchemyProfiler:
     def _extract_and_process_stats(
         self,
         runner: QueryCombinerRunner,
-        sql_table: sa.sql.FromClause,
+        sql_table: sa.Table,
         columns_with_types: Dict[
             str,
             Tuple[
@@ -1648,7 +1646,9 @@ class SQLAlchemyProfiler:
                                 dict(limit=self.config.limit, offset=self.config.offset)
                             ),
                         )
-                    elif custom_sql:
+                    elif custom_sql or context.is_sampled:
+                        # GE profiler uses custom_sql for sampling; SQLAlchemy
+                        # adapter sets context.is_sampled via temp table
                         profile.partitionSpec = PartitionSpecClass(
                             type=PartitionTypeClass.QUERY, partition="SAMPLE"
                         )

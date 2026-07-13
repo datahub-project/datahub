@@ -65,7 +65,7 @@ class DatabricksAdapter(PlatformAdapter):
 
     def get_column_quantiles(
         self,
-        table: sa.sql.FromClause,
+        table: sa.Table,
         column: str,
         conn: Connection,
         quantiles: Optional[List[float]] = None,

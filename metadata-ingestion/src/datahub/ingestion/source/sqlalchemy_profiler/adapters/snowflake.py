@@ -1,6 +1,7 @@
 """Snowflake-specific profiling adapter."""
 
 import logging
+import uuid
 from typing import Any, List, Optional
 
 import sqlalchemy as sa
@@ -26,113 +27,190 @@ class SnowflakeAdapter(PlatformAdapter):
     Snowflake optimizations:
     1. APPROX_COUNT_DISTINCT for fast unique counts
     2. Native MEDIAN() function for median calculation
-    3. Inline TABLESAMPLE for large table profiling (matches GE profiler behavior)
+    3. Temp table materialization for large table sampling
     """
 
     def setup_profiling(
         self, context: ProfilingContext, conn: Connection
     ) -> ProfilingContext:
-        """
-        Setup Snowflake profiling using inline TABLESAMPLE.
-
-        IMPORTANT ARCHITECTURAL NOTE:
-        For Snowflake, sampling is controlled by snowflake_profiler.py which sets
-        context.custom_sql with a TABLESAMPLE query. This is not ideal architecture
-        (sampling decision should be in this adapter layer), but we keep it this way
-        for backwards compatibility with the GE profiler.
-
-        FUTURE CONSIDERATION:
-        Consider using temp tables for custom_sql like BigQuery and Athena adapters do.
-        This would provide:
-        - Consistent samples across all profiling queries
-        - Better separation of concerns (adapter handles all sampling)
-        However, this adds complexity around schema prefixes and connection lifecycle
-        in Snowflake's session-scoped temp table model.
-
-        For now, we follow GE's proven approach: inline TABLESAMPLE queries.
-
-        Args:
-            context: Current profiling context
-            conn: Active database connection
-
-        Returns:
-            Updated context ready for profiling
-        """
-        logger.debug(f"Snowflake setup_profiling called for {context.pretty_name}")
-
-        # If custom_sql is provided (e.g., snowflake_profiler.py), use it as the profiling source
-        if context.custom_sql:
-            # Log at INFO level so it's visible in integration tests
-            logger.info(
-                f"[Snowflake Profiling] Using TABLESAMPLE sampling for {context.pretty_name}"
-            )
-            logger.info(f"[Snowflake Profiling] Sample query: {context.custom_sql}")
-            context.sql_table = self._create_table_from_custom_sql(context, conn)
-            context.is_sampled = True
-            logger.info(
-                f"[Snowflake Profiling] Created subquery for sampling, is_sampled={context.is_sampled}"
-            )
-            return context
-
-        # Otherwise, profile the original table
         if not context.table:
             raise ValueError(
                 f"Cannot profile {context.pretty_name}: table name required"
             )
 
-        context.sql_table = self._create_sqlalchemy_table(
-            schema=context.schema,
-            table=context.table,
-        )
+        # custom_sql is or may still be used for some use cases (not non-sampling).
+        # Materialize it into a temp table so profiling queries run against a small
+        # concrete table, same as what GX does internally.
+        if context.custom_sql:
+            logger.info(
+                f"Creating temp table from custom_sql for {context.pretty_name}"
+            )
+            context = self._create_temp_table_from_custom_sql(context, conn)
+            return context
+
+        # Determine if sampling is needed
+        row_count = self._get_row_count_from_metadata(context, conn)
+        if not self.config.limit and self.config.use_sampling:
+            if row_count is not None and row_count <= self.config.sample_size:
+                # Table is small enough — profile directly without sampling
+                context.sql_table = self._create_sqlalchemy_table(
+                    schema=context.schema,
+                    table=context.table,
+                )
+            else:
+                # Either the table is confirmed large, or we couldn't get the
+                # row count. Be conservative and sample in both cases.
+                effective_row_count = (
+                    row_count
+                    if row_count is not None
+                    else (self.config.sample_size * 10)
+                )
+                context = self._create_sampled_temp_table(
+                    context, conn, effective_row_count
+                )
+        else:
+            context.sql_table = self._create_sqlalchemy_table(
+                schema=context.schema,
+                table=context.table,
+            )
 
         return context
 
-    def _create_table_from_custom_sql(
+    def _get_row_count_from_metadata(
         self, context: ProfilingContext, conn: Connection
-    ) -> sa.sql.expression.Subquery:
+    ) -> Optional[int]:
+        """Get row count from INFORMATION_SCHEMA.TABLES (instant, no table scan)."""
+        try:
+            query = sa.text(
+                "SELECT ROW_COUNT FROM INFORMATION_SCHEMA.TABLES"
+                " WHERE TABLE_CATALOG = CURRENT_DATABASE()"
+                " AND TABLE_SCHEMA = :schema_name AND TABLE_NAME = :table_name"
+            )
+            result = conn.execute(
+                query,
+                {"schema_name": context.schema, "table_name": context.table},
+            ).scalar()
+            row_count = int(result) if result is not None else None
+            logger.debug(
+                f"INFORMATION_SCHEMA row count for {context.pretty_name}: {row_count}"
+            )
+            return row_count
+        except SQLAlchemyError as e:
+            logger.debug(
+                f"Failed to get row count from metadata for {context.pretty_name}: {type(e).__name__}: {e}"
+            )
+            return None
+
+    def _create_sampled_temp_table(
+        self, context: ProfilingContext, conn: Connection, row_count: int
+    ) -> ProfilingContext:
         """
-        Create a SQLAlchemy subquery from a custom SQL query (e.g., TABLESAMPLE).
+        Materialize a TABLESAMPLE into a session-scoped temp table.
 
-        This creates a subquery that wraps the custom SQL, allowing the
-        query combiner to profile it just like a regular table.
+        The temp table is created once and all subsequent profiling queries
+        operate on this small materialized table, avoiding the 70-800x
+        performance penalty of re-evaluating TABLESAMPLE on every query.
 
-        Args:
-            context: Profiling context with custom_sql set
-            conn: Active database connection for metadata reflection
-
-        Returns:
-            SQLAlchemy Subquery object representing the custom SQL query
+        No SEED is needed because the sample is materialized once — all
+        profiling queries see the exact same rows. Without SEED,
+        TABLESAMPLE BERNOULLI also works on views.
         """
-        # First, get the column metadata from the original table
-        # This is needed to create the selectable with proper columns
-        if not context.table:
-            raise ValueError(
-                f"Cannot create table from custom SQL for {context.pretty_name}: "
-                "table name required for column metadata"
+        temp_name = f"dh_sample_{uuid.uuid4().hex[:8]}"
+        sample_pc = self.config.sample_size / row_count
+
+        estimated_block_row_count = 500_000
+        block_profiling_min_rows = 100 * estimated_block_row_count
+        overgeneration_factor = 1000
+
+        tablename = f'"{context.schema}"."{context.table}"'
+        use_block_presample = (
+            row_count > block_profiling_min_rows
+            and row_count > self.config.sample_size * overgeneration_factor
+        )
+
+        if use_block_presample:
+            # Two-tier: BLOCK first to reduce to ~1000x sample, then BERNOULLI
+            block_pc = 100 * overgeneration_factor * sample_pc
+            bernoulli_pc = 100 / overgeneration_factor
+            sample_sql = (
+                f"SELECT * FROM"
+                f" (SELECT * FROM {tablename} TABLESAMPLE BLOCK ({block_pc:.8f}))"
+                f" TABLESAMPLE BERNOULLI ({bernoulli_pc:.8f})"
+            )
+        else:
+            bernoulli_pc = 100 * sample_pc
+            sample_sql = (
+                f"SELECT * FROM {tablename} TABLESAMPLE BERNOULLI ({bernoulli_pc:.8f})"
             )
 
-        # custom_sql must be non-None when this method is called
-        assert context.custom_sql is not None, "custom_sql must be set"
+        # Try the sampling SQL; if BLOCK fails (views), fall back to BERNOULLI only
+        # Temp table name is unquoted so Snowflake stores it as uppercase,
+        # matching SQLAlchemy's unquoted references in generated SQL.
+        create_sql = f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS {sample_sql}"
 
-        # Reflect the original table to get column definitions
-        original_table = self._create_sqlalchemy_table(
-            schema=context.schema,
-            table=context.table,
+        try:
+            logger.info(
+                f"Creating sampled temp table for {context.pretty_name} (rows: {row_count:,}, "
+                f"sample: {self.config.sample_size:,})"
+            )
+            logger.debug(f"SQL: {create_sql}")
+            conn.execute(sa.text(create_sql))
+        except SQLAlchemyError as e:
+            if use_block_presample:
+                # BLOCK sampling may fail on views; retry with BERNOULLI only
+                logger.info(
+                    f"BLOCK sampling failed for {context.pretty_name}, falling back to BERNOULLI: "
+                    f"{type(e).__name__}: {e}"
+                )
+                bernoulli_pc = 100 * sample_pc
+                fallback_sql = (
+                    f"SELECT * FROM {tablename}"
+                    f" TABLESAMPLE BERNOULLI ({bernoulli_pc:.8f})"
+                )
+                create_sql = (
+                    f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS {fallback_sql}"
+                )
+                logger.debug(f"Fallback SQL: {create_sql}")
+                conn.execute(sa.text(create_sql))
+            else:
+                raise
+
+        # Reflect the temp table as a real sa.Table
+        metadata = sa.MetaData()
+        context.sql_table = sa.Table(temp_name, metadata, autoload_with=conn)
+        context.is_sampled = True
+        context.temp_table = temp_name
+
+        logger.info(f"Created temp table {temp_name} for {context.pretty_name}")
+
+        return context
+
+    def _create_temp_table_from_custom_sql(
+        self, context: ProfilingContext, conn: Connection
+    ) -> ProfilingContext:
+        """Materialize custom_sql into a temp table."""
+        assert context.custom_sql is not None
+
+        temp_name = f"dh_customsql_{uuid.uuid4().hex[:8]}"
+        create_sql = (
+            f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS {context.custom_sql}"
         )
+        logger.debug(f"custom_sql temp table SQL: {create_sql}")
+        conn.execute(sa.text(create_sql))
 
-        # Create a text query from the custom SQL
-        custom_query = sa.text(context.custom_sql).columns(
-            *[sa.column(c.name, c.type) for c in original_table.columns]
-        )
+        metadata = sa.MetaData()
+        context.sql_table = sa.Table(temp_name, metadata, autoload_with=conn)
+        context.is_sampled = True
+        context.temp_table = temp_name
+        return context
 
-        # Create a subquery that can be used like a table
-        subquery = custom_query.subquery(name=context.table)
-
-        logger.debug(
-            f"Created subquery from custom SQL for {context.pretty_name}: {context.custom_sql[:100]}..."
-        )
-
-        return subquery
+    def cleanup(self, context: ProfilingContext) -> None:
+        # Snowflake temp tables are session-scoped and auto-drop when the
+        # connection closes. No explicit cleanup needed.
+        if context.temp_table:
+            logger.debug(
+                f"Temp table {context.temp_table} will be auto-dropped at session end"
+            )
 
     def _create_sqlalchemy_table(
         self, schema: Optional[str], table: str, autoload_with: Optional[Any] = None
@@ -143,36 +221,17 @@ class SnowflakeAdapter(PlatformAdapter):
         Snowflake identifier behavior:
         - Unquoted identifiers are case-insensitive and stored as UPPERCASE
         - Quoted identifiers are case-sensitive and stored with exact case
-        - The Snowflake source connector may lowercase identifiers for URN generation
 
         Strategy - try in this order based on table name pattern:
         1. If table has lowercase chars -> Try WITH quoting first
-           - Lowercase suggests table was created with quotes: "lcase_table"
-           - Quoting preserves exact case needed to find these tables
         2. If that fails OR table is all uppercase -> Try WITHOUT quoting
-           - Standard Snowflake tables are stored as UPPERCASE
-           - Unquoted reflection lets Snowflake auto-uppercase: errortypes -> ERRORTYPES
-
-        Args:
-            schema: Schema name from metadata (may be lowercase if convert_urns_to_lowercase=True)
-            table: Table name from metadata (may be lowercase if convert_urns_to_lowercase=True)
-            autoload_with: Engine or Connection for metadata reflection (optional)
-
-        Returns:
-            SQLAlchemy Table object
-
-        Raises:
-            NoSuchTableError: If table cannot be found with either approach
         """
         metadata = sa.MetaData()
         engine = autoload_with or self.base_engine
 
-        # Determine if table name suggests it was created with quotes
-        # Mixed case or lowercase letters indicate quoted creation
         has_lowercase = any(c.islower() for c in table)
         has_lowercase_schema = schema and any(c.islower() for c in schema)
 
-        # Try quoted first if name has lowercase (likely created with quotes)
         if has_lowercase or has_lowercase_schema:
             try:
                 return sa.Table(
@@ -189,7 +248,6 @@ class SnowflakeAdapter(PlatformAdapter):
                     f"trying without quotes: {type(e).__name__}: {str(e)}"
                 )
 
-        # Try unquoted (standard Snowflake - auto-uppercase)
         try:
             return sa.Table(
                 table,
@@ -200,7 +258,6 @@ class SnowflakeAdapter(PlatformAdapter):
                 quote_schema=False,
             )
         except SQLAlchemyError as e:
-            # If unquoted failed and we haven't tried quoted yet, try it now
             if not (has_lowercase or has_lowercase_schema):
                 logger.debug(
                     f"Failed to reflect {schema}.{table} without quoting, "
@@ -214,7 +271,6 @@ class SnowflakeAdapter(PlatformAdapter):
                     quote=True,
                     quote_schema=bool(schema),
                 )
-            # Already tried both, re-raise
             raise
 
     # =========================================================================
@@ -222,60 +278,21 @@ class SnowflakeAdapter(PlatformAdapter):
     # =========================================================================
 
     def get_approx_unique_count_expr(self, column: str) -> ColumnElement[Any]:
-        """
-        Snowflake uses APPROX_COUNT_DISTINCT for fast unique counts.
-
-        This matches GE profiler behavior (ge_data_profiler.py:213-221)
-        where Snowflake is grouped with BigQuery for approximate counts.
-
-        Args:
-            column: Column name
-
-        Returns:
-            SQLAlchemy expression for APPROX_COUNT_DISTINCT
-        """
         return sa.func.APPROX_COUNT_DISTINCT(sa.column(column))
 
     def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
-        """
-        Snowflake has native MEDIAN() function.
-
-        This matches GE profiler behavior (ge_data_profiler.py:676-683).
-
-        Args:
-            column: Column name
-
-        Returns:
-            SQLAlchemy expression for MEDIAN
-        """
         return sa.func.median(sa.column(column))
 
     def get_column_quantiles(
         self,
-        table: sa.sql.FromClause,
+        table: sa.Table,
         column: str,
         conn: Connection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
-        """
-        Get quantile values for a column using Snowflake's APPROX_PERCENTILE.
-
-        Snowflake: APPROX_PERCENTILE(col, quantile) computes a single percentile.
-        We execute one query per quantile.
-
-        Args:
-            table: SQLAlchemy table object
-            column: Column name
-            conn: Active database connection
-            quantiles: List of quantile values (default: DEFAULT_QUANTILES)
-
-        Returns:
-            List of quantile values (None for unavailable quantiles)
-        """
         if quantiles is None:
             quantiles = DEFAULT_QUANTILES
 
-        # Snowflake: APPROX_PERCENTILE(col, quantile)
         results = []
         for q in quantiles:
             try:

@@ -69,7 +69,7 @@ class PostgresAdapter(PlatformAdapter):
 
     def get_column_quantiles(
         self,
-        table: sa.sql.FromClause,
+        table: sa.Table,
         column: str,
         conn: Connection,
         quantiles: Optional[List[float]] = None,
@@ -124,7 +124,7 @@ class PostgresAdapter(PlatformAdapter):
         return True
 
     def get_estimated_row_count(
-        self, table: sa.sql.FromClause, conn: Connection
+        self, table: sa.Table, conn: Connection
     ) -> Optional[int]:
         """
         Get fast row count estimate using pg_class.reltuples.
@@ -140,8 +140,8 @@ class PostgresAdapter(PlatformAdapter):
             Estimated row count, or None if query fails
         """
         try:
-            schema = getattr(table, "schema", None)
-            table_name = getattr(table, "name", None)
+            schema = table.schema
+            table_name = table.name
 
             # Query pg_class and pg_namespace directly using SQLAlchemy query builder
             pg_class = sa.Table(
