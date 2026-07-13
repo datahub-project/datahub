@@ -226,7 +226,7 @@ class TestMarkDeprecatedPatchSemantics:
         graph.get_aspect.return_value = DeprecationClass(
             deprecated=False,
             note="",
-            actor=None,
+            actor="",
             decommissionTime=None,
         )
 

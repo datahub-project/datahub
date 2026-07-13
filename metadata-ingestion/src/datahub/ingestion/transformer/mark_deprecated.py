@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List, Optional, Sequence, cast
+from typing import List, Optional, cast
 
 from datahub.configuration.common import (
     ConfigurationError,
@@ -79,7 +79,7 @@ class MarkDeprecated(BaseTransformer, SingleAspectTransformer):
         config = MarkDeprecatedConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def entity_types(self) -> Sequence[str]:
+    def entity_types(self) -> List[str]:
         return ["dataset", "chart", "dashboard", "dataFlow", "dataJob", "container"]
 
     def aspect_name(self) -> str:
@@ -116,7 +116,7 @@ class MarkDeprecated(BaseTransformer, SingleAspectTransformer):
         # For other fields: keep existing server value if set, otherwise use config
         if not server_aspect.note and new_aspect.note:
             server_aspect.note = new_aspect.note
-        if server_aspect.actor is None and new_aspect.actor:
+        if not server_aspect.actor and new_aspect.actor:
             server_aspect.actor = new_aspect.actor
         if server_aspect.decommissionTime is None and new_aspect.decommissionTime:
             server_aspect.decommissionTime = new_aspect.decommissionTime
