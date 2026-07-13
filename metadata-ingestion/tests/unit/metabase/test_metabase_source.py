@@ -28,7 +28,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class TestMetabaseSource(MetabaseSource):
+class FakeMetabaseSource(MetabaseSource):
     def __init__(self, ctx: PipelineContext, config: MetabaseConfig):
         self.config = config
         self.report = MetabaseReport()
@@ -40,7 +40,7 @@ def test_get_platform_instance():
     config.connect_uri = "http://localhost:3000"
     # config.database_id_to_instance_map = {"42": "my_main_clickhouse"}
     # config.platform_instance_map = {"clickhouse": "my_only_clickhouse"}
-    metabase = TestMetabaseSource(ctx, config)
+    metabase = FakeMetabaseSource(ctx, config)
 
     # no mappings defined
     assert metabase.get_platform_instance("clickhouse", 42) is None
@@ -1221,7 +1221,7 @@ def test_passthrough_cll_emits_copy_1to1_lineage():
     filter/aggregation/join) must produce COPY lineage with a 1:1 column mapping."""
     ctx = PipelineContext(run_id="metabase-test")
     config = MetabaseConfig(username="un", password=SecretStr("pwd"))
-    metabase = TestMetabaseSource(ctx, config)
+    metabase = FakeMetabaseSource(ctx, config)
 
     metabase.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
         return_value=DatasourceInfo(
@@ -1267,7 +1267,7 @@ def test_model_subtypes_passthrough_vs_transformed():
     transforms (filter/aggregation/join) is additionally a VIEW."""
     ctx = PipelineContext(run_id="metabase-test")
     config = MetabaseConfig(username="un", password=SecretStr("pwd"))
-    metabase = TestMetabaseSource(ctx, config)
+    metabase = FakeMetabaseSource(ctx, config)
 
     passthrough = MetabaseCard(
         id=1,
