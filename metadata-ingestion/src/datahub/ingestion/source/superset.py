@@ -552,7 +552,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return owners_info
 
-    def build_owner_urn(self, data: Dict[str, Any]) -> List[str]:
+    def build_owner_urn(self, data: Dict[str, Any], entity_type: str) -> List[str]:
         # owner_info can be missing an entry (e.g. the related/owners API is
         # unavailable, as on newer Superset builds, or the owner has no email);
         # skip unresolvable owners rather than emitting an invalid
@@ -567,7 +567,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Unresolvable Superset owner",
                     message="Skipped an owner with no resolvable email; ownership may be incomplete",
-                    context=f"Owner ID: {owner_id}, Entity: {data.get('id', 'unknown')}",
+                    context=f"Owner ID: {owner_id}, Entity Type: {entity_type}, Entity ID: {data.get('id', 'unknown')}",
+                    log=False,
                 )
         return owner_urns
 
@@ -991,7 +992,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dashboard_snapshot.aspects.append(dashboard_info)
 
-        dashboard_owners_list = self.build_owner_urn(dashboard_data)
+        dashboard_owners_list = self.build_owner_urn(dashboard_data, "dashboard")
         if dashboard_owners_list:
             owners_info = OwnershipClass(
                 owners=[
@@ -1675,7 +1676,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
-        chart_owners_list = self.build_owner_urn(chart_data)
+        chart_owners_list = self.build_owner_urn(chart_data, "chart")
         if chart_owners_list:
             owners_info = OwnershipClass(
                 owners=[
@@ -2137,7 +2138,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             aspects=aspects_items,
         )
 
-        dataset_owners_list = self.build_owner_urn(dataset_data)
+        dataset_owners_list = self.build_owner_urn(dataset_data, "dataset")
         if dataset_owners_list:
             owners_info = OwnershipClass(
                 owners=[

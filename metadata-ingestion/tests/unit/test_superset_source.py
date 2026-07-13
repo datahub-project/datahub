@@ -1,5 +1,5 @@
 import json
-from typing import List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 import pytest
 import requests
@@ -144,7 +144,7 @@ def test_superset_build_owner_urn_skips_unresolved_owners(requests_mock):
         config=SupersetConfig(),
     )
     assert source.owner_info == {}
-    assert source.build_owner_urn({"owners": [{"id": 1}, {"id": 2}]}) == []
+    assert source.build_owner_urn({"owners": [{"id": 1}, {"id": 2}]}, "dashboard") == []
 
 
 def test_superset_build_owner_urn_resolved_owners(requests_mock):
@@ -176,7 +176,7 @@ def test_superset_build_owner_urn_resolved_owners(requests_mock):
     )
     # id 2 is unresolvable and must be skipped rather than producing an
     # empty-username urn.
-    assert source.build_owner_urn({"owners": [{"id": 1}, {"id": 2}]}) == [
+    assert source.build_owner_urn({"owners": [{"id": 1}, {"id": 2}]}, "dashboard") == [
         "urn:li:corpuser:test_user1@example.com"
     ]
     warning_titles = [w.title for w in source.report.warnings]
@@ -256,35 +256,17 @@ def test_superset_dataset_omits_ownership_when_no_owners_resolve(requests_mock):
     )
 
 
-def _build_source_with_resolvable_owner(requests_mock):
-    login_url = "http://localhost:8088/api/v1/security/login"
-    requests_mock.post(login_url, json={"access_token": "dummy_token"}, status_code=200)
-    requests_mock.get(
-        "http://localhost:8088/api/v1/dashboard/", json={}, status_code=200
-    )
-    for entity in ["dataset", "dashboard", "chart"]:
-        requests_mock.get(
-            f"http://localhost:8088/api/v1/{entity}/related/owners",
-            json={
-                "count": 1,
-                "result": [
-                    {
-                        "extra": {"email": "resolved_owner@example.com"},
-                        "text": "Resolved Owner",
-                        "value": 1,
-                    }
-                ],
-            },
-            status_code=200,
-        )
-    return SupersetSource(
-        ctx=PipelineContext(run_id="superset-source-ownership-present-test"),
-        config=SupersetConfig(),
-    )
+_RESOLVABLE_OWNER = [
+    {
+        "extra": {"email": "resolved_owner@example.com"},
+        "text": "Resolved Owner",
+        "value": 1,
+    }
+]
 
 
 def test_superset_dashboard_includes_ownership_when_owner_resolves(requests_mock):
-    source = _build_source_with_resolvable_owner(requests_mock)
+    source = _build_source(requests_mock, owners_result=_RESOLVABLE_OWNER)
 
     dashboard_data = {
         "id": 7,
@@ -308,7 +290,7 @@ def test_superset_dashboard_includes_ownership_when_owner_resolves(requests_mock
 
 
 def test_superset_chart_includes_ownership_when_owner_resolves(requests_mock):
-    source = _build_source_with_resolvable_owner(requests_mock)
+    source = _build_source(requests_mock, owners_result=_RESOLVABLE_OWNER)
 
     chart_data = {
         "id": 42,
@@ -340,7 +322,7 @@ def test_superset_chart_includes_ownership_when_owner_resolves(requests_mock):
 
 
 def test_superset_dataset_includes_ownership_when_owner_resolves(requests_mock):
-    source = _build_source_with_resolvable_owner(requests_mock)
+    source = _build_source(requests_mock, owners_result=_RESOLVABLE_OWNER)
 
     requests_mock.get(
         "http://localhost:8088/api/v1/dataset/77",
@@ -741,8 +723,14 @@ def _build_source(
     requests_mock: rm.Mocker,
     *,
     config: Optional[SupersetConfig] = None,
+    owners_result: Optional[List[Dict[str, Any]]] = None,
 ) -> SupersetSource:
-    """Helper that wires up just enough mock endpoints to instantiate the source."""
+    """Helper that wires up just enough mock endpoints to instantiate the source.
+
+    Pass ``owners_result`` (the ``related/owners`` API's ``result`` list) to
+    make specific owner ids resolve via ``owner_info``; omitted, all owners
+    are unresolvable.
+    """
     if config is None:
         config = SupersetConfig()
     login_url = "http://localhost:8088/api/v1/security/login"
@@ -750,10 +738,13 @@ def _build_source(
     requests_mock.get(
         "http://localhost:8088/api/v1/dashboard/", json={}, status_code=200
     )
+    owners_json = (
+        {"count": len(owners_result), "result": owners_result} if owners_result else {}
+    )
     for entity in ["dataset", "dashboard", "chart"]:
         requests_mock.get(
             f"http://localhost:8088/api/v1/{entity}/related/owners",
-            json={},
+            json=owners_json,
             status_code=200,
         )
     return SupersetSource(
