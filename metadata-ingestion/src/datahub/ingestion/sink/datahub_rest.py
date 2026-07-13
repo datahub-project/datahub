@@ -230,7 +230,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         Public so other sinks (e.g. the Kafka sink's REST fallback) can reuse the
         exact emitter construction.
         """
+        return cls._make_emitter(config, auth=cls._resolve_auth(config))
 
+    @classmethod
     def _resolve_auth(
         cls, config: DatahubRestSinkConfig
     ) -> Optional[requests.auth.AuthBase]:

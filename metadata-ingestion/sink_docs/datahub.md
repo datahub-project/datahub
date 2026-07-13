@@ -185,16 +185,16 @@ It is controlled by a single variable. Set it only on the runs that should use
 Kafka (e.g. the in-cluster managed executor); a CLI `datahub ingest` never sets
 it and so stays on REST:
 
-| Environment variable                     | Default | Description                                                                                                  |
-| ---------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
-| `DATAHUB_INGESTION_DEFAULT_SINK`         | `datahub-rest` | Set to `datahub-kafka` to default no-sink recipes to the Kafka sink. Unset/any other value keeps REST (byte-identical). |
-| `KAFKA_BOOTSTRAP_SERVER`                 |         | Broker the sink produces to (the existing DataHub-wide convention). If unset, the run falls back to REST.    |
-| `KAFKA_SCHEMAREGISTRY_URL`               |         | Schema registry for MCP schemas (existing convention; defaults to the GMS-hosted registry via GMS base path). |
-| `DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES`    | 131072  | Per-producer local send-buffer cap (KiB); bounds memory so backpressure engages before OOM.                  |
-| `DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES`  | 20000   | Per-producer local send-buffer cap (message count).                                                          |
-| `DATAHUB_KAFKA_SINK_LINGER_MS`           | 100     | Producer `linger.ms` (send-batching window).                                                                 |
-| `DATAHUB_KAFKA_SINK_MAX_MESSAGE_BYTES`   | 5242880 | Max serialized message size sent to Kafka. Raises librdkafka's ~1 MiB default to the MCP topic max; must be ≤ the broker/topic `max.message.bytes`. |
-| `DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT`  | 10      | Per-check timeout (seconds) for the broker + schema-registry reachability probe at pipeline init.            |
+| Environment variable                    | Default        | Description                                                                                                                                         |
+| --------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATAHUB_INGESTION_DEFAULT_SINK`        | `datahub-rest` | Set to `datahub-kafka` to default no-sink recipes to the Kafka sink. Unset/any other value keeps REST (byte-identical).                             |
+| `KAFKA_BOOTSTRAP_SERVER`                |                | Broker the sink produces to (the existing DataHub-wide convention). If unset, the run falls back to REST.                                           |
+| `KAFKA_SCHEMAREGISTRY_URL`              |                | Schema registry for MCP schemas (existing convention; defaults to the GMS-hosted registry via GMS base path).                                       |
+| `DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES`   | 131072         | Per-producer local send-buffer cap (KiB); bounds memory so backpressure engages before OOM.                                                         |
+| `DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES` | 20000          | Per-producer local send-buffer cap (message count).                                                                                                 |
+| `DATAHUB_KAFKA_SINK_LINGER_MS`          | 100            | Producer `linger.ms` (send-batching window).                                                                                                        |
+| `DATAHUB_KAFKA_SINK_MAX_MESSAGE_BYTES`  | 5242880        | Max serialized message size sent to Kafka. Raises librdkafka's ~1 MiB default to the MCP topic max; must be ≤ the broker/topic `max.message.bytes`. |
+| `DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT` | 10             | Per-check timeout (seconds) for the broker + schema-registry reachability probe at pipeline init.                                                   |
 
 #### DELETE / soft-delete over Kafka
 
@@ -206,14 +206,14 @@ config the REST sink would use) and routes exactly those change types
 synchronously over REST.
 
 Note that stateful-ingestion stale-entity removal emits a `Status(removed=true)`
-**UPSERT**, so it flows over Kafka normally and is *not* affected by the
+**UPSERT**, so it flows over Kafka normally and is _not_ affected by the
 fallback — the fallback only handles literal `DELETE`/`RESTATE` MCPs (e.g. hard
 deletes) and non-UPSERT timeseries changes, which typical ingestion sources do
 not emit.
 
 Ordering across the two paths is **best-effort**: before a fallback DELETE the
 sink flushes the local producer queue, but it does not wait for the MCP consumer
-to *apply* earlier Kafka writes. Under consumer lag a synchronous REST DELETE can
+to _apply_ earlier Kafka writes. Under consumer lag a synchronous REST DELETE can
 still reach GMS before an earlier Kafka UPSERT for the same entity is replayed.
 If a preceding async Kafka write for the run is unconfirmed, the fallback DELETE
 is skipped and the record fails rather than deleting an entity whose write never
