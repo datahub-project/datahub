@@ -79,7 +79,7 @@ disallow_incomplete_defs = false
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
-addopts = "-s -v --junit-xml=test-results/junit.smoke.xml"
+addopts = "-v --junit-xml=test-results/junit.smoke.xml"
 junit_suite_name = "smoke-test-pytest"
 markers = [
     "read_only: marks tests as read only (deselect with '-m \"not read_only\"')",
@@ -97,5 +97,9 @@ filterwarnings = [
 log_level = "INFO"
 log_format = "%(asctime)s - %(name)s - %(funcName)s - %(levelname)s - %(message)s"
 log_date_format = "%Y-%m-%d %H:%M:%S"
+# Write INFO-level test logs to a file (uploaded as a CI artifact on failure).
+# log_file_format/log_file_date_format inherit from log_format/log_date_format above.
+log_file = "test-results/pytest-smoke.log"
+log_file_level = "INFO"
 # Note: log_cli is intentionally NOT configured to avoid interfering with
 # click.testing.CliRunner output capture in CLI command tests
