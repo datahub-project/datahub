@@ -2,11 +2,10 @@
 Force pure-Python loading of sqlglot when DATAHUB_SQLGLOT_DISABLE_C is set.
 
 sqlglot[c] ships mypyc-compiled .so extensions for a performance boost. These
-native C extensions have been a source of memory leaks in the past
-(https://github.com/tobymao/sqlglot/issues/7506,
-https://github.com/tobymao/sqlglot/issues/7853). This hook prevents those
-compiled extensions from being loaded so the native C lib can be skipped
-dynamically at runtime, per-process, without dropping the dependency from the
+native C extensions have caused memory leaks in the past, severe enough that we
+once had to drop the dependency from a release. Rather than dropping it again,
+this hook offers an alternative: force the native C lib to be ignored
+dynamically at runtime, per-process, without removing the dependency from the
 release or changing the installed packages.
 
 Python's import machinery hardcodes .so priority over .py, with no built-in
@@ -28,12 +27,15 @@ Manual check:
 from __future__ import annotations
 
 import importlib.util
+import logging
 import os
 import sys
 from importlib.abc import MetaPathFinder
 from importlib.machinery import ModuleSpec
 from types import ModuleType
 from typing import Optional, Sequence
+
+logger = logging.getLogger(__name__)
 
 
 class _PurePythonSqlglotFinder(MetaPathFinder):
@@ -91,6 +93,10 @@ def _install() -> None:
         isinstance(finder, _PurePythonSqlglotFinder) for finder in sys.meta_path
     ):
         sys.meta_path.insert(0, _PurePythonSqlglotFinder())
+        logger.warning(
+            "DATAHUB_SQLGLOT_DISABLE_C is set; forcing pure-Python sqlglot and "
+            "skipping the native C (mypyc) extensions."
+        )
 
 
 _install()
