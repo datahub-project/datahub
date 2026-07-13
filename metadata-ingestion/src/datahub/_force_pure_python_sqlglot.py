@@ -16,8 +16,7 @@ This runs at interpreter startup via datahub_force_pure_python_sqlglot.pth,
 before any application or dependency code can import sqlglot. It reads the env
 var directly with os.getenv rather than importing
 datahub.configuration.env_vars, because the full datahub package is not yet
-importable this early in startup. The canonical env var definition lives in
-env_vars.get_sqlglot_disable_c().
+importable this early in startup.
 
 Manual check:
     DATAHUB_SQLGLOT_DISABLE_C=1 python -c "from sqlglot import tokenizer_core; print(tokenizer_core.__file__)"
@@ -74,6 +73,10 @@ class _PurePythonSqlglotFinder(MetaPathFinder):
 
 
 def _sqlglot_c_disabled() -> bool:
+    # This env var is deliberately read here and NOT registered in
+    # datahub.configuration.env_vars: this module is the only consumer, and it
+    # runs at interpreter startup (via .pth) before env_vars — which pulls in
+    # pydantic and the rest of the datahub package — can be safely imported.
     return os.getenv("DATAHUB_SQLGLOT_DISABLE_C", "").strip().lower() not in (
         "",
         "0",
