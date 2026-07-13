@@ -119,12 +119,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
           "subtype_modifier": [
@@ -251,6 +245,68 @@
       "platform_name": "Azure Data Factory",
       "support_status": "INCUBATING"
     },
+    "bigid": {
+      "capabilities": [
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Column-level profiles from BigID columnProfile data",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Stale entity removal via stateful ingestion. Only meaningful with create_datasets=True: in pure enrichment mode the connector owns no Dataset entities, so there is nothing for stale removal to soft-delete (glossary terms, tags and domains are shared, not per-run).",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Domain entities created when domain_mode is auto_namespaced or config_map",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Ownership on GlossaryTerms (not Datasets); controlled by owner_type config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "BigID tags applied to datasets and columns",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "BigID classification findings as GlossaryTerms on SchemaFields",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Platform instance emitted per dataset when platform_instance is configured",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Column schema from BigID columns API (requires create_datasets=True)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Not supported",
+          "subtype_modifier": null,
+          "supported": false
+        }
+      ],
+      "classname": "datahub.ingestion.source.bigid.bigid_source.BigIDSource",
+      "platform_id": "bigid",
+      "platform_name": "BigID",
+      "support_status": "INCUBATING"
+    },
     "bigquery": {
       "capabilities": [
         {
@@ -260,12 +316,6 @@
             "Project",
             "Dataset"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -390,12 +440,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default via `include_view_column_lineage`",
           "subtype_modifier": null,
@@ -499,12 +543,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -861,12 +899,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -1079,22 +1111,23 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics`. Reads query history from `performance_schema` digests (default) or `mysql.general_log` (`usage_source: general_log`), which also yields query-based table lineage.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1130,9 +1163,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -1241,12 +1275,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -1306,12 +1334,6 @@
     },
     "dynamodb": {
       "capabilities": [
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
@@ -1737,12 +1759,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -1894,12 +1910,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default for views via `include_view_column_lineage`, and to storage via `include_column_lineage` when storage lineage is enabled",
           "subtype_modifier": [
@@ -1969,12 +1979,6 @@
             "Schema"
           ],
           "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Not Supported",
-          "subtype_modifier": null,
-          "supported": false
         },
         {
           "capability": "LINEAGE_FINE",
@@ -2268,6 +2272,50 @@
       "platform_name": "Kafka Connect",
       "support_status": "CERTIFIED"
     },
+    "kinesis": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Firehose -> destination lineage",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.kinesis.kinesis.KinesisSource",
+      "platform_id": "kinesis",
+      "platform_name": "Amazon Kinesis Data Streams",
+      "support_status": "INCUBATING"
+    },
     "ldap": {
       "capabilities": [
         {
@@ -2399,22 +2447,23 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics`. Reads query history from `performance_schema` digests (default) or `mysql.general_log` (`usage_source: general_log`), which also yields query-based table lineage.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2450,9 +2499,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -2525,6 +2575,80 @@
       "platform_id": "metabase",
       "platform_name": "Metabase",
       "support_status": "CERTIFIED"
+    },
+    "microstrategy": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Projects and folders emit as containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Modeling API field lineage from MicroStrategy metrics and attributes to source warehouse fields",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Dashboard and report usage from the Platform Analytics cube when `extract_usage_statistics` is enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default via `ingest_owner`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Metric, attribute, and temporal field tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Visualization and report inputs when resolvable",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.microstrategy.source.MicroStrategySource",
+      "platform_id": "microstrategy",
+      "platform_name": "MicroStrategy",
+      "support_status": "INCUBATING"
     },
     "mlflow": {
       "capabilities": [
@@ -2656,12 +2780,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -2739,22 +2857,23 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics`. Reads query history from `performance_schema` digests (default) or `mysql.general_log` (`usage_source: general_log`), which also yields query-based table lineage.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2790,9 +2909,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -2994,12 +3114,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -3112,12 +3226,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -3325,12 +3433,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Column-level lineage when emitting lineage to connector sources (e.g. Iceberg, Hive)",
           "subtype_modifier": [
@@ -3400,12 +3502,6 @@
             "Schema"
           ],
           "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Not Supported",
-          "subtype_modifier": null,
-          "supported": false
         },
         {
           "capability": "LINEAGE_FINE",
@@ -3561,6 +3657,74 @@
       "platform_name": "Qlik Sense",
       "support_status": "INCUBATING"
     },
+    "quicksight": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled via `include_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled via `extract_ownership`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled via `extract_tags`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled via `extract_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.quicksight.quicksight.QuickSightSource",
+      "platform_id": "quicksight",
+      "platform_name": "QuickSight",
+      "support_status": "INCUBATING"
+    },
     "rdf": {
       "capabilities": [
         {
@@ -3646,12 +3810,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -4027,12 +4185,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
           "subtype_modifier": null,
@@ -4192,12 +4344,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
           "subtype_modifier": [
@@ -4278,12 +4424,6 @@
             "Catalog",
             "Database"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -4474,12 +4614,6 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
           "description": "Optionally enabled via configuration",
           "subtype_modifier": null,
@@ -4637,22 +4771,23 @@
           "supported": true
         },
         {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics`. Reads query history from `performance_schema` digests (default) or `mysql.general_log` (`usage_source: general_log`), which also yields query-based table lineage.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4688,9 +4823,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -4711,12 +4847,6 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4791,12 +4921,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -4995,12 +5119,6 @@
             "Database",
             "Schema"
           ],
-          "supported": true
-        },
-        {
-          "capability": "CLASSIFICATION",
-          "description": "Optionally enabled via `classification.enabled`",
-          "subtype_modifier": null,
           "supported": true
         },
         {

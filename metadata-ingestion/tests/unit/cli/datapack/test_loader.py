@@ -18,6 +18,7 @@ from datahub.cli.datapack.loader import (
     _cache_key,
     _cached_path,
     _datapack_emit_mode,
+    _DatapackSinkConfig,
     _run_pipeline_for_file,
     _sha256_file,
     check_trust,
@@ -31,6 +32,7 @@ from datahub.cli.datapack.loader import (
 )
 from datahub.cli.datapack.models import DataPackInfo, TrustTier
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 
 
 class TestDatapackSinkConfig:
@@ -88,7 +90,7 @@ class TestDatapackSinkConfig:
         mock_pipeline = MagicMock()
         mock_pipeline_cls.create.return_value = mock_pipeline
 
-        sink_config = {
+        sink_config: _DatapackSinkConfig = {
             "server": "http://localhost:8080",
             "endpoint": "openapi",
             "mode": "async_batch",
@@ -106,6 +108,30 @@ class TestDatapackSinkConfig:
         mock_pipeline.raise_from_status.assert_called_once()
 
     @patch("datahub.ingestion.run.pipeline.Pipeline")
+    def test_run_pipeline_for_file_disables_cli_reporting(
+        self, mock_pipeline_cls: MagicMock, tmp_path: pathlib.Path
+    ) -> None:
+        # Internal per-file pipelines must not register themselves as standalone
+        # "[CLI] file" ingestion sources in the UI. report_to=None disables the
+        # DatahubIngestionRunSummaryProvider for these pipelines.
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_pipeline_cls.create.return_value = MagicMock()
+
+        sink_config: _DatapackSinkConfig = {
+            "server": "http://localhost:8080",
+            "endpoint": "openapi",
+            "mode": "async_batch",
+        }
+        _run_pipeline_for_file(data_file, "run-1", sink_config)
+
+        # report_to must be passed *explicitly* as None. Its default is "datahub",
+        # so simply omitting it would leave CLI reporting enabled.
+        _, kwargs = mock_pipeline_cls.create.call_args
+        assert "report_to" in kwargs
+        assert kwargs["report_to"] is None
+
+    @patch("datahub.ingestion.run.pipeline.Pipeline")
     def test_run_pipeline_for_file_logs_emit_mode_when_waiting(
         self,
         mock_pipeline_cls: MagicMock,
@@ -116,7 +142,7 @@ class TestDatapackSinkConfig:
         data_file.write_text("[]")
         mock_pipeline_cls.create.return_value = MagicMock()
 
-        sink_config = {
+        sink_config: _DatapackSinkConfig = {
             "server": "http://localhost:8080",
             "endpoint": "openapi",
             "mode": "async_batch",
@@ -611,10 +637,10 @@ class TestApplySchemaFilter:
         mock_config.server = "http://localhost:8080"
         mock_config.token = "test"
 
-        with patch(
-            "datahub.cli.datapack.schema_compat.fetch_server_schema",
-            return_value=schema,
-        ):
+        with patch("datahub.ingestion.graph.client.DataHubGraph") as mock_graph:
+            mock_graph.return_value.get_entity_aspect_specs.return_value = (
+                EntityAspectSpecs(entity_aspects=schema)
+            )
             result = _apply_schema_filter(pack_path, client_config=mock_config)
 
         filtered = json.loads(result.read_text())
@@ -634,15 +660,17 @@ class TestApplySchemaFilter:
         mock_config.server = "http://localhost:8080"
         mock_config.token = "test"
 
-        with patch(
-            "datahub.cli.datapack.schema_compat.fetch_server_schema",
-            return_value=schema,
-        ):
+        with patch("datahub.ingestion.graph.client.DataHubGraph") as mock_graph:
+            mock_graph.return_value.get_entity_aspect_specs.return_value = (
+                EntityAspectSpecs(entity_aspects=schema)
+            )
             result = _apply_schema_filter(pack_path, client_config=mock_config)
 
         assert result == pack_path  # No new file created
 
-    def test_returns_original_when_schema_empty(self, tmp_path: pathlib.Path) -> None:
+    def test_returns_original_when_specs_unavailable(
+        self, tmp_path: pathlib.Path
+    ) -> None:
         pack_path = tmp_path / "data.json"
         pack_path.write_text("[]")
 
@@ -650,10 +678,8 @@ class TestApplySchemaFilter:
         mock_config.server = "http://localhost:8080"
         mock_config.token = None
 
-        with patch(
-            "datahub.cli.datapack.schema_compat.fetch_server_schema",
-            return_value={},
-        ):
+        with patch("datahub.ingestion.graph.client.DataHubGraph") as mock_graph:
+            mock_graph.return_value.get_entity_aspect_specs.return_value = None
             result = _apply_schema_filter(pack_path, client_config=mock_config)
 
         assert result == pack_path
@@ -670,10 +696,10 @@ class TestApplySchemaFilter:
         mock_config.server = "http://localhost:8080"
         mock_config.token = "test"
 
-        with patch(
-            "datahub.cli.datapack.schema_compat.fetch_server_schema",
-            return_value=schema,
-        ):
+        with patch("datahub.ingestion.graph.client.DataHubGraph") as mock_graph:
+            mock_graph.return_value.get_entity_aspect_specs.return_value = (
+                EntityAspectSpecs(entity_aspects=schema)
+            )
             result = _apply_schema_filter(pack_path, client_config=mock_config)
 
         assert result == pack_path  # Unknown entity, no filtering

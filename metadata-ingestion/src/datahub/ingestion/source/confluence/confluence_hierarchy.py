@@ -1,8 +1,26 @@
 """Hierarchy extraction logic for Confluence pages."""
 
+import logging
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
 from datahub.metadata.schema_classes import BrowsePathEntryClass, BrowsePathsV2Class
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FolderNode:
+    """A Confluence folder discovered as an ancestor of an ingested page."""
+
+    id: str
+    title: str
+    # Immediate parent ancestor id (page or folder). None => directly under the space.
+    parent_id: Optional[str]
+    space_name: Optional[str]
+    space_key: Optional[str]
+    # Ancestors that precede this folder, used to build its browse path.
+    ancestor_prefix: List[Dict[str, Any]] = field(default_factory=list)
 
 
 class ConfluenceHierarchyExtractor:
@@ -244,3 +262,61 @@ class ConfluenceHierarchyExtractor:
             )
 
         return BrowsePathsV2Class(path=path_entries)
+
+    @staticmethod
+    def collect_folder_nodes(pages: List[Dict[str, Any]]) -> Dict[str, FolderNode]:
+        """Collect Confluence folders that appear as ancestors of ingested pages.
+
+        A page's ``ancestors`` array is ordered root-to-immediate-parent and may
+        contain folder entries (``type == "folder"``). An ancestor's parent is the
+        entry before it (or the space root for the first entry), which lets us
+        reconstruct the folder chain with no extra API calls. Empty folders (no
+        ingested descendant pages) are omitted since they add nothing to the tree.
+
+        Folder discovery is a best-effort enrichment of the page hierarchy, so a
+        malformed page or ancestor entry is skipped rather than allowed to abort
+        discovery for the rest of the pages — it must never sink the ingestion job.
+        """
+        folders: Dict[str, FolderNode] = {}
+        if not isinstance(pages, list):
+            return folders
+        for page in pages:
+            try:
+                if not isinstance(page, dict):
+                    continue
+                ancestors = page.get("ancestors", [])
+                if not isinstance(ancestors, list):
+                    continue
+                space_name = ConfluenceHierarchyExtractor.extract_space_name(page)
+                space_key = ConfluenceHierarchyExtractor.extract_space_key(page)
+                for index, ancestor in enumerate(ancestors):
+                    if not isinstance(ancestor, dict):
+                        continue
+                    if str(ancestor.get("type")) != "folder":
+                        continue
+                    folder_id = str(ancestor.get("id") or "")
+                    if not folder_id or folder_id in folders:
+                        continue
+                    parent = ancestors[index - 1] if index > 0 else None
+                    parent_id = (
+                        str(parent.get("id"))
+                        if isinstance(parent, dict) and parent.get("id")
+                        else None
+                    )
+                    folders[folder_id] = FolderNode(
+                        id=folder_id,
+                        title=str(ancestor.get("title") or f"Folder {folder_id}"),
+                        parent_id=parent_id,
+                        space_name=space_name,
+                        space_key=space_key,
+                        ancestor_prefix=ancestors[:index],
+                    )
+            except Exception as e:
+                # Never let a single malformed page abort folder discovery for the
+                # rest; folders are an enrichment, not a hard requirement.
+                logger.warning(
+                    f"Skipping folder discovery for page "
+                    f"{page.get('id') if isinstance(page, dict) else page!r}: {e}"
+                )
+                continue
+        return folders

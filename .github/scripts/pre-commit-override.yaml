@@ -69,3 +69,13 @@ repos:
         entry: python .github/scripts/bump_schema_versions.py
         language: python
         pass_filenames: false
+      - id: betterleaks
+        name: Detect hardcoded secrets
+        description: Detect hardcoded secrets using Betterleaks (system-installed binary)
+        entry: betterleaks git --staged --redact --verbose --config .betterleaks.toml
+        language: system
+        pass_filenames: false
+        # Scans only the staged diff. A native (non-docker) binary resolves git worktrees
+        # correctly — a docker_image hook cannot (it only mounts $PWD, not the external gitdir).
+        # Keep pass_filenames: false: betterleaks reads the staged diff itself; passing files
+        # would switch it to `dir` semantics (whole-file, and broken/slow on multiple file args).

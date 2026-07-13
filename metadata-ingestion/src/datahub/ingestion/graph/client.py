@@ -34,10 +34,10 @@ from datahub.configuration.common import ConfigModel, GraphError, OperationalErr
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import (
-    DatahubRestEmitter,
-)
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.emitter.token_provider import TokenProviderAuth
+from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import (
     ClientMode,
     DatahubClientConfig as DatahubClientConfig,
@@ -46,6 +46,7 @@ from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
 )
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.ingestion.graph.entity_versioning import EntityVersioningAPI
 from datahub.ingestion.graph.filters import (
     RawSearchFilter,
@@ -54,7 +55,11 @@ from datahub.ingestion.graph.filters import (
     generate_filter,
 )
 from datahub.ingestion.graph.links import make_url_for_urn
-from datahub.ingestion.graph.openapi import OpenApiAPI, RelationshipDirection
+from datahub.ingestion.graph.openapi import (
+    LineageDirection,
+    OpenApiAPI,
+    RelationshipDirection,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -87,6 +92,7 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.utilities.server_state_disk_cache import ServerStateDiskCache
 from datahub.utilities.urns.urn import guess_entity_type
 
 if TYPE_CHECKING:
@@ -109,6 +115,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
+
+# Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
+# survives across short-lived processes and invalidates on server upgrade.
+_ENTITY_SPECS_CACHE = ServerStateDiskCache("entity_aspect_specs")
 
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
@@ -155,12 +165,18 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
 class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     # Redefine for backwards compatibility
     RelationshipDirection = RelationshipDirection
+    LineageDirection = LineageDirection
 
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
+        resolved_auth = None
+        if self.config.auth is not None:
+            resolved_auth = TokenProviderAuth(build_token_provider(self.config.auth))
         super().__init__(
+            default_emit_mode=self.config.default_emit_mode,
             gms_server=self.config.server,
             token=self.config.token,
+            auth=resolved_auth,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
             retry_status_codes=self.config.retry_status_codes,
@@ -173,6 +189,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             client_key_path=self.config.client_key_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
             openapi_ingestion=self.config.openapi_ingestion,
+            respect_mcp_sync_marker=self.config.respect_mcp_sync_marker,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             server_config_refresh_interval=config.server_config_refresh_interval,
@@ -181,6 +198,11 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         self.server_id: str = _MISSING_SERVER_ID
         self._query_projector: Optional["QueryProjector"] = None
         self._graphql_input_fields_cache: Dict[str, Set[str]] = {}
+        # The memoized specs paired with the commit hash they were built
+        # against, so the memo invalidates on a server upgrade.
+        self._entity_aspect_specs: Optional[
+            Tuple[Optional[str], "EntityAspectSpecs"]
+        ] = None
 
     def _graphql_input_type_has_field(self, input_type: str, field_name: str) -> bool:
         if input_type not in self._graphql_input_fields_cache:
@@ -271,7 +293,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             timeout_sec: Optional[float] = session_config.timeout[0]
         else:
             timeout_sec = session_config.timeout
-        return cls(
+        graph = cls(
             DatahubClientConfig(
                 server=emitter._gms_server,
                 token=emitter._token,
@@ -287,8 +309,27 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 datahub_component=session_config.datahub_component,
                 server_config_refresh_interval=emitter._server_config_refresh_interval,
                 tcp_keepalive=session_config.tcp_keepalive,
-            )
+                # Preserve the source emitter's default emit mode so converting an
+                # emitter to a graph (e.g. emitter.to_graph()) doesn't silently
+                # revert to the global default.
+                default_emit_mode=emitter._default_emit_mode,
+            ),
         )
+        if emitter._session.auth is not None:
+            # The declarative AuthConfig is not recoverable from a live emitter,
+            # so carry the resolved requests auth object onto the new session —
+            # otherwise a graph built from an OAuth-authenticated emitter would
+            # silently lose its credentials.
+            #
+            # Known edge: the derived graph's config.auth stays None, so anything
+            # that re-derives a client from this graph's CONFIG (rather than its
+            # session) — e.g. emit_all()/make_rest_sink() via
+            # _make_rest_sink_config() — only picks up env-based OAuth
+            # (DATAHUB_AUTH_TYPE), not auth that came from a recipe sink block.
+            # TODO(oauth): retain the declarative AuthConfig alongside the
+            # resolved auth so derived configs keep it.
+            graph._session.auth = emitter._session.auth
+        return graph
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
         try:
@@ -314,6 +355,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         self, url: str, payload_dict: Dict, params: Optional[Dict] = None
     ) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict, params=params)
+
+    def _paginate_offset(self, url: str, *, page_size: int = 100) -> Iterator[dict]:
+        """Yield ``elements`` from an offset-paginated GMS endpoint (start/count/total)."""
+        start = 0
+        while True:
+            data = self._get_generic(url, params={"start": start, "count": page_size})
+            yield from data.get("elements", [])
+            count = data.get("count", 0)
+            start += count
+            if count == 0 or start >= data.get("total", 0):
+                break
 
     def _make_rest_sink_config(
         self, extra_config: Optional[Dict] = None
@@ -430,6 +482,59 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
     def get_config(self) -> Dict[str, Any]:
         return self.server_config.raw_config
+
+    def get_entity_aspect_specs(self) -> Optional["EntityAspectSpecs"]:
+        """The server's entity/aspect specs for capability detection.
+
+        Memoized in memory per client, and cached on disk keyed by server URL +
+        commit hash so it survives across short-lived processes and invalidates
+        on server upgrade. Returns ``None`` if the fetch fails.
+        """
+        commit_hash: Optional[str] = None
+        try:
+            commit_hash = self.server_config.commit_hash
+        except Exception:
+            logger.debug("Could not get commit hash for specs cache key", exc_info=True)
+
+        # Only serve the in-memory memo if it was built against the server's
+        # current commit hash; otherwise a long-running client would keep
+        # returning stale specs after a server upgrade.
+        if self._entity_aspect_specs is not None:
+            memo_hash, memo_specs = self._entity_aspect_specs
+            if memo_hash == commit_hash:
+                return memo_specs
+
+        if commit_hash:
+            cached = _ENTITY_SPECS_CACHE.get(self._gms_server, commit_hash)
+            if cached is not None:
+                try:
+                    specs = EntityAspectSpecs.from_dict(cached)
+                except Exception:
+                    # Valid JSON but not a usable specs payload (e.g. shape
+                    # changed across a code upgrade) — re-fetch.
+                    logger.debug(
+                        "Ignoring unusable cached entity aspect specs",
+                        exc_info=True,
+                    )
+                else:
+                    self._entity_aspect_specs = (commit_hash, specs)
+                    return specs
+
+        url = f"{self._gms_server}/openapi/v1/registry/models/entity/specifications"
+        try:
+            elements = list(self._paginate_offset(url))
+        except Exception:
+            logger.warning(
+                "Could not fetch entity aspect specs for capability detection.",
+                exc_info=True,
+            )
+            return None
+
+        specs = EntityAspectSpecs.from_registry_api_elements(elements)
+        if commit_hash:
+            _ENTITY_SPECS_CACHE.put(self._gms_server, commit_hash, specs.to_dict())
+        self._entity_aspect_specs = (commit_hash, specs)
+        return specs
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=OwnershipClass)

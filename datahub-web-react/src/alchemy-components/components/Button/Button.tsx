@@ -1,9 +1,20 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import React from 'react';
+import styled, { keyframes } from 'styled-components';
 
 import { ButtonBase } from '@components/components/Button/components';
 import { ButtonProps, ButtonPropsDefaults } from '@components/components/Button/types';
 import { Icon } from '@components/components/Icon';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const LoadingSpinner = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+    color: currentColor;
+`;
 
 export const buttonDefaults: ButtonPropsDefaults = {
     variant: 'filled',
@@ -40,7 +51,7 @@ export const Button = ({
     if (isLoading) {
         return (
             <ButtonBase {...styleProps} {...props}>
-                <LoadingOutlined rotate={10} /> {!isCircle && children}
+                <LoadingSpinner /> {!isCircle && children}
             </ButtonBase>
         );
     }

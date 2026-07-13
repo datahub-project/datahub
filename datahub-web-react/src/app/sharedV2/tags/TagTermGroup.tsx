@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Typography } from 'antd';
 import React, { useState } from 'react';
@@ -78,7 +79,7 @@ const StyledPlusIcon = styled(Plus).attrs({ size: 10, weight: 'bold' })`
     margin-right: 8px;
 `;
 
-const EmptyText = styled(Typography.Text)`
+const EmptyText = styled(Text)`
     && {
         margin-right: 8px;
     }
@@ -312,12 +313,16 @@ export default function TagTermGroup({
             })}
             {showEmptyMessage && canAddTag && tagsEmpty && (
                 /* eslint-disable i18next/no-literal-string -- empty-state text lives in EMPTY_MESSAGES constants (out of scope); only the trailing "." is local punctuation */
-                <EmptyText type="secondary">{EMPTY_MESSAGES.tags.title}.</EmptyText>
+                <EmptyText type="span" color="textSecondary">
+                    {EMPTY_MESSAGES.tags.title}.
+                </EmptyText>
                 /* eslint-enable i18next/no-literal-string */
             )}
             {showEmptyMessage && canAddTerm && termsEmpty && (
                 /* eslint-disable i18next/no-literal-string -- empty-state text lives in EMPTY_MESSAGES constants (out of scope); only the trailing "." is local punctuation */
-                <EmptyText type="secondary">{EMPTY_MESSAGES.terms.title}.</EmptyText>
+                <EmptyText type="span" color="textSecondary">
+                    {EMPTY_MESSAGES.terms.title}.
+                </EmptyText>
                 /* eslint-enable i18next/no-literal-string */
             )}
             {canAddTag && !readOnly && showAddButton && (

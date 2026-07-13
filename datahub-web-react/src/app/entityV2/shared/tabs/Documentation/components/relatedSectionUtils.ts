@@ -7,16 +7,37 @@ import { ItemType } from '@src/alchemy-components/components/Menu/types';
 import { Document, InstitutionalMemoryMetadata } from '@types';
 
 export type RelatedItem =
-    | { type: 'link'; data: InstitutionalMemoryMetadata; sortTime: number }
-    | { type: 'document'; data: Document; sortTime: number };
+    | { type: 'link'; data: InstitutionalMemoryMetadata; sortLabel: string }
+    | { type: 'document'; data: Document; sortLabel: string };
 
 /**
- * Combines links and documents into a sorted array by time.
- * Links are sorted by created time, documents by lastModified time.
+ * Extracts the user-visible label for a link — mirrors the label shown by
+ * `ResourceLinkPill` so sort order matches on-screen order.
+ */
+function getLinkSortLabel(link: InstitutionalMemoryMetadata): string {
+    return link.description || link.label || link.url || '';
+}
+
+/**
+ * Extracts the user-visible title for a document — mirrors what
+ * `ResourceDocumentPill` renders as the pill label.
+ */
+function getDocumentSortLabel(doc: Document): string {
+    return doc.info?.title || '';
+}
+
+/**
+ * Combines links and documents into a sorted array. Order is:
+ *   1. Documents first, links second (grouped by type).
+ *   2. Alphabetical (case-insensitive, locale-aware) within each group.
+ *
+ * Chosen because most users scan Resources for a specific doc by name; grouping
+ * docs together and sorting alphabetically makes the list predictable and
+ * scannable at a glance.
  *
  * @param links - Array of institutional memory links
  * @param documents - Array of related documents (optional)
- * @returns Sorted array of RelatedItem objects (most recent first)
+ * @returns Sorted array of RelatedItem objects (documents A→Z, then links A→Z)
  */
 export function combineAndSortRelatedItems(
     links: InstitutionalMemoryMetadata[],
@@ -24,28 +45,20 @@ export function combineAndSortRelatedItems(
 ): RelatedItem[] {
     const items: RelatedItem[] = [];
 
-    // Add links with their created time
-    links.forEach((link) => {
-        items.push({
-            type: 'link',
-            data: link,
-            sortTime: link.created?.time || 0,
-        });
-    });
-
-    // Add documents with their lastModified time
     if (documents && documents.length > 0) {
         documents.forEach((doc) => {
-            items.push({
-                type: 'document',
-                data: doc,
-                sortTime: doc.info?.lastModified?.time || 0,
-            });
+            items.push({ type: 'document', data: doc, sortLabel: getDocumentSortLabel(doc) });
         });
     }
 
-    // Sort by time descending (most recent first)
-    return items.sort((a, b) => b.sortTime - a.sortTime);
+    links.forEach((link) => {
+        items.push({ type: 'link', data: link, sortLabel: getLinkSortLabel(link) });
+    });
+
+    return items.sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'document' ? -1 : 1;
+        return a.sortLabel.localeCompare(b.sortLabel, undefined, { sensitivity: 'base' });
+    });
 }
 
 /**
