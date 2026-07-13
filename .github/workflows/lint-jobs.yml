@@ -25,6 +25,7 @@ jobs:
       code-check-sources: ${{ steps.filter.outputs.code-check-sources == 'true' || steps.filter.outputs.lint-job == 'true' }}
       pdl: ${{ steps.filter.outputs.pdl == 'true' || steps.filter.outputs.lint-job == 'true' }}
       datahub-web-react: ${{ steps.filter.outputs.datahub-web-react == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      metadata-ingestion: ${{ steps.filter.outputs.metadata-ingestion == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
       playwright-e2e: ${{ steps.filter.outputs.playwright-e2e == 'true' || steps.filter.outputs.lint-job == 'true' }}
@@ -206,6 +207,43 @@ jobs:
           path: |
             ${{ env.UV_CACHE_DIR }}
           key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
+
+  metadata-ingestion-lint:
+    name: metadata-ingestion-lint
+    runs-on: ${{ needs.setup.outputs.default-runner }}
+    needs: setup
+    if: needs.setup.outputs.metadata-ingestion == 'true'
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache/
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Restore uv cache
+        with:
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+          key: "uv-${{github.base_ref}}-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock') }}"
+      - name: Install system dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Run metadata-ingestion lint
+        run: ./gradlew :metadata-ingestion:lint
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Save uv cache
+        with:
+          path: |
+            ${{ env.UV_CACHE_DIR }}
+          key: "uv-${{github.base_ref}}-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock') }}"
 
   datahub-web-react-lint:
     name: datahub-web-react-lint
