@@ -36,21 +36,42 @@ class PostHogConfig:
     timeout: int = 10
 
 
+def _detect_junit_subtype(xml_file: Path) -> str:
+    """
+    Distinguish between Playwright and Pytest JUnit XML by content.
+
+    Playwright's JUnit reporter sets testsuite.name to the spec file path
+    (e.g. "tests/domains/domains.spec.ts"), which is reliable for detection.
+    """
+    try:
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+        for ts in root.iter('testsuite'):
+            name = ts.get('name', '')
+            if '.spec.ts' in name or '.spec.js' in name or '.spec.tsx' in name:
+                return 'playwright'
+        return 'pytest'
+    except Exception:
+        return 'pytest'
+
+
 def detect_xml_type(xml_file: Path) -> str:
     """
     Detect the type of JUnit XML file.
 
-    Returns: 'cypress', 'pytest', 'java', or 'unknown'
+    Returns: 'cypress', 'playwright', 'pytest', 'java', or 'unknown'
     """
     filename = xml_file.name
 
     # Check filename patterns
     if filename.startswith('cypress-test-'):
         return 'cypress'
-    elif filename.startswith('junit') and filename.endswith('.xml'):
-        return 'pytest'
     elif filename.startswith('TEST-') and filename.endswith('.xml'):
         return 'java'
+    elif filename.startswith('junit') and filename.endswith('.xml'):
+        # Both Playwright (junit.xml) and Pytest (junit.*.xml) match this pattern.
+        # Peek at content to tell them apart.
+        return _detect_junit_subtype(xml_file)
 
     return 'unknown'
 
@@ -103,6 +124,56 @@ def parse_cypress_failures(xml_file: Path) -> List[FailedTest]:
                 test_type='cypress',
                 error_message=error_msg[:200] if error_msg else None
             ))
+
+    except ET.ParseError as e:
+        print(f"⚠️ Failed to parse {xml_file}: {e}", file=sys.stderr)
+    except Exception as e:
+        print(f"⚠️ Error processing {xml_file}: {e}", file=sys.stderr)
+
+    return failed_tests
+
+
+def parse_playwright_failures(xml_file: Path) -> List[FailedTest]:
+    """
+    Parse Playwright JUnit XML to extract failed tests.
+
+    Playwright sets testsuite.name to the spec file path and testcase.classname
+    to the describe-block title, so identifiers are formatted as:
+    "spec/file.spec.ts > Describe Block > test name"
+    """
+    failed_tests = []
+
+    try:
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+
+        for testsuite in root.iter('testsuite'):
+            spec_file = testsuite.get('name', '')
+
+            for testcase in testsuite.findall('testcase'):
+                failure = testcase.find('failure')
+                error = testcase.find('error')
+
+                if failure is None and error is None:
+                    continue
+
+                classname = testcase.get('classname', '')
+                test_name = testcase.get('name', '')
+
+                parts = [p for p in [spec_file, classname, test_name] if p]
+                test_identifier = (' > '.join(parts) if parts else spec_file)[:200]
+
+                error_msg = None
+                if failure is not None:
+                    error_msg = failure.get('message', failure.text or '')
+                elif error is not None:
+                    error_msg = error.get('message', error.text or '')
+
+                failed_tests.append(FailedTest(
+                    name=test_identifier,
+                    test_type='playwright',
+                    error_message=error_msg[:200] if error_msg else None
+                ))
 
     except ET.ParseError as e:
         print(f"⚠️ Failed to parse {xml_file}: {e}", file=sys.stderr)
@@ -235,6 +306,8 @@ def parse_all_failures(input_dir: Path) -> List[FailedTest]:
 
         if xml_type == 'cypress':
             failures = parse_cypress_failures(xml_file)
+        elif xml_type == 'playwright':
+            failures = parse_playwright_failures(xml_file)
         elif xml_type == 'pytest':
             failures = parse_pytest_failures(xml_file)
         elif xml_type == 'java':

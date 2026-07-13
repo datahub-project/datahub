@@ -65,6 +65,8 @@ export const DEFAULT_APP_CONFIG = {
         showAccessManagement: false,
         nestedDomainsEnabled: true,
         platformBrowseV2: false,
+        browserTracingEnabled: false,
+        browserWebVitalsEnabled: false,
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
         editableDatasetNameEnabled: false,
@@ -103,7 +105,7 @@ export const DEFAULT_APP_CONFIG = {
         glossaryBasedPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
         showTestsInHealthIcon: false,
-        i18nEnabled: false,
+        i18nEnabled: true,
     },
     chromeExtensionConfig: {
         enabled: false,

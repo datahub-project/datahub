@@ -1,14 +1,14 @@
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
-import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { ItemType } from '@components/components/Menu/types';
+
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { Icon, Text } from '@src/alchemy-components';
+import { Button, Menu } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
-import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
 import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
@@ -18,18 +18,6 @@ const MoreOptionsContainer = styled.div`
     display: flex;
     gap: 12px;
     justify-content: end;
-
-    div {
-        background-color: ${(props) => props.theme.colors.bgSurface};
-        border-radius: 20px;
-        width: 24px;
-        height: 24px;
-        padding: 3px;
-        color: ${(props) => props.theme.colors.icon};
-        :hover {
-            cursor: pointer;
-        }
-    }
 `;
 
 interface Props {
@@ -92,41 +80,36 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
         setShowConfirmRemove(false);
     };
 
-    const items = [
+    const items: ItemType[] = [
         {
+            type: 'item',
             key: '0',
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        setIsEditModalVisible(true);
-                    }}
-                >
-                    {isAddMode ? tc('common.actions:add') : tc('common.actions:edit')}
-                </MenuItem>
-            ),
+            title: isAddMode ? tc('common.actions:add') : tc('common.actions:edit'),
+            onClick: () => setIsEditModalVisible(true),
         },
     ];
     if (values && values?.length > 0) {
         items.push({
+            type: 'item',
             key: '1',
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        setShowConfirmRemove(true);
-                    }}
-                >
-                    <Text color="red"> {tc('common.actions:remove')} </Text>
-                </MenuItem>
-            ),
+            title: tc('common.actions:remove'),
+            danger: true,
+            onClick: () => setShowConfirmRemove(true),
         });
     }
 
     return (
         <>
             <MoreOptionsContainer>
-                <Dropdown menu={{ items }} trigger={['click']}>
-                    <Icon icon={DotsThreeVertical} size="md" data-testid="structured-prop-entity-more-icon" />
-                </Dropdown>
+                <Menu items={items}>
+                    <Button
+                        variant="text"
+                        color="gray"
+                        isCircle
+                        icon={{ icon: DotsThreeVertical, size: 'xl', weight: 'bold' }}
+                        data-testid="structured-prop-entity-more-icon"
+                    />
+                </Menu>
             </MoreOptionsContainer>
             <EditStructuredPropertyModal
                 isOpen={isEditModalVisible}

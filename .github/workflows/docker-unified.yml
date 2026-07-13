@@ -16,21 +16,38 @@ on:
     branches:
       - master
       - releases/**
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/docker-unified.yml"
+      - ".github/scripts/send_failed_tests_to_posthog.py"
+      - ".github/scripts/docker_helpers.sh"
+      - ".github/actions/ci-optimization"
+      - ".github/actions/restore-dependency-caches"
+      - ".github/scripts/check_python_package.py"
+      - ".github/scripts/parse_failed_pytest_tests.py"
+      - ".github/scripts/docker_logs.sh"
+      - ".github/actions/smoke-test-retry"
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
       - "**"
-    paths-ignore:
-      - ".github/**"
-      - "!.github/workflows/docker-unified.yml"
-      - "!.github/scripts/send_failed_tests_to_posthog.py"
-      - "!.github/scripts/docker_helpers.sh"
-      - "!.github/actions/ci-optimization"
-      - "!.github/actions/restore-dependency-caches"
-      - "!.github/scripts/check_python_package.py"
-      - "!.github/scripts/parse_failed_pytest_tests.py"
-      - "!.github/scripts/docker_logs.sh"
-      - "!.github/actions/smoke-test-retry"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/docker-unified.yml"
+      - ".github/scripts/send_failed_tests_to_posthog.py"
+      - ".github/scripts/docker_helpers.sh"
+      - ".github/actions/ci-optimization"
+      - ".github/actions/restore-dependency-caches"
+      - ".github/scripts/check_python_package.py"
+      - ".github/scripts/parse_failed_pytest_tests.py"
+      - ".github/scripts/docker_logs.sh"
+      - ".github/actions/smoke-test-retry"
   release:
     types: [published]
 
@@ -803,6 +820,14 @@ jobs:
           path: "docker_logs/*.log"
           retention-days: 5
 
+      - name: Upload pytest logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: pytest-smoke-logs-pytests-${{ matrix.batch }}
+          path: "smoke-test/test-results/pytest-smoke.log"
+          retention-days: 5
+
       - name: Report test results
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
@@ -884,6 +909,7 @@ jobs:
       local_build_flags: "-PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=acryldata"
       datahub_version: ${{ needs.setup.outputs.tag }}
       profile_name: ${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}
+      send_posthog_metrics: true
     secrets: inherit
 
   playwright_report:

@@ -44,7 +44,8 @@ import org.springframework.context.annotation.PropertySource;
       "io.datahubproject.metadata.jobs.common.health.pgqueue",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.plugins",
-      "com.linkedin.gms.factory.system_telemetry"
+      "com.linkedin.gms.factory.system_telemetry",
+      "com.linkedin.gms.factory.usage.mce"
     },
     excludeFilters = {
       @ComponentScan.Filter(
