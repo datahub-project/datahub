@@ -35,7 +35,7 @@ import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 // Path of the same-origin OTLP proxy on the Play frontend. Excluded from instrumentation
 // to avoid a self-tracing feedback loop.
-const OTLP_TRACES_PATH = '/otel/v1/traces';
+const OTLP_TRACES_PATH = '/otel/v/traces';
 
 // BatchSpanProcessor tuning. scheduledDelay is deliberately SHORT (1s): browser spans travel
 // browser -> proxy -> forwarder and arrive later than the java agent's near-instant gRPC export. The
