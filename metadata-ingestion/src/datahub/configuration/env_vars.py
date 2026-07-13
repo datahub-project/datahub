@@ -315,11 +315,6 @@ def get_dataset_urn_to_lower() -> str:
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
 
 
-# NOTE: DATAHUB_SQLGLOT_DISABLE_C is intentionally NOT registered here. Its only
-# consumer is the interpreter-startup hook datahub/_force_pure_python_sqlglot.py,
-# which cannot import this module that early. See that file for details.
-
-
 # ============================================================================
 # Integration-Specific Configuration
 # ============================================================================
