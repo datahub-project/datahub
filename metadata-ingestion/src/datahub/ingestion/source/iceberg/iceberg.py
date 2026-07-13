@@ -2,6 +2,7 @@ import json
 import logging
 import threading
 import uuid
+from functools import partial
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
@@ -243,6 +244,49 @@ class IcebergSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
 
+    def _get_views(
+        self, catalog: Catalog, namespaces: Iterable[Tuple[Identifier, str]]
+    ) -> Iterable[Tuple[Identifier, str]]:
+        LOGGER.debug("Starting to retrieve views")
+        views_count = 0
+        for namespace, namespace_urn in namespaces:
+            try:
+                views = catalog.list_views(namespace)
+                views_count += len(views)
+                LOGGER.debug(
+                    f"Retrieved {len(views)} views for namespace: {namespace}, in total retrieved {views_count}, first 10: {views[:10]}"
+                )
+                self.report.report_listed_views_for_namespace(
+                    ".".join(namespace), len(views)
+                )
+                yield from [(view, namespace_urn) for view in views]
+            except (NotImplementedError, AttributeError) as e:
+                # Not every catalog implementation supports views (e.g. Glue, Hive).
+                LOGGER.debug(
+                    f"Catalog does not support listing views for namespace {namespace}, skipping views: {e}"
+                )
+            except NoSuchNamespaceError as e:
+                self.report.warning(
+                    title="No such namespace",
+                    message="Skipping the missing namespace when listing views.",
+                    context=str(namespace),
+                    exc=e,
+                )
+            except RESTError as e:
+                self.report.warning(
+                    title="Iceberg REST Server Error",
+                    message="Iceberg REST Server returned error status when trying to list views for a namespace, skipping it.",
+                    context=str(namespace),
+                    exc=e,
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Error when listing views for a namespace",
+                    message="Skipping views for the namespace due to errors while listing them.",
+                    context=str(namespace),
+                    exc=e,
+                )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         thread_local = threading.local()
 
@@ -392,6 +436,60 @@ class IcebergSource(StatefulIngestionSourceBase):
         ):
             yield wu
 
+        for wu in ThreadedIteratorExecutor.process(
+            worker_func=partial(self._process_view, thread_local),
+            args_list=[
+                (view_path, namespace_urn)
+                for view_path, namespace_urn in self._get_views(
+                    self.catalog, self.namespaces
+                )
+            ],
+            max_workers=self.config.processing_threads,
+        ):
+            yield wu
+
+    def _process_view(
+        self,
+        thread_local: threading.local,
+        view_path: Identifier,
+        namespace_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        try:
+            LOGGER.debug(f"Processing view for path {view_path}")
+            view_name = ".".join(view_path)
+            if not self.config.table_pattern.allowed(view_name):
+                # View name is rejected by pattern, report as dropped.
+                self.report.report_dropped(view_name)
+                LOGGER.debug(
+                    f"Skipping view {view_name} due to not being allowed by the config pattern"
+                )
+                return
+
+            if not hasattr(thread_local, "stamping_processor"):
+                thread_local.stamping_processor = AutoSystemMetadata(self.ctx)
+
+            dataset_urn: str = make_dataset_urn_with_platform_instance(
+                self.platform,
+                view_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            for aspect in self._create_iceberg_view_aspects(
+                view_name, view_path, namespace_urn
+            ):
+                yield thread_local.stamping_processor.stamp_wu(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=aspect
+                    ).as_workunit()
+                )
+        except Exception as e:
+            self.report.report_failure(
+                title="Error when processing a view",
+                message="Skipping the view due to errors when processing it.",
+                context=str(view_path),
+                exc=e,
+            )
+
     def _try_processing_namespace(
         self, namespace: Identifier
     ) -> Iterable[MetadataWorkUnit]:
@@ -484,6 +582,29 @@ class IcebergSource(StatefulIngestionSourceBase):
         if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
             yield from profiler.profile_table(dataset_name, table)
+
+    def _create_iceberg_view_aspects(
+        self, view_name: str, view_path: Identifier, namespace_urn: str
+    ) -> Iterable[_Aspect]:
+        # pyiceberg does not expose a load_view() API yet, so only basic
+        # metadata is emitted for views; schema extraction can be added once
+        # pyiceberg supports reading view metadata.
+        self.report.report_view_scanned(view_name)
+        LOGGER.debug(f"Processing view {view_name}")
+        yield Status(removed=False)
+        yield SubTypes(typeNames=[DatasetSubTypes.VIEW])
+        yield DatasetPropertiesClass(
+            name=view_path[-1],
+            qualifiedName=view_name,
+        )
+        dpi = self._get_dataplatform_instance_aspect()
+        yield dpi
+        yield self._create_browse_paths_aspect(dpi.instance, str(namespace_urn))
+        yield ContainerClass(container=str(namespace_urn))
+
+        domain_urn = self._gen_domain_urn(view_name)
+        if domain_urn:
+            yield DomainsClass(domains=[domain_urn])
 
     def _create_browse_paths_aspect(
         self,

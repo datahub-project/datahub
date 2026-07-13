@@ -2220,3 +2220,147 @@ class TestDomainAssignment:
 
         # domain adds 1 MCP per table + 1 MCP per namespace
         assert len(wus_with) == len(wus_without) + 2
+
+
+MCPS_PER_VIEW = 6  # no schema yet (pyiceberg has no load_view), no profiling
+
+
+class MockCatalogWithViews(MockCatalog):
+    def __init__(
+        self,
+        tables: Dict[str, Dict[str, Callable[[Catalog], Table]]],
+        views: Dict[str, List[str]],
+        namespace_properties: Optional[Dict[str, Dict[str, str]]] = None,
+    ) -> None:
+        super().__init__(tables, namespace_properties)
+        self.views = views
+
+    def list_views(self, namespace: str) -> Iterable[Tuple[str, str]]:
+        return [(namespace[0], view) for view in self.views.get(namespace[0], [])]
+
+
+class MockCatalogExceptionListingViews(MockCatalogWithViews):
+    def list_views(self, namespace: str) -> Iterable[Tuple[str, str]]:
+        if namespace == ("broken_views",):
+            raise Exception("Test exception")
+        return super().list_views(namespace)
+
+
+def test_views_are_ingested_with_view_subtype() -> None:
+    from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
+
+    source = with_iceberg_source(processing_threads=2)
+    mock_catalog = MockCatalogWithViews(
+        tables={"namespaceA": {}},
+        views={"namespaceA": ["view1"]},
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        view_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.view1,PROD)"
+        expected_wu_urns = [view_urn] * MCPS_PER_VIEW + [
+            "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f",
+        ] * MCPS_PER_NAMESPACE
+        assert len(wu) == len(expected_wu_urns)
+        urns = []
+        subtype_aspects = []
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
+            if unit.metadata.entityUrn == view_urn and isinstance(
+                unit.metadata.aspect, SubTypes
+            ):
+                subtype_aspects.append(unit.metadata.aspect)
+        TestCase().assertCountEqual(urns, expected_wu_urns)
+        assert len(subtype_aspects) == 1
+        assert subtype_aspects[0].typeNames == ["View"]
+        assert source.report.views_scanned == 1
+        assert source.report.failures.total_elements == 0
+
+
+def test_catalog_without_list_views_support_skips_views() -> None:
+    source = with_iceberg_source(processing_threads=2)
+    # Plain MockCatalog does not implement list_views at all (like older/unsupported catalogs)
+    mock_catalog = MockCatalog(
+        {
+            "namespaceA": {
+                "table1": lambda catalog: Table(
+                    identifier=("namespaceA", "table1"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table1",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table1",
+                    io=PyArrowFileIO(),
+                    catalog=catalog,
+                )
+            }
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        expected_wu_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+        ] * MCPS_PER_TABLE + [
+            "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f",
+        ] * MCPS_PER_NAMESPACE
+        assert len(wu) == len(expected_wu_urns)
+        assert source.report.failures.total_elements == 0
+        assert source.report.warnings.total_elements == 0
+        assert source.report.total_listed_views == 0
+
+
+def test_exception_while_listing_views_does_not_fail_ingestion() -> None:
+    source = with_iceberg_source(processing_threads=2)
+    mock_catalog = MockCatalogExceptionListingViews(
+        tables={"namespaceA": {}, "broken_views": {}},
+        views={"namespaceA": ["view1"]},
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        view_urn = "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.view1,PROD)"
+        urns = [unit.metadata.entityUrn for unit in wu]  # type: ignore[union-attr]
+        assert urns.count(view_urn) == MCPS_PER_VIEW
+        assert source.report.warnings.total_elements == 1
+        assert source.report.failures.total_elements == 0
+
+
+def test_views_respect_table_pattern() -> None:
+    source = with_iceberg_source(
+        processing_threads=2,
+        table_pattern=AllowDenyPattern(deny=["namespaceA.view1"]),
+    )
+    mock_catalog = MockCatalogWithViews(
+        tables={"namespaceA": {}},
+        views={"namespaceA": ["view1", "view2"]},
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        urns = [unit.metadata.entityUrn for unit in wu]  # type: ignore[union-attr]
+        assert (
+            urns.count(
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.view1,PROD)"
+            )
+            == 0
+        )
+        assert (
+            urns.count(
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.view2,PROD)"
+            )
+            == MCPS_PER_VIEW
+        )
+        assert "namespaceA.view1" in [str(x) for x in source.report.filtered]
