@@ -1,12 +1,13 @@
 """
 Force pure-Python loading of sqlglot when DATAHUB_SQLGLOT_DISABLE_C is set.
 
-sqlglot[c] ships mypyc-compiled .so extensions for a performance boost, but
-these compiled modules have suffered from memory leaks
+sqlglot[c] ships mypyc-compiled .so extensions for a performance boost. These
+native C extensions have been a source of memory leaks in the past
 (https://github.com/tobymao/sqlglot/issues/7506,
-https://github.com/tobymao/sqlglot/issues/7853). Uninstalling sqlglotc loses
-the speedup for every deployment; this hook instead lets an operator disable
-the C extensions per-process without changing the installed packages.
+https://github.com/tobymao/sqlglot/issues/7853). This hook prevents those
+compiled extensions from being loaded so the native C lib can be skipped
+dynamically at runtime, per-process, without dropping the dependency from the
+release or changing the installed packages.
 
 Python's import machinery hardcodes .so priority over .py, with no built-in
 knob to flip it. So when the env var is set we install a sys.meta_path finder
