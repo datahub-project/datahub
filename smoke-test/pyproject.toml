@@ -85,6 +85,7 @@ markers = [
     "read_only: marks tests as read only (deselect with '-m \"not read_only\"')",
     "no_cypress_suite1: main smoke tests, suite 1",
     "test_run_cypress: run cypress tests",
+    "integration: marks tests as integration tests requiring a running DataHub stack",
 ]
 filterwarnings = [
     # Ignore some warnings that come from dependencies.
@@ -92,6 +93,10 @@ filterwarnings = [
     "ignore:The new datahub SDK:datahub.errors.ExperimentalWarning",
     # We should not be unexpectedly seeing API tracing warnings.
     "error::datahub.errors.APITracingWarning",
+    # Prevent regressions: helper classes named Test* must set __test__ = False,
+    # and custom marks must be registered above.
+    "error::pytest.PytestCollectionWarning",
+    "error::pytest.PytestUnknownMarkWarning",
 ]
 # Logging configuration - formats test reports without interfering with CLI tests
 log_level = "INFO"
