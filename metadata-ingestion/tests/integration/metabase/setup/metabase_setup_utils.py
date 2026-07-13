@@ -1,5 +1,3 @@
-"""Utilities for setting up Metabase test environment via Docker."""
-
 import logging
 import time
 from typing import Any, Dict, Optional

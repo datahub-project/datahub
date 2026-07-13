@@ -6,13 +6,8 @@ from datahub.ingestion.source.metabase.constants import _MBQL_REF_FIELD
 
 @dataclass
 class MBQLFieldRefs:
-    """Field references extracted from an MBQL clause.
-
-    ``ids`` holds numeric (id-based) refs we can resolve to columns; ``named``
-    holds string (name-based) refs, which the source cannot resolve to an
-    upstream column and therefore drops from column-level lineage.
-    """
-
+    # ids: numeric refs resolvable to columns. named: string refs the source
+    # cannot resolve to an upstream column, so they are dropped from CLL.
     ids: List[int] = field(default_factory=list)
     named: List[str] = field(default_factory=list)
 
@@ -22,15 +17,8 @@ class MBQLFieldRefs:
 
 
 def extract_mbql_field_refs(clause: object) -> MBQLFieldRefs:
-    """
-    Recursively extract Metabase field references from an MBQL clause.
-
-    MBQL field refs look like ``["field", 100, null]`` (id-based) or
-    ``["field", "name", {...}]`` (name-based). Only id-based refs can be
-    resolved to a concrete upstream column; name-based refs are collected
-    separately so the caller can report them rather than silently dropping
-    column-level lineage.
-    """
+    # MBQL field refs are ["field", 100, null] (id-based) or ["field", "name", {...}]
+    # (name-based); recurse into nested clauses to collect both kinds.
     refs = MBQLFieldRefs()
     if not isinstance(clause, list) or not clause:
         return refs

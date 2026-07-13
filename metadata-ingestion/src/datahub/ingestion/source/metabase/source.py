@@ -139,14 +139,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
         return value.lower() if self.config.convert_lineage_urns_to_lowercase else value
 
     def _get_json(self, url: str, *, params: Optional[Dict[str, str]] = None) -> object:
-        """GET a URL and return the parsed JSON body.
-
-        Applies the configured request timeout to every call so a server that
-        accepts the connection but never responds cannot hang ingestion. Raises
-        ``HTTPError`` on non-2xx and ``ValueError`` on a non-JSON body (e.g. an
-        SSO/proxy HTML login page returned with a 200); callers route both to
-        the report.
-        """
+        # timeout guards against a server that accepts the connection but never
+        # responds. Raises ValueError on a non-JSON body (e.g. an SSO/proxy HTML
+        # login page returned with a 200), which callers route to the report.
         response = self.session.get(
             url, params=params, timeout=self.config.request_timeout_sec
         )
@@ -470,11 +465,6 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def _parse_native_sql(
         self, card: MetabaseCard
     ) -> Optional[Tuple[SqlParsingResult, DatasourceInfo]]:
-        """Run the shared native-SQL parse preamble.
-
-        Returns the SQL parsing result plus the resolved datasource, or None if
-        the card has no database, datasource, or query.
-        """
         if not card.database_id:
             return None
 
@@ -525,14 +515,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def _get_table_urns_from_query_builder(
         self, card: MetabaseCard, recursion_depth: int = 0
     ) -> List[str]:
-        """
-        Extract table/model URNs from MBQL query builder cards.
-
-        Metabase allows cards to reference other cards as sources:
-        - source-table: 123 — direct table reference
-        - source-table: "card__456" — model or question reference
-        - joins[].source-table — additional tables
-        """
+        # A source-table ref is either an int (direct table), "card__456" (another
+        # card/model), or a joins[].source-table; all three are handled below.
         if not card.dataset_query or not card.dataset_query.query:
             return []
 
@@ -1223,12 +1207,9 @@ class MetabaseSource(StatefulIngestionSourceBase):
 
     @staticmethod
     def strip_template_expressions(raw_query: str) -> str:
-        """
-        Strip Metabase template expressions before SQL parsing.
-
-        [[optional]] clauses are removed; {{variable}} placeholders are replaced with "1".
-        See: https://www.metabase.com/docs/latest/questions/native-editor/sql-parameters
-        """
+        # Metabase SQL parameters aren't valid SQL: drop [[optional]] clauses and
+        # replace {{variable}} placeholders with "1" before parsing.
+        # https://www.metabase.com/docs/latest/questions/native-editor/sql-parameters
         query_patched = _OPTIONAL_CLAUSE_PATTERN.sub(" ", raw_query)
         query_patched = _TEMPLATE_VARIABLE_PATTERN.sub("1", query_patched)
         return query_patched
@@ -1282,18 +1263,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
     def get_platform_instance(
         self, platform: Optional[str] = None, datasource_id: Optional[int] = None
     ) -> Optional[str]:
-        """
-        Method will attempt to detect `platform_instance` by checking
-        `database_id_to_instance_map` and `platform_instance_map` mappings.
-        If `database_id_to_instance_map` is defined it is first checked for
-        `datasource_id` extracted from Metabase. If this mapping is not defined
-        or corresponding key is not found, `platform_instance_map` mapping
-        is checked for datasource platform. If no mapping found `None`
-        is returned.
-        :param str platform: DataHub platform name (e.g. `postgres` or `clickhouse`)
-        :param int datasource_id: Numeric datasource ID received from Metabase API
-        :return: platform instance name or None
-        """
+        # database_id_to_instance_map (keyed by datasource id) takes precedence
+        # over platform_instance_map (keyed by platform).
         platform_instance = None
         if datasource_id is not None and self.config.database_id_to_instance_map:
             platform_instance = self.config.database_id_to_instance_map.get(

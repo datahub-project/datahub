@@ -265,13 +265,10 @@ class MetabaseDatabaseDetails(MetabaseBaseModel):
 
     @property
     def _clean_db(self) -> Optional[str]:
-        """
-        Sanitize the `db` field for use as a dataset name.
-
-        H2 stores a full JDBC path here (e.g. `file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest`).
-        Other engines using this field (Redshift, Snowflake, SQL Server) store a plain name,
-        so stripping is a no-op for them.
-        """
+        # H2 stores a full JDBC path here (e.g.
+        # "file:/plugins/sample-database.db;USER=GUEST;PASSWORD=guest"); other
+        # engines (Redshift, Snowflake, SQL Server) store a plain name, so the
+        # stripping below is a no-op for them.
         if not self.db:
             return None
         path = self.db.split(";")[0]
