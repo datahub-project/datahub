@@ -82,6 +82,60 @@ order by
   table_suffix DESC
 """
 
+    # Same as tables_for_dataset, but sources row_count / size / last_altered from
+    # INFORMATION_SCHEMA.PARTITIONS instead of the deprecated __TABLES__ construct.
+    # PARTITIONS is dataset-scoped and already queried for partition metadata, so this
+    # adds no extra scan. It covers base tables only; external tables (absent from
+    # PARTITIONS) get null stats via the LEFT JOIN.
+    tables_for_dataset_partitions = f"""
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  p.last_modified_time as last_altered,
+  tos.OPTION_VALUE as comment,
+  t.is_insertable_into,
+  t.ddl,
+  p.total_rows as row_count,
+  p.total_logical_bytes as bytes,
+  p.num_partitions,
+  p.max_partition_id,
+  p.active_billable_bytes as active_billable_bytes,
+  IFNULL(p.long_term_billable_bytes, 0) as long_term_billable_bytes,
+  REGEXP_EXTRACT(t.table_name, r"(?:(?:.+\\D)[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
+  REGEXP_REPLACE(t.table_name, r"(?:[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
+
+FROM
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+  left join (
+    select
+        table_name,
+        sum(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then 1 else 0 END) as num_partitions,
+        max(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then partition_id else NULL END) as max_partition_id,
+        sum(total_rows) as total_rows,
+        sum(total_logical_bytes) as total_logical_bytes,
+        max(last_modified_time) as last_modified_time,
+        sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
+        sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
+    from
+        `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
+    group by
+        table_name) as p on
+    t.table_name = p.table_name
+WHERE
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
+{{table_filter}}
+order by
+  table_schema ASC,
+  table_base ASC,
+  table_suffix DESC
+"""
+
     tables_for_dataset_without_partition_data = f"""
 SELECT
   t.table_catalog as table_catalog,

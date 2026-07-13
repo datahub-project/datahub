@@ -465,14 +465,17 @@ class BigQuerySchemaApi:
         tables: Dict[str, TableListItem],
         report: BigQueryV2Report,
         with_partitions: bool = False,
+        use_legacy_table_stats: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables)
 
-            if with_partitions:
+            if not with_partitions:
+                query_template = BigqueryQuery.tables_for_dataset_without_partition_data
+            elif use_legacy_table_stats:
                 query_template = BigqueryQuery.tables_for_dataset
             else:
-                query_template = BigqueryQuery.tables_for_dataset_without_partition_data
+                query_template = BigqueryQuery.tables_for_dataset_partitions
 
             # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
             # and skip the others. Sharded tables are tables with suffix _20220102
