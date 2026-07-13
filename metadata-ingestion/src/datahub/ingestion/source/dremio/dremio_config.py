@@ -222,7 +222,8 @@ class DremioSourceConfig(
         "Dremio's system tables can be slow, so a larger batch reduces the number of "
         "round-trips. Set to 0 to fetch as much as possible per page. Values are "
         "clamped to a safety ceiling of 1,000,000 rows per page to keep pagination "
-        "reliable.",
+        "reliable. A larger batch also raises the amount Dremio must materialize per "
+        "job, so lower this value if Dremio runs out of memory during extraction.",
     )
 
     include_query_lineage: bool = Field(
