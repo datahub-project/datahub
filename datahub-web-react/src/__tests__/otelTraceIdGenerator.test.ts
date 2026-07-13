@@ -5,6 +5,30 @@ import { OtelTraceIdGenerator } from '@src/otelTraceIdGenerator';
 const HEX32 = /^[0-9a-f]{32}$/;
 const HEX16 = /^[0-9a-f]{16}$/;
 
+// Port of the backend TraceIdGenerator.getTimestampMillis — lives in the test because the browser
+// has no runtime caller. The round-trip case below is what proves browser-generated IDs pass the
+// backend's plausibility window. Re-extract into a prod module if a UI trace-correlation feature
+// ever needs to parse trace IDs client-side.
+const MIN_PLAUSIBLE_EPOCH_MS = 1577836800000; // 2020-01-01 UTC
+const MAX_CLOCK_SKEW_MS = 86400000; // 24 hours
+const MICROS_PER_MILLIS = BigInt(1000);
+
+function getTimestampMillis(traceId: string | null): number | null {
+    if (traceId === null || traceId.length < 16) {
+        return null;
+    }
+    const first16 = traceId.substring(0, 16);
+    if (!/^[0-9a-fA-F]{16}$/.test(first16)) {
+        return null;
+    }
+    const epochMillisBig = BigInt(`0x${first16}`) / MICROS_PER_MILLIS;
+    const nowPlusSkew = BigInt(Date.now() + MAX_CLOCK_SKEW_MS);
+    if (epochMillisBig >= BigInt(MIN_PLAUSIBLE_EPOCH_MS) && epochMillisBig <= nowPlusSkew) {
+        return Number(epochMillisBig);
+    }
+    return null;
+}
+
 describe('OtelTraceIdGenerator', () => {
     describe('generateTraceId', () => {
         it('returns a 32-char lowercase hex string', () => {
@@ -18,10 +42,10 @@ describe('OtelTraceIdGenerator', () => {
             const id = gen.generateTraceId();
             const after = Date.now();
 
-            const micros = Number(BigInt(`0x${id.substring(0, 16)}`));
+            const microsBig = BigInt(`0x${id.substring(0, 16)}`);
             // High half is epochMillis * 1000, captured between before/after.
-            expect(micros).toBeGreaterThanOrEqual(before * 1000);
-            expect(micros).toBeLessThanOrEqual(after * 1000);
+            expect(microsBig).toBeGreaterThanOrEqual(BigInt(before) * BigInt(1000));
+            expect(microsBig).toBeLessThanOrEqual(BigInt(after) * BigInt(1000));
         });
     });
 
@@ -42,25 +66,25 @@ describe('OtelTraceIdGenerator', () => {
             const gen = new OtelTraceIdGenerator();
             const epochMillis = 1700000000000;
             const id = gen.traceIdForEpochMillis(epochMillis);
-            expect(OtelTraceIdGenerator.getTimestampMillis(id)).toBe(epochMillis);
+            expect(getTimestampMillis(id)).toBe(epochMillis);
         });
 
         it('returns null for null / short / non-hex inputs', () => {
-            expect(OtelTraceIdGenerator.getTimestampMillis(null)).toBeNull();
-            expect(OtelTraceIdGenerator.getTimestampMillis('abc')).toBeNull();
-            expect(OtelTraceIdGenerator.getTimestampMillis(`gggggggggggggggg${'0'.repeat(16)}`)).toBeNull();
+            expect(getTimestampMillis(null)).toBeNull();
+            expect(getTimestampMillis('abc')).toBeNull();
+            expect(getTimestampMillis(`gggggggggggggggg${'0'.repeat(16)}`)).toBeNull();
         });
 
         it('returns null for a pre-2020 timestamp', () => {
             const gen = new OtelTraceIdGenerator();
             const id = gen.traceIdForEpochMillis(1546300800000); // 2019-01-01
-            expect(OtelTraceIdGenerator.getTimestampMillis(id)).toBeNull();
+            expect(getTimestampMillis(id)).toBeNull();
         });
 
         it('returns null for a timestamp more than 24h in the future', () => {
             const gen = new OtelTraceIdGenerator();
             const id = gen.traceIdForEpochMillis(Date.now() + 25 * 60 * 60 * 1000);
-            expect(OtelTraceIdGenerator.getTimestampMillis(id)).toBeNull();
+            expect(getTimestampMillis(id)).toBeNull();
         });
     });
 
