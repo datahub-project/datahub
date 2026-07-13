@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import click
 import pytest
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.cli.datapack.loader import (
     EMIT_MODE_ENV,
@@ -41,10 +43,12 @@ class TestFetchSession:
         # Guards the fix for CDN rate-limiting: a transient 429 must be retried
         # instead of silently dropping a datapack file into a broken load.
         session = _build_fetch_session()
-        retry = session.get_adapter("https://raw.githubusercontent.com/x").max_retries
-        assert 429 in retry.status_forcelist
-        assert {500, 502, 503, 504}.issubset(set(retry.status_forcelist))
-        assert retry.total and retry.total >= 1
+        adapter = session.get_adapter("https://raw.githubusercontent.com/x")
+        assert isinstance(adapter, HTTPAdapter)
+        retry = adapter.max_retries
+        assert isinstance(retry, Retry)
+        assert {429, 500, 502, 503, 504}.issubset(set(retry.status_forcelist or []))
+        assert retry.total is not None and retry.total >= 1
         assert retry.backoff_factor > 0
 
 
