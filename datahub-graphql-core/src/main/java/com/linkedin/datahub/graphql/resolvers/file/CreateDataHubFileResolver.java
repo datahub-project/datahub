@@ -11,11 +11,12 @@ import com.linkedin.datahub.graphql.generated.CreateDataHubFileResponse;
 import com.linkedin.datahub.graphql.generated.DataHubFile;
 import com.linkedin.datahub.graphql.types.file.DataHubFileMapper;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.metadata.config.S3Configuration;
 import com.linkedin.metadata.service.DataHubFileService;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,7 +26,7 @@ public class CreateDataHubFileResolver
     implements DataFetcher<CompletableFuture<CreateDataHubFileResponse>> {
 
   private final DataHubFileService _dataHubFileService;
-  private final S3Configuration _s3Configuration;
+  @Nullable private final ObjectStorageClient _objectStorageClient;
 
   @Override
   public CompletableFuture<CreateDataHubFileResponse> get(DataFetchingEnvironment environment)
@@ -34,17 +35,17 @@ public class CreateDataHubFileResolver
     final CreateDataHubFileInput input =
         bindArgument(environment.getArgument("input"), CreateDataHubFileInput.class);
 
-    // Get storage bucket from configuration and create BucketStorageLocation
-    String storageBucket = _s3Configuration.getBucketName();
+    if (_objectStorageClient == null || !_objectStorageClient.isConfigured()) {
+      throw new IllegalArgumentException("Object storage is not configured");
+    }
+    String storageBucket = _objectStorageClient.storageBucket();
     if (storageBucket == null || storageBucket.isEmpty()) {
-      log.error("Storage bucket is not configured when creating dataHubFile entity ");
-      storageBucket = "";
+      throw new IllegalArgumentException("Object storage bucket is not configured");
     }
 
     String id = input.getId();
     String storageKey = input.getStorageKey();
 
-    // Create BucketStorageLocation object
     com.linkedin.file.BucketStorageLocation bucketStorageLocation =
         new com.linkedin.file.BucketStorageLocation();
     bucketStorageLocation.setStorageBucket(storageBucket);

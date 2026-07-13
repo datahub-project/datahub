@@ -37,9 +37,10 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageReference;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -67,7 +68,7 @@ public class DeleteEntityService {
   private final EntityService<?> _entityService;
   private final GraphService _graphService;
   private final EntitySearchService _searchService;
-  private final S3Util _s3Util;
+  @Nullable private final ObjectStorageClient _objectStorageClient;
   @Nullable private final MetricUtils _metricUtils;
 
   private static final Integer BATCH_SIZE = 1000;
@@ -872,7 +873,7 @@ public class DeleteEntityService {
         result.assets.forEach(
             fileUrn -> {
               try {
-                deleteFileAndS3Object(opContext, fileUrn, deletedUrn);
+                deleteFileAndStorageObject(opContext, fileUrn, deletedUrn);
                 if (cascade != null) {
                   cascade.recordEntityProcessed();
                 }
@@ -898,14 +899,14 @@ public class DeleteEntityService {
   }
 
   /**
-   * Delete a file from S3 and soft-delete the DataHub file entity. This ensures the file is removed
-   * from storage and marked as deleted in DataHub for audit purposes.
+   * Delete a file from object storage and soft-delete the DataHub file entity. This ensures the
+   * file is removed from storage and marked as deleted in DataHub for audit purposes.
    *
    * @param opContext the operation context
    * @param fileUrn the URN of the file to delete
    * @param deletedEntityUrn the URN of the entity being deleted (for logging)
    */
-  private void deleteFileAndS3Object(
+  private void deleteFileAndStorageObject(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn fileUrn,
       @Nonnull final Urn deletedEntityUrn) {
@@ -916,7 +917,7 @@ public class DeleteEntityService {
         deletedEntityUrn);
 
     try {
-      // Get file info to retrieve S3 location
+      // Get file info to retrieve storage location
       RecordTemplate record =
           _entityService.getLatestAspect(
               opContext, fileUrn, Constants.DATAHUB_FILE_INFO_ASPECT_NAME);
@@ -928,26 +929,31 @@ public class DeleteEntityService {
 
       DataHubFileInfo fileInfo = new DataHubFileInfo(record.data());
 
-      // Delete from S3 if S3Util is available and file has storage location
-      if (_s3Util != null && fileInfo.hasBucketStorageLocation()) {
+      // Delete from object storage when client is available and file has storage location
+      if (_objectStorageClient != null
+          && _objectStorageClient.isConfigured()
+          && fileInfo.hasBucketStorageLocation()) {
         BucketStorageLocation location = fileInfo.getBucketStorageLocation();
         String bucket = location.getStorageBucket();
         String key = location.getStorageKey();
 
         try {
-          _s3Util.deleteObject(bucket, key);
+          _objectStorageClient.deleteObject(new ObjectStorageReference(bucket, key));
           log.info(
-              "Successfully deleted file from S3: bucket={}, key={}, urn={}", bucket, key, fileUrn);
+              "Successfully deleted file from object storage: bucket={}, key={}, urn={}",
+              bucket,
+              key,
+              fileUrn);
         } catch (Exception e) {
           log.error(
-              "Failed to delete file from S3 for urn: {}. Will continue with soft-delete to avoid "
-                  + "leaving entity in inconsistent state. Manual S3 cleanup may be required.",
+              "Failed to delete file from object storage for urn: {}. Will continue with soft-delete to avoid "
+                  + "leaving entity in inconsistent state. Manual cleanup may be required.",
               fileUrn,
               e);
         }
       } else {
         log.warn(
-            "S3Util not configured or file has no storage location, skipping S3 deletion for file: {}",
+            "Object storage not configured or file has no storage location, skipping object deletion for file: {}",
             fileUrn);
       }
 
