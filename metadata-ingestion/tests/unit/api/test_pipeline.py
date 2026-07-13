@@ -122,8 +122,7 @@ class TestPipeline:
     ):
         # Kafka default requires BOTH the selector and the executor-managed
         # marker (set only by the managed executor on spawned subprocesses).
-        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
-        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
         monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
         monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
         # This test asserts sink config, not connectivity; stub the init probe
@@ -182,8 +181,7 @@ class TestPipeline:
         monkeypatch,
     ):
         # The producer buffer tuning knobs are overridable via env.
-        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
-        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
         monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
         monkeypatch.setenv("DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES", "262144")
         monkeypatch.setenv("DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES", "50000")
@@ -224,8 +222,7 @@ class TestPipeline:
     ):
         # Kafka default selected but no broker configured: don't fail the run --
         # degrade to REST so metadata still lands.
-        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
-        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
         monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVER", raising=False)
         mock_fetch_config.return_value = mock_server_config
 
@@ -256,8 +253,7 @@ class TestPipeline:
     ):
         # A broker that never answers the metadata fetch: fall back to REST
         # rather than buffering silently and stalling ~300s at flush().
-        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
-        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
         monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "unreachable:9092")
         monkeypatch.setenv("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", "1")
         mock_fetch_config.return_value = mock_server_config
@@ -292,8 +288,7 @@ class TestPipeline:
     ):
         # Broker reachable, schema registry not: fall back to REST, since MCP
         # schemas can't be registered against an unreachable registry.
-        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
-        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
         monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
         monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
         monkeypatch.setenv("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", "1")
@@ -327,7 +322,6 @@ class TestPipeline:
     ):
         # A garbage selector value must warn and fall back to REST (fail-safe).
         monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafak")  # typo
-        monkeypatch.setenv("DATAHUB_EXECUTOR_MANAGED", "true")
         mock_fetch_config.return_value = mock_server_config
 
         with caplog.at_level(logging.WARNING):
@@ -344,36 +338,6 @@ class TestPipeline:
         assert any(
             "DATAHUB_INGESTION_DEFAULT_SINK" in r.message for r in caplog.records
         )
-
-    @time_machine.travel(FROZEN_TIME, tick=False)
-    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
-    @patch(
-        "datahub.cli.config_utils.load_client_config",
-        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
-    )
-    def test_configure_without_sink_kafka_ff_without_managed_marker_stays_rest(
-        self,
-        mock_load_client_config,
-        mock_fetch_config,
-        mock_server_config,
-        monkeypatch,
-    ):
-        # Selector set but managed marker absent: a manual/CLI run must NOT flip
-        # to Kafka (managed UI ingestion and `datahub ingest` share this entry).
-        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafka")
-        monkeypatch.delenv("DATAHUB_EXECUTOR_MANAGED", raising=False)
-        mock_fetch_config.return_value = mock_server_config
-
-        pipeline = Pipeline.create(
-            {
-                "source": {
-                    "type": "file",
-                    "config": {"path": "test_file.json"},
-                },
-            }
-        )
-        assert isinstance(pipeline.sink, DatahubRestSink)
-        assert pipeline.sink_type == "datahub-rest"
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")

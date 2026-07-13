@@ -3,7 +3,7 @@ import time
 from typing import Callable, Dict, Optional, Union
 
 import pydantic
-from confluent_kafka import SerializingProducer
+from confluent_kafka import KafkaError, KafkaException, SerializingProducer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import SerializationContext, StringSerializer
@@ -45,6 +45,17 @@ _MAX_QUEUE_FULL_BLOCK_SECONDS = 300.0
 # Re-emit the "queue full" warning every N polls while blocked, so a persistent
 # stall stays visible to operators instead of going silent after the first log.
 _QUEUE_FULL_WARN_EVERY_N_POLLS = 30
+
+
+class MessageTooLargeError(Exception):
+    """A serialized Kafka message exceeded producer ``message.max.bytes``.
+
+    Distinct from ``BufferError`` (full local queue, retried via backpressure):
+    an oversize message can never succeed at the current cap, so it is not
+    retried. The sink catches this to degrade the record to its REST fallback
+    (REST accepts ~16 MiB vs the Kafka topic's ~5 MiB cap) rather than fail the
+    run purely because an aspect REST would accept was routed to the async sink.
+    """
 
 
 class KafkaEmitterConfig(ConfigModel):
@@ -141,6 +152,11 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             if key in self.config.topic_routes
         }
 
+        # Backpressure counters, surfaced in the sink's run report. Incremented
+        # each time a produce() blocks on a full local queue.
+        self.backpressure_engagements = 0
+        self.backpressure_blocked_seconds = 0.0
+
         # If OAuth callback is configured, call poll() to trigger OAuth callback execution
         # This is required for OAuth authentication mechanisms like AWS MSK IAM
         # Note: poll(0) is non-blocking - just triggers the OAuth callback without waiting
@@ -183,7 +199,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         on_delivery: Callable[[Exception, str], None],
         poll_timeout_seconds: float = _QUEUE_FULL_POLL_SECONDS,
         max_block_seconds: float = _MAX_QUEUE_FULL_BLOCK_SECONDS,
-    ) -> None:
+    ) -> float:
         """Produce to Kafka, blocking on a full local queue instead of failing.
 
         confluent-kafka's produce() raises BufferError when the producer's
@@ -198,18 +214,28 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         If the queue stays full for max_block_seconds -- e.g. the broker is
         unreachable and nothing drains -- give up and re-raise BufferError so
         the caller reports a failure instead of hanging indefinitely.
+
+        Returns seconds spent blocked on a full queue (0.0 if the first produce
+        succeeded), so the caller can surface backpressure in its report.
         """
         deadline = time.monotonic() + max_block_seconds
+        blocked_start: Optional[float] = None
         polls = 0
         while True:
             try:
                 producer.produce(
                     topic=topic, key=key, value=value, on_delivery=on_delivery
                 )
-                return
+                return (
+                    0.0 if blocked_start is None else time.monotonic() - blocked_start
+                )
             except BufferError:
+                if blocked_start is None:
+                    blocked_start = time.monotonic()
                 polls += 1
-                if polls % _QUEUE_FULL_WARN_EVERY_N_POLLS == 0:
+                # Warn on the first block (so backpressure is visible immediately,
+                # not after ~30s) and then every N polls while it persists.
+                if polls == 1 or polls % _QUEUE_FULL_WARN_EVERY_N_POLLS == 0:
                     logger.warning(
                         "Kafka producer queue full; blocking to apply backpressure. "
                         "If this persists the broker may be unreachable."
@@ -222,6 +248,29 @@ class DatahubKafkaEmitter(Closeable, Emitter):
                         max_block_seconds,
                     )
                     raise
+            except KafkaException as ke:
+                # A message exceeding message.max.bytes is rejected by librdkafka
+                # at produce time (MSG_SIZE_TOO_LARGE), not retriable and not a
+                # queue-full condition. Convert to MessageTooLargeError so the
+                # sink can degrade the record to its REST fallback. Other
+                # KafkaExceptions propagate and are reported as failures.
+                #
+                # confluent-kafka raises this synchronously from produce() (the
+                # size check runs before queue insertion), so the sink sees it as
+                # an exception around emit() -- not via the async delivery callback.
+                # If that ever changes, the oversize->REST fallback would not fire.
+                kerr = ke.args[0] if ke.args else None
+                if kerr is not None and kerr.code() == KafkaError.MSG_SIZE_TOO_LARGE:
+                    raise MessageTooLargeError(
+                        f"Kafka message for key {key!r} on topic {topic!r} "
+                        f"exceeds producer message.max.bytes: {kerr.str()}"
+                    ) from ke
+                raise
+
+    def _record_backpressure(self, blocked_seconds: float) -> None:
+        if blocked_seconds > 0:
+            self.backpressure_engagements += 1
+            self.backpressure_blocked_seconds += blocked_seconds
 
     def emit_mce_async(
         self,
@@ -238,7 +287,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCE_KEY]
         producer.poll(0)
-        self._produce_with_backpressure(
+        blocked = self._produce_with_backpressure(
             producer,
             max_block_seconds=self.config.max_queue_full_block_seconds,
             topic=self.config.topic_routes[MCE_KEY],
@@ -246,6 +295,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             value=mce,
             on_delivery=callback,
         )
+        self._record_backpressure(blocked)
 
     def emit_mcp_async(
         self,
@@ -255,7 +305,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCP_KEY]
         producer.poll(0)
-        self._produce_with_backpressure(
+        blocked = self._produce_with_backpressure(
             producer,
             max_block_seconds=self.config.max_queue_full_block_seconds,
             topic=self.config.topic_routes[MCP_KEY],
@@ -263,6 +313,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             value=mcp,
             on_delivery=callback,
         )
+        self._record_backpressure(blocked)
 
     def flush(self) -> None:
         # Emitter interface returns None; callers needing the undelivered count

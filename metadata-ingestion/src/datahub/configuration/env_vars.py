@@ -1,8 +1,16 @@
 # ABOUTME: Central registry for all environment variables used in metadata-ingestion.
 # ABOUTME: All environment variable reads should go through this module for discoverability and maintainability.
 
+import logging
 import os
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# Sink types that a no-sink recipe can default to. These match the YAML `sink:`
+# type names (datahub-rest / datahub-kafka), not shorthand.
+DEFAULT_SINK_REST = "datahub-rest"
+DEFAULT_SINK_KAFKA = "datahub-kafka"
 
 # ============================================================================
 # Core DataHub Configuration
@@ -70,17 +78,25 @@ def get_gms_base_path() -> str:
 
 
 def get_ingestion_default_sink() -> str:
-    """Default sink type when a recipe does not specify one (rest|kafka)."""
-    return os.getenv("DATAHUB_INGESTION_DEFAULT_SINK", "rest")
+    """Sink type for a recipe that does not specify one.
 
-
-def get_executor_managed() -> bool:
-    """Whether this run is executed by the managed executor.
-
-    Gates the Kafka default sink together with DATAHUB_INGESTION_DEFAULT_SINK, so
-    an interactive `datahub ingest` (same entrypoint) never flips to Kafka.
+    Returns one of ``datahub-rest`` (the default) or ``datahub-kafka``. An
+    unset, blank, or unrecognized ``DATAHUB_INGESTION_DEFAULT_SINK`` resolves to
+    ``datahub-rest`` -- unrecognized values also log a warning -- so the historical
+    REST behavior is always the safe fallback.
     """
-    return os.getenv("DATAHUB_EXECUTOR_MANAGED", "").lower() == "true"
+    raw = os.getenv("DATAHUB_INGESTION_DEFAULT_SINK", DEFAULT_SINK_REST).strip().lower()
+    if raw not in (DEFAULT_SINK_REST, DEFAULT_SINK_KAFKA):
+        logger.warning(
+            "Unrecognized DATAHUB_INGESTION_DEFAULT_SINK=%r; using %s. "
+            "Expected %s or %s.",
+            raw,
+            DEFAULT_SINK_REST,
+            DEFAULT_SINK_REST,
+            DEFAULT_SINK_KAFKA,
+        )
+        return DEFAULT_SINK_REST
+    return raw
 
 
 def get_kafka_sink_bootstrap() -> Optional[str]:
@@ -127,6 +143,20 @@ def get_kafka_sink_queue_max_messages() -> int:
 def get_kafka_sink_linger_ms() -> int:
     """Producer linger.ms (send batching window) for the default Kafka ingestion sink."""
     return _get_int_env("DATAHUB_KAFKA_SINK_LINGER_MS", 100)
+
+
+def get_kafka_sink_max_message_bytes() -> int:
+    """Max serialized message size (bytes) the default Kafka ingestion sink will send.
+
+    librdkafka's own default is ~1 MiB -- stricter than GMS's aspect limit, so
+    without this an aspect REST would accept could be rejected over Kafka.
+    Defaults to 5 MiB to match DataHub's default MCP topic ``max.message.bytes``.
+    Must be <= the broker/topic ``max.message.bytes`` or the broker rejects the
+    produce. An oversized aspect degrades to the sink's REST fallback when one is
+    configured (parity with the REST sink's ~16 MiB cap); with no fallback it
+    fails the record (reported), never silent.
+    """
+    return _get_int_env("DATAHUB_KAFKA_SINK_MAX_MESSAGE_BYTES", 5242880)
 
 
 def get_kafka_sink_init_probe_timeout() -> int:

@@ -7,7 +7,7 @@ import threading
 import uuid
 from datetime import timedelta
 from enum import auto
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import pydantic
 from pydantic import field_validator
@@ -50,6 +50,9 @@ from datahub.utilities.partition_executor import (
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.server_config_util import set_gms_config
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -214,14 +217,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     def make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
         """Build a REST emitter from sink config.
 
-        Public entry point so other sinks (e.g. the Kafka sink's REST fallback)
-        can reuse the exact emitter construction without reaching into a private
-        method.
+        Public so other sinks (e.g. the Kafka sink's REST fallback) can reuse the
+        exact emitter construction.
         """
-        return cls._make_emitter(config)
-
-    @classmethod
-    def _make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
         return DataHubRestEmitter(
             config.server,
             config.token,
@@ -255,8 +253,14 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         thread_local = self._emitter_thread_local
         if not hasattr(thread_local, "emitter"):
             self.config.client_mode = ClientMode.INGESTION
-            thread_local.emitter = DatahubRestSink._make_emitter(self.config)
+            thread_local.emitter = DatahubRestSink.make_emitter(self.config)
         return thread_local.emitter
+
+    def to_graph(self) -> Optional["DataHubGraph"]:
+        # Lets the pipeline obtain a GMS client from the default sink
+        # polymorphically (no isinstance branch): the REST emitter already
+        # wraps a graph client.
+        return self.emitter.to_graph()
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         if isinstance(workunit, MetadataWorkUnit):

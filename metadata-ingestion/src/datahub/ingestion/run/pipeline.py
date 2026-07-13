@@ -16,17 +16,20 @@ import humanfriendly
 import psutil
 
 from datahub._version import nice_version_name
+from datahub.cli import config_utils
 from datahub.configuration.common import (
     ConfigModel,
     IgnorableError,
     PipelineExecutionError,
 )
 from datahub.configuration.env_vars import (
-    get_executor_managed,
+    DEFAULT_SINK_KAFKA,
     get_ingestion_default_sink,
+    get_kafka_schema_registry_url,
     get_kafka_sink_bootstrap,
     get_kafka_sink_init_probe_timeout,
     get_kafka_sink_linger_ms,
+    get_kafka_sink_max_message_bytes,
     get_kafka_sink_queue_max_kbytes,
     get_kafka_sink_queue_max_messages,
 )
@@ -46,7 +49,10 @@ from datahub.ingestion.reporting.reporting_provider_registry import (
 )
 from datahub.ingestion.run.pipeline_config import PipelineConfig, ReporterConfig
 from datahub.ingestion.run.sink_callback import DeadLetterQueueCallback, LoggingCallback
-from datahub.ingestion.sink.datahub_rest import DatahubRestSink
+from datahub.ingestion.sink.datahub_rest import (
+    DatahubRestSink,
+    DatahubRestSinkConfig,
+)
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
@@ -199,25 +205,36 @@ def _kafka_endpoints_reachable(bootstrap: str, schema_registry_url: str) -> bool
         )
         resp.raise_for_status()
     except Exception as e:
-        logger.warning(
-            f"Kafka schema registry at {schema_registry_url!r} is not reachable "
-            f"within {timeout_s}s (KAFKA_SCHEMAREGISTRY_URL for the Kafka default "
-            f"sink): {e}"
-        )
+        if not get_kafka_schema_registry_url():
+            # URL was never set, so it resolved to a localhost default that is
+            # wrong in a container. Flag as a config gap, not a Kafka outage, so
+            # ops sets KAFKA_SCHEMAREGISTRY_URL instead of chasing a phantom
+            # broker problem.
+            logger.warning(
+                f"KAFKA_SCHEMAREGISTRY_URL is not set; schema registry defaulted "
+                f"to {schema_registry_url!r}, which is not reachable within "
+                f"{timeout_s}s. This is a config gap for the Kafka default sink -- "
+                f"set KAFKA_SCHEMAREGISTRY_URL to the GMS-hosted registry. "
+                f"Falling back to REST: {e}"
+            )
+        else:
+            logger.warning(
+                f"Kafka schema registry at {schema_registry_url!r} is not reachable "
+                f"within {timeout_s}s (KAFKA_SCHEMAREGISTRY_URL). Falling back to "
+                f"REST: {e}"
+            )
         return False
 
     return True
 
 
 def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
-    # Imported lazily so the (heavier) Kafka/confluent dependencies are only
-    # loaded when the Kafka default sink is actually selected.
-    from datahub.cli import config_utils
+    # Lazy: datahub_kafka pulls the optional confluent_kafka extra at module load.
+    # Keep it off the CLI import path so minimal installs (no kafka extra) work.
     from datahub.ingestion.sink.datahub_kafka import (
         DatahubKafkaSink,
         KafkaSinkConfig,
     )
-    from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
 
     # Bootstrap defaults to localhost:9092 in KafkaSinkConfig, which is wrong in
     # a container. If it's unset, the Kafka default was selected without a broker
@@ -226,8 +243,8 @@ def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
     bootstrap = get_kafka_sink_bootstrap()
     if not bootstrap:
         logger.warning(
-            "DATAHUB_INGESTION_DEFAULT_SINK=kafka but KAFKA_BOOTSTRAP_SERVER is "
-            "not set; falling back to the REST default sink for this run."
+            "DATAHUB_INGESTION_DEFAULT_SINK=datahub-kafka but KAFKA_BOOTSTRAP_SERVER "
+            "is not set; falling back to the REST default sink for this run."
         )
         return _make_default_rest_sink(ctx)
 
@@ -245,10 +262,18 @@ def _make_default_kafka_sink(ctx: PipelineContext) -> Sink:
             # bounded memory ceiling instead of librdkafka's ~1 GiB default
             # (OOM protection in memory-constrained executor pods). Tunable via
             # DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES / _QUEUE_MAX_MESSAGES / _LINGER_MS.
+            #
+            # message.max.bytes: raise librdkafka's ~1 MiB default to the MCP
+            # topic's max so aspects REST would accept aren't rejected purely by
+            # the Kafka sink's message-size ceiling. Must stay <= the broker/topic
+            # max.message.bytes. An oversized aspect degrades to the sink's REST
+            # fallback (parity with the REST sink's ~16 MiB cap); with no fallback
+            # it fails the record (reported), never silently.
             "producer_config": {
                 "queue.buffering.max.kbytes": get_kafka_sink_queue_max_kbytes(),
                 "queue.buffering.max.messages": get_kafka_sink_queue_max_messages(),
                 "linger.ms": get_kafka_sink_linger_ms(),
+                "message.max.bytes": get_kafka_sink_max_message_bytes(),
             },
         },
         rest_fallback=rest_fallback,
@@ -325,31 +350,16 @@ class Pipeline:
 
             if self.config.sink is None:
                 # The default sink is normally datahub-rest. Deployments that
-                # run ingestion close to Kafka (e.g. managed UI ingestion) can
-                # opt into a datahub-kafka default to take load off GMS.
-                #
-                # This requires BOTH env vars:
-                #   DATAHUB_INGESTION_DEFAULT_SINK=kafka  (the selector)
-                #   DATAHUB_EXECUTOR_MANAGED=true         (managed-run marker)
-                # The marker is set only by the managed executor on the
-                # ingestion subprocesses it spawns. Because managed UI ingestion
-                # and an interactive `datahub ingest` share this same entrypoint,
-                # requiring the marker guarantees a manual/CLI run never flips to
-                # Kafka -- even if DATAHUB_INGESTION_DEFAULT_SINK leaks into its
-                # environment. Unset/any-other-value preserves the historical
-                # datahub-rest behavior exactly.
-                default_sink = get_ingestion_default_sink().strip().lower()
-                if default_sink not in ("rest", "kafka"):
-                    logger.warning(
-                        "Unrecognized DATAHUB_INGESTION_DEFAULT_SINK=%r; "
-                        "falling back to the datahub-rest default. Expected "
-                        "'rest' or 'kafka'.",
-                        default_sink,
-                    )
-                if default_sink == "kafka" and get_executor_managed():
+                # run ingestion close to Kafka (e.g. managed UI ingestion) opt
+                # into a datahub-kafka default to take load off GMS by setting
+                # DATAHUB_INGESTION_DEFAULT_SINK=datahub-kafka on those runs only.
+                # Unset/any-other-value preserves the historical datahub-rest
+                # behavior exactly. A recipe with an explicit sink is unaffected.
+                default_sink = get_ingestion_default_sink()
+                if default_sink == DEFAULT_SINK_KAFKA:
                     logger.info(
                         "No sink configured, using the default datahub-kafka sink "
-                        "(DATAHUB_INGESTION_DEFAULT_SINK=kafka)."
+                        "(DATAHUB_INGESTION_DEFAULT_SINK=datahub-kafka)."
                     )
                     with _add_init_error_context("configure the default kafka sink"):
                         self.sink_type = "datahub-kafka"
@@ -396,14 +406,11 @@ class Pipeline:
 
             if self.graph is None:
                 with _add_init_error_context("setup default datahub client"):
-                    if isinstance(self.sink, DatahubRestSink):
-                        self.graph = self.sink.emitter.to_graph()
-                    else:
-                        # Sink.to_graph() (default None) lets async default sinks
-                        # -- e.g. datahub-kafka via its REST fallback -- provide a
-                        # GMS client so features like stateful ingestion still
-                        # work; other sinks return None (no graph).
-                        self.graph = self.sink.to_graph()
+                    # Sink.to_graph() (default None) lets a default sink provide a
+                    # GMS client so features like stateful ingestion still work:
+                    # datahub-rest returns its emitter's graph, datahub-kafka its
+                    # REST fallback's; other sinks return None (no graph).
+                    self.graph = self.sink.to_graph()
                     if self.graph is not None:
                         self.graph.test_connection()
             self.ctx.graph = self.graph

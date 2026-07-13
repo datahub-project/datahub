@@ -5,13 +5,14 @@ from unittest.mock import MagicMock, call, patch
 
 import pydantic
 import pytest
+from confluent_kafka import KafkaError, KafkaException
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigurationError
-from datahub.emitter.kafka_emitter import MCP_KEY
+from datahub.emitter.kafka_emitter import MCP_KEY, MessageTooLargeError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.emitter.rest_emitter import DataHubRestEmitter, EmitMode
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import SinkReport, WriteCallback
 from datahub.ingestion.sink.datahub_kafka import (
@@ -509,9 +510,9 @@ def _make_delete_mcp() -> MetadataChangeProposal:
     )
 
 
-@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
 @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
-def test_kafka_sink_delete_routes_to_rest_fallback(mock_producer, mock_make_emitter):
+def test_kafka_sink_delete_routes_to_rest_fallback(mock_producer, mockmake_emitter):
     """DELETE MCPs must be routed to the REST fallback, not produced to Kafka.
 
     DELETE change types are not supported over async Kafka ingestion (GMS
@@ -519,7 +520,7 @@ def test_kafka_sink_delete_routes_to_rest_fallback(mock_producer, mock_make_emit
     synchronously via REST.
     """
     mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
-    mock_make_emitter.return_value = mock_rest_emitter
+    mockmake_emitter.return_value = mock_rest_emitter
 
     callback = MagicMock(spec=WriteCallback)
     kafka_sink = DatahubKafkaSink.create(
@@ -543,7 +544,9 @@ def test_kafka_sink_delete_routes_to_rest_fallback(mock_producer, mock_make_emit
     kafka_sink.write_record_async(re, callback)
 
     # DELETE went to the REST fallback, not the Kafka producer.
-    mock_rest_emitter.emit_mcp.assert_called_once_with(mcp)
+    mock_rest_emitter.emit_mcp.assert_called_once_with(
+        mcp, emit_mode=EmitMode.SYNC_PRIMARY
+    )
     mock_mcp_producer.produce.assert_not_called()
     callback.on_success.assert_called_once()
     assert callback.on_success.call_args[0][0] == re
@@ -579,15 +582,15 @@ def test_kafka_sink_delete_without_fallback_fails_not_silently_produced(mock_pro
     kafka_sink.close()
 
 
-@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
 @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
 def test_kafka_sink_delete_skipped_after_prior_delivery_failure(
-    mock_producer, mock_make_emitter
+    mock_producer, mockmake_emitter
 ):
     """A DELETE must NOT be applied via REST if an earlier async Kafka delivery
     failed in the same run (would delete an entity whose write never landed)."""
     mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
-    mock_make_emitter.return_value = mock_rest_emitter
+    mockmake_emitter.return_value = mock_rest_emitter
 
     callback = MagicMock(spec=WriteCallback)
     kafka_sink = DatahubKafkaSink.create(
@@ -618,14 +621,14 @@ def test_kafka_sink_delete_skipped_after_prior_delivery_failure(
     kafka_sink.close()
 
 
-@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
 @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
-def test_kafka_sink_delete_rest_failure_is_reported(mock_producer, mock_make_emitter):
+def test_kafka_sink_delete_rest_failure_is_reported(mock_producer, mockmake_emitter):
     """If the REST fallback emit raises (e.g. GMS 500), the record is failed
     (not silently swallowed) and success is never signalled."""
     mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
     mock_rest_emitter.emit_mcp.side_effect = Exception("GMS 500")
-    mock_make_emitter.return_value = mock_rest_emitter
+    mockmake_emitter.return_value = mock_rest_emitter
 
     callback = MagicMock(spec=WriteCallback)
     kafka_sink = DatahubKafkaSink.create(
@@ -647,7 +650,9 @@ def test_kafka_sink_delete_rest_failure_is_reported(mock_producer, mock_make_emi
     ] = RecordEnvelope(record=mcp, metadata={})
     kafka_sink.write_record_async(re, callback)
 
-    mock_rest_emitter.emit_mcp.assert_called_once_with(mcp)
+    mock_rest_emitter.emit_mcp.assert_called_once_with(
+        mcp, emit_mode=EmitMode.SYNC_PRIMARY
+    )
     callback.on_failure.assert_called_once()
     callback.on_success.assert_not_called()
     kafka_sink.close()
@@ -727,15 +732,15 @@ def test_kafka_sink_config_rejects_negative_block_seconds():
         )
 
 
-@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
 @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
 def test_kafka_sink_delete_skipped_when_flush_undelivered(
-    mock_producer, mock_make_emitter
+    mock_producer, mockmake_emitter
 ):
     """If flush() leaves messages undelivered, the DELETE must be skipped-and-
     failed -- prior writes for the entity are not confirmed landed."""
     mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
-    mock_make_emitter.return_value = mock_rest_emitter
+    mockmake_emitter.return_value = mock_rest_emitter
 
     callback = MagicMock(spec=WriteCallback)
     kafka_sink = DatahubKafkaSink.create(
@@ -763,12 +768,12 @@ def test_kafka_sink_delete_skipped_when_flush_undelivered(
     callback.on_success.assert_not_called()
 
 
-@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
 @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
-def test_kafka_sink_restate_routes_to_rest_fallback(mock_producer, mock_make_emitter):
+def test_kafka_sink_restate_routes_to_rest_fallback(mock_producer, mockmake_emitter):
     """RESTATE (like DELETE) is not supported over async Kafka -> REST fallback."""
     mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
-    mock_make_emitter.return_value = mock_rest_emitter
+    mockmake_emitter.return_value = mock_rest_emitter
 
     callback = MagicMock(spec=WriteCallback)
     kafka_sink = DatahubKafkaSink.create(
@@ -797,7 +802,9 @@ def test_kafka_sink_restate_routes_to_rest_fallback(mock_producer, mock_make_emi
     ] = RecordEnvelope(record=mcp, metadata={})
     kafka_sink.write_record_async(re, callback)
 
-    mock_rest_emitter.emit_mcp.assert_called_once_with(mcp)
+    mock_rest_emitter.emit_mcp.assert_called_once_with(
+        mcp, emit_mode=EmitMode.SYNC_PRIMARY
+    )
     mock_mcp_producer.produce.assert_not_called()
     callback.on_success.assert_called_once()
     kafka_sink.close()
@@ -808,7 +815,7 @@ def test_kafka_sink_patch_stays_on_kafka(mock_producer):
     """PATCH IS supported over async Kafka (GMS supportsPatch) -> must NOT fall back."""
     mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
     with patch(
-        "datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter",
+        "datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter",
         return_value=mock_rest_emitter,
     ):
         callback = MagicMock(spec=WriteCallback)
@@ -841,14 +848,14 @@ def test_kafka_sink_patch_stays_on_kafka(mock_producer):
         kafka_sink.close()
 
 
-@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter")
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
 @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
 def test_kafka_sink_timeseries_patch_routes_to_rest_fallback(
-    mock_producer, mock_make_emitter
+    mock_producer, mockmake_emitter
 ):
     """PATCH on a timeseries aspect -> REST (GMS accepts only UPSERT for those)."""
     mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
-    mock_make_emitter.return_value = mock_rest_emitter
+    mockmake_emitter.return_value = mock_rest_emitter
 
     callback = MagicMock(spec=WriteCallback)
     kafka_sink = DatahubKafkaSink.create(
@@ -878,7 +885,9 @@ def test_kafka_sink_timeseries_patch_routes_to_rest_fallback(
     ] = RecordEnvelope(record=mcp, metadata={})
     kafka_sink.write_record_async(re, callback)
 
-    mock_rest_emitter.emit_mcp.assert_called_once_with(mcp)
+    mock_rest_emitter.emit_mcp.assert_called_once_with(
+        mcp, emit_mode=EmitMode.SYNC_PRIMARY
+    )
     mock_mcp_producer.produce.assert_not_called()
     kafka_sink.close()
 
@@ -889,7 +898,7 @@ def test_kafka_sink_timeseries_upsert_stays_on_kafka(mock_producer):
     usage) stays on Kafka; only non-UPSERT timeseries changes fall back to REST."""
     mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
     with patch(
-        "datahub.ingestion.sink.datahub_rest.DatahubRestSink._make_emitter",
+        "datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter",
         return_value=mock_rest_emitter,
     ):
         callback = MagicMock(spec=WriteCallback)
@@ -967,3 +976,312 @@ def test_produce_with_backpressure_gives_up_when_broker_down():
             value=MagicMock(),
             on_delivery=MagicMock(),
         )
+
+
+def test_produce_with_backpressure_converts_msg_size_too_large():
+    """An oversize message (MSG_SIZE_TOO_LARGE) is not retriable and not a queue-full
+    condition: it must surface as MessageTooLargeError so the sink can degrade to REST."""
+    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+
+    mock_producer = MagicMock()
+    mock_producer.produce.side_effect = KafkaException(
+        KafkaError(KafkaError.MSG_SIZE_TOO_LARGE, "message too large")
+    )
+
+    with pytest.raises(MessageTooLargeError):
+        DatahubKafkaEmitter._produce_with_backpressure(
+            mock_producer,
+            poll_timeout_seconds=0,
+            topic="MetadataChangeProposal_v1",
+            key="urn:li:dataset:(x)",
+            value=MagicMock(),
+            on_delivery=MagicMock(),
+        )
+
+
+def test_produce_with_backpressure_reraises_other_kafka_exception():
+    """A non-size KafkaException must propagate unchanged (not swallowed/misrouted)."""
+    from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+
+    mock_producer = MagicMock()
+    mock_producer.produce.side_effect = KafkaException(
+        KafkaError(KafkaError._ALL_BROKERS_DOWN, "brokers down")
+    )
+
+    with pytest.raises(KafkaException):
+        DatahubKafkaEmitter._produce_with_backpressure(
+            mock_producer,
+            poll_timeout_seconds=0,
+            topic="MetadataChangeProposal_v1",
+            key="urn:li:dataset:(x)",
+            value=MagicMock(),
+            on_delivery=MagicMock(),
+        )
+
+
+def _make_oversize_upsert_mcp() -> MetadataChangeProposalWrapper:
+    # datasetProperties is non-timeseries; default changeType is UPSERT, so this
+    # reaches the Kafka produce path (not the DELETE/RESTATE REST branch).
+    return MetadataChangeProposalWrapper(
+        entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
+        aspect=models.DatasetPropertiesClass(description="x"),
+    )
+
+
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_oversize_mcp_routes_to_rest_fallback(
+    mock_producer, mockmake_emitter
+):
+    """An MCP exceeding message.max.bytes must degrade to the REST fallback (parity
+    with the REST sink's ~16 MiB cap) instead of failing the run."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    mockmake_emitter.return_value = mock_rest_emitter
+
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {
+            "connection": {"bootstrap": "foobar:9092"},
+            "rest_fallback": {"server": "http://fake-gms:8080"},
+        },
+        PipelineContext(run_id="test"),
+    )
+    kafka_sink.emitter.producers[MCP_KEY].produce.side_effect = MessageTooLargeError(
+        "exceeds message.max.bytes"
+    )
+
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=_make_oversize_upsert_mcp(), metadata={})
+    kafka_sink.write_record_async(re, callback)
+
+    mock_rest_emitter.emit_mcp.assert_called_once_with(
+        re.record, emit_mode=EmitMode.SYNC_PRIMARY
+    )
+    callback.on_success.assert_called_once()
+    callback.on_failure.assert_not_called()
+    kafka_sink.close()
+
+
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_oversize_mcp_without_fallback_fails_loudly(mock_producer):
+    """No rest_fallback -> an oversize MCP fails the record (never silently dropped)."""
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {"connection": {"bootstrap": "foobar:9092"}},
+        PipelineContext(run_id="test"),
+    )
+    assert kafka_sink.config.rest_fallback is None
+    kafka_sink.emitter.producers[MCP_KEY].produce.side_effect = MessageTooLargeError(
+        "exceeds message.max.bytes"
+    )
+
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=_make_oversize_upsert_mcp(), metadata={})
+    kafka_sink.write_record_async(re, callback)
+
+    callback.on_failure.assert_called_once()
+    callback.on_success.assert_not_called()
+    kafka_sink.close()
+
+
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_oversize_mcp_rest_failure_is_reported(
+    mock_producer, mockmake_emitter
+):
+    """If the REST fallback itself raises on the oversize MCP, the record is failed."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    mock_rest_emitter.emit_mcp.side_effect = Exception("GMS 500")
+    mockmake_emitter.return_value = mock_rest_emitter
+
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {
+            "connection": {"bootstrap": "foobar:9092"},
+            "rest_fallback": {"server": "http://fake-gms:8080"},
+        },
+        PipelineContext(run_id="test"),
+    )
+    kafka_sink.emitter.producers[MCP_KEY].produce.side_effect = MessageTooLargeError(
+        "exceeds message.max.bytes"
+    )
+
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=_make_oversize_upsert_mcp(), metadata={})
+    kafka_sink.write_record_async(re, callback)
+
+    mock_rest_emitter.emit_mcp.assert_called_once_with(
+        re.record, emit_mode=EmitMode.SYNC_PRIMARY
+    )
+    callback.on_failure.assert_called_once()
+    callback.on_success.assert_not_called()
+    kafka_sink.close()
+
+
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_oversize_mce_all_aspects_route_to_rest_fallback(
+    mock_producer, mockmake_emitter
+):
+    """An MCE whose every unpacked MCP is oversize: each degrades to REST and the
+    aggregating callback still fires on_success exactly once (N REST ticks = 1
+    write_callback)."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    mockmake_emitter.return_value = mock_rest_emitter
+
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {
+            "connection": {"bootstrap": "foobar:9092"},
+            "rest_fallback": {"server": "http://fake-gms:8080"},
+        },
+        PipelineContext(run_id="test"),
+    )
+    kafka_sink.emitter.producers[MCP_KEY].produce.side_effect = MessageTooLargeError(
+        "exceeds message.max.bytes"
+    )
+
+    user_snapshot = models.CorpUserSnapshotClass(
+        urn=builder.make_user_urn("testuser"),
+        aspects=[
+            models.CorpUserInfoClass(
+                active=True, displayName="Test User", email="t@example.com"
+            ),
+            models.GroupMembershipClass(groups=[builder.make_group_urn("g1")]),
+        ],
+    )
+    mce = MetadataChangeEvent(proposedSnapshot=user_snapshot)
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=mce, metadata={})
+    kafka_sink.write_record_async(re, callback)
+
+    assert mock_rest_emitter.emit_mcp.call_count == 2
+    callback.on_success.assert_called_once()
+    callback.on_failure.assert_not_called()
+    kafka_sink.close()
+
+
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_oversize_mce_mixed_routes_partial_to_rest_fallback(
+    mock_producer,
+    mockmake_emitter,
+):
+    """An MCE where one aspect fits Kafka and one is oversize: the oversize MCP
+    degrades to REST, the rest produce to Kafka, and the aggregating callback
+    fires on_success exactly once after the in-flight Kafka delivery reports
+    success (REST tick + 1 Kafka delivery = 1 write_callback)."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    mockmake_emitter.return_value = mock_rest_emitter
+
+    callback = MagicMock(spec=WriteCallback)
+    kafka_sink = DatahubKafkaSink.create(
+        {
+            "connection": {"bootstrap": "foobar:9092"},
+            "rest_fallback": {"server": "http://fake-gms:8080"},
+        },
+        PipelineContext(run_id="test"),
+    )
+    mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+    # First unpacked MCP produces to Kafka (queued); second is oversize -> REST.
+    mock_mcp_producer.produce.side_effect = [None, MessageTooLargeError("too big")]
+
+    user_snapshot = models.CorpUserSnapshotClass(
+        urn=builder.make_user_urn("testuser"),
+        aspects=[
+            models.CorpUserInfoClass(
+                active=True, displayName="Test User", email="t@example.com"
+            ),
+            models.GroupMembershipClass(groups=[builder.make_group_urn("g1")]),
+        ],
+    )
+    mce = MetadataChangeEvent(proposedSnapshot=user_snapshot)
+    re: RecordEnvelope[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+        ]
+    ] = RecordEnvelope(record=mce, metadata={})
+    kafka_sink.write_record_async(re, callback)
+
+    assert mock_mcp_producer.produce.call_count == 2
+    assert mock_rest_emitter.emit_mcp.call_count == 1
+    # Agg not yet complete: the queued Kafka MCP delivery is pending.
+    callback.on_success.assert_not_called()
+    callback.on_failure.assert_not_called()
+
+    # Simulate the in-flight Kafka delivery (the first, queued produce)
+    # succeeding -> agg ticks to 0 -> on_success fires exactly once.
+    kafka_delivery = mock_mcp_producer.produce.call_args_list[0].kwargs["on_delivery"]
+    kafka_delivery(None, MagicMock())
+    callback.on_success.assert_called_once()
+    callback.on_failure.assert_not_called()
+    kafka_sink.close()
+
+
+@patch("datahub.ingestion.sink.datahub_rest.DatahubRestSink.make_emitter")
+@patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+def test_kafka_sink_oversize_rest_failure_blocks_subsequent_delete(
+    mock_producer,
+    mockmake_emitter,
+):
+    """An oversize MCP whose REST fallback also fails sets the delivery-failed
+    signal, so a subsequent DELETE is NOT applied via REST (its prior write never
+    landed) -- it is reported as a failure instead."""
+    mock_rest_emitter = MagicMock(spec=DataHubRestEmitter)
+    mockmake_emitter.return_value = mock_rest_emitter
+
+    kafka_sink = DatahubKafkaSink.create(
+        {
+            "connection": {"bootstrap": "foobar:9092"},
+            "rest_fallback": {"server": "http://fake-gms:8080"},
+        },
+        PipelineContext(run_id="test"),
+    )
+    mock_mcp_producer = kafka_sink.emitter.producers[MCP_KEY]
+
+    # First record: oversize -> REST fallback raises -> failure signal set.
+    mock_mcp_producer.produce.side_effect = MessageTooLargeError("too big")
+    mock_mcp_producer.flush.return_value = 0
+    mock_rest_emitter.emit_mcp.side_effect = Exception("GMS 500")
+
+    oversize_re = RecordEnvelope(record=_make_oversize_upsert_mcp(), metadata={})
+    kafka_sink.write_record_async(oversize_re, MagicMock(spec=WriteCallback))
+
+    assert kafka_sink._delivery_failed.is_set()
+
+    # Second record: a DELETE. Prior write failed -> must not be applied via REST.
+    mock_mcp_producer.produce.side_effect = None
+    mock_rest_emitter.emit_mcp.side_effect = None
+    del_callback = MagicMock(spec=WriteCallback)
+    delete_re = RecordEnvelope(record=_make_delete_mcp(), metadata={})
+    kafka_sink.write_record_async(delete_re, del_callback)
+
+    # REST emit happened only for the oversize attempt, never for the DELETE.
+    mock_rest_emitter.emit_mcp.assert_called_once_with(
+        oversize_re.record, emit_mode=EmitMode.SYNC_PRIMARY
+    )
+    del_callback.on_failure.assert_called_once()
+    del_callback.on_success.assert_not_called()
+    kafka_sink.close()

@@ -172,6 +172,72 @@ The options in the producer config and schema registry config are passed to the 
 
 For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.dhub.yaml).
 
+### Kafka as the default sink (managed / executor-only)
+
+A recipe that omits `sink:` normally defaults to the REST sink. In an executor
+deployment that can reach the Kafka cluster, that default can be flipped to the
+`datahub-kafka` sink so ingestion writes go to the MCP topic instead of GMS's
+synchronous REST path — moving write load off GMS. This is **off by default**
+and configured entirely through environment variables on the executor (the
+recipe is unchanged, so an explicit `sink:` always wins and is never affected).
+
+It is controlled by a single variable. Set it only on the runs that should use
+Kafka (e.g. the in-cluster managed executor); a CLI `datahub ingest` never sets
+it and so stays on REST:
+
+| Environment variable                     | Default | Description                                                                                                  |
+| ---------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| `DATAHUB_INGESTION_DEFAULT_SINK`         | `datahub-rest` | Set to `datahub-kafka` to default no-sink recipes to the Kafka sink. Unset/any other value keeps REST (byte-identical). |
+| `KAFKA_BOOTSTRAP_SERVER`                 |         | Broker the sink produces to (the existing DataHub-wide convention). If unset, the run falls back to REST.    |
+| `KAFKA_SCHEMAREGISTRY_URL`               |         | Schema registry for MCP schemas (existing convention; defaults to the GMS-hosted registry via GMS base path). |
+| `DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES`    | 131072  | Per-producer local send-buffer cap (KiB); bounds memory so backpressure engages before OOM.                  |
+| `DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES`  | 20000   | Per-producer local send-buffer cap (message count).                                                          |
+| `DATAHUB_KAFKA_SINK_LINGER_MS`           | 100     | Producer `linger.ms` (send-batching window).                                                                 |
+| `DATAHUB_KAFKA_SINK_MAX_MESSAGE_BYTES`   | 5242880 | Max serialized message size sent to Kafka. Raises librdkafka's ~1 MiB default to the MCP topic max; must be ≤ the broker/topic `max.message.bytes`. |
+| `DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT`  | 10      | Per-check timeout (seconds) for the broker + schema-registry reachability probe at pipeline init.            |
+
+#### DELETE / soft-delete over Kafka
+
+GMS's async (Kafka) path only accepts the change types
+`UPSERT`/`UPDATE`/`CREATE`/`CREATE_ENTITY` (plus `PATCH`); `DELETE` and
+`RESTATE` are REST-only, and timeseries aspects are UPSERT-only. When the Kafka
+default sink is active it auto-wires a REST fallback (from the same client
+config the REST sink would use) and routes exactly those change types
+synchronously over REST.
+
+Note that stateful-ingestion stale-entity removal emits a `Status(removed=true)`
+**UPSERT**, so it flows over Kafka normally and is *not* affected by the
+fallback — the fallback only handles literal `DELETE`/`RESTATE` MCPs (e.g. hard
+deletes) and non-UPSERT timeseries changes, which typical ingestion sources do
+not emit.
+
+Ordering across the two paths is **best-effort**: before a fallback DELETE the
+sink flushes the local producer queue, but it does not wait for the MCP consumer
+to *apply* earlier Kafka writes. Under consumer lag a synchronous REST DELETE can
+still reach GMS before an earlier Kafka UPSERT for the same entity is replayed.
+If a preceding async Kafka write for the run is unconfirmed, the fallback DELETE
+is skipped and the record fails rather than deleting an entity whose write never
+landed. DELETE-heavy recipes that mix change types should prefer the REST sink.
+
+#### Failure behavior and monitoring
+
+- **Unreachable broker / registry at init** — a bounded probe runs when the
+  Kafka default is selected; if either endpoint is unreachable (or
+  `KAFKA_BOOTSTRAP_SERVER` is unset), the run **degrades to REST** and logs a
+  `WARNING`. Sustained fallback across runs means Kafka is down and GMS is
+  taking the full write load again — alert on it.
+- **Full producer queue** — the sink blocks and polls to apply backpressure
+  rather than crashing, up to `max_queue_full_block_seconds` (300s) before
+  failing the run.
+- **Oversized aspect** — an aspect larger than `DATAHUB_KAFKA_SINK_MAX_MESSAGE_BYTES`
+  (or the broker/topic `max.message.bytes`) fails that record via the delivery
+  callback and is reported as a run failure — never silently dropped. Raise both
+  the env var and the topic limit together if you need larger aspects.
+- **Run report** — the sink report exposes `kafka_backpressure_engagements`,
+  `kafka_backpressure_blocked_seconds`, and `kafka_undelivered` so throttling
+  and drops are visible in the run summary, not just logs. Pair with
+  consumer-lag monitoring on the MCP topic to confirm writes are applied.
+
 ## DataHub Lite (experimental)
 
 A sink that provides integration with [DataHub Lite](../../docs/datahub_lite.md) for local metadata exploration and serving.

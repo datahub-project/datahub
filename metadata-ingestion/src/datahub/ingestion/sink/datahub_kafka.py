@@ -1,16 +1,20 @@
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union, cast
 
 from confluent_kafka import KafkaError, Message
 from pydantic import Field
 
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
-from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
+from datahub.emitter.kafka_emitter import (
+    DatahubKafkaEmitter,
+    KafkaEmitterConfig,
+    MessageTooLargeError,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
-from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.emitter.rest_emitter import DataHubRestEmitter, EmitMode
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.sink.datahub_rest import (
@@ -167,7 +171,17 @@ class _AggregatingKafkaCallback:
                 self.inner.kafka_callback(None, msg)
 
 
-class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
+@dataclass
+class KafkaSinkReport(SinkReport):
+    # Backpressure is the sink throttling the source to Kafka's sustainable
+    # rate; without these it's invisible in the run report (only warns after
+    # ~30 polls). undelivered = messages the producer never delivered (dropped).
+    kafka_backpressure_engagements: int = 0
+    kafka_backpressure_blocked_seconds: float = 0.0
+    kafka_undelivered: int = 0
+
+
+class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
     emitter: DatahubKafkaEmitter
 
     def __post_init__(self):
@@ -197,6 +211,31 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                         self.config.rest_fallback
                     )
         return self._rest_fallback_emitter
+
+    def _emit_mcp_via_rest_fallback(
+        self,
+        record: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+        delivery_callback: Callable[[Optional[KafkaError], Optional[Message]], None],
+    ) -> None:
+        """Degrade an oversize MCP (MessageTooLargeError) to the REST fallback.
+
+        REST accepts payloads up to ~16 MiB vs the Kafka topic's ~5 MiB cap, so an
+        aspect REST would accept must not fail the run purely because it was routed
+        to the async sink. Synchronous SYNC_PRIMARY emit (mirrors DELETE/RESTATE),
+        then ticks the original delivery callback so the aggregating-callback
+        invariant (N callbacks = 1 write_callback) holds for MCE-unpacked MCPs and
+        the single-MCP path alike. Caller guarantees rest_fallback is configured.
+        """
+        try:
+            self._get_rest_fallback_emitter().emit_mcp(
+                record, emit_mode=EmitMode.SYNC_PRIMARY
+            )
+        except Exception as rest_err:
+            # The callback wraps err in Exception(str(err)) and fires on_failure;
+            # cast is a type-only narrowing for the KafkaError-typed parameter.
+            delivery_callback(cast(Optional[KafkaError], rest_err), None)
+            return
+        delivery_callback(None, None)
 
     def to_graph(self) -> Optional["DataHubGraph"]:
         """DataHubGraph derived from the REST fallback, for features that need a
@@ -310,7 +349,13 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                         )
                     )
                     return
-                self._get_rest_fallback_emitter().emit_mcp(record)
+                # Emit synchronously (SYNC_PRIMARY) rather than the emitter's
+                # env-driven default: a DELETE/RESTATE must be durably applied by
+                # GMS, not left async where DATAHUB_EMIT_MODE=async could void the
+                # ordering intent entirely.
+                self._get_rest_fallback_emitter().emit_mcp(
+                    record, emit_mode=EmitMode.SYNC_PRIMARY
+                )
                 self.report.report_record_written(record_envelope)
                 write_callback.on_success(
                     record_envelope,
@@ -349,15 +394,49 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
                     total=len(mcps), inner=kafka_callback
                 )
                 for mcp in mcps:
-                    self.emitter.emit(
-                        mcp,
-                        callback=agg_callback.kafka_callback,
-                    )
+                    try:
+                        self.emitter.emit(
+                            mcp,
+                            callback=agg_callback.kafka_callback,
+                        )
+                    except MessageTooLargeError:
+                        # Oversize aspect: degrade to REST fallback for parity with
+                        # the REST sink (~16 MiB cap vs Kafka's ~5 MiB). Tick the
+                        # aggregating callback as if this MCP delivered, so the
+                        # N-callbacks = 1-write_callback invariant still holds.
+                        if self.config.rest_fallback is None:
+                            # Tick the agg as a failure rather than raise: raise
+                            # would hit the outer except and fire on_failure now,
+                            # while earlier-produced MCPs' async delivery callbacks
+                            # tick the agg later -> double write_callback. Ticking
+                            # marks the agg failed so later real deliveries are
+                            # ignored and on_failure fires exactly once.
+                            agg_callback.kafka_callback(
+                                Exception(
+                                    f"Oversize MCP for {mcp.entityUrn} exceeds "
+                                    "Kafka message.max.bytes and no rest_fallback "
+                                    "is configured."
+                                ),
+                                None,
+                            )
+                            return
+                        self._emit_mcp_via_rest_fallback(
+                            mcp, agg_callback.kafka_callback
+                        )
             else:
-                self.emitter.emit(
-                    record,
-                    callback=kafka_callback.kafka_callback,
-                )
+                try:
+                    self.emitter.emit(
+                        record,
+                        callback=kafka_callback.kafka_callback,
+                    )
+                except MessageTooLargeError:
+                    # Oversize aspect: degrade to REST fallback for parity with the
+                    # REST sink (~16 MiB cap vs Kafka's ~5 MiB).
+                    if self.config.rest_fallback is None:
+                        raise
+                    self._emit_mcp_via_rest_fallback(
+                        record, kafka_callback.kafka_callback
+                    )
         except Exception as err:
             # In case we throw an exception while trying to emit the record,
             # catch it and report the failure. This might happen if the schema
@@ -372,7 +451,15 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, SinkReport]):
         # messages still undelivered are lost on process exit, so reporting them
         # is what prevents a silent success-with-data-loss.
         undelivered = self.emitter.flush_with_undelivered_count()
+        # Surface backpressure + drops in the run report, not just logs.
+        self.report.kafka_backpressure_engagements = (
+            self.emitter.backpressure_engagements
+        )
+        self.report.kafka_backpressure_blocked_seconds = (
+            self.emitter.backpressure_blocked_seconds
+        )
         if undelivered:
+            self.report.kafka_undelivered += undelivered
             self.report.report_failure(
                 f"{undelivered} message(s) not delivered to Kafka "
                 "(broker unreachable?); this metadata was dropped."
