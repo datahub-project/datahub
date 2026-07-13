@@ -56,7 +56,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_user_urn,
 )
-from datahub.emitter.mcp_builder import add_owner_to_entity_wu
+from datahub.emitter.mcp_builder import ContainerKey, add_owner_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -2149,6 +2149,10 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             engine.dispose()
 
     def get_db_name(self, inspector: Inspector) -> str:
+        # Returns the database name in its source case on purpose: the result is
+        # reused verbatim as a quoted SQL identifier, which must match the stored
+        # case in CASESPECIFIC installations. URN casing is normalized separately
+        # via _maybe_lower_urn_name.
         if hasattr(inspector, "_datahub_database"):
             return inspector._datahub_database
 
@@ -2158,6 +2162,29 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             return str(engine.url.database).strip('"')
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
+
+    def _maybe_lower_urn_name(self, name: str) -> str:
+        # Lower-case a name used to build a URN/key when convert_urns_to_lowercase
+        # is set, mirroring get_identifier() for datasets. Keeps get_db_name()
+        # source-case for SQL resolution while normalizing URN identity.
+        return name.lower() if self.config.convert_urns_to_lowercase else name
+
+    def get_database_container_key(self, db_name: str, schema: str) -> ContainerKey:
+        # Normalize the name so the container URN matches the dataset URNs.
+        return super().get_database_container_key(
+            self._maybe_lower_urn_name(db_name), self._maybe_lower_urn_name(schema)
+        )
+
+    def gen_database_containers(
+        self,
+        database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        # Normalize the name so the container URN matches the dataset URNs.
+        yield from super().gen_database_containers(
+            database=self._maybe_lower_urn_name(database),
+            extra_properties=extra_properties,
+        )
 
     def cached_loop_tables(
         self,
@@ -2430,8 +2457,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             self.report.report_entity_scanned(
                                 dataset_name, ent_type="view"
                             )
+                        logger.debug(f"Scanning view: {dataset_name}")
 
                         if not sql_config.view_pattern.allowed(dataset_name):
+                            logger.debug(
+                                f"Dropped view by view_pattern: {dataset_name}"
+                            )
                             with self.report.atomic():
                                 self.report.report_dropped(dataset_name)
                             return results
@@ -2680,8 +2711,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                         self.report.report_entity_scanned(dataset_name, ent_type="view")
+                        logger.debug(f"Scanning view: {dataset_name}")
 
                         if not sql_config.view_pattern.allowed(dataset_name):
+                            logger.debug(
+                                f"Dropped view by view_pattern: {dataset_name}"
+                            )
                             self.report.report_dropped(dataset_name)
                             continue
 

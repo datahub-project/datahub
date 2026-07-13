@@ -46,6 +46,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -107,6 +108,21 @@ public class KubernetesController {
     this.authorizerChain = authorizerChain;
     this.kubernetesClient = kubernetesClient;
     this.k8sObjectMapper = k8sObjectMapper;
+  }
+
+  /**
+   * Surfaces the real Kubernetes API failure (its HTTP status and message) instead of letting it
+   * fall through to the global handler, which masks every exception as an opaque {@code 500
+   * "Internal server error occurred"}. A 403 (RBAC denied) or 404 is far more actionable for an
+   * operator than a generic 500. All endpoints here are MANAGE_SYSTEM_OPERATIONS-gated, so
+   * returning the raw API message is acceptable.
+   */
+  @ExceptionHandler(KubernetesClientException.class)
+  public ResponseEntity<Map<String, String>> handleKubernetesClientException(
+      KubernetesClientException e) {
+    int code = e.getCode() > 0 ? e.getCode() : HttpStatus.INTERNAL_SERVER_ERROR.value();
+    log.error("Kubernetes API call failed (HTTP {})", code, e);
+    return ResponseEntity.status(code).body(Map.of("error", e.getMessage()));
   }
 
   // ==================== Status ====================
@@ -472,6 +488,14 @@ public class KubernetesController {
               logs = "[truncated...]\n" + logs.substring(logs.length() - limit);
             }
             return ResponseEntity.ok(logs != null ? logs : "");
+          } catch (KubernetesClientException e) {
+            // Surface the real API status (e.g. 403/404) rather than a blanket 500. Handled here
+            // rather than via handleKubernetesClientException because this endpoint produces
+            // text/plain, so the error body must stay text/plain too.
+            int code = e.getCode() > 0 ? e.getCode() : HttpStatus.INTERNAL_SERVER_ERROR.value();
+            log.error(
+                "Failed to get logs for pod {}, container {} (HTTP {})", name, cr.name(), code, e);
+            return ResponseEntity.status(code).body("Failed to retrieve logs: " + e.getMessage());
           } catch (Exception e) {
             log.error("Failed to get logs for pod {}, container {}", name, cr.name(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
