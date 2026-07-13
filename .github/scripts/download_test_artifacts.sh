@@ -12,6 +12,9 @@ OUTPUT_DIR="./dev-artifacts/test-results"
 RUN_COUNT=3
 WORKFLOW_NAME="docker-unified.yml"
 REPOSITORY=""
+# Artifact name prefix to download. Default matches smoke-test result artifacts; override for
+# other workflows (e.g. "build-and-test" for Gradle JUnit from build-and-test.yml).
+ARTIFACT_PREFIX="Test Results (smoke tests)"
 
 # Parse arguments
 usage() {
@@ -24,6 +27,8 @@ OPTIONS:
     --output-dir DIR     Output directory for artifacts (default: ./dev-artifacts/test-results)
     --run-count N        Number of recent runs to download (default: 3)
     --workflow NAME      Workflow file name (default: docker-unified.yml)
+    --artifact-prefix P  Only download artifacts whose name starts with P
+                         (default: "Test Results (smoke tests)")
     --repository REPO    Repository in format owner/repo (default: auto-detect from git)
     -h, --help           Show this help message
 
@@ -49,6 +54,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --workflow)
             WORKFLOW_NAME="$2"
+            shift 2
+            ;;
+        --artifact-prefix)
+            ARTIFACT_PREFIX="$2"
             shift 2
             ;;
         --repository)
@@ -149,7 +158,7 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
 
     # List all artifacts for this run
     echo "Fetching artifact list..."
-    ARTIFACTS=$(gh api --paginate "repos/$REPOSITORY/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name | startswith("Test Results (smoke tests)")) | {name: .name, id: .id}')
+    ARTIFACTS=$(gh api --paginate "repos/$REPOSITORY/actions/runs/$run_id/artifacts" --jq ".artifacts[] | select(.name | startswith(\"$ARTIFACT_PREFIX\")) | {name: .name, id: .id}")
 
     if [[ -z "$ARTIFACTS" ]]; then
         echo "Warning: No test result artifacts found for run $run_id"

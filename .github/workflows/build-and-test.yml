@@ -411,9 +411,11 @@ jobs:
 
   # ── Experimental backend test sharding (behind gradle.properties backendTestSharding) ───
   # Timing-balanced across shards (committed .github/gradle_test_weights.json, refreshed by
-  # the update-test-weights workflow; falls back to an even split if absent). Whole modules
-  # run as `:module:test`; oversized "whale" modules are class-split across shards. Within a
-  # shard, Gradle's maxParallelForks parallelizes the classes.
+  # the update-test-weights workflow; falls back to an even split if absent). Each shard runs
+  # WHOLE modules (`:module:test`, never --tests) so no test can be silently dropped; a heavy
+  # module just lands alone on a shard via LPT and is parallelized within it by maxParallelForks.
+  # NOTE: shard count is set in TWO places that must stay in sync — the `batch:` matrix and
+  # `--split-total` in backend-test-shard below.
   backend-seed:
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 40
@@ -427,6 +429,26 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
+      - name: Guard — shard discovery is non-empty
+        # Fail loudly if the globs/excludes discover far too few backend test modules, instead
+        # of silently sharding a near-empty suite (green CI that tested nothing). Keep the
+        # glob/exclude set in sync with the backend-test-shard step below.
+        run: |
+          count=$(python3 .github/scripts/split_gradle_tests.py \
+            --split-index 0 --split-total 1 --repo-root . \
+            --glob '**/src/test/**/*.java' \
+            --glob '**/src/test/**/*.kt' \
+            --glob '**/src/test/**/*.groovy' \
+            --exclude-glob 'metadata-io/src/test/**' \
+            --exclude-glob 'datahub-frontend/src/test/**' \
+            --exclude-glob 'metadata-integration/java/acryl-spark-lineage/src/test/**' \
+            --exclude-glob 'metadata-integration/java/datahub-schematron/cli/src/test/**' \
+            | python3 -c "import json,sys; print(len(json.load(sys.stdin)['tasks']))")
+          echo "Backend shard discovery found $count test modules"
+          if [ "$count" -lt 20 ]; then
+            echo "::error::Only $count backend test modules discovered (<20) — globs/excludes likely broken; refusing near-empty sharded run."
+            exit 1
+          fi
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Set up JDK 21
@@ -446,10 +468,32 @@ jobs:
           key: gradle-backend-build-cache-${{ github.run_id }}
           restore-keys: |
             gradle-backend-build-cache-
-      - name: Warm Gradle build cache (compile main+test, no tests)
-        run: ./gradlew testClasses --build-cache --max-workers="$(nproc)"
+      - name: Build + non-test checks once (assemble, spotless, etc.)
+        # Mirrors build-except-metadata-ingestion's `build` MINUS tests, so the sharded path
+        # still runs assemble / spotless / other verification exactly once (the shards then run
+        # the tests). Also warms the build cache the shards restore. Excludes match the old job.
+        run: |
+          ./gradlew build -x test --build-cache --max-workers="$(nproc)" \
+            -x :metadata-ingestion:build \
+            -x :metadata-ingestion:check \
+            -x :docs-website:build \
+            -x :metadata-ingestion-modules:airflow-plugin:build \
+            -x :metadata-ingestion-modules:airflow-plugin:check \
+            -x :metadata-ingestion-modules:dagster-plugin:build \
+            -x :metadata-ingestion-modules:dagster-plugin:check \
+            -x :metadata-ingestion-modules:prefect-plugin:build \
+            -x :metadata-ingestion-modules:prefect-plugin:check \
+            -x :metadata-ingestion-modules:gx-plugin:build \
+            -x :metadata-ingestion-modules:gx-plugin:check \
+            -x :datahub-frontend:build \
+            -x :datahub-web-react:build \
+            -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Ensure codegen is updated
+        # Same hard gate as build-except-metadata-ingestion — the sharded path must still fail
+        # if generated sources are stale (shards only run tests and would skip this check).
+        uses: ./.github/actions/ensure-codegen-updated
 
   backend-test-shard:
     needs: [setup, backend-seed]
@@ -457,6 +501,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Shard count: KEEP IN SYNC with --split-total in the "Compute this shard's modules" step.
         batch: [0, 1, 2, 3, 4, 5]
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 40
@@ -487,17 +532,17 @@ jobs:
           key: gradle-backend-build-cache-${{ github.run_id }}
           restore-keys: |
             gradle-backend-build-cache-
-      - name: Compute this shard's test tasks
-        # Exclude set mirrors build-except's test exclusions above (keep in parity).
+      - name: Compute this shard's modules
+        # Broad globs: a module is included by having ANY test source, so nothing depends on
+        # class naming — each shard runs `:module:test` whole. Excludes mirror build-except.
         run: |
           python3 .github/scripts/split_gradle_tests.py \
             --split-index "${{ matrix.batch }}" --split-total 6 \
             --repo-root . \
             --weights .github/gradle_test_weights.json \
-            --glob '**/src/test/**/*Test.java' \
-            --glob '**/src/test/**/*Tests.java' \
-            --glob '**/src/test/**/*Test.kt' \
-            --glob '**/src/test/**/*Test.groovy' \
+            --glob '**/src/test/**/*.java' \
+            --glob '**/src/test/**/*.kt' \
+            --glob '**/src/test/**/*.groovy' \
             --exclude-glob 'metadata-io/src/test/**' \
             --exclude-glob 'datahub-frontend/src/test/**' \
             --exclude-glob 'metadata-integration/java/acryl-spark-lineage/src/test/**' \

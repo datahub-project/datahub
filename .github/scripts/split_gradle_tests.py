@@ -1,36 +1,16 @@
 #!/usr/bin/env python3
-"""Assign Gradle test tasks to one CI shard, balanced by historical duration.
+"""Assign whole Gradle test modules to one CI shard, balanced by historical duration.
 
-Vendored (not a third-party dependency) so DataHub owns the shard logic on its critical CI
-path. Stdlib-only (py3.9+), no venv. Run from / pass the repo root so globs resolve
-repo-relative.
+Vendored + stdlib-only (py3.9+). Reads a committed weights snapshot (gradle_test_weights.json,
+FQCN -> median seconds from generate_test_weights.py) and LPT bin-packs whole modules across
+shards. Run from / pass the repo root so globs resolve repo-relative.
 
-Mirrors the existing pytest sharding convention (smoke-test/conftest.py + #18270): a
-committed weights snapshot (gradle_test_weights.json, produced by generate_test_weights.py)
-maps FQCN -> median seconds; whole test modules are bin-packed across shards.
+Module-level by design: each shard runs bare `:module:test` tasks, never `--tests` filters, so
+it runs every test Gradle finds regardless of class naming — discovery here only estimates
+weight. Falls back to an even split when no weights exist.
 
-HYBRID granularity — the improvement over pure module-level:
-  * A normal module runs WHOLE on one shard: `:module:test` (one JVM/Spring init, robust —
-    no per-class discovery needed, no failOnNoMatchingTests risk).
-  * A "whale" module (weight > ideal shard load) is CLASS-SPLIT across shards:
-    `:module:test --tests A --tests B`, so no single 300-class module bounds the slowest
-    shard. metadata-io is already isolated in its own workflow; graphql-core is the whale here.
-Whole-vs-split is decided by a threshold (ideal_load = total_weight / shards), so it
-auto-adapts — no hardcoded whale list to rot.
-
-Within a shard, Gradle's maxParallelForks parallelizes whatever classes land there.
-
-Output:
-  * stdout: JSON plan {hasTests, tasks:[{task, tests}], diagnostics}.
-  * --output-args FILE: gradle args one-per-line (empty if the shard is empty) for
-    `mapfile -t ARGS < FILE; gradle "${ARGS[@]}"` — no shell word-splitting.
-
-Test identity is (gradle-project, class); duplicate class names across modules are both
-scheduled. Weight lookup is by FQCN, so two modules sharing a class name share an estimate
-(a minor weighting approximation, not a correctness issue).
-
-LIMITATION (v1): whale class discovery assumes conventional one-public-test-class-per-file
-(FQCN mirrors path). Whole modules are immune (they run `:module:test` outright).
+Emits a JSON plan on stdout; with --output-args FILE, also writes gradle args one-per-line for
+`mapfile -t ARGS < FILE; gradle "${ARGS[@]}"`.
 """
 
 from __future__ import annotations
@@ -42,28 +22,8 @@ import os
 import statistics
 import sys
 from collections import defaultdict
-from dataclasses import dataclass
 
 _SOURCE_SET_MARKERS = ("/src/test/java/", "/src/test/kotlin/", "/src/test/groovy/")
-
-
-@dataclass(frozen=True, order=True)
-class TestId:
-    project: str  # gradle project path, e.g. ":metadata-service:services" (":" = root)
-    class_name: str
-
-    @property
-    def task_path(self) -> str:
-        return ":test" if self.project == ":" else f"{self.project}:test"
-
-
-@dataclass
-class Unit:
-    """A schedulable unit: a whole module, or one class carved out of a whale."""
-    weight: float
-    project: str
-    classes: list[str]  # class names; empty => run the whole module task
-    whole: bool
 
 
 def _canonical(path: str) -> str:
@@ -86,7 +46,8 @@ def _project_from_module_dir(module_rel: str) -> str:
     return ":" if module_rel == "" else ":" + module_rel.replace("/", ":")
 
 
-def path_to_test(path: str, repo_root: str) -> TestId | None:
+def path_to_module_class(path: str, repo_root: str) -> tuple[str, str] | None:
+    """(gradle-project, fqcn) for a test source file, or None if outside repo / not a test src."""
     rel = _repo_relative(path, repo_root)
     if rel is None:
         return None
@@ -97,29 +58,34 @@ def path_to_test(path: str, repo_root: str) -> TestId | None:
             continue
         project = _project_from_module_dir(normalized[:idx])
         fqcn = os.path.splitext(normalized[idx + len(marker):])[0].replace("/", ".")
-        return TestId(project, fqcn)
+        return project, fqcn
     return None
 
 
-def discover_tests(globs: list[str], exclude_globs: list[str], repo_root: str) -> set[TestId]:
+def discover_modules(globs: list[str], exclude_globs: list[str], repo_root: str) -> dict[str, list[str]]:
+    """gradle-project -> list of test FQCNs found in it (for weighting).
+
+    A module is included if it has ANY matched test source, so inclusion does not depend on
+    class naming — the shard runs `:module:test` whole regardless.
+    """
     excluded = {
         _canonical(p)
         for pattern in exclude_globs
         for p in glob.glob(_resolve_glob(pattern, repo_root), recursive=True)
     }
-    tests: set[TestId] = set()
+    modules: dict[str, list[str]] = defaultdict(list)
     for pattern in globs:
         for path in glob.glob(_resolve_glob(pattern, repo_root), recursive=True):
             if not os.path.isfile(path) or _canonical(path) in excluded:
                 continue
-            test_id = path_to_test(path, repo_root)
-            if test_id is not None:
-                tests.add(test_id)
-    return tests
+            parsed = path_to_module_class(path, repo_root)
+            if parsed is not None:
+                project, fqcn = parsed
+                modules[project].append(fqcn)
+    return modules
 
 
 def load_weights(weights_path: str | None) -> dict[str, float]:
-    """FQCN -> median seconds, from the committed gradle_test_weights.json."""
     if not weights_path or not os.path.isfile(weights_path):
         return {}
     try:
@@ -140,90 +106,45 @@ def load_weights(weights_path: str | None) -> dict[str, float]:
     return weights
 
 
-def build_weight_of(tests: set[TestId], weights: dict[str, float]):
-    known = [weights[t.class_name] for t in tests if t.class_name in weights]
+def module_weights(modules: dict[str, list[str]], weights: dict[str, float]) -> dict[str, float]:
+    all_classes = [c for classes in modules.values() for c in classes]
+    known = [weights[c] for c in all_classes if c in weights]
     fallback = statistics.median(known) if known else 1.0
-
-    def weight_of(t: TestId) -> float:
-        return weights.get(t.class_name, fallback)
-
-    return weight_of
-
-
-def build_units(tests: set[TestId], weight_of, ideal_load: float) -> list[Unit]:
-    by_module: dict[str, list[TestId]] = defaultdict(list)
-    for t in tests:
-        by_module[t.project].append(t)
-
-    units: list[Unit] = []
-    for project, tids in by_module.items():
-        module_weight = sum(weight_of(t) for t in tids)
-        # Split a module only if it alone would exceed a shard's fair share AND can be split.
-        if module_weight > ideal_load and len(tids) > 1:
-            for t in tids:
-                units.append(Unit(weight_of(t), project, [t.class_name], whole=False))
-        else:
-            classes = sorted(t.class_name for t in tids)
-            units.append(Unit(module_weight, project, classes, whole=True))
-    return units
+    return {
+        project: sum(weights.get(c, fallback) for c in classes)
+        for project, classes in modules.items()
+    }
 
 
-def bin_pack(units: list[Unit], total: int) -> list[list[Unit]]:
-    buckets: list[list[Unit]] = [[] for _ in range(total)]
+def bin_pack(weighted: dict[str, float], total: int) -> list[list[str]]:
+    """LPT: heaviest module into the currently-lightest shard. Deterministic tiebreak by name."""
+    buckets: list[list[str]] = [[] for _ in range(total)]
     load = [0.0] * total
-    # Longest-processing-time: heaviest unit into the lightest bucket. Deterministic tiebreak.
-    for unit in sorted(units, key=lambda u: (-u.weight, u.project, u.classes)):
+    for project in sorted(weighted, key=lambda p: (-weighted[p], p)):
         target = min(range(total), key=lambda b: load[b])
-        buckets[target].append(unit)
-        load[target] += unit.weight
+        buckets[target].append(project)
+        load[target] += weighted[project]
     return buckets
 
 
-def plan_for_shard(bucket: list[Unit]) -> dict:
-    whole_modules: set[str] = set()
-    partial_classes: dict[str, set[str]] = defaultdict(set)
-    for unit in bucket:
-        if unit.whole:
-            whole_modules.add(unit.project)
-        else:
-            partial_classes[unit.project].update(unit.classes)
-
-    tasks: list[dict] = []
-    for project in sorted(whole_modules):
-        # Whole module -> bare `:project:test` (runs everything, no --tests, robust).
-        tasks.append({"task": _task_path(project), "tests": []})
-    for project in sorted(partial_classes):
-        tasks.append({"task": _task_path(project), "tests": sorted(partial_classes[project])})
-
-    classes = sum(len(u.classes) for u in bucket)
+def plan_for_shard(projects: list[str], weighted: dict[str, float]) -> dict:
+    tasks = [{"task": (":test" if p == ":" else f"{p}:test")} for p in sorted(projects)]
     return {
-        "hasTests": bool(bucket),
+        "hasTests": bool(projects),
         "tasks": tasks,
         "diagnostics": {
-            "classes": classes,
-            "modules": len(whole_modules) + len(partial_classes),
-            "wholeModules": len(whole_modules),
-            "splitModules": len(partial_classes),
-            "predictedSeconds": round(sum(u.weight for u in bucket), 1),
+            "modules": len(projects),
+            "predictedSeconds": round(sum(weighted.get(p, 0.0) for p in projects), 1),
         },
     }
 
 
-def _task_path(project: str) -> str:
-    return ":test" if project == ":" else f"{project}:test"
-
-
 def gradle_args(plan: dict) -> list[str]:
-    args: list[str] = []
-    for task in plan["tasks"]:
-        args.append(task["task"])
-        for cls in task["tests"]:
-            args += ["--tests", cls]
-    return args
+    return [task["task"] for task in plan["tasks"]]
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Assign Gradle test tasks to one CI shard.")
+    parser = argparse.ArgumentParser(description="Assign whole Gradle test modules to one shard.")
     parser.add_argument("--split-index", "-i", type=int, required=True)
     parser.add_argument("--split-total", "-t", type=int, required=True)
     parser.add_argument("--glob", "-g", action="append", required=True)
@@ -239,32 +160,23 @@ def main() -> int:
         parser.error("--split-index must be in [0, --split-total)")
     repo_root = os.path.abspath(args.repo_root)
 
-    tests = discover_tests(args.glob, args.exclude_glob, repo_root)
-    if not tests:
-        print("split_gradle_tests: no test classes matched", file=sys.stderr)
+    modules = discover_modules(args.glob, args.exclude_glob, repo_root)
+    if not modules:
+        print("split_gradle_tests: no test modules matched", file=sys.stderr)
 
     weights = load_weights(args.weights)
-    weight_of = build_weight_of(tests, weights)
-    total_weight = sum(weight_of(t) for t in tests)
-    ideal_load = total_weight / args.split_total if args.split_total else total_weight
+    weighted = module_weights(modules, weights)
+    buckets = bin_pack(weighted, args.split_total)
+    plan = plan_for_shard(buckets[args.split_index], weighted)
 
-    matched = sum(1 for t in tests if t.class_name in weights)
-    print(
-        f"split_gradle_tests: {len(tests)} classes, {matched} with recorded weights "
-        f"({'timing-balanced' if weights else 'even fallback'}); "
-        f"ideal shard load {round(ideal_load, 1)}s",
-        file=sys.stderr,
-    )
-
-    units = build_units(tests, weight_of, ideal_load)
-    buckets = bin_pack(units, args.split_total)
-    plan = plan_for_shard(buckets[args.split_index])
-
+    total_classes = sum(len(c) for c in modules.values())
+    matched = sum(1 for classes in modules.values() for c in classes if c in weights)
+    mode = "duration-balanced" if weights else "even fallback"
     d = plan["diagnostics"]
     print(
-        f"split_gradle_tests: shard {args.split_index}/{args.split_total} -> "
-        f"{d['classes']} classes, {d['wholeModules']} whole + {d['splitModules']} split "
-        f"modules, predicted {d['predictedSeconds']}s",
+        f"split_gradle_tests: {len(modules)} modules / {total_classes} classes "
+        f"({matched} weighted, {mode}); shard {args.split_index}/{args.split_total} -> "
+        f"{d['modules']} modules, predicted {d['predictedSeconds']}s",
         file=sys.stderr,
     )
 

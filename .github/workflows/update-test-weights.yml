@@ -47,10 +47,13 @@ jobs:
             --repository ${{ github.repository }}
 
           echo "Downloading Gradle JUnit artifacts from recent build & test runs..."
+          # Backend JUnit artifacts are named build-and-test-* (build-except when sharding is
+          # off, backend-shard* when on) — NOT the smoke-test default prefix.
           bash .github/scripts/download_test_artifacts.sh \
             --output-dir ./test-artifacts-gradle \
             --run-count ${{ github.event.inputs.run_count || '3' }} \
             --workflow build-and-test.yml \
+            --artifact-prefix "build-and-test" \
             --repository ${{ github.repository }}
 
       - name: Backup existing weights
