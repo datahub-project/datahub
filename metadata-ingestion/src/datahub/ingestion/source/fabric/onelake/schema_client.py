@@ -186,7 +186,7 @@ def create_schema_extraction_client(
                 raise ValueError(
                     f"SQL Analytics Endpoint URL is required for {item_type} {item_id}. "
                     "The endpoint URL must be obtained from the Fabric API and cannot be constructed. "
-                    "See: https://learn.microsoft.com/en-us/fabric/data-warehouse/what-is-the-sql-analytics-endpoint-for-a-lakehouse"
+                    "See: https://learn.microsoft.com/fabric/data-engineering/lakehouse-sql-analytics-endpoint"
                 )
 
             logger.info(
@@ -262,8 +262,7 @@ class SqlAnalyticsEndpointClient:
         predicted from workspace_id alone. The endpoint must be obtained from the API.
 
         References:
-        - https://learn.microsoft.com/en-us/fabric/data-warehouse/what-is-the-sql-analytics-endpoint-for-a-lakehouse
-        - https://learn.microsoft.com/en-us/fabric/data-warehouse/warehouse-connectivity
+        - https://learn.microsoft.com/fabric/data-engineering/lakehouse-sql-analytics-endpoint
         - https://learn.microsoft.com/en-us/rest/api/fabric/lakehouse/items/get-lakehouse
         - https://learn.microsoft.com/en-us/rest/api/fabric/warehouse/items/get-warehouse
 
@@ -289,11 +288,10 @@ class SqlAnalyticsEndpointClient:
             sql_endpoint_props = properties.get("sqlEndpointProperties")
 
             if isinstance(sql_endpoint_props, dict):
-                # Lakehouse: connectionString is often just the hostname
+                provisioning_status = sql_endpoint_props.get("provisioningStatus")
                 conn_str = sql_endpoint_props.get("connectionString")
-                if conn_str and isinstance(conn_str, str):
-                    if ".datawarehouse.fabric.microsoft.com" in conn_str:
-                        return conn_str.strip()
+                if provisioning_status == "Success" and conn_str:
+                    return conn_str.strip()
 
             # Warehouse API may expose connectionString at properties level
             # (e.g. staging warehouses: properties=['connectionInfo', 'connectionString', ...])
@@ -343,7 +341,7 @@ class SqlAnalyticsEndpointClient:
             raise ValueError(
                 f"SQL Analytics Endpoint URL is required for item {item_id}. "
                 "The endpoint URL must be obtained from the Fabric API and cannot be constructed. "
-                "See: https://learn.microsoft.com/en-us/fabric/data-warehouse/what-is-the-sql-analytics-endpoint-for-a-lakehouse"
+                "See: https://learn.microsoft.com/fabric/data-engineering/lakehouse-sql-analytics-endpoint"
             )
 
         try:
@@ -411,7 +409,7 @@ class SqlAnalyticsEndpointClient:
         Uses the endpoint_url configured during client initialization.
 
         References:
-        - https://learn.microsoft.com/en-us/fabric/data-warehouse/warehouse-connectivity
+        - https://learn.microsoft.com/fabric/data-engineering/lakehouse-sql-analytics-endpoint
         - https://learn.microsoft.com/en-us/fabric/data-warehouse/connect-to-fabric-data-warehouse
 
         Args:
