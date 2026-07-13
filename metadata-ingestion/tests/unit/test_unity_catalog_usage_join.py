@@ -1,3 +1,4 @@
+import contextlib
 import pathlib
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,19 @@ from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBac
 def _row(**kw):
     # Databricks Row supports attribute access; SimpleNamespace replicates that.
     return SimpleNamespace(**kw)
+
+
+class _FakeAggBase:
+    """Base for all FakeAgg test doubles.
+
+    Provides a no-op parallel_sql_parsing_scope() so tests that wrap the
+    query-feeding loop in ``with aggregator.parallel_sql_parsing_scope():``
+    do not fail with AttributeError.
+    """
+
+    @contextlib.contextmanager
+    def parallel_sql_parsing_scope(self):  # type: ignore[return]
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +284,7 @@ def test_builds_aggregator_and_feeds_observed_queries(
     captured: dict = {}
     agg_instance: list = []  # single-element list so the closure can capture it
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             captured["kwargs"] = kw
             self.observed: list = []
@@ -338,7 +352,7 @@ def test_observed_query_timestamps_normalized_to_utc(
     """
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             agg_instance.append(self)
@@ -445,7 +459,7 @@ def test_is_allowed_table_predicate_scopes_to_ingested_tables(
     """
     captured: dict = {}
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             captured["kwargs"] = kw
 
@@ -522,7 +536,7 @@ def test_is_allowed_table_predicate_platform_instance_safe(
     """
     captured: dict = {}
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             captured["kwargs"] = kw
 
@@ -599,7 +613,7 @@ def test_schema_resolver_passed_to_aggregator(
     """
     captured: dict = {}
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             captured["kwargs"] = kw
 
@@ -646,7 +660,7 @@ def test_default_db_set_to_single_catalog(
     """When all table_refs share one catalog, every ObservedQuery.default_db must equal it."""
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             agg_instance.append(self)
@@ -703,7 +717,7 @@ def test_default_db_none_for_multi_catalog(
     """When table_refs span two catalogs, every ObservedQuery.default_db must be None."""
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             agg_instance.append(self)
@@ -753,7 +767,7 @@ def test_default_db_none_for_empty_table_refs(
     """When table_refs is empty, default_db must be None and no crash must occur."""
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             agg_instance.append(self)
@@ -801,7 +815,7 @@ def test_schema_resolver_explicit_empty_resolver_passed_through(
     """
     captured: dict = {}
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             captured["kwargs"] = kw
 
@@ -853,7 +867,7 @@ def test_auto_empty_usage_emitted_for_unqueried_tables(
     runs), then checks that the *unqueried* table still receives a zero-usage workunit.
     """
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         """Produces no metadata — simulates a window where no queries touched the table."""
 
         def __init__(self, **kw: object) -> None:
@@ -940,7 +954,7 @@ def test_zero_queries_emits_empty_usage_for_idle_window(
     (see test_fetch_failure_reports_failure_and_no_usage_workunits).
     """
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -1030,7 +1044,7 @@ def test_fetch_failure_reports_failure_and_no_usage_workunits(
     a normal empty-history run.
     """
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -1112,7 +1126,7 @@ def test_gen_metadata_raises_propagates_to_caller(
 
     closed_calls: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -1160,7 +1174,7 @@ def test_aggregator_close_raises_does_not_propagate(
     even when the main try-block completed normally.
     """
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -1203,7 +1217,7 @@ def test_single_bad_query_skipped_others_still_fed(
     observed: list = []
     call_count = [0]  # mutable cell so the closure can increment it
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -1275,7 +1289,7 @@ def test_fetch_queries_routes_through_api_when_system_tables_disabled(
     """
     observed: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -1328,7 +1342,7 @@ def test_midstream_fetch_failure_with_some_queries_reports_failure(
     a 'Failed to fetch query history' failure — not just the benign warning.
     """
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -1395,7 +1409,7 @@ def _run_flag_case(
     """Helper: run get_usage_workunits with the given flag values; return aggregator kwargs."""
     captured: dict = {}
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             captured["kwargs"] = kw
 
@@ -1474,7 +1488,7 @@ def test_preparsed_query_used_when_system_table_lineage_present(
 ) -> None:
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             self.preparsed: list = []
@@ -1528,7 +1542,7 @@ def test_fallback_to_observed_when_lineage_unresolvable(
 ) -> None:
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             self.preparsed: list = []
@@ -1579,7 +1593,7 @@ def test_sqlglot_when_no_system_table_lineage(
 ) -> None:
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             self.preparsed: list = []
@@ -1887,7 +1901,7 @@ def test_fetch_queries_passes_catalog_pattern_when_pushdown_enabled(
 ) -> None:
     """usage._fetch_queries must pass catalog_pattern when pushdown flag is on."""
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -1939,7 +1953,7 @@ def test_fetch_queries_omits_catalog_pattern_when_pushdown_disabled(
 ) -> None:
     """usage._fetch_queries must not pass catalog_pattern when pushdown flag is off."""
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -2137,7 +2151,7 @@ def test_preparsed_query_multi_target_fanout(
 ) -> None:
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             self.preparsed: list = []
@@ -2189,7 +2203,7 @@ def test_preparsed_query_target_only_lineage(
 ) -> None:
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             self.preparsed: list = []
@@ -2242,7 +2256,7 @@ def test_preparsed_query_partial_urn_resolution(
 ) -> None:
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             self.preparsed: list = []
@@ -2353,7 +2367,7 @@ def test_skip_sqlglot_when_system_table_lineage_missing_skips_query(
 ) -> None:
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             self.preparsed: list = []
@@ -2416,7 +2430,7 @@ def test_skip_sqlglot_when_system_table_lineage_missing_skips_query(
 def test_api_fetch_passes_include_operational_stats(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -2453,7 +2467,7 @@ def test_api_fetch_passes_include_operational_stats(
 def test_mixed_routing_counters(monkeypatch: pytest.MonkeyPatch) -> None:
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             self.preparsed: list = []
@@ -2742,7 +2756,7 @@ def test_preparsed_fingerprint_falls_back_to_statement_id(
 
 
 def _no_op_aggregator(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -2837,7 +2851,7 @@ def test_include_column_usage_stats_forces_sqlglot_with_lineage(
 ) -> None:
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             self.preparsed: list = []
@@ -2890,7 +2904,7 @@ def test_include_column_usage_stats_overrides_skip_sqlglot(
 ) -> None:
     agg_instance: list = []
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
             self.preparsed: list = []
@@ -2946,7 +2960,7 @@ def test_include_column_usage_stats_overrides_skip_sqlglot(
 def test_fetch_queries_omits_catalog_pattern_when_column_usage_stats_enabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             pass
 
@@ -3029,7 +3043,7 @@ def test_queries_drained_before_parsing(
         # Only set after the last item is yielded (generator fully consumed).
         fetch_exhausted[0] = True
 
-    class FakeAgg:
+    class FakeAgg(_FakeAggBase):
         def __init__(self, **kw: object) -> None:
             self.observed: list = []
 

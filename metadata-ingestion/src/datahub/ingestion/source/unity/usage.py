@@ -94,6 +94,8 @@ class UnityCatalogUsageExtractor:
             usage_config=self.config,
             format_queries=False,
             is_allowed_table=is_allowed_table,
+            use_parallel_sql_parsing=self.config.use_parallel_sql_parsing,
+            sql_parsing_workers=self.config.sql_parsing_workers,
         )
 
     def _audit_log_filename(self) -> str:
@@ -667,7 +669,10 @@ class UnityCatalogUsageExtractor:
                 # current-bucket zero, does not delete history.)
                 self._report_no_queries()
 
-            with self.report.usage_parsing_timer:
+            with (
+                self.report.usage_parsing_timer,
+                aggregator.parallel_sql_parsing_scope(),
+            ):
                 self._parse_buffered_queries(aggregator, buffered_queries, default_db)
             self._log_usage_routing_summary()
             self._report_usage_lineage_warnings()
