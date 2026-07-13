@@ -1404,6 +1404,16 @@ enum EntityType {
   An DataHub File
   """
   DATAHUB_FILE
+
+  """
+  A Metric entity from a semantic layer or metric store.
+  """
+  METRIC
+
+  """
+  A Semantic Model entity that groups datasets and defines metrics context.
+  """
+  SEMANTIC_MODEL
 }
 
 """
