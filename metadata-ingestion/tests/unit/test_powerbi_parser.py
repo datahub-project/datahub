@@ -1311,6 +1311,15 @@ def test_oracle_parse_tns_alias():
     assert db is None
 
 
+def test_oracle_parse_tns_descriptor_service_name():
+    server, db = OracleLineage._get_server_and_db_name(
+        "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=host)(PORT=1521))"
+        "(CONNECT_DATA=(SERVICE_NAME=orclpdb)))"
+    )
+    assert server == "orclpdb"
+    assert db is None
+
+
 def test_oracle_hierarchical_tns_with_platform_instance(oracle_lineage_tns):
     table_accessor = IdentifierAccessor(
         identifier="table", items={"Name": "ORDERS"}, next=None
@@ -1334,6 +1343,59 @@ def test_oracle_hierarchical_tns_with_platform_instance(oracle_lineage_tns):
 
     assert len(lineage.upstreams) == 1
     assert "oracle_prod.sales.orders" in lineage.upstreams[0].urn.lower()
+
+
+def test_oracle_hierarchical_no_default_database_reports_two_part_urn(
+    oracle_lineage_tns,
+):
+    # Bare TNS alias, no default_database configured -> 2-part URN plus a
+    # best-effort info telling the operator how to get 3-part URNs.
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "ORDERS"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="source", items={"Schema": "SALES"}, next=table_accessor
+    )
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com", {"HierarchicalNavigation": "true"}
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=schema_accessor,
+        node_map={},
+    )
+
+    lineage = oracle_lineage_tns.create_lineage(detail)
+
+    assert len(lineage.upstreams) == 1
+    assert "oracle_prod.sales.orders" in lineage.upstreams[0].urn.lower()
+    info_titles = [entry.title for entry in oracle_lineage_tns.reporter.infos]
+    assert any("2-part URN" in (t or "") for t in info_titles)
+
+
+def test_oracle_hierarchical_missing_name_warns_and_skips(oracle_lineage_tns):
+    # Two-step navigation confirmed but the table Name item is absent: skip, but
+    # surface a warning rather than dropping lineage silently.
+    table_accessor = IdentifierAccessor(identifier="table", items={}, next=None)
+    schema_accessor = IdentifierAccessor(
+        identifier="source", items={"Schema": "SALES"}, next=table_accessor
+    )
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com", {"HierarchicalNavigation": "true"}
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=schema_accessor,
+        node_map={},
+    )
+
+    lineage = oracle_lineage_tns.create_lineage(detail)
+
+    assert lineage.upstreams == []
+    warning_titles = [entry.title for entry in oracle_lineage_tns.reporter.warnings]
+    assert any("missing schema/table" in (t or "") for t in warning_titles)
 
 
 def test_oracle_native_query_tns_extracts_tables(oracle_lineage_tns):
@@ -1472,10 +1534,10 @@ def test_oracle_platform_detail_rejects_blank_default():
         OraclePlatformDetail(default_schema="   ")
 
 
-def test_oracle_platform_detail_accepts_only_default_database():
-    detail = OraclePlatformDetail(default_database="edwprd")
-    assert detail.default_database == "edwprd"
-    assert detail.default_schema is None
+def test_oracle_platform_detail_accepts_single_knob():
+    # A single-field Oracle entry is valid (the "at least one" validator accepts it).
+    OraclePlatformDetail(default_database="edwprd")
+    OraclePlatformDetail(default_schema="sales")
 
 
 def test_server_to_platform_instance_union_disambiguation():

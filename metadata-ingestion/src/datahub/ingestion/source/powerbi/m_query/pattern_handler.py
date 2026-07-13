@@ -222,13 +222,15 @@ def make_urn(
     data_platform_pair: DataPlatformPair,
     server: str,
     qualified_table_name: str,
+    platform_detail: Optional[PlatformDetail] = None,
 ) -> str:
-    platform_detail: PlatformDetail = platform_instance_resolver.get_platform_instance(
-        PowerBIPlatformDetail(
-            data_platform_pair=data_platform_pair,
-            data_platform_server=server,
+    if platform_detail is None:
+        platform_detail = platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=data_platform_pair,
+                data_platform_server=server,
+            )
         )
-    )
 
     return builder.make_dataset_urn_with_platform_instance(
         platform=data_platform_pair.datahub_data_platform_name,
@@ -731,16 +733,13 @@ class OracleLineage(AbstractLineage):
         )
         return None, None
 
-    def _default_database(self, server: str) -> Optional[str]:
-        platform_detail = self.platform_instance_resolver.get_platform_instance(
+    def _resolve_platform_detail(self, server: str) -> PlatformDetail:
+        return self.platform_instance_resolver.get_platform_instance(
             PowerBIPlatformDetail(
                 data_platform_pair=self.get_platform_pair(),
                 data_platform_server=server,
             )
         )
-        if isinstance(platform_detail, OraclePlatformDetail):
-            return platform_detail.default_database
-        return None
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -785,21 +784,52 @@ class OracleLineage(AbstractLineage):
 
         accessor = data_access_func_detail.identifier_accessor
         if accessor is None or accessor.next is None:
+            logger.debug(
+                "Oracle.Database for %s has no two-step identifier accessor; "
+                "skipping hierarchical lineage.",
+                self.table.full_name,
+            )
             return Lineage.empty()
 
         schema_name: Optional[str] = accessor.items.get("Schema")
         table_name: Optional[str] = accessor.next.items.get("Name")
         if schema_name is None or table_name is None:
+            self.reporter.warning(
+                title="Oracle.Database hierarchical navigation missing schema/table",
+                message=(
+                    "Oracle.Database hierarchical navigation was found but its "
+                    "Schema or table Name item is missing; lineage skipped."
+                ),
+                context=(
+                    f"table={self.table.full_name}, server={server}, "
+                    f"schema={schema_name}, name={table_name}"
+                ),
+            )
             return Lineage.empty()
 
-        # A bare TNS alias / descriptor carries no database; `default_database`
-        # supplies one for Oracle ingestions using 3-part URNs, else stay 2-part.
-        effective_db: Optional[str] = (
-            db_name if db_name is not None else self._default_database(server)
+        platform_detail = self._resolve_platform_detail(server)
+
+        # A bare TNS alias / descriptor carries no database; fall back to a
+        # configured `default_database` so Oracle ingestions using 3-part URNs
+        # match, otherwise emit a 2-part `schema.table` URN.
+        effective_db: Optional[str] = db_name
+        if effective_db is None and isinstance(platform_detail, OraclePlatformDetail):
+            effective_db = platform_detail.default_database
+        if db_name is None and effective_db is None:
+            self.reporter.info(
+                title="Oracle lineage produced a 2-part URN",
+                message=(
+                    "A bare Oracle TNS alias/descriptor carries no database, so a "
+                    "2-part schema.table URN was produced. If your Oracle "
+                    "ingestion runs with add_database_name_to_urn=true (3-part "
+                    "URNs), set 'default_database' under server_to_platform_instance."
+                ),
+                context=f"table={self.table.full_name}, server={server}",
+            )
+
+        qualified_table_name = ".".join(
+            part for part in (effective_db, schema_name, table_name) if part is not None
         )
-        qualified_table_name: str = f"{schema_name}.{table_name}"
-        if effective_db is not None:
-            qualified_table_name = f"{effective_db}.{qualified_table_name}"
 
         urn = make_urn(
             config=self.config,
@@ -807,6 +837,7 @@ class OracleLineage(AbstractLineage):
             data_platform_pair=self.get_platform_pair(),
             server=server,
             qualified_table_name=qualified_table_name,
+            platform_detail=platform_detail,
         )
 
         column_lineage = self.create_table_column_lineage(urn)
@@ -835,14 +866,7 @@ class OracleLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        platform_detail: PlatformDetail = (
-            self.platform_instance_resolver.get_platform_instance(
-                PowerBIPlatformDetail(
-                    data_platform_pair=self.get_platform_pair(),
-                    data_platform_server=server,
-                )
-            )
-        )
+        platform_detail = self._resolve_platform_detail(server)
 
         default_schema: Optional[str] = None
         default_database: Optional[str] = None

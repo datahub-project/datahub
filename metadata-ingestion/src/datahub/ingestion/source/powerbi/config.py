@@ -317,10 +317,10 @@ class OraclePlatformDetail(PlatformDetail):
         description=(
             "Database segment prepended to the table name when the "
             "``Oracle.Database`` connection is a bare TNS alias or descriptor "
-            "(which carries no database). Set this to your Oracle ingestion's "
-            "``database``/``urn_db_name`` only when it runs with "
-            "``add_database_name_to_urn: true`` (3-part ``database.schema.table`` "
-            "URNs); leave unset for the default 2-part URNs and for EZ-Connect "
+            "(which carries no database). Set this to match the database segment "
+            "your Oracle ingestion uses, only when that ingestion emits 3-part "
+            "``database.schema.table`` URNs (``add_database_name_to_urn: true``); "
+            "leave unset for the default 2-part URNs and for EZ-Connect "
             "``host:port/service`` connections."
         ),
     )
@@ -335,9 +335,11 @@ class OraclePlatformDetail(PlatformDetail):
             raise ValueError("must not be empty or whitespace")
         return stripped
 
-    # At least one knob must be set. This also disambiguates OraclePlatformDetail
-    # from a plain PlatformDetail in the server_to_platform_instance Union: a
-    # plain {platform_instance} entry fails here and falls through.
+    # Requires at least one knob. This is also relied on to disambiguate
+    # OraclePlatformDetail from a plain PlatformDetail in the
+    # server_to_platform_instance Union: a plain {platform_instance} entry fails
+    # this check, so it is never a valid OraclePlatformDetail candidate —
+    # independent of pydantic's union-resolution order.
     @model_validator(mode="after")
     def _require_at_least_one_default(self) -> "OraclePlatformDetail":
         if self.default_schema is None and self.default_database is None:
