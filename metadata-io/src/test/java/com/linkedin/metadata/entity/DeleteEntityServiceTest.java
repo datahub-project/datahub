@@ -41,9 +41,10 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
-import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageReference;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -617,10 +618,11 @@ public class DeleteEntityServiceTest {
   @Test
   public void testDeleteFileReferences() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
-    S3Util mockS3Util = Mockito.mock(S3Util.class);
+    ObjectStorageClient mockObjectStorageClient = Mockito.mock(ObjectStorageClient.class);
+    Mockito.when(mockObjectStorageClient.isConfigured()).thenReturn(true);
     DeleteEntityService deleteEntityService =
         new DeleteEntityService(
-            mockEntityService, _graphService, _mockSearchService, mockS3Util, null);
+            mockEntityService, _graphService, _mockSearchService, mockObjectStorageClient, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
@@ -706,7 +708,8 @@ public class DeleteEntityServiceTest {
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
     // Verify S3 delete was called
-    Mockito.verify(mockS3Util, Mockito.times(1)).deleteObject("test-bucket", "test-key");
+    Mockito.verify(mockObjectStorageClient, Mockito.times(1))
+        .deleteObject(new ObjectStorageReference("test-bucket", "test-key"));
 
     // Verify file entity was soft-deleted
     Mockito.verify(mockEntityService, Mockito.times(1))
@@ -823,10 +826,11 @@ public class DeleteEntityServiceTest {
   @Test
   public void testDeleteFileReferencesWithS3Failure() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
-    S3Util mockS3Util = Mockito.mock(S3Util.class);
+    ObjectStorageClient mockObjectStorageClient = Mockito.mock(ObjectStorageClient.class);
+    Mockito.when(mockObjectStorageClient.isConfigured()).thenReturn(true);
     DeleteEntityService deleteEntityService =
         new DeleteEntityService(
-            mockEntityService, _graphService, _mockSearchService, mockS3Util, null);
+            mockEntityService, _graphService, _mockSearchService, mockObjectStorageClient, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
@@ -891,9 +895,9 @@ public class DeleteEntityServiceTest {
         .thenReturn(fileInfo);
 
     // Make S3 deletion throw an exception
-    Mockito.doThrow(new RuntimeException("S3 error"))
-        .when(mockS3Util)
-        .deleteObject("test-bucket", "test-key");
+    Mockito.doThrow(new RuntimeException("object storage error"))
+        .when(mockObjectStorageClient)
+        .deleteObject(new ObjectStorageReference("test-bucket", "test-key"));
 
     // No other relationships
     Mockito.when(
@@ -918,7 +922,8 @@ public class DeleteEntityServiceTest {
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
     // Verify S3 delete was attempted
-    Mockito.verify(mockS3Util, Mockito.times(1)).deleteObject("test-bucket", "test-key");
+    Mockito.verify(mockObjectStorageClient, Mockito.times(1))
+        .deleteObject(new ObjectStorageReference("test-bucket", "test-key"));
 
     // Verify file entity was still soft-deleted despite S3 failure to avoid leaving entity in limbo
     Mockito.verify(mockEntityService, Mockito.times(1))

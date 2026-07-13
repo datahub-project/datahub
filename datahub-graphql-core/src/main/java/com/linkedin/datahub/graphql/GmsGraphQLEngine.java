@@ -387,8 +387,8 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.utils.aws.S3Util;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
@@ -548,7 +548,7 @@ public class GmsGraphQLEngine {
   private final GraphQLConfiguration graphQLConfiguration;
   private final MetricUtils metricUtils;
 
-  private final S3Util s3Util;
+  private final ObjectStorageClient objectStorageClient;
 
   private final BusinessAttributeType businessAttributeType;
 
@@ -693,7 +693,7 @@ public class GmsGraphQLEngine {
     this.dataHubFileType = new DataHubFileType(entityClient);
     this.graphQLConfiguration = args.graphQLConfiguration;
     this.metricUtils = args.metricUtils;
-    this.s3Util = args.s3Util;
+    this.objectStorageClient = args.objectStorageClient;
 
     this.businessAttributeType = new BusinessAttributeType(entityClient);
     // Init Lists
@@ -1096,7 +1096,9 @@ public class GmsGraphQLEngine {
                         this.featureFlags,
                         this.chromeExtensionConfiguration,
                         this.settingsService,
-                        this.s3Util != null,
+                        this.objectStorageClient != null
+                            && this.objectStorageClient.isConfigured()
+                            && this.objectStorageClient.supportsPresignedUrls(),
                         this.semanticSearchConfiguration))
                 .dataFetcher(
                     "latestProductUpdate",
@@ -1248,7 +1250,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "getPresignedUploadUrl",
                     new GetPresignedUploadUrlResolver(
-                        this.s3Util, this.datahubConfiguration.getS3(), this.entityClient)));
+                        this.objectStorageClient,
+                        this.datahubConfiguration.getObjectStorage(),
+                        this.entityClient)));
   }
 
   private DataFetcher getEntitiesResolver() {
@@ -1612,8 +1616,7 @@ public class GmsGraphQLEngine {
               .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
               .dataFetcher(
                   "createDataHubFile",
-                  new CreateDataHubFileResolver(
-                      this.dataHubFileService, this.datahubConfiguration.getS3()))
+                  new CreateDataHubFileResolver(this.dataHubFileService, this.objectStorageClient))
               .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
               .dataFetcher(
                   "updateDocPropagationSettings",
