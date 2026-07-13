@@ -441,10 +441,20 @@ def _from_protobuf_schema_to_descriptors(
                 return None
 
 
+def _is_repeated_field(descriptor: DescriptorBase) -> bool:
+    # protobuf 7.x removed FieldDescriptor.label in favor of is_repeated, while
+    # protobuf 5.29.x only exposes label. Prefer is_repeated, fall back to label.
+    # Non-field descriptors have neither, so this correctly returns False.
+    is_repeated = getattr(descriptor, "is_repeated", None)
+    if is_repeated is not None:
+        return bool(is_repeated)
+    return getattr(descriptor, "label", None) == FieldDescriptor.LABEL_REPEATED
+
+
 def _get_column_type(descriptor: DescriptorBase) -> SchemaFieldDataType:
     native_type: str = _get_simple_native_type(descriptor)
     type_class: Any
-    if getattr(descriptor, "label", None) == FieldDescriptor.LABEL_REPEATED:
+    if _is_repeated_field(descriptor):
         type_class = ArrayTypeClass(nestedType=[native_type])
     elif getattr(descriptor, "type", None) == FieldDescriptor.TYPE_ENUM:
         type_class = EnumTypeClass()
@@ -509,10 +519,7 @@ def _get_simple_native_type(descriptor: DescriptorBase) -> str:
 def _get_type_ascription(descriptor: DescriptorBase) -> str:
     return_list: List[str] = []
 
-    if (
-        isinstance(descriptor, FieldDescriptor)
-        and descriptor.label == FieldDescriptor.LABEL_REPEATED
-    ):
+    if _is_repeated_field(descriptor):
         return_list.append("[type=array]")
 
     return_list.append(f"[type={_get_field_path_type(descriptor)}]")

@@ -1,10 +1,14 @@
+from types import SimpleNamespace
 from typing import List
 from unittest.mock import patch
+
+from google.protobuf.descriptor import FieldDescriptor
 
 from datahub.ingestion.extractor.protobuf_util import (
     _DESCRIPTOR_CACHE,
     ProtobufSchema,
     _from_protobuf_schema_to_descriptors,
+    _is_repeated_field,
     protobuf_schema_to_mce_fields,
 )
 from datahub.metadata.schema_classes import ArrayTypeClass, SchemaFieldClass
@@ -140,6 +144,23 @@ message Test6 {
     assert isinstance(fields[0].type.type, ArrayTypeClass)
     assert fields[0].type.type.nestedType is not None
     assert fields[0].type.type.nestedType[0] == "int64"
+
+
+def test_is_repeated_field_across_protobuf_versions() -> None:
+    # protobuf 6.x / 7.x: is_repeated present (label may be absent, as in 7.x).
+    assert _is_repeated_field(SimpleNamespace(is_repeated=True)) is True
+    assert _is_repeated_field(SimpleNamespace(is_repeated=False)) is False
+    # protobuf 5.29.x: only label is present.
+    assert (
+        _is_repeated_field(SimpleNamespace(label=FieldDescriptor.LABEL_REPEATED))
+        is True
+    )
+    assert (
+        _is_repeated_field(SimpleNamespace(label=FieldDescriptor.LABEL_OPTIONAL))
+        is False
+    )
+    # Non-field descriptors expose neither attribute.
+    assert _is_repeated_field(SimpleNamespace()) is False
 
 
 def test_protobuf_schema_to_mce_fields_nestd_repeated() -> None:
