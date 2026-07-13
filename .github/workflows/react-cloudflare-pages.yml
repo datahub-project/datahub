@@ -3,19 +3,21 @@ on:
   push:
     branches:
       - master
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
-      - ".github/**"
-      - "!.github/workflows/react-cloudflare-pages.yml"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/react-cloudflare-pages.yml"
   pull_request:
     branches:
       - "**"
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
-      - ".github/**"
-      - "!.github/workflows/react-cloudflare-pages.yml"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/react-cloudflare-pages.yml"
   release:
     types: [published]
 
