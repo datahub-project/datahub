@@ -77,7 +77,7 @@ _ENGINE_TO_DB_DETAIL_FIELD: Dict[str, str] = {
 # three-tier (database.schema.table).  For these platforms the schema component
 # returned by Metabase's /api/table endpoint is omitted from the dataset URN so
 # that lineage URNs match those produced by the corresponding DataHub connector.
-_TWO_TIER_PLATFORMS: frozenset = frozenset(
+_TWO_TIER_PLATFORMS: frozenset = frozenset[str](
     {
         "mysql",  # MySQL has no schema layer; "schema" == database
         "mongodb",  # MongoDB: database + collection only
@@ -89,7 +89,7 @@ _TWO_TIER_PLATFORMS: frozenset = frozenset(
 # Union of all engines we explicitly handle. The "unrecognised platform" warning
 # is suppressed for these — they either translate via METABASE_ENGINE_TO_DATAHUB_PLATFORM
 # or map 1:1 and are covered by _ENGINE_TO_DB_DETAIL_FIELD.
-_KNOWN_METABASE_ENGINES: frozenset = frozenset(
+_KNOWN_METABASE_ENGINES: frozenset = frozenset[str](
     {*METABASE_ENGINE_TO_DATAHUB_PLATFORM, *_ENGINE_TO_DB_DETAIL_FIELD}
 )
 
