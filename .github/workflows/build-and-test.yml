@@ -572,10 +572,56 @@ jobs:
           junit-file-globs: |
             **/build/test-results/test/**/*.xml
             **/junit.*.xml
-      # TODO(coverage): sharded runs don't yet merge JaCoCo across runners to Codecov. While
-      # the toggle is off (default) the single build-except job supplies full backend coverage.
-      # Wire per-shard JaCoCo upload (Codecov 'backend' flag, server-side merge) before making
-      # sharding the default.
+      - name: Generate cross-module coverage report
+        if: ${{ !cancelled() }}
+        # Merges JaCoCo for the modules THIS shard ran. Each shard uploads its partial report
+        # under the shared `backend` flag; Codecov server-merges them into full backend coverage
+        # (same pattern as the frontend-test shards). continue-on-error: a coverage hiccup must
+        # not fail a shard whose tests already passed.
+        continue-on-error: true
+        run: ./gradlew jacocoMergedReport --no-configure-on-demand
+      - name: Gather coverage files
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "BACKEND_FILES=$(find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade|jacoco-merged)' | xargs | tr ' ' ',')"
+          } >> "$GITHUB_ENV"
+      - name: Upload backend coverage to Codecov
+        if: ${{ !cancelled() && github.event_name != 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.BACKEND_FILES }}
+          disable_search: true
+          fail_ci_if_error: false
+          flags: backend
+          name: backend-shard${{ matrix.batch }}
+          verbose: true
+      - name: Upload backend coverage to Codecov on release
+        if: ${{ !cancelled() && github.event_name == 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.BACKEND_FILES }}
+          disable_search: true
+          fail_ci_if_error: false
+          flags: backend
+          name: backend-shard${{ matrix.batch }}
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() && github.event_name != 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+      - name: Upload test results to Codecov on release
+        if: ${{ !cancelled() && github.event_name == 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
   event-file:
     runs-on: ubuntu-latest
