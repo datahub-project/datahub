@@ -234,21 +234,23 @@ public class ParentNodesResolverTest {
         GLOSSARY_NODE_INFO_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(parent2Info.data())));
 
-    when(mockClient.getV2(
-            any(), Mockito.eq(parentNode1.getEntityType()), Mockito.eq(parentNode1), any()))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
-                .setUrn(parentNode1)
-                .setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
+    Map<Urn, EntityResponse> batchResponse = new HashMap<>();
+    batchResponse.put(
+        parentNode1,
+        new EntityResponse()
+            .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
+            .setUrn(parentNode1)
+            .setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
+    batchResponse.put(
+        parentNode2,
+        new EntityResponse()
+            .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
+            .setUrn(parentNode2)
+            .setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
 
-    when(mockClient.getV2(
-            any(), Mockito.eq(parentNode2.getEntityType()), Mockito.eq(parentNode2), any()))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
-                .setUrn(parentNode2)
-                .setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
+    when(mockClient.batchGetV2(
+            any(), Mockito.eq(parentNode1.getEntityType()), any(), Mockito.eq(null)))
+        .thenReturn(batchResponse);
 
     return mockClient;
   }

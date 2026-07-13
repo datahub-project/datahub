@@ -134,35 +134,30 @@ public class ParentContainersResolverTest {
         new EnvelopedAspect()
             .setValue(new Aspect(new ContainerProperties().setName("test_database").data())));
 
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentContainer1.getEntityType()),
-                Mockito.eq(parentContainer1),
-                Mockito.eq(null)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(CONTAINER_ENTITY_NAME)
-                .setUrn(parentContainer1)
-                .setAspects(new EnvelopedAspectMap(parentContainer1Aspects)));
+    Map<Urn, EntityResponse> batchResponse = new HashMap<>();
+    batchResponse.put(
+        parentContainer1,
+        new EntityResponse()
+            .setEntityName(CONTAINER_ENTITY_NAME)
+            .setUrn(parentContainer1)
+            .setAspects(new EnvelopedAspectMap(parentContainer1Aspects)));
+    batchResponse.put(
+        parentContainer2,
+        new EntityResponse()
+            .setEntityName(CONTAINER_ENTITY_NAME)
+            .setUrn(parentContainer2)
+            .setAspects(new EnvelopedAspectMap(parentContainer2Aspects)));
 
     Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentContainer2.getEntityType()),
-                Mockito.eq(parentContainer2),
-                Mockito.eq(null)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(CONTAINER_ENTITY_NAME)
-                .setUrn(parentContainer2)
-                .setAspects(new EnvelopedAspectMap(parentContainer2Aspects)));
+            mockClient.batchGetV2(
+                any(), Mockito.eq(CONTAINER_ENTITY_NAME), any(), Mockito.eq(null)))
+        .thenReturn(batchResponse);
 
     ParentContainersResolver resolver = new ParentContainersResolver(mockClient);
     ParentContainersResult result = resolver.get(mockEnv).get();
 
-    Mockito.verify(mockClient, Mockito.times(2))
-        .getV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+    Mockito.verify(mockClient, Mockito.times(1))
+        .batchGetV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
     assertEquals(result.getCount(), 2);
     assertEquals(result.getContainers().get(0).getUrn(), parentContainer1.toString());
     assertEquals(result.getContainers().get(1).getUrn(), parentContainer2.toString());

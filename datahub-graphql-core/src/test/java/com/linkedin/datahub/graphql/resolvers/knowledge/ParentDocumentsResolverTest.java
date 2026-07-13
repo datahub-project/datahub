@@ -108,29 +108,8 @@ public class ParentDocumentsResolverTest {
                 .setUrn(documentUrn)
                 .setAspects(new EnvelopedAspectMap(childDocAspects)));
 
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(DOCUMENT_ENTITY_NAME),
-                Mockito.eq(parentDoc1Urn),
-                Mockito.eq(Collections.singleton(DOCUMENT_INFO_ASPECT_NAME))))
-        .thenReturn(
-            new EntityResponse()
-                .setUrn(parentDoc1Urn)
-                .setAspects(new EnvelopedAspectMap(parent1DocAspects)));
-
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(DOCUMENT_ENTITY_NAME),
-                Mockito.eq(parentDoc2Urn),
-                Mockito.eq(Collections.singleton(DOCUMENT_INFO_ASPECT_NAME))))
-        .thenReturn(
-            new EntityResponse()
-                .setUrn(parentDoc2Urn)
-                .setAspects(new EnvelopedAspectMap(parent2DocAspects)));
-
-    // Mock client responses for fetching full parent documents (with null aspects param)
+    // Full parent fetches (null aspects) already carry DocumentInfo, so the walk reads the next
+    // hop from them directly rather than re-fetching each parent's DocumentInfo.
     Mockito.when(
             mockClient.getV2(
                 any(),
@@ -156,13 +135,11 @@ public class ParentDocumentsResolverTest {
     ParentDocumentsResolver resolver = new ParentDocumentsResolver(mockClient);
     ParentDocumentsResult result = resolver.get(mockEnv).get();
 
-    // Should have called getV2 five times:
-    // 1. Get child doc info (with aspect)
-    // 2. Get parent1 full doc (null aspects)
-    // 3. Get parent1 doc info (with aspect)
-    // 4. Get parent2 full doc (null aspects)
-    // 5. Get parent2 doc info (with aspect)
-    Mockito.verify(mockClient, Mockito.times(5))
+    // Should have called getV2 three times (each node fetched once):
+    // 1. Get child doc info (DOCUMENT_INFO only) to find the first parent
+    // 2. Get parent1 full doc (null aspects) — maps it and yields the next parent
+    // 3. Get parent2 full doc (null aspects) — maps it; no further parent
+    Mockito.verify(mockClient, Mockito.times(3))
         .getV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
 
     assertEquals(result.getCount(), 2);
