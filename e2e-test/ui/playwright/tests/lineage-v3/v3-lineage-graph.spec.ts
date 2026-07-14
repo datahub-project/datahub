@@ -940,9 +940,21 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkNodeExists(FILTERING_NODE1_URN);
     await lineagePage.checkNodeExists(FILTERING_NODE2_URN);
 
-    // ── Downstream control renders its own independent count ────────────────
+    // ── Downstream: show more / less / all (13 children) ────────────────────
     await lineagePage.checkContractControlExists(FILTERING_NODE7_URN, 'down');
     await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'down', '4/13');
+    await lineagePage.checkNodeNotExists(FILTERING_NODE8_URN);
+
+    await lineagePage.contractControlShowMore(FILTERING_NODE7_URN, 'down');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'down', '8/13');
+
+    // show less and show all are only reachable by hovering the show-more button
+    await lineagePage.contractControlShowLess(FILTERING_NODE7_URN, 'down');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'down', '4/13');
+
+    await lineagePage.contractControlShowAll(FILTERING_NODE7_URN, 'down');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'down', '13/13');
+    await lineagePage.checkNodeExists(FILTERING_NODE8_URN);
   });
 
   test('can switch direction between upstream and downstream in compact mode', async () => {

@@ -345,6 +345,21 @@ export class LineageV3Page extends LineageV2Page {
     await this.getContractControl(nodeUrn, direction).getByTestId('show-more').click();
   }
 
+  // show-less and show-all are revealed only while the show-more button is hovered.
+  async contractControlShowLess(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    const control = this.getContractControl(nodeUrn, direction);
+    await control.getByTestId('show-max-wrapper').hover();
+    await control.getByTestId('show-less').click();
+  }
+
+  async contractControlShowAll(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    const control = this.getContractControl(nodeUrn, direction);
+    await control.getByTestId('show-max-wrapper').hover();
+    await control.getByTestId('show-all').click();
+  }
+
   // ── Result and Text Utilities ──────────────────────────────────────────────
 
   /**
