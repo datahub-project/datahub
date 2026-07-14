@@ -11,7 +11,6 @@ export interface OrderNodesOptions {
 /**
  * Orders nodes in BFS order, starting from the root node.
  * Within a single node, children are ordered transformations last, then alphabetically.
- * Note: Transformations should be put first once show more is put at the bottom.
  * @param urn Root node urn.
  * @param direction Direction in which to perform BFS.
  * @param context Lineage node context.
