@@ -119,7 +119,7 @@ FROM
         max(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then partition_id else NULL END) as max_partition_id,
         sum(total_rows) as total_rows,
         sum(total_logical_bytes) as total_logical_bytes,
-        max(last_modified_time) as last_modified_time,
+        UNIX_MILLIS(max(last_modified_time)) as last_modified_time,
         sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
         sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
     from
