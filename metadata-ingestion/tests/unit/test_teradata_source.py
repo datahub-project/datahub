@@ -633,6 +633,15 @@ class TestTeradataSource:
         ]
         TeradataSource._table_creator_cache[("stale_db", "stale_table")] = "owner"
 
+        # Also pre-populate the module-level LRU caches: they hold per-connection
+        # schema data, so init failure must clear them too (matching close()) or
+        # stale data leaks into the next recipe run in the same process.
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = []
+        get_schema_columns(None, mock_conn, "columnsV", "stale_db")
+        get_schema_pk_constraints(None, mock_conn, "stale_db")
+        get_schema_foreign_keys(None, mock_conn, "stale_db")
+
         with (
             patch(
                 "datahub.ingestion.source.sql.teradata.FileBackedDict",
@@ -658,6 +667,9 @@ class TestTeradataSource:
         mock_view_definitions.close.assert_called_once()
         assert len(TeradataSource._tables_cache) == 0
         assert len(TeradataSource._table_creator_cache) == 0
+        assert get_schema_columns.cache_info().currsize == 0
+        assert get_schema_pk_constraints.cache_info().currsize == 0
+        assert get_schema_foreign_keys.cache_info().currsize == 0
 
     def test_init_cleanup_failure_does_not_mask_error_or_skip_resources(self):
         config = TeradataConfig.model_validate(_base_config())

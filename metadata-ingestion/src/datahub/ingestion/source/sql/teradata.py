@@ -1854,6 +1854,18 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             f"Failed to clear table caches during __init__ "
                             f"cleanup: {cleanup_err}"
                         )
+                    try:
+                        # Match close(): clear the module-level LRU caches so
+                        # per-connection schema data from a prior run in the same
+                        # process can't survive a failed init and leak into the next.
+                        get_schema_columns.cache_clear()
+                        get_schema_pk_constraints.cache_clear()
+                        get_schema_foreign_keys.cache_clear()
+                    except Exception as cleanup_err:
+                        logger.warning(
+                            f"Failed to clear schema LRU caches during __init__ "
+                            f"cleanup: {cleanup_err}"
+                        )
                     raise
                 logger.info(f"Found {len(self._tables_cache)} tables and views")
             setattr(self, "loop_tables", self.cached_loop_tables)  # noqa: B010
