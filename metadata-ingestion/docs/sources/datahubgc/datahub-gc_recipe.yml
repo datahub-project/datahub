@@ -11,5 +11,5 @@ source:
       hard_delete_entities: false
       keep_last_n: 5
     query_cleanup:
-      enabled: false
-      retention_days: 90
+      enabled: true
+      retention_days: 180

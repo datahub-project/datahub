@@ -24,15 +24,17 @@ logger = logging.getLogger(__name__)
 
 class QueryCleanupConfig(ConfigModel):
     enabled: bool = Field(
-        default=False,
+        default=True,
         description="Whether to do query cleanup or not.",
     )
 
     retention_days: int = Field(
-        90,
+        180,
         ge=1,
         description=(
             "Soft-delete SYSTEM queries whose lastModifiedAt is older than this many days. "
+            "Defaults to 180 days (~6 months), a conservative window that avoids touching "
+            "queries still within any reasonable connector ingestion window. "
             "Set this to at least the largest connector ingestion window: a live query's "
             "lastModifiedAt is refreshed on every re-observation, so only queries that have "
             "aged out of every ingestion window can cross the cutoff. This is a distinct clock "
@@ -50,7 +52,10 @@ class QueryCleanupConfig(ConfigModel):
     limit_entities_delete: Optional[int] = Field(
         25000,
         ge=1,
-        description="Approximate max number of queries to soft-delete in a single run.",
+        description=(
+            "Approximate max number of queries to soft-delete in a single run. "
+            "Set to null to disable the cap."
+        ),
     )
 
     runtime_limit_seconds: int = Field(
@@ -138,12 +143,11 @@ class QueryCleanup:
             return True
         return False
 
-    def _deletion_limit_reached(self) -> bool:
+    def _deletion_limit_reached(self, num_candidates_handled: int) -> bool:
         # limit_entities_delete is None when the cap is disabled (see field description).
         if (
             self.config.limit_entities_delete is not None
-            and self.report.num_queries_soft_deleted
-            >= self.config.limit_entities_delete
+            and num_candidates_handled >= self.config.limit_entities_delete
         ):
             self.report.qc_deletion_limit_reached = True
             return True
@@ -165,8 +169,10 @@ class QueryCleanup:
             yield query_urn
 
     def _preview_candidates(self) -> None:
-        for query_urn in self._iter_candidate_urns():
-            if self._deletion_limit_reached() or self._times_up():
+        # num_previewed = candidates previewed before this iteration, so it feeds the
+        # deletion-limit check the same way num_queries_soft_deleted does in a real run.
+        for num_previewed, query_urn in enumerate(self._iter_candidate_urns()):
+            if self._deletion_limit_reached(num_previewed) or self._times_up():
                 break
             logger.info(f"Dry run is on, otherwise it would have deleted {query_urn}")
             # Record the candidate so a dry run still previews what would go.
@@ -184,7 +190,10 @@ class QueryCleanup:
         # Soft delete is a plain status write, so hand each to the sink as a workunit
         # and let it batch/async the write (like stale-entity removal).
         for query_urn in self._iter_candidate_urns():
-            if self._deletion_limit_reached() or self._times_up():
+            if (
+                self._deletion_limit_reached(self.report.num_queries_soft_deleted)
+                or self._times_up()
+            ):
                 break
             self.report.report_query_soft_deleted(query_urn.urn())
             yield MetadataChangeProposalWrapper(

@@ -133,8 +133,8 @@ source:
   type: datahub-gc
   config:
     query_cleanup:
-      enabled: false # Opt-in; destructive
-      retention_days: 90 # Age cutoff on lastModifiedAt
+      enabled: true # Enabled by default
+      retention_days: 180 # Age cutoff on lastModifiedAt (~6 months, conservative default)
       batch_size: 500
       limit_entities_delete: 25000
       runtime_limit_seconds: 7200

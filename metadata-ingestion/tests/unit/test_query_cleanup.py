@@ -98,6 +98,20 @@ class TestQueryCleanup:
         # Dry run still previews the candidate urns.
         assert len(self.report.sample_deleted_queries) == 2
 
+    def test_dry_run_respects_deletion_limit(self) -> None:
+        self.cleanup.dry_run = True
+        self.config.limit_entities_delete = 2
+        self.mock_graph.get_urns_by_filter.return_value = [
+            f"urn:li:query:{i}" for i in range(5)
+        ]
+
+        wus = list(self.cleanup.get_workunits())
+
+        assert wus == []
+        self.mock_graph.delete_entity.assert_not_called()
+        assert len(self.report.sample_deleted_queries) == 2
+        assert self.report.qc_deletion_limit_reached
+
     def test_disabled(self) -> None:
         self.config.enabled = False
 
