@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -55,7 +56,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -201,7 +201,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       boolean forUpdate) {
     validateConnection();
 
-    List<EbeanAspectV2.PrimaryKey> keys =
+    Set<EbeanAspectV2.PrimaryKey> keys =
         urnAspects.entrySet().stream()
             .flatMap(
                 entry ->
@@ -210,16 +210,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                             aspect ->
                                 new EbeanAspectV2.PrimaryKey(
                                     entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
-            .sorted(
-                Comparator.comparing(EbeanAspectV2.PrimaryKey::getUrn)
-                    .thenComparing(EbeanAspectV2.PrimaryKey::getAspect)
-                    .thenComparing(EbeanAspectV2.PrimaryKey::getVersion))
-            .collect(Collectors.toList());
+            .collect(Collectors.toSet());
 
     // Use batchGet to chunk large IN clauses and avoid optimizer memory exhaustion
     // (range_optimizer_max_mem_size)
     final List<EbeanAspectV2> results =
-        batchGet(opContext, new HashSet<>(keys), queryKeysCount, forUpdate && canWrite);
+        batchGet(opContext, keys, queryKeysCount, forUpdate && canWrite);
     return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
 
@@ -369,7 +365,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     int position = 0;
 
+    // Sort by primary key so that all transactions acquire row locks in the same order.
+    // Unordered keys under FOR UPDATE cause lock-order deadlocks between concurrent writers
+    // ("Deadlock found when trying to get lock").
     List<EbeanAspectV2.PrimaryKey> keyList = new ArrayList<>(keys);
+    keyList.sort(
+        Comparator.comparing(EbeanAspectV2.PrimaryKey::getUrn)
+            .thenComparing(EbeanAspectV2.PrimaryKey::getAspect)
+            .thenComparing(EbeanAspectV2.PrimaryKey::getVersion));
     final int totalPageCount = QueryUtils.getTotalPageCount(keys.size(), keysCount);
     final List<EbeanAspectV2> finalResult =
         batchGetSelectString(opContext, keyList, keysCount, position, forUpdate);
@@ -412,8 +415,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
   }
 
+  @VisibleForTesting
   @Nonnull
-  private List<EbeanAspectV2> batchGetSelectString(
+  protected List<EbeanAspectV2> batchGetSelectString(
       @Nonnull OperationContext opContext,
       @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
       final int keysCount,
