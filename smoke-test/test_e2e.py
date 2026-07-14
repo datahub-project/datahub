@@ -538,6 +538,7 @@ def test_ingest_with_system_metadata(auth_session, test_run_ingestion):
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
                                     "fullName": "DataHub",
+                                    "system": True,
                                 }
                             }
                         ],
@@ -570,6 +571,7 @@ def test_ingest_with_blank_system_metadata(auth_session):
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
                                     "fullName": "DataHub",
+                                    "system": True,
                                 }
                             }
                         ],
@@ -599,6 +601,7 @@ def test_ingest_without_system_metadata(auth_session):
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
                                     "fullName": "DataHub",
+                                    "system": True,
                                 }
                             }
                         ],

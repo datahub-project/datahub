@@ -1,0 +1,13 @@
+{
+    "graph.empty": "Jelenleg nincsenek statisztikák gyűjtve ehhez az eszközhöz.",
+    "graph.rowCount_one": "{{formattedCount}} sor",
+    "graph.rowCount_other": "{{formattedCount}} sor",
+    "graph.statName": "sorok száma",
+    "graph.title": "Sorok száma",
+    "percentile.high": "Magas",
+    "percentile.low": "Alacsony",
+    "percentile.med": "Közepes",
+    "upstream.directUpstreams": "Közvetlen forrásoldali elemek",
+    "upstream.indirectUpstreams": "Közvetett forrásoldali elemek",
+    "upstream.unhealthy": "Néhány forrásoldali elem nincs jó állapotban"
+}
