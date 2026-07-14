@@ -688,6 +688,114 @@ class TestTeradataSource:
         mock_schema_resolver.close.assert_called_once()
         mock_view_definitions.close.assert_called_once()
 
+    def test_close_view_definitions_failure_still_clears_lru_caches(self):
+        """If the view-definition store's close() raises (deleting its temp
+        SQLite file is the realistic failure), the module-level LRU cache clears
+        must still run — per-connection schema data must not leak into the next
+        recipe run. This is the exact guard split this PR adds.
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+        source._view_definitions.close = MagicMock(  # type: ignore[method-assign]
+            side_effect=RuntimeError("temp file busy")
+        )
+
+        # Populate the LRU caches so we can prove they were cleared despite the
+        # view-definition close() raising above.
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = []
+        get_schema_columns(None, mock_conn, "columnsV", "schema_a")
+        get_schema_pk_constraints(None, mock_conn, "schema_a")
+        get_schema_foreign_keys(None, mock_conn, "schema_a")
+
+        with patch(
+            "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
+        ) as mock_super_close:
+            source.close()
+
+        assert get_schema_columns.cache_info().currsize == 0
+        assert get_schema_pk_constraints.cache_info().currsize == 0
+        assert get_schema_foreign_keys.cache_info().currsize == 0
+        mock_super_close.assert_called_once()
+
+        # Stop the store's close() from raising again when the object is GC'd
+        # (its __del__ calls close()), which would surface a noisy unraisable
+        # warning unrelated to what this test asserts.
+        source._view_definitions.close.side_effect = None  # type: ignore[attr-defined]
+
+    def test_close_pooled_engine_dispose_failure_still_cleans_up(self):
+        """If the pooled engine's dispose() raises (a driver/pool error), the
+        remaining teardown — cache clears, view-definition close, and
+        super().close() — must still run, and the engine handle must be dropped
+        so a failed dispose doesn't leave a stale engine behind.
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+        mock_engine = MagicMock()
+        mock_engine.dispose.side_effect = RuntimeError("pool already closed")
+        source._pooled_engine = mock_engine
+
+        source._tables_cache["db1"] = [
+            TeradataTable(
+                database="db1",
+                name="t1",
+                description=None,
+                object_type="Table",
+                create_timestamp=datetime(2024, 1, 1),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+            )
+        ]
+        mock_view_definitions_close = MagicMock()
+        source._view_definitions.close = mock_view_definitions_close  # type: ignore[method-assign]
+
+        with patch(
+            "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
+        ) as mock_super_close:
+            source.close()
+
+        mock_engine.dispose.assert_called_once()
+        assert source._pooled_engine is None
+        assert len(source._tables_cache) == 0
+        mock_view_definitions_close.assert_called_once()
+        mock_super_close.assert_called_once()
+
+    def test_close_aggregator_failure_still_closes_schema_resolver(self):
+        """If aggregator.close() raises, schema_resolver.close() must still run
+        and the original error must not abort the rest of close().
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+        source.aggregator = MagicMock()
+        source.aggregator.close.side_effect = RuntimeError("aggregator close failed")
+        source.schema_resolver = MagicMock()
+
+        with patch(
+            "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
+        ) as mock_super_close:
+            source.close()
+
+        source.schema_resolver.close.assert_called_once()
+        mock_super_close.assert_called_once()
+
     def test_make_lineage_queries_with_time_defaults(self):
         """Test that _make_lineage_queries works with automatic time defaults."""
         config_dict = {
