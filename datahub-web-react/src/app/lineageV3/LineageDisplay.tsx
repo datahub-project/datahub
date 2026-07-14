@@ -83,12 +83,16 @@ export default function LineageDisplay({
             return [
                 ...oldNodes
                     .filter((n) => newNodeMap.has(n.id))
-                    .map((n) => ({
-                        ...n,
-                        position: (!n.data.dragged && newNodeMap.get(n.id)?.position) || n.position,
-                        data: newNodeMap.get(n.id)?.data ?? n.data,
-                        selectable: newNodeMap.get(n.id)?.selectable ?? n.selectable,
-                    })),
+                    .map((n) => {
+                        const newNode = newNodeMap.get(n.id);
+                        return {
+                            ...n,
+                            position: (!n.data.dragged && newNode?.position) || n.position,
+                            // Preserve dragged data so dragged nodes don't reset position
+                            data: { ...(newNode?.data ?? n.data), dragged: n.data.dragged },
+                            selectable: newNode?.selectable ?? n.selectable,
+                        };
+                    }),
                 ...nodesToAdd.map((n) => ({ ...n, data: { ...n.data, dragged: false } })),
             ].sort((a, b) => getNodePriority(b) - getNodePriority(a));
         });
