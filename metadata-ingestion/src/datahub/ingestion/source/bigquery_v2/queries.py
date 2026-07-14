@@ -33,7 +33,6 @@ order by
   s.schema_name
 """
 
-    # https://cloud.google.com/bigquery/docs/information-schema-table-storage?hl=en
     # Sources row_count / size / last_altered from the legacy __TABLES__ construct.
     tables_for_dataset_with_legacy_stats = f"""
 SELECT

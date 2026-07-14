@@ -1090,7 +1090,7 @@ def test_get_views_for_dataset(
     views = bigquery_data_dictionary.get_views_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
-        use_legacy_stats=False,
+        use_legacy_table_stats=False,
         report=BigQueryV2Report(),
     )
     assert list(views) == [bigquery_view_1, bigquery_view_2]
@@ -1194,7 +1194,7 @@ def test_get_snapshots_for_dataset(
     snapshots = bigquery_data_dictionary.get_snapshots_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
-        use_legacy_stats=False,
+        use_legacy_table_stats=False,
         report=BigQueryV2Report(),
     )
     assert list(snapshots) == [bigquery_snapshot]
@@ -1252,17 +1252,17 @@ def test_get_tables_for_dataset_query_selection(
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 @pytest.mark.parametrize("entity", ["views", "snapshots"])
-@pytest.mark.parametrize("use_legacy_stats", [False, True])
+@pytest.mark.parametrize("use_legacy_table_stats", [False, True])
 def test_get_views_and_snapshots_legacy_tables_selection(
     get_projects_client: MagicMock,
     get_bq_client_mock: Mock,
     query_mock: Mock,
     entity: str,
-    use_legacy_stats: bool,
+    use_legacy_table_stats: bool,
 ) -> None:
     # Views/snapshots have no PARTITIONS-based query; the legacy __TABLES__ join is
     # used only when use_legacy_table_stats=True and never otherwise.
-    # use_legacy_stats is the sole switch here.
+    # use_legacy_table_stats is the sole switch here.
     query_mock.return_value = []
     schema_api = BigQuerySchemaApi(
         report=BigQueryV2Report().schema_api_perf,
@@ -1279,13 +1279,13 @@ def test_get_views_and_snapshots_legacy_tables_selection(
         fetch(
             project_id="test-project",
             dataset_name="test-dataset",
-            use_legacy_stats=use_legacy_stats,
+            use_legacy_table_stats=use_legacy_table_stats,
             report=BigQueryV2Report(),
         )
     )
 
     executed_query = query_mock.call_args[0][0]
-    assert ("__TABLES__" in executed_query) is use_legacy_stats
+    assert ("__TABLES__" in executed_query) is use_legacy_table_stats
 
 
 def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() -> None:
@@ -1295,6 +1295,10 @@ def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() 
     assert "p.total_rows as row_count" in query
     assert "p.total_logical_bytes as bytes" in query
     assert "p.last_modified_time as last_altered" in query
+    # last_modified_time must stay wrapped in UNIX_MILLIS: PARTITIONS returns a
+    # TIMESTAMP, but the mapper expects epoch millis. Dropping the wrap would
+    # silently feed wrong timestamps rather than raise.
+    assert "UNIX_MILLIS(max(last_modified_time)) as last_modified_time" in query
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")

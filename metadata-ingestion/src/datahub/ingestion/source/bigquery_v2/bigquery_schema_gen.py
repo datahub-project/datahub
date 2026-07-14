@@ -702,7 +702,7 @@ class BigQuerySchemaGenerator:
                     ),
                 )
 
-        # Views/snapshots get last_altered/row/size only from the deprecated __TABLES__
+        # Views/snapshots get last_altered/row/size only from the undocumented __TABLES__
         # (PARTITIONS does not cover them), so gate that solely on the legacy opt-in.
         fetch_legacy_table_stats = self.config.use_legacy_table_stats
 
