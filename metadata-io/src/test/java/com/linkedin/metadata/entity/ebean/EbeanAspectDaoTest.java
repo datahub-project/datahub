@@ -7,8 +7,11 @@ import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -38,11 +41,13 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.test.LoggedSql;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -221,42 +226,65 @@ public class EbeanAspectDaoTest {
 
   @Test
   public void testGetLatestAspectsPassesSortedKeysToQuery() {
-    // Regression test for a deadlock introduced in #17206: keys were routed through a HashSet
-    // before the FOR UPDATE query, dropping their sort order. Concurrent writers with overlapping
-    // key sets then acquired row locks in inconsistent orders, producing
-    // "Deadlock found when trying to get lock". batchGet must hand the query builder keys in
-    // (urn, aspect, version) order regardless of the caller's input iteration order.
-    EbeanAspectDao spyDao = org.mockito.Mockito.spy(testDao);
-    // Stub the query builder so no real DB round-trip happens; we only assert on the keys it
-    // receives. HashMap/Set.of iteration order is not sorted, so only the sort inside batchGet can
-    // produce the asserted order.
-    // Return a mutable list: batchGet may addAll into the first page's result during pagination.
-    org.mockito.Mockito.doReturn(new java.util.ArrayList<EbeanAspectV2>())
-        .when(spyDao)
-        .batchGetSelectString(
-            any(), org.mockito.ArgumentMatchers.anyList(), anyInt(), anyInt(), anyBoolean());
-
+    // Regression guard (#17206): batchGet must deliver keys in (urn, aspect, version) order
+    // regardless of input order, so concurrent FOR UPDATE writers avoid lock-order deadlocks.
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put("urn:li:corpuser:c", Set.of(STATUS_ASPECT_NAME));
     urnAspects.put("urn:li:corpuser:a", Set.of(STATUS_ASPECT_NAME, "ownership"));
     urnAspects.put("urn:li:corpuser:b", Set.of(STATUS_ASPECT_NAME));
 
-    spyDao.getLatestAspects(opContext, urnAspects, true);
+    List<String> actual =
+        captureKeysHandedToQuery(dao -> dao.getLatestAspects(opContext, urnAspects, true));
 
-    @SuppressWarnings("unchecked")
-    ArgumentCaptor<List<EbeanAspectV2.PrimaryKey>> captor = ArgumentCaptor.forClass(List.class);
-    verify(spyDao).batchGetSelectString(any(), captor.capture(), anyInt(), anyInt(), anyBoolean());
-
-    // Compare on (urn, aspect, version) tuples: PrimaryKey.equals ignores version, so it cannot
-    // detect a wrong version tie-break on its own.
-    List<String> actual = captor.getValue().stream().map(EbeanAspectDaoTest::keyTuple).toList();
-    List<String> expected =
+    assertEquals(
+        actual,
         List.of(
             "urn:li:corpuser:a|ownership|0",
             "urn:li:corpuser:a|status|0",
             "urn:li:corpuser:b|status|0",
-            "urn:li:corpuser:c|status|0");
-    assertEquals(actual, expected);
+            "urn:li:corpuser:c|status|0"));
+  }
+
+  @Test
+  public void testBatchGetPassesSortedKeysToQuery() {
+    // The public batchGet(Set, forUpdate) path takes an unordered Set and must also lock in sorted
+    // order (it was never sorted, even before #17206).
+    Set<EntityAspectIdentifier> ids =
+        Set.of(
+            new EntityAspectIdentifier(
+                "urn:li:corpuser:c", STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION),
+            new EntityAspectIdentifier(
+                "urn:li:corpuser:a", STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION),
+            new EntityAspectIdentifier(
+                "urn:li:corpuser:b", STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION));
+
+    List<String> actual = captureKeysHandedToQuery(dao -> dao.batchGet(opContext, ids, true));
+
+    assertEquals(
+        actual,
+        List.of(
+            "urn:li:corpuser:a|status|0",
+            "urn:li:corpuser:b|status|0",
+            "urn:li:corpuser:c|status|0"));
+  }
+
+  /**
+   * Spies the DAO, stubs the query builder so no real DB round-trip happens, runs the given locking
+   * read, and returns the (urn, aspect, version) tuples in the order they reached the query
+   * builder.
+   */
+  private List<String> captureKeysHandedToQuery(Consumer<EbeanAspectDao> lockingRead) {
+    EbeanAspectDao spyDao = spy(testDao);
+    // Mutable list: batchGet may addAll into the first page's result during pagination.
+    doReturn(new ArrayList<EbeanAspectV2>())
+        .when(spyDao)
+        .batchGetSelectString(any(), anyList(), anyInt(), anyInt(), anyBoolean());
+
+    lockingRead.accept(spyDao);
+
+    ArgumentCaptor<List<EbeanAspectV2.PrimaryKey>> captor = ArgumentCaptor.captor();
+    verify(spyDao).batchGetSelectString(any(), captor.capture(), anyInt(), anyInt(), anyBoolean());
+    return captor.getValue().stream().map(EbeanAspectDaoTest::keyTuple).toList();
   }
 
   private static String keyTuple(EbeanAspectV2.PrimaryKey key) {
