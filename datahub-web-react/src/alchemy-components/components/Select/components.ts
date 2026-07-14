@@ -112,10 +112,11 @@ export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ig
     // Force a persistent scrollbar so overflowing options (e.g. the language list)
     // are discoverable; WebKit overlay scrollbars otherwise auto-hide on macOS.
     '&::-webkit-scrollbar': {
-        width: '8px',
+        width: '6px',
+        background: theme?.colors?.scrollbarTrack,
     },
     '&::-webkit-scrollbar-thumb': {
-        background: theme?.colors?.border,
+        background: theme?.colors?.scrollbarThumb,
         borderRadius: radius.lg,
     },
 }));
