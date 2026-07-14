@@ -109,6 +109,15 @@ export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ig
     overflow: 'auto',
     width: '100%',
     maxHeight: ignoreMaxHeight ? undefined : '360px',
+    // Force a persistent scrollbar so overflowing options (e.g. the language list)
+    // are discoverable; WebKit overlay scrollbars otherwise auto-hide on macOS.
+    '&::-webkit-scrollbar': {
+        width: '8px',
+    },
+    '&::-webkit-scrollbar-thumb': {
+        background: theme?.colors?.border,
+        borderRadius: radius.lg,
+    },
 }));
 
 // Styled components for SelectValue (Selected value display)
