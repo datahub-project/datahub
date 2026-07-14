@@ -34,6 +34,10 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
     RegularAPIResolver,
 )
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedDict,
+)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -91,7 +95,18 @@ class PowerBiAPI:
         # We need to store the dataset ID (which is a UUID) mapped to its dataset instance.
         # This mapping will allow us to retrieve the appropriate dataset for
         # reports and tiles across different workspaces.
-        self.dataset_registry: Dict[str, PowerBIDataset] = {}
+        #
+        # It spans every scanned workspace, so on large tenants it can hold tens
+        # of thousands of datasets. It is file-backed so the bulk spills to disk
+        # rather than staying resident, which previously caused OOMs.
+        self._file_backed_conn = ConnectionWrapper()
+        self.dataset_registry: FileBackedDict[PowerBIDataset] = FileBackedDict(
+            shared_connection=self._file_backed_conn,
+            tablename="dataset_registry",
+        )
+
+    def close(self) -> None:
+        self._file_backed_conn.close()
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)
@@ -487,8 +502,10 @@ class PowerBiAPI:
 
         # Scan is complete lets take the result
         scan_result = self.__admin_api_resolver.get_scan_result(scan_id=scan_id)
-        pretty_json: str = json.dumps(scan_result, indent=1)
-        logger.debug(f"scan result = {pretty_json}")
+        # Guard the dump: json.dumps on a large scan result builds a huge string
+        # (hundreds of MB) that is pure waste when debug logging is off.
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("scan result = %s", json.dumps(scan_result, indent=1))
 
         return scan_result
 

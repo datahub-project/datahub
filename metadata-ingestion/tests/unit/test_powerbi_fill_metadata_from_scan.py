@@ -22,7 +22,10 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    FIELD_TYPE_MAPPING,
+    Column,
     PowerBIDataset,
+    Table,
     Tile,
     Workspace,
     new_powerbi_dashboards,
@@ -32,6 +35,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     new_powerbi_user,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 
 def _mock_msal_cca(*args, **kwargs):
@@ -339,6 +343,53 @@ def test_fill_metadata_dataset_registry_accumulates_across_batches():
         "invariant that lets Phase 2 resolve cross-workspace dataset refs; "
         f"got {registry_after_batch2}"
     )
+
+
+def test_dataset_registry_survives_eviction_round_trip():
+    """PowerBIDataset (nested avro Table/Column plus the circular Table.dataset
+    back-reference) must survive the pickle->SQLite->unpickle cycle the OOM fix
+    depends on. cache_max_size=1 forces eviction so the disk path is exercised."""
+    registry: FileBackedDict[PowerBIDataset] = FileBackedDict(cache_max_size=1)
+    try:
+        for i in range(3):
+            dataset = PowerBIDataset(
+                id=f"ds-{i}",
+                name=f"n{i}",
+                description="",
+                webUrl=None,
+                workspace_id="w",
+                workspace_name="wn",
+                parameters={},
+                tables=[],
+                tags=[],
+            )
+            table = Table(
+                name="t",
+                full_name="n.t",
+                columns=[
+                    Column(
+                        name="c",
+                        dataType="Int64",
+                        isHidden=False,
+                        datahubDataType=FIELD_TYPE_MAPPING["Int64"],
+                    )
+                ],
+                measures=[],
+                dataset=dataset,  # circular ref back to the parent dataset
+            )
+            dataset.tables.append(table)
+            registry[dataset.id] = dataset
+
+        restored = registry["ds-0"]
+        assert restored.id == "ds-0"
+        columns = restored.tables[0].columns
+        assert columns is not None
+        assert columns[0].datahubDataType.__class__.__name__ == "NumberTypeClass"
+        # The circular reference must survive as an identity, not a copy.
+        assert restored.tables[0].dataset is restored
+        assert set(registry.keys()) == {"ds-0", "ds-1", "ds-2"}
+    finally:
+        registry.close()
 
 
 def test_fill_metadata_handles_active_scan_entry_without_id():
