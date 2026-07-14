@@ -34,6 +34,11 @@ logger = logging.getLogger(__name__)
 
 PUBLIC_SCHEMA = "PUBLIC"
 
+# Recycle pooled connections well within Snowflake's default idle session
+# timeout (4 hours) so a connection is never handed out after the server
+# has already dropped it.
+_POOL_RECYCLE_SECONDS = 3600
+
 
 class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     def __init__(
@@ -56,6 +61,13 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             self.config.options.setdefault(
                 "max_overflow", self.config.profiling.max_workers
             )
+            # pool_pre_ping validates a pooled connection is still alive before handing
+            # it out for reuse, and pool_recycle retires connections older than the
+            # interval below. Both guard against dropped/idle connections being reused --
+            # a different failure mode than the connect-time JWT rejection that
+            # get_native_connection()'s retry handles.
+            self.config.options.setdefault("pool_pre_ping", True)
+            self.config.options.setdefault("pool_recycle", _POOL_RECYCLE_SECONDS)
 
         if PUBLIC_SCHEMA not in db_tables:
             # If PUBLIC schema is absent, we use any one of schemas as default schema

@@ -54,6 +54,14 @@ logger = logging.getLogger(__name__)
 
 _APPLICATION_NAME: str = "acryl_datahub"
 
+# Retry connection establishment on transient handshake failures (e.g. network
+# blips or a rejected JWT under key-pair auth caused by clock skew) -- a fresh
+# connect attempt regenerates the JWT, so retrying can succeed where the first
+# attempt failed. Distinct from the ACCOUNT_USAGE query retry below.
+_CONNECTION_RETRY_MAX_ATTEMPTS = 3
+_CONNECTION_RETRY_MIN_WAIT_SEC = 1
+_CONNECTION_RETRY_MAX_WAIT_SEC = 10
+
 _VALID_AUTH_TYPES: Dict[str, str] = {
     "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
     "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
@@ -376,6 +384,38 @@ class SnowflakeConnectionConfig(ConfigModel):
         )
 
     def get_native_connection(self) -> NativeSnowflakeConnection:
+        """
+        Establish a native Snowflake connection, retrying on transient connect
+        failures (250001 / SQLSTATE 08001). This covers both the main ingestion
+        path and the profiler, which calls this method directly as its SQLAlchemy
+        pool `creator` whenever the pool needs a new connection.
+
+        The retry wraps the full authenticator dispatch, so it applies uniformly
+        regardless of `authentication_type` -- this is intentional, since a 250001
+        can occur under any authenticator. Two side effects of that choice are
+        accepted as a bounded cost (at most 3 attempts):
+        - EXTERNAL_BROWSER_AUTHENTICATOR: a retry re-opens the SSO browser prompt.
+        - OAUTH_AUTHENTICATOR: a retry re-runs the token exchange against the IdP.
+          IdP-side failures raise their own exception types (not a 250001), so
+          those are not retried.
+        """
+        retryer = Retrying(
+            retry=retry_if_exception(_is_retryable_connection_error),
+            stop=stop_after_attempt(_CONNECTION_RETRY_MAX_ATTEMPTS),
+            wait=wait_exponential(
+                multiplier=1,
+                min=_CONNECTION_RETRY_MIN_WAIT_SEC,
+                max=_CONNECTION_RETRY_MAX_WAIT_SEC,
+            ),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
+        for attempt in retryer:
+            with attempt:
+                return self._create_native_connection()
+        raise AssertionError("unreachable")  # satisfies mypy return-type checking
+
+    def _create_native_connection(self) -> NativeSnowflakeConnection:
         connect_args = self.get_options()["connect_args"]
         if self.authentication_type == "DEFAULT_AUTHENTICATOR":
             return snowflake.connector.connect(
@@ -543,3 +583,38 @@ def _is_retryable_account_usage_error(e: BaseException, query: str) -> bool:
     ) and "002003" in msg
 
     return is_account_usage_query and is_permission_error
+
+
+def _is_retryable_connection_error(e: BaseException) -> bool:
+    """
+    Check if a Snowflake connect-time error is a transient connection-establishment
+    failure that is worth retrying.
+
+    SQLSTATE 08001 (connection was not established) indicates the connector failed to
+    complete the connection handshake. This can be a genuine network blip, or -- under
+    key-pair authentication -- a rejected JWT caused by clock skew between the client and
+    Snowflake at the moment the JWT was generated. Since the connector generates a fresh,
+    short-lived JWT on every connect attempt, retrying can succeed even though the first
+    attempt failed.
+
+    sqlstate, not errno, is the primary signal: errno 250001 (ER_FAILED_TO_CONNECT_TO_DB)
+    is a generic "failed to connect" code that the connector also raises for deterministic,
+    non-transient auth rejections under a *different* sqlstate -- e.g. an Okta-unauthorized
+    response carries errno=250001 but sqlstate="08004" (connection rejected). Matching on
+    errno alone would retry those needlessly. errno is only consulted as a fallback when
+    sqlstate isn't available at all.
+
+    This is still a broad match within the 08001 class, not a precise transient/persistent
+    classifier: a misconfigured account_id, a permanently invalid key pair, or a TLS/proxy
+    issue can also surface as 08001 and will be retried too. That's an accepted trade-off --
+    with only 3 attempts, the wasted retries on a persistent misconfiguration cost a few
+    seconds before the real error surfaces.
+    """
+    errno = getattr(e, "errno", None)
+    sqlstate = getattr(e, "sqlstate", None)
+    if sqlstate is not None:
+        return sqlstate == "08001"
+    if errno == 250001:
+        return True
+    msg = str(e)
+    return "250001" in msg and "Failed to connect" in msg
