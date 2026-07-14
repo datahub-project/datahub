@@ -291,7 +291,8 @@ export function createDefaultDocumentInput(options?: {
     showInGlobalContext?: boolean;
 }) {
     return {
-        title: options?.title || i18next.t('entity.types:document.newDocumentTitle'),
+        /* untranslated-text -- persisted document-title data default, not UI chrome */
+        title: options?.title || 'New Document',
         parentDocument: options?.parentUrn || undefined,
         relatedAssets: options?.relatedAssetUrns || undefined,
         contents: { text: '' },

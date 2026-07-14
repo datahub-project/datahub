@@ -355,7 +355,8 @@ export default function ContextSidebar({
                 expandAncestors(parentDocumentUrn || null);
 
                 const newUrn = await createDocument({
-                    title: tet('document.newDocumentTitle'),
+                    /* untranslated-text -- default new-document title persisted as backend data, not UI chrome */
+                    title: 'New Document',
                     parentDocument: parentDocumentUrn || null,
                 });
 
@@ -367,7 +368,7 @@ export default function ContextSidebar({
                 setCreating(false);
             }
         },
-        [canCreateDocuments, createDocument, entityRegistry, expandAncestors, history, tet],
+        [canCreateDocuments, createDocument, entityRegistry, expandAncestors, history],
     );
 
     const handleDocumentClick = useCallback(
