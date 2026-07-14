@@ -3,7 +3,9 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
+import requests
 from google.api_core.exceptions import GoogleAPICallError
+from google.cloud import bigquery
 from sqlalchemy import create_engine, inspect
 from typing_extensions import TypeGuard
 
@@ -49,6 +51,20 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 logger = logging.getLogger(__name__)
+
+
+def _widen_client_connection_pool(client: bigquery.Client, size: int) -> None:
+    # The BigQuery client shares one urllib3 pool (default pool_maxsize=10) across
+    # every profiling thread. When profiling.max_workers exceeds 10, urllib3
+    # discards the surplus connections after each request — forcing fresh TLS
+    # handshakes and spamming "Connection pool is full" warnings. Size the pool to
+    # the worker count so connections are reused instead.
+    session = getattr(client, "_http", None)
+    if session is None or not hasattr(session, "mount"):
+        return
+    adapter = requests.adapters.HTTPAdapter(pool_connections=size, pool_maxsize=size)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
 
 
 class BigqueryProfiler(GenericProfiler):
@@ -110,7 +126,11 @@ class BigqueryProfiler(GenericProfiler):
             # than leaking the key via GOOGLE_APPLICATION_CREDENTIALS.
             separator = "&" if "?" in url else "?"
             url = f"{url}{separator}user_supplied_client=true"
-            connect_args["client"] = self.config.get_bigquery_client()
+            client = self.config.get_bigquery_client()
+            _widen_client_connection_pool(
+                client, max(self.config.profiling.max_workers, 10)
+            )
+            connect_args["client"] = client
         logger.debug(f"sql_alchemy_url={url}")
 
         engine = create_engine(url, connect_args=connect_args, **self.config.options)

@@ -1,9 +1,10 @@
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, List, Optional
+from typing import Any, List, Optional, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+import requests
 import time_machine
 from google.cloud import bigquery
 
@@ -24,7 +25,10 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discover
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
     FilterBuilder,
 )
-from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import (
+    BigqueryProfiler,
+    _widen_client_connection_pool,
+)
 from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     build_safe_table_reference,
@@ -2732,6 +2736,22 @@ def test_profiler_engine_falls_back_to_adc_when_no_credential(mock_create_engine
     url = args[0]
     assert "user_supplied_client" not in url
     assert kwargs["connect_args"] == {}
+
+
+def test_widen_client_connection_pool_sizes_adapter():
+    session = requests.Session()
+    client = cast(bigquery.Client, SimpleNamespace(_http=session))
+
+    _widen_client_connection_pool(client, 40)
+
+    adapter = session.get_adapter("https://bigquery.googleapis.com")
+    assert adapter.__dict__["_pool_maxsize"] == 40
+
+
+def test_widen_client_connection_pool_ignores_client_without_http():
+    _widen_client_connection_pool(
+        cast(bigquery.Client, SimpleNamespace(_http=None)), 40
+    )
 
 
 if __name__ == "__main__":
