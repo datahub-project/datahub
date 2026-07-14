@@ -469,11 +469,13 @@ jobs:
           restore-keys: |
             gradle-backend-build-cache-
       - name: Build + non-test checks once (assemble, spotless, etc.)
-        # Mirrors build-except-metadata-ingestion's `build` MINUS running tests, so the sharded
-        # path still runs assemble / spotless / other verification exactly once, and warms the
-        # build cache the shards restore. `testClasses` is requested explicitly: `-x test` would
-        # otherwise skip test compilation (it's only a dependency of the excluded `test` task),
-        # forcing every shard to recompile its tests. Excludes match the old job.
+        # build-except-metadata-ingestion's `build` MINUS running tests: assemble + spotless +
+        # non-test checks + main compile, once, warming the cache the shards restore. `testClasses`
+        # also warms the BACKEND test compile so shards don't recompile it.
+        # The :datahub-web-react generator excludes are a PERF choice — no need to run frontend yarn
+        # codegen (node download + generate) inside a backend seed; the frontend jobs own that.
+        # (Correctness of graphqlUsageRegistryCheck vs those generators is handled by a mustRunAfter
+        # in metadata-service/configuration/build.gradle, so these excludes aren't load-bearing.)
         run: |
           ./gradlew build testClasses -x test --build-cache --max-workers="$(nproc)" \
             -x :metadata-ingestion:build \
@@ -489,6 +491,9 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
+            -x :datahub-web-react:yarnGenerate \
+            -x :datahub-web-react:yarnGenerateCacheable \
+            -x :datahub-web-react:generateLazyIconStubs \
             -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -677,6 +682,9 @@ jobs:
             -x :docs-website:build \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
+            -x :datahub-web-react:yarnGenerate \
+            -x :datahub-web-react:yarnGenerateCacheable \
+            -x :datahub-web-react:generateLazyIconStubs \
             -x :docker:build
           {
             echo "BACKEND_FILES=$(find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade|jacoco-merged)' | xargs | tr ' ' ',')"

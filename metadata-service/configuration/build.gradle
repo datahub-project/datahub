@@ -54,6 +54,12 @@ tasks.register('graphqlUsageRegistryCheck', Test) {
     classpath = sourceSets.test.runtimeClasspath
     include '**/cigate/GraphqlUsageRegistryCiGateTest.class'
     inputs.files graphqlUsageInputs
+    // graphqlUsageInputs reads datahub-web-react/src, which is the declared output dir of the
+    // web-react generator tasks (yarnGenerate is a Copy into src/). Order after them so that,
+    // when they happen to be in the same task graph (e.g. a build that also runs testClasses),
+    // Gradle's implicit-dependency validation is satisfied. mustRunAfter (not dependsOn) so this
+    // never forces frontend codegen to run for a backend-only build.
+    mustRunAfter(':datahub-web-react:yarnGenerate', ':datahub-web-react:generateLazyIconStubs')
     outputs.file("${layout.buildDirectory.get()}/graphql-usage-registry-check.stamp")
     systemProperty 'graphql.usage.check.force', project.findProperty('graphqlUsageCheckForce') ?: 'false'
     systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath
