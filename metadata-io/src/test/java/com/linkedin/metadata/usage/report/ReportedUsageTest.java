@@ -5,10 +5,10 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.usage.loader.UsageMetricRegistryLoader;
 import com.linkedin.metadata.config.usage.loader.UsageOperationsLoader;
 import com.linkedin.metadata.usage.UsageDimensions;
+import com.linkedin.metadata.usage.UsageTestFixtures;
 import com.linkedin.metadata.usage.flush.AdditiveUsageRow;
 import com.linkedin.metadata.usage.flush.FlushTrigger;
 import com.linkedin.metadata.usage.flush.RecordingUsageFlushSink;
@@ -43,9 +43,9 @@ public class ReportedUsageTest {
                 UsageDimensions.USAGE_OPERATION,
                 "mcp_query",
                 ReportedUsage.PROP_ACTOR_URN,
-                Constants.METATDATA_TEST_ACTOR,
+                UsageTestFixtures.REGULAR_CORP_USER_URN,
                 ReportedUsage.PROP_USAGE_IDENTITY,
-                Constants.METATDATA_TEST_ACTOR,
+                UsageTestFixtures.REGULAR_CORP_USER_URN,
                 ReportedUsage.PROP_USER_AGENT,
                 "python-requests/2.31.0",
                 UsageDimensions.AUTH_CHANNEL,
@@ -60,7 +60,7 @@ public class ReportedUsageTest {
                 "datahub"));
     Assert.assertTrue(recorded);
 
-    store.recordRequest(httpSession(Constants.METATDATA_TEST_ACTOR, "metadata_ingest"));
+    store.recordRequest(httpSession(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_ingest"));
     store.flush(FlushTrigger.SCHEDULED);
 
     var batch = recordingSink.batches().get(0);

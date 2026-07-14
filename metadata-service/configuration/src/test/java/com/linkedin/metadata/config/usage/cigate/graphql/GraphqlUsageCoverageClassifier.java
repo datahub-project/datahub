@@ -1,9 +1,6 @@
 package com.linkedin.metadata.config.usage.cigate.graphql;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.metadata.config.usage.UsageYamlMapper;
 import com.linkedin.metadata.config.usage.loader.UsageOperationsLoader;
-import com.linkedin.metadata.config.usage.overlay.UsageConfigurationOverlay;
 import com.linkedin.metadata.usage.registry.graphql.GraphqlUsageClassificationRegistryBuilder;
 import io.datahubproject.metadata.context.graphql.GraphQLOperationKind;
 import io.datahubproject.metadata.context.graphql.GraphqlPatternRule;
@@ -19,42 +16,18 @@ import javax.annotation.Nullable;
 
 public final class GraphqlUsageCoverageClassifier {
 
-  private static final String OPTIONAL_OVERLAY_LOADER =
-      "com.linkedin.metadata.config.billing.BillingUsageOverridesLoader";
-
   private final GraphqlUsageClassificationRegistry registry;
 
   GraphqlUsageCoverageClassifier(@Nonnull GraphqlUsageClassificationRegistry registry) {
     this.registry = registry;
   }
 
-  /**
-   * Builds a classifier from OSS {@code usage_operations.yaml} merged with an optional classpath
-   * overlay when present (empty overlay otherwise).
-   */
+  /** Builds a classifier from OSS {@code usage_operations.yaml}. */
   @Nonnull
   public static GraphqlUsageCoverageClassifier fromBundledYaml(
       @Nonnull UsageOperationsLoader loader) {
-    var usageManifest = loader.loadBundled();
     return new GraphqlUsageCoverageClassifier(
-        GraphqlUsageClassificationRegistryBuilder.fromManifest(
-            usageManifest, loadOptionalOverlay(UsageYamlMapper.create())));
-  }
-
-  @Nonnull
-  private static UsageConfigurationOverlay loadOptionalOverlay(@Nonnull ObjectMapper yamlMapper) {
-    try {
-      // Reflect so this OSS test helper does not hard-depend on the commercial overlay loader.
-      Class<?> loaderClass = Class.forName(OPTIONAL_OVERLAY_LOADER);
-      Object loaderInstance =
-          loaderClass.getConstructor(ObjectMapper.class).newInstance(yamlMapper);
-      Object manifest = loaderClass.getMethod("loadBundled").invoke(loaderInstance);
-      return (UsageConfigurationOverlay) manifest;
-    } catch (ClassNotFoundException e) {
-      return UsageConfigurationOverlay.empty();
-    } catch (ReflectiveOperationException e) {
-      throw new IllegalStateException("Failed to load optional usage configuration overlay", e);
-    }
+        GraphqlUsageClassificationRegistryBuilder.fromManifest(loader.loadBundled()));
   }
 
   @Nonnull

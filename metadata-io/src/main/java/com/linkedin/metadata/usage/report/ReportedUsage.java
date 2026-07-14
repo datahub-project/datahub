@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>Taxonomy and API allowlisting are enforced via {@code usage_operations.yaml} when the store
  * resolves the operation. Which metrics increment is controlled by {@code emit_when: reported} in
- * the metric registry — not by billing event-type allowlists.
+ * the metric registry.
  *
  * <p>This is metering, not access control: builds an attributed {@link RequestContext} and records
  * via {@link UsageAggregationStore#recordReportedUsage}. Reports are never rejected because an

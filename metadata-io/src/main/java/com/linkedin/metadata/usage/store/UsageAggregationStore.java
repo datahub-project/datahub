@@ -28,10 +28,11 @@ public interface UsageAggregationStore {
    *
    * <p>Pass the system {@link OperationContext} for actor-class aspect reads and an attributed
    * {@link RequestContext} built by the reporter. Does not invoke {@code SessionContextEnricher} /
-   * request-path {@code api_calls}. Increments only metrics with {@code emit_when: reported}.
-   * Default no-op when a deployment does not implement the hook.
+   * request-path {@code api_calls}. Increments additive metrics with {@code emit_when: reported}
+   * and applies the same distinct-metric allowlists as {@link #recordRequest}. Default no-op when a
+   * deployment does not implement the hook.
    *
-   * @return true when at least one report-driven metric was recorded
+   * @return true when at least one metric bucket was updated
    */
   default boolean recordReportedUsage(
       @Nonnull OperationContext systemOperationContext,
