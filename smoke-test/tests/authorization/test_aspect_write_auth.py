@@ -42,7 +42,7 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.global_policy_mutator]
 
 _UNIQUE = uuid.uuid4().hex[:8]
 TEST_USER_EMAIL = f"aspect.auth.test.{_UNIQUE}@smoke.datahub.test"
@@ -141,8 +141,15 @@ def _schema_metadata_with_field(field_path: str = "col1") -> SchemaMetadataClass
     )
 
 
+ASPECT_WRITE_POLICY_PREFIXES = ["Test EDIT_ENTITY", "Test MANAGE_DATA_PRODUCTS"]
+
+
 @pytest.fixture(scope="module", autouse=True)
 def auth_test_setup(graph_client, auth_session):
+    yield from _auth_test_setup_impl(graph_client, auth_session)
+
+
+def _auth_test_setup_impl(graph_client, auth_session):
     global DATA_PRODUCT_URN
     graph_client.emit_mcp(
         MetadataChangeProposalWrapper(
@@ -260,7 +267,7 @@ def auth_test_setup(graph_client, auth_session):
     wait_for_writes_to_sync()
 
     admin_session = get_frontend_session()
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefixes=ASPECT_WRITE_POLICY_PREFIXES)
     set_base_platform_privileges_policy_status("INACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("INACTIVE", admin_session)
@@ -270,7 +277,7 @@ def auth_test_setup(graph_client, auth_session):
     yield
 
     remove_user(admin_session, TEST_USER_URN)
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefixes=ASPECT_WRITE_POLICY_PREFIXES)
     set_base_platform_privileges_policy_status("ACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("ACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("ACTIVE", admin_session)
@@ -328,10 +335,39 @@ def _wait_until_data_product_rename_denied() -> None:
     )
 
 
+def _schema_field_logical_parent_payload() -> dict:
+    return {
+        "query": SET_LOGICAL_PARENT_MUTATION,
+        "variables": {
+            "input": {
+                "resourceUrn": PHYSICAL_SCHEMA_FIELD_URN,
+                "parentUrn": LOGICAL_SCHEMA_FIELD_URN,
+            }
+        },
+    }
+
+
+def _wait_until_schema_field_logical_parent_denied() -> None:
+    wait_until_graphql_auth_denied(
+        lambda: _post_graphql_as_user(
+            TEST_USER_EMAIL,
+            TEST_USER_PASSWORD,
+            _schema_field_logical_parent_payload(),
+        ),
+        description="schema field setLogicalParent denial for test user",
+    )
+
+
 def _prepare_denied_data_product_rename_tests(admin_session) -> None:
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefixes=ASPECT_WRITE_POLICY_PREFIXES)
     wait_for_writes_to_sync()
     _wait_until_data_product_rename_denied()
+
+
+def _prepare_schema_field_denied_tests(admin_session) -> None:
+    clear_polices(admin_session, name_prefixes=ASPECT_WRITE_POLICY_PREFIXES)
+    wait_for_writes_to_sync()
+    _wait_until_schema_field_logical_parent_denied()
 
 
 def test_set_logical_parent_denied_without_edit_entity_on_target():
@@ -412,11 +448,13 @@ def test_set_logical_parent_allowed_with_edit_entity_on_target_and_parent(auth_s
 
     remove_policy(target_policy_urn, admin_session)
     remove_policy(parent_policy_urn, admin_session)
+    wait_for_writes_to_sync()
 
 
 def test_set_logical_parent_schema_field_denied_without_edit_entity_on_logical_dataset():
     """Schema field logicalParent denied when only the physical dataset is authorized."""
     admin_session = get_frontend_session()
+    _prepare_schema_field_denied_tests(admin_session)
     policy_urn = create_metadata_policy(
         admin_session,
         name=f"Test EDIT_ENTITY physical dataset only {_UNIQUE}",
@@ -427,16 +465,11 @@ def test_set_logical_parent_schema_field_denied_without_edit_entity_on_logical_d
     )
     wait_for_writes_to_sync()
 
-    payload = {
-        "query": SET_LOGICAL_PARENT_MUTATION,
-        "variables": {
-            "input": {
-                "resourceUrn": PHYSICAL_SCHEMA_FIELD_URN,
-                "parentUrn": LOGICAL_SCHEMA_FIELD_URN,
-            }
-        },
-    }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = _post_graphql_as_user(
+        TEST_USER_EMAIL,
+        TEST_USER_PASSWORD,
+        _schema_field_logical_parent_payload(),
+    )
     _assert_graphql_auth_denied(res)
 
     remove_policy(policy_urn, admin_session)
@@ -445,6 +478,7 @@ def test_set_logical_parent_schema_field_denied_without_edit_entity_on_logical_d
 def test_set_logical_parent_schema_field_denied_without_edit_entity_on_physical_dataset():
     """Schema field logicalParent denied when only the logical dataset is authorized."""
     admin_session = get_frontend_session()
+    _prepare_schema_field_denied_tests(admin_session)
     policy_urn = create_metadata_policy(
         admin_session,
         name=f"Test EDIT_ENTITY logical dataset only {_UNIQUE}",
@@ -455,16 +489,11 @@ def test_set_logical_parent_schema_field_denied_without_edit_entity_on_physical_
     )
     wait_for_writes_to_sync()
 
-    payload = {
-        "query": SET_LOGICAL_PARENT_MUTATION,
-        "variables": {
-            "input": {
-                "resourceUrn": PHYSICAL_SCHEMA_FIELD_URN,
-                "parentUrn": LOGICAL_SCHEMA_FIELD_URN,
-            }
-        },
-    }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = _post_graphql_as_user(
+        TEST_USER_EMAIL,
+        TEST_USER_PASSWORD,
+        _schema_field_logical_parent_payload(),
+    )
     _assert_graphql_auth_denied(res)
 
     remove_policy(policy_urn, admin_session)

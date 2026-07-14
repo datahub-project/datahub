@@ -146,10 +146,12 @@ sqlglot_lib = {
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
     # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
     # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
-    # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
-    # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
-    # upstream, so we restore [c] here for performance.
-    "sqlglot[c]==30.8.0",
+    # sqlglot[c] ships mypyc-compiled extensions for performance, but the native
+    # C lib has caused memory leaks in the past. Rather than dropping [c] from
+    # the release when that happens, keep it here and set DATAHUB_SQLGLOT_DISABLE_C
+    # to force pure-Python sqlglot at runtime (see
+    # datahub/_force_pure_python_sqlglot.py).
+    "sqlglot[c]==30.12.0",
     "patchy==2.8.0",
 }
 
@@ -671,7 +673,8 @@ plugins: Dict[str, Set[str]] = {
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
     "omni": {"requests<3.0.0", "PyYAML>=5.4"},
-    "glue": aws_common | cachetools_lib | sqlglot_lib,
+    # usage_common (sqlparse) is required by SqlParsingAggregator, used for view lineage.
+    "glue": aws_common | cachetools_lib | sqlglot_lib | usage_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
@@ -717,6 +720,7 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests<3.0.0"} | sqlglot_lib,
+    "microstrategy": {"requests<3.0.0"} | sqlglot_lib,
     "mlflow": {
         "mlflow-skinny>=2.3.0,<2.21.0",
         # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
@@ -986,6 +990,7 @@ base_dev_requirements = {
             "feast",
             "iceberg",
             "iceberg-catalog",
+            "microstrategy",
             "mlflow",
             "mongodb",
             "json-schema",
@@ -1192,6 +1197,7 @@ entry_points = {
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
+        "microstrategy = datahub.ingestion.source.microstrategy.source:MicroStrategySource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "tibco-bw = datahub.ingestion.source.tibco_bw.source:TibcoBwSource",
         "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
@@ -1343,10 +1349,19 @@ setuptools.setup(
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
     },
-    # Install .pth so setproctitle is patched at interpreter startup on macOS (avoids
-    # SIGSEGV when a multi-threaded process forks and something calls setproctitle).
+    # Install .pth files that run at interpreter startup:
+    # - setproctitle patch avoids a SIGSEGV when a multi-threaded process forks
+    #   and something calls setproctitle (macOS).
+    # - force_pure_python_sqlglot honours DATAHUB_SQLGLOT_DISABLE_C by loading
+    #   sqlglot from .py instead of the mypyc .so extensions.
     data_files=[
-        (sysconfig.get_path("purelib"), ["datahub_setproctitle_patch.pth"]),
+        (
+            sysconfig.get_path("purelib"),
+            [
+                "datahub_setproctitle_patch.pth",
+                "datahub_force_pure_python_sqlglot.pth",
+            ],
+        ),
     ],
     entry_points=entry_points,
     # Dependencies.

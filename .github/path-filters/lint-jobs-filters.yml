@@ -31,5 +31,8 @@ smoke-test-python:
   - "smoke-test/build.gradle"
 datahub-web-react:
   - added|modified: "datahub-web-react/**"
+metadata-ingestion:
+  - added|modified: "metadata-ingestion/**"
+  - "metadata-models/**"
 playwright-e2e:
   - added|modified: "e2e-test/ui/playwright/**"

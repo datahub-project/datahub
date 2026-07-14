@@ -1793,11 +1793,15 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         fine_grained: List[FineGrainedLineageClass] = []
         if not parsed.debug_info.column_error:
             for cl in parsed.column_lineage or []:
+                if not cl.downstream.column:
+                    continue
                 downstream_col_urn = make_schema_field_urn(
                     downstream_urn, cl.downstream.column
                 )
                 upstream_col_urns: List[str] = []
                 for u in cl.upstreams:
+                    if not u.column:
+                        continue
                     candidate_urn = make_schema_field_urn(u.table, u.column)
                     # Dedup against existing TS-pre-resolved edges so
                     # we don't emit a duplicate column-level edge that

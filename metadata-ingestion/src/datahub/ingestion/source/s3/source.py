@@ -526,7 +526,11 @@ class S3Source(StatefulIngestionSourceBase):
         aspects.append(dataset_properties)
         if table_data.size_in_bytes > 0:
             try:
-                fields = self.get_fields(table_data, path_spec)
+                with PerfTimer() as schema_timer:
+                    fields = self.get_fields(table_data, path_spec)
+                self.report.schema_inference_time_taken_secs += (
+                    schema_timer.elapsed_seconds()
+                )
                 schema_metadata = SchemaMetadata(
                     schemaName=table_data.display_name,
                     platform=data_platform_urn,
@@ -558,6 +562,7 @@ class S3Source(StatefulIngestionSourceBase):
                 if table_data.full_path == table_data.table_path
                 else None
             )
+            self.report.tables_tagged += 1
             s3_tags = get_s3_tags(
                 bucket,
                 key_prefix,
@@ -770,38 +775,44 @@ class S3Source(StatefulIngestionSourceBase):
 
         logger.info(f"Listing objects under {repr(uri)} with {prefix=}")
 
-        for obj in list_objects_recursive_path(
-            uri, startswith=prefix, aws_config=self.source_config.aws_config
-        ):
-            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+        with PerfTimer() as listing_timer:
+            try:
+                for obj in list_objects_recursive_path(
+                    uri, startswith=prefix, aws_config=self.source_config.aws_config
+                ):
+                    self.report.objects_listed += 1
+                    s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
-            if not _is_allowed_path(path_spec, s3_path):
-                continue
+                    if not _is_allowed_path(path_spec, s3_path):
+                        continue
 
-            # Extract the directory name (folder) from the object key
-            dirname = obj.key.rsplit("/", 1)[0]
+                    # Extract the directory name (folder) from the object key
+                    dirname = obj.key.rsplit("/", 1)[0]
 
-            # Initialize folder data if we haven't seen this directory before
-            if dirname not in folder_data:
-                folder_data[dirname] = FolderInfo(
-                    objects=[],
-                    total_size=0,
-                    min_time=obj.last_modified,
-                    max_time=obj.last_modified,
-                    latest_obj=obj,
-                )
+                    # Initialize folder data if we haven't seen this directory before
+                    if dirname not in folder_data:
+                        folder_data[dirname] = FolderInfo(
+                            objects=[],
+                            total_size=0,
+                            min_time=obj.last_modified,
+                            max_time=obj.last_modified,
+                            latest_obj=obj,
+                        )
 
-            # Update folder statistics incrementally
-            folder_info = folder_data[dirname]
-            folder_info.objects.append(obj)
-            folder_info.total_size += obj.size
+                    # Update folder statistics incrementally
+                    folder_info = folder_data[dirname]
+                    folder_info.objects.append(obj)
+                    folder_info.total_size += obj.size
 
-            # Track min/max times and latest object
-            if obj.last_modified < folder_info.min_time:
-                folder_info.min_time = obj.last_modified
-            if obj.last_modified > folder_info.max_time:
-                folder_info.max_time = obj.last_modified
-                folder_info.latest_obj = obj
+                    # Track min/max times and latest object
+                    if obj.last_modified < folder_info.min_time:
+                        folder_info.min_time = obj.last_modified
+                    if obj.last_modified > folder_info.max_time:
+                        folder_info.max_time = obj.last_modified
+                        folder_info.latest_obj = obj
+            finally:
+                # Record elapsed even if listing raises mid-stream.
+                self.report.listing_time_taken_secs += listing_timer.elapsed_seconds()
 
         # Yield folders after processing all objects
         for _dirname, folder_info in folder_data.items():

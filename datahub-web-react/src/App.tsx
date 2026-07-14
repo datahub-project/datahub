@@ -21,6 +21,7 @@ import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
+import { otelOperationLink } from '@src/otelApollo';
 import possibleTypesResult from '@src/possibleTypes.generated';
 import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -67,7 +68,7 @@ const injectVariablesLink = new ApolloLink((operation, forward) => {
 
 const client = new ApolloClient({
     connectToDevTools: true,
-    link: ApolloLink.from([injectVariablesLink, errorLink, httpLink]),
+    link: ApolloLink.from([otelOperationLink, injectVariablesLink, errorLink, httpLink]),
     cache: new InMemoryCache({
         typePolicies: {
             Query: {

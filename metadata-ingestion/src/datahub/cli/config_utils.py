@@ -25,6 +25,7 @@ from datahub.configuration.env_vars import (
     get_system_client_id,
     get_system_client_secret,
 )
+from datahub.ingestion.auth.env import ENV_AUTH_TYPE, build_auth_config_from_env
 from datahub.ingestion.graph.config import DatahubClientConfig
 
 logger = logging.getLogger(__name__)
@@ -128,9 +129,35 @@ def require_config_from_env() -> Tuple[str, Optional[str]]:
     return host, token
 
 
+def get_url_from_env() -> Optional[str]:
+    """The env-configured GMS URL, or None when the environment does not set one."""
+    url, _ = _get_config_from_env()
+    return url
+
+
 def load_client_config() -> DatahubClientConfig:
+    # DATAHUB_AUTH_TYPE engages an env-configured OAuth token provider and takes
+    # precedence over a static DATAHUB_GMS_TOKEN (the two are mutually exclusive
+    # on DatahubClientConfig). Resolving it here is what lets processes that only
+    # inherit environment variables — e.g. ingestion recipe subprocesses spawned
+    # by the Remote Executor, whose default sink resolves through this function —
+    # authenticate with short-lived OAuth tokens.
+    auth_env = build_auth_config_from_env()
+    if auth_env is not None and get_system_client_id() is not None:
+        logger.warning(
+            f"Both {ENV_AUTH_TYPE} and {ENV_DATAHUB_SYSTEM_CLIENT_ID} are set; "
+            f"using {ENV_AUTH_TYPE} and ignoring the system client credentials."
+        )
+
     gms_host_env, gms_token_env = _get_config_from_env()
     if gms_host_env:
+        if auth_env is not None:
+            if gms_token_env:
+                logger.warning(
+                    f"Both {ENV_AUTH_TYPE} and {ENV_METADATA_TOKEN} are set; "
+                    f"using {ENV_AUTH_TYPE} and ignoring the static token."
+                )
+            return DatahubClientConfig(server=gms_host_env, auth=auth_env)
         # TODO We should also load system auth credentials here.
         return DatahubClientConfig(server=gms_host_env, token=gms_token_env)
 
@@ -145,10 +172,31 @@ def load_client_config() -> DatahubClientConfig:
         datahub_config: DatahubClientConfig = DatahubConfig.model_validate(
             client_config_dict
         ).gms
+    except MissingConfigError:
+        if auth_env is not None:
+            # A fully env-configured OAuth container is missing only the server
+            # URL — telling it to run `datahub init` would be misleading.
+            raise MissingConfigError(
+                f"{ENV_AUTH_TYPE} is set but no GMS server was provided. "
+                f"Set {ENV_METADATA_HOST_URL} (or run `datahub init` to create "
+                f"a {CONDENSED_DATAHUB_CONFIG_PATH} file)."
+            ) from None
+        raise
     except ValidationError as e:
         click.echo(f"Error loading your {CONDENSED_DATAHUB_CONFIG_PATH}")
         click.echo(e, err=True)
         sys.exit(1)
+
+    if auth_env is not None:
+        # Env-configured OAuth overrides a static token stored in the config
+        # file, and supersedes the browser-flow (`datahub init --oauth`) token
+        # refresh below.
+        if datahub_config.token:
+            logger.warning(
+                f"{ENV_AUTH_TYPE} is set; ignoring the static token stored in "
+                f"{CONDENSED_DATAHUB_CONFIG_PATH}."
+            )
+        return datahub_config.model_copy(update={"token": None, "auth": auth_env})
 
     refreshed_token = refresh_oauth_token_if_needed()
     if refreshed_token is not None:
