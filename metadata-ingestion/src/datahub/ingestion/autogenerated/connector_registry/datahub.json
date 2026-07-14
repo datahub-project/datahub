@@ -4759,6 +4759,44 @@
       "platform_name": "ThoughtSpot",
       "support_status": "INCUBATING"
     },
+    "tibco-ems": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Best-effort for bridges when both endpoints have a schema in DataHub, matched by name (a bridge copies whole messages); enable with `emit_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Emitted from EMS bridges via the `include_bridges` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.tibco_ems.source.TibcoEmsSource",
+      "platform_id": "tibco-ems",
+      "platform_name": "TIBCO EMS",
+      "support_status": "INCUBATING"
+    },
     "tidb": {
       "capabilities": [
         {
