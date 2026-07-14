@@ -1210,7 +1210,7 @@ def test_get_snapshots_for_dataset(
         # (not the legacy `ts.size_bytes`) is what distinguishes the two templates,
         # since the legacy query also joins PARTITIONS for partition counts.
         (True, False, "p.total_logical_bytes as bytes", "__TABLES__"),
-        # Legacy opt-in: stats come from the deprecated __TABLES__ join instead.
+        # Legacy opt-in: stats come from the undocumented __TABLES__ join instead.
         (True, True, "__TABLES__ as ts", "p.total_logical_bytes"),
         # No partition data requested: neither stats source is queried.
         (False, False, "INFORMATION_SCHEMA.TABLES", "INFORMATION_SCHEMA.PARTITIONS"),
