@@ -365,14 +365,17 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     int position = 0;
 
-    // Sort by primary key so that all transactions acquire row locks in the same order.
-    // Unordered keys under FOR UPDATE cause lock-order deadlocks between concurrent writers
-    // ("Deadlock found when trying to get lock").
     List<EbeanAspectV2.PrimaryKey> keyList = new ArrayList<>(keys);
-    keyList.sort(
-        Comparator.comparing(EbeanAspectV2.PrimaryKey::getUrn)
-            .thenComparing(EbeanAspectV2.PrimaryKey::getAspect)
-            .thenComparing(EbeanAspectV2.PrimaryKey::getVersion));
+    // Only when we actually take row locks: sort by primary key so all transactions acquire locks
+    // in the same (urn, aspect, version) order. Unordered keys under FOR UPDATE cause lock-order
+    // deadlocks between concurrent writers ("Deadlock found when trying to get lock"). Non-locking
+    // reads take no row locks, so sorting them would be wasted work.
+    if (forUpdate && canWrite) {
+      keyList.sort(
+          Comparator.comparing(EbeanAspectV2.PrimaryKey::getUrn)
+              .thenComparing(EbeanAspectV2.PrimaryKey::getAspect)
+              .thenComparing(EbeanAspectV2.PrimaryKey::getVersion));
+    }
     final int totalPageCount = QueryUtils.getTotalPageCount(keys.size(), keysCount);
     final List<EbeanAspectV2> finalResult =
         batchGetSelectString(opContext, keyList, keysCount, position, forUpdate);
