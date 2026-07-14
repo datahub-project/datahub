@@ -433,10 +433,20 @@ class TestLifecycleStageAPIs:
 
         Note: searchDocuments uses document-specific filter logic that matches
         on well-known lifecycle stage URNs (PUBLISHED, UNPUBLISHED, DRAFT),
-        not the generic hideInSearch flag. We use the bootstrapped PUBLISHED
-        stage to verify that a visible stage keeps the document searchable.
+        not the generic hideInSearch flag. We use the PUBLISHED stage to verify
+        that a visible stage keeps the document searchable.
         """
-        stage_urn = "urn:li:lifecycleStageType:PUBLISHED"
+        # Ensure the well-known PUBLISHED stage type entity exists (it may not
+        # be bootstrapped in all environments).
+        stage_urn = _ingest_lifecycle_stage(
+            auth_session,
+            "PUBLISHED",
+            "Published",
+            hide_in_search=False,
+            entity_types=["dataset", "document"],
+        )
+        self.created_stage_urns.append(stage_urn)
+        wait_for_writes_to_sync()
 
         title = f"Lifecycle Visible Test {_unique_id()}"
         doc_id = _unique_id("lc-vis")
@@ -478,7 +488,17 @@ class TestLifecycleStageAPIs:
         from Clause 2 (the owner-visible non-published clause) so that DRAFT
         documents match no clause and are filtered out entirely.
         """
-        draft_stage_urn = "urn:li:lifecycleStageType:DRAFT"
+        # Ensure the well-known DRAFT stage type entity exists (it may not
+        # be bootstrapped in all environments).
+        draft_stage_urn = _ingest_lifecycle_stage(
+            auth_session,
+            "DRAFT",
+            "Draft",
+            hide_in_search=True,
+            entity_types=["dataset", "document"],
+        )
+        self.created_stage_urns.append(draft_stage_urn)
+        wait_for_writes_to_sync()
 
         title = f"Lifecycle Draft Test {_unique_id()}"
         doc_id = _unique_id("lc-draft")
