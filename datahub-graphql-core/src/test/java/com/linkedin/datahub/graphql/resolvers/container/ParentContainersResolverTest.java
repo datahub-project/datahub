@@ -1,8 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.container;
 
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CONTAINER_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertEquals;
@@ -10,16 +8,11 @@ import static org.testng.Assert.assertEquals;
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.Container;
-import com.linkedin.container.ContainerProperties;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ParentContainersResult;
 import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -34,7 +27,6 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +38,6 @@ import org.testng.annotations.Test;
 public class ParentContainersResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
@@ -116,53 +107,11 @@ public class ParentContainersResolverTest {
     datasetEntity.setType(EntityType.DATASET);
     Mockito.when(mockEnv.getSource()).thenReturn(datasetEntity);
 
-    final Container parentContainer2Aspect =
-        new Container().setContainer(Urn.createFromString("urn:li:container:test-container2"));
-
-    Map<String, EnvelopedAspect> parentContainer1Aspects = new HashMap<>();
-    parentContainer1Aspects.put(
-        CONTAINER_PROPERTIES_ASPECT_NAME,
-        new EnvelopedAspect()
-            .setValue(new Aspect(new ContainerProperties().setName("test_schema").data())));
-    parentContainer1Aspects.put(
-        CONTAINER_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(parentContainer2Aspect.data())));
-
-    Map<String, EnvelopedAspect> parentContainer2Aspects = new HashMap<>();
-    parentContainer2Aspects.put(
-        CONTAINER_PROPERTIES_ASPECT_NAME,
-        new EnvelopedAspect()
-            .setValue(new Aspect(new ContainerProperties().setName("test_database").data())));
-
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentContainer1.getEntityType()),
-                Mockito.eq(parentContainer1),
-                Mockito.eq(null)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(CONTAINER_ENTITY_NAME)
-                .setUrn(parentContainer1)
-                .setAspects(new EnvelopedAspectMap(parentContainer1Aspects)));
-
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentContainer2.getEntityType()),
-                Mockito.eq(parentContainer2),
-                Mockito.eq(null)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(CONTAINER_ENTITY_NAME)
-                .setUrn(parentContainer2)
-                .setAspects(new EnvelopedAspectMap(parentContainer2Aspects)));
-
-    ParentContainersResolver resolver = new ParentContainersResolver(mockClient);
+    ParentContainersResolver resolver = new ParentContainersResolver();
     ParentContainersResult result = resolver.get(mockEnv).get();
 
-    Mockito.verify(mockClient, Mockito.times(2))
-        .getV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+    // The resolver now returns lightweight Container stubs (urn only); full hydration is
+    // deferred to the batch loader wired on the ParentContainersResult type.
     assertEquals(result.getCount(), 2);
     assertEquals(result.getContainers().get(0).getUrn(), parentContainer1.toString());
     assertEquals(result.getContainers().get(1).getUrn(), parentContainer2.toString());
