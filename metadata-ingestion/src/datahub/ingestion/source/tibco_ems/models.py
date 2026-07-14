@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -7,9 +6,10 @@ from datahub.ingestion.source.tibco_ems.constants import (
     DEST_TYPE_QUEUE,
     DEST_TYPE_TOPIC,
 )
+from datahub.utilities.str_enum import StrEnum
 
 
-class DestinationType(str, Enum):
+class DestinationType(StrEnum):
     QUEUE = DEST_TYPE_QUEUE
     TOPIC = DEST_TYPE_TOPIC
 
