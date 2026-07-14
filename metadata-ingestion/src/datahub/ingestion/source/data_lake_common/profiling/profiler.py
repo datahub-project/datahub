@@ -49,7 +49,7 @@ def null_str(value: Any) -> Optional[str]:
 class FileProfiler:
     """
     Profiles S3/GCS/local files (parquet/csv/tsv/avro/json) via streaming Arrow/fastavro
-    readers and Apache DataSketches, without pyspark or Deequ.
+    readers and Apache DataSketches.
 
     Cardinality (see `accumulators.Cardinality`) decides which fields a
     column gets, mirroring the old Spark/Deequ profiler: low-cardinality

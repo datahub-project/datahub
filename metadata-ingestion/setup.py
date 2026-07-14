@@ -780,13 +780,14 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | {"db-dtypes"}
     | cachetools_lib,
-    # S3 includes PySpark by default for profiling support (backward compatible)
-    # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
-    # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
+    # Profiling is now a lightweight pure-Python profiler (pyarrow + datasketches,
+    # no JVM), so the `-slim` variants no longer differ from the full extras. They
+    # are kept as deprecated aliases and will be removed in a follow-up (along with
+    # their CI/CD and image-building references).
     "s3": {*s3_base, *file_profiling},
-    "s3-slim": {*s3_base},
+    "s3-slim": {*s3_base, *file_profiling},
     "gcs": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "gcs-slim": {*s3_base, "smart-open[gcs]>=5.2.1,<8.0.0"},
+    "gcs-slim": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
     "abs": {*abs_base, *data_lake_profiling},
     "abs-slim": {*abs_base},
     "sagemaker": aws_common,
