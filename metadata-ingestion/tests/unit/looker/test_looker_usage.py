@@ -1,3 +1,4 @@
+from typing import Optional
 from unittest import mock
 
 from datahub.ingestion.source.looker import looker_usage
@@ -14,10 +15,13 @@ from datahub.ingestion.source.looker.looker_query_model import (
 from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
 
 
-def _stat_config() -> looker_usage.StatGeneratorConfig:
+def _stat_config(
+    api: Optional[mock.MagicMock] = None,
+    user_registry: Optional[mock.MagicMock] = None,
+) -> looker_usage.StatGeneratorConfig:
     return looker_usage.StatGeneratorConfig(
-        looker_api_wrapper=mock.MagicMock(),
-        looker_user_registry=mock.MagicMock(),
+        looker_api_wrapper=api or mock.MagicMock(),
+        looker_user_registry=user_registry or mock.MagicMock(),
         strip_user_ids_from_email=False,
         interval="2022-07-01 to 2022-07-08",
         max_threads=1,
@@ -90,20 +94,21 @@ def test_explore_stat_generator_emits_usage_stats():
         },
     ]
 
-    config = _stat_config()
+    mock_api = mock.MagicMock()
     # entity query is executed first, then the per-user query.
-    config.looker_api_wrapper.execute_query.side_effect = [entity_rows, user_rows]
+    mock_api.execute_query.side_effect = [entity_rows, user_rows]
 
-    def fake_user(user_id: int):
+    def fake_user(user_id: int) -> mock.MagicMock:
         user = mock.MagicMock()
         user.get_urn.return_value = f"urn:li:corpuser:user{user_id}"
         user.email = f"user{user_id}@example.com"
         return user
 
-    config.looker_user_registry.get_by_id.side_effect = fake_user
+    mock_registry = mock.MagicMock()
+    mock_registry.get_by_id.side_effect = fake_user
 
     generator = looker_usage.create_explore_stat_generator(
-        config=config,
+        config=_stat_config(api=mock_api, user_registry=mock_registry),
         report=LookerDashboardSourceReport(),
         source_config=LookerCommonConfig(),
         looker_explores=[
@@ -122,7 +127,8 @@ def test_explore_stat_generator_emits_usage_stats():
     assert aspect.uniqueUserCount == 2
     assert aspect.userCounts is not None
     assert {uc.count for uc in aspect.userCounts} == {20, 10}
-    assert "sales.explore.orders" in mcps[0].entityUrn
+    entity_urn = mcps[0].entityUrn
+    assert entity_urn is not None and "sales.explore.orders" in entity_urn
 
 
 def test_explore_stat_key_round_trips_between_model_and_row():
@@ -176,10 +182,10 @@ def test_explore_stat_generator_skips_unresolved_users():
         },
     ]
 
-    config = _stat_config()
-    config.looker_api_wrapper.execute_query.side_effect = [entity_rows, user_rows]
+    mock_api = mock.MagicMock()
+    mock_api.execute_query.side_effect = [entity_rows, user_rows]
 
-    def fake_user(user_id: int):
+    def fake_user(user_id: int) -> mock.MagicMock:
         user = mock.MagicMock()
         # User 2 has no resolvable urn (e.g. a deleted Looker user).
         user.get_urn.return_value = (
@@ -188,10 +194,11 @@ def test_explore_stat_generator_skips_unresolved_users():
         user.email = f"user{user_id}@example.com"
         return user
 
-    config.looker_user_registry.get_by_id.side_effect = fake_user
+    mock_registry = mock.MagicMock()
+    mock_registry.get_by_id.side_effect = fake_user
 
     generator = looker_usage.create_explore_stat_generator(
-        config=config,
+        config=_stat_config(api=mock_api, user_registry=mock_registry),
         report=LookerDashboardSourceReport(),
         source_config=LookerCommonConfig(),
         looker_explores=[
@@ -232,12 +239,12 @@ def test_explore_stat_generator_reports_non_ingested_explore_as_skipped():
         },
     ]
 
-    config = _stat_config()
-    config.looker_api_wrapper.execute_query.side_effect = [entity_rows, []]
+    mock_api = mock.MagicMock()
+    mock_api.execute_query.side_effect = [entity_rows, []]
 
     report = LookerDashboardSourceReport()
     generator = looker_usage.create_explore_stat_generator(
-        config=config,
+        config=_stat_config(api=mock_api),
         report=report,
         source_config=LookerCommonConfig(),
         looker_explores=[
@@ -249,7 +256,7 @@ def test_explore_stat_generator_reports_non_ingested_explore_as_skipped():
 
     mcps = list(generator.generate_usage_stat_mcps())
 
-    emitted_urns = [mcp.entityUrn for mcp in mcps]
+    emitted_urns = [mcp.entityUrn or "" for mcp in mcps]
     assert any("sales.explore.orders" in urn for urn in emitted_urns)
     assert not any("sales.explore.returns" in urn for urn in emitted_urns)
     assert "sales::returns" in report.explores_skipped_for_usage
