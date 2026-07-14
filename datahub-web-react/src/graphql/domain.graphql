@@ -36,6 +36,9 @@ query getDomain($urn: String!) {
         displayProperties {
             ...displayPropertiesFields
         }
+        deprecation {
+            ...deprecationFields
+        }
         ...domainEntitiesFields
         ...notes
         settings {
@@ -61,8 +64,14 @@ fragment ListDomain on Domain {
     ownership {
         ...ownershipFields
     }
+    privileges {
+        ...entityPrivileges
+    }
     displayProperties {
         ...displayPropertiesFields
+    }
+    deprecation {
+        ...deprecationFields
     }
     ...domainEntitiesFields
     institutionalMemory {

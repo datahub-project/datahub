@@ -1660,6 +1660,45 @@ def test_catchup_sorts_by_date_not_input_order():
     assert statuses["9579"] == rac.BUMP_SPURIOUS
 
 
+def test_catchup_reconciles_no_pr_debt_by_sha():
+    """Regression (AssertionRunEvent): a real change committed with NO PR still
+    incurs schemaVersion debt, and a later cumulative catch-up bump must pay it
+    down. Reconciliation keyed on PR number alone dropped the no-PR debt, so the
+    file leaked a false bump_needed even though its version was genuinely bumped.
+
+    Slices mirror AssertionRunEvent: a no-PR transitive change, then a bump in
+    the same window. The bump must be recognized as a catch-up for the no-PR
+    change (keyed by sha), and the file aggregate must be bump_done, not
+    bump_needed.
+    """
+    entries = [
+        # no-PR transitive change, no bump → unbumped debt
+        {"sha": "aaaa111", "pr": None, "date": "2026-05-21", "bump_status": rac.BUMP_NEEDED},
+        # later bump with no change of its own → catch-up for the no-PR debt
+        {"sha": "bbbb222", "pr": "9658", "date": "2026-05-21", "bump_status": rac.BUMP_SPURIOUS},
+    ]
+    rac._apply_catchup_reclassification(entries)
+    by_sha = {e["sha"]: e for e in entries}
+
+    # The bump is reclassified as a catch-up that paid the no-PR debt (by sha).
+    assert by_sha["bbbb222"]["bump_status"] == rac.BUMP_DONE
+    assert "aaaa111" in (by_sha["bbbb222"].get("catch_up_shas") or [])
+
+    # The file aggregate is bump_done — the no-PR debt is reconciled, not leaked
+    # as a false bump_needed.
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_DONE
+
+
+def test_aggregator_unreconciled_no_pr_needed_still_surfaces():
+    """Guard the other direction: a no-PR bump_needed that is NOT paid by any
+    later bump must still surface as bump_needed (we didn't just silence no-PR
+    debt)."""
+    entries = [
+        {"sha": "cccc333", "pr": None, "date": "2026-05-21", "bump_status": rac.BUMP_NEEDED},
+    ]
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
+
+
 def test_describe_per_pr_slice_renders_catchup_annotation():
     """The 'What happened' prose names the PRs whose debt this slice cleared."""
     entry = {

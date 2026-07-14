@@ -1112,15 +1112,22 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics`. Reads query history from `performance_schema` digests (default) or `mysql.general_log` (`usage_source: general_log`), which also yields query-based table lineage.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1156,9 +1163,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -2440,15 +2448,22 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics`. Reads query history from `performance_schema` digests (default) or `mysql.general_log` (`usage_source: general_log`), which also yields query-based table lineage.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2484,9 +2499,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -2842,15 +2858,22 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics`. Reads query history from `performance_schema` digests (default) or `mysql.general_log` (`usage_source: general_log`), which also yields query-based table lineage.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2886,9 +2909,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -4748,15 +4772,22 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "description": "Enabled by default for views via `include_view_column_lineage`. Column-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_usage_statistics`. Reads query history from `performance_schema` digests (default) or `mysql.general_log` (`usage_source: general_log`), which also yields query-based table lineage.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4792,9 +4823,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Enabled by default for views via `include_view_lineage`. Table-level lineage is also derived from query history when `include_usage_statistics` is enabled.",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },

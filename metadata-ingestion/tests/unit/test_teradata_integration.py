@@ -192,7 +192,6 @@ class TestEndToEndWorkflow:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=f"SELECT {i}",
                 )
                 for i in range(5)
             ]
@@ -260,7 +259,6 @@ class TestEndToEndWorkflow:
                     create_timestamp=datetime.now(),
                     last_alter_name=None,
                     last_alter_timestamp=None,
-                    request_text=f"SELECT {i}",
                 )
                 for i in range(3)
             ]
@@ -721,7 +719,6 @@ class TestViewProcessingHangProtection:
                 create_timestamp=datetime.now(),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text=f"SELECT * FROM {name}",
             )
             for name in view_names
         ]

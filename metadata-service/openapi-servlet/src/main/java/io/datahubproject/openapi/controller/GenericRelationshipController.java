@@ -308,7 +308,6 @@ public abstract class GenericRelationshipController {
         graphService,
         request,
         "scrollRelationships",
-        UsageOperation.METADATA_READ,
         relationshipTypes,
         sourceTypes,
         destinationTypes,
@@ -319,7 +318,6 @@ public abstract class GenericRelationshipController {
         sliceId,
         sliceMax,
         pitKeepAlive,
-        body,
-        null);
+        body);
   }
 }

@@ -1137,6 +1137,8 @@ GMS aggregates API usage in-memory (`datahub.usage.aggregation`), flushes on a s
 
 **Flush retries:** The store retries the Micrometer flush sink on failure. `UsageFlushSinkComposer` tracks which delegates already succeeded for a given batch and skips them on retry so counters are not double-counted.
 
+**Flush window alignment (optional):** Set `USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS` to split flush batches at UTC calendar boundaries instead of arbitrary window starts (`0` default = disabled). A drain that would cross a boundary ends the current batch at the boundary and starts the next window there; multiple batches per period are normal — sum additive counters and union distinct identities per aligned `window_start`. Common values: `3600` (top of hour), `900` (15 minutes), `86400` (UTC midnight). The coordinator still ticks on `USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS` (default 60s) and flushes before the next boundary when within one interval of it. Keep the flush interval > 0 when alignment is enabled; with `scheduledIntervalSeconds=0`, flushes rely on `maxWindowSeconds` and cardinality triggers only, which can miss boundary timing unless `maxWindowSeconds` divides the alignment period cleanly.
+
 Only instrumented requests are aggregated. Set `USAGE_AGGREGATION_ENABLED=true` to enable (default `false` in `application.yaml`; Docker quickstart and debug compose default to `true`).
 
 **Legacy JMX metrics:** `requestContext_{userCategory}_{agentClass}_{requestAPI}` Dropwizard counters are unchanged. `userCategory` is derived from `UsageActorClass.fromActorUrn()`.

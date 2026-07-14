@@ -647,7 +647,8 @@ class SparkProfiler:
         else:
             self.report.report_warning(file, f"file {file} has unsupported extension")
             return None
-        logger.debug(f"dataframe read for file {file} with row count {df.count()}")
+        # NB: no df.count() debug log here. Counting forces a full scan of the whole
+        # table; the row count is already computed once later in _SingleTableProfiler.
         # replace periods in names because they break PyDeequ
         # see https://mungingdata.com/pyspark/avoid-dots-periods-column-names/
         return df.toDF(*(c.replace(".", "_") for c in df.columns))

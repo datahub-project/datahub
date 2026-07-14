@@ -38,6 +38,7 @@ import { DataProduct, EntityType, SearchResult } from '@types';
 const headerDropdownItems = new Set([
     EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.DELETE,
     EntityMenuItems.EDIT,
     EntityMenuItems.ANNOUNCE,
@@ -200,6 +201,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 domain={data.domain?.domain}
                 entityCount={data?.entities?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
                 actions={actions}
@@ -224,6 +226,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={PreviewType.SEARCH}
             />
@@ -265,6 +268,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
         ]);
