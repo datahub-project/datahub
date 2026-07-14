@@ -57,10 +57,49 @@ public class LocalObjectStorageClientTest {
   }
 
   @Test
-  public void testIsConfigured() {
+  public void testIsConfigured() throws Exception {
     assertFalse(new LocalObjectStorageClient(null).isConfigured());
     assertFalse(new LocalObjectStorageClient("").isConfigured());
-    assertTrue(new LocalObjectStorageClient("/tmp/datahub-object-storage").isConfigured());
+    Path root = Files.createTempDirectory("object-storage-configured");
+    assertTrue(new LocalObjectStorageClient(root.toString()).isConfigured());
+  }
+
+  @Test
+  public void testConstructorCreatesMissingRoot() throws Exception {
+    Path base = Files.createTempDirectory("object-storage-base");
+    Path root = base.resolve("missing").resolve("nested").resolve("root");
+    assertFalse(Files.exists(root));
+
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    assertTrue(Files.isDirectory(root));
+    assertTrue(client.isConfigured());
+  }
+
+  @Test
+  public void testConstructorToleratesExistingRoot() throws Exception {
+    Path root = Files.createTempDirectory("object-storage-existing");
+    assertTrue(Files.isDirectory(root));
+
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    assertTrue(Files.isDirectory(root));
+    assertTrue(client.isConfigured());
+  }
+
+  @Test
+  public void testConstructorToleratesPartialExistingPath() throws Exception {
+    Path base = Files.createTempDirectory("object-storage-partial");
+    Path existingParent = base.resolve("already-there");
+    Files.createDirectories(existingParent);
+    Path root = existingParent.resolve("child").resolve("root");
+    assertTrue(Files.isDirectory(existingParent));
+    assertFalse(Files.exists(root));
+
+    LocalObjectStorageClient client = new LocalObjectStorageClient(root.toString());
+
+    assertTrue(Files.isDirectory(root));
+    assertTrue(client.isConfigured());
   }
 
   @Test
