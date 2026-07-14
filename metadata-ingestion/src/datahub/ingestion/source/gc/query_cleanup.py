@@ -82,7 +82,8 @@ class QueryCleanupReport(SourceReport):
 
 class QueryCleanup:
     """
-    Maintenance source that soft-deletes old SYSTEM queries by age alone (aggressive policy).
+    Maintenance source that soft-deletes old SYSTEM queries by `lastModifiedAt` age alone,
+    regardless of whether the query is still referenced.
 
     Selection uses server-side search filters on `source == SYSTEM` and
     `lastModifiedAt < cutoff`. Soft deletes are emitted as status workunits and left to the
@@ -148,7 +149,6 @@ class QueryCleanup:
         return False
 
     def _deletion_limit_reached(self, num_candidates_handled: int) -> bool:
-        # None disables the cap.
         if (
             self.config.limit_entities_delete is not None
             and num_candidates_handled >= self.config.limit_entities_delete
@@ -177,8 +177,8 @@ class QueryCleanup:
             yield query_urn
 
     def _preview_candidates(self) -> None:
-        # num_previewed = candidates previewed before this iteration, so it feeds the
-        # deletion-limit check the same way num_queries_soft_deleted does in a real run.
+        # enumerate gives the count previewed before this iteration, matching the real run's
+        # deletion-limit semantics (which counts already-deleted queries).
         for num_previewed, query_urn in enumerate(self._iter_candidate_urns()):
             if self._deletion_limit_reached(num_previewed) or self._times_up():
                 break

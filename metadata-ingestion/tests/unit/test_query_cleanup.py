@@ -162,6 +162,18 @@ class TestQueryCleanup:
         assert wus == []
         assert self.report.num_queries_soft_deleted == 0
 
+    def test_stops_mid_stream_on_runtime_limit(self) -> None:
+        self.mock_graph.get_urns_by_filter.return_value = [
+            f"urn:li:query:{i}" for i in range(5)
+        ]
+
+        # Runtime limit trips only after the first two queries are processed.
+        with patch.object(self.cleanup, "_times_up", side_effect=[False, False, True]):
+            wus = list(self.cleanup.get_workunits())
+
+        assert len(wus) == 2
+        assert self.report.num_queries_soft_deleted == 2
+
     def test_skips_invalid_urn(self) -> None:
         self.mock_graph.get_urns_by_filter.return_value = [
             "urn:li:query:1",
