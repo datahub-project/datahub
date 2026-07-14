@@ -892,6 +892,7 @@ def test_populate_semantic_view_base_tables_ddl_fallback(mock_connection):
 
     semantic_views = data_dict.get_semantic_views_for_database("SEM_DB")
 
+    assert semantic_views is not None
     semantic_view = semantic_views["PUBLIC"][0]
 
     # DDL fallback should have populated base_tables
