@@ -15,11 +15,9 @@ extend type Query {
   getRootMetrics(input: GetRootEntitiesInput!): GetRootMetricsResult
 
   """
-  List root-level SemanticModels (paginated).
+  List SemanticModels (paginated).
   """
-  getRootSemanticModels(
-    input: GetRootEntitiesInput!
-  ): GetRootSemanticModelsResult
+  getSemanticModels(input: GetRootEntitiesInput!): GetSemanticModelsResult
 }
 
 """
@@ -38,7 +36,7 @@ type GetRootMetricsResult {
   total: Int!
 }
 
-type GetRootSemanticModelsResult {
+type GetSemanticModelsResult {
   semanticModels: [SemanticModel!]!
   start: Int!
   count: Int!
