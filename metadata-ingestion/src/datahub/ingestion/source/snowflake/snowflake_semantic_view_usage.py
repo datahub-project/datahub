@@ -3,12 +3,12 @@
 This module extracts usage statistics and query entities for Snowflake Semantic Views.
 It queries QUERY_HISTORY using pattern matching on SEMANTIC_VIEW() function calls.
 
-Emits:
-- DatasetUsageStatistics: usage metrics per time bucket (legacy dataset mode only;
-  semanticModel entities do not support usage statistics yet)
-- Query entities: individual queries for the Queries tab, whose subject is the
-  dataset URN in legacy mode or the semanticModel URN when
+Emits, in both legacy dataset mode and the new semanticModel entity mode:
+- DatasetUsageStatistics: usage metrics per time bucket, attached to the dataset URN
+  in legacy mode or the semanticModel URN when
   semantic_views.emit_semantic_model_entities is enabled
+- Query entities: individual queries for the Queries tab, whose subject follows the
+  same dataset-vs-semanticModel URN choice
 """
 
 import json
@@ -209,9 +209,13 @@ class SemanticViewUsageExtractor:
                 else None,
             )
 
-            dataset_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
+            target_entity_urn = (
+                self._semantic_model_urn_from_identifier(dataset_identifier)
+                if self.config.semantic_views.emit_semantic_model_entities
+                else self.identifiers.gen_dataset_urn(dataset_identifier)
+            )
             return MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
+                entityUrn=target_entity_urn,
                 aspect=stats,
             ).as_workunit()
 

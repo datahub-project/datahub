@@ -276,18 +276,6 @@ class SnowflakeV2Source(
                 connection=self.connection,
                 identifiers=self.identifiers,
             )
-        if (
-            self.config.semantic_views.enabled
-            and self.config.semantic_views.include_usage
-            and self.config.semantic_views.emit_semantic_model_entities
-        ):
-            self.report.warning(
-                title="Semantic view usage statistics are not supported",
-                message="Semantic views are ingested as semanticModel entities, "
-                "which do not support usage statistics yet; "
-                "semantic_views.include_usage is ignored. "
-                "Query entities are still emitted when semantic_views.include_queries is enabled.",
-            )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
         if self.config.enable_stateful_profiling:
@@ -722,10 +710,9 @@ class SnowflakeV2Source(
 
         if self.semantic_view_usage_extractor and discovered_semantic_views:
             discovered_semantic_views_set = set(discovered_semantic_views)
-            if not self.config.semantic_views.emit_semantic_model_entities:
-                yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
-                    discovered_semantic_views_set
-                )
+            yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
+                discovered_semantic_views_set
+            )
             yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
                 discovered_semantic_views_set
             )

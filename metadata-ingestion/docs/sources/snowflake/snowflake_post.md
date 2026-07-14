@@ -414,7 +414,7 @@ semantic_view_pattern:
 
 - Semantic views are ingested as **semanticModel** entities (with **metric** entities for `METRIC` columns) instead of Datasets — the URNs, subtype, and dataset-specific aspects (schema, dataset properties, view properties) described above no longer apply.
 - Table-level and column-level lineage are emitted directly on the semanticModel/metric entities instead of as dataset `upstreamLineage`.
-- `semantic_views.include_usage` is deprecated and ignored: semanticModel entities do not support usage statistics yet. Use `semantic_views.include_queries` if you want query entities for queries against semantic views — with the flag enabled, those query entities are attributed to the semanticModel instead of a dataset.
+- `semantic_views.include_usage` is fully supported in both modes: usage statistics (query counts, unique users, top queries per time bucket) are written to the semanticModel entity instead of a dataset. Note that read-side support (rendering usage stats in the UI) for the semanticModel entity is still in progress. `semantic_views.include_queries` is unaffected and continues to emit query entities, attributed to the semanticModel instead of a dataset.
 - Semantic views no longer have a container aspect, so they no longer appear inside their database/schema container pages. Find them via search, lineage, or the metrics experience instead.
 - **Known limitation:** a dataset or dashboard whose SQL selects `FROM SEMANTIC_VIEW(...)` cannot yet declare the semanticModel as an upstream, since dataset `upstreamLineage` only accepts dataset URNs.
 

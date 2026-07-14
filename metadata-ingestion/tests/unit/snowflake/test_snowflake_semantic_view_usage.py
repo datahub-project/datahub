@@ -44,11 +44,9 @@ class TestSemanticViewsConfig:
             )
             mock_logger.warning.assert_called()
 
-    def test_include_usage_with_emit_semantic_model_entities_logs_deprecation_warning(
-        self,
-    ):
-        """include_usage is deprecated and ignored once semantic views are ingested
-        as semanticModel entities; setting it True must always warn."""
+    def test_include_usage_with_emit_semantic_model_entities_no_warning(self):
+        """include_usage is fully supported in semanticModel mode; enabling both
+        flags together must not log a warning."""
         with patch(
             "datahub.ingestion.source.snowflake.snowflake_config.logger"
         ) as mock_logger:
@@ -57,7 +55,7 @@ class TestSemanticViewsConfig:
                 include_usage=True,
                 emit_semantic_model_entities=True,
             )
-            mock_logger.warning.assert_called()
+            mock_logger.warning.assert_not_called()
 
     def test_max_queries_per_view_validation(self):
         """Test that max_queries_per_view validation rejects invalid values."""
@@ -422,6 +420,65 @@ class TestSemanticViewUsageExtractor:
             mock_identifiers.gen_semantic_model_urn.return_value
         )
 
+    def test_build_usage_statistics_workunit_legacy_dataset_mode(
+        self,
+        extractor: SemanticViewUsageExtractor,
+        mock_identifiers: MagicMock,
+    ) -> None:
+        """With emit_semantic_model_entities=False (default), the usage stats
+        entityUrn must be the dataset URN (legacy behavior)."""
+        record = SemanticViewUsageRecord(
+            semantic_view_name="db.schema.view",
+            bucket_start_time=datetime.datetime(
+                2024, 1, 1, tzinfo=datetime.timezone.utc
+            ),
+            total_queries=10,
+            unique_users=2,
+            direct_sql_queries=8,
+            cortex_analyst_queries=2,
+            avg_execution_time_ms=100.0,
+            total_rows_produced=200,
+            user_counts=[],
+        )
+
+        wu = extractor._build_usage_statistics_workunit(record, "db.schema.view")
+
+        assert wu is not None
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        assert wu.metadata.entityUrn == mock_identifiers.gen_dataset_urn.return_value
+
+    def test_build_usage_statistics_workunit_emits_semantic_model_urn(
+        self,
+        extractor: SemanticViewUsageExtractor,
+        mock_identifiers: MagicMock,
+    ) -> None:
+        """With emit_semantic_model_entities=True, the DatasetUsageStatistics MCP's
+        entityUrn must be the semanticModel URN, not a dataset URN."""
+        extractor.config.semantic_views.emit_semantic_model_entities = True
+
+        record = SemanticViewUsageRecord(
+            semantic_view_name="db.schema.view",
+            bucket_start_time=datetime.datetime(
+                2024, 1, 1, tzinfo=datetime.timezone.utc
+            ),
+            total_queries=10,
+            unique_users=2,
+            direct_sql_queries=8,
+            cortex_analyst_queries=2,
+            avg_execution_time_ms=100.0,
+            total_rows_produced=200,
+            user_counts=[],
+        )
+
+        wu = extractor._build_usage_statistics_workunit(record, "db.schema.view")
+
+        assert wu is not None
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        assert isinstance(wu.metadata.aspect, DatasetUsageStatistics)
+        assert wu.metadata.entityUrn == (
+            mock_identifiers.gen_semantic_model_urn.return_value
+        )
+
     def test_query_extraction_respects_max_queries_per_view_efficiently(
         self,
         mock_config: SnowflakeV2Config,
@@ -542,4 +599,79 @@ class TestSemanticViewUsageIntegration:
         assert (
             "SELECT * FROM SEMANTIC_VIEW(test_db.public.sales_view)"
             in usage_stats.topSqlQueries
+        )
+
+    @patch(
+        "datahub.ingestion.source.snowflake.snowflake_semantic_view_usage.SnowflakeConnection"
+    )
+    def test_usage_extraction_end_to_end_semantic_model_mode(
+        self, mock_connection_class
+    ):
+        """With emit_semantic_model_entities=True, the emitted DatasetUsageStatistics
+        MCP's entityUrn must be the semanticModel URN, not a dataset URN."""
+        config = MagicMock(spec=SnowflakeV2Config)
+        config.semantic_views = SemanticViewsConfig(
+            enabled=True,
+            include_usage=True,
+            include_queries=True,
+            emit_semantic_model_entities=True,
+            max_queries_per_view=10,
+        )
+        config.start_time = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
+        config.end_time = datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc)
+        config.bucket_duration = BucketDuration.DAY
+        config.email_domain = "test.com"
+
+        mock_connection = MagicMock()
+        mock_usage_results = MagicMock()
+        mock_usage_results.__iter__ = lambda self: iter(
+            [
+                {
+                    "SEMANTIC_VIEW_NAME": "test_db.public.sales_view",
+                    "BUCKET_START_TIME": datetime.datetime(
+                        2024, 1, 1, tzinfo=datetime.timezone.utc
+                    ),
+                    "TOTAL_QUERIES": 25,
+                    "UNIQUE_USERS": 3,
+                    "DIRECT_SQL_QUERIES": 20,
+                    "CORTEX_ANALYST_QUERIES": 5,
+                    "AVG_EXECUTION_TIME_MS": 150.0,
+                    "TOTAL_ROWS_PRODUCED": 500,
+                    "USER_COUNTS": "[]",
+                    "TOP_SQL_QUERIES": [
+                        "SELECT * FROM SEMANTIC_VIEW(test_db.public.sales_view)"
+                    ],
+                }
+            ]
+        )
+        mock_connection.query.return_value = mock_usage_results
+
+        # Use a real identifier builder so the emitted URN reflects the actual
+        # gen_semantic_model_urn implementation, not a mock stand-in.
+        identifier_config = SnowflakeV2Config.model_validate(
+            {
+                "account_id": "test_account",
+                "username": "user",
+                "password": "pass",
+            }
+        )
+        identifiers = SnowflakeIdentifierBuilder(identifier_config, SnowflakeV2Report())
+
+        report = SnowflakeV2Report()
+        extractor = SemanticViewUsageExtractor(
+            config=config,
+            report=report,
+            connection=mock_connection,
+            identifiers=identifiers,
+        )
+
+        discovered = {"test_db.public.sales_view"}
+        workunits = list(extractor.get_semantic_view_usage_workunits(discovered))
+
+        assert len(workunits) == 1
+        metadata = workunits[0].metadata
+        assert isinstance(metadata, MetadataChangeProposalWrapper)
+        assert isinstance(metadata.aspect, DatasetUsageStatistics)
+        assert metadata.entityUrn == (
+            "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,test_db.public,sales_view)"
         )
