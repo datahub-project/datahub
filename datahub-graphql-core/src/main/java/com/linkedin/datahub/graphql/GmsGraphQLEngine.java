@@ -4074,17 +4074,6 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
-    builder.type(
-        "MetricRelationships",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "parentMetric",
-                new LoadableTypeResolver<>(
-                    metricType,
-                    env -> {
-                      final MetricRelationships rel = env.getSource();
-                      return rel.getParentMetric() != null ? rel.getParentMetric().getUrn() : null;
-                    })));
   }
 
   private void configureSemanticModelResolvers(final RuntimeWiring.Builder builder) {

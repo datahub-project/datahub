@@ -337,11 +337,6 @@ Relationship edges from a Metric to other Metrics.
 """
 type MetricRelationships {
   """
-  The immediate parent in the metric hierarchy.
-  """
-  parentMetric: Metric
-
-  """
   Edges to metrics that this metric is derived from.
   """
   derivedFrom: [EntityEdge!]!

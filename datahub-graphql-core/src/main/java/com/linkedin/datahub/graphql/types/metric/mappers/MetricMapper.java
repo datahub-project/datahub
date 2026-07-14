@@ -29,7 +29,6 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -231,10 +230,6 @@ public class MetricMapper {
       @Nullable QueryContext context, final com.linkedin.metric.MetricRelationships pdl) {
     final com.linkedin.datahub.graphql.generated.MetricRelationships result =
         new com.linkedin.datahub.graphql.generated.MetricRelationships();
-
-    if (pdl.hasParentMetric() && pdl.getParentMetric() != null) {
-      result.setParentMetric((Metric) UrnToEntityMapper.map(context, pdl.getParentMetric()));
-    }
 
     final List<EntityEdge> derivedFrom;
     if (pdl.hasDerivedFrom() && pdl.getDerivedFrom() != null) {
