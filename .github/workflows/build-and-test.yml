@@ -410,7 +410,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
   # ── Experimental backend test sharding (behind gradle.properties backendTestSharding) ───
-  # Timing-balanced across shards (committed .github/gradle_test_weights.json, refreshed by
+  # Timing-balanced across shards (committed .github/backend_test_weights.json, refreshed by
   # the update-test-weights workflow; falls back to an even split if absent). Each shard runs
   # WHOLE modules (`:module:test`, never --tests) so no test can be silently dropped; a heavy
   # module just lands alone on a shard via LPT and is parallelized within it by maxParallelForks.
@@ -547,7 +547,7 @@ jobs:
           python3 .github/scripts/split_gradle_tests.py \
             --split-index "${{ strategy.job-index }}" --split-total "${{ strategy.job-total }}" \
             --repo-root . \
-            --weights .github/gradle_test_weights.json \
+            --weights .github/backend_test_weights.json \
             --glob '**/src/test/**/*.java' \
             --glob '**/src/test/**/*.kt' \
             --glob '**/src/test/**/*.groovy' \

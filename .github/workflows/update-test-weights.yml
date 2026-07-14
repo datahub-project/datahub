@@ -60,7 +60,7 @@ jobs:
         run: |
           mkdir -p ./weights-backup
           cp smoke-test/pytest_test_weights.json ./weights-backup/pytest_weights.json || echo "No existing Pytest weights"
-          cp .github/gradle_test_weights.json ./weights-backup/gradle_weights.json || echo "No existing Gradle weights"
+          cp .github/backend_test_weights.json ./weights-backup/gradle_weights.json || echo "No existing Gradle weights"
 
       - name: Generate new test weights
         run: |
@@ -72,7 +72,7 @@ jobs:
           echo "Generating Gradle weights (keyed by FQCN)..."
           python .github/scripts/generate_test_weights.py \
             --input-dir ./test-artifacts-gradle \
-            --gradle-output .github/gradle_test_weights.json
+            --gradle-output .github/backend_test_weights.json
 
       - name: Compare weights and generate PR body
         id: compare
@@ -87,10 +87,10 @@ jobs:
           # Gradle weights aren't diffed by compare_test_weights.py (pytest-only); trigger a
           # PR if the Gradle file changed at all, so its refresh isn't stuck behind pytest.
           gradle_changed=false
-          if ! cmp -s ./weights-backup/gradle_weights.json .github/gradle_test_weights.json; then
+          if ! cmp -s ./weights-backup/gradle_weights.json .github/backend_test_weights.json; then
             gradle_changed=true
             echo "" >> ./pr-body.md
-            echo "- Gradle test weights (.github/gradle_test_weights.json) refreshed." >> ./pr-body.md
+            echo "- Gradle test weights (.github/backend_test_weights.json) refreshed." >> ./pr-body.md
           fi
 
           # PR if pytest changes exceed threshold (non-empty body) OR gradle weights changed.
@@ -114,7 +114,7 @@ jobs:
           git checkout -b "$BRANCH_NAME"
 
           # Add and commit changes
-          git add smoke-test/pytest_test_weights.json .github/gradle_test_weights.json
+          git add smoke-test/pytest_test_weights.json .github/backend_test_weights.json
 
           git commit -m "chore(test): update test weights from recent CI runs
 

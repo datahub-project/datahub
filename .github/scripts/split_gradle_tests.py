@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Assign whole Gradle test modules to one CI shard, balanced by historical duration.
 
-Vendored + stdlib-only (py3.9+). Reads a committed weights snapshot (gradle_test_weights.json,
+Vendored + stdlib-only (py3.9+). Reads a committed weights snapshot (backend_test_weights.json,
 FQCN -> median seconds from generate_test_weights.py) and LPT bin-packs whole modules across
 shards. Run from / pass the repo root so globs resolve repo-relative.
 
@@ -154,7 +154,7 @@ def main() -> int:
     parser.add_argument("--split-total", "-t", type=int, required=True)
     parser.add_argument("--glob", "-g", action="append", required=True)
     parser.add_argument("--exclude-glob", "-e", action="append", default=[])
-    parser.add_argument("--weights", help="Path to committed gradle_test_weights.json.")
+    parser.add_argument("--weights", help="Path to committed backend_test_weights.json.")
     parser.add_argument("--repo-root", default=".")
     parser.add_argument("--output-args", help="Write gradle args one-per-line to this file.")
     args = parser.parse_args()
