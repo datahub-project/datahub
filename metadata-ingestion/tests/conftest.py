@@ -6,7 +6,7 @@ import re
 import statistics
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Protocol, Sequence
+from typing import Dict, Iterable, List, Optional, Protocol, Sequence
 
 import pytest
 import time_machine
@@ -119,6 +119,19 @@ class _WeightedItem(Protocol):
     def path(self) -> pathlib.Path: ...
 
 
+class _MarkerProto(Protocol):
+    """Read-only marker contract: only ``name`` is read by the helpers below."""
+
+    @property
+    def name(self) -> str: ...
+
+
+class _MarkedItemProto(Protocol):
+    """Item contract for helpers that only read marker names via ``iter_markers``."""
+
+    def iter_markers(self) -> Iterable[_MarkerProto]: ...
+
+
 @dataclass
 class _ConnectorGroup:
     """All integration items belonging to one connector directory."""
@@ -215,7 +228,7 @@ def _bin_pack_groups(
     return bins
 
 
-def _explicit_batch(item: pytest.Item) -> Optional[int]:
+def _explicit_batch(item: _MarkedItemProto) -> Optional[int]:
     """Return the explicit integration_batch_N marker on an item, if any."""
     for marker in item.iter_markers():
         match = _TARGET_BATCH_RE.match(marker.name)
@@ -225,11 +238,24 @@ def _explicit_batch(item: pytest.Item) -> Optional[int]:
 
 
 def _target_batch(config: pytest.Config) -> Optional[int]:
-    """The batch this pytest invocation is selecting via ``-m``, if any."""
+    """The batch this pytest invocation is selecting via ``-m``, if any.
+
+    Returns the batch number when exactly one ``integration_batch_N`` marker is
+    in the ``-m`` expression. Zero matches means a full-suite run (e.g.
+    ``testFull``) — keep every batch. More than one match is ambiguous: we fall
+    back to keeping every batch and warn, since CI never selects multiple
+    batches in one invocation.
+    """
     expr = config.getoption("-m", default="") or ""
     matches = _TARGET_BATCH_RE.findall(expr)
     if len(matches) == 1:
         return int(matches[0])
+    if len(matches) > 1:
+        logger.warning(
+            "Multiple integration_batch_N markers in -m expression %r; "
+            "keeping all batches. Use a single batch marker for batch runs.",
+            expr,
+        )
     return None
 
 
@@ -330,6 +356,11 @@ def pytest_collection_modifyitems(
             continue
         batch_index = item_batch[item]
         item.add_marker(getattr(pytest.mark, f"integration_batch_{batch_index}"))
+        # Any item routed to an integration batch is a slow integration test.
+        # Step 1 only marks items slow if they already had a batch marker or a
+        # docker fixture; dynamically-assigned non-docker integration tests
+        # would otherwise miss `slow`, so add it here too (idempotent).
+        item.add_marker(pytest.mark.slow)
         if target_batch is None or batch_index == target_batch:
             kept.append(item)
     items[:] = kept

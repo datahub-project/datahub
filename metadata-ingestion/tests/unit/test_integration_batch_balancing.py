@@ -7,6 +7,7 @@ from tests.conftest import (
     _build_class_weight_index,
     _connector_key,
     _ConnectorGroup,
+    _explicit_batch,
     _item_weight,
     _nodeid_to_test_id,
 )
@@ -135,3 +136,32 @@ def test_end_to_end_no_drop_no_split_deterministic() -> None:
 
     # (c) determinism
     assert _bin_pack_groups(groups, 6) == bins
+
+
+class _Mark:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+class _MarkedItem:
+    """Stub exposing only iter_markers(), which is all _explicit_batch reads."""
+
+    def __init__(self, names: List[str]) -> None:
+        self._names = names
+
+    def iter_markers(self) -> List[_Mark]:
+        return [_Mark(n) for n in self._names]
+
+
+def test_explicit_batch_resolves_pinned_batch() -> None:
+    # The integration_no_balance escape hatch pins a connector to its existing
+    # integration_batch_N marker; _explicit_batch reads that marker back out.
+    assert _explicit_batch(_MarkedItem(["slow", "integration_batch_4"])) == 4
+    assert _explicit_batch(_MarkedItem(["integration_batch_0"])) == 0
+
+
+def test_explicit_batch_none_for_unmarked_or_recording() -> None:
+    # No batch marker -> not pinned.
+    assert _explicit_batch(_MarkedItem(["integration", "slow"])) is None
+    # The recording batch is intentionally outside the 0-5 range -> not pinned.
+    assert _explicit_batch(_MarkedItem(["integration_batch_recording"])) is None
