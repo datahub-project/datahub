@@ -19,7 +19,6 @@ import qs from 'query-string';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory } from 'react-router';
-import { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -27,6 +26,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { DrawerType, GenericEntityProperties } from '@app/entity/shared/types';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { DeprecatedMenuIcon } from '@app/entityV2/shared/EntityDropdown/DeprecatedMenuIcon';
 import EditGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/EditGlossaryEntityModal';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
@@ -38,6 +38,7 @@ import {
     useHandleDeprecateDomain,
 } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import {
+    getDeprecationMenuActions,
     isDeleteDisabled,
     isMoveDisabled,
     shouldDisplayChildDeletionWarning,
@@ -57,9 +58,7 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { EntityType } from '@types';
-
-import DeprecatedIcon from '@images/deprecated-status.svg?react';
+import { Deprecation, EntityType } from '@types';
 
 // Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
 const INCIDENTS_TAB_NAME = 'Incidents';
@@ -86,7 +85,6 @@ interface Props {
 
 const EntityDropdown = (props: Props) => {
     const history = useHistory();
-    const theme = useTheme();
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
@@ -130,6 +128,7 @@ const EntityDropdown = (props: Props) => {
     const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState(false);
     const [isEditGlossaryModalVisible, setIsEditGlossaryModalVisible] = useState(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
+    const [deprecationModalInitialValues, setDeprecationModalInitialValues] = useState<Deprecation | null>(null);
     const [isEntityAnnouncementModalVisible, setIsEntityAnnouncementModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
@@ -206,70 +205,45 @@ const EntityDropdown = (props: Props) => {
     }
 
     if (menuItems.has(EntityMenuItems.UPDATE_DEPRECATION)) {
-        menuItemsList.push({
-            type: 'item' as const,
-            key: '1',
-            title: !entityData?.deprecation?.deprecated
-                ? t('deprecation.markDeprecated')
-                : t('deprecation.markUnDeprecated'),
-            render: () => (
-                <div
-                    data-testid="entity-menu-deprecate-button"
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '8px',
-                        gap: '8px',
-                    }}
-                >
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexShrink: 0,
-                            width: '20px',
-                            height: '20px',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}
-                    >
-                        <DeprecatedIcon
-                            style={{
-                                width: '16px',
-                                height: '16px',
-                                color: theme.colors.icon,
-                            }}
-                        />
-                    </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        <span
-                            style={{
-                                fontFamily: 'Mulish',
-                                fontWeight: 600,
-                                color: theme.colors.text,
-                                fontSize: '14px',
-                            }}
-                        >
-                            {!entityData?.deprecation?.deprecated
-                                ? t('deprecation.markDeprecated')
-                                : t('deprecation.markUnDeprecated')}
-                        </span>
-                    </div>
-                </div>
-            ),
-            onClick: () => {
-                if (!entityData?.deprecation?.deprecated) {
-                    setIsDeprecationModalVisible(true);
-                } else {
-                    handleUpdateDeprecation(false);
-                }
-            },
+        const deprecationActions = getDeprecationMenuActions(
+            !!entityData?.deprecation?.deprecated,
+            entityData?.privileges,
+        );
+        deprecationActions.forEach((action) => {
+            if (action === 'markDeprecated') {
+                menuItemsList.push({
+                    type: 'item' as const,
+                    key: '1',
+                    title: t('deprecation.markDeprecated'),
+                    icon: DeprecatedMenuIcon,
+                    'data-testid': 'entity-menu-deprecate-button',
+                    onClick: () => {
+                        setDeprecationModalInitialValues(null);
+                        setIsDeprecationModalVisible(true);
+                    },
+                });
+            } else if (action === 'editDeprecated') {
+                menuItemsList.push({
+                    type: 'item' as const,
+                    key: '1-edit',
+                    title: t('deprecation.editDeprecated'),
+                    icon: DeprecatedMenuIcon,
+                    'data-testid': 'entity-menu-edit-deprecation-button',
+                    onClick: () => {
+                        setDeprecationModalInitialValues(entityData?.deprecation ?? null);
+                        setIsDeprecationModalVisible(true);
+                    },
+                });
+            } else {
+                menuItemsList.push({
+                    type: 'item' as const,
+                    key: '1',
+                    title: t('deprecation.markUnDeprecated'),
+                    icon: DeprecatedMenuIcon,
+                    'data-testid': 'entity-menu-deprecate-button',
+                    onClick: () => handleUpdateDeprecation(false),
+                });
+            }
         });
     }
 
@@ -558,7 +532,11 @@ const EntityDropdown = (props: Props) => {
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}
-                    onClose={() => setIsDeprecationModalVisible(false)}
+                    initialDeprecation={deprecationModalInitialValues}
+                    onClose={() => {
+                        setIsDeprecationModalVisible(false);
+                        setDeprecationModalInitialValues(null);
+                    }}
                     refetch={(formData) => {
                         refetchForEntity?.();
                         if (entityType === EntityType.Domain) {

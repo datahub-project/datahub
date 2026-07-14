@@ -22,6 +22,7 @@ import MoveGlossaryEntityModal from '@app/entity/shared/EntityDropdown/MoveGloss
 import { UpdateDeprecationModal } from '@app/entity/shared/EntityDropdown/UpdateDeprecationModal';
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import {
+    canShowEditDeprecation,
     isDeleteDisabled,
     isMoveDisabled,
     shouldDisplayChildDeletionWarning,
@@ -34,7 +35,7 @@ import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { EntityType } from '@types';
+import { Deprecation, EntityType } from '@types';
 
 // Programmatic tab/path segment passed to getEntityPath — not user-visible copy.
 const INCIDENTS_TAB_NAME = 'Incidents';
@@ -134,6 +135,7 @@ function EntityDropdown(props: Props) {
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState<boolean>(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
+    const [deprecationModalInitialValues, setDeprecationModalInitialValues] = useState<Deprecation | null>(null);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
@@ -180,6 +182,65 @@ function EntityDropdown(props: Props) {
      */
     const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType, entityData);
 
+    type DropdownMenuItem = {
+        key: string | number;
+        label: React.ReactNode;
+    };
+
+    const deprecationItems: DropdownMenuItem[] = (() => {
+        if (!menuItems.has(EntityMenuItems.UPDATE_DEPRECATION)) {
+            return [];
+        }
+
+        if (!entityData?.deprecation?.deprecated) {
+            return [
+                {
+                    key: 1,
+                    label: (
+                        <MenuItem
+                            onClick={() => {
+                                setDeprecationModalInitialValues(null);
+                                setIsDeprecationModalVisible(true);
+                            }}
+                        >
+                            <ExclamationCircleOutlined /> &nbsp; {t('deprecation.markDeprecated')}
+                        </MenuItem>
+                    ),
+                },
+            ];
+        }
+
+        const itemsForDeprecatedEntity: DropdownMenuItem[] = [];
+
+        if (canShowEditDeprecation(entityData.privileges)) {
+            itemsForDeprecatedEntity.push({
+                key: '1-edit',
+                label: (
+                    <MenuItem
+                        data-testid="entity-menu-edit-deprecation-button"
+                        onClick={() => {
+                            setDeprecationModalInitialValues(entityData.deprecation ?? null);
+                            setIsDeprecationModalVisible(true);
+                        }}
+                    >
+                        <ExclamationCircleOutlined /> &nbsp; {t('deprecation.editDeprecated')}
+                    </MenuItem>
+                ),
+            });
+        }
+
+        itemsForDeprecatedEntity.push({
+            key: '1-un',
+            label: (
+                <MenuItem onClick={() => handleUpdateDeprecation(false)}>
+                    <ExclamationCircleOutlined /> &nbsp; {t('deprecation.markUnDeprecated')}
+                </MenuItem>
+            ),
+        });
+
+        return itemsForDeprecatedEntity;
+    })();
+
     const items = [
         menuItems.has(EntityMenuItems.COPY_URL) && navigator.clipboard
             ? {
@@ -196,20 +257,7 @@ function EntityDropdown(props: Props) {
                   ),
               }
             : null,
-        menuItems.has(EntityMenuItems.UPDATE_DEPRECATION)
-            ? {
-                  key: 1,
-                  label: !entityData?.deprecation?.deprecated ? (
-                      <MenuItem onClick={() => setIsDeprecationModalVisible(true)}>
-                          <ExclamationCircleOutlined /> &nbsp; {t('deprecation.markDeprecated')}
-                      </MenuItem>
-                  ) : (
-                      <MenuItem onClick={() => handleUpdateDeprecation(false)}>
-                          <ExclamationCircleOutlined /> &nbsp; {t('deprecation.markUnDeprecated')}
-                      </MenuItem>
-                  ),
-              }
-            : null,
+        ...deprecationItems,
         menuItems.has(EntityMenuItems.ADD_TERM)
             ? {
                   key: 2,
@@ -351,7 +399,11 @@ function EntityDropdown(props: Props) {
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}
-                    onClose={() => setIsDeprecationModalVisible(false)}
+                    initialDeprecation={deprecationModalInitialValues}
+                    onClose={() => {
+                        setIsDeprecationModalVisible(false);
+                        setDeprecationModalInitialValues(null);
+                    }}
                     refetch={refetchForEntity}
                 />
             )}
