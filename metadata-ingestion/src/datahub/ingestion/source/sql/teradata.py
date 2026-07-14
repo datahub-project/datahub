@@ -3603,7 +3603,9 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         logger.info("Closing SqlParsingAggregator")
         # Guard each close so one failing teardown neither masks the others nor
         # skips the remaining cleanup below (pooled engine dispose, cache clears,
-        # and super().close() which emits the failed-views summary).
+        # and super().close() which emits the failed-views summary). A close()
+        # failure here only risks leaking that resource's temp SQLite file, which
+        # we accept (and log) in exchange for completing the rest of teardown.
         for resource in (self.aggregator, self.schema_resolver):
             try:
                 resource.close()
