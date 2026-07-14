@@ -1,6 +1,7 @@
 import datetime
 import logging
 import time
+from dataclasses import dataclass
 from typing import Any, Dict, Iterator, Optional
 
 from pydantic import BaseModel, Field
@@ -15,6 +16,41 @@ DATAHUB_EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest"
 DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME = "dataHubExecutionRequestKey"
 DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput"
 DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult"
+
+# Grouping key for execution requests that carry neither an ingestion source nor a
+# source.type. Such records are unattributable, so they share one bucket that is
+# capped tightly (below) to keep them from accumulating.
+UNKNOWN_SOURCE_KEY = "UNKNOWN"
+UNKNOWN_SOURCE_MAX_COUNT = 100
+
+
+@dataclass(frozen=True)
+class ResolvedRetention:
+    """The effective retention limits for a single grouping bucket."""
+
+    min_count: int
+    max_count: int
+    max_milliseconds: int
+
+
+class DatahubExecutionRequestCleanupSourceTypeOverride(ConfigModel):
+    """Per-``source.type`` retention override.
+
+    Any field left unset falls back to the corresponding top-level default.
+    """
+
+    keep_history_min_count: Optional[int] = Field(
+        default=None,
+        description="Overrides keep_history_min_count for this source type; falls back to the global value when unset.",
+    )
+    keep_history_max_count: Optional[int] = Field(
+        default=None,
+        description="Overrides keep_history_max_count for this source type; falls back to the global value when unset.",
+    )
+    keep_history_max_days: Optional[int] = Field(
+        default=None,
+        description="Overrides keep_history_max_days for this source type; falls back to the global value when unset.",
+    )
 
 
 class DatahubExecutionRequestCleanupConfig(ConfigModel):
@@ -57,8 +93,42 @@ class DatahubExecutionRequestCleanupConfig(ConfigModel):
         description="Maximum number of read errors before aborting",
     )
 
-    def keep_history_max_milliseconds(self):
-        return self.keep_history_max_days * 24 * 3600 * 1000
+    source_type_overrides: Dict[
+        str, DatahubExecutionRequestCleanupSourceTypeOverride
+    ] = Field(
+        default_factory=dict,
+        description=(
+            "Per-source.type retention overrides, keyed by the execution request "
+            "source.type. Applies a distinct retention policy to non-ingestion "
+            "execution requests, which are grouped by source.type rather than by "
+            "ingestion source URN."
+        ),
+    )
+
+    def get_retention(self, source_type: str) -> ResolvedRetention:
+        """Resolve the effective retention limits for a bucket, applying any
+        per-source.type override on top of the global defaults."""
+        min_count = self.keep_history_min_count
+        max_count = self.keep_history_max_count
+        max_days = self.keep_history_max_days
+
+        if source_type == UNKNOWN_SOURCE_KEY:
+            max_count = min(max_count, UNKNOWN_SOURCE_MAX_COUNT)
+
+        override = self.source_type_overrides.get(source_type)
+        if override is not None:
+            if override.keep_history_min_count is not None:
+                min_count = override.keep_history_min_count
+            if override.keep_history_max_count is not None:
+                max_count = override.keep_history_max_count
+            if override.keep_history_max_days is not None:
+                max_days = override.keep_history_max_days
+
+        return ResolvedRetention(
+            min_count=min_count,
+            max_count=max_count,
+            max_milliseconds=max_days * 24 * 3600 * 1000,
+        )
 
 
 class DatahubExecutionRequestCleanupReport(SourceReport):
@@ -78,7 +148,19 @@ class CleanupRecord(BaseModel):
     request_id: str
     status: str
     ingestion_source: str
+    source_type: str
     requested_at: int
+
+
+@dataclass
+class _BucketState:
+    """Running retention state for one grouping bucket, seeded from the record
+    that opens the bucket (the newest, since records are scrolled newest-first)."""
+
+    min_count: int
+    max_count: int
+    cutoff_timestamp: int
+    count: int = 0
 
 
 class DatahubExecutionRequestCleanup:
@@ -127,6 +209,7 @@ class DatahubExecutionRequestCleanup:
             requested_at=input_aspect.get("requestedAt", 0),
             status=result_aspect.get("status", "PENDING"),
             ingestion_source=input_aspect.get("source", {}).get("ingestionSource", ""),
+            source_type=input_aspect.get("source", {}).get("type", ""),
         )
 
     def _scroll_execution_requests(
@@ -184,7 +267,7 @@ class DatahubExecutionRequestCleanup:
                 self.report.ergc_read_errors += 1
 
     def _scroll_garbage_records(self):
-        state: Dict[str, Dict] = {}
+        state: Dict[str, _BucketState] = {}
 
         now_ms = int(time.time()) * 1000
         running_guard_timeout = now_ms - 30 * 24 * 3600 * 1000
@@ -192,33 +275,37 @@ class DatahubExecutionRequestCleanup:
         for entry in self._scroll_execution_requests():
             self._print_report()
             self.report.ergc_records_read += 1
-            key = entry.ingestion_source
 
-            # Always delete corrupted records
-            if not key:
-                logger.warning(
-                    f"ergc({self.instance_id}): will delete corrupted entry with missing source key: {entry}"
-                )
-                yield entry
-                continue
+            # Group by ingestion source URN when present, else fall back to source.type.
+            # Non-ingestion requests set a source.type but no ingestionSource; the
+            # fallback gives them real retention instead of instant deletion. Records
+            # with neither are unattributable and share one tightly capped UNKNOWN bucket.
+            key = entry.ingestion_source or entry.source_type or UNKNOWN_SOURCE_KEY
 
             if key not in state:
-                state[key] = {}
-                state[key]["cutoffTimestamp"] = (
-                    entry.requested_at - self.config.keep_history_max_milliseconds()
+                # Retention is resolved once per bucket, from the source.type of the
+                # record that opens it, so a per-type override can apply a distinct policy.
+                retention = self.config.get_retention(
+                    entry.source_type or UNKNOWN_SOURCE_KEY
+                )
+                state[key] = _BucketState(
+                    min_count=retention.min_count,
+                    max_count=retention.max_count,
+                    cutoff_timestamp=entry.requested_at - retention.max_milliseconds,
                 )
 
-            state[key]["count"] = state[key].get("count", 0) + 1
+            bucket = state[key]
+            bucket.count += 1
 
             # Do not delete if number of requests is below minimum
-            if state[key]["count"] < self.config.keep_history_min_count:
+            if bucket.count < bucket.min_count:
                 self.report.ergc_records_preserved += 1
                 continue
 
             # Do not delete if number of requests do not exceed allowed maximum,
             # or the cutoff date.
-            if (state[key]["count"] < self.config.keep_history_max_count) and (
-                entry.requested_at > state[key]["cutoffTimestamp"]
+            if (bucket.count < bucket.max_count) and (
+                entry.requested_at > bucket.cutoff_timestamp
             ):
                 self.report.ergc_records_preserved += 1
                 continue
@@ -236,8 +323,8 @@ class DatahubExecutionRequestCleanup:
             logger.info(
                 (
                     f"ergc({self.instance_id}): going to delete {entry.request_id} in source {key}; "
-                    f"source count: {state[key]['count']}; "
-                    f"source cutoff: {state[key]['cutoffTimestamp']}; "
+                    f"source count: {bucket.count}; "
+                    f"source cutoff: {bucket.cutoff_timestamp}; "
                     f"record timestamp: {entry.requested_at}."
                 )
             )
