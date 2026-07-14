@@ -469,13 +469,11 @@ jobs:
           restore-keys: |
             gradle-backend-build-cache-
       - name: Build + non-test checks once (assemble, spotless, etc.)
-        # IDENTICAL to build-except-metadata-ingestion's `build` command, minus running tests:
-        # assemble + spotless + non-test checks + main compile, once, warming the cache the shards
-        # restore. Deliberately NO `testClasses`: at the root it drags the whole :datahub-web-react
-        # chain (yarnBuild/vite, generators) into a backend build. Shards test disjoint modules, so
-        # each compiles its own test classes exactly once in parallel — cheaper than serializing all
-        # test-compile onto this critical-path job, and keeps this command identical to the proven
-        # single-job path.
+        # Compile main + test + non-test checks (assemble/spotless), no tests run — warms the cache
+        # the shards restore. `testClasses` pulls the :datahub-web-react chain (generators + yarnBuild)
+        # and that's fine: the generators RUN and produce their sources, so yarnBuild/vite and
+        # graphqlUsageRegistryCheck succeed. Do NOT exclude the generators — that leaves yarnBuild
+        # building against missing sources (vite exit 1). Proven-green command (run 29288221733).
         run: |
           ./gradlew build testClasses -x test --build-cache --max-workers="$(nproc)" \
             -x :metadata-ingestion:build \
