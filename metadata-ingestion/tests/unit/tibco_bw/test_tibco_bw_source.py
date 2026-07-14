@@ -231,7 +231,9 @@ def test_application_column_lineage_matches_shared_fields() -> None:
     io = _io_aspect(_run(source, [_scope("AS1", ["orders"])]))
 
     assert io.fineGrainedLineages is not None
-    downstreams = {fine.downstreams[0] for fine in io.fineGrainedLineages}
+    downstreams = {
+        fine.downstreams[0] for fine in io.fineGrainedLineages if fine.downstreams
+    }
     assert downstreams == {
         f"urn:li:schemaField:({_DOWNSTREAM_URN},id)",
         f"urn:li:schemaField:({_DOWNSTREAM_URN},amount)",

@@ -1,4 +1,6 @@
-### Naming and Grouping
+### Capabilities
+
+#### Naming and Grouping
 
 Data Flow ids are stable across runs:
 
@@ -10,7 +12,7 @@ under its scope's Data Flow. Application version, run state, and application
 type are attached as custom properties, and (on-prem) appnode names and states
 are attached to the appspace.
 
-### Lineage
+#### Lineage
 
 The bwagent and TIBCO Cloud APIs expose deployment topology (domains, appspaces,
 subscriptions, applications and their run state) but **not** the datasets each
@@ -32,7 +34,7 @@ The referenced datasets are linked as the application's inputs/outputs without
 being materialized, so lineage is added to datasets that other connectors own.
 Malformed urns are rejected at config validation time.
 
-#### Column-level lineage (opt-in)
+##### Column-level lineage (opt-in)
 
 The runtime APIs do not describe an application's field-level transforms, but many
 BusinessWorks/TCI applications pass fields through largely unchanged. When
@@ -45,7 +47,7 @@ real field path. This is a best-effort name-match heuristic: datasets without a
 schema in DataHub produce no column lineage, and fields that are renamed or derived
 by the application are not captured.
 
-### Known Limitations
+### Limitations
 
 - **Lineage is manual.** Because the runtime APIs do not expose an application's
   data flows, dataset-level lineage must be supplied through `application_lineage`
@@ -55,3 +57,12 @@ by the application are not captured.
 - **No process-level detail.** Individual BusinessWorks processes within an
   application are not enumerated by these APIs, so applications are the finest
   granularity captured.
+
+### Troubleshooting
+
+#### No lineage appears
+
+Lineage is not auto-discovered; populate `application_lineage` with the upstream
+and downstream dataset urns for each application. For column-level lineage, also
+set `emit_column_lineage` and ensure the referenced datasets already have schemas
+in DataHub.
