@@ -436,6 +436,34 @@ class PartitionDiscovery:
             context=f"{context}: {error}",
         )
 
+    def _fetch_top_partition_row(
+        self,
+        col_name: str,
+        query: str,
+        job_config: Optional[QueryJobConfig],
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        table_name: str,
+    ) -> Optional[Row]:
+        # Runs one partition-stats probe and returns the top row, or None (with a
+        # warning) when the column has no populated value. Shared by the date and
+        # non-date column loops, which differ only in how they build the query.
+        self._log_partition_attempt("table query", table_name, [col_name])
+        results = execute_query_func(query, job_config, f"partition column {col_name}")
+
+        if not results or results[0].val is None:
+            warn(
+                self.report,
+                logger,
+                title="Partition value discovery found no values",
+                message="A partition column returned no values; its filter is dropped, "
+                "so the resulting partition scan may be broader than intended.",
+                context=f"{table_name}.{col_name}",
+            )
+            return None
+
+        self._log_partition_attempt("table query", table_name, [col_name], success=True)
+        return results[0]
+
     def _process_regular_date_columns(
         self,
         date_columns: List[str],
@@ -459,27 +487,12 @@ class PartitionDiscovery:
                     safe_table_ref, col_name, max_results, col_data_type
                 )
 
-                self._log_partition_attempt("table query", table.name, [col_name])
-                partition_values_results = execute_query_func(
-                    query, job_config, f"partition column {col_name}"
+                chosen_result = self._fetch_top_partition_row(
+                    col_name, query, job_config, execute_query_func, table.name
                 )
-
-                if (
-                    not partition_values_results
-                    or partition_values_results[0].val is None
-                ):
-                    warn(
-                        self.report,
-                        logger,
-                        title="Partition value discovery found no values",
-                        message="A date partition column returned no values; its filter "
-                        "is dropped, so the resulting partition scan may be broader than "
-                        "intended.",
-                        context=f"{table.name}.{col_name}",
-                    )
+                if chosen_result is None:
                     continue
 
-                chosen_result = partition_values_results[0]
                 logger.info(
                     f"Found latest date for {col_name}: {chosen_result.val} "
                     f"({chosen_result.record_count} records, queried table directly)"
@@ -488,9 +501,6 @@ class PartitionDiscovery:
                 result_values[col_name] = chosen_result.val
                 latest_date_filters.append(
                     self._create_safe_filter(col_name, chosen_result.val, col_data_type)
-                )
-                self._log_partition_attempt(
-                    "table query", table.name, [col_name], success=True
                 )
 
             except Exception as e:
@@ -710,27 +720,16 @@ class PartitionDiscovery:
                         column_types.get(col_name, ""),
                     )
 
-                self._log_partition_attempt("table query", table.name, [col_name])
-                partition_values_results = execute_query_func(
-                    constrained_query, job_config, f"partition column {col_name}"
+                chosen_result = self._fetch_top_partition_row(
+                    col_name,
+                    constrained_query,
+                    job_config,
+                    execute_query_func,
+                    table.name,
                 )
-
-                if (
-                    not partition_values_results
-                    or partition_values_results[0].val is None
-                ):
-                    warn(
-                        self.report,
-                        logger,
-                        title="Partition value discovery found no values",
-                        message="A non-date partition column returned no values; its "
-                        "filter is dropped, so the resulting partition scan may be broader "
-                        "than intended.",
-                        context=f"{table.name}.{col_name}",
-                    )
+                if chosen_result is None:
                     continue
 
-                chosen_result = partition_values_results[0]
                 context = " within latest date partition" if latest_date_filters else ""
                 logger.info(
                     f"Found most populated partition for {col_name}: {chosen_result.val} "
@@ -738,9 +737,6 @@ class PartitionDiscovery:
                 )
 
                 result_values[col_name] = chosen_result.val
-                self._log_partition_attempt(
-                    "table query", table.name, [col_name], success=True
-                )
 
             except Exception as e:
                 self._warn_partition_column_discovery_failed(
