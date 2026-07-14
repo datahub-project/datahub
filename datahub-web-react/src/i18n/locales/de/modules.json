@@ -115,6 +115,7 @@
     "link.urlLabel": "Link",
     "link.urlValidation": "Bitte gib die Link-URL ein",
     "link.urlValidationInvalid": "Bitte gib eine gültige URL ein",
+    "outputPorts.moduleName": "Output-Ports",
     "platforms.moduleName": "Plattformen",
     "platforms.moduleDescription": "Meistgenutzte Plattformen in deiner Organisation",
     "platforms.emptyDescription": "Du hast noch keine Daten aufgenommen.",

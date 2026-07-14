@@ -94,4 +94,19 @@ public interface SystemMetadataService {
    */
   Map<Urn, Map<String, Map<String, Object>>> raw(
       OperationContext opContext, Map<String, Set<String>> urnAspects);
+
+  /**
+   * Count entities for a single registry key aspect, split by active vs soft-deleted system
+   * metadata documents.
+   */
+  @Nonnull
+  KeyAspectCount countByKeyAspect(
+      @Nonnull OperationContext opContext, @Nonnull String keyAspectName);
+
+  /**
+   * Count entities for multiple registry key aspects in one query, split by active vs soft-deleted.
+   */
+  @Nonnull
+  Map<String, KeyAspectCount> countByKeyAspects(
+      @Nonnull OperationContext opContext, @Nonnull List<String> keyAspectNames);
 }

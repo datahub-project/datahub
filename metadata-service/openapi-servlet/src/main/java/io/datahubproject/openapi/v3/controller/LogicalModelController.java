@@ -25,6 +25,7 @@ import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.MappingUtil;
 import io.datahubproject.openapi.v3.models.GenericEntityV3;
@@ -111,7 +112,8 @@ public class LogicalModelController {
                     request,
                     "setLogicalParents",
                     ImmutableSet.of(
-                        childDatasetUrn.getEntityType(), parentDatasetUrn.getEntityType())),
+                        childDatasetUrn.getEntityType(), parentDatasetUrn.getEntityType()))
+                .withUsageOperation(UsageOperation.METADATA_INGEST),
             authorizationChain,
             authentication,
             true);
@@ -219,7 +221,8 @@ public class LogicalModelController {
                     authentication.getActor().toUrnStr(),
                     request,
                     "removeLogicalParents",
-                    Set.of(childDatasetUrn.getEntityType())),
+                    Set.of(childDatasetUrn.getEntityType()))
+                .withUsageOperation(UsageOperation.ENTITY_DELETE),
             authorizationChain,
             authentication,
             true);

@@ -1,0 +1,12 @@
+{
+    "viewDefinitionTab.detailsHeading": "Detaljer",
+    "viewDefinitionTab.formatCompiled": "Kompilert",
+    "viewDefinitionTab.formatFormatted": "Formatert",
+    "viewDefinitionTab.formatRaw": "Rå",
+    "viewDefinitionTab.formatSource": "Kilde",
+    "viewDefinitionTab.languageLabel": "Språk",
+    "viewDefinitionTab.logicHeading": "Logikk",
+    "viewDefinitionTab.materializedFalse": "Nei",
+    "viewDefinitionTab.materializedLabel": "Materialisert",
+    "viewDefinitionTab.materializedTrue": "Ja"
+}

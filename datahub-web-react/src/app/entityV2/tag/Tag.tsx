@@ -59,6 +59,7 @@ export class TagEntity implements Entity<Tag> {
                 entityType={EntityType.Tag}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}
                 previewType={previewType}
+                deprecation={data.deprecation}
                 propagationDetails={extraContext?.propagationDetails}
             />
         );
@@ -77,6 +78,6 @@ export class TagEntity implements Entity<Tag> {
     };
 
     supportedCapabilities = () => {
-        return new Set([EntityCapabilityType.OWNERS]);
+        return new Set([EntityCapabilityType.OWNERS, EntityCapabilityType.DEPRECATION]);
     };
 }
