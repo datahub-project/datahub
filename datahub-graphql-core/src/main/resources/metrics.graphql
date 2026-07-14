@@ -240,11 +240,6 @@ type SemanticModel implements Entity {
   metrics(input: ScrollAcrossEntitiesInput!): ScrollResults
 
   """
-  Count of Metrics defined within this SemanticModel (field-resolver in CAT-2566).
-  """
-  metricsCount: SemanticModelMetricsCount
-
-  """
   Ownership metadata of the SemanticModel.
   """
   ownership: Ownership
@@ -486,11 +481,4 @@ type AiContext {
   instructions: String
   examples: [String!]
   customInstructions: String
-}
-
-"""
-Count of Metrics associated with a SemanticModel.
-"""
-type SemanticModelMetricsCount {
-  total: Int!
 }
