@@ -292,6 +292,12 @@ class SqlAnalyticsEndpointClient:
                 conn_str = sql_endpoint_props.get("connectionString")
                 if provisioning_status == "Success" and conn_str:
                     return conn_str.strip()
+                else:
+                    logger.warning(
+                        f"SQL Analytics Endpoint for {item_type} {item_id} has "
+                        f"provisioningStatus='{provisioning_status}' (expected 'Success'). "
+                        f"Skipping schema extraction for this item."
+                    )
 
             # Warehouse API may expose connectionString at properties level
             # (e.g. staging warehouses: properties=['connectionInfo', 'connectionString', ...])
