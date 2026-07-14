@@ -30,6 +30,7 @@
     "controls.filters.title": "Filters",
     "controls.focusOnHome.label": "Focus on Home",
     "controls.hideMenu.label": "Hide Menu",
+    "controls.redraw.label": "Redraw",
     "controls.screenshotButton.label": "Screenshot",
     "controls.search.placeholder": "Search Graph",
     "controls.showColumns": "Show Columns",
