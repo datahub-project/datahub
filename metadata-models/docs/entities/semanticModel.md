@@ -92,6 +92,13 @@ The semantic model entity reuses these standard governance aspects: `ownership`,
 `deprecation`, `dataPlatformInstance`, `subTypes`, `documentation`, `browsePathsV2`,
 `applications`.
 
+### Usage Statistics
+
+The semantic model entity also reuses the `datasetUsageStatistics` timeseries aspect (the same
+aspect used by `dataset`), so ingestion sources can attach query counts, unique user counts, and
+top queries per time bucket directly to the semantic model. Reading surfaces (UI rendering,
+GraphQL resolvers) for this data are follow-up work.
+
 ## Relationships with Other Entities
 
 | Relationship | Direction | Target entity      | Aspect / edge name  |
