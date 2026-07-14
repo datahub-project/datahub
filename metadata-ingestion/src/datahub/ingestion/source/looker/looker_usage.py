@@ -683,11 +683,9 @@ class LookStatGenerator(BaseStatGenerator):
 class ExploreStatGenerator(BaseStatGenerator):
     """Emits per-explore usage from Looker's System Activity `history` explore.
 
-    Explores map to the L2 layer of the Looker-derived semantic model, so their
-    query/user counts are the signal used to prioritize which generated models
-    are surfaced. Unlike dashboards and looks, Looker exposes no absolute usage
-    snapshot for an explore, so this generator emits only the per-day timeseries
-    stats (entity + per-user).
+    Unlike dashboards and looks, Looker exposes no absolute usage snapshot for an
+    explore, so this generator emits only the per-day timeseries stats (entity +
+    per-user).
     """
 
     def __init__(

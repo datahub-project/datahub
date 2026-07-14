@@ -1414,8 +1414,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             filtered_looks,
         )
 
-        # Explores map to the L2 layer of the Looker-derived semantic model; their
-        # usage is the signal used to prioritize generated models.
         explore_usage_generator = looker_usage.create_explore_stat_generator(
             stat_generator_config,
             self.reporter,
