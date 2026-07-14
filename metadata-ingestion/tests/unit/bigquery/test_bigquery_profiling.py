@@ -439,19 +439,41 @@ def test_batch_kwargs_sampling_with_partition_filter():
     assert "event_date" in kwargs["custom_sql"]
 
 
-def test_external_table_deferred_in_get_profile_request():
-    """External tables must be flagged for deferred partition discovery instead of
-    having discovery run synchronously in get_profile_request.
+def test_external_table_deferred_in_get_workunits():
+    """External tables must be routed to deferred partition discovery (wrapped in a
+    DeferredExternalTable), not profiled synchronously in the main loop.
     """
     config = make_config(profile_external_tables=True, partition_profiling_enabled=True)
     profiler = BigqueryProfiler(config, BigQueryV2Report())
     table = make_table(name="ext_table", external=True)
 
-    result = profiler.get_profile_request(table, "ds", "test-project-123456")
+    captured: dict = {}
 
-    assert result is not None
-    assert getattr(result, "needs_partition_discovery", False) is True
-    assert getattr(result, "bq_table", None) is table
+    def fake_generate(profile_requests, deferred_external, **kwargs):
+        captured["profile_requests"] = list(profile_requests)
+        captured["deferred_external"] = list(deferred_external)
+        return []
+
+    with (
+        patch.object(
+            profiler.partition_discovery,
+            "get_required_partition_filters",
+            return_value=["`event_date` = '2024-11-20'"],
+        ),
+        patch.object(
+            profiler,
+            "generate_profile_workunits_with_deferred_partitions",
+            side_effect=fake_generate,
+        ),
+    ):
+        list(profiler.get_workunits("test-project-123456", {"ds": [table]}))
+
+    assert captured["profile_requests"] == []
+    assert len(captured["deferred_external"]) == 1
+    deferred = captured["deferred_external"][0]
+    assert deferred.bq_table is table
+    assert deferred.db_name == "test-project-123456"
+    assert deferred.schema_name == "ds"
 
 
 def test_partition_discovery_cache_avoids_repeat_info_schema_queries():

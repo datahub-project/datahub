@@ -1,5 +1,7 @@
 # Identifiers (table/column/schema names) cannot be parameterized in BigQuery, so they must
-# be validated and backtick-escaped here. Data values use ScalarQueryParameter elsewhere.
+# be validated and backtick-escaped here. Most data values are bound as query parameters,
+# but partition values in WHERE-clause filters are interpolated (see FilterBuilder), so
+# validate_filter_expression / validate_and_filter_expressions guard that one path.
 
 import logging
 from typing import List

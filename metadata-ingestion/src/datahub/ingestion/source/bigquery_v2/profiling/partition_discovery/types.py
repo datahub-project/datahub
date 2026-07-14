@@ -1,6 +1,10 @@
-from typing import Dict, List, TypedDict
+from datetime import date
+from typing import Dict, List, TypedDict, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# A partition column's value (date, numeric, or string) instead of a bare Any.
+PartitionValue = Union[str, int, float, date]
 
 
 class CachedPartitionMetadata(TypedDict):

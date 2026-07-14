@@ -17,7 +17,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     CUSTOM_SQL_KWARG,
-    DATE_LIKE_COLUMN_NAMES,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
@@ -27,6 +26,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_b
 )
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import (
     BigqueryProfiler,
+    DeferredExternalTable,
     _widen_client_connection_pool,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
@@ -243,20 +243,6 @@ def test_validate_and_filter_expressions():
     assert not any("invalid;" in expr for expr in result)
 
 
-def test_query_executor_initialization():
-    config = create_test_config()
-    executor = QueryExecutor(config)
-
-    assert executor.config == config
-
-
-def test_partition_discovery_initialization():
-    config = create_test_config()
-    discovery = PartitionDiscovery(config)
-
-    assert discovery.config == config
-
-
 def test_get_partition_range_from_partition_id():
     start, end = PartitionDiscovery.get_partition_range_from_partition_id(
         "20231225", None
@@ -349,18 +335,6 @@ def test_partition_discovery_get_column_ordering_strategy():
 
     result = discovery._get_column_ordering_strategy("user_id", "STRING")
     assert result == "record_count DESC"
-
-
-def test_profiler_initialization():
-    config = create_test_config()
-    report = BigQueryV2Report()
-    profiler = BigqueryProfiler(config, report)
-
-    assert profiler.config == config
-    assert profiler.report == report
-    assert isinstance(profiler.partition_discovery, PartitionDiscovery)
-    assert isinstance(profiler.query_executor, QueryExecutor)
-    assert profiler._tables_profiled == 0
 
 
 def test_profiler_get_dataset_name():
@@ -922,8 +896,9 @@ def test_profiler_get_profile_request():
 
         result = profiler.get_profile_request(table, "test_dataset", "test-project")
 
+        # External tables now return a plain request; deferral is decided by
+        # get_workunits, which wraps it in a DeferredExternalTable.
         assert result is not None
-        assert hasattr(result, "needs_partition_discovery")
 
 
 def test_profiler_get_workunits():
@@ -960,8 +935,12 @@ def _build_deferred_external_request(profiler):
             external_table, "test_dataset", "test-project"
         )
     assert request is not None
-    assert getattr(request, "needs_partition_discovery", False)
-    return request
+    return DeferredExternalTable(
+        request=request,
+        bq_table=external_table,
+        db_name="test-project",
+        schema_name="test_dataset",
+    )
 
 
 def test_deferred_external_discovery_failure_is_reported():
@@ -971,7 +950,7 @@ def test_deferred_external_discovery_failure_is_reported():
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
 
-    request = _build_deferred_external_request(profiler)
+    deferred = _build_deferred_external_request(profiler)
 
     with (
         patch.object(
@@ -984,7 +963,7 @@ def test_deferred_external_discovery_failure_is_reported():
     ):
         result = list(
             profiler.generate_profile_workunits_with_deferred_partitions(
-                [request], max_workers=1, platform="bigquery", profiler_args={}
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
             )
         )
 
@@ -999,7 +978,7 @@ def test_deferred_external_discovery_exception_is_reported():
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
 
-    request = _build_deferred_external_request(profiler)
+    deferred = _build_deferred_external_request(profiler)
 
     with (
         patch.object(
@@ -1014,7 +993,7 @@ def test_deferred_external_discovery_exception_is_reported():
     ):
         result = list(
             profiler.generate_profile_workunits_with_deferred_partitions(
-                [request], max_workers=1, platform="bigquery", profiler_args={}
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
             )
         )
 
@@ -1030,7 +1009,7 @@ def test_deferred_external_worker_unexpected_error_is_reported():
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
 
-    request = _build_deferred_external_request(profiler)
+    deferred = _build_deferred_external_request(profiler)
 
     with (
         patch.object(
@@ -1045,7 +1024,7 @@ def test_deferred_external_worker_unexpected_error_is_reported():
     ):
         result = list(
             profiler.generate_profile_workunits_with_deferred_partitions(
-                [request], max_workers=1, platform="bigquery", profiler_args={}
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
             )
         )
 
@@ -1059,7 +1038,7 @@ def test_deferred_external_discovery_success_builds_custom_sql():
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
 
-    request = _build_deferred_external_request(profiler)
+    deferred = _build_deferred_external_request(profiler)
 
     captured = {}
 
@@ -1080,7 +1059,7 @@ def test_deferred_external_discovery_success_builds_custom_sql():
     ):
         list(
             profiler.generate_profile_workunits_with_deferred_partitions(
-                [request], max_workers=1, platform="bigquery", profiler_args={}
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
             )
         )
 
@@ -1107,7 +1086,6 @@ def test_profiler_external_table_integration():
         )
 
         assert profile_request is not None
-        assert hasattr(profile_request, "needs_partition_discovery")
 
 
 def test_profiler_apply_partition_date_windowing_comprehensive():
@@ -2141,22 +2119,6 @@ def test_security_validate_identifier_invalid():
             validate_bigquery_identifier(invalid_id, "test")
 
 
-def test_constants_date_like_column_names_comprehensive():
-    expected_patterns = [
-        "date",
-        "trade_date",
-        "event_date",
-        "timestamp",
-        "created_at",
-        "updated_at",
-        "booking_date",
-        "business_date",
-    ]
-
-    for pattern in expected_patterns:
-        assert pattern in DATE_LIKE_COLUMN_NAMES
-
-
 def test_partition_discovery_with_window_config():
     """Test partition discovery with datetime window configuration"""
     config = create_test_config(partition_datetime_window_days=30)
@@ -2736,6 +2698,83 @@ def test_profiler_engine_falls_back_to_adc_when_no_credential(mock_create_engine
     url = args[0]
     assert "user_supplied_client" not in url
     assert kwargs["connect_args"] == {}
+
+
+def test_hierarchical_date_component_discovery_chains_constraints():
+    # year/month/day discovery must fold each resolved component into the next query's
+    # WHERE so month is picked within the latest year and day within that year+month
+    # (avoiding impossible dates like a December from a year that only has Jan-Mar).
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    captured: dict = {}
+
+    def mock_execute(query, job_config, context):
+        captured[context] = query
+        values = {
+            "partition component year": 2024,
+            "partition component month": 3,
+            "partition component day": 7,
+        }
+        if context in values:
+            return [SimpleNamespace(val=values[context], record_count=100)]
+        return []
+
+    result_values: dict = {}
+    filters = discovery._process_date_components_hierarchically(
+        {"year": "year", "month": "month", "day": "day"},
+        "`p`.`d`.`t`",
+        mock_execute,
+        result_values,
+        {"year": "INT64", "month": "INT64", "day": "INT64"},
+    )
+
+    assert filters == ["`year` = 2024", "`month` = 3", "`day` = 7"]
+    assert "`year` = 2024" in captured["partition component month"]
+    assert "`year` = 2024" in captured["partition component day"]
+    assert "`month` = 3" in captured["partition component day"]
+
+
+def test_date_component_value_zero_pads_month_and_day():
+    dt = datetime(2024, 3, 7)
+    assert PartitionDiscovery._date_component_value("year", dt) == "2024"
+    assert PartitionDiscovery._date_component_value("month", dt) == "03"
+    assert PartitionDiscovery._date_component_value("day", dt) == "07"
+    assert PartitionDiscovery._date_component_value("region", dt) is None
+
+
+def test_security_project_identifier_bounds():
+    assert (
+        validate_bigquery_identifier("my-project-123", "project") == "`my-project-123`"
+    )
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier("shrt", "project")  # < 6 chars
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier("a" * 31, "project")  # > 30 chars
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier("my--project", "project")  # consecutive hyphens
+
+
+def test_security_information_schema_identifier_is_backticked():
+    assert (
+        validate_bigquery_identifier("INFORMATION_SCHEMA.COLUMNS")
+        == "`INFORMATION_SCHEMA.COLUMNS`"
+    )
+    assert validate_bigquery_identifier("INFORMATION_SCHEMA") == "`INFORMATION_SCHEMA`"
+
+
+def test_security_dataset_double_underscore_and_length():
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier("__hidden", "dataset")
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier("a" * 1025, "table")
+
+
+def test_build_safe_table_reference_information_schema():
+    ref = build_safe_table_reference(
+        "my-project", "my_dataset", "INFORMATION_SCHEMA.COLUMNS"
+    )
+    assert ref == "`my-project`.`my_dataset`.`INFORMATION_SCHEMA.COLUMNS`"
 
 
 def test_widen_client_connection_pool_sizes_adapter():

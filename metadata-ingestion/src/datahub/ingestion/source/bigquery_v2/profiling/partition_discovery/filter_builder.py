@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     BIGQUERY_NUMERIC_TYPES,
@@ -13,6 +13,9 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     PARTITION_ID_YYYYMMDDHH_PATTERN,
     VALID_COLUMN_NAME_PATTERN,
 )
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
+    PartitionValue,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,7 @@ class FilterBuilder:
 
     @staticmethod
     def create_safe_filter(
-        col_name: str, val: Union[str, int, float], col_type: Optional[str] = None
+        col_name: str, val: PartitionValue, col_type: Optional[str] = None
     ) -> str:
         if not VALID_COLUMN_NAME_PATTERN.match(col_name):
             raise ValueError(f"Invalid column name for filter: {col_name}")

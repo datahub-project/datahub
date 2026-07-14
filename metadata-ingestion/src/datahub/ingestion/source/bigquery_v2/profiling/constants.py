@@ -209,6 +209,9 @@ PARTITION_ID_YYYYMMDDHH_PATTERN = re.compile(r"^\d{10}$")
 # predicate so date windowing can reproduce the literal's exact shape.
 PARTITION_EQ_LITERAL_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*=\s*(.+?)\s*$")
 
+# Unwraps a DATE()/DATETIME()/TIMESTAMP() call around a date literal.
+DATE_WRAPPER_RE = re.compile(r"(DATE|DATETIME|TIMESTAMP)\((.+)\)", re.IGNORECASE)
+
 # Shape of a date literal's inner (unquoted) value -> format name. Used to render
 # a windowing range bound with the same format the source equality filter used.
 DATE_LITERAL_SHAPES = (

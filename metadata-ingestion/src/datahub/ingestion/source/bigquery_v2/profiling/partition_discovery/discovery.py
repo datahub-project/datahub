@@ -1,7 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 import sqlglot
 from dateutil.relativedelta import relativedelta
@@ -10,6 +10,7 @@ from sqlglot.expressions import (
     Anonymous,
     Date,
     DatetimeTrunc,
+    Expression,
     Identifier,
     PartitionedByProperty,
     Property,
@@ -44,6 +45,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_sch
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
     CachedPartitionMetadata,
     ExtractedPartitionInfo,
+    PartitionValue,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.reporting import warn
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
@@ -327,7 +329,7 @@ class PartitionDiscovery:
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         max_results: int = 5,
         cached_metadata: Optional[CachedPartitionMetadata] = None,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, PartitionValue]:
         if not partition_columns:
             return {}
 
@@ -345,7 +347,7 @@ class PartitionDiscovery:
             self._categorize_partition_columns(partition_columns, column_types)
         )
 
-        result_values: Dict[str, Any] = {}
+        result_values: Dict[str, PartitionValue] = {}
         latest_date_filters = []
 
         latest_date_filters.extend(
@@ -442,7 +444,7 @@ class PartitionDiscovery:
         max_results: int,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         table: BigqueryTable,
-        result_values: Dict[str, Any],
+        result_values: Dict[str, PartitionValue],
     ) -> List[str]:
         latest_date_filters = []
 
@@ -504,7 +506,7 @@ class PartitionDiscovery:
         date_component_columns: Dict[str, Optional[str]],
         safe_table_ref: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        result_values: Dict[str, Any],
+        result_values: Dict[str, PartitionValue],
         column_types: Dict[str, str],
     ) -> List[str]:
         active_date_components = {
@@ -564,7 +566,7 @@ class PartitionDiscovery:
         year_col: str,
         safe_table_ref: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        result_values: Dict[str, Any],
+        result_values: Dict[str, PartitionValue],
         column_types: Optional[Dict[str, str]] = None,
     ) -> List[str]:
         try:
@@ -593,7 +595,7 @@ class PartitionDiscovery:
         safe_table_ref: str,
         year_filters: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        result_values: Dict[str, Any],
+        result_values: Dict[str, PartitionValue],
         column_types: Optional[Dict[str, str]] = None,
     ) -> List[str]:
         return self._find_max_component_within_constraint(
@@ -612,7 +614,7 @@ class PartitionDiscovery:
         safe_table_ref: str,
         year_month_filters: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        result_values: Dict[str, Any],
+        result_values: Dict[str, PartitionValue],
         column_types: Optional[Dict[str, str]] = None,
     ) -> List[str]:
         return self._find_max_component_within_constraint(
@@ -631,7 +633,7 @@ class PartitionDiscovery:
         safe_table_ref: str,
         constraint_filters: List[str],
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        result_values: Dict[str, Any],
+        result_values: Dict[str, PartitionValue],
         column_types: Optional[Dict[str, str]],
         scope_label: str,
     ) -> List[str]:
@@ -676,7 +678,7 @@ class PartitionDiscovery:
         max_results: int,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         table: BigqueryTable,
-        result_values: Dict[str, Any],
+        result_values: Dict[str, PartitionValue],
     ) -> None:
         # When date filters exist, constrain to them so the most-common non-date value
         # is taken within the latest date, not globally (which could be stale).
@@ -815,7 +817,7 @@ class PartitionDiscovery:
             logger.debug(f"{method} failed for table {table_name}{col_info}")
 
     def _extract_column_names_from_sqlglot_partition(
-        self, partition_expr: Any
+        self, partition_expr: Expression
     ) -> List[str]:
         column_names = []
 
@@ -865,8 +867,8 @@ class PartitionDiscovery:
 
         return column_names
 
-    def _get_partition_columns_from_table_info(self, table: BigqueryTable) -> set:
-        required_partition_columns: set[str] = set()
+    def _get_partition_columns_from_table_info(self, table: BigqueryTable) -> Set[str]:
+        required_partition_columns: Set[str] = set()
 
         if table.partition_info:
             required_partition_columns.update(table.partition_info.fields)
@@ -884,7 +886,7 @@ class PartitionDiscovery:
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         purpose: str,
-    ) -> Tuple[set, Optional[str]]:
+    ) -> Tuple[Set[str], Optional[str]]:
         # Cheap COUNT(*) probe: BigQuery raises "requires filter over column(s) ..." for a
         # partitioned table queried without a filter. Success => not partitioned (empty set,
         # no error); failure (including a bad identifier) => columns parsed from the error,
@@ -909,8 +911,8 @@ class PartitionDiscovery:
         project: str,
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-    ) -> set:
-        required_partition_columns = set()
+    ) -> Set[str]:
+        required_partition_columns: Set[str] = set()
 
         try:
             safe_info_schema_ref = build_safe_table_reference(
@@ -1031,9 +1033,7 @@ class PartitionDiscovery:
                 for row in partition_sample_rows:
                     if hasattr(row, col_name) and getattr(row, col_name) is not None:
                         val = getattr(row, col_name)
-                        filter_str = self._create_partition_filter_from_value(
-                            col_name, val, data_type
-                        )
+                        filter_str = self._create_safe_filter(col_name, val, data_type)
                         filters.append(filter_str)
                         logger.debug(
                             f"Found partition value from sample: {col_name}={val}"
@@ -1071,13 +1071,8 @@ class PartitionDiscovery:
             )
             return None
 
-    def _create_partition_filter_from_value(
-        self, col_name: str, val: Union[str, int, float], data_type: str
-    ) -> str:
-        return self._create_safe_filter(col_name, val, data_type)
-
     def _create_safe_filter(
-        self, col_name: str, val: Union[str, int, float], col_type: Optional[str] = None
+        self, col_name: str, val: PartitionValue, col_type: Optional[str] = None
     ) -> str:
         return FilterBuilder.create_safe_filter(col_name, val, col_type)
 
@@ -1157,9 +1152,22 @@ class PartitionDiscovery:
                 )
 
             if not partition_cols_with_types:
-                logger.debug(
-                    f"No partition columns found for external table {table.name}"
-                )
+                if not table.ddl:
+                    # With no DDL and nothing from INFORMATION_SCHEMA we can't tell if an
+                    # external table is partitioned, so surface it instead of assuming not.
+                    warn(
+                        self.report,
+                        logger,
+                        title="External table partition status undetermined",
+                        message="No DDL was available and INFORMATION_SCHEMA returned no "
+                        "partition columns for this external table; it will be treated "
+                        "as unpartitioned and may be full-scanned.",
+                        context=f"{project}.{schema}.{table.name}",
+                    )
+                else:
+                    logger.debug(
+                        f"No partition columns found for external table {table.name}"
+                    )
                 return []
 
             return self._find_valid_partition_combination(
@@ -1271,7 +1279,7 @@ class PartitionDiscovery:
     def _filters_from_partition_values(
         self,
         table: BigqueryTable,
-        actual_partition_values: Dict[str, Any],
+        actual_partition_values: Dict[str, PartitionValue],
         column_types: Dict[str, str],
     ) -> List[str]:
         actual_filters = []
@@ -1654,7 +1662,17 @@ class PartitionDiscovery:
             return enhanced_filters
 
         except Exception as e:
-            logger.warning(f"Error enhancing partition filters: {e}")
+            # Returning None makes the caller fall back to a full scan, bypassing the
+            # dedicated warning above, so surface it here too.
+            warn(
+                self.report,
+                logger,
+                title="Partition discovery fell back to full scan",
+                message="Failed to resolve actual values for the partition filter; "
+                "profiling falls back to a broader (often unpruned) filter, so the "
+                "partition scan may be wider than intended.",
+                context=f"{table.name}: {e}",
+            )
             return None
 
     def _get_strategic_candidate_dates(self) -> List[Tuple[datetime, str]]:

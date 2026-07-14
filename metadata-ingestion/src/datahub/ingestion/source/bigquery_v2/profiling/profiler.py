@@ -1,11 +1,13 @@
 import logging
-import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 import requests
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import bigquery
+from google.cloud.bigquery import QueryJobConfig
 from sqlalchemy import create_engine, inspect
 from typing_extensions import TypeGuard
 
@@ -24,6 +26,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DATE_FORMAT_YYYY_MM_DD,
     DATE_LIKE_COLUMN_NAMES,
     DATE_LITERAL_SHAPES,
+    DATE_WRAPPER_RE,
     PARTITION_EQ_LITERAL_RE,
     PARTITION_HANDLING_ENABLED,
     PARTITION_HANDLING_KWARG,
@@ -51,6 +54,16 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DeferredExternalTable:
+    # Carries an external table's context with its request for deferred partition
+    # discovery, instead of monkey-patching fields onto TableProfilerRequest.
+    request: TableProfilerRequest
+    bq_table: BigqueryTable
+    db_name: str
+    schema_name: str
 
 
 def _widen_client_connection_pool(client: bigquery.Client, size: int) -> None:
@@ -180,8 +193,6 @@ class BigqueryProfiler(GenericProfiler):
             query = queries.PARTITION_METADATA_CACHE.format(
                 info_schema_ref=safe_info_schema_ref, flag=PARTITIONING_COLUMN_FLAG
             )
-
-            from google.cloud.bigquery import QueryJobConfig
 
             job_config = QueryJobConfig()
 
@@ -511,20 +522,7 @@ class BigqueryProfiler(GenericProfiler):
                 )
                 return None
 
-        if bq_table.external:
-            # External table partition discovery can't use INFORMATION_SCHEMA and may
-            # require probing the actual data, which is slow. Defer it to parallel
-            # threads in generate_profile_workunits_with_deferred_partitions so it
-            # doesn't block the main loop from issuing other profile requests.
-            logger.info(
-                f"Deferring partition discovery for external table: {table_ref}"
-            )
-            profile_request.needs_partition_discovery = True  # type: ignore[attr-defined]
-            profile_request.bq_table = bq_table  # type: ignore[attr-defined]
-            profile_request.db_name = db_name  # type: ignore[attr-defined]
-            profile_request.schema_name = schema_name  # type: ignore[attr-defined]
-            self._external_tables_processed += 1
-
+        # External-table partition discovery is deferred to a worker pool by get_workunits.
         logger.info(f"Successfully created profile request for {table_ref}")
         return profile_request
 
@@ -532,6 +530,7 @@ class BigqueryProfiler(GenericProfiler):
         self, project_id: str, tables: Dict[str, List[BigqueryTable]]
     ) -> Iterable[MetadataWorkUnit]:
         profile_requests: List[TableProfilerRequest] = []
+        deferred_external: List[DeferredExternalTable] = []
         total_tables = sum(len(dataset_tables) for dataset_tables in tables.values())
 
         self._tables_profiled = 0
@@ -557,7 +556,18 @@ class BigqueryProfiler(GenericProfiler):
 
                 if profile_request is not None:
                     self.report.report_entity_profiled(profile_request.pretty_name)
-                    profile_requests.append(profile_request)
+                    if table.external:
+                        deferred_external.append(
+                            DeferredExternalTable(
+                                request=profile_request,
+                                bq_table=table,
+                                db_name=project_id,
+                                schema_name=dataset,
+                            )
+                        )
+                        self._external_tables_processed += 1
+                    else:
+                        profile_requests.append(profile_request)
                     self._tables_profiled += 1
                     logger.info(
                         f"Accepted table for profiling: {normalized_table_name}"
@@ -567,14 +577,16 @@ class BigqueryProfiler(GenericProfiler):
                         f"Table not eligible for profiling: {normalized_table_name}"
                     )
 
-        self._log_profiling_statistics(project_id, total_tables, len(profile_requests))
+        eligible_tables = len(profile_requests) + len(deferred_external)
+        self._log_profiling_statistics(project_id, total_tables, eligible_tables)
 
-        if len(profile_requests) == 0:
+        if eligible_tables == 0:
             logger.warning(f"No tables eligible for profiling in project {project_id}")
             return
 
         yield from self.generate_profile_workunits_with_deferred_partitions(
             profile_requests,
+            deferred_external,
             max_workers=self.config.profiling.max_workers,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
@@ -602,141 +614,115 @@ class BigqueryProfiler(GenericProfiler):
             f"({acceptance_rate:.1f}% acceptance rate)"
         )
 
+    def _discover_external_partition_filter(
+        self, deferred: DeferredExternalTable
+    ) -> Optional[TableProfilerRequest]:
+        request = deferred.request
+        bq_table = deferred.bq_table
+        table_ref = f"{deferred.db_name}.{deferred.schema_name}.{bq_table.name}"
+
+        try:
+            logger.info(
+                f"Starting parallel partition discovery for external table: {table_ref}"
+            )
+
+            partition_filters = self.partition_discovery.get_required_partition_filters(
+                bq_table,
+                deferred.db_name,
+                deferred.schema_name,
+                self.query_executor.execute_query_safely,
+            )
+
+            if partition_filters is None:
+                # Mirror the internal path (get_profile_request) which reports skips
+                # via the report: an external table that requires a filter we can't
+                # build is dropped from output, and operators need to see why.
+                self.report.warning(
+                    title="External table skipped during profiling",
+                    message="Could not construct required partition filters for this "
+                    "external table; profiling was skipped to avoid a full scan.",
+                    context=table_ref,
+                )
+                return None
+
+            if partition_filters:
+                validated_filters = validate_and_filter_expressions(
+                    partition_filters, "external table profile request"
+                )
+
+                if validated_filters:
+                    windowed_filters = self._apply_partition_date_windowing(
+                        validated_filters, bq_table
+                    )
+                    partition_where = " AND ".join(windowed_filters)
+                    safe_table_ref = build_safe_table_reference(
+                        deferred.db_name, deferred.schema_name, bq_table.name
+                    )
+                    custom_sql = self._build_partition_profiling_sql(
+                        safe_table_ref, partition_where, bq_table
+                    )
+                    request.batch_kwargs.update(
+                        {
+                            CUSTOM_SQL_KWARG: custom_sql,
+                            PARTITION_HANDLING_KWARG: PARTITION_HANDLING_ENABLED,
+                        }
+                    )
+                else:
+                    # Mirror the internal path: discovery produced filters but all
+                    # failed validation, so this external table is profiled unfiltered.
+                    self.report.warning(
+                        title="Partition filters rejected during profiling",
+                        message="Discovered partition filters for this external table "
+                        "failed validation; profiling will proceed without a partition "
+                        "filter (full scan), or fail if the table requires one.",
+                        context=table_ref,
+                    )
+
+            return request
+
+        except (
+            ValueError,
+            AttributeError,
+            KeyError,
+            GoogleAPICallError,
+        ) as e:
+            # Same reporting as the internal path. Catch only the failures partition
+            # discovery / validation realistically raises (bad identifiers, missing
+            # request plumbing, BigQuery API/IAM/quota errors) — an unexpected error
+            # should surface loudly rather than silently drop the table.
+            self.report.warning(
+                title="External table skipped during profiling",
+                message="Partition discovery failed for this external table; "
+                "profiling was skipped.",
+                context=f"{table_ref}: {e}",
+            )
+            return None
+
     def generate_profile_workunits_with_deferred_partitions(
         self,
         profile_requests: List[TableProfilerRequest],
+        deferred_external: List[DeferredExternalTable],
         max_workers: int,
         platform: str,
         profiler_args: Dict,
     ) -> Iterable[MetadataWorkUnit]:
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        processed_requests = list(profile_requests)
 
-        def process_external_table_request(
-            request: TableProfilerRequest,
-        ) -> Optional[TableProfilerRequest]:
-            if not hasattr(request, "needs_partition_discovery") or not getattr(
-                request, "needs_partition_discovery", False
-            ):
-                return request
-
-            try:
-                bq_table = request.bq_table  # type: ignore[attr-defined]
-                db_name = request.db_name  # type: ignore[attr-defined]
-                schema_name = request.schema_name  # type: ignore[attr-defined]
-                table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
-
-                logger.info(
-                    f"Starting parallel partition discovery for external table: {table_ref}"
-                )
-
-                partition_filters = (
-                    self.partition_discovery.get_required_partition_filters(
-                        bq_table,
-                        db_name,
-                        schema_name,
-                        self.query_executor.execute_query_safely,
-                    )
-                )
-
-                if partition_filters is None:
-                    # Mirror the internal path (get_profile_request) which reports skips
-                    # via the report: an external table that requires a filter we can't
-                    # build is dropped from output, and operators need to see why.
-                    self.report.warning(
-                        title="External table skipped during profiling",
-                        message="Could not construct required partition filters for this "
-                        "external table; profiling was skipped to avoid a full scan.",
-                        context=table_ref,
-                    )
-                    return None
-
-                if partition_filters:
-                    validated_filters = validate_and_filter_expressions(
-                        partition_filters, "external table profile request"
-                    )
-
-                    if validated_filters:
-                        windowed_filters = self._apply_partition_date_windowing(
-                            validated_filters, bq_table
-                        )
-
-                        partition_where = " AND ".join(windowed_filters)
-                        safe_table_ref = build_safe_table_reference(
-                            db_name, schema_name, bq_table.name
-                        )
-
-                        custom_sql = self._build_partition_profiling_sql(
-                            safe_table_ref, partition_where, bq_table
-                        )
-
-                        request.batch_kwargs.update(
-                            {
-                                CUSTOM_SQL_KWARG: custom_sql,
-                                PARTITION_HANDLING_KWARG: PARTITION_HANDLING_ENABLED,
-                            }
-                        )
-                    else:
-                        # Mirror the internal path: discovery produced filters but all
-                        # failed validation, so this external table is profiled unfiltered.
-                        self.report.warning(
-                            title="Partition filters rejected during profiling",
-                            message="Discovered partition filters for this external table "
-                            "failed validation; profiling will proceed without a partition "
-                            "filter (full scan), or fail if the table requires one.",
-                            context=table_ref,
-                        )
-
-                delattr(request, "needs_partition_discovery")
-                delattr(request, "bq_table")
-                delattr(request, "db_name")
-                delattr(request, "schema_name")
-
-                return request
-
-            except (
-                ValueError,
-                AttributeError,
-                KeyError,
-                GoogleAPICallError,
-            ) as e:
-                # Same reporting as the internal path. Catch only the failures partition
-                # discovery / validation realistically raises (bad identifiers, missing
-                # request plumbing, BigQuery API/IAM/quota errors) — an unexpected error
-                # should surface loudly rather than silently drop the table.
-                self.report.warning(
-                    title="External table skipped during profiling",
-                    message="Partition discovery failed for this external table; "
-                    "profiling was skipped.",
-                    context=f"{request.pretty_name}: {e}",
-                )
-                return None
-
-        external_requests = [
-            req for req in profile_requests if hasattr(req, "needs_partition_discovery")
-        ]
-        regular_requests = [
-            req
-            for req in profile_requests
-            if not hasattr(req, "needs_partition_discovery")
-        ]
-
-        processed_requests = list(regular_requests)
-
-        if external_requests:
+        if deferred_external:
             logger.info(
-                f"Processing partition discovery for {len(external_requests)} external table(s) in parallel"
+                f"Processing partition discovery for {len(deferred_external)} external table(s) in parallel"
             )
 
             with ThreadPoolExecutor(
-                max_workers=min(max_workers, len(external_requests))
+                max_workers=min(max_workers, len(deferred_external))
             ) as executor:
-                future_to_request = {
-                    executor.submit(process_external_table_request, req): req
-                    for req in external_requests
+                future_to_deferred = {
+                    executor.submit(self._discover_external_partition_filter, d): d
+                    for d in deferred_external
                 }
 
-                for future in as_completed(future_to_request):
-                    req = future_to_request[future]
+                for future in as_completed(future_to_deferred):
+                    deferred = future_to_deferred[future]
                     try:
                         result = future.result()
                     except Exception as e:
@@ -749,7 +735,7 @@ class BigqueryProfiler(GenericProfiler):
                             title="External table skipped during profiling",
                             message="Partition discovery worker failed with an "
                             "unexpected error; profiling was skipped for this table.",
-                            context=f"{req.pretty_name}: {e}",
+                            context=f"{deferred.request.pretty_name}: {e}",
                         )
                         continue
                     if result is not None:
@@ -886,9 +872,7 @@ class BigqueryProfiler(GenericProfiler):
         """
         text = literal.strip()
         wrapper: Optional[str] = None
-        wrapper_match = re.fullmatch(
-            r"(DATE|DATETIME|TIMESTAMP)\((.+)\)", text, re.IGNORECASE
-        )
+        wrapper_match = DATE_WRAPPER_RE.fullmatch(text)
         if wrapper_match:
             wrapper = wrapper_match.group(1).upper()
             text = wrapper_match.group(2).strip()

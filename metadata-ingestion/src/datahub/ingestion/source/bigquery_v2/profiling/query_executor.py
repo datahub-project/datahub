@@ -16,7 +16,10 @@ class QueryExecutor:
         self.config = config
 
     def _validate_query_security(self, query: str) -> None:
-        validate_sql_structure(query)
+        # validate_sql_structure returns False (rather than raising) for an empty or
+        # non-string query; treat that as a rejection instead of letting it through.
+        if not validate_sql_structure(query):
+            raise ValueError("Query failed structural validation (empty or malformed)")
 
         # Extra guard against comment-based injection that slips past structural checks.
         dangerous_patterns = [";", "--", "/*", "xp_cmdshell", "sp_executesql"]
@@ -50,7 +53,9 @@ class QueryExecutor:
             )
             return results
         except Exception as e:
-            logger.warning(
+            # Debug, not warning: the partition-detection probe deliberately fails here,
+            # and we re-raise so the caller (which holds the report) surfaces real errors.
+            logger.debug(
                 f"Query execution error{f' in {context}' if context else ''}: {e}"
             )
             raise
@@ -78,7 +83,8 @@ class QueryExecutor:
             )
             return results
         except Exception as e:
-            logger.warning(
+            # See execute_query: debug-level because the caller re-raises and reports.
+            logger.debug(
                 f"Query execution error{f' in {context}' if context else ''}: {e}"
             )
             raise
