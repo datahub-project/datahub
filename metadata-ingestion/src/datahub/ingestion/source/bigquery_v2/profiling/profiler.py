@@ -54,11 +54,8 @@ logger = logging.getLogger(__name__)
 
 
 def _widen_client_connection_pool(client: bigquery.Client, size: int) -> None:
-    # The BigQuery client shares one urllib3 pool (default pool_maxsize=10) across
-    # every profiling thread. When profiling.max_workers exceeds 10, urllib3
-    # discards the surplus connections after each request — forcing fresh TLS
-    # handshakes and spamming "Connection pool is full" warnings. Size the pool to
-    # the worker count so connections are reused instead.
+    # The client's urllib3 pool defaults to maxsize 10; profiling threads share it,
+    # so above 10 workers connections are discarded and reopened. Match it to size.
     session = getattr(client, "_http", None)
     if session is None or not hasattr(session, "mount"):
         return
