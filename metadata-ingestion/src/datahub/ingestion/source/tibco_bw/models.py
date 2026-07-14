@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -7,9 +6,10 @@ from datahub.ingestion.source.tibco_bw.constants import (
     DEPLOYMENT_CLOUD,
     DEPLOYMENT_ON_PREM,
 )
+from datahub.utilities.str_enum import StrEnum
 
 
-class TibcoDeployment(str, Enum):
+class TibcoDeployment(StrEnum):
     ON_PREM = DEPLOYMENT_ON_PREM
     CLOUD = DEPLOYMENT_CLOUD
 
