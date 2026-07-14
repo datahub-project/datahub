@@ -13,7 +13,7 @@ interface Props {
     type: EntityType;
 }
 
-export default function ImpactAnalysisNodeInitializer(props: Props) {
+export default function DataFlowGraphInitializer(props: Props) {
     const { urn, type } = props;
     const initialized = useInitializeNodes(urn, type);
 
