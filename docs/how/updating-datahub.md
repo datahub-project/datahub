@@ -51,7 +51,7 @@ Requirements:
 
 - **(Ingestion / BigQuery)** BigQuery now sources row count, size, and last-altered time from the supported `INFORMATION_SCHEMA.PARTITIONS` view instead of the undocumented `__TABLES__` Legacy SQL construct, which is unsupported by Google and may change or stop working without notice. `PARTITIONS` is dataset-scoped and free but covers base tables only, so the default stats change per entity type:
 
-  - **Base tables:** unchanged.
+  - **Base tables:** unchanged, except **empty tables** (zero rows), which are absent from `PARTITIONS` and so lose their `lastModified` timestamp.
   - **External tables:** lose their `lastModified` timestamp (they are absent from `PARTITIONS`). Row count/size were never populated for external tables regardless, since BigQuery does not store their data.
   - **Views:** lose their `lastModified` timestamp (row count/size were never emitted for views).
   - **Snapshots:** lose their `lastModified` timestamp and their `rows_count` / `size_in_bytes` custom properties.
