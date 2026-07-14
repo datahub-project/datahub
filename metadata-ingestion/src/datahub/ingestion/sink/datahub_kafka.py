@@ -191,8 +191,6 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
         # by a lock since write_record_async may run on multiple threads.
         self._rest_fallback_emitter: Optional[DataHubRestEmitter] = None
         self._rest_fallback_lock = threading.Lock()
-        # Set by any record's callback on delivery/emit failure; used to refuse
-        # a synchronous DELETE/RESTATE after an earlier async write failed.
         self._delivery_failed = threading.Event()
         # Whether flush() has run (pipeline calls it pre-commit). close() skips a
         # second flush when so, to avoid double-reporting the same undelivered
@@ -205,8 +203,6 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
             with self._rest_fallback_lock:
                 if self._rest_fallback_emitter is None:
                     assert self.config.rest_fallback is not None
-                    # Reuse the REST sink's public emitter factory so the
-                    # fallback is built exactly like a real REST sink.
                     self._rest_fallback_emitter = DatahubRestSink.make_emitter(
                         self.config.rest_fallback
                     )
@@ -438,10 +434,8 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
                         record, kafka_callback.kafka_callback
                     )
         except Exception as err:
-            # In case we throw an exception while trying to emit the record,
-            # catch it and report the failure. This might happen if the schema
-            # registry is down or otherwise misconfigured, in which case we'd
-            # fail when serializing the record.
+            # emit() can raise before any async delivery -- e.g. Avro
+            # serialization hitting an unreachable/misconfigured schema registry.
             kafka_callback.report_emit_failure(err)
 
     def flush(self) -> None:

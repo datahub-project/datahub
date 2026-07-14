@@ -130,7 +130,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             to_dict=convert_mcp_to_dict,
         )
 
-        # We maintain a map of producers for each kind of event
         producers_config = {
             MCE_KEY: {
                 "bootstrap.servers": self.config.connection.bootstrap,
@@ -152,8 +151,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
             if key in self.config.topic_routes
         }
 
-        # Backpressure counters, surfaced in the sink's run report. Incremented
-        # each time a produce() blocks on a full local queue.
         self.backpressure_engagements = 0
         self.backpressure_blocked_seconds = 0.0
 
@@ -233,8 +230,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
                 if blocked_start is None:
                     blocked_start = time.monotonic()
                 polls += 1
-                # Warn on the first block (so backpressure is visible immediately,
-                # not after ~30s) and then every N polls while it persists.
                 if polls == 1 or polls % _QUEUE_FULL_WARN_EVERY_N_POLLS == 0:
                     logger.warning(
                         "Kafka producer queue full; blocking to apply backpressure. "
@@ -273,7 +268,6 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         mce: MetadataChangeEvent,
         callback: Callable[[Exception, str], None],
     ) -> None:
-        # Report error via callback if MCE_KEY is not configured
         if MCE_KEY not in self.config.topic_routes:
             error = Exception(
                 f"Cannot emit MetadataChangeEvent: {MCE_KEY} topic not configured in topic_routes"
