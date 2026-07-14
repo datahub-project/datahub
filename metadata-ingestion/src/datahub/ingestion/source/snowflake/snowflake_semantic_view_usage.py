@@ -1,11 +1,14 @@
-"""Semantic View Usage Extraction for Snowflake.
+"""Semantic view usage and query extraction for Snowflake.
 
 This module extracts usage statistics and query entities for Snowflake Semantic Views.
 It queries QUERY_HISTORY using pattern matching on SEMANTIC_VIEW() function calls.
 
 Emits:
-- DatasetUsageStatistics: Usage metrics per time bucket
-- Query entities: Individual queries for Queries tab
+- DatasetUsageStatistics: usage metrics per time bucket (legacy dataset mode only;
+  semanticModel entities do not support usage statistics yet)
+- Query entities: individual queries for the Queries tab, whose subject is the
+  dataset URN in legacy mode or the semanticModel URN when
+  semantic_views.emit_semantic_model_entities is enabled
 """
 
 import json
@@ -181,6 +184,11 @@ class SemanticViewUsageExtractor:
         """Normalize semantic view name to lowercase for matching."""
         return name.lower()
 
+    def _semantic_model_urn_from_identifier(self, identifier: str) -> str:
+        """Build the semanticModel URN from a db.schema.view identifier."""
+        db_name, schema_name, view_name = identifier.split(".", 2)
+        return self.identifiers.gen_semantic_model_urn(view_name, schema_name, db_name)
+
     def _build_usage_statistics_workunit(
         self, record: SemanticViewUsageRecord, dataset_identifier: str
     ) -> Optional[MetadataWorkUnit]:
@@ -332,7 +340,11 @@ class SemanticViewUsageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         """Build Query entity workunits for a query."""
         query_urn = QueryUrn(query.query_id).urn()
-        dataset_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
+        subject_entity_urn = (
+            self._semantic_model_urn_from_identifier(dataset_identifier)
+            if self.config.semantic_views.emit_semantic_model_entities
+            else self.identifiers.gen_dataset_urn(dataset_identifier)
+        )
         user_urn, _ = self._get_user_urn_and_email(query.user_name)
         timestamp_millis = int(query.start_time.timestamp() * 1000)
 
@@ -366,7 +378,9 @@ class SemanticViewUsageExtractor:
             aspect=query_properties,
         ).as_workunit()
 
-        query_subjects = QuerySubjects(subjects=[QuerySubject(entity=dataset_urn)])
+        query_subjects = QuerySubjects(
+            subjects=[QuerySubject(entity=subject_entity_urn)]
+        )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=query_urn,

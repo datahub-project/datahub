@@ -205,6 +205,15 @@ def test_populate_semantic_view_columns_with_dimensions(mock_connection):
     assert "CUSTOMER_NAME" in semantic_view.column_synonyms
     assert len(semantic_view.column_synonyms["CUSTOMER_NAME"]) == 2
 
+    # column_occurrences preserves the raw per-logical-table occurrence, which the
+    # semanticModel mapper relies on to group fields by their logical dataset.
+    assert semantic_view.column_occurrences["CUSTOMER_NAME"][0].table_name == (
+        "customers"
+    )
+    assert semantic_view.column_occurrences["PRODUCT_CATEGORY"][0].table_name == (
+        "products"
+    )
+
 
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
 def test_populate_semantic_view_columns_with_duplicates(mock_connection):
@@ -291,6 +300,10 @@ def test_populate_semantic_view_columns_with_duplicates(mock_connection):
 
     # Should have merged subtype
     assert semantic_view.column_subtypes["AMOUNT"] == "DIMENSION,FACT"
+
+    # column_occurrences keeps both raw occurrences (unlike the merged columns list
+    # above), since the semanticModel mapper needs each one's own table/expression.
+    assert len(semantic_view.column_occurrences["AMOUNT"]) == 2
 
     # Should have both table mappings
     assert len(semantic_view.column_table_mappings["AMOUNT"]) == 2

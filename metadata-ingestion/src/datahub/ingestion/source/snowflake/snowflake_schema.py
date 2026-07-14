@@ -265,6 +265,13 @@ class SnowflakeSemanticView(BaseView):
     )
     # Pre-computed upstream dataset URNs for column lineage generation
     resolved_upstream_urns: List[str] = field(default_factory=list)
+    # Raw per-logical-table column occurrences (uppercase column name -> occurrences).
+    # Unlike the merged fields above, this preserves each occurrence's own
+    # expression/comment/synonyms/subtype, which the semanticModel mapper needs to
+    # group fields per logical dataset.
+    column_occurrences: Dict[str, List["SemanticViewColumnMetadata"]] = field(
+        default_factory=dict
+    )
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.SEMANTIC_VIEW
@@ -1399,6 +1406,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
     ) -> None:
         """Process and deduplicate column occurrences for a semantic view."""
         col_name = occurrences[0].name
+
+        semantic_view.column_occurrences[col_name_upper] = occurrences
 
         # Merge metadata from all occurrences
         data_type, merged_comment, merged_subtype = self._merge_column_metadata(

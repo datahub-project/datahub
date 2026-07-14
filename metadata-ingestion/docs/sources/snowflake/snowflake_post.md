@@ -377,6 +377,10 @@ SELECT 'PROD_DB.PUBLIC.TABLE' RLIKE 'PROD_DB\\.PUBLIC\\..*';  -- TRUE
 
 DataHub supports ingestion of Snowflake Semantic Views, which are business-defined views that define metrics, dimensions, and relationships for consistent data modeling and AI-powered analytics.
 
+By default, a semantic view is ingested as a **Dataset** with subtype `Semantic View`: its dimension, fact, and metric columns are tagged `DIMENSION`/`FACT`/`METRIC` on the schema, table-level synonyms are stored as custom properties, and table-level (and, with `column_lineage`, column-level) lineage to the underlying base tables is emitted as a standard dataset `upstreamLineage` aspect.
+
+An opt-in flag, `semantic_views.emit_semantic_model_entities`, ingests each semantic view as its own **semanticModel** entity (name, description, logical dimension/fact fields, and the `CREATE SEMANTIC VIEW` DDL as its native definition) instead, with each `METRIC` column defined on the view ingested as a separate **metric** entity linked to that semanticModel.
+
 ##### Configuration
 
 Semantic view ingestion is disabled by default (requires Snowflake Enterprise Edition or above). You can enable it using the following configuration options:
@@ -386,6 +390,8 @@ Semantic view ingestion is disabled by default (requires Snowflake Enterprise Ed
 semantic_views:
   enabled: true # Default: false
   column_lineage: true # Default: false - enable column-level lineage
+  include_queries: true # Default: false - emit query entities for queries against semantic views
+  # emit_semantic_model_entities: true # Default: false - opt in to semanticModel/metric entities instead of datasets
 
 # Filter semantic views using regex patterns
 semantic_view_pattern:
@@ -398,10 +404,19 @@ semantic_view_pattern:
 
 ##### Features
 
-- **Metadata Extraction**: Extracts semantic view definitions (YAML), columns, comments, and timestamps
-- **Lineage Support**: Semantic views participate in lineage extraction like regular views
+- **Metadata Extraction**: Extracts each semantic view's columns, tags, comments, and timestamps
+- **Lineage Support**: Semantic views participate in table-level lineage extraction like regular views, and column-level lineage when `column_lineage` is enabled
 - **Tags Support**: Tags applied to semantic views are extracted if `extract_tags` is enabled
 - **External URLs**: Direct links to Snowflake Snowsight UI for semantic views
+- **Query Entities**: When `include_queries` is enabled, queries against semantic views are ingested as query entities
+
+##### What changes with `emit_semantic_model_entities`
+
+- Semantic views are ingested as **semanticModel** entities (with **metric** entities for `METRIC` columns) instead of Datasets — the URNs, subtype, and dataset-specific aspects (schema, dataset properties, view properties) described above no longer apply.
+- Table-level and column-level lineage are emitted directly on the semanticModel/metric entities instead of as dataset `upstreamLineage`.
+- `semantic_views.include_usage` is deprecated and ignored: semanticModel entities do not support usage statistics yet. Use `semantic_views.include_queries` if you want query entities for queries against semantic views — with the flag enabled, those query entities are attributed to the semanticModel instead of a dataset.
+- Semantic views no longer have a container aspect, so they no longer appear inside their database/schema container pages. Find them via search, lineage, or the metrics experience instead.
+- **Known limitation:** a dataset or dashboard whose SQL selects `FROM SEMANTIC_VIEW(...)` cannot yet declare the semanticModel as an upstream, since dataset `upstreamLineage` only accepts dataset URNs.
 
 ##### Requirements
 

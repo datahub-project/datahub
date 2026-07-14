@@ -120,14 +120,14 @@ The `SNOWFLAKE` database is a shared database owned by Snowflake. Unlike regular
 
 When you grant `IMPORTED PRIVILEGES`, DataHub will specifically access the following `ACCOUNT_USAGE` tables:
 
-| Table            | Purpose                                                      | Required For                                                      |
-| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------------------- |
-| `QUERY_HISTORY`  | Query logs for lineage, usage stats, and semantic view usage | `include_table_lineage`, `include_usage_stats`, `include_queries` |
-| `ACCESS_HISTORY` | Table/view lineage and access patterns                       | `include_table_lineage`, `include_usage_stats`                    |
-| `USERS`          | User email mapping for corp user entities                    | `include_usage_stats` (for user attribution)                      |
-| `TAG_REFERENCES` | Tag metadata extraction                                      | `extract_tags`                                                    |
-| `VIEWS`          | View metadata (DDL, ownership, etc.) for all views           | Always (when views exist)                                         |
-| `COPY_HISTORY`   | Lineage from `COPY INTO` operations (all stages/sources)     | `include_table_lineage`                                           |
+| Table            | Purpose                                                              | Required For                                                      |
+| ---------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `QUERY_HISTORY`  | Query logs for lineage, usage stats, and semantic view usage/queries | `include_table_lineage`, `include_usage_stats`, `include_queries` |
+| `ACCESS_HISTORY` | Table/view lineage and access patterns                               | `include_table_lineage`, `include_usage_stats`                    |
+| `USERS`          | User email mapping for corp user entities                            | `include_usage_stats` (for user attribution)                      |
+| `TAG_REFERENCES` | Tag metadata extraction                                              | `extract_tags`                                                    |
+| `VIEWS`          | View metadata (DDL, ownership, etc.) for all views                   | Always (when views exist)                                         |
+| `COPY_HISTORY`   | Lineage from `COPY INTO` operations (all stages/sources)             | `include_table_lineage`                                           |
 
 If you cannot grant `IMPORTED PRIVILEGES` due to security policies, the related features (lineage, usage, tags) will not work, and you'll see permission errors in the ingestion logs.
 

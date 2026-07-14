@@ -102,7 +102,12 @@ class SnowflakeShareConfig(ConfigModel):
 class SemanticViewsConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
-        description="If enabled, semantic views will be ingested as datasets. Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+        description="If enabled, semantic views will be ingested. By default they are ingested as datasets with subtype `Semantic View` (see emit_semantic_model_entities to change this). Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+    )
+
+    emit_semantic_model_entities: bool = Field(
+        default=False,
+        description='If enabled, semantic views are ingested as semanticModel entities with their metrics as metric entities; if disabled (default), semantic views are ingested as datasets with subtype "Semantic View" (legacy behavior).',
     )
 
     column_lineage: bool = Field(
@@ -113,7 +118,8 @@ class SemanticViewsConfig(ConfigModel):
     include_usage: bool = Field(
         default=False,
         description="If enabled, usage statistics will be extracted for semantic views. "
-        "This scans QUERY_HISTORY which can be slow on accounts with high query volume.",
+        "This scans QUERY_HISTORY which can be slow on accounts with high query volume. "
+        "Only applies to legacy dataset mode; ignored when emit_semantic_model_entities is enabled.",
     )
 
     include_queries: bool = Field(
@@ -140,11 +146,18 @@ class SemanticViewsConfig(ConfigModel):
 
     @model_validator(mode="after")
     def validate_usage_requires_enabled(self) -> "SemanticViewsConfig":
-        if self.include_usage and not self.enabled:
-            logger.warning(
-                "semantic_views.include_usage is set to True but semantic_views.enabled is False. "
-                "Usage statistics will not be extracted. Set semantic_views.enabled to True to enable usage tracking."
-            )
+        if self.include_usage:
+            if self.emit_semantic_model_entities:
+                logger.warning(
+                    "semantic_views.include_usage is deprecated and ignored: semantic views "
+                    "are ingested as semanticModel entities, which do not support usage "
+                    "statistics yet. Use semantic_views.include_queries for query entities."
+                )
+            elif not self.enabled:
+                logger.warning(
+                    "semantic_views.include_usage is set to True but semantic_views.enabled is False. "
+                    "Usage statistics will not be extracted. Set semantic_views.enabled to True to enable usage tracking."
+                )
         if self.include_queries and not self.enabled:
             logger.warning(
                 "semantic_views.include_queries is set to True but semantic_views.enabled is False. "

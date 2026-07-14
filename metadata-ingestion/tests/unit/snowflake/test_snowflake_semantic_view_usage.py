@@ -1,4 +1,4 @@
-"""Unit tests for Snowflake Semantic View Usage Extraction."""
+"""Unit tests for Snowflake Semantic View usage and query extraction."""
 
 import datetime
 from typing import Any, Dict, List
@@ -27,6 +27,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
+from datahub.metadata.com.linkedin.pegasus2avro.query import QuerySubjects
 
 
 class TestSemanticViewsConfig:
@@ -40,6 +41,21 @@ class TestSemanticViewsConfig:
             SemanticViewsConfig(
                 enabled=False,
                 include_usage=True,
+            )
+            mock_logger.warning.assert_called()
+
+    def test_include_usage_with_emit_semantic_model_entities_logs_deprecation_warning(
+        self,
+    ):
+        """include_usage is deprecated and ignored once semantic views are ingested
+        as semanticModel entities; setting it True must always warn."""
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_config.logger"
+        ) as mock_logger:
+            SemanticViewsConfig(
+                enabled=True,
+                include_usage=True,
+                emit_semantic_model_entities=True,
             )
             mock_logger.warning.assert_called()
 
@@ -106,7 +122,7 @@ class TestSnowflakeQuerySemanticViewUsage:
 
 
 class TestSemanticViewDataModels:
-    """Tests for semantic view usage data models."""
+    """Tests for semantic view usage and query data models."""
 
     def test_semantic_view_usage_record(self):
         """Test SemanticViewUsageRecord creation."""
@@ -153,7 +169,12 @@ class TestSemanticViewDataModels:
 
 
 class TestSemanticViewUsageExtractor:
-    """Tests for SemanticViewUsageExtractor."""
+    """Tests for SemanticViewUsageExtractor.
+
+    The default config exercises legacy dataset mode (emit_semantic_model_entities=False),
+    matching the connector's default. Tests specific to emit_semantic_model_entities=True
+    flip that flag explicitly on the extractor's config.
+    """
 
     @pytest.fixture
     def mock_config(self) -> SnowflakeV2Config:
@@ -182,6 +203,9 @@ class TestSemanticViewUsageExtractor:
         identifiers = MagicMock(spec=SnowflakeIdentifierBuilder)
         identifiers.gen_dataset_urn.return_value = (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.schema.view,PROD)"
+        )
+        identifiers.gen_semantic_model_urn.return_value = (
+            "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,test.schema,view)"
         )
         identifiers.get_user_identifier.return_value = "analyst@test.com"
         return identifiers
@@ -214,6 +238,17 @@ class TestSemanticViewUsageExtractor:
             extractor._normalize_semantic_view_name("db.schema.view")
             == "db.schema.view"
         )
+
+    def test_semantic_model_urn_from_identifier_splits_db_schema_view(
+        self, extractor: SemanticViewUsageExtractor, mock_identifiers: MagicMock
+    ) -> None:
+        """The semanticModel URN helper must split db.schema.view correctly."""
+        urn = extractor._semantic_model_urn_from_identifier("test_db.public.sales_view")
+
+        mock_identifiers.gen_semantic_model_urn.assert_called_once_with(
+            "sales_view", "public", "test_db"
+        )
+        assert urn == mock_identifiers.gen_semantic_model_urn.return_value
 
     def test_generate_query_name_with_semantic_view(
         self, extractor: SemanticViewUsageExtractor
@@ -311,11 +346,13 @@ class TestSemanticViewUsageExtractor:
 
         assert len(workunits) == 0
 
-    def test_build_query_workunits(
+    def test_build_query_workunits_legacy_dataset_mode(
         self,
         extractor: SemanticViewUsageExtractor,
+        mock_identifiers: MagicMock,
     ) -> None:
-        """Test building query workunits from a query."""
+        """With emit_semantic_model_entities=False (default), QuerySubjects must
+        point at the dataset URN (legacy behavior)."""
         query = SemanticViewQuery(
             query_id="query-123",
             query_text="SELECT * FROM SEMANTIC_VIEW(db.schema.view ...)",
@@ -336,15 +373,54 @@ class TestSemanticViewUsageExtractor:
         # Should emit QueryProperties and QuerySubjects
         assert len(workunits) == 2
 
-        # Check QueryProperties
         query_props_wu = workunits[0]
         assert isinstance(query_props_wu.metadata, MetadataChangeProposalWrapper)
         assert query_props_wu.metadata.entityUrn is not None
         assert "query" in query_props_wu.metadata.entityUrn
 
-        # Check QuerySubjects
         query_subjects_wu = workunits[1]
         assert isinstance(query_subjects_wu.metadata, MetadataChangeProposalWrapper)
+        subjects = query_subjects_wu.metadata.aspect
+        assert isinstance(subjects, QuerySubjects)
+        assert (
+            subjects.subjects[0].entity == mock_identifiers.gen_dataset_urn.return_value
+        )
+
+    def test_build_query_workunits_emits_semantic_model_urn(
+        self,
+        extractor: SemanticViewUsageExtractor,
+        mock_identifiers: MagicMock,
+    ) -> None:
+        """With emit_semantic_model_entities=True, the query subject must be the
+        semanticModel URN, not a dataset URN."""
+        extractor.config.semantic_views.emit_semantic_model_entities = True
+
+        query = SemanticViewQuery(
+            query_id="query-123",
+            query_text="SELECT * FROM SEMANTIC_VIEW(db.schema.view ...)",
+            semantic_view_name="db.schema.view",
+            user_name="analyst",
+            role_name="ANALYST_ROLE",
+            warehouse_name="COMPUTE_WH",
+            start_time=datetime.datetime(
+                2024, 1, 1, 10, 30, tzinfo=datetime.timezone.utc
+            ),
+            total_elapsed_time=1500,
+            rows_produced=100,
+            query_source="DIRECT_SQL",
+        )
+
+        workunits = list(extractor._build_query_workunits(query, "db.schema.view"))
+
+        assert len(workunits) == 2
+
+        query_subjects_wu = workunits[1]
+        assert isinstance(query_subjects_wu.metadata, MetadataChangeProposalWrapper)
+        subjects = query_subjects_wu.metadata.aspect
+        assert isinstance(subjects, QuerySubjects)
+        assert subjects.subjects[0].entity == (
+            mock_identifiers.gen_semantic_model_urn.return_value
+        )
 
     def test_query_extraction_respects_max_queries_per_view_efficiently(
         self,
@@ -359,7 +435,7 @@ class TestSemanticViewUsageExtractor:
 
         # Create many queries for the same view (simulating high volume)
         base_time = datetime.datetime(2024, 1, 1, 10, 0, tzinfo=datetime.timezone.utc)
-        mock_query_results = [
+        mock_query_results: List[Dict[str, Any]] = [
             {
                 "QUERY_ID": f"query-{i}",
                 "QUERY_TEXT": f"SELECT {i} FROM SEMANTIC_VIEW(db.schema.view)",
@@ -392,7 +468,7 @@ class TestSemanticViewUsageExtractor:
 
 
 class TestSemanticViewUsageIntegration:
-    """Integration tests for semantic view usage extraction."""
+    """Integration tests for semantic view usage extraction (legacy dataset mode)."""
 
     @patch(
         "datahub.ingestion.source.snowflake.snowflake_semantic_view_usage.SnowflakeConnection"

@@ -33,6 +33,13 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetProperties,
+    ViewProperties,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
+from datahub.metadata.schema_classes import UpstreamLineageClass
 
 
 class MockQueryResults:
@@ -460,7 +467,10 @@ class TestSemanticViewLineageGeneration:
     def test_generate_lineage_for_direct_columns(self, schema_gen_with_semantic_view):
         """Test lineage generation for columns that map directly to physical columns."""
         gen, semantic_view = schema_gen_with_semantic_view
-        semantic_view_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,TEST_DB.PUBLIC.SALES_ANALYTICS,PROD)"
+        # Column lineage is anchored on the semanticModel URN (not a dataset URN) -
+        # _generate_column_lineage_for_semantic_view only uses it to build schemaField
+        # URNs, so the exact entity type doesn't affect this test's behavior.
+        semantic_view_urn = "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,test_db.public,sales_analytics)"
 
         lineages = gen._generate_column_lineage_for_semantic_view(
             semantic_view, semantic_view_urn, "TEST_DB"
@@ -482,7 +492,8 @@ class TestSemanticViewLineageGeneration:
 
 
 class TestSemanticViewOrchestrationFlow:
-    """Test orchestration methods (_process_semantic_views, _process_semantic_view, etc.)."""
+    """Test orchestration methods (_process_semantic_views, _process_semantic_view, etc.)
+    with emit_semantic_model_entities=True (semanticModel/metric entity mode)."""
 
     @pytest.fixture
     def mock_schema_gen(self):
@@ -492,7 +503,11 @@ class TestSemanticViewOrchestrationFlow:
                 "account_id": "test",
                 "username": "user",
                 "password": "pass",
-                "semantic_views": {"enabled": True, "column_lineage": True},
+                "semantic_views": {
+                    "enabled": True,
+                    "column_lineage": True,
+                    "emit_semantic_model_entities": True,
+                },
                 "include_technical_schema": True,
             }
         )
@@ -554,11 +569,8 @@ class TestSemanticViewOrchestrationFlow:
         schema = MagicMock()
         schema.name = "PUBLIC"
 
-        # Mock gen_dataset_workunits to return empty
-        gen.gen_dataset_workunits = MagicMock(return_value=iter([]))
-
         # Execute - should not raise
-        list(gen._process_semantic_views([semantic_view], schema, "TEST_DB", "PUBLIC"))
+        list(gen._process_semantic_views([semantic_view], schema, "TEST_DB"))
 
         # Should have empty upstream URNs
         assert semantic_view.resolved_upstream_urns == []
@@ -566,7 +578,7 @@ class TestSemanticViewOrchestrationFlow:
     def test_process_semantic_views_include_technical_schema_false(
         self, mock_schema_gen
     ):
-        """Test _process_semantic_views skips schema when include_technical_schema=False."""
+        """Test _process_semantic_views emits nothing when include_technical_schema=False."""
         gen = mock_schema_gen
         gen.config.include_technical_schema = False
 
@@ -582,13 +594,12 @@ class TestSemanticViewOrchestrationFlow:
         schema = MagicMock()
         schema.name = "PUBLIC"
 
-        # gen_dataset_workunits should NOT be called
-        gen.gen_dataset_workunits = MagicMock(return_value=iter([]))
+        workunits = list(
+            gen._process_semantic_views([semantic_view], schema, "TEST_DB")
+        )
 
-        list(gen._process_semantic_views([semantic_view], schema, "TEST_DB", "PUBLIC"))
-
-        # Should NOT have called gen_dataset_workunits since include_technical_schema=False
-        gen.gen_dataset_workunits.assert_not_called()
+        # Semantic model/metric entities should not be emitted at all.
+        assert workunits == []
 
     def test_process_semantic_view_columns_not_populated(self, mock_schema_gen):
         """Test _process_semantic_view fetches columns when not pre-populated."""
@@ -621,7 +632,6 @@ class TestSemanticViewOrchestrationFlow:
             ),
         ]
         gen.get_columns_for_table = MagicMock(return_value=mock_columns)
-        gen.gen_dataset_workunits = MagicMock(return_value=iter([]))
 
         list(gen._process_semantic_view(semantic_view, schema, "TEST_DB"))
 
@@ -657,7 +667,6 @@ class TestSemanticViewOrchestrationFlow:
         schema = MagicMock()
         schema.name = "PUBLIC"
 
-        gen.gen_dataset_workunits = MagicMock(return_value=iter([]))
         gen._generate_column_lineage_for_semantic_view = MagicMock()
 
         list(gen._process_semantic_view(semantic_view, schema, "TEST_DB"))
@@ -668,7 +677,7 @@ class TestSemanticViewOrchestrationFlow:
     def test_process_semantic_view_no_upstream_urns_skips_lineage_emission(
         self, mock_schema_gen
     ):
-        """Test _process_semantic_view skips lineage emission when no upstream URNs."""
+        """Test _process_semantic_view emits no upstreamLineage aspect when there are no upstream URNs."""
         gen = mock_schema_gen
 
         semantic_view = SnowflakeSemanticView(
@@ -695,15 +704,196 @@ class TestSemanticViewOrchestrationFlow:
         schema = MagicMock()
         schema.name = "PUBLIC"
 
-        gen.gen_dataset_workunits = MagicMock(return_value=iter([]))
         gen._generate_column_lineage_for_semantic_view = MagicMock(return_value=[])
-        gen._emit_semantic_view_lineage = MagicMock(return_value=iter([]))
 
-        list(gen._process_semantic_view(semantic_view, schema, "TEST_DB"))
+        workunits = list(gen._process_semantic_view(semantic_view, schema, "TEST_DB"))
 
-        # Lineage generation called but emission should NOT be called (no upstream URNs)
+        # Lineage generation is still invoked, but with no resolved upstream URNs the
+        # model's upstreamLineage aspect must not be emitted at all.
         gen._generate_column_lineage_for_semantic_view.assert_called_once()
-        gen._emit_semantic_view_lineage.assert_not_called()
+        aspects = [wu.metadata.aspect for wu in workunits]
+        assert not any(isinstance(a, UpstreamLineageClass) for a in aspects)
+
+    def test_process_semantic_view_emits_no_dataset_aspects(self, mock_schema_gen):
+        """Flag on: semantic views must not emit any dataset-entity aspects -
+        only semanticModel/metric entities."""
+        gen = mock_schema_gen
+
+        semantic_view = SnowflakeSemanticView(
+            name="TEST_VIEW",
+            created=datetime.datetime.now(),
+            comment="Test",
+            view_definition="CREATE SEMANTIC VIEW ...",
+            last_altered=datetime.datetime.now(),
+            columns=[
+                SnowflakeColumn(
+                    name="COL1",
+                    ordinal_position=1,
+                    is_nullable=True,
+                    data_type="VARCHAR",
+                    comment=None,
+                    character_maximum_length=100,
+                    numeric_precision=None,
+                    numeric_scale=None,
+                ),
+            ],
+        )
+        semantic_view.resolved_upstream_urns = []
+
+        schema = MagicMock()
+        schema.name = "PUBLIC"
+
+        workunits = list(gen._process_semantic_view(semantic_view, schema, "TEST_DB"))
+
+        # SubTypes is intentionally excluded here: the semanticModel entity has its
+        # own SubTypes aspect, and SubTypesClass/SubTypes are the same underlying
+        # class, so it can't be used to distinguish dataset vs. semanticModel MCPs.
+        aspects = [wu.metadata.aspect for wu in workunits]
+        assert not any(
+            isinstance(a, (DatasetProperties, SchemaMetadata, ViewProperties))
+            for a in aspects
+        )
+
+
+class TestSemanticViewOrchestrationFlowLegacyDatasetMode:
+    """Test _process_semantic_views / _process_semantic_view with
+    emit_semantic_model_entities=False (the default): semantic views are ingested
+    as datasets with subtype "Semantic View" (legacy behavior)."""
+
+    @pytest.fixture
+    def mock_schema_gen(self):
+        """Create a minimally mocked SnowflakeSchemaGenerator in legacy dataset mode."""
+        config = SnowflakeV2Config.model_validate(
+            {
+                "account_id": "test",
+                "username": "user",
+                "password": "pass",
+                "semantic_views": {"enabled": True, "column_lineage": True},
+                "include_technical_schema": True,
+            }
+        )
+        report = SnowflakeV2Report()
+
+        filters = MagicMock()
+        filters.is_dataset_pattern_allowed.return_value = True
+        filters.is_semantic_view_allowed.return_value = True
+
+        identifiers = MagicMock()
+        identifiers.get_dataset_identifier.side_effect = lambda t, s, d: f"{d}.{s}.{t}"
+        identifiers.gen_dataset_urn.side_effect = lambda x: (
+            f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{x},PROD)"
+        )
+
+        aggregator = MagicMock()
+        aggregator._schema_resolver = MagicMock()
+        aggregator._schema_resolver._resolve_schema_info.return_value = {}
+
+        gen = SnowflakeSchemaGenerator(
+            config=config,
+            report=report,
+            connection=MagicMock(),
+            filters=filters,
+            identifiers=identifiers,
+            domain_registry=None,
+            profiler=None,
+            aggregator=aggregator,
+            snowsight_url_builder=None,
+        )
+
+        return gen
+
+    def _make_semantic_view(self, upstream_urns: List[str]) -> SnowflakeSemanticView:
+        semantic_view = SnowflakeSemanticView(
+            name="TEST_VIEW",
+            created=datetime.datetime.now(),
+            comment="Test",
+            view_definition="CREATE SEMANTIC VIEW ...",
+            last_altered=datetime.datetime.now(),
+            columns=[
+                SnowflakeColumn(
+                    name="COL1",
+                    ordinal_position=1,
+                    is_nullable=True,
+                    data_type="VARCHAR",
+                    comment=None,
+                    character_maximum_length=100,
+                    numeric_precision=None,
+                    numeric_scale=None,
+                ),
+            ],
+        )
+        semantic_view.resolved_upstream_urns = upstream_urns
+        return semantic_view
+
+    def test_process_semantic_view_emits_dataset_aspects(self, mock_schema_gen):
+        """Flag off (default): dataset URN aspects are emitted, including
+        subTypes ["Semantic View"] and an upstreamLineage aspect anchored on the
+        dataset URN."""
+        gen = mock_schema_gen
+        upstream_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.orders,PROD)"
+        )
+        semantic_view = self._make_semantic_view([upstream_urn])
+
+        schema = MagicMock()
+        schema.name = "PUBLIC"
+
+        workunits = list(gen._process_semantic_view(semantic_view, schema, "TEST_DB"))
+
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,TEST_DB.PUBLIC.TEST_VIEW,PROD)"
+        assert all(wu.metadata.entityUrn == dataset_urn for wu in workunits)
+
+        aspects = [wu.metadata.aspect for wu in workunits]
+        subtypes_aspects = [a for a in aspects if isinstance(a, SubTypes)]
+        assert len(subtypes_aspects) == 1
+        assert subtypes_aspects[0].typeNames == ["Semantic View"]
+
+        upstream_lineages = [a for a in aspects if isinstance(a, UpstreamLineageClass)]
+        assert len(upstream_lineages) == 1
+        assert upstream_lineages[0].upstreams[0].dataset == upstream_urn
+
+    def test_process_semantic_views_registers_view_definition_with_aggregator(
+        self, mock_schema_gen
+    ):
+        """Flag off (default): view definitions are registered with the SQL
+        aggregator for reference/documentation."""
+        gen = mock_schema_gen
+        semantic_view = self._make_semantic_view([])
+
+        schema = MagicMock()
+        schema.name = "PUBLIC"
+
+        list(gen._process_semantic_views([semantic_view], schema, "TEST_DB"))
+
+        gen.aggregator.add_view_definition.assert_called_once()
+        _, kwargs = gen.aggregator.add_view_definition.call_args
+        assert kwargs["view_urn"] == (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,TEST_DB.PUBLIC.TEST_VIEW,PROD)"
+        )
+        assert kwargs["view_definition"] == "CREATE SEMANTIC VIEW ..."
+
+    def test_emit_semantic_model_entities_defaults_to_false(self, mock_schema_gen):
+        """emit_semantic_model_entities must default to False, and with no
+        override _process_semantic_view must route to the legacy dataset path:
+        only dataset URN aspects, no semanticModel/metric MCPs."""
+        gen = mock_schema_gen
+        assert gen.config.semantic_views.emit_semantic_model_entities is False
+
+        semantic_view = self._make_semantic_view([])
+
+        schema = MagicMock()
+        schema.name = "PUBLIC"
+
+        workunits = list(gen._process_semantic_view(semantic_view, schema, "TEST_DB"))
+
+        assert workunits
+        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,TEST_DB.PUBLIC.TEST_VIEW,PROD)"
+        assert all(wu.metadata.entityUrn == dataset_urn for wu in workunits)
+        assert not any(
+            "semanticModel" in wu.metadata.entityUrn
+            or "metric" in wu.metadata.entityUrn
+            for wu in workunits
+        )
 
 
 class TestSemanticViewEdgeCases:
