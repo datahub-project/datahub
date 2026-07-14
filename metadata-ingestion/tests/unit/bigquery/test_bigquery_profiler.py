@@ -640,6 +640,58 @@ def test_probe_error_on_internal_table_is_reported():
     assert any("partition column" in str(w).lower() for w in report.warnings)
 
 
+def _table_with_non_date_partition(require_filter: bool) -> BigqueryTable:
+    table = create_test_table(name="non_date_partitioned")
+    table.partition_info = SimpleNamespace(  # type: ignore[assignment]
+        type_="DAY",
+        field="flow_id",
+        fields=["flow_id"],
+        columns=None,
+        require_partition_filter=require_filter,
+    )
+    return table
+
+
+def _no_partition_values_execute(query, job_config, context):
+    # flow_id resolves to a non-date type; every value-discovery query comes back empty.
+    if "INFORMATION_SCHEMA.COLUMNS" in query:
+        return [SimpleNamespace(column_name="flow_id", data_type="INT64")]
+    return []
+
+
+def test_empty_partition_values_profiles_unfiltered_when_filter_not_required():
+    # A partition column with no discoverable values on a require_partition_filter=false
+    # table should be profiled unfiltered (bounded by row/size limits), not skipped.
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+
+    result = discovery.get_required_partition_filters(
+        _table_with_non_date_partition(require_filter=False),
+        "test-project-123456",
+        "test_dataset",
+        _no_partition_values_execute,
+    )
+
+    assert result == []
+    assert any("without a partition filter" in str(w).lower() for w in report.warnings)
+
+
+def test_empty_partition_values_skips_when_filter_required():
+    # The same table with require_partition_filter=true must be skipped (None): an
+    # unfiltered query would be rejected by BigQuery.
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+
+    result = discovery.get_required_partition_filters(
+        _table_with_non_date_partition(require_filter=True),
+        "test-project-123456",
+        "test_dataset",
+        _no_partition_values_execute,
+    )
+
+    assert result is None
+
+
 @patch.object(PartitionDiscovery, "get_required_partition_filters")
 def test_profiler_get_batch_kwargs(mock_get_filters):
     config = create_test_config()

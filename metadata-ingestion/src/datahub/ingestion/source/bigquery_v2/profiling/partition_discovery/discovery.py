@@ -293,19 +293,41 @@ class PartitionDiscovery:
 
         if partition_filters:
             return partition_filters
-        else:
-            sample_filters = self._get_partitions_with_sampling(
-                table, project, schema, execute_query_func
+
+        sample_filters = self._get_partitions_with_sampling(
+            table, project, schema, execute_query_func
+        )
+        if sample_filters:
+            return sample_filters
+
+        # Discovery found the partition columns but no usable values (commonly an empty
+        # table, or every probe timed out). A table that does not require a partition
+        # filter can still be profiled unfiltered, bounded by the profiling row/size
+        # limit, so prefer that over skipping entirely. Tables that require a partition
+        # filter (and external tables, whose unfiltered scans are unbounded) must be
+        # skipped: an unfiltered query would be rejected or scan everything.
+        requires_filter = bool(
+            table.partition_info and table.partition_info.require_partition_filter
+        )
+        if requires_filter or table.external:
+            logger.warning(
+                f"Could not find valid partition values for table {table.name} "
+                f"with required columns {required_partition_columns}. "
+                f"Skipping profiling to avoid inaccurate results."
             )
-            if sample_filters:
-                return sample_filters
-            else:
-                logger.warning(
-                    f"Could not find valid partition values for table {table.name} "
-                    f"with required columns {required_partition_columns}. "
-                    f"Skipping profiling to avoid inaccurate results."
-                )
-                return None
+            return None
+
+        warn(
+            self.report,
+            logger,
+            title="Profiled without a partition filter",
+            message="No partition values could be discovered, but the table does not "
+            "require a partition filter, so it is profiled without one (bounded by the "
+            "profiling row/size limit). The profile describes the whole table rather "
+            "than a single partition.",
+            context=f"{table.name}: required columns {sorted(required_partition_columns)}",
+        )
+        return []
 
     def _get_partition_column_types(
         self,
