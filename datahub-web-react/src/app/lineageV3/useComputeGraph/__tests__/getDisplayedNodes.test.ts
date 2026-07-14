@@ -3,6 +3,7 @@ import {
     Filters,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
+    LineageNode,
     NodeContext,
     createLineageFilterNodeId,
 } from '@app/lineageV3/common';
@@ -83,7 +84,7 @@ function ordered(
     };
 }
 
-const childUrns = (displayed: LineageEntity[], all: string[]) =>
+const childUrns = (displayed: LineageNode[], all: string[]) =>
     displayed.filter((n) => all.includes(n.id)).map((n) => n.id);
 
 describe('getDisplayedNodes', () => {
