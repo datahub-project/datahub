@@ -161,6 +161,8 @@ import com.linkedin.datahub.graphql.resolvers.load.TimeseriesAspectBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetRootMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetSemanticModelsResolver;
+import com.linkedin.datahub.graphql.resolvers.metrics.MetricChildMetricsResolver;
+import com.linkedin.datahub.graphql.resolvers.metrics.SemanticModelMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.module.DeletePageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.module.UpsertPageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
@@ -850,6 +852,8 @@ public class GmsGraphQLEngine {
     configurePageTemplateResolvers(builder);
     configureDataHubFileResolvers(builder);
     configureAssetSettingsResolver(builder);
+    configureMetricResolvers(builder);
+    configureSemanticModelResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -4026,5 +4030,75 @@ public class GmsGraphQLEngine {
                       }
                       return null;
                     })));
+  }
+
+  private void configureMetricResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Metric",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "semanticModel",
+                    new LoadableTypeResolver<>(
+                        semanticModelType,
+                        env -> {
+                          final Metric m = env.getSource();
+                          return m.getSemanticModel() != null
+                              ? m.getSemanticModel().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "childMetrics", new MetricChildMetricsResolver(entityClient, viewService))
+                .dataFetcher(
+                    "parentMetric",
+                    new LoadableTypeResolver<>(
+                        metricType,
+                        env -> {
+                          final Metric m = env.getSource();
+                          return m.getParentMetric() != null ? m.getParentMetric().getUrn() : null;
+                        }))
+                .dataFetcher(
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        dataPlatformType, env -> ((Metric) env.getSource()).getPlatform().getUrn()))
+                .dataFetcher(
+                    "dataPlatformInstance",
+                    new LoadableTypeResolver<>(
+                        dataPlatformInstanceType,
+                        env -> {
+                          final Metric m = env.getSource();
+                          return m.getDataPlatformInstance() != null
+                              ? m.getDataPlatformInstance().getUrn()
+                              : null;
+                        }))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+  }
+
+  private void configureSemanticModelResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "SemanticModel",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("metrics", new SemanticModelMetricsResolver(entityClient, viewService))
+                .dataFetcher(
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        dataPlatformType,
+                        env -> ((SemanticModel) env.getSource()).getPlatform().getUrn()))
+                .dataFetcher(
+                    "dataPlatformInstance",
+                    new LoadableTypeResolver<>(
+                        dataPlatformInstanceType,
+                        env -> {
+                          final SemanticModel sm = env.getSource();
+                          return sm.getDataPlatformInstance() != null
+                              ? sm.getDataPlatformInstance().getUrn()
+                              : null;
+                        }))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
   }
 }
