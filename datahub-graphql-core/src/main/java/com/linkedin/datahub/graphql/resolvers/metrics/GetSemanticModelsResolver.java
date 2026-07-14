@@ -59,7 +59,7 @@ public class GetSemanticModelsResolver
                     query,
                     null,
                     Collections.singletonList(
-                        new SortCriterion().setField("id").setOrder(SortOrder.ASCENDING)),
+                        new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING)),
                     start,
                     count);
 
