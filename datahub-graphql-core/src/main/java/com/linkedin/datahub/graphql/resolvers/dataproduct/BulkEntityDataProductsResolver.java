@@ -57,6 +57,9 @@ public class BulkEntityDataProductsResolver
 
   private static final String DATA_PRODUCT_CONTAINS_RELATIONSHIP = "DataProductContains";
   private static final int MAX_URNS = 100;
+  // Safety net for the sibling-expanded set that drives the relationship scroll's urn filter. Set
+  // well above MAX_URNS since each input entity may contribute several siblings.
+  private static final int MAX_URNS_WITH_SIBLINGS = 1000;
   // Page size for scrolling the DataProductContains relationship. An entity is typically in at most
   // one data product, so a single page comfortably covers the input batch and their siblings.
   private static final int RELATIONSHIP_SCROLL_COUNT = 1000;
@@ -79,16 +82,26 @@ public class BulkEntityDataProductsResolver
       throw new IllegalArgumentException(
           String.format("Cannot fetch data products for more than %s entities at once", MAX_URNS));
     }
+    // Parse up front so a malformed urn fails fast, synchronously, as a client error rather than
+    // escaping from the async supplier below.
+    final List<Urn> parsedUrns =
+        inputUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // 1. Read each input entity's siblings in one batched aspect read.
-          final Map<String, Set<String>> siblingsByEntity = getSiblings(opContext, inputUrns);
+          final Map<String, Set<String>> siblingsByEntity = getSiblings(opContext, parsedUrns);
 
           // 2. Every entity plus its siblings, since a sibling's data product membership counts
-          // too.
+          // too. Bounded well above MAX_URNS as a safety net on the set that drives the scroll.
           final Set<String> allUrns = new HashSet<>(inputUrns);
           siblingsByEntity.values().forEach(allUrns::addAll);
+          if (allUrns.size() > MAX_URNS_WITH_SIBLINGS) {
+            throw new IllegalStateException(
+                String.format(
+                    "Resolved %s entities including siblings, exceeding the limit of %s",
+                    allUrns.size(), MAX_URNS_WITH_SIBLINGS));
+          }
 
           // 3. Resolve data product membership for all of them in a single relationship scroll.
           final Map<String, Set<String>> dataProductsByEntity =
@@ -119,15 +132,11 @@ public class BulkEntityDataProductsResolver
 
   /** Reads the siblings of each urn via batched aspect reads, grouped by entity type. */
   private Map<String, Set<String>> getSiblings(
-      @Nonnull final OperationContext opContext, @Nonnull final List<String> urns) {
+      @Nonnull final OperationContext opContext, @Nonnull final List<Urn> urns) {
     final Map<String, Set<Urn>> urnsByEntityType = new HashMap<>();
     urns.forEach(
-        urn -> {
-          final Urn parsed = UrnUtils.getUrn(urn);
-          urnsByEntityType
-              .computeIfAbsent(parsed.getEntityType(), k -> new HashSet<>())
-              .add(parsed);
-        });
+        urn ->
+            urnsByEntityType.computeIfAbsent(urn.getEntityType(), k -> new HashSet<>()).add(urn));
 
     final Map<String, Set<String>> result = new HashMap<>();
     urnsByEntityType.forEach(
@@ -179,6 +188,9 @@ public class BulkEntityDataProductsResolver
     }
 
     final GraphRetriever graphRetriever = opContext.getRetrieverContext().getGraphRetriever();
+    // A data product typically contains many of the input entities, so cache the view check to
+    // avoid re-authorizing the same data product for every edge and scroll page.
+    final Map<String, Boolean> viewableByDataProduct = new HashMap<>();
     String scrollId = null;
     do {
       final RelatedEntitiesScrollResult scroll =
@@ -198,7 +210,10 @@ public class BulkEntityDataProductsResolver
       for (RelatedEntities related : scroll.getEntities()) {
         // Incoming DataProductContains: source is the data product, destination is the entity.
         final String dataProductUrn = related.getSourceUrn();
-        if (canView(opContext, UrnUtils.getUrn(dataProductUrn))) {
+        final boolean viewable =
+            viewableByDataProduct.computeIfAbsent(
+                dataProductUrn, urn -> canView(opContext, UrnUtils.getUrn(urn)));
+        if (viewable) {
           result
               .computeIfAbsent(related.getDestinationUrn(), k -> new HashSet<>())
               .add(dataProductUrn);

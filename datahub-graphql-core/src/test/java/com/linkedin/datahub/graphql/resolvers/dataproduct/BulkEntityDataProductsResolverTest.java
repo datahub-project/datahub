@@ -22,8 +22,9 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 /**
- * Focuses on {@link BulkEntityDataProductsResolver#buildEntityDataProducts}, which folds an entity
- * together with its siblings when determining data product membership and output-port status.
+ * Covers {@link BulkEntityDataProductsResolver#buildEntityDataProducts} — folding an entity with
+ * its siblings when determining data product membership and output-port status — and the input-size
+ * guard in {@link BulkEntityDataProductsResolver#get}.
  */
 public class BulkEntityDataProductsResolverTest {
 
