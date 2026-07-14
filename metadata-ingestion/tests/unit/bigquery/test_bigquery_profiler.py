@@ -660,8 +660,6 @@ def _no_partition_values_execute(query, job_config, context):
 
 
 def test_empty_partition_values_profiles_unfiltered_when_filter_not_required():
-    # A partition column with no discoverable values on a require_partition_filter=false
-    # table should be profiled unfiltered (bounded by row/size limits), not skipped.
     report = BigQueryV2Report()
     discovery = PartitionDiscovery(create_test_config(), report)
 

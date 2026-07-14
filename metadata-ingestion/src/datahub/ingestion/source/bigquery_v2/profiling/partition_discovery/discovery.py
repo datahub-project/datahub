@@ -300,12 +300,9 @@ class PartitionDiscovery:
         if sample_filters:
             return sample_filters
 
-        # Discovery found the partition columns but no usable values (commonly an empty
-        # table, or every probe timed out). A table that does not require a partition
-        # filter can still be profiled unfiltered, bounded by the profiling row/size
-        # limit, so prefer that over skipping entirely. Tables that require a partition
-        # filter (and external tables, whose unfiltered scans are unbounded) must be
-        # skipped: an unfiltered query would be rejected or scan everything.
+        # No usable partition values. An unfiltered query would be rejected on a
+        # require-filter table and is unbounded on an external table, so skip those;
+        # other tables are profiled unfiltered (bounded by the row/size limit).
         requires_filter = bool(
             table.partition_info and table.partition_info.require_partition_filter
         )
