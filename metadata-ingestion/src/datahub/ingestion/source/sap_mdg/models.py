@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -11,9 +10,10 @@ from datahub.ingestion.source.sap_mdg.constants import (
     DRF_FIELD_DATA_MODEL,
     DRF_FIELD_MODEL,
 )
+from datahub.utilities.str_enum import StrEnum
 
 
-class ODataVersion(str, Enum):
+class ODataVersion(StrEnum):
     V2 = "2"
     V4 = "4"
     UNKNOWN = "unknown"
