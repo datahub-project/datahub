@@ -12,10 +12,8 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discover
     PartitionDiscovery,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
-from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
-    validate_bigquery_identifier,
 )
 
 
@@ -47,29 +45,6 @@ def make_table(
         max_partition_id=max_partition_id,
         **kwargs,
     )
-
-
-def test_profiling_modules_integration():
-    config = make_config(
-        profile_external_tables=True,
-        partition_profiling_enabled=True,
-        use_sampling=True,
-        sample_size=10000,
-        profiling_row_limit=50000,
-    )
-    report = BigQueryV2Report()
-    profiler = BigqueryProfiler(config, report)
-
-    assert isinstance(profiler.partition_discovery, PartitionDiscovery)
-    assert isinstance(profiler.query_executor, QueryExecutor)
-
-    dates = profiler.partition_discovery._get_strategic_candidate_dates()
-    assert len(dates) == 2
-    assert dates[0][0] >= dates[1][0]
-
-    assert validate_bigquery_identifier("test_table") == "`test_table`"
-    filters = ["`date` = '2023-01-01'", "`id` > 100"]
-    assert validate_and_filter_expressions(filters) == filters
 
 
 def test_profiler_staleness_check():

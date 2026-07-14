@@ -2,7 +2,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Tuple, cast
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import requests
 from google.api_core.exceptions import GoogleAPICallError
@@ -64,6 +64,16 @@ class DeferredExternalTable:
     bq_table: BigqueryTable
     db_name: str
     schema_name: str
+
+
+@dataclass
+class DateLiteralSpec:
+    # A parsed partition equality literal: the strftime format key, whether it was
+    # quoted, any DATE()/TIMESTAMP() wrapper, and the resolved date.
+    fmt: str
+    quoted: bool
+    wrapper: Optional[str]
+    date: date
 
 
 def _widen_client_connection_pool(client: bigquery.Client, size: int) -> None:
@@ -347,10 +357,16 @@ class BigqueryProfiler(GenericProfiler):
 
         return None
 
+    @staticmethod
+    def _as_bq_table(table: BaseTable) -> BigqueryTable:
+        if not isinstance(table, BigqueryTable):
+            raise TypeError(f"Expected BigqueryTable, got {type(table).__name__}")
+        return table
+
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> dict:
-        bq_table = cast(BigqueryTable, table)
+        bq_table = self._as_bq_table(table)
         table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
 
         # Raises ValueError for invalid identifiers; callers should catch and skip the table.
@@ -467,7 +483,7 @@ class BigqueryProfiler(GenericProfiler):
     def get_profile_request(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> Optional[TableProfilerRequest]:
-        bq_table = cast(BigqueryTable, table)
+        bq_table = self._as_bq_table(table)
         table_ref = f"{db_name}.{schema_name}.{bq_table.name}"
 
         # Check staleness before super().get_profile_request(), which runs partition
@@ -816,19 +832,27 @@ class BigqueryProfiler(GenericProfiler):
                 # No pinned date (e.g. an IS NOT NULL fallback): window from today
                 # using a quoted ISO literal, which BigQuery coerces for
                 # STRING/DATE/TIMESTAMP columns.
-                fmt, quoted, wrapper = DATE_FORMAT_YYYY_MM_DD, True, None
-                reference_date = datetime.now(timezone.utc).date()
+                spec = DateLiteralSpec(
+                    DATE_FORMAT_YYYY_MM_DD,
+                    True,
+                    None,
+                    datetime.now(timezone.utc).date(),
+                )
             else:
-                spec = self._parse_date_literal(literal)
-                if spec is None:
+                parsed = self._parse_date_literal(literal)
+                if parsed is None:
                     # Unrecognised literal shape: leave the equality untouched
                     # rather than risk a type-mismatched range.
                     continue
-                fmt, quoted, wrapper, reference_date = spec
+                spec = parsed
 
-            start_date = reference_date - timedelta(days=window_days)
-            start_str = self._render_date_bound(start_date, fmt, quoted, wrapper)
-            end_str = self._render_date_bound(reference_date, fmt, quoted, wrapper)
+            start_date = spec.date - timedelta(days=window_days)
+            start_str = self._render_date_bound(
+                start_date, spec.fmt, spec.quoted, spec.wrapper
+            )
+            end_str = self._render_date_bound(
+                spec.date, spec.fmt, spec.quoted, spec.wrapper
+            )
             ranges[col_name] = (
                 f"`{col_name}` >= {start_str} AND `{col_name}` <= {end_str}"
             )
@@ -861,15 +885,10 @@ class BigqueryProfiler(GenericProfiler):
                 return match.group(2).strip()
         return None
 
-    def _parse_date_literal(
-        self, literal: str
-    ) -> Optional[Tuple[str, bool, Optional[str], date]]:
-        """Parse a partition equality literal into (format, quoted, wrapper, date).
-
-        Recognises bare and quoted YYYYMMDD / YYYY-MM-DD / YYYYMMDDHH literals,
-        optionally wrapped in DATE()/DATETIME()/TIMESTAMP(). Returns None for
-        anything else so the caller can leave that filter unchanged.
-        """
+    def _parse_date_literal(self, literal: str) -> Optional[DateLiteralSpec]:
+        # Recognises bare and quoted YYYYMMDD / YYYY-MM-DD / YYYYMMDDHH literals,
+        # optionally wrapped in DATE()/DATETIME()/TIMESTAMP(). Returns None for
+        # anything else so the caller can leave that filter unchanged.
         text = literal.strip()
         wrapper: Optional[str] = None
         wrapper_match = DATE_WRAPPER_RE.fullmatch(text)
@@ -886,7 +905,7 @@ class BigqueryProfiler(GenericProfiler):
                     parsed = datetime.strptime(inner, STRFTIME_FORMATS[fmt]).date()
                 except ValueError:
                     return None
-                return fmt, quoted, wrapper, parsed
+                return DateLiteralSpec(fmt, quoted, wrapper, parsed)
         return None
 
     @staticmethod

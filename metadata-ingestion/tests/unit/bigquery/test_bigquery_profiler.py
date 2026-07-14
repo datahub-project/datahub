@@ -24,6 +24,9 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discover
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
     FilterBuilder,
 )
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_schema import (
+    InfoSchemaQueries,
+)
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import (
     BigqueryProfiler,
     DeferredExternalTable,
@@ -498,7 +501,7 @@ def test_external_table_with_no_columns_reaches_external_discovery():
 
     with patch.object(
         PartitionDiscovery,
-        "_handle_external_table_partitioning",
+        "_get_external_table_partition_filters",
         return_value=["`event_date` = '2023-01-01'"],
     ) as mock_external:
         result = discovery.get_required_partition_filters(
@@ -507,6 +510,113 @@ def test_external_table_with_no_columns_reaches_external_discovery():
 
     mock_external.assert_called_once()
     assert result == ["`event_date` = '2023-01-01'"]
+
+
+def test_get_partitions_with_sampling_date_branch():
+    # Date partition column -> ORDER BY date DESC sample, filter from the first non-null.
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(external=True)
+
+    def execute(query, job_config, context):
+        if "SELECT 1" in query:  # _verify_partition_has_data
+            return [SimpleNamespace(exists_check=1)]
+        return [SimpleNamespace(event_date="2023-12-25")]
+
+    with patch.object(
+        discovery,
+        "get_partition_columns_from_info_schema",
+        return_value={"event_date": "DATE"},
+    ):
+        result = discovery._get_partitions_with_sampling(
+            table, "test-project-123456", "test_dataset", execute
+        )
+
+    assert result == ["`event_date` = '2023-12-25'"]
+
+
+def test_get_partitions_with_sampling_non_date_branch():
+    # No date column -> TABLESAMPLE SYSTEM, filter from the first non-null value.
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(external=True)
+
+    seen_tablesample = False
+
+    def execute(query, job_config, context):
+        nonlocal seen_tablesample
+        if "SELECT 1" in query:  # _verify_partition_has_data
+            return [SimpleNamespace(exists_check=1)]
+        if "TABLESAMPLE SYSTEM" in query:
+            seen_tablesample = True
+        return [SimpleNamespace(region="US")]
+
+    with patch.object(
+        discovery,
+        "get_partition_columns_from_info_schema",
+        return_value={"region": "STRING"},
+    ):
+        result = discovery._get_partitions_with_sampling(
+            table, "test-project-123456", "test_dataset", execute
+        )
+
+    assert seen_tablesample
+    assert result == ["`region` = 'US'"]
+
+
+def test_info_schema_column_type_lookup_failure_reported():
+    report = BigQueryV2Report()
+    info_schema = InfoSchemaQueries(report)
+    table = create_test_table()
+
+    def failing_execute(query, job_config, context):
+        raise RuntimeError("permission denied on INFORMATION_SCHEMA")
+
+    result = info_schema.get_partition_column_types(
+        table, "test-project-123456", "test_dataset", ["date_col"], failing_execute
+    )
+
+    assert result == {}
+    assert any("type" in str(w).lower() for w in report.warnings)
+
+
+def test_info_schema_partition_convert_failures_reported():
+    # Every partition id fails to convert -> one summarizing warning, not one per row.
+    report = BigQueryV2Report()
+    info_schema = InfoSchemaQueries(report)
+    table = create_test_table()
+
+    def execute(query, job_config, context):
+        return [
+            SimpleNamespace(
+                partition_id="bad-1", last_modified_time=None, total_rows=1
+            ),
+            SimpleNamespace(
+                partition_id="bad-2", last_modified_time=None, total_rows=1
+            ),
+        ]
+
+    def verify(*args, **kwargs):
+        return True
+
+    with patch.object(
+        FilterBuilder,
+        "convert_partition_id_to_filters",
+        side_effect=RuntimeError("unparseable"),
+    ):
+        result = info_schema.get_partition_filters_from_information_schema(
+            table,
+            "test-project-123456",
+            "test_dataset",
+            ["date_col"],
+            execute,
+            verify,
+            {"date_col": "DATE"},
+        )
+
+    assert result is None
+    convert_warnings = [w for w in report.warnings if "convert" in str(w).lower()]
+    assert len(convert_warnings) == 1
 
 
 def test_probe_error_on_internal_table_is_reported():
@@ -704,9 +814,6 @@ def test_full_profiling_workflow():
     config = create_test_config(use_sampling=True, sample_size=10000)
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
-
-    assert isinstance(profiler.partition_discovery, PartitionDiscovery)
-    assert isinstance(profiler.query_executor, QueryExecutor)
 
     valid_filters = ["`date` = '2023-01-01'", "`id` > 100"]
     validated = validate_and_filter_expressions(valid_filters)
@@ -918,7 +1025,7 @@ def test_profiler_get_workunits():
     ):
         result = list(profiler.get_workunits("test-project", {"test_dataset": [table]}))
 
-        assert isinstance(result, list)
+        assert result == []
         mock_generate.assert_called_once()
 
 
@@ -1943,30 +2050,6 @@ def test_get_partition_range_formats(partition_id, should_succeed, expected_chec
                 assert getattr(end, attr.replace("end_", "")) == expected_value
 
 
-def test_partition_discovery_with_non_date_columns():
-    """Test partition discovery with non-date partition columns"""
-    config = create_test_config()
-    discovery = PartitionDiscovery(config)
-
-    table = create_test_table(name="region_partitioned", partitioned=True)
-
-    def mock_execute_query_non_date(query, job_config, context):
-        if "INFORMATION_SCHEMA.COLUMNS" in query:
-            return [SimpleNamespace(column_name="region", data_type="STRING")]
-
-        if "INFORMATION_SCHEMA.PARTITIONS" in query:
-            return [SimpleNamespace(partition_id="us-east", total_rows=10000)]
-
-        return []
-
-    filters = discovery.get_required_partition_filters(
-        table, "test-project", "dataset", mock_execute_query_non_date
-    )
-
-    # Non-date partitions should still produce filters
-    assert filters is not None
-
-
 def test_partition_discovery_with_multiple_date_columns():
     """Test partition discovery when table has multiple date-like columns"""
     config = create_test_config()
@@ -1997,51 +2080,6 @@ def test_partition_discovery_with_multiple_date_columns():
     assert len(filters) > 0
 
 
-def test_partition_discovery_with_year_month_day_columns():
-    """Test hierarchical processing of year/month/day partition columns"""
-    config = create_test_config()
-    discovery = PartitionDiscovery(config)
-
-    table = create_test_table(name="hierarchical_partitioned", partitioned=True)
-
-    def mock_execute_query_hierarchical(query, job_config, context):
-        if "INFORMATION_SCHEMA.COLUMNS" in query:
-            return [
-                SimpleNamespace(column_name="year", data_type="INT64"),
-                SimpleNamespace(column_name="month", data_type="INT64"),
-                SimpleNamespace(column_name="day", data_type="INT64"),
-            ]
-
-        if "INFORMATION_SCHEMA.PARTITIONS" in query:
-            return [SimpleNamespace(partition_id="", total_rows=5000)]
-
-        if "SELECT MAX(year)" in query or (
-            "SELECT" in query and "year" in query and "FROM" in query
-        ):
-            return [SimpleNamespace(val=2024)]
-
-        if "SELECT MAX(month)" in query or (
-            "SELECT" in query and "month" in query and "FROM" in query
-        ):
-            return [SimpleNamespace(val=11)]
-
-        if "SELECT MAX(day)" in query or (
-            "SELECT" in query and "day" in query and "FROM" in query
-        ):
-            return [SimpleNamespace(val=20)]
-
-        if "SELECT 1" in query:
-            return [SimpleNamespace(exists_check=1)]
-
-        return []
-
-    filters = discovery.get_required_partition_filters(
-        table, "test-project", "dataset", mock_execute_query_hierarchical
-    )
-
-    assert filters is not None
-
-
 def test_partition_discovery_external_table_with_partition_path():
     """Test external table with partition path information"""
     config = create_test_config()
@@ -2067,7 +2105,8 @@ def test_partition_discovery_external_table_with_partition_path():
         external_table, "test-project", "dataset", mock_execute_query_external_path
     )
 
-    assert filters is not None
+    assert filters
+    assert all(isinstance(f, str) for f in filters)
 
 
 def test_security_validate_column_names_list():

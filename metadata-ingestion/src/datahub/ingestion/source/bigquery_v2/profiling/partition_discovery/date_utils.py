@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Tuple
 
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    DATE_COMPONENT_COLUMNS,
     DATE_LIKE_COLUMN_NAMES,
     DATE_TIME_TYPES,
 )
@@ -26,7 +27,7 @@ class DateUtils:
     def get_column_ordering_strategy(col_name: str, data_type: str = "") -> str:
         if (
             DateUtils.is_date_type_column(data_type)
-            or col_name.lower() in ["year", "month", "day"]
+            or col_name.lower() in DATE_COMPONENT_COLUMNS
             or DateUtils.is_date_like_column(col_name)
         ):
             return f"`{col_name}` DESC"

@@ -1,7 +1,8 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 import sqlglot
 from dateutil.relativedelta import relativedelta
@@ -54,6 +55,13 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CategorizedColumns:
+    date_columns: List[str]
+    date_component_columns: Dict[str, Optional[str]]
+    non_date_columns: List[str]
 
 
 class PartitionDiscovery:
@@ -220,7 +228,7 @@ class PartitionDiscovery:
             if table.external:
                 # External (e.g. hive-partitioned) tables often expose partition columns
                 # only via DDL, which the schema and probe checks above don't read.
-                return self._handle_external_table_partitioning(
+                return self._get_external_table_partition_filters(
                     table, project, schema, execute_query_func
                 )
             if probe_error is not None:
@@ -343,8 +351,8 @@ class PartitionDiscovery:
             cached_metadata=cached_metadata,
         )
 
-        date_columns, date_component_columns, non_date_columns = (
-            self._categorize_partition_columns(partition_columns, column_types)
+        categorized = self._categorize_partition_columns(
+            partition_columns, column_types
         )
 
         result_values: Dict[str, PartitionValue] = {}
@@ -352,7 +360,7 @@ class PartitionDiscovery:
 
         latest_date_filters.extend(
             self._process_regular_date_columns(
-                date_columns,
+                categorized.date_columns,
                 safe_table_ref,
                 column_types,
                 max_results,
@@ -364,7 +372,7 @@ class PartitionDiscovery:
 
         latest_date_filters.extend(
             self._process_date_components_hierarchically(
-                date_component_columns,
+                categorized.date_component_columns,
                 safe_table_ref,
                 execute_query_func,
                 result_values,
@@ -373,7 +381,7 @@ class PartitionDiscovery:
         )
 
         self._process_non_date_columns(
-            non_date_columns,
+            categorized.non_date_columns,
             safe_table_ref,
             latest_date_filters,
             column_types,
@@ -389,7 +397,7 @@ class PartitionDiscovery:
         self,
         partition_columns: List[str],
         column_types: Dict[str, str],
-    ) -> Tuple[List[str], Dict[str, Optional[str]], List[str]]:
+    ) -> CategorizedColumns:
         date_columns = []
         date_component_columns: Dict[str, Optional[str]] = {
             c: None for c in DATE_COMPONENT_COLUMNS
@@ -410,7 +418,11 @@ class PartitionDiscovery:
             else:
                 non_date_columns.append(col_name)
 
-        return date_columns, date_component_columns, non_date_columns
+        return CategorizedColumns(
+            date_columns=date_columns,
+            date_component_columns=date_component_columns,
+            non_date_columns=non_date_columns,
+        )
 
     @staticmethod
     def _date_component_value(col_name: str, dt: datetime) -> Optional[str]:
@@ -519,123 +531,43 @@ class PartitionDiscovery:
         result_values: Dict[str, PartitionValue],
         column_types: Dict[str, str],
     ) -> List[str]:
-        active_date_components = {
-            k: v for k, v in date_component_columns.items() if v is not None
-        }
-        if not active_date_components:
+        active = {k: v for k, v in date_component_columns.items() if v is not None}
+        # The chain anchors on year: month is constrained to the max year and day to the
+        # max year+month, which avoids selecting e.g. month=12 from a previous year when
+        # the current year only has months 1-3.
+        if "year" not in active:
             return []
 
         logger.info(
-            f"Found date components: {list(active_date_components.keys())} - using hierarchical approach"
+            f"Found date components: {list(active.keys())} - using hierarchical approach"
         )
 
-        # Process hierarchically: find max year first, then constrain month to that
-        # year, then constrain day to that year+month. This avoids selecting e.g.
-        # month=12 from a previous year when the current year only has months 1-3.
-        component_filters = []
+        component_filters: List[str] = []
+        resolved: List[str] = []
+        # DATE_COMPONENT_COLUMNS is ordered year -> month -> day, so each resolved
+        # component constrains the next query.
+        for component in DATE_COMPONENT_COLUMNS:
+            col = active.get(component)
+            if col is None:
+                continue
+            if resolved and not component_filters:
+                # A prior component produced no filter; nothing left to constrain within.
+                break
 
-        if "year" in active_date_components:
             component_filters.extend(
-                self._find_max_year(
-                    active_date_components["year"],
-                    safe_table_ref,
-                    execute_query_func,
-                    result_values,
-                    column_types,
+                self._find_max_component_within_constraint(
+                    component_col=col,
+                    safe_table_ref=safe_table_ref,
+                    constraint_filters=component_filters,
+                    execute_query_func=execute_query_func,
+                    result_values=result_values,
+                    column_types=column_types,
+                    scope_label="max " + "/".join(resolved) if resolved else "table",
                 )
             )
-
-        if "month" in active_date_components and component_filters:
-            component_filters.extend(
-                self._find_max_month_within_year(
-                    active_date_components["month"],
-                    safe_table_ref,
-                    component_filters,
-                    execute_query_func,
-                    result_values,
-                    column_types,
-                )
-            )
-
-        if "day" in active_date_components and component_filters:
-            component_filters.extend(
-                self._find_max_day_within_year_month(
-                    active_date_components["day"],
-                    safe_table_ref,
-                    component_filters,
-                    execute_query_func,
-                    result_values,
-                    column_types,
-                )
-            )
+            resolved.append(component)
 
         return component_filters
-
-    def _find_max_year(
-        self,
-        year_col: str,
-        safe_table_ref: str,
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        result_values: Dict[str, PartitionValue],
-        column_types: Optional[Dict[str, str]] = None,
-    ) -> List[str]:
-        try:
-            col_type = column_types.get(year_col, "INT64") if column_types else "INT64"
-            query, job_config = self._create_partition_stats_query(
-                safe_table_ref, year_col, 1, col_type
-            )
-            partition_values_results = execute_query_func(
-                query, job_config, f"partition component {year_col}"
-            )
-            if partition_values_results and partition_values_results[0].val is not None:
-                max_year = partition_values_results[0].val
-                result_values[year_col] = max_year
-                filter_expr = self._create_safe_filter(year_col, max_year, col_type)
-                logger.info(f"Found latest year: {max_year}")
-                return [filter_expr]
-        except Exception as e:
-            self._warn_partition_column_discovery_failed(
-                f"{safe_table_ref}.{year_col}", e
-            )
-        return []
-
-    def _find_max_month_within_year(
-        self,
-        month_col: str,
-        safe_table_ref: str,
-        year_filters: List[str],
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        result_values: Dict[str, PartitionValue],
-        column_types: Optional[Dict[str, str]] = None,
-    ) -> List[str]:
-        return self._find_max_component_within_constraint(
-            component_col=month_col,
-            safe_table_ref=safe_table_ref,
-            constraint_filters=year_filters,
-            execute_query_func=execute_query_func,
-            result_values=result_values,
-            column_types=column_types,
-            scope_label="max year",
-        )
-
-    def _find_max_day_within_year_month(
-        self,
-        day_col: str,
-        safe_table_ref: str,
-        year_month_filters: List[str],
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        result_values: Dict[str, PartitionValue],
-        column_types: Optional[Dict[str, str]] = None,
-    ) -> List[str]:
-        return self._find_max_component_within_constraint(
-            component_col=day_col,
-            safe_table_ref=safe_table_ref,
-            constraint_filters=year_month_filters,
-            execute_query_func=execute_query_func,
-            result_values=result_values,
-            column_types=column_types,
-            scope_label="max year/month",
-        )
 
     def _find_max_component_within_constraint(
         self,
@@ -673,6 +605,17 @@ class PartitionDiscovery:
                     f"Found latest {component_col} within {scope_label}: {max_value}"
                 )
                 return [filter_expr]
+
+            # Parity with the date/non-date loops: an empty result drops this component's
+            # filter, so surface it rather than returning [] silently.
+            warn(
+                self.report,
+                logger,
+                title="Partition value discovery found no values",
+                message="A partition column returned no values; its filter is dropped, "
+                "so the resulting partition scan may be broader than intended.",
+                context=f"{safe_table_ref}.{component_col}",
+            )
         except Exception as e:
             self._warn_partition_column_discovery_failed(
                 f"{safe_table_ref}.{component_col}", e
@@ -959,6 +902,18 @@ class PartitionDiscovery:
 
         return required_partition_columns
 
+    @staticmethod
+    def _first_non_null_per_column(
+        columns: Iterable[str], rows: List[Row]
+    ) -> Dict[str, PartitionValue]:
+        values: Dict[str, PartitionValue] = {}
+        for col_name in columns:
+            for row in rows:
+                if hasattr(row, col_name) and getattr(row, col_name) is not None:
+                    values[col_name] = getattr(row, col_name)
+                    break
+        return values
+
     def _get_partitions_with_sampling(
         self,
         table: BigqueryTable,
@@ -1024,33 +979,23 @@ class PartitionDiscovery:
                 logger.debug("Sample query returned no results")
                 return None
 
+            sampled_values = self._first_non_null_per_column(
+                partition_cols_with_types.keys(), partition_sample_rows
+            )
+
             filters = []
-            for col_name, data_type in partition_cols_with_types.items():
-                for row in partition_sample_rows:
-                    if hasattr(row, col_name) and getattr(row, col_name) is not None:
-                        val = getattr(row, col_name)
-                        filter_str = self._create_safe_filter(col_name, val, data_type)
-                        filters.append(filter_str)
-                        logger.debug(
-                            f"Found partition value from sample: {col_name}={val}"
-                        )
-                        break
+            for col_name, val in sampled_values.items():
+                filter_str = self._create_safe_filter(
+                    col_name, val, partition_cols_with_types.get(col_name, "")
+                )
+                filters.append(filter_str)
+                logger.debug(f"Found partition value from sample: {col_name}={val}")
 
             if filters and self._verify_partition_has_data(
                 table, project, schema, filters, execute_query_func
             ):
-                partition_values_for_log = {}
-                for col_name, _data_type in partition_cols_with_types.items():
-                    for row in partition_sample_rows:
-                        if (
-                            hasattr(row, col_name)
-                            and getattr(row, col_name) is not None
-                        ):
-                            partition_values_for_log[col_name] = getattr(row, col_name)
-                            break
-
                 logger.info(
-                    f"Found partition values via sampling for {table.name}: {partition_values_for_log}"
+                    f"Found partition values via sampling for {table.name}: {sampled_values}"
                 )
                 return filters
 
@@ -1113,17 +1058,6 @@ class PartitionDiscovery:
             )
             return False
 
-    def _handle_external_table_partitioning(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-    ) -> Optional[List[str]]:
-        return self._get_external_table_partition_filters(
-            table, project, schema, execute_query_func
-        )
-
     def _get_external_table_partition_filters(
         self,
         table: BigqueryTable,
@@ -1166,8 +1100,12 @@ class PartitionDiscovery:
                     )
                 return []
 
-            return self._find_valid_partition_combination(
-                table, project, schema, partition_cols_with_types, execute_query_func
+            return self._get_fallback_partition_filters(
+                table,
+                project,
+                schema,
+                list(partition_cols_with_types.keys()),
+                partition_cols_with_types,
             )
 
         except Exception as e:
@@ -1180,22 +1118,6 @@ class PartitionDiscovery:
                 context=f"{table.name}: {e}",
             )
             return None
-
-    def _find_valid_partition_combination(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        partition_cols_with_types: Dict[str, str],
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-    ) -> Optional[List[str]]:
-        return self._get_fallback_partition_filters(
-            table,
-            project,
-            schema,
-            list(partition_cols_with_types.keys()),
-            partition_cols_with_types,
-        )
 
     def _test_date_candidate(
         self,

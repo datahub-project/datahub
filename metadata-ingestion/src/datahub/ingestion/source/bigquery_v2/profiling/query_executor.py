@@ -30,7 +30,12 @@ class QueryExecutor:
                 )
                 raise ValueError(f"Query contains dangerous pattern: {pattern}")
 
-    def execute_query(self, query: str, context: str = "") -> List[Row]:
+    def execute_query_safely(
+        self, query: str, job_config: Optional[QueryJobConfig] = None, context: str = ""
+    ) -> List[Row]:
+        # Failures are logged at DEBUG and re-raised, never swallowed: the
+        # partition-detection probe relies on the exception, and the caller holds the
+        # report and decides whether a genuine failure warrants a report warning.
         self._validate_query_security(query)
 
         try:
@@ -39,38 +44,7 @@ class QueryExecutor:
                 f"Executing query{f' for {context}' if context else ''} with {timeout}s timeout"
             )
 
-            job_config = QueryJobConfig(
-                job_timeout_ms=timeout * 1000,
-                use_query_cache=False,
-            )
-
-            query_job = self.config.get_bigquery_client().query(
-                query, job_config=job_config
-            )
-            results = list(query_job.result())
-            logger.debug(
-                f"Query returned {len(results)} row(s){f' for {context}' if context else ''}"
-            )
-            return results
-        except Exception as e:
-            # Debug, not warning: the partition-detection probe deliberately fails here,
-            # and we re-raise so the caller (which holds the report) surfaces real errors.
-            logger.debug(
-                f"Query execution error{f' in {context}' if context else ''}: {e}"
-            )
-            raise
-
-    def execute_query_with_config(
-        self, query: str, job_config: QueryJobConfig, context: str = ""
-    ) -> List[Row]:
-        self._validate_query_security(query)
-
-        try:
-            timeout = self.config.profiling.partition_fetch_timeout
-            logger.debug(
-                f"Executing query{f' for {context}' if context else ''} with {timeout}s timeout and custom config"
-            )
-
+            job_config = job_config or QueryJobConfig()
             job_config.job_timeout_ms = timeout * 1000
             job_config.use_query_cache = False
 
@@ -83,19 +57,7 @@ class QueryExecutor:
             )
             return results
         except Exception as e:
-            # See execute_query: debug-level because the caller re-raises and reports.
             logger.debug(
                 f"Query execution error{f' in {context}' if context else ''}: {e}"
             )
             raise
-
-    def execute_query_safely(
-        self, query: str, job_config: Optional[QueryJobConfig] = None, context: str = ""
-    ) -> List[Row]:
-        # Must re-raise, not swallow: the partition-detection probe relies on the exception.
-        logger.debug(f"Executing query{f' for {context}' if context else ''}: {query}")
-
-        if job_config:
-            return self.execute_query_with_config(query, job_config, context)
-        else:
-            return self.execute_query(query, context)
