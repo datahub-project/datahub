@@ -60,7 +60,7 @@ jobs:
         id: flags
         # In-repo, CI-agnostic flag (not a GitHub repo variable) so it survives a CI migration.
         run: |
-          if grep -qE '^datahub\.ci\.backendTestSharding=true' gradle.properties; then
+          if grep -qE '^[[:space:]]*datahub\.ci\.backendTestSharding[[:space:]]*=[[:space:]]*true[[:space:]]*$' gradle.properties; then
             echo "backend_sharding=true" >> "$GITHUB_OUTPUT"
           else
             echo "backend_sharding=false" >> "$GITHUB_OUTPUT"
@@ -469,13 +469,13 @@ jobs:
           restore-keys: |
             gradle-backend-build-cache-
       - name: Build + non-test checks once (assemble, spotless, etc.)
-        # build-except-metadata-ingestion's `build` MINUS running tests: assemble + spotless +
-        # non-test checks + main compile, once, warming the cache the shards restore. `testClasses`
-        # also warms the BACKEND test compile so shards don't recompile it.
-        # The :datahub-web-react generator excludes are a PERF choice — no need to run frontend yarn
-        # codegen (node download + generate) inside a backend seed; the frontend jobs own that.
-        # (Correctness of graphqlUsageRegistryCheck vs those generators is handled by a mustRunAfter
-        # in metadata-service/configuration/build.gradle, so these excludes aren't load-bearing.)
+        # IDENTICAL to build-except-metadata-ingestion's `build` command, minus running tests:
+        # assemble + spotless + non-test checks + main compile, once, warming the cache the shards
+        # restore. Deliberately NO `testClasses`: at the root it drags the whole :datahub-web-react
+        # chain (yarnBuild/vite, generators) into a backend build. Shards test disjoint modules, so
+        # each compiles its own test classes exactly once in parallel — cheaper than serializing all
+        # test-compile onto this critical-path job, and keeps this command identical to the proven
+        # single-job path.
         run: |
           ./gradlew build testClasses -x test --build-cache --max-workers="$(nproc)" \
             -x :metadata-ingestion:build \
@@ -491,9 +491,6 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
-            -x :datahub-web-react:yarnGenerate \
-            -x :datahub-web-react:yarnGenerateCacheable \
-            -x :datahub-web-react:generateLazyIconStubs \
             -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -675,24 +672,22 @@ jobs:
         # Best-effort: a coverage-merge hiccup must not red a PR whose tests already passed.
         continue-on-error: true
         run: |
-          # testClasses restores compiled classes FROM the build cache (fast) so jacocoMergedReport
-          # has classDirectories; the downloaded .exec (union of all shards) are its executionData.
-          ./gradlew testClasses jacocoMergedReport --no-configure-on-demand --build-cache --max-workers="$(nproc)" \
-            -x :metadata-ingestion:build \
-            -x :docs-website:build \
-            -x :datahub-frontend:build \
-            -x :datahub-web-react:build \
-            -x :datahub-web-react:yarnGenerate \
-            -x :datahub-web-react:yarnGenerateCacheable \
-            -x :datahub-web-react:generateLazyIconStubs \
-            -x :docker:build
+          # `classes` restores compiled MAIN classes from the build cache (fast) → gives
+          # jacocoMergedReport its classDirectories; the downloaded .exec (union of all shards) are
+          # its executionData. `classes` (not `testClasses`) is used deliberately: it compiles only
+          # main and, since :datahub-web-react has no `classes` task, never drags in the frontend
+          # build chain (yarnBuild/vite). Coverage measures main code, so test classes aren't needed.
+          ./gradlew classes jacocoMergedReport --no-configure-on-demand --build-cache --max-workers="$(nproc)"
           {
             echo "BACKEND_FILES=$(find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade|jacoco-merged)' | xargs | tr ' ' ',')"
           } >> "$GITHUB_ENV"
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      # Only upload when ALL shards passed — matches the old single job, which skipped its coverage
+      # steps after a test failure. Avoids skewing the Codecov trend with partial coverage on red
+      # PRs. (The merge above still runs best-effort so the report exists for debugging.)
       - name: Upload backend coverage to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ needs.backend-test-shard.result == 'success' }}
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -702,6 +697,8 @@ jobs:
           flags: backend
           name: backend-merged
           verbose: true
+          # override_branch only on release (empty otherwise) — same as build-except's test-results
+          # upload, which sets it only in its release variant.
           override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
 
   event-file:

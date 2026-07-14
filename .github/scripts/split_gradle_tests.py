@@ -11,6 +11,11 @@ weight. Falls back to an even split when no weights exist.
 
 Emits a JSON plan on stdout; with --output-args FILE, also writes gradle args one-per-line for
 `mapfile -t ARGS < FILE; gradle "${ARGS[@]}"`.
+
+Assumption: a module's directory path maps directly to its Gradle project path
+(`metadata-service/services` -> `:metadata-service:services`). A `src/test` dir that is NOT a
+registered Gradle project would yield a `:not-a-project:test` task and the shard fails LOUDLY
+("task not found") — not silently. True for DataHub today; revisit if that mapping ever diverges.
 """
 
 from __future__ import annotations
