@@ -132,6 +132,18 @@ class TestQueryCleanup:
         assert self.report.num_queries_soft_deleted == 2
         assert self.report.qc_deletion_limit_reached
 
+    def test_uncapped_deletes_all(self) -> None:
+        self.config.limit_entities_delete = None
+        self.mock_graph.get_urns_by_filter.return_value = [
+            f"urn:li:query:{i}" for i in range(5)
+        ]
+
+        wus = list(self.cleanup.get_workunits())
+
+        assert len(wus) == 5
+        assert self.report.num_queries_soft_deleted == 5
+        assert not self.report.qc_deletion_limit_reached
+
     def test_times_up_sets_runtime_flag(self) -> None:
         self.cleanup.start_time = time.time() - self.config.runtime_limit_seconds - 1
 

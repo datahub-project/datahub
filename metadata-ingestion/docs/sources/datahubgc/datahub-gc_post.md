@@ -120,9 +120,9 @@ Soft-deletes old `SYSTEM` queries so stale query entities don't accumulate as or
 
 ##### Features
 
-- Selects `SYSTEM` queries whose `lastModifiedAt` is older than `retention_days` using a single server-side search filter (no per-query reference lookup)
+- Selects `SYSTEM` queries whose `lastModifiedAt` is older than `retention_days` using server-side search filters (no per-query reference lookup)
 - Never touches `MANUAL` queries
-- Soft-deletes matched queries; the Soft-Deleted Entities Cleanup pass completes the hard delete on a later run
+- Soft-deletes matched queries rather than hard-deleting them directly
 - Soft deletes are emitted as status workunits and batched/written by the sink
 - Bounded by `limit_entities_delete` (approximate cap on queries deleted per run) and `runtime_limit_seconds`
 

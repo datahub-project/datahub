@@ -84,7 +84,7 @@ class QueryCleanup:
     """
     Maintenance source that soft-deletes old SYSTEM queries by age alone (aggressive policy).
 
-    Selection is a single server-side filter on `source == SYSTEM` and
+    Selection uses server-side search filters on `source == SYSTEM` and
     `lastModifiedAt < cutoff`. Soft deletes are emitted as status workunits and left to the
     sink to batch and write (the same mechanism as stale-entity removal); the existing
     SoftDeletedEntitiesCleanup completes the hard-delete second pass.
@@ -139,16 +139,24 @@ class QueryCleanup:
 
     def _times_up(self) -> bool:
         if time.time() - self.start_time > self.config.runtime_limit_seconds:
+            logger.info(
+                f"Stopping query cleanup: runtime limit of "
+                f"{self.config.runtime_limit_seconds}s reached."
+            )
             self.report.qc_runtime_limit_reached = True
             return True
         return False
 
     def _deletion_limit_reached(self, num_candidates_handled: int) -> bool:
-        # limit_entities_delete is None when the cap is disabled (see field description).
+        # None disables the cap.
         if (
             self.config.limit_entities_delete is not None
             and num_candidates_handled >= self.config.limit_entities_delete
         ):
+            logger.info(
+                f"Stopping query cleanup: deletion limit of "
+                f"{self.config.limit_entities_delete} reached."
+            )
             self.report.qc_deletion_limit_reached = True
             return True
         return False
@@ -175,7 +183,6 @@ class QueryCleanup:
             if self._deletion_limit_reached(num_previewed) or self._times_up():
                 break
             logger.info(f"Dry run is on, otherwise it would have deleted {query_urn}")
-            # Record the candidate so a dry run still previews what would go.
             self.report.sample_deleted_queries.append(query_urn.urn())
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
