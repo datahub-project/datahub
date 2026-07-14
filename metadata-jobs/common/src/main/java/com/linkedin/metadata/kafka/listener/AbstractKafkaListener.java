@@ -65,8 +65,13 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
 
   @Override
   public void consumeEnvelope(@Nonnull final InboundMetadataEnvelope<R> envelope) {
+    // Per-message copy carrying its own aspect-decode cache. eventContext must not be the shared
+    // system singleton here: hooks cache decoded aspects on it, which would leak for the JVM
+    // lifetime and race across consumer threads. See OperationContext#withFreshAspectDecodeCache.
     final OperationContext eventContext =
-        inboundContextResolver.resolve(envelope, systemOperationContext);
+        inboundContextResolver
+            .resolve(envelope, systemOperationContext)
+            .withFreshAspectDecodeCache();
     try {
       systemOperationContext
           .getMetricUtils()

@@ -184,7 +184,10 @@ public class MCLBatchKafkaListener
         continue;
       }
 
-      processBatchWithHooks(slice.context(), mcls, topicName);
+      // Fresh per-slice aspect-decode cache — the slice context must not be the shared system
+      // singleton for caching purposes (leak + cross-thread race). Cache is bounded to this slice
+      // and discarded when the slice completes.
+      processBatchWithHooks(slice.context().withFreshAspectDecodeCache(), mcls, topicName);
     }
   }
 

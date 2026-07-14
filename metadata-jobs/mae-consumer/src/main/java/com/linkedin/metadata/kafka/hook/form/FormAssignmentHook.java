@@ -10,7 +10,6 @@ import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.form.FormServiceFactory;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.service.FormService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
@@ -101,10 +100,10 @@ public class FormAssignmentHook implements MetadataChangeLogHook {
       @Nonnull OperationContext operationContext, @Nonnull final MetadataChangeLog event) {
     // 1. Get the new form assignment
     DynamicFormAssignment formFilters =
-        GenericRecordUtils.deserializeAspect(
-            event.getAspect().getValue(),
-            event.getAspect().getContentType(),
-            DynamicFormAssignment.class);
+        operationContext.getDecodedAspect(event.getAspect(), DynamicFormAssignment.class);
+    if (formFilters == null) {
+      return;
+    }
 
     // 2. Register a automation to assign it.
     formService.upsertFormAssignmentRunner(operationContext, event.getEntityUrn(), formFilters);

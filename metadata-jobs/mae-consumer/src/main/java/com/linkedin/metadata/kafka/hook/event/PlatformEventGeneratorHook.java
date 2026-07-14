@@ -32,6 +32,7 @@ import com.linkedin.platform.event.v1.RelationshipChangeOperation;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -101,7 +102,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   private final EventProducer eventProducer;
   private final Boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
-  private final List<String> entityExclusions;
+  private final Set<String> entityExclusions;
   private final List<String> fineGrainedLineageNotAllowedForPlatforms;
 
   @Autowired
@@ -120,7 +121,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     this.eventProducer = Objects.requireNonNull(eventProducer);
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
-    this.entityExclusions = entityExclusions;
+    this.entityExclusions = new HashSet<>(entityExclusions);
     this.fineGrainedLineageNotAllowedForPlatforms = fineGrainedLineageNotAllowedForPlatforms;
   }
 
@@ -153,19 +154,22 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
 
     assert aspectSpec != null;
 
+    // NOTE: do NOT use the shared getDecodedAspect cache here. The change-event generators
+    // downstream (e.g. SchemaMetadataChangeEventGenerator.sortFieldsByPath) mutate the aspect in
+    // place, which would corrupt the cached instance for other hooks. Decode fresh copies instead.
     final RecordTemplate fromAspect =
-        logEvent.getPreviousAspectValue() != null
-            ? GenericRecordUtils.deserializeAspect(
+        logEvent.getPreviousAspectValue() == null
+            ? null
+            : GenericRecordUtils.deserializeAspect(
                 logEvent.getPreviousAspectValue().getValue(),
                 logEvent.getPreviousAspectValue().getContentType(),
-                aspectSpec)
-            : null;
+                aspectSpec);
 
     final RecordTemplate toAspect =
-        logEvent.getAspect() != null
-            ? GenericRecordUtils.deserializeAspect(
-                logEvent.getAspect().getValue(), logEvent.getAspect().getContentType(), aspectSpec)
-            : null;
+        logEvent.getAspect() == null
+            ? null
+            : GenericRecordUtils.deserializeAspect(
+                logEvent.getAspect().getValue(), logEvent.getAspect().getContentType(), aspectSpec);
 
     return ChangeEventGeneratorUtils.generateChangeEvents(
         entityChangeEventGeneratorRegistry,
@@ -318,18 +322,11 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     }
 
     final RecordTemplate oldAspect =
-        logEvent.getPreviousAspectValue() != null
-            ? GenericRecordUtils.deserializeAspect(
-                logEvent.getPreviousAspectValue().getValue(),
-                logEvent.getPreviousAspectValue().getContentType(),
-                aspectSpec)
-            : null;
+        operationContext.getDecodedAspect(
+            logEvent.getPreviousAspectValue(), aspectSpec.getDataTemplateClass());
 
     final RecordTemplate newAspect =
-        logEvent.getAspect() != null
-            ? GenericRecordUtils.deserializeAspect(
-                logEvent.getAspect().getValue(), logEvent.getAspect().getContentType(), aspectSpec)
-            : null;
+        operationContext.getDecodedAspect(logEvent.getAspect(), aspectSpec.getDataTemplateClass());
 
     EdgeDiff edgeDiff =
         computeAspectEdgeDiff(
