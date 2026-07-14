@@ -98,7 +98,8 @@ jobs:
             --old-pytest ./weights-backup/pytest_weights.json \
             --new-pytest smoke-test/pytest_test_weights.json \
             --output ./pr-body-smoke.md \
-            --threshold 5.0
+            --threshold 5.0 \
+            --title "🤖 Smoke test weight update"
 
           # Check if PR body was generated (non-empty file means changes exceed threshold)
           if [ -s ./pr-body-smoke.md ]; then
@@ -118,7 +119,8 @@ jobs:
             --old-pytest ./weights-backup/integration_test_weights.json \
             --new-pytest metadata-ingestion/tests/integration_test_weights.json \
             --output ./pr-body-ingestion.md \
-            --threshold 5.0
+            --threshold 5.0 \
+            --title "🤖 Ingestion test weight update"
 
           # Non-empty PR body means changes exceed the 5% threshold.
           if [ -s ./pr-body-ingestion.md ]; then

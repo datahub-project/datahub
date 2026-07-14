@@ -1,5 +1,5 @@
 import pathlib
-from typing import List
+from typing import Dict, List
 
 from tests.conftest import (
     _DEFAULT_TEST_WEIGHT,
@@ -127,7 +127,7 @@ def test_end_to_end_no_drop_no_split_deterministic() -> None:
     assert sorted(id(i) for i in packed_items) == sorted(id(i) for i in all_items)
 
     # (b) each connector's items live in exactly one bin
-    key_to_bin: dict = {}
+    key_to_bin: Dict[str, int] = {}
     for bin_index, bin_groups in enumerate(bins):
         for g in bin_groups:
             assert g.key not in key_to_bin, f"{g.key} split across bins"

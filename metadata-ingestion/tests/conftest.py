@@ -6,7 +6,7 @@ import re
 import statistics
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Protocol, Sequence
 
 import pytest
 import time_machine
@@ -102,12 +102,29 @@ _NO_BALANCE_MARKER = "integration_no_balance"
 logger = logging.getLogger(__name__)
 
 
+class _WeightedItem(Protocol):
+    """Structural contract for items read by the balancing helpers.
+
+    Only ``nodeid`` and ``path`` are ever read by ``_item_weight`` /
+    ``_connector_key`` / bin-packing, so a full ``pytest.Item`` is not required.
+    Real ``pytest.Item`` instances satisfy this; unit tests can pass a minimal
+    stub with just these two attributes. Both attributes are declared as
+    read-only properties to match ``pytest.Item``, where they have no setter.
+    """
+
+    @property
+    def nodeid(self) -> str: ...
+
+    @property
+    def path(self) -> pathlib.Path: ...
+
+
 @dataclass
 class _ConnectorGroup:
     """All integration items belonging to one connector directory."""
 
     key: str
-    items: List[pytest.Item]
+    items: Sequence[_WeightedItem]
     weight: float
 
 
@@ -117,6 +134,10 @@ def _nodeid_to_test_id(nodeid: str) -> str:
     JUnit ``classname`` is the dotted module path plus the test class (if any),
     and ``name`` is the test function. This must match the format produced by
     ``.github/scripts/generate_test_weights.py`` so weight lookups succeed.
+
+    Caveat: pytest splits on ``::``, so a parametrize id that itself contains
+    ``::`` would mis-split. No current connector produces such ids, so this is
+    accepted as a known limitation rather than defended against.
     """
     parts = nodeid.split("::")
     module = parts[0].replace("/", ".").removesuffix(".py")
@@ -151,7 +172,7 @@ def _build_class_weight_index(weights: Dict[str, float]) -> Dict[str, float]:
 
 
 def _item_weight(
-    item: pytest.Item,
+    item: _WeightedItem,
     weights: Dict[str, float],
     class_medians: Dict[str, float],
 ) -> float:
@@ -163,7 +184,7 @@ def _item_weight(
     return class_medians.get(test_id.split("::", 1)[0], _DEFAULT_TEST_WEIGHT)
 
 
-def _connector_key(item: pytest.Item, integration_path: pathlib.Path) -> str:
+def _connector_key(item: _WeightedItem, integration_path: pathlib.Path) -> str:
     """Group key: the connector directory under tests/integration.
 
     Files directly under tests/integration (no connector subdir) collapse into
@@ -237,9 +258,7 @@ def pytest_collection_modifyitems(
         ):
             item.add_marker(pytest.mark.slow)
 
-        if (
-            integration_path in item.path.parents or is_already_integration
-        ) and not is_already_integration:
+        if integration_path in item.path.parents and not is_already_integration:
             item.add_marker(pytest.mark.integration)
 
     # 2. Weight-based bin-packing of integration tests into the 6 batches.
@@ -291,11 +310,11 @@ def pytest_collection_modifyitems(
     ]
     bins = _bin_pack_groups(groups, _INTEGRATION_BATCH_COUNT)
 
-    item_batch: Dict[pytest.Item, int] = {}
+    item_batch: Dict[_WeightedItem, int] = {}
     for batch_index, bin_groups in enumerate(bins):
         for group in bin_groups:
-            for item in group.items:
-                item_batch[item] = batch_index
+            for grouped_item in group.items:
+                item_batch[grouped_item] = batch_index
     for batch_index, pinned_items in pinned.items():
         for item in pinned_items:
             item_batch[item] = batch_index
