@@ -786,6 +786,7 @@ jobs:
           TEST_STRATEGY: pytests
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
+          PYTEST_XDIST_WORKERS: "3"
           FILTERED_TESTS: ${{ steps.retry-check.outputs.filtered_tests_file || '' }}
         run: |
           if [[ -n "$FILTERED_TESTS" && -f "$FILTERED_TESTS" ]]; then
@@ -818,6 +819,14 @@ jobs:
         with:
           name: docker-logs-pytests-${{ matrix.batch }}
           path: "docker_logs/*.log"
+          retention-days: 5
+
+      - name: Upload pytest logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: pytest-smoke-logs-pytests-${{ matrix.batch }}
+          path: "smoke-test/test-results/pytest-smoke.log"
           retention-days: 5
 
       - name: Report test results

@@ -17,7 +17,9 @@ from urllib.parse import urlparse
 
 import click
 import requests
+from requests.adapters import HTTPAdapter
 from typing_extensions import NotRequired, TypedDict
+from urllib3.util.retry import Retry
 
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER, load_client_config
 from datahub.cli.datapack.models import DataPackInfo, LoadRecord, TrustTier
@@ -32,6 +34,30 @@ CACHE_DIR = os.path.join(DATAHUB_ROOT_FOLDER, "datapack-cache")
 LOADS_DIR = os.path.join(DATAHUB_ROOT_FOLDER, "datapack-loads")
 
 EMIT_MODE_ENV = "DATAHUB_EMIT_MODE"
+
+# Datapack files are fetched from a public host (e.g. raw.githubusercontent.com)
+# that rate-limits with HTTP 429 under load. Without retries a transient 429
+# silently drops a file and produces a partial, broken load. Retry transient
+# statuses with backoff (urllib3 also honors Retry-After for 429/503).
+_FETCH_RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+_FETCH_RETRY_TOTAL = 5
+_FETCH_RETRY_BACKOFF_FACTOR = 1.0
+
+
+def _build_fetch_session() -> requests.Session:
+    """A requests session that retries transient HTTP errors with backoff."""
+    retry = Retry(
+        total=_FETCH_RETRY_TOTAL,
+        status_forcelist=list(_FETCH_RETRY_STATUSES),
+        allowed_methods=frozenset({"GET"}),
+        backoff_factor=_FETCH_RETRY_BACKOFF_FACTOR,
+        respect_retry_after_header=True,
+    )
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 
 def _cache_key(url: str) -> str:
@@ -76,21 +102,22 @@ def _fetch_url_to_path(url: str, dest: pathlib.Path) -> None:
             raise click.ClickException(f"Local file not found: {local_path}")
         shutil.copy2(local_path, dest)
     else:
-        response = requests.get(url, stream=True, timeout=120)
-        response.raise_for_status()
+        with _build_fetch_session() as session:
+            response = session.get(url, stream=True, timeout=120)
+            response.raise_for_status()
 
-        content_length = response.headers.get("content-length")
-        total = int(content_length) if content_length else None
+            content_length = response.headers.get("content-length")
+            total = int(content_length) if content_length else None
 
-        with open(dest, "wb") as f:
-            if total:
-                with click.progressbar(length=total, label="Downloading") as bar:
+            with open(dest, "wb") as f:
+                if total:
+                    with click.progressbar(length=total, label="Downloading") as bar:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                            bar.update(len(chunk))
+                else:
                     for chunk in response.iter_content(chunk_size=8192):
                         f.write(chunk)
-                        bar.update(len(chunk))
-            else:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
 
 
 def _cached_index_version(pack: DataPackInfo) -> Optional[str]:
