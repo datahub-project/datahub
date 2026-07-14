@@ -1776,22 +1776,6 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.FEEDBACK,PROD),EMAIL_2)",
-                    "schemaField": {
-                        "fieldPath": "EMAIL_2",
-                        "nullable": true,
-                        "description": "Account ID",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Text",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.FEEDBACK,PROD),ID)",
                     "schemaField": {
                         "fieldPath": "ID",
@@ -1843,8 +1827,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001750,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752001816,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2413,7 +2397,7 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,41)",
+    "entityUrn": "urn:li:chart:(metabase,39)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
@@ -2421,7 +2405,8 @@
             "customProperties": {
                 "Metrics": "",
                 "Filters": "",
-                "Dimensions": "category, order_count, total_quantity"
+                "Dimensions": "category, order_count, total_quantity",
+                "database_id": "2"
             },
             "title": "Order Summary",
             "description": "",
@@ -2431,23 +2416,23 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1773575714875,
+                    "time": 1784020505629,
                     "actor": "urn:li:corpuser:admin@test.com"
                 }
             },
-            "chartUrl": "http://localhost:3001/card/41",
+            "chartUrl": "http://localhost:3001/card/39",
             "inputEdges": [
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD)",
                     "lastModified": {
-                        "time": 1773575714875,
+                        "time": 1784020505629,
                         "actor": "urn:li:corpuser:admin@test.com"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD)",
                     "lastModified": {
-                        "time": 1773575714875,
+                        "time": 1784020505629,
                         "actor": "urn:li:corpuser:admin@test.com"
                     }
                 }
@@ -2456,78 +2441,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001254,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,39)",
-    "changeType": "UPSERT",
-    "aspectName": "chartInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "Metrics": "Count",
-                "Filters": "['and', ['in', ['field', 18, {'base-type': 'type/Text', 'source-field': 14}], 'Doohickey', 'Gadget', 'Gizmo', 'Widget'], ['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], 0, 'quarter']]",
-                "Dimensions": "Created At: Quarter",
-                "database_id": "1"
-            },
-            "title": "Total orders this quarter",
-            "description": "Total number of orders in the current quarter.",
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 1705752003206,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            },
-            "chartUrl": "http://localhost:3001/card/39",
-            "inputEdges": [
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD)",
-                    "lastModified": {
-                        "time": 1705752003206,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                }
-            ],
-            "type": "TEXT"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752003247,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,41)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:admin@test.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001255,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
+        "lastObserved": 1705752002265,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2747,23 +2662,6 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,41)",
-    "changeType": "UPSERT",
-    "aspectName": "chartQuery",
-    "aspect": {
-        "json": {
-            "rawQuery": "SELECT p.category, COUNT(o.id) as order_count, SUM(o.quantity) as total_quantity FROM products p JOIN orders o ON p.id = o.product_id GROUP BY p.category",
-            "type": "SQL"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001255,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,3)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -2796,49 +2694,6 @@
     "systemMetadata": {
         "lastObserved": 1705752000854,
         "runId": "metabase-2024_01_20-12_00_00-23ltbj",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,38)",
-    "changeType": "UPSERT",
-    "aspectName": "chartInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "Metrics": "Sum of Total",
-                "Filters": "['and', ['time-interval', ['field', 13, {'base-type': 'type/DateTime'}], -12, 'month'], ['in', ['field', 18, {'base-type': 'type/Text', 'source-field': 14}], 'Doohickey', 'Gadget', 'Gizmo', 'Widget'], ['in', ['field', 18, {'base-type': 'type/Text', 'source-field': 14}], 'Doohickey', 'Gizmo', 'Gadget', 'Widget']]",
-                "Dimensions": "Product \u2192 Category, ID",
-                "database_id": "1"
-            },
-            "title": "Order value distribution by category",
-            "description": "Order total distribution by category (median, IQR, outliers) to see which categories tend to drive bigger revenue.",
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 1705752002103,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            },
-            "chartUrl": "http://localhost:3001/card/38",
-            "inputEdges": [
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD)",
-                    "lastModified": {
-                        "time": 1705752002103,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002175,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2930,14 +2785,14 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,38)",
+    "entityUrn": "urn:li:chart:(metabase,39)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:internal@metabase.com",
+                    "owner": "urn:li:corpuser:admin@test.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -2949,80 +2804,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001315,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,38)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:metabase_collection_examples"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001315,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
+        "lastObserved": 1705752002266,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,39)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:internal@metabase.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002467,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,39)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:metabase_collection_examples"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002467,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,41)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -3035,8 +2824,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001255,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
+        "lastObserved": 1705752002266,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3112,71 +2901,6 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,41)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),category)",
-                    "schemaField": {
-                        "fieldPath": "category",
-                        "nullable": true,
-                        "description": "category",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Text",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),order_count)",
-                    "schemaField": {
-                        "fieldPath": "order_count",
-                        "nullable": true,
-                        "description": "order_count",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/BigInteger",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),total_quantity)",
-                    "schemaField": {
-                        "fieldPath": "total_quantity",
-                        "nullable": true,
-                        "description": "total_quantity",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/BigInteger",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001251,
-        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,10)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
@@ -3236,6 +2960,23 @@
     "systemMetadata": {
         "lastObserved": 1705752002290,
         "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,39)",
+    "changeType": "UPSERT",
+    "aspectName": "chartQuery",
+    "aspect": {
+        "json": {
+            "rawQuery": "SELECT p.category, COUNT(o.id) as order_count, SUM(o.quantity) as total_quantity FROM products p JOIN orders o ON p.id = o.product_id GROUP BY p.category",
+            "type": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002265,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3401,71 +3142,6 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,38)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),ID)",
-                    "schemaField": {
-                        "fieldPath": "ID",
-                        "nullable": true,
-                        "description": "ID",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/BigInteger",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),TOTAL)",
-                    "schemaField": {
-                        "fieldPath": "sum",
-                        "nullable": true,
-                        "description": "Sum of Total",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.NumberType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Float",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PRODUCTS,PROD),CATEGORY)",
-                    "schemaField": {
-                        "fieldPath": "CATEGORY",
-                        "nullable": true,
-                        "description": "Product \u2192 Category",
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "type/Text",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002176,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,36)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
@@ -3558,43 +3234,6 @@
     "systemMetadata": {
         "lastObserved": 1705752002452,
         "runId": "metabase-docker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,38)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001056,
-        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,38)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
-                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001056,
-        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3782,13 +3421,13 @@
                     "schemaField": {
                         "fieldPath": "CREATED_AT",
                         "nullable": true,
-                        "description": "CREATED_AT",
+                        "description": "Sum of Total",
                         "type": {
                             "type": {
-                                "com.linkedin.schema.NullType": {}
+                                "com.linkedin.schema.NumberType": {}
                             }
                         },
-                        "nativeDataType": "",
+                        "nativeDataType": "type/Float",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -3798,29 +3437,29 @@
                     "schemaField": {
                         "fieldPath": "SOURCE",
                         "nullable": true,
-                        "description": "SOURCE",
+                        "description": "pivot-grouping",
                         "type": {
                             "type": {
-                                "com.linkedin.schema.NullType": {}
+                                "com.linkedin.schema.NumberType": {}
                             }
                         },
-                        "nativeDataType": "",
+                        "nativeDataType": "type/Integer",
                         "recursive": false,
                         "isPartOfKey": false
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),sum)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.PEOPLE,PROD),SOURCE)",
                     "schemaField": {
-                        "fieldPath": "sum",
+                        "fieldPath": "CREATED_AT",
                         "nullable": true,
-                        "description": "sum",
+                        "description": "Sum of Total",
                         "type": {
                             "type": {
-                                "com.linkedin.schema.NullType": {}
+                                "com.linkedin.schema.NumberType": {}
                             }
                         },
-                        "nativeDataType": "",
+                        "nativeDataType": "type/Float",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -3829,8 +3468,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002213,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752002325,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4596,56 +4235,6 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,42)",
-    "changeType": "UPSERT",
-    "aspectName": "chartInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "Metrics": "",
-                "Filters": "",
-                "Dimensions": "id, name, category, price, total_sold"
-            },
-            "title": "Product Sales Model",
-            "description": "",
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 1773575714908,
-                    "actor": "urn:li:corpuser:admin@test.com"
-                }
-            },
-            "chartUrl": "http://localhost:3001/card/42",
-            "inputEdges": [
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD)",
-                    "lastModified": {
-                        "time": 1773575714908,
-                        "actor": "urn:li:corpuser:admin@test.com"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD)",
-                    "lastModified": {
-                        "time": 1773575714908,
-                        "actor": "urn:li:corpuser:admin@test.com"
-                    }
-                }
-            ],
-            "type": "TABLE"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001772,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,27)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
@@ -4685,49 +4274,6 @@
     "systemMetadata": {
         "lastObserved": 1705752002711,
         "runId": "metabase-2024_01_20-12_00_00-cnk259",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,42)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:admin@test.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001772,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,42)",
-    "changeType": "UPSERT",
-    "aspectName": "chartQuery",
-    "aspect": {
-        "json": {
-            "rawQuery": "SELECT p.id, p.name, p.category, p.price, SUM(o.quantity) as total_sold FROM products p LEFT JOIN orders o ON p.id = o.product_id GROUP BY p.id, p.name, p.category, p.price",
-            "type": "SQL"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001772,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4790,43 +4336,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1705752001192,
-        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,41)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001022,
-        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,41)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
-                    "urn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001023,
         "runId": "metabase-2024_01_20-12_00_00-23ltbj",
         "lastRunId": "no-run-id-provided"
     }
@@ -4913,26 +4422,6 @@
     "systemMetadata": {
         "lastObserved": 1705752002623,
         "runId": "metabase-2024_01_20-12_00_00-cnk259",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,42)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:metabase_collection_sales_analytics"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001772,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5150,43 +4639,6 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,42)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001344,
-        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,42)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
-                    "urn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001344,
-        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,18)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -5298,7 +4750,178 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,42)",
+    "entityUrn": "urn:li:chart:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001085,
+        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": "id, name, category, price, total_sold",
+                "database_id": "2"
+            },
+            "title": "Product Sales Model",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1784020505704,
+                    "actor": "urn:li:corpuser:admin@test.com"
+                }
+            },
+            "chartUrl": "http://localhost:3001/card/40",
+            "inputEdges": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD)",
+                    "lastModified": {
+                        "time": 1784020505704,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                },
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.products,PROD)",
+                    "lastModified": {
+                        "time": 1784020505704,
+                        "actor": "urn:li:corpuser:admin@test.com"
+                    }
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002557,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "chartQuery",
+    "aspect": {
+        "json": {
+            "rawQuery": "SELECT p.id, p.name, p.category, p.price, SUM(o.quantity) as total_sold FROM products p LEFT JOIN orders o ON p.id = o.product_id GROUP BY p.id, p.name, p.category, p.price",
+            "type": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002557,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@test.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002557,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,10)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
+                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752001085,
+        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,13)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:metabase_collection_examples"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002882,
+        "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:metabase_collection_sales_analytics"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002557,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
@@ -5388,65 +5011,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001861,
-        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,10)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001085,
-        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,10)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
-                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752001085,
-        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,13)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:metabase_collection_examples"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752002882,
-        "runId": "metabase-docker-test",
+        "lastObserved": 1705752002558,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5560,6 +5126,22 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002558,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,2)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -5601,6 +5183,27 @@
     "systemMetadata": {
         "lastObserved": 1705752002922,
         "runId": "metabase-docker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+                    "urn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752002558,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7154,154 +6757,140 @@
                 {
                     "destinationUrn": "urn:li:chart:(metabase,21)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,24)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,22)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,2)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,18)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,12)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,15)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,17)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,13)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,10)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,20)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,7)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,8)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,3)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,5)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,6)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,16)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,23)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,11)",
                     "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 },
                 {
                     "destinationUrn": "urn:li:chart:(metabase,14)",
                     "lastModified": {
-                        "time": 1705752002578,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:chart:(metabase,38)",
-                    "lastModified": {
-                        "time": 1705752002578,
-                        "actor": "urn:li:corpuser:unknown"
-                    }
-                },
-                {
-                    "destinationUrn": "urn:li:chart:(metabase,39)",
-                    "lastModified": {
-                        "time": 1705752002578,
+                        "time": 1705752003230,
                         "actor": "urn:li:corpuser:unknown"
                     }
                 }
@@ -7310,11 +6899,11 @@
             "dashboards": [],
             "lastModified": {
                 "created": {
-                    "time": 1705752002578,
+                    "time": 1705752003230,
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1705752002578,
+                    "time": 1705752003230,
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
@@ -7322,8 +6911,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752002604,
-        "runId": "metabase-2024_01_20-12_00_00-l7lv4j",
+        "lastObserved": 1705752003252,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -7626,7 +7215,7 @@
                     "schemaField": {
                         "fieldPath": "QUANTITY",
                         "nullable": true,
-                        "description": "Quantity: 8 bins",
+                        "description": "Quantity",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -7721,8 +7310,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752003183,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752002972,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -8414,27 +8003,43 @@
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),CREATED_AT)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),category)",
                     "schemaField": {
-                        "fieldPath": "CREATED_AT",
+                        "fieldPath": "category",
                         "nullable": true,
-                        "description": "Created At: Quarter",
+                        "description": "category",
                         "type": {
                             "type": {
-                                "com.linkedin.schema.DateType": {}
+                                "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "type/DateTime",
+                        "nativeDataType": "type/Text",
                         "recursive": false,
                         "isPartOfKey": false
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:h2,sample-database.ORDERS,PROD),CREATED_AT)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),order_count)",
                     "schemaField": {
-                        "fieldPath": "count",
+                        "fieldPath": "order_count",
                         "nullable": true,
-                        "description": "Count",
+                        "description": "order_count",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "type/BigInteger",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_db.public.orders,PROD),total_quantity)",
+                    "schemaField": {
+                        "fieldPath": "total_quantity",
+                        "nullable": true,
+                        "description": "total_quantity",
                         "type": {
                             "type": {
                                 "com.linkedin.schema.NumberType": {}
@@ -8449,8 +8054,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752003247,
-        "runId": "metabase-2024_01_20-12_00_00-cnk259",
+        "lastObserved": 1705752002266,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -9074,22 +8679,6 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,38)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752003573,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,39)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -9233,22 +8822,6 @@
     }
 },
 {
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,42)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752003574,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
     "changeType": "UPSERT",
@@ -9334,22 +8907,6 @@
     }
 },
 {
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(metabase,41)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705752003574,
-        "runId": "metabase-2024_01_20-12_00_00-ipxts7",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:metabase,model.1,PROD)",
     "changeType": "UPSERT",
@@ -9430,12 +8987,12 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+            "container": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001767,
-        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastObserved": 1705752002266,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -9448,15 +9005,15 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d",
-                    "urn": "urn:li:container:0dae35e2e8faccd158d5628a1d98ce3d"
+                    "id": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b",
+                    "urn": "urn:li:container:f3ff627afc79728d6bc3cd027b79414b"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705752001767,
-        "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastObserved": 1705752002266,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -9473,6 +9030,22 @@
     "systemMetadata": {
         "lastObserved": 1705752001788,
         "runId": "metabase-2024_01_20-12_00_00-23ltbj",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,40)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705752003268,
+        "runId": "metabase-2024_01_20-12_00_00-8bsh3j",
         "lastRunId": "no-run-id-provided"
     }
 },

@@ -381,8 +381,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
             # 403/500) does not abort emitting every later collection.
             try:
                 items_data = self._get_json(
-                    self._url(_API_COLLECTION_ITEMS, collection_id=collection.id),
-                    params={"models": "dashboard"},
+                    f"{self._url(_API_COLLECTION_ITEMS, collection_id=collection.id)}"
+                    f"?models=dashboard"
                 )
                 collection_dashboards = MetabaseCollectionItemsResponse.model_validate(
                     items_data
@@ -950,15 +950,15 @@ class MetabaseSource(StatefulIngestionSourceBase):
     @lru_cache(maxsize=None)
     def _get_collections_map(self) -> Dict[str, MetabaseCollection]:
         """Cached to avoid N+1 API calls when tagging multiple entities."""
-        params = {
-            "exclude-other-user-collections": json.dumps(
-                self.config.exclude_other_user_collections
-            )
-        }
+        # Embed the query in the URL (rather than passing params=) so the request
+        # is byte-for-byte what the API expects; real requests treats both the same.
+        collections_url = (
+            f"{self._url(_API_COLLECTIONS)}"
+            f"?exclude-other-user-collections="
+            f"{json.dumps(self.config.exclude_other_user_collections)}"
+        )
         try:
-            collections_data = self._get_json(
-                self._url(_API_COLLECTIONS), params=params
-            )
+            collections_data = self._get_json(collections_url)
         except requests.exceptions.RequestException as req_error:
             response = getattr(req_error, "response", None)
             if response is not None and response.status_code == 404:
