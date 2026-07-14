@@ -98,9 +98,10 @@ type Metric implements Entity {
   semanticModel: SemanticModel
 
   """
-  Parent metrics in the metric hierarchy.
+  The direct parent metric in the sidebar hierarchy. Null for root metrics.
+  For deeper ancestor chains, use nested selection: parentMetric { parentMetric { ... } }.
   """
-  parentMetrics: [Metric!]!
+  parentMetric: Metric
 
   """
   Child metrics in the metric hierarchy.
