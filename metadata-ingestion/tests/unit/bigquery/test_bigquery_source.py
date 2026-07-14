@@ -1090,7 +1090,7 @@ def test_get_views_for_dataset(
     views = bigquery_data_dictionary.get_views_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
-        has_data_read=False,
+        use_legacy_stats=False,
         report=BigQueryV2Report(),
     )
     assert list(views) == [bigquery_view_1, bigquery_view_2]
@@ -1194,7 +1194,7 @@ def test_get_snapshots_for_dataset(
     snapshots = bigquery_data_dictionary.get_snapshots_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
-        has_data_read=False,
+        use_legacy_stats=False,
         report=BigQueryV2Report(),
     )
     assert list(snapshots) == [bigquery_snapshot]
@@ -1252,17 +1252,17 @@ def test_get_tables_for_dataset_query_selection(
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 @pytest.mark.parametrize("entity", ["views", "snapshots"])
-@pytest.mark.parametrize("has_data_read", [False, True])
+@pytest.mark.parametrize("use_legacy_stats", [False, True])
 def test_get_views_and_snapshots_legacy_tables_selection(
     get_projects_client: MagicMock,
     get_bq_client_mock: Mock,
     query_mock: Mock,
     entity: str,
-    has_data_read: bool,
+    use_legacy_stats: bool,
 ) -> None:
-    # Views/snapshots have no PARTITIONS-based query; the deprecated __TABLES__ join
-    # is used only when data-read is granted (use_legacy_table_stats=True) and never
-    # otherwise. has_data_read is the sole switch here.
+    # Views/snapshots have no PARTITIONS-based query; the legacy __TABLES__ join is
+    # used only when use_legacy_table_stats=True and never otherwise.
+    # use_legacy_stats is the sole switch here.
     query_mock.return_value = []
     schema_api = BigQuerySchemaApi(
         report=BigQueryV2Report().schema_api_perf,
@@ -1279,19 +1279,19 @@ def test_get_views_and_snapshots_legacy_tables_selection(
         fetch(
             project_id="test-project",
             dataset_name="test-dataset",
-            has_data_read=has_data_read,
+            use_legacy_stats=use_legacy_stats,
             report=BigQueryV2Report(),
         )
     )
 
     executed_query = query_mock.call_args[0][0]
-    assert ("__TABLES__" in executed_query) is has_data_read
+    assert ("__TABLES__" in executed_query) is use_legacy_stats
 
 
-def test_tables_for_dataset_partitions_query_exposes_mapper_aliases() -> None:
+def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() -> None:
     # _make_bigquery_table reads these columns by name; renaming an alias here would
     # silently null out row count / size / last-altered rather than raise.
-    query = BigqueryQuery.tables_for_dataset_partitions
+    query = BigqueryQuery.tables_for_dataset_with_partition_stats
     assert "p.total_rows as row_count" in query
     assert "p.total_logical_bytes as bytes" in query
     assert "p.last_modified_time as last_altered" in query

@@ -34,7 +34,8 @@ order by
 """
 
     # https://cloud.google.com/bigquery/docs/information-schema-table-storage?hl=en
-    tables_for_dataset = f"""
+    # Sources row_count / size / last_altered from the legacy __TABLES__ construct.
+    tables_for_dataset_with_legacy_stats = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -82,12 +83,12 @@ order by
   table_suffix DESC
 """
 
-    # Same as tables_for_dataset, but sources row_count / size / last_altered from
-    # INFORMATION_SCHEMA.PARTITIONS instead of the deprecated __TABLES__ construct.
-    # PARTITIONS is dataset-scoped and already queried for partition metadata, so this
-    # adds no extra scan. It covers base tables only; external tables (absent from
+    # Same as tables_for_dataset_with_legacy_stats, but sources row_count / size /
+    # last_altered from INFORMATION_SCHEMA.PARTITIONS instead of the legacy __TABLES__
+    # construct. PARTITIONS is dataset-scoped and already queried for partition metadata,
+    # so this adds no extra scan. It covers base tables only; external tables (absent from
     # PARTITIONS) get null stats via the LEFT JOIN.
-    tables_for_dataset_partitions = f"""
+    tables_for_dataset_with_partition_stats = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -136,7 +137,8 @@ order by
   table_suffix DESC
 """
 
-    tables_for_dataset_without_partition_data = f"""
+    # No row_count / size / last_altered stats at all (neither __TABLES__ nor PARTITIONS).
+    tables_for_dataset_without_stats = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -163,7 +165,8 @@ order by
   table_suffix DESC
 """
 
-    views_for_dataset: str = f"""
+    # Views keep last_altered / row_count / size_bytes from the legacy __TABLES__ construct.
+    views_for_dataset_with_legacy_stats: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -193,7 +196,8 @@ order by
   table_name ASC
 """
 
-    views_for_dataset_without_data_read: str = f"""
+    # No __TABLES__ join, so no last_altered / row_count / size_bytes stats.
+    views_for_dataset_without_stats: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -219,7 +223,8 @@ order by
   table_name ASC
 """
 
-    snapshots_for_dataset: str = f"""
+    # Snapshots keep last_altered / rows_count / size_in_bytes from the legacy __TABLES__ construct.
+    snapshots_for_dataset_with_legacy_stats: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
@@ -249,7 +254,8 @@ order by
   table_name ASC
 """
 
-    snapshots_for_dataset_without_data_read: str = f"""
+    # No __TABLES__ join, so no last_altered / rows_count / size_in_bytes stats.
+    snapshots_for_dataset_without_stats: str = f"""
 SELECT
   t.table_catalog as table_catalog,
   t.table_schema as table_schema,
