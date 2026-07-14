@@ -1,1 +1,3458 @@
-[]
+[
+  {
+    "testId": "tests.integration.airbyte.test_airbyte::test_airbyte_ingest",
+    "duration": "636.131s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_ingest[oracle_to_file_with_dba_tables.yml]",
+    "duration": "258.347s"
+  },
+  {
+    "testId": "tests.integration.hana.test_hana::test_hana_ingest",
+    "duration": "252.178s"
+  },
+  {
+    "testId": "tests.integration.nifi.test_nifi::test_nifi_ingest_cluster",
+    "duration": "192.350s"
+  },
+  {
+    "testId": "tests.integration.flink.test_flink::test_flink_ingest",
+    "duration": "179.807s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_ingest",
+    "duration": "133.306s"
+  },
+  {
+    "testId": "tests.integration.nifi.test_nifi::test_nifi_ingest_standalone",
+    "duration": "115.617s"
+  },
+  {
+    "testId": "tests.integration.doris.test_doris::test_doris_ingest[doris_to_file.yml-doris_mces_golden.json]",
+    "duration": "96.075s"
+  },
+  {
+    "testId": "tests.integration.db2.test_db2::test_db2_ingest[db2_basic.yml]",
+    "duration": "91.643s"
+  },
+  {
+    "testId": "tests.integration.kafka.test_kafka::test_kafka_oauth_callback",
+    "duration": "91.079s"
+  },
+  {
+    "testId": "tests.integration.cassandra.test_cassandra::test_cassandra_ingest",
+    "duration": "83.082s"
+  },
+  {
+    "testId": "tests.integration.kinesis.test_kinesis::test_kinesis_ingestion_golden_file",
+    "duration": "76.223s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore::test_hive_metastore_ingest[hive-False-False-False-False-_1]",
+    "duration": "69.995s"
+  },
+  {
+    "testId": "tests.integration.iceberg.test_iceberg::test_multiprocessing_iceberg_ingest",
+    "duration": "65.388s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore_thrift::test_hive_thrift_ingest[False-False-False-_thrift_1]",
+    "duration": "61.762s"
+  },
+  {
+    "testId": "tests.integration.starrocks.test_starrocks::test_starrocks_ingest",
+    "duration": "55.743s"
+  },
+  {
+    "testId": "tests.integration.iceberg.test_iceberg::test_iceberg_stateful_ingest",
+    "duration": "47.726s"
+  },
+  {
+    "testId": "tests.integration.kafka.test_kafka::test_kafka_ingest[kafka_without_schemas]",
+    "duration": "47.111s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_slim_no_pyspark.TestS3SlimInstallation::test_s3_full_install_includes_pyspark",
+    "duration": "41.783s"
+  },
+  {
+    "testId": "tests.integration.delta_lake.test_delta_lake_minio::test_delta_lake_ingest",
+    "duration": "36.439s"
+  },
+  {
+    "testId": "tests.integration.iceberg.test_iceberg::test_iceberg_profiling",
+    "duration": "32.634s"
+  },
+  {
+    "testId": "tests.integration.iceberg.test_iceberg::test_iceberg_ingest",
+    "duration": "31.794s"
+  },
+  {
+    "testId": "tests.integration.hex.test_hex::test_hex_ingestion_enterprise",
+    "duration": "26.392s"
+  },
+  {
+    "testId": "tests.integration.ldap.test_ldap_stateful::test_ldap_stateful",
+    "duration": "25.036s"
+  },
+  {
+    "testId": "tests.integration.clickhouse.test_clickhouse::test_clickhouse_ingest",
+    "duration": "24.846s"
+  },
+  {
+    "testId": "tests.integration.flink.test_flink::test_connection_failure",
+    "duration": "24.022s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_slim_no_pyspark.TestS3SlimInstallation::test_s3_slim_install_excludes_pyspark",
+    "duration": "22.909s"
+  },
+  {
+    "testId": "tests.integration.grafana.test_grafana::test_grafana_basic_ingest",
+    "duration": "22.145s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore::test_hive_metastore_instance_ingest",
+    "duration": "21.104s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore_thrift::test_hive_thrift_kerberized",
+    "duration": "20.833s"
+  },
+  {
+    "testId": "tests.integration.cube.test_cube::test_cube_core_ingest",
+    "duration": "19.804s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration::test_dmv_extraction_end_to_end_no_query_store",
+    "duration": "19.500s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_query_store_enabled",
+    "duration": "18.908s"
+  },
+  {
+    "testId": "tests.integration.airbyte.test_airbyte::test_airbyte_schema_filter",
+    "duration": "18.351s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow::test_snowplow_iglu_autodiscovery",
+    "duration": "18.227s"
+  },
+  {
+    "testId": "tests.integration.timescaledb.test_timescaledb::test_timescaledb_ingest_with_db",
+    "duration": "17.567s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_sql_server::test_mssql_ingest[mssql_to_file.yml]",
+    "duration": "17.224s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_multiple_files]",
+    "duration": "16.631s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_field_tag_ingest",
+    "duration": "16.431s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_filter_stale_topics_no_topics_config",
+    "duration": "15.791s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_single_file]",
+    "duration": "15.432s"
+  },
+  {
+    "testId": "tests.integration.aerospike.test_aerospike::test_aerospike_ingest",
+    "duration": "15.407s"
+  },
+  {
+    "testId": "tests.integration.mysql.test_mysql::test_mysql_ingest_no_db[mysql_to_file_with_db.yml-mysql_mces_with_db_golden.json]",
+    "duration": "13.895s"
+  },
+  {
+    "testId": "tests.integration.doris.test_doris::test_doris_test_connection[config_dict3-False-Unknown database]",
+    "duration": "12.694s"
+  },
+  {
+    "testId": "tests.integration.mongodb.test_mongodb::test_mongodb_ingest",
+    "duration": "12.002s"
+  },
+  {
+    "testId": "tests.integration.flink.test_flink::test_iceberg_flink_lineage_stitching",
+    "duration": "11.989s"
+  },
+  {
+    "testId": "tests.integration.mariadb.test_mariadb::test_mariadb_ingest_no_db[mariadb_to_file.yml-mariadb_mces_golden.json]",
+    "duration": "11.940s"
+  },
+  {
+    "testId": "tests.integration.flink.test_flink::test_kafka_flink_lineage_stitching",
+    "duration": "10.812s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_sql_server::test_stored_procedure_lineage[DemoData.Foo.NewProc.sql]",
+    "duration": "10.455s"
+  },
+  {
+    "testId": "tests.integration.kafka.test_kafka::test_kafka_test_connection[config_dict1-False]",
+    "duration": "10.025s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_retry_on_error",
+    "duration": "9.099s"
+  },
+  {
+    "testId": "tests.integration.ldap.test_ldap::test_ldap_ingest",
+    "duration": "9.097s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_basic_statistics_exact_values",
+    "duration": "9.055s"
+  },
+  {
+    "testId": "tests.integration.clickhouse.test_clickhouse::test_clickhouse_ingest_uri_form",
+    "duration": "8.920s"
+  },
+  {
+    "testId": "tests.integration.tidb.test_tidb::test_tidb_ingest",
+    "duration": "8.844s"
+  },
+  {
+    "testId": "tests.integration.mysql.test_mysql::test_mysql_usage_performance_schema",
+    "duration": "8.208s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_partition_with_partition_autodetect_traverse_min_max]",
+    "duration": "7.947s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_stages_tasks_pipes::test_snowflake_stages_tasks_pipes",
+    "duration": "7.194s"
+  },
+  {
+    "testId": "tests.integration.hex.test_hex::test_hex_ingestion",
+    "duration": "7.150s"
+  },
+  {
+    "testId": "tests.integration.flink.test_flink::test_kafka_flink_iceberg_stitching",
+    "duration": "6.638s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_partition_with_partition_autodetect_traverse_min_max]",
+    "duration": "6.552s"
+  },
+  {
+    "testId": "tests.integration.flink.test_flink::test_postgres_flink_lineage_stitching",
+    "duration": "6.469s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_source_error_handling",
+    "duration": "6.284s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_tableau_ingest_multiple_sites",
+    "duration": "6.185s"
+  },
+  {
+    "testId": "tests.integration.mariadb.test_mariadb::test_mariadb_usage_performance_schema",
+    "duration": "6.051s"
+  },
+  {
+    "testId": "tests.integration.ldap.test_ldap::test_ldap_memberof_ingest",
+    "duration": "6.043s"
+  },
+  {
+    "testId": "tests.integration.ldap.test_ldap::test_ldap_ingest_with_email_as_username",
+    "duration": "5.985s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_ingest[oracle_to_file_with_all_tables.yml]",
+    "duration": "5.760s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_partition_update_schema_with_partition_autodetect_and_wildcard_dir]",
+    "duration": "5.649s"
+  },
+  {
+    "testId": "tests.integration.db2.test_db2::test_db2_ingest[db2_view_qualifier.yml]",
+    "duration": "5.593s"
+  },
+  {
+    "testId": "tests.integration.postgres.test_postgres::test_postgres_ingest_with_db",
+    "duration": "5.394s"
+  },
+  {
+    "testId": "tests.integration.remote.test_remote::test_remote_ingest",
+    "duration": "5.359s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_folder_partition_update_schema]",
+    "duration": "4.928s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_tableau_stateful",
+    "duration": "4.862s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_hidden_asset_tags",
+    "duration": "4.735s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_multiple_specs_of_different_buckets]",
+    "duration": "4.728s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_tableau_cll_ingest",
+    "duration": "4.586s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_site_name_pattern",
+    "duration": "4.532s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_sql_server::test_mssql_ingest[mssql_odbc_all_databases.yml]",
+    "duration": "3.923s"
+  },
+  {
+    "testId": "tests.integration.flink.test_flink::test_flink_run_history_and_platform_instances",
+    "duration": "3.769s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_ingest[oracle_to_file_materialized_view_lineage.yml]",
+    "duration": "3.654s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_bucket_wildcard_with_nested_table]",
+    "duration": "3.566s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_partition_update_schema_with_partition_autodetect_and_wildcard_dir]",
+    "duration": "3.558s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_tableau_virtual_connections_disabled",
+    "duration": "3.555s"
+  },
+  {
+    "testId": "tests.integration.flink.test_flink::test_flink_datastream_chained_lineage",
+    "duration": "3.517s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_partition_update_schema_with_partition_autodetect]",
+    "duration": "3.502s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_folder_partition_update_schema]",
+    "duration": "3.474s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_bucket_wildcard_with_nested_table]",
+    "duration": "3.463s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_partition_update_schema_with_partition_autodetect]",
+    "duration": "3.435s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_multiple_spec_for_files]",
+    "duration": "3.405s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_partition_update_schema]",
+    "duration": "3.365s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_multiple_files]",
+    "duration": "3.350s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_tableau_virtual_connections",
+    "duration": "3.328s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_project_hierarchy",
+    "duration": "3.325s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_extract_all_project",
+    "duration": "3.324s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_partition_keyval]",
+    "duration": "3.322s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_get_all_datasources_failure",
+    "duration": "3.313s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_tableau_ingest_with_platform_instance",
+    "duration": "3.307s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_tableau_ingest_sites_as_container",
+    "duration": "3.295s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_project_pattern",
+    "duration": "3.271s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_permission_ingestion",
+    "duration": "3.266s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_filter_upstream_assets",
+    "duration": "3.261s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_tableau_signout_timeout",
+    "duration": "3.258s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_folder_partition_keyval]",
+    "duration": "3.249s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_tableau_virtual_connections_no_column_lineage",
+    "duration": "3.249s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_query_store_disabled_scenario",
+    "duration": "3.229s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_partition_basic]",
+    "duration": "3.226s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_ingest_hidden_worksheets",
+    "duration": "3.216s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_folder_partition_basic]",
+    "duration": "3.171s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_folder_partition_basic]",
+    "duration": "3.170s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_partition_update_schema]",
+    "duration": "3.160s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_partition_keyval]",
+    "duration": "3.151s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_partition_basic]",
+    "duration": "3.141s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_folder_partition_keyval]",
+    "duration": "3.127s"
+  },
+  {
+    "testId": "tests.integration.git.test_git_clone::test_clone_timeout_integration",
+    "duration": "3.114s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_ingest[oracle_to_file_with_stored_procedures.yml]",
+    "duration": "3.080s"
+  },
+  {
+    "testId": "tests.integration.mysql.test_mysql::test_mysql_test_connection[config_dict1-False]",
+    "duration": "3.070s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_query_history_extraction_basic",
+    "duration": "3.065s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_deny_table]",
+    "duration": "3.046s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_folder_no_partition]",
+    "duration": "3.041s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_lineage_from_select_into",
+    "duration": "3.017s"
+  },
+  {
+    "testId": "tests.integration.sql_queries.test_sql_queries::test_sql_queries_ingestion[input/basic.yml-golden/basic.json]",
+    "duration": "3.001s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_partition_with_partition_autodetect_traverse_all]",
+    "duration": "2.984s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_tableau_ingest",
+    "duration": "2.963s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_deny_table]",
+    "duration": "2.933s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode_threading::test_threading_speedup",
+    "duration": "2.932s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_no_partition_filename]",
+    "duration": "2.878s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow::test_snowplow_all_event_specs_processed",
+    "duration": "2.796s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_partition_with_partition_autodetect_traverse_all]",
+    "duration": "2.761s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_folder_no_partition_filename]",
+    "duration": "2.752s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_no_partition_glob]",
+    "duration": "2.740s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow_performance::test_large_dataset_performance",
+    "duration": "2.740s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_ingest[oracle_to_file_with_usage_and_lineage.yml]",
+    "duration": "2.671s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_bucket_wildcard_as_table]",
+    "duration": "2.659s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_folder_no_partition_filename]",
+    "duration": "2.628s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_multiple_specs_of_different_buckets]",
+    "duration": "2.616s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_bucket_wildcard_allow_table]",
+    "duration": "2.611s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_no_partition_exclude]",
+    "duration": "2.588s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_no_partition]",
+    "duration": "2.548s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_ingest_tags_disabled",
+    "duration": "2.530s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_bucket_wildcard_as_table]",
+    "duration": "2.522s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_no_hidden_assets",
+    "duration": "2.518s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_folder_no_partition_exclude]",
+    "duration": "2.516s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_folder_no_partition_exclude]",
+    "duration": "2.487s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_multiple_spec_for_files]",
+    "duration": "2.466s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_allow_table]",
+    "duration": "2.428s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_allow_table]",
+    "duration": "2.408s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_multiple_specs_of_different_buckets]",
+    "duration": "2.406s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_folder_no_partition_filename]",
+    "duration": "2.329s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_single_file]",
+    "duration": "2.311s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_calls[partition_autodetection]",
+    "duration": "2.281s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_file_without_extension]",
+    "duration": "2.208s"
+  },
+  {
+    "testId": "tests.integration.doris.test_doris::test_doris_ingest[doris_profile.yml-doris_profile_golden.json]",
+    "duration": "2.164s"
+  },
+  {
+    "testId": "tests.integration.dlt.test_dlt::test_dlt_ingest_golden",
+    "duration": "2.131s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration::test_end_to_end_lineage_graph_validation",
+    "duration": "2.113s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_file_without_extension]",
+    "duration": "2.105s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_file_without_extension]",
+    "duration": "2.101s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_end_to_end_lineage_aggregation",
+    "duration": "2.087s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_single_file]",
+    "duration": "2.074s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_lineage_with_parse_failures",
+    "duration": "2.072s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_query_exclude_patterns",
+    "duration": "2.064s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration::test_column_level_lineage_validation",
+    "duration": "2.043s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_chart_input_fields",
+    "duration": "2.030s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration::test_merge_statement_lineage_extraction",
+    "duration": "2.028s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration::test_update_with_join_tsql_syntax",
+    "duration": "2.025s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_dmv_fallback_extraction",
+    "duration": "2.023s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration::test_select_into_creates_lineage",
+    "duration": "2.021s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration::test_bracket_quoted_identifiers_in_queries",
+    "duration": "2.021s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_query_history_with_min_calls_filter",
+    "duration": "2.006s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_malformed_query_text_handling",
+    "duration": "2.005s"
+  },
+  {
+    "testId": "tests.integration.mysql.test_mysql::test_mysql_ingest_no_db[mysql_to_file_no_db.yml-mysql_mces_no_db_golden.json]",
+    "duration": "1.786s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai::test_vertexai_source_ingestion",
+    "duration": "1.758s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_ingest[oracle_to_file_without_stored_procedures.yml]",
+    "duration": "1.713s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_all_options_enabled",
+    "duration": "1.682s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_multiple_files]",
+    "duration": "1.619s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_sql_server::test_mssql_ingest[mssql_no_db_to_file.yml]",
+    "duration": "1.596s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_sample_values",
+    "duration": "1.590s"
+  },
+  {
+    "testId": "tests.integration.kafka.test_kafka::test_kafka_source_oauth_cb_signature",
+    "duration": "1.580s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_multiple_files]",
+    "duration": "1.573s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_multiple_files]",
+    "duration": "1.546s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_max_fields_limit",
+    "duration": "1.533s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow_performance::test_event_schema_urn_caching",
+    "duration": "1.513s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery_queries_integration::test_queries_ingestion",
+    "duration": "1.491s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_low_cardinality",
+    "duration": "1.485s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode_threading::test_threading_produces_same_entities_as_sequential",
+    "duration": "1.423s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_folder_no_partition_exclude]",
+    "duration": "1.423s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_folder_partition_keyval]",
+    "duration": "1.412s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_single_file]",
+    "duration": "1.374s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_folder_path_pattern",
+    "duration": "1.355s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_folder_no_partition_glob]",
+    "duration": "1.348s"
+  },
+  {
+    "testId": "tests.integration.openapi.test_openapi::test_openapi_2_0_ingest",
+    "duration": "1.316s"
+  },
+  {
+    "testId": "tests.integration.openapi.test_openapi::test_openapi_3_1_ingest",
+    "duration": "1.313s"
+  },
+  {
+    "testId": "tests.integration.mariadb.test_mariadb::test_mariadb_usage_general_log",
+    "duration": "1.312s"
+  },
+  {
+    "testId": "tests.integration.okta.test_okta::test_okta_stateful_ingestion",
+    "duration": "1.308s"
+  },
+  {
+    "testId": "tests.integration.okta.test_okta::test_okta_source_include_deprovisioned_suspended_users",
+    "duration": "1.297s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow_performance::test_parallel_fetching_performance",
+    "duration": "1.275s"
+  },
+  {
+    "testId": "tests.integration.postgres.test_postgres_lineage.TestPostgresLineageIntegration::test_pg_stat_statements_enabled",
+    "duration": "1.271s"
+  },
+  {
+    "testId": "tests.integration.file.test_file_source::test_stateful_ingestion",
+    "duration": "1.259s"
+  },
+  {
+    "testId": "tests.integration.timescaledb.test_timescaledb::test_timescaledb_all_databases",
+    "duration": "1.248s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode_threading::test_mode_threaded_higher_thread_count",
+    "duration": "1.244s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_looker_ingest_unaliased_joins",
+    "duration": "1.237s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode::test_mode_ingest_json_failure",
+    "duration": "1.190s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_admin_only_api::test_admin_only_apis",
+    "duration": "1.165s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_high_cardinality",
+    "duration": "1.160s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_sql_server::test_mssql_ingest[mssql_with_lower_case_column_urn.yml]",
+    "duration": "1.156s"
+  },
+  {
+    "testId": "tests.integration.grafana.test_grafana::test_grafana_ingest",
+    "duration": "1.152s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_numeric_types",
+    "duration": "1.144s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_folder_partition_update_schema]",
+    "duration": "1.127s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_multiple_specs_of_different_buckets]",
+    "duration": "1.114s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_sql_server::test_mssql_ingest[mssql_with_lower_case_urn.yml]",
+    "duration": "1.096s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_multiple_spec_for_files]",
+    "duration": "1.094s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery::test_bigquery_lineage_v2_ingest_view_snapshots[True-True-False-bigquery_mcp_lineage_golden_1.json]",
+    "duration": "1.086s"
+  },
+  {
+    "testId": "tests.integration.git.test_git_clone::test_git_clone_public",
+    "duration": "1.022s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_multiple_spec_for_files]",
+    "duration": "1.011s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_string_types",
+    "duration": "1.011s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_extract_table_profiles_with_quantiles",
+    "duration": "1.002s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_no_partition_glob]",
+    "duration": "0.995s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_folder_partition_basic]",
+    "duration": "0.988s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_extract_with_histogram_continuous",
+    "duration": "0.988s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_folder_no_partition]",
+    "duration": "0.980s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_date_timestamp_types",
+    "duration": "0.979s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_folder_no_partition_glob]",
+    "duration": "0.966s"
+  },
+  {
+    "testId": "tests.integration.cube.test_cube::test_cube_cloud_metadata_api",
+    "duration": "0.942s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_no_partition_filename]",
+    "duration": "0.928s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_ingest[oracle_to_file_with_query_usage.yml]",
+    "duration": "0.925s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[shared_folder_no_partition]",
+    "duration": "0.921s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_folder_no_partition_glob]",
+    "duration": "0.915s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_extract_with_histogram_distinct",
+    "duration": "0.886s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_null_values",
+    "duration": "0.864s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_folder_no_partition]",
+    "duration": "0.862s"
+  },
+  {
+    "testId": "tests.integration.timescaledb.test_timescaledb::test_timescaledb_ingest_with_jobs",
+    "duration": "0.846s"
+  },
+  {
+    "testId": "tests.integration.superset.test_superset::test_superset_stateful_ingest",
+    "duration": "0.826s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_column_filtering",
+    "duration": "0.822s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode_threading::test_cross_space_parallelization_speedup",
+    "duration": "0.799s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-model-performance]",
+    "duration": "0.793s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_sql_server::test_mssql_ingest[mssql_special_symbols_db.yml]",
+    "duration": "0.787s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_bucket_wildcard_allow_table]",
+    "duration": "0.750s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_folder_no_partition_exclude]",
+    "duration": "0.744s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_sql_server::test_mssql_ingest[mssql_ephemeral_pattern.yml]",
+    "duration": "0.739s"
+  },
+  {
+    "testId": "tests.integration.timescaledb.test_timescaledb::test_timescaledb_lineage",
+    "duration": "0.708s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-prefer-sql-parser-lineage]",
+    "duration": "0.702s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-target-platform-primary-siblings]",
+    "duration": "0.691s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_bucket_wildcard_single_file]",
+    "duration": "0.677s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml_field_splitting_integration::test_integration_field_splitting_with_large_view",
+    "duration": "0.661s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-with-schemas-dbt-enabled]",
+    "duration": "0.660s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-with-target-platform-instance]",
+    "duration": "0.657s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_multiple_specs_of_different_buckets]",
+    "duration": "0.656s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_streamlit::test_snowflake_streamlit_filtering",
+    "duration": "0.654s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_bucket_wildcard_single_file]",
+    "duration": "0.651s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-with-data-platform-instance]",
+    "duration": "0.640s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-with-non-incremental-lineage]",
+    "duration": "0.638s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_streamlit::test_snowflake_streamlit_ingestion",
+    "duration": "0.637s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow::test_snowplow_tracking_plans",
+    "duration": "0.633s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_sql_server::test_mssql_ingest[mssql_no_db_with_filter.yml]",
+    "duration": "0.631s"
+  },
+  {
+    "testId": "tests.integration.sql_queries.test_sql_queries::test_sql_queries_ingestion[input/temp-table-patterns.yml-golden/temp-table-patterns.json]",
+    "duration": "0.631s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow::test_snowplow_event_specs_and_tracking_plans",
+    "duration": "0.629s"
+  },
+  {
+    "testId": "tests.integration.flink.test_flink::test_connection_success",
+    "duration": "0.627s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow::test_snowplow_enrichments",
+    "duration": "0.620s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-with-source-database-pattern]",
+    "duration": "0.605s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-query-entity-emission]",
+    "duration": "0.605s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_ingest",
+    "duration": "0.605s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_multiple_spec_for_files]",
+    "duration": "0.604s"
+  },
+  {
+    "testId": "tests.integration.dynamodb.test_dynamodb::test_dynamodb",
+    "duration": "0.591s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-with-complex-owner-patterns]",
+    "duration": "0.573s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_workspace_container",
+    "duration": "0.572s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-column-meta-mapping]",
+    "duration": "0.566s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_tests",
+    "duration": "0.549s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_ingest_api_bigquery",
+    "duration": "0.543s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_paginated_report_pbi_dataset_binding",
+    "duration": "0.539s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_profiling::test_profiling",
+    "duration": "0.518s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_calls[partitions_and_filename_with_prefix]",
+    "duration": "0.501s"
+  },
+  {
+    "testId": "tests.integration.mariadb.test_mariadb::test_mariadb_test_connection[config_dict1-False]",
+    "duration": "0.500s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_sparql_filter_single_namespace",
+    "duration": "0.498s"
+  },
+  {
+    "testId": "tests.integration.airbyte.test_airbyte::test_airbyte_platform_instance_urns",
+    "duration": "0.490s"
+  },
+  {
+    "testId": "tests.integration.postgres.test_postgres::test_postgres_ingest_with_all_db",
+    "duration": "0.474s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml_field_splitting_integration::test_integration_parallel_processing_performance",
+    "duration": "0.459s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_ingest_api_hive",
+    "duration": "0.455s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_ingest_offline",
+    "duration": "0.427s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_test_connection_failure",
+    "duration": "0.426s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml_field_splitting_integration::test_integration_individual_field_fallback_on_chunk_failure",
+    "duration": "0.424s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_cll_extraction",
+    "duration": "0.413s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_ingest_stateful",
+    "duration": "0.412s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_refinement_ingest",
+    "duration": "0.406s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_extract_lineage",
+    "duration": "0.406s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_calls[filter_specific_partition]",
+    "duration": "0.403s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_ingest[s3_file_inference_without_extension]",
+    "duration": "0.390s"
+  },
+  {
+    "testId": "tests.integration.doris.test_doris::test_doris_ingest[doris_multi_db.yml-doris_multi_db_golden.json]",
+    "duration": "0.387s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_extract_reports",
+    "duration": "0.380s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_ingest_offline_platform_instance",
+    "duration": "0.379s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[shared_single_file]",
+    "duration": "0.378s"
+  },
+  {
+    "testId": "tests.unit.test_native_query_flag::test_native_query_false_still_parses_non_native_expression",
+    "duration": "0.378s"
+  },
+  {
+    "testId": "tests.integration.excel.test_excel_s3::test_excel_s3",
+    "duration": "0.376s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_git_info",
+    "duration": "0.375s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml_field_splitting_integration::test_integration_view_explore_optimization_reduces_api_calls",
+    "duration": "0.374s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_list_primary_keys_error_causes_pipeline_warning",
+    "duration": "0.371s"
+  },
+  {
+    "testId": "tests.integration.flink.test_flink::test_flink_ingest_no_sql_gateway",
+    "duration": "0.367s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore_thrift::test_hive_thrift_ingest[True-False-False-_thrift_2]",
+    "duration": "0.365s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_stages_tasks_pipes::test_snowflake_pipes_without_stages_still_resolves_lineage",
+    "duration": "0.364s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_stages_tasks_pipes::test_snowflake_tasks_only",
+    "duration": "0.364s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore_thrift::test_hive_thrift_ingest[False-False-True-_thrift_4]",
+    "duration": "0.361s"
+  },
+  {
+    "testId": "tests.integration.informatica.test_informatica::test_informatica_ingestion",
+    "duration": "0.358s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_looker_ingest_stateful",
+    "duration": "0.358s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore::test_hive_metastore_ingest[hive-False-False-True-False-_3]",
+    "duration": "0.358s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_file_without_extension]",
+    "duration": "0.355s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore::test_hive_metastore_ingest[hive-False-False-False-True-_5]",
+    "duration": "0.354s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_is_standard_edition[Enterprise or above-False]",
+    "duration": "0.353s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_view_to_view_lineage_and_liquid_template",
+    "duration": "0.352s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_is_standard_edition[None-False]",
+    "duration": "0.350s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_missing_snowflake_secure_view_definitions_raises_pipeline_info",
+    "duration": "0.349s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore_thrift::test_hive_thrift_ingest[False-True-False-_thrift_3]",
+    "duration": "0.347s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_streamlit::test_snowflake_streamlit_disabled",
+    "duration": "0.345s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml_field_splitting_integration::test_integration_partial_lineage_with_parsing_errors",
+    "duration": "0.342s"
+  },
+  {
+    "testId": "tests.integration.hex.test_hex::test_hex_ingestion_with_lineage",
+    "duration": "0.340s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_calls[partitions_traversal_all]",
+    "duration": "0.339s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore::test_hive_metastore_ingest[presto-on-hive-True-True-False-False-_2]",
+    "duration": "0.338s"
+  },
+  {
+    "testId": "tests.integration.mysql.test_mysql::test_mysql_usage_general_log",
+    "duration": "0.337s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_dynamic_table_inputs_lineage_without_ddl",
+    "duration": "0.335s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_s3_calls[filter_specific_partition_traversal_all]",
+    "duration": "0.333s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_dynamic_table_missing_monitor_privilege_raises_pipeline_warning",
+    "duration": "0.333s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_stateful::test_stale_metadata_removal",
+    "duration": "0.331s"
+  },
+  {
+    "testId": "tests.integration.hana.test_hana_calc_views_mock::test_hana_calc_views_and_usage_mock",
+    "duration": "0.331s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore::test_hive_metastore_ingest[presto-on-hive-True-True-True-False-_4]",
+    "duration": "0.330s"
+  },
+  {
+    "testId": "tests.integration.sql_queries.test_sql_queries::test_sql_queries_ingestion[input/basic-with-schema-resolver.yml-golden/basic-with-schema-resolver.json]",
+    "duration": "0.329s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_independent_looks_ingest_with_personal_folder",
+    "duration": "0.325s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_col_lineage_looker_api_based",
+    "duration": "0.323s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_stateful_ingestion",
+    "duration": "0.322s"
+  },
+  {
+    "testId": "tests.integration.kafka.test_kafka::test_kafka_ingest[kafka]",
+    "duration": "0.322s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failure",
+    "duration": "0.321s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_server_to_platform_map",
+    "duration": "0.316s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery::test_bigquery_queries_v2_lineage_usage_ingest",
+    "duration": "0.311s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_intra_workbook_lineage",
+    "duration": "0.311s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models",
+    "duration": "0.311s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_histogram_cardinality_filtering",
+    "duration": "0.311s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning",
+    "duration": "0.307s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai::test_vertexai_platform_instance_config",
+    "duration": "0.300s"
+  },
+  {
+    "testId": "tests.integration.thoughtspot.test_thoughtspot::test_thoughtspot_ingest",
+    "duration": "0.286s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow::test_snowplow_ingest",
+    "duration": "0.283s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow::test_snowplow_pipelines",
+    "duration": "0.275s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_reachable_views",
+    "duration": "0.274s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_list_columns_error_causes_pipeline_warning",
+    "duration": "0.270s"
+  },
+  {
+    "testId": "tests.integration.mysql.test_mysql::test_mysql_ingest_no_db[mysql_profile_table_row_count_estimate_only.yml-mysql_table_row_count_estimate_only.json]",
+    "duration": "0.266s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_no_databases_with_access_causes_pipeline_failure",
+    "duration": "0.262s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_zero_row_count",
+    "duration": "0.261s"
+  },
+  {
+    "testId": "tests.integration.qlik_sense.test_qlik_sense::test_qlik_sense_ingest",
+    "duration": "0.259s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_admin_only_api::test_most_config_and_modified_since",
+    "duration": "0.258s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_warehouse_upstream",
+    "duration": "0.257s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_dm_element_warehouse_fgl",
+    "duration": "0.257s"
+  },
+  {
+    "testId": "tests.integration.tidb.test_tidb::test_tidb_test_connection[config_dict1-False]",
+    "duration": "0.253s"
+  },
+  {
+    "testId": "tests.integration.dataplex.test_dataplex_integration::test_dataplex_lineage_golden",
+    "duration": "0.251s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure",
+    "duration": "0.250s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_platform_instance_ingest",
+    "duration": "0.249s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_convert_urns_to_lowercase",
+    "duration": "0.244s"
+  },
+  {
+    "testId": "tests.integration.openapi.test_openapi::test_openapi_ingest",
+    "duration": "0.240s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_project_path_pattern_allow",
+    "duration": "0.235s"
+  },
+  {
+    "testId": "tests.integration.postgres.test_postgres::test_postgres_test_connection",
+    "duration": "0.233s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_independent_looks_ingest_without_personal_folder",
+    "duration": "0.231s"
+  },
+  {
+    "testId": "tests.integration.hive-metastore.test_hive_metastore_thrift::test_hive_thrift_instance_ingest",
+    "duration": "0.229s"
+  },
+  {
+    "testId": "tests.integration.metabase.test_metabase::test_stateful_ingestion",
+    "duration": "0.226s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_is_standard_edition[Standard-True]",
+    "duration": "0.225s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_create_corp_user::test_create_corp_user",
+    "duration": "0.224s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest",
+    "duration": "0.222s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_source_integration_with_out_database",
+    "duration": "0.220s"
+  },
+  {
+    "testId": "tests.integration.metabase.test_metabase::test_metabase_ingest_success",
+    "duration": "0.218s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_ingest",
+    "duration": "0.215s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_source_integration_with_database",
+    "duration": "0.213s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-with-source-combined-patterns]",
+    "duration": "0.212s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_extract_endorsements",
+    "duration": "0.212s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_ingest_urn_lower_case",
+    "duration": "0.211s"
+  },
+  {
+    "testId": "tests.integration.postgres.test_postgres_lineage.TestPostgresLineageIntegration::test_malformed_query_text_handling",
+    "duration": "0.209s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-with-source-schema-pattern]",
+    "duration": "0.208s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_platform_instance_ingest",
+    "duration": "0.208s"
+  },
+  {
+    "testId": "tests.integration.athena.test_athena_source::test_athena_source_ingestion",
+    "duration": "0.207s"
+  },
+  {
+    "testId": "tests.integration.sql_queries.test_sql_queries::test_sql_queries_ingestion[input/patch-lineage.yml-golden/patch-lineage.json]",
+    "duration": "0.207s"
+  },
+  {
+    "testId": "tests.integration.quicksight.test_quicksight::test_quicksight_ingest",
+    "duration": "0.206s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_ingest_patch_disabled",
+    "duration": "0.206s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_scan_all_workspaces",
+    "duration": "0.204s"
+  },
+  {
+    "testId": "tests.integration.delta_lake.test_local_delta_lake::test_delta_lake[tables_with_nested_datatypes.json]",
+    "duration": "0.203s"
+  },
+  {
+    "testId": "tests.integration.mysql.test_mysql::test_mysql_ingest_no_db[mysql_profile_table_level_only.yml-mysql_table_level_only.json]",
+    "duration": "0.203s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery::test_bigquery_lineage_v2_ingest_view_snapshots[False-False-True-bigquery_mcp_lineage_golden_2.json]",
+    "duration": "0.199s"
+  },
+  {
+    "testId": "tests.integration.business-glossary.test_business_glossary::test_glossary_ingest[True-glossary_events_auto_id_golden.json]",
+    "duration": "0.199s"
+  },
+  {
+    "testId": "tests.integration.fabric.fabric_onelake.test_fabric_onelake_source::test_fabric_onelake_lakehouse_with_tables",
+    "duration": "0.199s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_gcs_ingest[s3_file_inference_without_extension]",
+    "duration": "0.198s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_refinement_include_order",
+    "duration": "0.197s"
+  },
+  {
+    "testId": "tests.integration.dataplex.test_dataplex_integration::test_dataplex_lineage_same_table_name_different_datasets",
+    "duration": "0.196s"
+  },
+  {
+    "testId": "tests.integration.dataplex.test_dataplex_integration::test_dataplex_entries_integration",
+    "duration": "0.195s"
+  },
+  {
+    "testId": "tests.integration.delta_lake.test_local_delta_lake::test_delta_lake[allow_table.json]",
+    "duration": "0.195s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_stateful_ingestion::test_powerbi_stateful_ingestion",
+    "duration": "0.195s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_override_ownership",
+    "duration": "0.193s"
+  },
+  {
+    "testId": "tests.integration.delta_lake.test_local_delta_lake::test_delta_lake[inner_table.json]",
+    "duration": "0.191s"
+  },
+  {
+    "testId": "tests.integration.git.test_git_clone::test_sanitize_repo_url",
+    "duration": "0.191s"
+  },
+  {
+    "testId": "tests.integration.business-glossary.test_business_glossary::test_glossary_ingest[False-glossary_events_golden.json]",
+    "duration": "0.190s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_hive_platform_drops_ids",
+    "duration": "0.189s"
+  },
+  {
+    "testId": "tests.integration.azure_ad.test_azure_ad::test_azure_ad_stateful_ingestion",
+    "duration": "0.188s"
+  },
+  {
+    "testId": "tests.integration.preset.test_preset::test_preset_stateful_ingest",
+    "duration": "0.188s"
+  },
+  {
+    "testId": "tests.integration.qlik_sense.test_qlik_sense::test_platform_instance_ingest",
+    "duration": "0.188s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_project_path_pattern",
+    "duration": "0.188s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_gcc_environment",
+    "duration": "0.187s"
+  },
+  {
+    "testId": "tests.integration.salesforce.test_salesforce::test_salesforce_ingest_with_lineage",
+    "duration": "0.186s"
+  },
+  {
+    "testId": "tests.integration.delta_lake.test_local_delta_lake::test_delta_lake[single_table.json]",
+    "duration": "0.185s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_looker_ingest",
+    "duration": "0.184s"
+  },
+  {
+    "testId": "tests.integration.db2.test_db2::test_db2_ingest[db2_procedures.yml]",
+    "duration": "0.184s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_looker_ingest_usage_history",
+    "duration": "0.183s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_shared_entities",
+    "duration": "0.183s"
+  },
+  {
+    "testId": "tests.integration.salesforce.test_salesforce::test_salesforce_ingest",
+    "duration": "0.181s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_tag::test_snowflake_tag_pattern",
+    "duration": "0.181s"
+  },
+  {
+    "testId": "tests.integration.hana.test_hana_calc_views_mock::test_hana_stored_procedures_mock",
+    "duration": "0.181s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_only_test_definitions_and_results",
+    "duration": "0.179s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_unresolved_counters_dedup_duplicate_source_id",
+    "duration": "0.179s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_edges_only_dm_ref_synthesized",
+    "duration": "0.179s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_bridge_key_collision_first_wins",
+    "duration": "0.175s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_lineage_node_missing_name",
+    "duration": "0.174s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_ambiguous_name_deterministic_pick",
+    "duration": "0.173s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_gms_schema_resolution",
+    "duration": "0.171s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_file_path_in_view_naming_pattern",
+    "duration": "0.169s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_ambiguous_name_counter_not_duplicated_on_diamond",
+    "duration": "0.169s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_tag::test_snowflake_tag_pattern_deny",
+    "duration": "0.169s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery::test_bigquery_v2_ingest",
+    "duration": "0.168s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_external_dataset_not_ingested",
+    "duration": "0.168s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_mongosourceconnect_ingest",
+    "duration": "0.168s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_s3sink_ingest",
+    "duration": "0.168s"
+  },
+  {
+    "testId": "tests.integration.matillion_dpc.test_matillion::test_matillion_source_comprehensive",
+    "duration": "0.167s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_local_ingest[shared_file_without_extension]",
+    "duration": "0.166s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_tag::test_snowflake_structured_property_pattern_deny",
+    "duration": "0.166s"
+  },
+  {
+    "testId": "tests.integration.powerbi_report_server.test_powerbi_report_server::test_powerbi_ingest",
+    "duration": "0.166s"
+  },
+  {
+    "testId": "tests.integration.db2.test_db2::test_db2_ingest[db2_comments.yml]",
+    "duration": "0.161s"
+  },
+  {
+    "testId": "tests.integration.sql_queries.test_sql_queries::test_sql_queries_ingestion[input/query-deduplication.yml-golden/query-deduplication.json]",
+    "duration": "0.160s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_debezium_postgres",
+    "duration": "0.159s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_debezium_sqlserver",
+    "duration": "0.159s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_shared_entity_no_workspace",
+    "duration": "0.157s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode::test_mode_ingest_success",
+    "duration": "0.156s"
+  },
+  {
+    "testId": "tests.integration.db2.test_db2::test_db2_ingest[db2_case_sensitivity.yml]",
+    "duration": "0.155s"
+  },
+  {
+    "testId": "tests.integration.dataplex.test_dataplex_integration::test_dataplex_multiple_entry_groups",
+    "duration": "0.154s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_project_path_pattern_deny",
+    "duration": "0.154s"
+  },
+  {
+    "testId": "tests.integration.fabric.fabric_data_factory.test_fabric_data_factory_source::test_full_ingestion",
+    "duration": "0.153s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_cross_dm_self_reference_guarded",
+    "duration": "0.153s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery::test_bigquery_lineage_v2_ingest_view_snapshots[False-True-True-bigquery_mcp_lineage_golden_2.json]",
+    "duration": "0.152s"
+  },
+  {
+    "testId": "tests.integration.business-glossary.test_business_glossary::test_url_cleaning",
+    "duration": "0.151s"
+  },
+  {
+    "testId": "tests.integration.okta.test_okta::test_okta_source_default_configs",
+    "duration": "0.151s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_bigquery_sink_ingest",
+    "duration": "0.151s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_extract_lineage_false",
+    "duration": "0.150s"
+  },
+  {
+    "testId": "tests.integration.mlflow.test_mlflow_source::test_ingestion",
+    "duration": "0.149s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_looker_ingest_multi_model_explores",
+    "duration": "0.148s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_columns_http_error",
+    "duration": "0.147s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran_db_vs_rest_equivalence::test_db_and_rest_modes_emit_equivalent_lineage",
+    "duration": "0.146s"
+  },
+  {
+    "testId": "tests.unit.stored_procedure.test_procedure_lineage::test_stored_procedure_lineage[postgres-etl_procedure.sql-postgres/etl_procedure.sql]",
+    "duration": "0.145s"
+  },
+  {
+    "testId": "tests.integration.azure_ad.test_azure_ad::test_azure_ad_source_nested_groups",
+    "duration": "0.145s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_pattern_filter",
+    "duration": "0.144s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_lineage_http_error",
+    "duration": "0.144s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_workspaceId_mismatch_uses_files",
+    "duration": "0.144s"
+  },
+  {
+    "testId": "tests.integration.sql_queries.test_sql_queries::test_sql_queries_ingestion[input/session-temp-tables.yml-golden/session-temp-tables.json]",
+    "duration": "0.144s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_simple_glossary_ingestion",
+    "duration": "0.143s"
+  },
+  {
+    "testId": "tests.integration.snaplogic.test_snaplogic::test_snaplogic_source_default_configs",
+    "duration": "0.143s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode_threading::test_mode_threaded_produces_same_output",
+    "duration": "0.142s"
+  },
+  {
+    "testId": "tests.integration.pinecone.test_pinecone_integration::test_pinecone_ingest",
+    "duration": "0.141s"
+  },
+  {
+    "testId": "tests.integration.azure_ad.test_azure_ad::test_azure_ad_source_default_configs",
+    "duration": "0.139s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_ingest_offline_with_model_deny",
+    "duration": "0.139s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_fivetran_with_hybrid_destination_discovery",
+    "duration": "0.138s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_elements_http_error",
+    "duration": "0.138s"
+  },
+  {
+    "testId": "tests.integration.sql_queries.test_sql_queries::test_sql_queries_ingestion[input/lazy-schema-loading.yml-golden/lazy-schema-loading.json]",
+    "duration": "0.138s"
+  },
+  {
+    "testId": "tests.integration.thoughtspot.test_thoughtspot::test_thoughtspot_ingest_with_filters",
+    "duration": "0.137s"
+  },
+  {
+    "testId": "tests.integration.business-glossary.test_business_glossary::test_single_owner_types",
+    "duration": "0.136s"
+  },
+  {
+    "testId": "tests.integration.csv-enricher.test_csv_enricher::test_csv_enricher_source",
+    "duration": "0.136s"
+  },
+  {
+    "testId": "tests.integration.okta.test_okta::test_okta_source_ingest_groups_users",
+    "duration": "0.136s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_sparql_filter_multiple_namespaces",
+    "duration": "0.136s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_looker_ingest_joins",
+    "duration": "0.135s"
+  },
+  {
+    "testId": "tests.integration.thoughtspot.test_thoughtspot::test_thoughtspot_schema_extraction",
+    "duration": "0.134s"
+  },
+  {
+    "testId": "tests.integration.azure_ad.test_azure_ad::test_azure_ad_source_empty_group_membership",
+    "duration": "0.133s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_diverse_activities_pipeline",
+    "duration": "0.130s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery::test_bigquery_queries_v2_ingest",
+    "duration": "0.130s"
+  },
+  {
+    "testId": "tests.integration.business-glossary.test_business_glossary::test_custom_ownership_urns",
+    "duration": "0.129s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_diverse_activities",
+    "duration": "0.127s"
+  },
+  {
+    "testId": "tests.integration.dataplex.test_dataplex_integration::test_dataplex_empty_catalog",
+    "duration": "0.127s"
+  },
+  {
+    "testId": "tests.integration.excel.test_excel_abs::test_excel_abs",
+    "duration": "0.127s"
+  },
+  {
+    "testId": "tests.integration.thoughtspot.test_thoughtspot::test_thoughtspot_lineage_extraction",
+    "duration": "0.127s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_export_only_filter",
+    "duration": "0.126s"
+  },
+  {
+    "testId": "tests.integration.thoughtspot.test_thoughtspot::test_thoughtspot_container_hierarchy",
+    "duration": "0.126s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery::test_bigquery_lineage_v2_ingest_view_snapshots[True-False-False-bigquery_mcp_lineage_golden_1.json]",
+    "duration": "0.125s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_fivetran_with_snowflake_dest_and_null_connector_user",
+    "duration": "0.124s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_glossary_with_domains_ingestion",
+    "duration": "0.124s"
+  },
+  {
+    "testId": "tests.integration.business-glossary.test_business_glossary::test_multiple_owners_same_type",
+    "duration": "0.123s"
+  },
+  {
+    "testId": "tests.integration.business-glossary.test_business_glossary::test_multiple_owners_different_types",
+    "duration": "0.123s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_looker_ingest_allow_pattern",
+    "duration": "0.122s"
+  },
+  {
+    "testId": "tests.integration.okta.test_okta::test_okta_source_custom_user_name_regex",
+    "duration": "0.122s"
+  },
+  {
+    "testId": "tests.integration.superset.test_superset::test_superset_ingest",
+    "duration": "0.121s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_paginated_report_lineage_edge_cases",
+    "duration": "0.121s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_mixed_dependencies",
+    "duration": "0.119s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery::test_bigquery_convert_column_urns_to_lowercase",
+    "duration": "0.119s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_same_name_views_different_file_path",
+    "duration": "0.118s"
+  },
+  {
+    "testId": "tests.integration.microstrategy.test_microstrategy::test_microstrategy_ingestion",
+    "duration": "0.117s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow::test_snowplow_enrichments_without_event_spec_processor",
+    "duration": "0.117s"
+  },
+  {
+    "testId": "tests.integration.microstrategy.test_microstrategy::test_microstrategy_sql_view_temp_table_column_lineage",
+    "duration": "0.116s"
+  },
+  {
+    "testId": "tests.integration.snaplogic.test_snaplogic::test_snaplogic_source_create_non_snaplogic_datasets",
+    "duration": "0.115s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_group_label_tags",
+    "duration": "0.114s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_json_ld_format",
+    "duration": "0.114s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_cross_workspace_reference_info_message",
+    "duration": "0.114s"
+  },
+  {
+    "testId": "tests.integration.sac.test_sac::test_sac",
+    "duration": "0.112s"
+  },
+  {
+    "testId": "tests.integration.sql_queries.test_sql_queries::test_sql_queries_ingestion[input/explicit-lineage.yml-golden/explicit-lineage.json]",
+    "duration": "0.112s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_mixed_dependencies_golden",
+    "duration": "0.111s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_view_to_view_lineage_and_lookml_constant",
+    "duration": "0.110s"
+  },
+  {
+    "testId": "tests.integration.azure_ad.test_azure_ad::test_azure_ad_group_missing_attr_is_failure",
+    "duration": "0.109s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_nested_pipelines",
+    "duration": "0.109s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_skip_export_filter",
+    "duration": "0.109s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_stateful_ingestion",
+    "duration": "0.109s"
+  },
+  {
+    "testId": "tests.integration.azure_ad.test_azure_ad::test_azure_ad_group_regex_mismatch_is_filtered_not_failed",
+    "duration": "0.108s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_fibo_include_provisional_terms",
+    "duration": "0.108s"
+  },
+  {
+    "testId": "tests.integration.superset.test_superset::test_superset_aggregate_chart",
+    "duration": "0.108s"
+  },
+  {
+    "testId": "tests.integration.azure_ad.test_azure_ad::test_azure_source_ingestion_disabled",
+    "duration": "0.107s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_glossary_with_relationships_ingestion",
+    "duration": "0.107s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_fibo_exclude_provisional_terms",
+    "duration": "0.107s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_customsql",
+    "duration": "0.107s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_workbook_customsql",
+    "duration": "0.107s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_multisource_chain",
+    "duration": "0.106s"
+  },
+  {
+    "testId": "tests.integration.powerbi_report_server.test_powerbi_report_server::test_powerbi_ingest_with_failure",
+    "duration": "0.106s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_with_platform_instance",
+    "duration": "0.105s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_multisource_etl_pipeline",
+    "duration": "0.105s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_disabled",
+    "duration": "0.105s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_with_execution_history",
+    "duration": "0.104s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_nested_pipeline_golden",
+    "duration": "0.104s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_looker_ingest_external_project_view",
+    "duration": "0.103s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_rdf_xml_format",
+    "duration": "0.103s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_fibo_named_individual_ingestion",
+    "duration": "0.103s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_access_token_expiry_with_long_expiry",
+    "duration": "0.103s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_basic",
+    "duration": "0.102s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-with-source-table-pattern]",
+    "duration": "0.101s"
+  },
+  {
+    "testId": "tests.integration.informatica.test_informatica::test_failed_export_emits_entities_without_lineage",
+    "duration": "0.101s"
+  },
+  {
+    "testId": "tests.integration.okta.test_okta::test_okta_source_ingestion_disabled",
+    "duration": "0.101s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_chart_input_fields_warehouse_qualified",
+    "duration": "0.101s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_access_token_expiry_with_short_expiry",
+    "duration": "0.101s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_malformed_rdf_error",
+    "duration": "0.098s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_profiling_coverage.TestS3ProfilingCoverage::test_profiling_with_table_level_only",
+    "duration": "0.098s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_fivetran_with_snowflake_dest",
+    "duration": "0.097s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_recursive_directory_ingestion",
+    "duration": "0.097s"
+  },
+  {
+    "testId": "tests.integration.rdf.test_rdf_source::test_missing_file_error",
+    "duration": "0.097s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_permission_warning",
+    "duration": "0.096s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_column_lineage_source_and_sink",
+    "duration": "0.095s"
+  },
+  {
+    "testId": "tests.integration.fabric.fabric_onelake.test_fabric_onelake_source::test_fabric_onelake_lakehouse_with_views",
+    "duration": "0.094s"
+  },
+  {
+    "testId": "tests.integration.fabric.fabric_onelake.test_fabric_onelake_source::test_fabric_onelake_warehouse_with_views",
+    "duration": "0.094s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_quantiles_cardinality_filtering",
+    "duration": "0.094s"
+  },
+  {
+    "testId": "tests.integration.excel.test_excel_local::test_excel",
+    "duration": "0.093s"
+  },
+  {
+    "testId": "tests.integration.kafka.test_kafka::test_kafka_test_connection[config_dict0-True]",
+    "duration": "0.091s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_admin_access_is_not_allowed",
+    "duration": "0.091s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_workspace_bypass_via_discovery",
+    "duration": "0.090s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_orphan_dm_two_hop_discovery",
+    "duration": "0.089s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_connection_registry",
+    "duration": "0.087s"
+  },
+  {
+    "testId": "tests.integration.sql_queries.test_sql_queries::test_sql_queries_ingestion[input/hex-origin.yml-golden/hex-origin.json]",
+    "duration": "0.087s"
+  },
+  {
+    "testId": "tests.integration.delta_lake.test_local_delta_lake::test_delta_lake[relative_path.json]",
+    "duration": "0.086s"
+  },
+  {
+    "testId": "tests.integration.informatica.test_informatica::test_preserves_case_when_convert_urns_to_lowercase_disabled",
+    "duration": "0.086s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_workspace_type_filter",
+    "duration": "0.086s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_bigquery_sink_topic2tablemap_ingest",
+    "duration": "0.085s"
+  },
+  {
+    "testId": "tests.integration.dlt.test_dlt::test_dlt_run_history_emits_dataprocess_instances",
+    "duration": "0.084s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_branching",
+    "duration": "0.083s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery::test_bigquery_v2_project_labels_ingest",
+    "duration": "0.083s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_drop_hive",
+    "duration": "0.083s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_bigquery_sink_topic2tablemap_partial_mapping",
+    "duration": "0.083s"
+  },
+  {
+    "testId": "tests.integration.dlt.test_dlt::test_dlt_system_tables_excluded",
+    "duration": "0.082s"
+  },
+  {
+    "testId": "tests.integration.fabric.fabric_onelake.test_fabric_onelake_source::test_fabric_onelake_with_usage_statistics",
+    "duration": "0.082s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_duplicate_field_ingest",
+    "duration": "0.082s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_orphan_dm_discovery",
+    "duration": "0.082s"
+  },
+  {
+    "testId": "tests.integration.dlt.test_dlt::test_dlt_outlet_urns_match_postgres_format",
+    "duration": "0.081s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_mathematical_correctness",
+    "duration": "0.081s"
+  },
+  {
+    "testId": "tests.integration.tableau.test_tableau_ingest::test_hidden_assets_without_ingest_tags",
+    "duration": "0.081s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_branching_pipeline",
+    "duration": "0.080s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_cross_dm_upstream",
+    "duration": "0.079s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_total_count",
+    "duration": "0.079s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_snowflake_sink_ingest",
+    "duration": "0.079s"
+  },
+  {
+    "testId": "tests.integration.dlt.test_dlt::test_dlt_nested_table_has_parent_property",
+    "duration": "0.078s"
+  },
+  {
+    "testId": "tests.integration.dlt.test_dlt::test_dlt_outlet_urns_fallback_when_destination_not_in_map",
+    "duration": "0.078s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_with_column_lineage",
+    "duration": "0.077s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_foreach_loop",
+    "duration": "0.077s"
+  },
+  {
+    "testId": "tests.integration.preset.test_preset::test_preset_ingest",
+    "duration": "0.077s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_cross_dm_lineage_entry_resolves_despite_blank_sibling",
+    "duration": "0.077s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_kafka_connect_snowflake_sink_column_lineage",
+    "duration": "0.077s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_cross_dm_fgl",
+    "duration": "0.076s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_paginated_report_rdl_lineage",
+    "duration": "0.076s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_cross_dm_consumer_blank_name",
+    "duration": "0.075s"
+  },
+  {
+    "testId": "tests.integration.fabric.fabric_data_factory.test_fabric_data_factory_source::test_no_execution_history",
+    "duration": "0.074s"
+  },
+  {
+    "testId": "tests.integration.metabase.test_metabase::test_metabase_ingest_failure",
+    "duration": "0.074s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_discovery_order_deterministic",
+    "duration": "0.074s"
+  },
+  {
+    "testId": "tests.integration.powerbi_report_server.test_powerbi_report_server::test_powerbi_ingest_with_report_pattern",
+    "duration": "0.074s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_looker_filter_usage_history",
+    "duration": "0.073s"
+  },
+  {
+    "testId": "tests.integration.matillion_dpc.test_matillion::test_matillion_postgres_to_snowflake_with_sql_parsing",
+    "duration": "0.073s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_isPersonalDataModel_lowercase",
+    "duration": "0.073s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_foreach_loop_pipeline",
+    "duration": "0.072s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_cross_dm_diamond_counter_not_inflated",
+    "duration": "0.072s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_tests_only_assertions",
+    "duration": "0.071s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_explore_tags",
+    "duration": "0.071s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_no_tables_causes_pipeline_failure",
+    "duration": "0.071s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_diverse_activities_subtypes",
+    "duration": "0.070s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_orphan_dm_blocked_by_data_model_pattern",
+    "duration": "0.070s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_app_redirect_url_pattern",
+    "duration": "0.070s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_dataflow",
+    "duration": "0.069s"
+  },
+  {
+    "testId": "tests.integration.matillion_dpc.test_matillion::test_matillion_source_with_streaming_pipelines",
+    "duration": "0.069s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_orphan_dm_discovery_cap_surfaces_warning",
+    "duration": "0.069s"
+  },
+  {
+    "testId": "tests.integration.starburst-trino-usage.test_starburst_trino_usage::test_trino_usage_source",
+    "duration": "0.069s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_upstream_cll",
+    "duration": "0.068s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_orphan_dm_blocked_by_ingest_shared_entities",
+    "duration": "0.067s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_app_ingest",
+    "duration": "0.067s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_nested_pipeline_creates_all_entities",
+    "duration": "0.066s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_multisource_lineage_accuracy",
+    "duration": "0.066s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_orphan_dm_malformed_payload_safe",
+    "duration": "0.065s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_no_tables_warns_on_no_datasets",
+    "duration": "0.065s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_dataflow_pipeline_with_lineage",
+    "duration": "0.064s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_mixed_pipeline_and_dataset_dependencies",
+    "duration": "0.064s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_orphan_dm_unreachable",
+    "duration": "0.064s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_pipeline_to_pipeline_lineage",
+    "duration": "0.063s"
+  },
+  {
+    "testId": "tests.integration.dlt.test_dlt::test_dlt_include_lineage_false",
+    "duration": "0.063s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_missing_warehouse_access_causes_pipeline_failure",
+    "duration": "0.063s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode::test_mode_ingest_json_empty",
+    "duration": "0.061s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_independent_datasets_extraction",
+    "duration": "0.060s"
+  },
+  {
+    "testId": "tests.integration.pinecone.test_pinecone_integration::test_pinecone_ingest_no_schema_inference",
+    "duration": "0.058s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_column_lineage_disabled",
+    "duration": "0.057s"
+  },
+  {
+    "testId": "tests.integration.dlt.test_dlt::test_dlt_pipeline_pattern_filter",
+    "duration": "0.056s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_chart_bfs_warehouse_entity_upstream",
+    "duration": "0.055s"
+  },
+  {
+    "testId": "tests.integration.fabric.fabric_onelake.test_fabric_onelake_source::test_fabric_onelake_dml_emits_operation_aspect",
+    "duration": "0.054s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestPerformanceIntegration::test_many_secrets_performance",
+    "duration": "0.054s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran_logs]",
+    "duration": "0.053s"
+  },
+  {
+    "testId": "tests.integration.pinecone.test_pinecone_integration::test_pinecone_ingest_with_index_filter",
+    "duration": "0.052s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_complex_pipelines::test_dataflow_lineage_sources_and_sinks",
+    "duration": "0.051s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_edge_case_all_nulls",
+    "duration": "0.051s"
+  },
+  {
+    "testId": "tests.integration.sigma.test_sigma::test_sigma_ingest_data_models_workspace_pattern_deny",
+    "duration": "0.050s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_histogram_consistency",
+    "duration": "0.050s"
+  },
+  {
+    "testId": "tests.integration.doris.test_doris::test_doris_test_connection[config_dict0-True-None]",
+    "duration": "0.050s"
+  },
+  {
+    "testId": "tests.integration.matillion_dpc.test_matillion::test_matillion_source_basic",
+    "duration": "0.048s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_row_count_estimation",
+    "duration": "0.048s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_app_ingest_info_message",
+    "duration": "0.048s"
+  },
+  {
+    "testId": "tests.integration.salesforce.test_salesforce::test_latest_version",
+    "duration": "0.047s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_exception_propagation_to_factory_level",
+    "duration": "0.046s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_quantiles_ordering",
+    "duration": "0.045s"
+  },
+  {
+    "testId": "tests.integration.matillion_dpc.test_matillion::test_matillion_source_with_filtering",
+    "duration": "0.044s"
+  },
+  {
+    "testId": "tests.integration.azure_data_factory.test_adf_source::test_adf_source_factory_listing_failure_reports_failure",
+    "duration": "0.042s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_approximate_unique_count_bounds",
+    "duration": "0.042s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_edge_case_single_row",
+    "duration": "0.042s"
+  },
+  {
+    "testId": "tests.integration.fabric.fabric_onelake.test_fabric_onelake_source::test_fabric_onelake_workspace_ingestion",
+    "duration": "0.040s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_fivetran_with_rest_api_log_source",
+    "duration": "0.038s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_sql_injection_prevention_exclude_patterns",
+    "duration": "0.038s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_sql_server::test_stored_procedure_lineage[demodata.foo.proc2.sql]",
+    "duration": "0.037s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_value_frequencies_correctness",
+    "duration": "0.037s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_unreachable_views",
+    "duration": "0.035s"
+  },
+  {
+    "testId": "tests.integration.salesforce.test_salesforce::test_custom_version",
+    "duration": "0.033s"
+  },
+  {
+    "testId": "tests.integration.delta_lake.test_local_delta_lake::test_delta_lake_incorrect_config_raises_error",
+    "duration": "0.032s"
+  },
+  {
+    "testId": "tests.unit.stored_procedure.test_procedure_lineage::test_stored_procedure_lineage[snowflake-procedure_with_multi_statements.sql-snowflake/procedure_with_multi_statements.sql]",
+    "duration": "0.031s"
+  },
+  {
+    "testId": "tests.integration.sqlalchemy_profiler.postgres.test_postgres_profiler::test_edge_case_empty_table",
+    "duration": "0.030s"
+  },
+  {
+    "testId": "tests.integration.git.test_git_clone::test_base_url_guessing",
+    "duration": "0.029s"
+  },
+  {
+    "testId": "tests.integration.oracle.test_oracle::test_oracle_test_connection",
+    "duration": "0.029s"
+  },
+  {
+    "testId": "tests.unit.test_native_query_flag::test_native_query_true_parses_both",
+    "duration": "0.029s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode::test_mode_ingest_failure",
+    "duration": "0.027s"
+  },
+  {
+    "testId": "tests.integration.redshift.test_redshift_usage::test_redshift_usage_source",
+    "duration": "0.027s"
+  },
+  {
+    "testId": "tests.unit.stored_procedure.test_procedure_lineage::test_stored_procedure_lineage[snowflake-procedure_with_multitable_lineage.sql-snowflake/procedure_with_multitable_lineage.sql]",
+    "duration": "0.026s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_domain_mode_auto_namespaced_emits_domain_entities",
+    "duration": "0.025s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_create_datasets_golden",
+    "duration": "0.024s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_create_datasets_emits_schema_metadata",
+    "duration": "0.024s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_create_datasets_emits_dataset_properties",
+    "duration": "0.023s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_glossary_term_has_domain_aspect_when_auto_namespaced",
+    "duration": "0.022s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_domain_entities_emit_status_aspect",
+    "duration": "0.021s"
+  },
+  {
+    "testId": "tests.integration.salesforce.test_salesforce::test_profiling_with_empty_record_count",
+    "duration": "0.021s"
+  },
+  {
+    "testId": "tests.unit.stored_procedure.test_procedure_lineage::test_stored_procedure_lineage[snowflake-procedure_with_temp_lineage.sql-snowflake/procedure_with_temp_lineage.sql]",
+    "duration": "0.020s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_bigid_source_golden",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_glossary_term_parent_node_for_idsor_is_idsor_node",
+    "duration": "0.019s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_mcp_count_meets_minimum",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_platform_instance_not_emitted_without_config",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_idsor_glossary_node_emitted",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_idsor_node_suppressed_when_disabled",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_idsor_path1_reuses_existing_glossary_term",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_idsor_path3_autogenerates_country_term",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_unstructured_enrichment_emits_dataset_level_glossary_terms",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_unstructured_enrichment_emits_dataset_profile",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_unstructured_no_schema_enrichment_even_when_enabled",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_slim_no_pyspark.TestS3SlimNoPySpark::test_s3_source_works_without_profiling",
+    "duration": "0.018s"
+  },
+  {
+    "testId": "tests.unit.stored_procedure.test_procedure_lineage::test_stored_procedure_lineage[snowflake-procedure_with_transaction.sql-snowflake/procedure_with_transaction.sql]",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_glossary_node_emitted",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_glossary_terms_emitted",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_tag_entities_emitted",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_editable_schema_metadata_emitted",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_dataset_profile_emitted",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_snowflake_urn_is_lowercased",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_unstructured_datasets_have_no_schema_enrichment",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_confidence_threshold_filters_low_findings",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_global_tags_on_pii_dataset",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_glossary_term_parent_node_is_bigid_root",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_unlinked_classifier_term_emitted",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_unlinked_classifier_term_content",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_create_datasets_false_emits_no_dataset_properties",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_unstructured_enrichment_disabled_by_default",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_no_duplicate_term_urns_per_field",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_confidence_level_tag_emits_on_classified_fields",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_confidence_level_tag_not_emitted_by_default",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_owner_type_group_uses_corp_group_urn",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow_performance::test_api_call_count_without_field_tracking",
+    "duration": "0.017s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_sync_unlinked_classifiers_false_skips_unlinked",
+    "duration": "0.016s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_idsor_disabled_produces_no_idsor_terms",
+    "duration": "0.016s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_owner_type_none_emits_no_ownership",
+    "duration": "0.016s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestFullPipelineIntegration::test_config_with_secret_str_fields",
+    "duration": "0.016s"
+  },
+  {
+    "testId": "tests.integration.tidb.test_tidb::test_tidb_test_connection[config_dict0-True]",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "tests.integration.doris.test_doris::test_doris_test_connection[config_dict1-False-Connection refused]",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "tests.integration.doris.test_doris::test_doris_test_connection[config_dict2-False-Access denied]",
+    "duration": "0.015s"
+  },
+  {
+    "testId": "tests.unit.stored_procedure.test_procedure_lineage::test_stored_procedure_lineage[snowflake-procedure_with_lineage.sql-snowflake/procedure_with_lineage.sql]",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "tests.integration.redshift.test_redshift_usage::test_redshift_usage_filtering",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "tests.integration.cassandra.test_cassandra::test_cassandra_ssl_configuration",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_powerbi_test_connection_success",
+    "duration": "0.014s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_reports_with_failed_page_request",
+    "duration": "0.013s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_failures::test_snowflake_missing_role_access_causes_pipeline_failure",
+    "duration": "0.012s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test database 123]",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "tests.integration.hive.test_storage_parser.TestStoragePathParser::test_local_file_no_scheme",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "tests.integration.mariadb.test_mariadb::test_mariadb_test_connection[config_dict0-True]",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "tests.integration.mysql.test_mysql::test_mysql_test_connection[config_dict0-True]",
+    "duration": "0.011s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran-logs]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran_logs_123]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran'logs]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran-logs-123]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran`logs`123]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test_database_123]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test'database]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test`database`123]",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestBootstrapIntegration::test_basic_initialization",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestEndToEndMasking::test_exception_logging_masked",
+    "duration": "0.010s"
+  },
+  {
+    "testId": "tests.integration.bigquery_v2.test_bigquery_queries_integration::test_source_close_cleans_tmp",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran.logs]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran logs]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran\"logs]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran`logs]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran-logs_123]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran.logs-123]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran logs 123]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran'logs'123]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test-database]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test.database]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test database]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test`database]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test-database-123]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test_database-123]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test-database_123]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test\"database\"123]",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration::test_stored_procedure_with_temp_tables_filtered",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow_performance::test_caching_reduces_api_calls",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestPerformanceIntegration::test_large_message_performance",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestFullPipelineIntegration::test_config_loading_with_secrets",
+    "duration": "0.009s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran_logs-123]",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_query_transpilation[fivetran\"logs\"123]",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test_database]",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test\"database]",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test.database-123]",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_quoted_database_identifiers[test'database'123]",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_lineage_extractor_prerequisites",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.sac.test_sac::test_query_odata_entities_follows_pagination",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_queries::test_source_close_cleans_tmp",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestEndToEndMasking::test_end_to_end_logging",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestEndToEndMasking::test_debug_level_logging",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestDoubleInitialization::test_force_reinitialization",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestFullPipelineIntegration::test_pydantic_config_with_nested_secrets",
+    "duration": "0.008s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_test_connection[config_dict0-True]",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_view_merge",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestBootstrapIntegration::test_manual_secret_registration",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestEndToEndMasking::test_stdout_wrapper_integration",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestFailGracefully::test_initialization_failure_graceful",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestFailGracefully::test_masking_error_doesnt_break_logging",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestModelEvaluationIngestion::test_model_evaluations_filtering",
+    "duration": "0.007s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_test_connection[config_dict1-False]",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_explore_refinement",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode_threading::test_pool_size_scales_with_max_threads",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_connection_loss_during_extraction",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "tests.integration.test_masking_integration.TestDoubleInitialization::test_double_initialization_safe",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestActorExtraction::test_actor_from_created_by_label",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestModelEvaluationIngestion::test_model_evaluation_mcp_generation",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestMLMetadataIntegration::test_complete_customjob_workflow",
+    "duration": "0.006s"
+  },
+  {
+    "testId": "tests.integration.circuit_breaker.test_circuit_breaker::test_assertion_circuit_breaker_with_empty_response",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestExplicitModeComparison::test_explicit_mode_metadata_includes_job_id",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestMetadataConsistency::test_auto_discovery_produces_same_metadata_as_explicit_mode",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_fivetran_bigquery_config",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_base_folder",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3::test_data_lake_incorrect_config_raises_error",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_queries::test_user_identifiers_email_as_identifier",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_queries::test_user_identifiers_user_email_as_identifier",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.thoughtspot.test_thoughtspot::test_thoughtspot_connection_success",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestActorExtraction::test_actor_from_owner_label",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_dataset_type_mapping_should_set_to_all",
+    "duration": "0.005s"
+  },
+  {
+    "testId": "tests.integration.bigid.test_bigid_integration::test_registries_empty_reports_failure",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestAutoDiscoveryEndToEnd::test_auto_discovery_multiple_jobs_success",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestAutoDiscoveryEndToEnd::test_auto_discovery_partial_job_failure",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestAutoDiscoveryWithPatterns::test_job_pattern_filtering",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_independent_soft_deleted_looks",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestMLMetadataIntegration::test_model_evaluation_complete_flow",
+    "duration": "0.004s"
+  },
+  {
+    "testId": "tests.integration.circuit_breaker.test_circuit_breaker::test_assertion_circuit_breaker_with_no_error",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.circuit_breaker.test_circuit_breaker::test_assertion_circuit_breaker_updated_at_after_last_assertion",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.circuit_breaker.test_circuit_breaker::test_assertion_circuit_breaker_assertion_with_active_assertion",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestAutoDiscoveryEndToEnd::test_auto_discovery_includes_jobs_without_generate_docs",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestAutoDiscoveryEndToEnd::test_auto_discovery_no_jobs_with_require_generate_docs",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestExplicitModeComparison::test_auto_discovery_ignores_run_id",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestAutoDiscoveryWithPatterns::test_deny_pattern_filtering",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestAutoDiscoveryErrorHandling::test_jobs_api_failure_propagates",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestAutoDiscoveryErrorHandling::test_all_jobs_fail_returns_empty",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestSourceFreshnessExtraction::test_sources_with_freshness_extracted",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestSourceFreshnessExtraction::test_explicit_mode_sources_with_freshness",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.git.test_git_clone::test_github_branch",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.git.test_git_clone::test_url_subdir",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.hive.test_storage_parser.TestStoragePathParser::test_s3_path",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.hive.test_storage_parser.TestStoragePathParser::test_local_file_with_scheme",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_manifest_parser",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.looker.test_looker::test_independent_look_ingestion_config",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_slim_no_pyspark.TestS3SlimNoPySpark::test_s3_source_creation_fails_with_profiling_no_pyspark",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestActorExtraction::test_priority_order",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestMLMetadataIntegration::test_ml_metadata_disabled",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestMLMetadataIntegration::test_execution_matching",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.cassandra.test_cassandra::test_cassandra_ssl_certificate_validation",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_dataset_type_mapping_error",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.powerbi.test_powerbi::test_cll_extraction_flags",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.unit.test_native_query_flag::test_native_query_false_skips_native_query_expression",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_filter_stale_topics_regex_filtering",
+    "duration": "0.003s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestExplicitModeComparison::test_explicit_mode_uses_configured_run_id",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt_cloud_autodiscovery_integration.TestAutoDiscoveryErrorHandling::test_environment_api_failure_propagates",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_fivetran_snowflake_destination_config",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_compat_sources_to_database",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.git.test_git_clone::test_git_clone_private",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_special_liquid_variables",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_incremental_liquid_expression",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_constant_transformer[view9-expected_result9-True]",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml_field_splitting_integration::test_integration_configuration_validation",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.redshift.test_redshift_usage::test_redshift_usage_config",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.redshift.test_redshift_usage::test_duplicate_operations_dropped",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_slim_no_pyspark.TestS3SlimNoPySpark::test_s3_slim_pyspark_not_installed",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.snowplow.test_snowplow::test_snowplow_config_validation",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestActorExtraction::test_actor_from_creator_label",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestActorExtraction::test_no_actor_when_no_labels",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_ml_metadata_integration.TestActorExtraction::test_no_actor_when_no_matching_keys",
+    "duration": "0.002s"
+  },
+  {
+    "testId": "tests.integration.azure_ad.test_azure_ad::test_azure_ad_config",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.circuit_breaker.test_circuit_breaker::test_operation_circuit_breaker_with_empty_response",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.circuit_breaker.test_circuit_breaker::test_operation_circuit_breaker_with_valid_response",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.circuit_breaker.test_circuit_breaker::test_operation_circuit_breaker_with_not_recent_operation",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_snowflake_unquoted_identifier_uppercase_conversion",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_fivetran_bigquery_destination_config",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.fivetran.test_fivetran::test_rename_destination_config",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.git.test_git_clone::test_clone_error_messages",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.hive.test_storage_parser.TestStoragePathParser::test_dbfs_path",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.hive.test_storage_parser.TestStoragePathParser::test_hdfs_path",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_constant_transformer[view0-expected_result0-False]",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_constant_transformer[view1-expected_result1-False]",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_constant_transformer[view2-expected_result2-False]",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_constant_transformer[view3-expected_result3-False]",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_constant_transformer[view4-expected_result4-False]",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_constant_transformer[view5-expected_result5-False]",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_constant_transformer[view6-expected_result6-False]",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_constant_transformer[view7-expected_result7-False]",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.looker.lookml.test_lookml::test_lookml_constant_transformer[view8-expected_result8-False]",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode_threading::test_max_threads_defaults_to_one",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode_threading::test_max_threads_custom_value",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.mode.test_mode_threading::test_max_threads_rejects_zero_and_negative",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_sql_server_version_detection",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_dmv_permissions_check",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.mssql.test_mssql_query_lineage_integration.TestMSSQLLineageIntegration::test_text_clause_wrapping",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.okta.test_okta::test_okta_config",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.postgres.test_postgres_lineage.TestPostgresLineageIntegration::test_lineage_from_insert_select",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.postgres.test_postgres_lineage.TestPostgresLineageIntegration::test_query_entry_dataclass",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_slim_no_pyspark.TestS3SlimNoPySpark::test_s3_slim_pydeequ_not_installed",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_slim_no_pyspark.TestS3SlimNoPySpark::test_s3_source_loads_as_plugin",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.s3.test_s3_slim_no_pyspark.TestS3SlimNoPySpark::test_s3_config_without_profiling",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.snaplogic.test_snaplogic_lineage_extractor::test_extract_columns_mapping_from_lineage",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.snaplogic.test_snaplogic_lineage_extractor::test_extract_columns_mapping_from_lineage_case_insensitive_namespace",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.snaplogic.test_snaplogic_utils::test_get_datahub_type[string-StringTypeClass]",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.snowflake.test_snowflake_queries::test_snowflake_has_temp_keyword",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.starburst-trino-usage.test_starburst_trino_usage::test_trino_usage_config",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.cassandra.test_cassandra::test_cassandra_ssl_invalid_certificate_error",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.cassandra.test_cassandra::test_cassandra_ssl_missing_certificate_file_error",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.cassandra.test_cassandra::test_cassandra_ssl_missing_keyfile_error",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.vertica.test_vertica::test_vertica_ingest_with_db",
+    "duration": "0.001s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_filter_stale_topics_topics_list",
+    "duration": "0.001s"
+  }
+]

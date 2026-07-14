@@ -13,13 +13,15 @@ RUN_COUNT=3
 WORKFLOW_NAME="docker-unified.yml"
 REPOSITORY=""
 ARTIFACT_PREFIX="Test Results (smoke tests)"
+ALLOW_FAILED=false
+NO_FAIL_ON_EMPTY=false
 
 # Parse arguments
 usage() {
     cat <<EOF
 Usage: $0 [OPTIONS]
 
-Download test artifacts from recent successful CI runs.
+Download test artifacts from recent CI runs.
 
 OPTIONS:
     --output-dir DIR      Output directory for artifacts (default: ./dev-artifacts/test-results)
@@ -27,6 +29,11 @@ OPTIONS:
     --workflow NAME       Workflow file name (default: docker-unified.yml)
     --repository REPO     Repository in format owner/repo (default: auto-detect from git)
     --artifact-prefix STR Artifact name prefix to download (default: "Test Results (smoke tests)")
+    --allow-failed        Also harvest completed-but-failed runs (default: off, success-only).
+                          Only success and failure conclusions are selected; cancelled and
+                          in-progress runs are always skipped.
+    --no-fail-on-empty    Exit 0 and print a "NO_DATA=true" sentinel when no qualifying runs
+                          or no artifacts are found (default: off, exits 1 on no runs).
     -h, --help            Show this help message
 
 REQUIREMENTS:
@@ -39,7 +46,8 @@ EXAMPLE:
 
     # Ingestion integration test weights (harvest per-batch junit artifacts)
     $0 --output-dir ./test-artifacts --run-count 3 \
-        --workflow metadata-ingestion.yml --artifact-prefix "metadata-ingestion-test-results"
+        --workflow metadata-ingestion.yml --artifact-prefix "metadata-ingestion-test-results" \
+        --allow-failed --no-fail-on-empty
 EOF
     exit 1
 }
@@ -65,6 +73,14 @@ while [[ $# -gt 0 ]]; do
         --artifact-prefix)
             ARTIFACT_PREFIX="$2"
             shift 2
+            ;;
+        --allow-failed)
+            ALLOW_FAILED=true
+            shift
+            ;;
+        --no-fail-on-empty)
+            NO_FAIL_ON_EMPTY=true
+            shift
             ;;
         -h|--help)
             usage
@@ -121,19 +137,42 @@ echo "Workflow: $WORKFLOW_NAME"
 echo "Run count: $RUN_COUNT"
 echo "Artifact prefix: $ARTIFACT_PREFIX"
 echo "Output directory: $OUTPUT_DIR"
+if [[ "$ALLOW_FAILED" == "true" ]]; then
+    echo "Mode: success + failure runs (--allow-failed)"
+else
+    echo "Mode: success-only runs"
+fi
+if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
+    echo "Empty handling: soft-skip with NO_DATA sentinel (--no-fail-on-empty)"
+else
+    echo "Empty handling: fail on no runs"
+fi
 echo "============================================================"
 echo
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
+# Build the run-selection jq filter. With --allow-failed we also harvest
+# completed-but-failed runs (e.g. a single flaky batch failing the whole run);
+# cancelled and in-progress runs are never selected.
+if [[ "$ALLOW_FAILED" == "true" ]]; then
+    RUN_FILTER='select((.conclusion=="success" or .conclusion=="failure") and .head_branch=="master")'
+else
+    RUN_FILTER='select(.conclusion=="success" and .head_branch=="master")'
+fi
+
 # Fetch recent successful workflow runs from master branch
-echo "Fetching recent successful workflow runs from master branch..."
+echo "Fetching recent workflow runs from master branch..."
 RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" \
-    --jq ".workflow_runs[] | select(.conclusion==\"success\" and .head_branch==\"master\") | .id" \
+    --jq ".workflow_runs[] | $RUN_FILTER | .id" \
     | head -n "$RUN_COUNT")
 
 if [[ -z "$RUN_IDS" ]]; then
+    if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
+        echo "NO_DATA=true"
+        exit 0
+    fi
     echo "Error: No successful workflow runs found on master branch"
     exit 1
 fi
@@ -149,6 +188,12 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
     echo "  - Run ID: $run_id"
 done
 echo
+
+# Track total artifacts successfully extracted across all runs. The download
+# loop below runs in a subshell (piped input), so a counter file is used to
+# propagate the count back to this shell for the empty-data check.
+DOWNLOAD_COUNT_FILE=$(mktemp)
+echo 0 > "$DOWNLOAD_COUNT_FILE"
 
 # Download artifacts for each run
 for run_id in "${RUN_ID_ARRAY[@]}"; do
@@ -204,6 +249,7 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
             if unzip -q "$artifact_subdir/artifact.zip" -d "$artifact_subdir" 2>/dev/null; then
                 rm "$artifact_subdir/artifact.zip"
                 echo "    ✓ Downloaded and extracted to: $artifact_subdir"
+                echo $(( $(cat "$DOWNLOAD_COUNT_FILE") + 1 )) > "$DOWNLOAD_COUNT_FILE"
             else
                 echo "    ✗ Failed to extract artifact"
                 rm -f "$artifact_subdir/artifact.zip"
@@ -216,6 +262,19 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
     echo "  Completed run $run_id"
     echo
 done
+
+TOTAL_DOWNLOADS=$(cat "$DOWNLOAD_COUNT_FILE")
+rm -f "$DOWNLOAD_COUNT_FILE"
+
+# Soft-skip when no artifacts were harvested across all runs.
+if [[ "$TOTAL_DOWNLOADS" -eq 0 ]]; then
+    if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
+        echo "NO_DATA=true"
+        exit 0
+    fi
+    echo "Error: No test result artifacts were downloaded from any run"
+    exit 1
+fi
 
 echo "============================================================"
 echo "Download complete!"
