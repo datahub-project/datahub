@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Forms;
 import com.linkedin.common.InstitutionalMemory;
@@ -420,6 +421,44 @@ public class DomainMapperTest {
           result.getProperties().getName(), "Test Domain"); // We set a name because it's required
       assertNull(result.getProperties().getDescription());
       assertNull(result.getProperties().getCreatedOn());
+    }
+  }
+
+  @Test
+  public void testMapDomainWithDeprecation() throws URISyntaxException {
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    Deprecation deprecation = new Deprecation();
+    deprecation.setDeprecated(true);
+    deprecation.setNote("This domain is deprecated.");
+    deprecation.setActor(actorUrn);
+
+    addAspectToResponse(entityResponse, DEPRECATION_ASPECT_NAME, deprecation);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(domainUrn))).thenReturn(true);
+
+      Domain result = DomainMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result);
+      assertNotNull(result.getDeprecation());
+      assertTrue(result.getDeprecation().getDeprecated());
+      assertEquals(result.getDeprecation().getNote(), "This domain is deprecated.");
+      assertEquals(result.getDeprecation().getActor(), TEST_ACTOR_URN);
+    }
+  }
+
+  @Test
+  public void testMapDomainWithoutDeprecation() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(domainUrn))).thenReturn(true);
+
+      Domain result = DomainMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result);
+      assertNull(result.getDeprecation());
     }
   }
 

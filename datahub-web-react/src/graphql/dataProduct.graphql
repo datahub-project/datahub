@@ -14,6 +14,9 @@ query getDataProduct($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        deprecation {
+            ...deprecationFields
+        }
         ...notes
         settings {
             ...AssetSettingsFields
@@ -77,6 +80,12 @@ fragment dataProductSearchFields on DataProduct {
     }
     domain {
         ...entityDomain
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    privileges {
+        ...entityPrivileges
     }
     entities(input: { start: 0, count: 0, query: "*" }) {
         total

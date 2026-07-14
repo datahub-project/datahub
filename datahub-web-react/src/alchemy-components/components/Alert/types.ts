@@ -1,7 +1,16 @@
 import React from 'react';
 
+import { IconProps } from '@components/components/Icon/types';
+
 /** Supported visual variants for the Alert component */
-export type AlertVariant = 'success' | 'error' | 'warning' | 'info' | 'brand' | 'unknown';
+export type AlertVariant = 'success' | 'error' | 'warning' | 'info' | 'brand' | 'gray';
+
+export interface AlertAction {
+    label: string;
+    onClick: () => void;
+    icon?: IconProps;
+    dataTestId?: string;
+}
 
 export interface AlertProps {
     /** Visual style variant determining colors and default icon */
@@ -16,8 +25,12 @@ export interface AlertProps {
     icon?: React.ReactNode;
     /** Show a close/dismiss button */
     onClose?: () => void;
-    /** Additional action element rendered on the right */
-    action?: React.ReactNode;
+    /**
+     * Optional action button. Always rendered as a text button whose color
+     * matches the alert variant (e.g. success → green). Callers only pass
+     * label/onClick — no button variant or color to choose.
+     */
+    action?: AlertAction;
     /**
      * Where to render the `action` element.
      * - `'inline'` (default): under the description, inside the content column.
