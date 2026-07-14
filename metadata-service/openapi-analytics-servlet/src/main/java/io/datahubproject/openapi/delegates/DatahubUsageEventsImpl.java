@@ -10,6 +10,7 @@ import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.v2.generated.controller.DatahubUsageEventsApiDelegate;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,7 +41,8 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(authentication.getActor().toUrnStr(), request, "raw", List.of()),
+                .buildOpenapi(authentication.getActor().toUrnStr(), request, "raw", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             _authorizationChain,
             authentication,
             true);

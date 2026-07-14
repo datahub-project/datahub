@@ -44,6 +44,7 @@ import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Arrays;
@@ -110,7 +111,10 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
           Set<Urn> urns = Arrays.stream(buckets).sequential().map(UsageAggregation::getResource).collect(Collectors.toSet());
           final OperationContext opContext = OperationContext.asSession(
                   systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
-                          ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer,
+                          ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList()))
+                      .withUsageOperation(UsageOperation.METADATA_INGEST)
+                      .withUsageQuantity(buckets.length),
+                  _authorizer,
                   auth, true);
 
           if (!isAPIAuthorizedEntityUrns(
@@ -151,7 +155,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
           final Authentication auth = AuthenticationContext.getAuthentication();
           final OperationContext opContext = OperationContext.asSession(
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          ACTION_QUERY, resourceUrn.getEntityType()), _authorizer, auth, true);
+                          ACTION_QUERY, resourceUrn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
 
           if (!isAPIAuthorized(
                   opContext,
@@ -180,7 +184,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    ACTION_QUERY_RANGE, resourceUrn.getEntityType()), _authorizer, auth, true);
+                    ACTION_QUERY_RANGE, resourceUrn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
 
 
     if (!isAPIAuthorized(

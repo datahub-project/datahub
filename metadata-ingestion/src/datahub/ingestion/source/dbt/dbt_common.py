@@ -307,6 +307,19 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     sql_parser_column_errors: int = 0
     sql_parser_successes: int = 0
 
+    # Per-model failure isolation counters. A model that hits one of these
+    # boundaries is skipped (or degraded), but ingestion continues.
+    # node_emission_failures counts failed emission attempts, not unique
+    # models: a node can independently fail in more than one emission loop
+    # (dbt platform, target platform, test assertions) and be counted once
+    # per loop it failed in.
+    node_extraction_failures: int = 0
+    node_extraction_failures_list: LossyList[str] = field(default_factory=LossyList)
+    node_cll_failures: int = 0
+    node_cll_failures_list: LossyList[str] = field(default_factory=LossyList)
+    node_emission_failures: int = 0
+    node_emission_failures_list: LossyList[str] = field(default_factory=LossyList)
+
     # Details on where column info comes from.
     nodes_with_catalog_columns: int = 0
     nodes_with_inferred_columns: int = 0
@@ -352,6 +365,26 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     # Semantic model entity emission statistics
     num_semantic_models_emitted: int = 0
+
+    def record_node_failure(
+        self,
+        context: str,
+        exc: Exception,
+        *,
+        title: str,
+        message: str,
+        kind: Literal["extraction", "cll", "emission"],
+    ) -> None:
+        self.warning(title=title, message=message, context=context, exc=exc)
+        if kind == "extraction":
+            self.node_extraction_failures += 1
+            self.node_extraction_failures_list.append(context)
+        elif kind == "cll":
+            self.node_cll_failures += 1
+            self.node_cll_failures_list.append(context)
+        elif kind == "emission":
+            self.node_emission_failures += 1
+            self.node_emission_failures_list.append(context)
 
 
 class EmitDirective(ConfigEnum):
@@ -1450,6 +1483,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
         self._upstream_exists_cache: Dict[str, bool] = {}
 
+    def _node_context(self, node: DBTNode) -> str:
+        return f"{node.dbt_name} ({node.dbt_file_path})"
+
+    def _record_node_failure(
+        self,
+        node: DBTNode,
+        exc: Exception,
+        *,
+        title: str,
+        message: str,
+        kind: Literal["cll", "emission"],
+    ) -> None:
+        self.report.record_node_failure(
+            self._node_context(node), exc, title=title, message=message, kind=kind
+        )
+
     def get_excluded_workunit_processors(self):
         from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
             AutoIncrementalLineageProcessor,
@@ -1559,87 +1608,96 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
 
         for node in sorted(test_nodes, key=lambda n: n.dbt_name):
-            upstreams = get_upstreams_for_test(
-                test_node=node,
-                all_nodes_map=all_nodes_map,
-                platform_instance=self.config.platform_instance,
-                environment=self.config.env,
-            )
-
-            # In case a dbt test depends on multiple tables, we create separate assertions for each.
-            for upstream_node_name, upstream_urn in upstreams.items():
-                guid_upstream_part = {}
-                if len(upstreams) > 1:
-                    # If we depend on multiple upstreams, we need to generate a unique guid for each assertion.
-                    # If there was only one upstream, we want to maintain the original assertion for backwards compatibility.
-                    guid_upstream_part = {
-                        "on_dbt_upstream": upstream_node_name,
-                    }
-
-                assertion_urn = mce_builder.make_assertion_urn(
-                    mce_builder.datahub_guid(
-                        {
-                            k: v
-                            for k, v in {
-                                "platform": DBT_PLATFORM,
-                                "name": node.dbt_name,
-                                "instance": self.config.platform_instance,
-                                # Ideally we'd include the env unconditionally. However, we started out
-                                # not including env in the guid, so we need to maintain backwards compatibility
-                                # with existing PROD assertions.
-                                **(
-                                    {"env": self.config.env}
-                                    if self.config.env != mce_builder.DEFAULT_ENV
-                                    and self.config.include_env_in_assertion_guid
-                                    else {}
-                                ),
-                                **guid_upstream_part,
-                            }.items()
-                            if v is not None
-                        }
-                    )
+            try:
+                upstreams = get_upstreams_for_test(
+                    test_node=node,
+                    all_nodes_map=all_nodes_map,
+                    platform_instance=self.config.platform_instance,
+                    environment=self.config.env,
                 )
 
-                custom_props = {
-                    "dbt_unique_id": node.dbt_name,
-                    "dbt_test_upstream_unique_id": upstream_node_name,
-                    **extra_custom_props,
-                }
+                # In case a dbt test depends on multiple tables, we create separate assertions for each.
+                for upstream_node_name, upstream_urn in upstreams.items():
+                    guid_upstream_part = {}
+                    if len(upstreams) > 1:
+                        # If we depend on multiple upstreams, we need to generate a unique guid for each assertion.
+                        # If there was only one upstream, we want to maintain the original assertion for backwards compatibility.
+                        guid_upstream_part = {
+                            "on_dbt_upstream": upstream_node_name,
+                        }
 
-                if self.config.entities_enabled.can_emit_test_definitions:
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=assertion_urn,
-                        aspect=self._make_data_platform_instance_aspect(),
+                    assertion_urn = mce_builder.make_assertion_urn(
+                        mce_builder.datahub_guid(
+                            {
+                                k: v
+                                for k, v in {
+                                    "platform": DBT_PLATFORM,
+                                    "name": node.dbt_name,
+                                    "instance": self.config.platform_instance,
+                                    # Ideally we'd include the env unconditionally. However, we started out
+                                    # not including env in the guid, so we need to maintain backwards compatibility
+                                    # with existing PROD assertions.
+                                    **(
+                                        {"env": self.config.env}
+                                        if self.config.env != mce_builder.DEFAULT_ENV
+                                        and self.config.include_env_in_assertion_guid
+                                        else {}
+                                    ),
+                                    **guid_upstream_part,
+                                }.items()
+                                if v is not None
+                            }
+                        )
                     )
 
-                    yield make_assertion_from_test(
-                        custom_props,
-                        node,
-                        assertion_urn,
-                        upstream_urn,
-                    )
+                    custom_props = {
+                        "dbt_unique_id": node.dbt_name,
+                        "dbt_test_upstream_unique_id": upstream_node_name,
+                        **extra_custom_props,
+                    }
 
-                    # This is ownership metadata on the dbt test node itself, not ownership
-                    # inherited from the upstream dataset under test.
-                    ownership_mcp = self._create_test_assertion_ownership_mcp(
-                        node, assertion_urn, action_processor
-                    )
-                    if ownership_mcp:
-                        yield ownership_mcp
+                    if self.config.entities_enabled.can_emit_test_definitions:
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=assertion_urn,
+                            aspect=self._make_data_platform_instance_aspect(),
+                        )
 
-                for test_result in node.test_results:
-                    if self.config.entities_enabled.can_emit_test_results:
-                        yield make_assertion_result_from_test(
+                        yield make_assertion_from_test(
+                            custom_props,
                             node,
-                            test_result,
                             assertion_urn,
                             upstream_urn,
-                            test_warnings_are_errors=self.config.test_warnings_are_errors,
                         )
-                    else:
-                        logger.debug(
-                            f"Skipping test result {node.name} ({test_result.invocation_id}) emission since it is turned off."
+
+                        # This is ownership metadata on the dbt test node itself, not ownership
+                        # inherited from the upstream dataset under test.
+                        ownership_mcp = self._create_test_assertion_ownership_mcp(
+                            node, assertion_urn, action_processor
                         )
+                        if ownership_mcp:
+                            yield ownership_mcp
+
+                    for test_result in node.test_results:
+                        if self.config.entities_enabled.can_emit_test_results:
+                            yield make_assertion_result_from_test(
+                                node,
+                                test_result,
+                                assertion_urn,
+                                upstream_urn,
+                                test_warnings_are_errors=self.config.test_warnings_are_errors,
+                            )
+                        else:
+                            logger.debug(
+                                f"Skipping test result {node.name} ({test_result.invocation_id}) emission since it is turned off."
+                            )
+            except Exception as e:
+                self._record_node_failure(
+                    node,
+                    e,
+                    title="Failed to emit test-assertion metadata",
+                    message="Failed to emit test assertion metadata for this node; some or all of its workunits may be missing.",
+                    kind="emission",
+                )
 
     def create_freshness_assertion_mcps(
         self,
@@ -1652,64 +1710,73 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if node.node_type != "source" or not node.freshness_info:
                 continue
 
-            upstream_urn = node.get_urn(
-                target_platform=self.config.target_platform,
-                data_platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-
-            assertion_urn = mce_builder.make_assertion_urn(
-                mce_builder.datahub_guid(
-                    {
-                        k: v
-                        for k, v in {
-                            "platform": DBT_PLATFORM,
-                            "name": f"{node.dbt_name}_freshness",
-                            "instance": self.config.platform_instance,
-                            # Ideally we'd include the env unconditionally. However, we started out
-                            # not including env in the guid, so we need to maintain backwards compatibility
-                            # with existing PROD assertions.
-                            **(
-                                {"env": self.config.env}
-                                if self.config.env != mce_builder.DEFAULT_ENV
-                                and self.config.include_env_in_assertion_guid
-                                else {}
-                            ),
-                        }.items()
-                        if v is not None
-                    }
+            try:
+                upstream_urn = node.get_urn(
+                    target_platform=self.config.target_platform,
+                    data_platform_instance=self.config.platform_instance,
+                    env=self.config.env,
                 )
-            )
 
-            custom_props = {
-                "dbt_unique_id": node.dbt_name,
-                **extra_custom_props,
-            }
+                assertion_urn = mce_builder.make_assertion_urn(
+                    mce_builder.datahub_guid(
+                        {
+                            k: v
+                            for k, v in {
+                                "platform": DBT_PLATFORM,
+                                "name": f"{node.dbt_name}_freshness",
+                                "instance": self.config.platform_instance,
+                                # Ideally we'd include the env unconditionally. However, we started out
+                                # not including env in the guid, so we need to maintain backwards compatibility
+                                # with existing PROD assertions.
+                                **(
+                                    {"env": self.config.env}
+                                    if self.config.env != mce_builder.DEFAULT_ENV
+                                    and self.config.include_env_in_assertion_guid
+                                    else {}
+                                ),
+                            }.items()
+                            if v is not None
+                        }
+                    )
+                )
 
-            if self.config.entities_enabled.can_emit_test_definitions:
-                assertion_mcp = make_assertion_from_freshness(
-                    custom_props,
+                custom_props = {
+                    "dbt_unique_id": node.dbt_name,
+                    **extra_custom_props,
+                }
+
+                if self.config.entities_enabled.can_emit_test_definitions:
+                    assertion_mcp = make_assertion_from_freshness(
+                        custom_props,
+                        node,
+                        assertion_urn,
+                        upstream_urn,
+                    )
+
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=assertion_urn,
+                        aspect=self._make_data_platform_instance_aspect(),
+                    )
+                    yield assertion_mcp
+
+                if self.config.entities_enabled.can_emit_test_results:
+                    yield make_assertion_result_from_freshness(
+                        node,
+                        assertion_urn,
+                        upstream_urn,
+                        test_warnings_are_errors=self.config.test_warnings_are_errors,
+                    )
+                else:
+                    logger.debug(
+                        f"Skipping freshness result for {node.name} emission since it is turned off."
+                    )
+            except Exception as e:
+                self._record_node_failure(
                     node,
-                    assertion_urn,
-                    upstream_urn,
-                )
-
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=assertion_urn,
-                    aspect=self._make_data_platform_instance_aspect(),
-                )
-                yield assertion_mcp
-
-            if self.config.entities_enabled.can_emit_test_results:
-                yield make_assertion_result_from_freshness(
-                    node,
-                    assertion_urn,
-                    upstream_urn,
-                    test_warnings_are_errors=self.config.test_warnings_are_errors,
-                )
-            else:
-                logger.debug(
-                    f"Skipping freshness result for {node.name} emission since it is turned off."
+                    e,
+                    title="Failed to emit freshness-assertion metadata",
+                    message="Failed to emit freshness assertion metadata for this node; some or all of its workunits may be missing.",
+                    kind="emission",
                 )
 
     def _create_test_assertion_ownership_mcp(
@@ -1752,130 +1819,144 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """Generate MCPs for dbt exposures as Dashboard entities with upstream lineage."""
         for exposure in sorted(exposures, key=lambda e: e.unique_id):
-            exposure_urn = exposure.get_urn(
-                platform_instance=self.config.platform_instance,
-            )
+            try:
+                exposure_urn = exposure.get_urn(
+                    platform_instance=self.config.platform_instance,
+                )
 
-            # Platform instance aspect
-            yield MetadataChangeProposalWrapper(
-                entityUrn=exposure_urn,
-                aspect=self._make_data_platform_instance_aspect(),
-            )
-
-            # Build custom properties
-            custom_properties: Dict[str, str] = {
-                "dbt_unique_id": exposure.unique_id,
-                "exposure_type": exposure.type,
-            }
-            if exposure.maturity:
-                custom_properties["maturity"] = exposure.maturity
-            if exposure.dbt_package_name:
-                custom_properties["dbt_package_name"] = exposure.dbt_package_name
-            if exposure.dbt_file_path:
-                custom_properties["dbt_file_path"] = exposure.dbt_file_path
-            # Add meta properties
-            for key, value in exposure.meta.items():
-                custom_properties[str(key)] = str(value)
-
-            # Generate upstream lineage from depends_on
-            upstream_urns: List[str] = []
-            for upstream_dbt_name in exposure.depends_on:
-                upstream_node = all_nodes_map.get(upstream_dbt_name)
-                if upstream_node:
-                    upstream_urn = upstream_node.get_urn(
-                        target_platform=DBT_PLATFORM,
-                        env=self.config.env,
-                        data_platform_instance=self.config.platform_instance,
-                    )
-                    upstream_urns.append(upstream_urn)
-                else:
-                    logger.warning(
-                        f"Exposure {exposure.unique_id} depends on {upstream_dbt_name} which was not found in nodes"
-                    )
-
-            # Dashboard info aspect
-            # Use current ingestion time for audit stamps since dbt exposures
-            # don't have created/modified timestamps
-            current_timestamp = int(datetime.now().timestamp() * 1000)
-            audit_stamp = AuditStampClass(
-                time=current_timestamp,
-                actor=mce_builder.make_user_urn("dbt_ingestion"),
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=exposure_urn,
-                aspect=DashboardInfoClass(
-                    title=exposure.name,
-                    description=exposure.description or "",
-                    customProperties=custom_properties,
-                    externalUrl=exposure.url,
-                    lastModified=ChangeAuditStampsClass(
-                        created=audit_stamp,
-                        lastModified=audit_stamp,
-                    ),
-                    datasets=upstream_urns if upstream_urns else None,
-                ),
-            )
-
-            # Status aspect
-            yield MetadataChangeProposalWrapper(
-                entityUrn=exposure_urn,
-                aspect=StatusClass(removed=False),
-            )
-
-            # SubTypes aspect - use exposure type as subtype
-            subtype_mapping = {
-                "dashboard": "Dashboard",
-                "notebook": "Notebook",
-                "analysis": "Analysis",
-                "ml": "ML Model",
-                "application": "Application",
-            }
-            subtype = subtype_mapping.get(exposure.type.lower(), exposure.type.title())
-            yield MetadataChangeProposalWrapper(
-                entityUrn=exposure_urn,
-                aspect=SubTypesClass(typeNames=[subtype]),
-            )
-
-            # Ownership aspect - respects enable_owner_extraction config like other dbt assets
-            if self.config.enable_owner_extraction and (
-                exposure.owner_email or exposure.owner_name
-            ):
-                owner_value = exposure.owner_email or exposure.owner_name
-                if owner_value:
-                    # Apply strip_user_ids_from_email consistently with other dbt assets
-                    if self.config.strip_user_ids_from_email and "@" in owner_value:
-                        owner_value = owner_value.split("@")[0]
-                        logger.debug(f"Owner (after stripping email): {owner_value}")
-                    elif not exposure.owner_email:
-                        # Fallback to name-based URN when email not available
-                        owner_value = owner_value.replace(" ", "_").lower()
-                        logger.debug(
-                            f"Exposure {exposure.unique_id} uses owner_name '{exposure.owner_name}' "
-                            f"without email - URN may not match existing users"
-                        )
-
-                    owner_urn = mce_builder.make_user_urn(owner_value)
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=exposure_urn,
-                        aspect=OwnershipClass(
-                            owners=[
-                                OwnerClass(
-                                    owner=owner_urn,
-                                    type=OwnershipTypeClass.DATAOWNER,
-                                )
-                            ]
-                        ),
-                    )
-
-            # Tags aspect
-            if exposure.tags:
-                tag_associations = [
-                    TagAssociationClass(tag=mce_builder.make_tag_urn(tag))
-                    for tag in exposure.tags
-                ]
+                # Platform instance aspect
                 yield MetadataChangeProposalWrapper(
                     entityUrn=exposure_urn,
-                    aspect=GlobalTagsClass(tags=tag_associations),
+                    aspect=self._make_data_platform_instance_aspect(),
+                )
+
+                # Build custom properties
+                custom_properties: Dict[str, str] = {
+                    "dbt_unique_id": exposure.unique_id,
+                    "exposure_type": exposure.type,
+                }
+                if exposure.maturity:
+                    custom_properties["maturity"] = exposure.maturity
+                if exposure.dbt_package_name:
+                    custom_properties["dbt_package_name"] = exposure.dbt_package_name
+                if exposure.dbt_file_path:
+                    custom_properties["dbt_file_path"] = exposure.dbt_file_path
+                # Add meta properties
+                for key, value in exposure.meta.items():
+                    custom_properties[str(key)] = str(value)
+
+                # Generate upstream lineage from depends_on
+                upstream_urns: List[str] = []
+                for upstream_dbt_name in exposure.depends_on:
+                    upstream_node = all_nodes_map.get(upstream_dbt_name)
+                    if upstream_node:
+                        upstream_urn = upstream_node.get_urn(
+                            target_platform=DBT_PLATFORM,
+                            env=self.config.env,
+                            data_platform_instance=self.config.platform_instance,
+                        )
+                        upstream_urns.append(upstream_urn)
+                    else:
+                        logger.warning(
+                            f"Exposure {exposure.unique_id} depends on {upstream_dbt_name} which was not found in nodes"
+                        )
+
+                # Dashboard info aspect
+                # Use current ingestion time for audit stamps since dbt exposures
+                # don't have created/modified timestamps
+                current_timestamp = int(datetime.now().timestamp() * 1000)
+                audit_stamp = AuditStampClass(
+                    time=current_timestamp,
+                    actor=mce_builder.make_user_urn("dbt_ingestion"),
+                )
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=exposure_urn,
+                    aspect=DashboardInfoClass(
+                        title=exposure.name,
+                        description=exposure.description or "",
+                        customProperties=custom_properties,
+                        externalUrl=exposure.url,
+                        lastModified=ChangeAuditStampsClass(
+                            created=audit_stamp,
+                            lastModified=audit_stamp,
+                        ),
+                        datasets=upstream_urns if upstream_urns else None,
+                    ),
+                )
+
+                # Status aspect
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=exposure_urn,
+                    aspect=StatusClass(removed=False),
+                )
+
+                # SubTypes aspect - use exposure type as subtype
+                subtype_mapping = {
+                    "dashboard": "Dashboard",
+                    "notebook": "Notebook",
+                    "analysis": "Analysis",
+                    "ml": "ML Model",
+                    "application": "Application",
+                }
+                subtype = subtype_mapping.get(
+                    exposure.type.lower(), exposure.type.title()
+                )
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=exposure_urn,
+                    aspect=SubTypesClass(typeNames=[subtype]),
+                )
+
+                # Ownership aspect - respects enable_owner_extraction config like other dbt assets
+                if self.config.enable_owner_extraction and (
+                    exposure.owner_email or exposure.owner_name
+                ):
+                    owner_value = exposure.owner_email or exposure.owner_name
+                    if owner_value:
+                        # Apply strip_user_ids_from_email consistently with other dbt assets
+                        if self.config.strip_user_ids_from_email and "@" in owner_value:
+                            owner_value = owner_value.split("@")[0]
+                            logger.debug(
+                                f"Owner (after stripping email): {owner_value}"
+                            )
+                        elif not exposure.owner_email:
+                            # Fallback to name-based URN when email not available
+                            owner_value = owner_value.replace(" ", "_").lower()
+                            logger.debug(
+                                f"Exposure {exposure.unique_id} uses owner_name '{exposure.owner_name}' "
+                                f"without email - URN may not match existing users"
+                            )
+
+                        owner_urn = mce_builder.make_user_urn(owner_value)
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=exposure_urn,
+                            aspect=OwnershipClass(
+                                owners=[
+                                    OwnerClass(
+                                        owner=owner_urn,
+                                        type=OwnershipTypeClass.DATAOWNER,
+                                    )
+                                ]
+                            ),
+                        )
+
+                # Tags aspect
+                if exposure.tags:
+                    tag_associations = [
+                        TagAssociationClass(tag=mce_builder.make_tag_urn(tag))
+                        for tag in exposure.tags
+                    ]
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=exposure_urn,
+                        aspect=GlobalTagsClass(tags=tag_associations),
+                    )
+            except Exception as e:
+                context = f"{exposure.unique_id} ({exposure.dbt_file_path})"
+                self.report.record_node_failure(
+                    context,
+                    e,
+                    title="Failed to emit exposure metadata",
+                    message="Failed to emit metadata for this exposure; some or all of its workunits may be missing.",
+                    kind="emission",
                 )
 
     def _make_data_platform_instance_aspect(self) -> DataPlatformInstanceClass:
@@ -2183,216 +2264,226 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
 
             node = all_nodes_map[dbt_name]
-            logger.debug(f"Processing CLL/schemas for {node.dbt_name}")
+            try:
+                logger.debug(f"Processing CLL/schemas for {self._node_context(node)}")
 
-            target_node_urn = None
-            should_fetch_target_node_schema = False
-            if node.exists_in_target_platform:
-                target_node_urn = node.get_urn(
-                    self.config.target_platform,
-                    self.config.env,
-                    self.config.target_platform_instance,
-                )
-                should_fetch_target_node_schema = True
-            elif node.is_ephemeral_model():
-                # For ephemeral nodes, we "pretend" that they exist in the target platform
-                # for schema resolution purposes.
-                target_node_urn = mce_builder.make_dataset_urn_with_platform_instance(
-                    platform=self.config.target_platform,
-                    name=node.get_fake_ephemeral_table_name(),
-                    platform_instance=self.config.target_platform_instance,
-                    env=self.config.env,
-                )
-            if target_node_urn:
-                target_platform_urn_to_dbt_name[target_node_urn] = node.dbt_name
-
-            # Our schema resolver preference is:
-            # 1. graph
-            # 2. dbt catalog
-            # 3. inferred
-            # Exception: if convert_column_urns_to_lowercase is enabled, swap 1 and 2.
-            # Cases 1 and 2 are handled here, and case 3 is handled after schema inference has occurred.
-            schema_fields: Optional[List[SchemaField]] = None
-
-            # Fetch the schema from the graph.
-            if target_node_urn and should_fetch_target_node_schema and graph:
-                schema_metadata = graph.get_aspect(target_node_urn, SchemaMetadata)
-                if schema_metadata:
-                    schema_fields = schema_metadata.fields
-
-            # Otherwise, load the schema from the dbt catalog.
-            # Note that this might get the casing wrong relative to DataHub, but
-            # has a more up-to-date column list.
-            if node.columns and (
-                not schema_fields or self.config.convert_column_urns_to_lowercase
-            ):
-                schema_fields = [
-                    SchemaField(
-                        fieldPath=(
-                            column.name.lower()
-                            if self.config.convert_column_urns_to_lowercase
-                            else column.name
-                        ),
-                        type=column.datahub_data_type
-                        or SchemaFieldDataType(type=NullTypeClass()),
-                        nativeDataType=column.data_type,
+                target_node_urn = None
+                should_fetch_target_node_schema = False
+                if node.exists_in_target_platform:
+                    target_node_urn = node.get_urn(
+                        self.config.target_platform,
+                        self.config.env,
+                        self.config.target_platform_instance,
                     )
-                    for column in node.columns
-                ]
-
-            # Add the node to the schema resolver, so that we can get column
-            # casing to match the upstream platform.
-            added_to_schema_resolver = False
-            if target_node_urn and schema_fields:
-                schema_resolver.add_raw_schema_info(
-                    target_node_urn, self._to_schema_info(schema_fields)
-                )
-                added_to_schema_resolver = True
-
-            # Run sql parser to infer the schema + generate column lineage.
-            sql_result = None
-            depends_on_ephemeral_models = False
-            if node.materialization == "semantic_view":
-                # CLL parsing uses custom regex (only Snowflake semantic views supported)
-                if node.dbt_adapter is None or node.dbt_adapter != "snowflake":
-                    self.report.warning(
-                        title="Semantic View CLL Unsupported Adapter",
-                        message=f"Column-level lineage for semantic views is only supported for Snowflake. "
-                        f"Adapter '{node.dbt_adapter}' is not supported.",
-                        context=node.dbt_name,
-                    )
-                elif node.compiled_code:
-                    try:
-                        cll_info = parse_semantic_view_cll(
-                            compiled_sql=node.compiled_code,
-                            upstream_nodes=node.upstream_nodes,
-                            all_nodes_map=all_nodes_map,
+                    should_fetch_target_node_schema = True
+                elif node.is_ephemeral_model():
+                    # For ephemeral nodes, we "pretend" that they exist in the target platform
+                    # for schema resolution purposes.
+                    target_node_urn = (
+                        mce_builder.make_dataset_urn_with_platform_instance(
+                            platform=self.config.target_platform,
+                            name=node.get_fake_ephemeral_table_name(),
+                            platform_instance=self.config.target_platform_instance,
+                            env=self.config.env,
                         )
-                        node.upstream_cll.extend(cll_info)
+                    )
+                if target_node_urn:
+                    target_platform_urn_to_dbt_name[target_node_urn] = node.dbt_name
 
-                        if not cll_info:
-                            self.report.warning(
-                                title="Semantic View CLL Empty",
-                                message="CLL parser returned 0 entries - DDL may contain unsupported syntax",
-                                context=node.dbt_name,
-                            )
-                    except Exception as e:
+                # Our schema resolver preference is:
+                # 1. graph
+                # 2. dbt catalog
+                # 3. inferred
+                # Exception: if convert_column_urns_to_lowercase is enabled, swap 1 and 2.
+                # Cases 1 and 2 are handled here, and case 3 is handled after schema inference has occurred.
+                schema_fields: Optional[List[SchemaField]] = None
+
+                # Fetch the schema from the graph.
+                if target_node_urn and should_fetch_target_node_schema and graph:
+                    schema_metadata = graph.get_aspect(target_node_urn, SchemaMetadata)
+                    if schema_metadata:
+                        schema_fields = schema_metadata.fields
+
+                # Otherwise, load the schema from the dbt catalog.
+                # Note that this might get the casing wrong relative to DataHub, but
+                # has a more up-to-date column list.
+                if node.columns and (
+                    not schema_fields or self.config.convert_column_urns_to_lowercase
+                ):
+                    schema_fields = [
+                        SchemaField(
+                            fieldPath=(
+                                column.name.lower()
+                                if self.config.convert_column_urns_to_lowercase
+                                else column.name
+                            ),
+                            type=column.datahub_data_type
+                            or SchemaFieldDataType(type=NullTypeClass()),
+                            nativeDataType=column.data_type,
+                        )
+                        for column in node.columns
+                    ]
+
+                # Add the node to the schema resolver, so that we can get column
+                # casing to match the upstream platform.
+                added_to_schema_resolver = False
+                if target_node_urn and schema_fields:
+                    schema_resolver.add_raw_schema_info(
+                        target_node_urn, self._to_schema_info(schema_fields)
+                    )
+                    added_to_schema_resolver = True
+
+                # Run sql parser to infer the schema + generate column lineage.
+                sql_result = None
+                depends_on_ephemeral_models = False
+                if node.materialization == "semantic_view":
+                    # CLL parsing uses custom regex (only Snowflake semantic views supported)
+                    if node.dbt_adapter is None or node.dbt_adapter != "snowflake":
                         self.report.warning(
-                            title="Semantic View CLL Parsing Failed",
-                            message=f"Failed to parse column-level lineage: {str(e)}",
+                            title="Semantic View CLL Unsupported Adapter",
+                            message=f"Column-level lineage for semantic views is only supported for Snowflake. "
+                            f"Adapter '{node.dbt_adapter}' is not supported.",
                             context=node.dbt_name,
                         )
-                        logger.debug(
-                            f"Semantic view CLL parsing traceback for {node.dbt_name}",
-                            exc_info=True,
+                    elif node.compiled_code:
+                        try:
+                            cll_info = parse_semantic_view_cll(
+                                compiled_sql=node.compiled_code,
+                                upstream_nodes=node.upstream_nodes,
+                                all_nodes_map=all_nodes_map,
+                            )
+                            node.upstream_cll.extend(cll_info)
+
+                            if not cll_info:
+                                self.report.warning(
+                                    title="Semantic View CLL Empty",
+                                    message="CLL parser returned 0 entries - DDL may contain unsupported syntax",
+                                    context=node.dbt_name,
+                                )
+                        except Exception as e:
+                            self.report.warning(
+                                title="Semantic View CLL Parsing Failed",
+                                message=f"Failed to parse column-level lineage: {str(e)}",
+                                context=node.dbt_name,
+                                exc=e,
+                            )
+                    else:
+                        self.report.warning(
+                            title="Semantic View Missing compiled_code",
+                            message="No compiled_code available, CLL extraction skipped",
+                            context=node.dbt_name,
                         )
+                elif node.node_type in {"source", "test", "seed"}:
+                    # For sources, we generate CLL as a 1:1 mapping.
+                    # We don't support CLL for tests (assertions) or seeds.
+                    pass
+                elif node.dbt_name not in cll_required_nodes:
+                    logger.debug(
+                        f"Not generating CLL for {node.dbt_name} because we don't need it."
+                    )
+                elif node.language != "sql":
+                    logger.debug(
+                        f"Not generating CLL for {node.dbt_name} because it is not a SQL model."
+                    )
+                    self.report.sql_parser_skipped_non_sql_model.append(node.dbt_name)
+                elif node.compiled_code:
+                    # Add CTE stops based on the upstreams list.
+                    cte_mapping = {
+                        cte_name: upstream_node.get_fake_ephemeral_table_name()
+                        for upstream_node in [
+                            all_nodes_map[upstream_node_name]
+                            for upstream_node_name in node.upstream_nodes
+                            if upstream_node_name in all_nodes_map
+                        ]
+                        if upstream_node.is_ephemeral_model()
+                        for cte_name in _get_dbt_cte_names(
+                            upstream_node.name,
+                            upstream_node.dbt_adapter or schema_resolver.platform,
+                        )
+                    }
+                    if cte_mapping:
+                        depends_on_ephemeral_models = True
+
+                    sql_result = self._parse_cll(node, cte_mapping, schema_resolver)
                 else:
-                    self.report.warning(
-                        title="Semantic View Missing compiled_code",
-                        message="No compiled_code available, CLL extraction skipped",
-                        context=node.dbt_name,
-                    )
-            elif node.node_type in {"source", "test", "seed"}:
-                # For sources, we generate CLL as a 1:1 mapping.
-                # We don't support CLL for tests (assertions) or seeds.
-                pass
-            elif node.dbt_name not in cll_required_nodes:
-                logger.debug(
-                    f"Not generating CLL for {node.dbt_name} because we don't need it."
-                )
-            elif node.language != "sql":
-                logger.debug(
-                    f"Not generating CLL for {node.dbt_name} because it is not a SQL model."
-                )
-                self.report.sql_parser_skipped_non_sql_model.append(node.dbt_name)
-            elif node.compiled_code:
-                # Add CTE stops based on the upstreams list.
-                cte_mapping = {
-                    cte_name: upstream_node.get_fake_ephemeral_table_name()
-                    for upstream_node in [
-                        all_nodes_map[upstream_node_name]
-                        for upstream_node_name in node.upstream_nodes
-                        if upstream_node_name in all_nodes_map
-                    ]
-                    if upstream_node.is_ephemeral_model()
-                    for cte_name in _get_dbt_cte_names(
-                        upstream_node.name,
-                        upstream_node.dbt_adapter or schema_resolver.platform,
-                    )
-                }
-                if cte_mapping:
-                    depends_on_ephemeral_models = True
+                    self.report.sql_parser_skipped_missing_code.append(node.dbt_name)
 
-                sql_result = self._parse_cll(node, cte_mapping, schema_resolver)
-            else:
-                self.report.sql_parser_skipped_missing_code.append(node.dbt_name)
+                # Save the column lineage.
+                if self.config.include_column_lineage and sql_result:
+                    # We save the raw info here. We use this for supporting `prefer_sql_parser_lineage`.
+                    if not depends_on_ephemeral_models:
+                        node.raw_sql_parsing_result = sql_result
 
-            # Save the column lineage.
-            if self.config.include_column_lineage and sql_result:
-                # We save the raw info here. We use this for supporting `prefer_sql_parser_lineage`.
-                if not depends_on_ephemeral_models:
-                    node.raw_sql_parsing_result = sql_result
+                    # We use this for error reporting. However, we only want to report errors
+                    # after node filters are applied.
+                    node.cll_debug_info = sql_result.debug_info
 
-                # We use this for error reporting. However, we only want to report errors
-                # after node filters are applied.
-                node.cll_debug_info = sql_result.debug_info
-
-                if sql_result.column_lineage:
-                    node.upstream_cll = [
-                        DBTColumnLineageInfo(
-                            upstream_dbt_name=target_platform_urn_to_dbt_name[
+                    if sql_result.column_lineage:
+                        node.upstream_cll = [
+                            DBTColumnLineageInfo(
+                                upstream_dbt_name=target_platform_urn_to_dbt_name[
+                                    upstream_column.table
+                                ],
+                                upstream_col=upstream_column.column,
+                                downstream_col=column_lineage_info.downstream.column,
+                            )
+                            for column_lineage_info in sql_result.column_lineage
+                            for upstream_column in column_lineage_info.upstreams
+                            # Only include the CLL if the table in in the upstream list.
+                            # TODO: Add some telemetry around this - how frequently does it filter stuff out?
+                            if target_platform_urn_to_dbt_name.get(
                                 upstream_column.table
-                            ],
-                            upstream_col=upstream_column.column,
-                            downstream_col=column_lineage_info.downstream.column,
-                        )
-                        for column_lineage_info in sql_result.column_lineage
-                        for upstream_column in column_lineage_info.upstreams
-                        # Only include the CLL if the table in in the upstream list.
-                        # TODO: Add some telemetry around this - how frequently does it filter stuff out?
-                        if target_platform_urn_to_dbt_name.get(upstream_column.table)
-                        in node.upstream_nodes
-                        and upstream_column.column
-                        and column_lineage_info.downstream.column
-                    ]
+                            )
+                            in node.upstream_nodes
+                            and upstream_column.column
+                            and column_lineage_info.downstream.column
+                        ]
 
-            # If we didn't fetch the schema from the graph, use the inferred schema.
-            inferred_schema_fields = None
-            if sql_result:
-                inferred_schema_fields = infer_output_schema(sql_result)
+                # If we didn't fetch the schema from the graph, use the inferred schema.
+                inferred_schema_fields = None
+                if sql_result:
+                    inferred_schema_fields = infer_output_schema(sql_result)
 
-            # Conditionally add the inferred schema to the schema resolver.
-            if (
-                not added_to_schema_resolver
-                and target_node_urn
-                and inferred_schema_fields
-            ):
-                schema_resolver.add_raw_schema_info(
-                    target_node_urn, self._to_schema_info(inferred_schema_fields)
-                )
+                # Conditionally add the inferred schema to the schema resolver.
+                if (
+                    not added_to_schema_resolver
+                    and target_node_urn
+                    and inferred_schema_fields
+                ):
+                    schema_resolver.add_raw_schema_info(
+                        target_node_urn, self._to_schema_info(inferred_schema_fields)
+                    )
 
-            # When updating the node's columns, our order of preference is:
-            # 1. Schema from the dbt catalog
-            # 2. Inferred schema
-            # 3. Schema fetched from the graph
-            if node.columns:
-                self.report.nodes_with_catalog_columns += 1
-                pass  # we already have columns from the dbt catalog
-            elif inferred_schema_fields:
-                logger.debug(
-                    f"Using {len(inferred_schema_fields)} inferred columns for {node.dbt_name}"
+                # When updating the node's columns, our order of preference is:
+                # 1. Schema from the dbt catalog
+                # 2. Inferred schema
+                # 3. Schema fetched from the graph
+                if node.columns:
+                    self.report.nodes_with_catalog_columns += 1
+                    pass  # we already have columns from the dbt catalog
+                elif inferred_schema_fields:
+                    logger.debug(
+                        f"Using {len(inferred_schema_fields)} inferred columns for {node.dbt_name}"
+                    )
+                    self.report.nodes_with_inferred_columns += 1
+                    node.set_columns(inferred_schema_fields)
+                elif schema_fields:
+                    logger.debug(
+                        f"Using {len(schema_fields)} graph columns for {node.dbt_name}"
+                    )
+                    self.report.nodes_with_graph_columns += 1
+                    node.set_columns(schema_fields)
+                else:
+                    logger.debug(f"No columns found for {node.dbt_name}")
+                    self.report.nodes_with_no_columns += 1
+            except Exception as e:
+                self._record_node_failure(
+                    node,
+                    e,
+                    title="Failed to infer schema/lineage for model",
+                    message="Failed to infer schema or column-level lineage for this model; it will keep whatever columns/lineage it already had.",
+                    kind="cll",
                 )
-                self.report.nodes_with_inferred_columns += 1
-                node.set_columns(inferred_schema_fields)
-            elif schema_fields:
-                logger.debug(
-                    f"Using {len(schema_fields)} graph columns for {node.dbt_name}"
-                )
-                self.report.nodes_with_graph_columns += 1
-                node.set_columns(schema_fields)
-            else:
-                logger.debug(f"No columns found for {node.dbt_name}")
-                self.report.nodes_with_no_columns += 1
 
     def _parse_cll(
         self,
@@ -2434,6 +2525,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             return SqlParsingResult.make_from_error(e)
 
+        # sqlglot_lineage already catches Exception internally (returning a
+        # degraded SqlParsingResult) and special-cases the native Rust-tokenizer
+        # PanicException, so no wrapper is needed here. Any other failure in this
+        # method's surrounding code (CTE mapping, post-processing, etc.) is still
+        # caught one level up by the per-node try/except in
+        # _infer_schemas_and_update_cll.
         sql_result = sqlglot_lineage(
             preprocessed_sql,
             schema_resolver=schema_resolver,
@@ -2476,153 +2573,164 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
-            node_datahub_urn = node.get_urn(
-                DBT_PLATFORM,
-                self.config.env,
-                self.config.platform_instance,
-            )
+            try:
+                node_datahub_urn = node.get_urn(
+                    DBT_PLATFORM,
+                    self.config.env,
+                    self.config.platform_instance,
+                )
 
-            meta_aspects: Dict[str, Any] = {}
-            if self.config.enable_meta_mapping and node.meta:
-                meta_aspects = action_processor.process(node.meta)
+                meta_aspects: Dict[str, Any] = {}
+                if self.config.enable_meta_mapping and node.meta:
+                    meta_aspects = action_processor.process(node.meta)
 
-            if self.config.enable_query_tag_mapping and node.query_tag:
-                self.extract_query_tag_aspects(
-                    action_processor_tag, meta_aspects, node
-                )  # mutates meta_aspects
+                if self.config.enable_query_tag_mapping and node.query_tag:
+                    self.extract_query_tag_aspects(
+                        action_processor_tag, meta_aspects, node
+                    )  # mutates meta_aspects
 
-            # Process column.meta once and reuse across schema + structured props.
-            column_meta_aspects = self._extract_column_meta_aspects(node)
+                # Process column.meta once and reuse across schema + structured props.
+                column_meta_aspects = self._extract_column_meta_aspects(node)
 
-            aspects = self._generate_base_dbt_aspects(
-                node,
-                additional_custom_props_filtered,
-                DBT_PLATFORM,
-                meta_aspects,
-                column_meta_aspects=column_meta_aspects,
-            )
+                aspects = self._generate_base_dbt_aspects(
+                    node,
+                    additional_custom_props_filtered,
+                    DBT_PLATFORM,
+                    meta_aspects,
+                    column_meta_aspects=column_meta_aspects,
+                )
 
-            # Upstream lineage.
-            upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
-                node, all_nodes_map
-            )
-            if upstream_lineage_class:
-                aspects.append(upstream_lineage_class)
+                # Upstream lineage.
+                upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
+                    node, all_nodes_map
+                )
+                if upstream_lineage_class:
+                    aspects.append(upstream_lineage_class)
 
-            # View properties.
-            view_prop_aspect = self._create_view_properties_aspect(node)
-            if view_prop_aspect:
-                aspects.append(view_prop_aspect)
+                # View properties.
+                view_prop_aspect = self._create_view_properties_aspect(node)
+                if view_prop_aspect:
+                    aspects.append(view_prop_aspect)
 
-            # Generate main MCE.
-            if self.config.entities_enabled.can_emit_node_type(node.node_type):
-                # Subtype.
-                sub_type_wu = self._create_subType_wu(node, node_datahub_urn)
-                if sub_type_wu:
-                    yield sub_type_wu
+                # Generate main MCE.
+                if self.config.entities_enabled.can_emit_node_type(node.node_type):
+                    # Subtype.
+                    sub_type_wu = self._create_subType_wu(node, node_datahub_urn)
+                    if sub_type_wu:
+                        yield sub_type_wu
 
-                # DataPlatformInstance aspect.
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=node_datahub_urn,
-                    aspect=self._make_data_platform_instance_aspect(),
-                ).as_workunit()
+                    # DataPlatformInstance aspect.
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=node_datahub_urn,
+                        aspect=self._make_data_platform_instance_aspect(),
+                    ).as_workunit()
 
-                standalone_aspects, snapshot_aspects = more_itertools.partition(
-                    (
-                        lambda aspect: mce_builder.can_add_aspect_to_snapshot(
-                            DatasetSnapshot, type(aspect)
+                    standalone_aspects, snapshot_aspects = more_itertools.partition(
+                        (
+                            lambda aspect: mce_builder.can_add_aspect_to_snapshot(
+                                DatasetSnapshot, type(aspect)
+                            )
+                        ),
+                        aspects,
+                    )
+
+                    for aspect in standalone_aspects:
+                        # The domains aspect, and some others, may not support being added to the snapshot.
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=node_datahub_urn,
+                            aspect=aspect,
+                        ).as_workunit()
+
+                    dataset_snapshot = DatasetSnapshot(
+                        urn=node_datahub_urn, aspects=list(snapshot_aspects)
+                    )
+
+                    # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
+                    if self._should_create_sibling_relationships(node):
+                        # Get the target platform URN
+                        target_platform_urn = node.get_urn(
+                            self.config.target_platform,
+                            self.config.env,
+                            self.config.target_platform_instance,
                         )
-                    ),
-                    aspects,
-                )
 
-                for aspect in standalone_aspects:
-                    # The domains aspect, and some others, may not support being added to the snapshot.
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=node_datahub_urn,
-                        aspect=aspect,
-                    ).as_workunit()
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=node_datahub_urn,
+                            aspect=SiblingsClass(
+                                siblings=[target_platform_urn],
+                                primary=self.config.dbt_is_primary_sibling,
+                            ),
+                        ).as_workunit()
 
-                dataset_snapshot = DatasetSnapshot(
-                    urn=node_datahub_urn, aspects=list(snapshot_aspects)
-                )
+                    mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                    if self.config.write_semantics == "PATCH":
+                        mce = self.get_patched_mce(mce)
 
-                # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
-                if self._should_create_sibling_relationships(node):
-                    # Get the target platform URN
-                    target_platform_urn = node.get_urn(
-                        self.config.target_platform,
-                        self.config.env,
-                        self.config.target_platform_instance,
-                    )
-
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=node_datahub_urn,
-                        aspect=SiblingsClass(
-                            siblings=[target_platform_urn],
-                            primary=self.config.dbt_is_primary_sibling,
-                        ),
-                    ).as_workunit()
-
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                if self.config.write_semantics == "PATCH":
-                    mce = self.get_patched_mce(mce)
-
-                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
-            else:
-                logger.debug(
-                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
-                )
-
-            # Column structured properties must be emitted as standalone MCPs
-            # because they attach to schemaField URNs, not the dataset URN.
-            if (
-                self.config.enable_meta_mapping
-                and self.config.entities_enabled.can_emit_node_type(node.node_type)
-            ):
-                yield from auto_workunit(
-                    self._create_column_structured_property_mcps(
-                        node,
-                        node_datahub_urn,
-                        column_meta_aspects=column_meta_aspects,
-                    )
-                )
-
-            # Model performance.
-            if self.config.entities_enabled.can_emit_model_performance:
-                yield from auto_workunit(
-                    self._create_dataprocess_instance_mcps(node, upstream_lineage_class)
-                )
-
-            # Dataset profile (stats from catalog.json).
-            if (
-                self.config.entities_enabled.can_emit_node_type(node.node_type)
-                and self.config.entities_enabled.can_emit_catalog_stats
-            ):
-                if node.row_count is not None or node.size_in_bytes is not None:
-                    # Use catalog's generated_at timestamp if available, else fallback to now (UTC)
-                    profile_timestamp = (
-                        self.report.catalog_generated_at
-                        or datetime.now(tz=timezone.utc)
-                    )
-                    dataset_profile = DatasetProfileClass(
-                        timestampMillis=int(profile_timestamp.timestamp() * 1000),
-                        rowCount=node.row_count,
-                        columnCount=len(node.columns) if node.columns else None,
-                        sizeInBytes=node.size_in_bytes,
-                        # Set partitionSpec to match UI's GraphQL filter for latestFullTableProfile
-                        partitionSpec=PartitionSpecClass(
-                            partition="FULL_TABLE_SNAPSHOT",
-                            type=PartitionTypeClass.FULL_TABLE,
-                        ),
-                    )
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=node_datahub_urn,
-                        aspect=dataset_profile,
-                    ).as_workunit()
-                    self.report.catalog_stats_extracted += 1
+                    yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
                 else:
-                    self.report.catalog_stats_skipped_no_data += 1
+                    logger.debug(
+                        f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
+                    )
+
+                # Column structured properties must be emitted as standalone MCPs
+                # because they attach to schemaField URNs, not the dataset URN.
+                if (
+                    self.config.enable_meta_mapping
+                    and self.config.entities_enabled.can_emit_node_type(node.node_type)
+                ):
+                    yield from auto_workunit(
+                        self._create_column_structured_property_mcps(
+                            node,
+                            node_datahub_urn,
+                            column_meta_aspects=column_meta_aspects,
+                        )
+                    )
+
+                # Model performance.
+                if self.config.entities_enabled.can_emit_model_performance:
+                    yield from auto_workunit(
+                        self._create_dataprocess_instance_mcps(
+                            node, upstream_lineage_class
+                        )
+                    )
+
+                # Dataset profile (stats from catalog.json).
+                if (
+                    self.config.entities_enabled.can_emit_node_type(node.node_type)
+                    and self.config.entities_enabled.can_emit_catalog_stats
+                ):
+                    if node.row_count is not None or node.size_in_bytes is not None:
+                        # Use catalog's generated_at timestamp if available, else fallback to now (UTC)
+                        profile_timestamp = (
+                            self.report.catalog_generated_at
+                            or datetime.now(tz=timezone.utc)
+                        )
+                        dataset_profile = DatasetProfileClass(
+                            timestampMillis=int(profile_timestamp.timestamp() * 1000),
+                            rowCount=node.row_count,
+                            columnCount=len(node.columns) if node.columns else None,
+                            sizeInBytes=node.size_in_bytes,
+                            # Set partitionSpec to match UI's GraphQL filter for latestFullTableProfile
+                            partitionSpec=PartitionSpecClass(
+                                partition="FULL_TABLE_SNAPSHOT",
+                                type=PartitionTypeClass.FULL_TABLE,
+                            ),
+                        )
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=node_datahub_urn,
+                            aspect=dataset_profile,
+                        ).as_workunit()
+                        self.report.catalog_stats_extracted += 1
+                    else:
+                        self.report.catalog_stats_skipped_no_data += 1
+            except Exception as e:
+                self._record_node_failure(
+                    node,
+                    e,
+                    title="Failed to emit dbt-platform metadata",
+                    message="Failed to emit dbt-platform metadata for this node; some or all of its workunits may be missing.",
+                    kind="emission",
+                )
 
     def _create_dataprocess_instance_mcps(
         self,
@@ -2825,89 +2933,98 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         mce_platform_instance = self.config.target_platform_instance
 
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
-            node_datahub_urn = node.get_urn(
-                mce_platform,
-                self.config.env,
-                mce_platform_instance,
-            )
-
-            # Check if node exists in target platform first - needed for all emissions
-            # (queries need a target dataset to link to, other aspects need the dataset to exist)
-            if not node.exists_in_target_platform:
-                continue
-
-            # Emit Query entities independently of node type setting.
-            # This allows queries=YES/ONLY to work even when models=NO.
-            # (https://github.com/datahub-project/datahub/issues/15150)
-            if self.config.entities_enabled.can_emit_queries:
-                yield from auto_workunit(
-                    self._create_query_entity_mcps(node, node_datahub_urn)
-                )
-
-            # Check if we should emit other aspects (sibling, lineage) for this node type
-            if not self.config.entities_enabled.can_emit_node_type(node.node_type):
-                logger.debug(
-                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
-                )
-                continue
-
-            # Emit sibling patch for target platform entity BEFORE any other aspects.
-            # This ensures the hook can detect explicit primary settings when processing later aspects.
-            if self._should_create_sibling_relationships(node):
-                # Get the dbt platform URN
-                dbt_platform_urn = node.get_urn(
-                    DBT_PLATFORM,
+            try:
+                node_datahub_urn = node.get_urn(
+                    mce_platform,
                     self.config.env,
-                    self.config.platform_instance,
+                    mce_platform_instance,
                 )
 
-                # Create patch for target platform entity (make it primary when dbt_is_primary_sibling=False)
-                target_patch = DatasetPatchBuilder(node_datahub_urn)
-                target_patch.add_sibling(
-                    dbt_platform_urn, primary=not self.config.dbt_is_primary_sibling
-                )
+                # Check if node exists in target platform first - needed for all emissions
+                # (queries need a target dataset to link to, other aspects need the dataset to exist)
+                if not node.exists_in_target_platform:
+                    continue
 
-                yield from auto_workunit(
-                    MetadataWorkUnit(
-                        id=MetadataWorkUnit.generate_workunit_id(mcp),
-                        mcp_raw=mcp,
-                        is_primary_source=False,  # Not authoritative over warehouse metadata
+                # Emit Query entities independently of node type setting.
+                # This allows queries=YES/ONLY to work even when models=NO.
+                # (https://github.com/datahub-project/datahub/issues/15150)
+                if self.config.entities_enabled.can_emit_queries:
+                    yield from auto_workunit(
+                        self._create_query_entity_mcps(node, node_datahub_urn)
                     )
-                    for mcp in target_patch.build()
-                )
 
-            # This code block is run when we are generating entities of platform type.
-            # We will not link the platform not to the dbt node for type "source" because
-            # in this case the platform table existed first.
-            if node.node_type != "source":
-                upstream_dbt_urn = node.get_urn(
-                    DBT_PLATFORM,
-                    self.config.env,
-                    self.config.platform_instance,
-                )
-
-                upstreams_lineage_class = make_mapping_upstream_lineage(
-                    upstream_urn=upstream_dbt_urn,
-                    downstream_urn=node_datahub_urn,
-                    node=node,
-                    convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
-                    skip_sources_in_lineage=self.config.skip_sources_in_lineage,
-                )
-
-                if self.config.incremental_lineage:
-                    # We only generate incremental lineage for non-dbt nodes.
-                    wu = convert_upstream_lineage_to_patch(
-                        urn=node_datahub_urn,
-                        aspect=upstreams_lineage_class,
-                        system_metadata=None,
+                # Check if we should emit other aspects (sibling, lineage) for this node type
+                if not self.config.entities_enabled.can_emit_node_type(node.node_type):
+                    logger.debug(
+                        f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
                     )
-                    wu.is_primary_source = False
-                    yield wu
-                else:
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=node_datahub_urn,
-                        aspect=upstreams_lineage_class,
-                    ).as_workunit(is_primary_source=False)
+                    continue
+
+                # Emit sibling patch for target platform entity BEFORE any other aspects.
+                # This ensures the hook can detect explicit primary settings when processing later aspects.
+                if self._should_create_sibling_relationships(node):
+                    # Get the dbt platform URN
+                    dbt_platform_urn = node.get_urn(
+                        DBT_PLATFORM,
+                        self.config.env,
+                        self.config.platform_instance,
+                    )
+
+                    # Create patch for target platform entity (make it primary when dbt_is_primary_sibling=False)
+                    target_patch = DatasetPatchBuilder(node_datahub_urn)
+                    target_patch.add_sibling(
+                        dbt_platform_urn, primary=not self.config.dbt_is_primary_sibling
+                    )
+
+                    yield from auto_workunit(
+                        MetadataWorkUnit(
+                            id=MetadataWorkUnit.generate_workunit_id(mcp),
+                            mcp_raw=mcp,
+                            is_primary_source=False,  # Not authoritative over warehouse metadata
+                        )
+                        for mcp in target_patch.build()
+                    )
+
+                # This code block is run when we are generating entities of platform type.
+                # We will not link the platform not to the dbt node for type "source" because
+                # in this case the platform table existed first.
+                if node.node_type != "source":
+                    upstream_dbt_urn = node.get_urn(
+                        DBT_PLATFORM,
+                        self.config.env,
+                        self.config.platform_instance,
+                    )
+
+                    upstreams_lineage_class = make_mapping_upstream_lineage(
+                        upstream_urn=upstream_dbt_urn,
+                        downstream_urn=node_datahub_urn,
+                        node=node,
+                        convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
+                        skip_sources_in_lineage=self.config.skip_sources_in_lineage,
+                    )
+
+                    if self.config.incremental_lineage:
+                        # We only generate incremental lineage for non-dbt nodes.
+                        wu = convert_upstream_lineage_to_patch(
+                            urn=node_datahub_urn,
+                            aspect=upstreams_lineage_class,
+                            system_metadata=None,
+                        )
+                        wu.is_primary_source = False
+                        yield wu
+                    else:
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=node_datahub_urn,
+                            aspect=upstreams_lineage_class,
+                        ).as_workunit(is_primary_source=False)
+            except Exception as e:
+                self._record_node_failure(
+                    node,
+                    e,
+                    title="Failed to emit target-platform metadata",
+                    message="Failed to emit target-platform metadata for this node; some or all of its workunits may be missing.",
+                    kind="emission",
+                )
 
     def extract_query_tag_aspects(
         self,

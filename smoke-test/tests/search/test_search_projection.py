@@ -1,7 +1,9 @@
 import json
 import logging
+from typing import Any, Dict
 
 from datahub.cli.search_cli import _build_search_query
+from tests.utils import with_test_retry
 
 logger = logging.getLogger(__name__)
 
@@ -10,10 +12,23 @@ _BASE_VARIABLES = {
     "query": "*",
     "types": [],
     "orFilters": [],
-    "count": 3,
+    "count": 10,
     "start": 0,
     "viewUrn": None,
 }
+
+
+@with_test_retry()
+def _execute_search_with_results(graph_client, query: str, variables: Dict[str, Any]):
+    result = graph_client.execute_graphql(
+        query=query,
+        variables=variables,
+        operation_name="search",
+    )
+    search_data = result["searchAcrossEntities"]
+    assert search_data["total"] > 0
+    assert len(search_data["searchResults"]) > 0
+    return result
 
 
 class TestSearchProjection:
@@ -25,16 +40,9 @@ class TestSearchProjection:
         query = _build_search_query(semantic=False, projection="urn type")
         logger.info("Executing minimal projection query")
 
-        result = graph_client.execute_graphql(
-            query=query,
-            variables=_BASE_VARIABLES,
-            operation_name="search",
-        )
+        result = _execute_search_with_results(graph_client, query, _BASE_VARIABLES)
 
         search_data = result["searchAcrossEntities"]
-        assert search_data["total"] > 0
-        assert len(search_data["searchResults"]) > 0
-
         entity = search_data["searchResults"][0]["entity"]
         assert "urn" in entity
         assert "type" in entity

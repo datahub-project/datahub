@@ -121,6 +121,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -1353,6 +1354,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             if (txContext != null) {
                               try {
                                 txContext.commitAndContinue();
+                              } catch (RejectedExecutionException e) {
+                                log.warn(
+                                    "Post-commit cache notification failed (executor terminated),"
+                                        + " cache may serve stale data until TTL expiry",
+                                    e);
+                                opContext
+                                    .getMetricUtils()
+                                    .ifPresent(
+                                        metricUtils ->
+                                            metricUtils.increment(
+                                                EntityServiceImpl.class,
+                                                "post_commit_notify_rejected",
+                                                1));
                               } catch (EntityNotFoundException e) {
                                 if (e.getMessage() != null
                                     && e.getMessage().contains("No rows updated")) {
@@ -2288,6 +2302,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     producer.flush();
 
     return result;
+  }
+
+  @Override
+  public void flushEventProducer() {
+    producer.flush();
   }
 
   /**

@@ -37,6 +37,7 @@ import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.List;
@@ -90,7 +91,7 @@ public class BatchIngestionRunResource
 
       Authentication auth = AuthenticationContext.getAuthentication();
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()), authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()).withUsageOperation(UsageOperation.OTHER_OPERATIONS), authorizer, auth, true);
 
 
       if (!AuthUtil.isAPIAuthorizedEntityType(
@@ -144,7 +145,7 @@ public class BatchIngestionRunResource
           Authentication auth = AuthenticationContext.getAuthentication();
           final OperationContext opContext = OperationContext.asSession(
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          "list", List.of()), authorizer, auth, true);
+                          "list", List.of()).withUsageOperation(UsageOperation.OTHER_READ), authorizer, auth, true);
 
           List<IngestionRunSummary> summaries =
               systemMetadataService.listRuns(
@@ -175,7 +176,7 @@ public class BatchIngestionRunResource
             Authentication auth = AuthenticationContext.getAuthentication();
             final OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            "describe", List.of()), authorizer, auth, true);
+                            "describe", List.of()).withUsageOperation(UsageOperation.OTHER_READ), authorizer, auth, true);
 
             if (!AuthUtil.isAPIAuthorized(
                     opContext,
