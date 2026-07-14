@@ -4055,11 +4055,7 @@ public class GmsGraphQLEngine {
                         metricType,
                         env -> {
                           final Metric m = env.getSource();
-                          if (m.getMetricRelationships() == null
-                              || m.getMetricRelationships().getParentMetric() == null) {
-                            return null;
-                          }
-                          return m.getMetricRelationships().getParentMetric().getUrn();
+                          return m.getParentMetric() != null ? m.getParentMetric().getUrn() : null;
                         }))
                 .dataFetcher(
                     "platform",

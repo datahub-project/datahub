@@ -139,6 +139,12 @@ public class MetricMapperTest {
       assertNotNull(result.getMetricRelationships().getParentMetric());
       assertEquals(result.getMetricRelationships().getParentMetric().getUrn(), PARENT_METRIC_URN);
       assertEquals(result.getMetricRelationships().getParentMetric().getType(), EntityType.METRIC);
+
+      // The top-level Metric.parentMetric field must also be populated directly (mirrors
+      // semanticModel), so the field resolver can do a simple one-level fetch.
+      assertNotNull(result.getParentMetric());
+      assertEquals(result.getParentMetric().getUrn(), PARENT_METRIC_URN);
+      assertEquals(result.getParentMetric().getType(), EntityType.METRIC);
     }
   }
 

@@ -88,11 +88,15 @@ public class MetricMapper {
     final EnvelopedAspect envelopedRelationships =
         aspects.get(Constants.METRIC_RELATIONSHIPS_ASPECT_NAME);
     if (envelopedRelationships != null) {
-      result.setMetricRelationships(
-          mapMetricRelationships(
-              context,
-              new com.linkedin.metric.MetricRelationships(
-                  envelopedRelationships.getValue().data())));
+      final com.linkedin.metric.MetricRelationships pdlRelationships =
+          new com.linkedin.metric.MetricRelationships(envelopedRelationships.getValue().data());
+      result.setMetricRelationships(mapMetricRelationships(context, pdlRelationships));
+      if (pdlRelationships.hasParentMetric() && pdlRelationships.getParentMetric() != null) {
+        final Metric parentMetricStub = new Metric();
+        parentMetricStub.setUrn(pdlRelationships.getParentMetric().toString());
+        parentMetricStub.setType(EntityType.METRIC);
+        result.setParentMetric(parentMetricStub);
+      }
     }
 
     final EnvelopedAspect envelopedUpstreams = aspects.get(Constants.METRIC_UPSTREAMS_ASPECT_NAME);
