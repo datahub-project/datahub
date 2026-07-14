@@ -124,7 +124,7 @@ class DashboardProcessingResult:
 )
 @capability(
     SourceCapability.USAGE_STATS,
-    "Enabled by default, configured using `extract_usage_history`",
+    "Dashboard, chart, and explore usage. Enabled by default, configured using `extract_usage_history`",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
