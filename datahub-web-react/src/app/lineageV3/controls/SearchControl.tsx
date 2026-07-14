@@ -1,21 +1,26 @@
-import { Button } from '@components';
+import { Button, SearchBar } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { X } from '@phosphor-icons/react/dist/csr/X';
+import { InputRef } from 'antd';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import { Panel } from 'reactflow';
 import styled from 'styled-components';
 
-import { InputContainer, InputField } from '@components/components/Input/components';
+import { InputContainer } from '@components/components/Input/components';
 
 import LineageControlIcon from '@app/lineage/controls/LineageControlIcon';
 import { LINEAGE_CONTROL_ICON_WEIGHT } from '@app/lineage/controls/constants';
 import { getWrappedIndex } from '@app/lineage/controls/lineageControlsUtils';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
 import { LineageDisplayContext, LineageNodesContext } from '@app/lineageV3/common';
+
+const COLLAPSED_SIZE = 36;
+const OPEN_WIDTH = 300;
+const SEARCH_BAR_HEIGHT = '24px';
 
 const StyledPanel = styled(Panel)`
     margin-top: 20px;
@@ -28,23 +33,19 @@ const SearchRow = styled.div<{ $width: number }>`
     width: ${({ $width }) => $width}px;
 `;
 
-const SearchBox = styled(InputContainer)<{ $isOpen: boolean }>`
-    min-width: 50px;
-    min-height: 50px;
-    height: 50px;
-    width: ${({ $isOpen }) => ($isOpen ? 'auto' : '50px')};
-    flex: ${({ $isOpen }) => ($isOpen ? '1' : '0 0 50px')};
-    padding: ${({ $isOpen }) => ($isOpen ? '0 12px' : '0')};
+const CollapsedSearch = styled(InputContainer)`
+    min-width: ${COLLAPSED_SIZE}px;
+    min-height: ${COLLAPSED_SIZE}px;
+    height: ${COLLAPSED_SIZE}px;
+    width: ${COLLAPSED_SIZE}px;
+    padding: 0;
+    justify-content: center;
     cursor: text;
-    justify-content: ${({ $isOpen }) => ($isOpen ? 'flex-start' : 'center')};
 `;
 
-const SearchInputField = styled(InputField)<{ $isOpen: boolean }>`
-    width: ${({ $isOpen }) => ($isOpen ? '100%' : '0')};
+const StyledSearchBar = styled(SearchBar)`
+    flex: 1;
     min-width: 0;
-    padding: ${({ $isOpen }) => ($isOpen ? undefined : '0')};
-    opacity: ${({ $isOpen }) => ($isOpen ? 1 : 0)};
-    pointer-events: ${({ $isOpen }) => ($isOpen ? 'auto' : 'none')};
 `;
 
 const VerticalDivider = styled.div<{ $margin: number }>`
@@ -58,7 +59,7 @@ export default function SearchControl() {
     const { t } = useTranslation('lineage');
     const { searchQuery, setSearchQuery, setSearchedEntity } = useContext(LineageVisualizationContext);
     const [isFocused, setIsFocused] = useState(false);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<InputRef>(null);
 
     useCaptureKeyboardSearch(inputRef, setIsFocused);
 
@@ -90,7 +91,7 @@ export default function SearchControl() {
     return (
         <StyledPanel position="top-left">
             <SearchRow
-                $width={isOpen ? 330 : 50}
+                $width={isOpen ? OPEN_WIDTH : COLLAPSED_SIZE}
                 onFocusCapture={() => setIsFocused(true)}
                 onBlurCapture={(e) => {
                     if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
@@ -98,14 +99,14 @@ export default function SearchControl() {
                     }
                 }}
             >
-                <SearchBox $isOpen={isOpen} onClick={() => !isOpen && openSearch()}>
-                    <LineageControlIcon icon={MagnifyingGlass} color={isOpen ? 'textPlaceholder' : 'icon'} />
-                    <SearchInputField
+                {isOpen ? (
+                    <StyledSearchBar
                         ref={inputRef}
-                        $isOpen={isOpen}
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={isOpen ? t('controls.search.placeholder') : ''}
+                        onChange={(value) => setSearchQuery(value)}
+                        placeholder={t('controls.search.placeholder')}
+                        height={SEARCH_BAR_HEIGHT}
+                        allowClear={false}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                                 if (e.shiftKey) prev();
@@ -113,7 +114,11 @@ export default function SearchControl() {
                             }
                         }}
                     />
-                </SearchBox>
+                ) : (
+                    <CollapsedSearch onClick={openSearch}>
+                        <LineageControlIcon icon={MagnifyingGlass} color="icon" />
+                    </CollapsedSearch>
+                )}
                 {isOpen && searchQuery && (
                     <>
                         {/* eslint-disable i18next/no-literal-string -- (untranslated-text) numeric match-position separator (e.g. "3 / 10"), not translatable */}
@@ -184,7 +189,7 @@ function useAssignSearchedEntity(matchedNodes: string[]) {
     return searchIndex;
 }
 
-function useCaptureKeyboardSearch(inputRef: React.RefObject<HTMLInputElement>, setIsFocused: (value: boolean) => void) {
+function useCaptureKeyboardSearch(inputRef: React.RefObject<InputRef>, setIsFocused: (value: boolean) => void) {
     const { isFocused } = useContext(LineageVisualizationContext);
 
     const handleKeyPress = useCallback(
