@@ -12,6 +12,7 @@ OUTPUT_DIR="./dev-artifacts/test-results"
 RUN_COUNT=3
 WORKFLOW_NAME="docker-unified.yml"
 REPOSITORY=""
+ARTIFACT_PREFIX="Test Results (smoke tests)"
 
 # Parse arguments
 usage() {
@@ -21,18 +22,24 @@ Usage: $0 [OPTIONS]
 Download test artifacts from recent successful CI runs.
 
 OPTIONS:
-    --output-dir DIR     Output directory for artifacts (default: ./dev-artifacts/test-results)
-    --run-count N        Number of recent runs to download (default: 3)
-    --workflow NAME      Workflow file name (default: docker-unified.yml)
-    --repository REPO    Repository in format owner/repo (default: auto-detect from git)
-    -h, --help           Show this help message
+    --output-dir DIR      Output directory for artifacts (default: ./dev-artifacts/test-results)
+    --run-count N         Number of recent runs to download (default: 3)
+    --workflow NAME       Workflow file name (default: docker-unified.yml)
+    --repository REPO     Repository in format owner/repo (default: auto-detect from git)
+    --artifact-prefix STR Artifact name prefix to download (default: "Test Results (smoke tests)")
+    -h, --help            Show this help message
 
 REQUIREMENTS:
     - GitHub CLI (gh) must be installed and authenticated
     - Must be run from within a git repository (unless --repository is specified)
 
 EXAMPLE:
+    # Smoke test weights (default prefix)
     $0 --output-dir ./dev-artifacts/test-results --run-count 3
+
+    # Ingestion integration test weights (harvest per-batch junit artifacts)
+    $0 --output-dir ./test-artifacts --run-count 3 \
+        --workflow metadata-ingestion.yml --artifact-prefix "metadata-ingestion-test-results"
 EOF
     exit 1
 }
@@ -53,6 +60,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --repository)
             REPOSITORY="$2"
+            shift 2
+            ;;
+        --artifact-prefix)
+            ARTIFACT_PREFIX="$2"
             shift 2
             ;;
         -h|--help)
@@ -108,6 +119,7 @@ echo "============================================================"
 echo "Repository: $REPOSITORY"
 echo "Workflow: $WORKFLOW_NAME"
 echo "Run count: $RUN_COUNT"
+echo "Artifact prefix: $ARTIFACT_PREFIX"
 echo "Output directory: $OUTPUT_DIR"
 echo "============================================================"
 echo
@@ -149,7 +161,7 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
 
     # List all artifacts for this run
     echo "Fetching artifact list..."
-    ARTIFACTS=$(gh api --paginate "repos/$REPOSITORY/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name | startswith("Test Results (smoke tests)")) | {name: .name, id: .id}')
+    ARTIFACTS=$(gh api --paginate "repos/$REPOSITORY/actions/runs/$run_id/artifacts" --jq ".artifacts[] | select(.name | startswith(\"$ARTIFACT_PREFIX\")) | {name: .name, id: .id}")
 
     if [[ -z "$ARTIFACTS" ]]; then
         echo "Warning: No test result artifacts found for run $run_id"
