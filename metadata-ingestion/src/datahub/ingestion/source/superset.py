@@ -560,16 +560,17 @@ class SupersetSource(StatefulIngestionSourceBase):
         owner_urns = []
         for owner in data.get("owners", []):
             owner_id = owner.get("id")
-            owner_email = self.owner_info.get(owner_id) if owner_id else None
-            if owner_email:
-                owner_urns.append(make_user_urn(owner_email))
-            elif owner_id:
-                self.report.warning(
-                    title="Unresolvable Superset owner",
-                    message="Skipped an owner with no resolvable email; ownership may be incomplete",
-                    context=f"Owner ID: {owner_id}, Entity Type: {entity_type}, Entity ID: {data.get('id', 'unknown')}",
-                    log=False,
-                )
+            if owner_id:
+                owner_email = self.owner_info.get(owner_id)
+                if owner_email:
+                    owner_urns.append(make_user_urn(owner_email))
+                else:
+                    self.report.warning(
+                        title="Unresolvable Superset owner",
+                        message="Skipped an owner with no resolvable email; ownership may be incomplete",
+                        context=f"Owner ID: {owner_id}, Entity Type: {entity_type}, Entity ID: {data.get('id', 'unknown')}",
+                        log=False,
+                    )
         return owner_urns
 
     # Permissive ``something@something.something`` matcher for redacting
