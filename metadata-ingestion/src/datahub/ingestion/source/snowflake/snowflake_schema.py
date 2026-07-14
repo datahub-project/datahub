@@ -53,6 +53,25 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 SCHEMA_PARALLELISM = get_snowflake_schema_parallelism()
 
+# Regexes for the semantic-view DDL fallback parser
+# (SnowflakeDataDictionary._parse_base_tables_from_ddl). A Snowflake identifier is
+# either a double-quoted string or a bare [\w$] token.
+_SEM_VIEW_IDENT = r'(?:"[^"]+"|[\w$]+)'
+_SEM_VIEW_QUALIFIED_RE = re.compile(
+    rf"^\s*({_SEM_VIEW_IDENT}(?:\.{_SEM_VIEW_IDENT}){{0,2}})\s*$", re.DOTALL
+)
+_SEM_VIEW_ALIASED_RE = re.compile(
+    rf"^\s*({_SEM_VIEW_IDENT})\s+AS\s+(.+)$", re.IGNORECASE | re.DOTALL
+)
+_SEM_VIEW_TABLES_BLOCK_RE = re.compile(r"\bTABLES\s*\(", re.IGNORECASE)
+# Optional trailing clauses after a logical table; always preceded by whitespace, so
+# the lookbehind avoids clipping a table whose name ends in one of these words
+# (e.g. DB.SCHEMA.TAG, where TAG follows a '.').
+_SEM_VIEW_TRAILING_CLAUSE_RE = re.compile(
+    r"(?<=\s)(PRIMARY\s+KEY|UNIQUE|CONSTRAINT|WITH\s+SYNONYMS|WITH\s+TAG|COMMENT|TAG)\b",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class SnowflakePK:
@@ -1333,7 +1352,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         # on cross-database base tables), parse the TABLES clause from the DDL directly.
         # The DDL is already fetched during ingestion and contains fully-qualified base
         # table names, so no additional Snowflake privileges are required.
-        for schema_name, views in semantic_views.items():
+        for views in semantic_views.values():
             for semantic_view in views:
                 if not semantic_view.base_tables and isinstance(
                     semantic_view.view_definition, str
@@ -1346,9 +1365,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                             database=db, schema=schema, table=table
                         )
                         semantic_view.base_tables.append(base_table_id)
-                        semantic_view.logical_to_physical_table[
-                            logical_alias_upper
-                        ] = base_table_id.as_tuple()
+                        semantic_view.logical_to_physical_table[logical_alias_upper] = (
+                            base_table_id.as_tuple()
+                        )
                     if parsed:
                         logger.debug(
                             f"Populated {len(parsed)} base tables for "
@@ -1361,37 +1380,125 @@ class SnowflakeDataDictionary(SupportsAsObj):
         view_definition: str,
     ) -> Dict[str, Tuple[str, str, str]]:
         """
-        Parse the TABLES clause of a semantic view DDL to recover the
-        logical-alias to physical-table mapping.
+        Recover the logical-table -> physical-table mapping from a semantic
+        view's GET_DDL, as a fallback when INFORMATION_SCHEMA.SEMANTIC_TABLES
+        returns no rows (the ingestion role has USAGE but not REFERENCES on a
+        cross-database base table).
 
-        Handles both plain and AS-aliased entries:
-            DB.SCHEMA.TABLE  PRIMARY KEY (col)
-            DB.SCHEMA.TABLE  AS alias  PRIMARY KEY (col)
+        Each entry in the ``TABLES ( ... )`` clause is ``[ <alias> AS ]
+        <table_name>`` plus optional trailing clauses (PRIMARY KEY / UNIQUE /
+        CONSTRAINT / WITH SYNONYMS / COMMENT / WITH TAG), e.g.
+        ``orders AS DB.SCH.T PRIMARY KEY (id)`` or just ``DB.SCH.T COMMENT='x'``.
 
-        Returns {LOGICAL_ALIAS_UPPER: (database, schema, table)}.
+        Keyed by the logical alias (or table name when no alias is given),
+        because per-column references (``column_table_mappings``, from
+        SEMANTIC_DIMENSIONS/FACTS/METRICS.TABLE_NAME) use the alias, not the
+        physical name. SQL-query logical tables (``alias AS (SELECT ...)``) have
+        no single base table and are skipped.
+
+        Returns {LOGICAL_NAME_UPPER: (database, schema, table)}.
         """
-        tables_block_match = re.search(
-            r"\bTABLES\s*\(", view_definition, re.IGNORECASE
-        )
-        if not tables_block_match:
-            return {}
-        after_tables = view_definition[tables_block_match.end() :]
-        pattern = re.compile(
-            r'((?:"[^"]+"|[\w$]+)\.(?:"[^"]+"|[\w$]+)\.(?:"[^"]+"|[\w$]+))'
-            r'(?:\s+AS\s+("?[\w$]+"?))?'
-            r"\s+primary\s+key",
-            re.IGNORECASE,
-        )
         result: Dict[str, Tuple[str, str, str]] = {}
-        for m in pattern.finditer(after_tables):
-            parts = [p.strip('"') for p in m.group(1).split(".")]
+        for head in SnowflakeDataDictionary._semantic_view_table_heads(view_definition):
+            am = _SEM_VIEW_ALIASED_RE.match(head)
+            if am:
+                alias_part: Optional[str] = am.group(1)
+                ref_part = am.group(2).strip()
+            else:
+                alias_part = None
+                ref_part = head
+
+            # SQL-query logical table: `alias AS (SELECT ...)` -> no base table.
+            if ref_part.startswith("("):
+                continue
+
+            qm = _SEM_VIEW_QUALIFIED_RE.match(ref_part)
+            if not qm:
+                continue
+            parts = [p.strip('"') for p in re.findall(_SEM_VIEW_IDENT, qm.group(1))]
             if len(parts) != 3:
+                # Not fully qualified -> cannot build a cross-database URN.
                 continue
             db, schema, table = parts
-            alias = m.group(2)
-            logical_alias = (alias.strip('"') if alias else table).upper()
-            result[logical_alias] = (db, schema, table)
+            logical_name = (alias_part.strip('"') if alias_part else table).upper()
+            result[logical_name] = (db, schema, table)
         return result
+
+    @staticmethod
+    def _mask_quoted_spans(text: str) -> str:
+        """Blank out single-/double-quoted spans (preserving length so indices
+        stay aligned) so structural scanning never trips on commas, parens or
+        keywords inside string literals / quoted identifiers."""
+        masked_chars: List[str] = []
+        pos, length = 0, len(text)
+        while pos < length:
+            char = text[pos]
+            if char not in ("'", '"'):
+                masked_chars.append(char)
+                pos += 1
+                continue
+            masked_chars.append(" ")
+            pos += 1
+            while pos < length:
+                if text[pos] == char:
+                    if (
+                        pos + 1 < length and text[pos + 1] == char
+                    ):  # doubled-quote escape
+                        masked_chars.append("  ")
+                        pos += 2
+                        continue
+                    masked_chars.append(" ")
+                    pos += 1
+                    break
+                masked_chars.append(" ")
+                pos += 1
+        return "".join(masked_chars)
+
+    @staticmethod
+    def _semantic_view_table_heads(view_definition: str) -> List[str]:
+        """Return each logical-table entry from the ``TABLES ( ... )`` clause,
+        trimmed of its optional trailing clauses so only ``[alias AS] table``
+        remains. Scanning is done on a quote-masked copy so commas/parens inside
+        COMMENT strings or WITH SYNONYMS lists are not treated as structure."""
+        masked = SnowflakeDataDictionary._mask_quoted_spans(view_definition)
+        block_match = _SEM_VIEW_TABLES_BLOCK_RE.search(masked)
+        if not block_match:
+            return []
+
+        # Walk to the close paren matching TABLES( so we don't bleed into the
+        # RELATIONSHIPS/FACTS/DIMENSIONS/METRICS clauses that follow.
+        block_start = block_match.end()
+        block_depth = 1
+        scan_pos = block_start
+        while scan_pos < len(masked) and block_depth > 0:
+            if masked[scan_pos] == "(":
+                block_depth += 1
+            elif masked[scan_pos] == ")":
+                block_depth -= 1
+            scan_pos += 1
+        block_end = scan_pos - 1
+
+        heads: List[str] = []
+        seg_start = block_start
+        paren_depth = 0
+        for cursor in range(block_start, block_end + 1):
+            at_end = cursor == block_end
+            char = masked[cursor] if not at_end else ","
+            if char == "(":
+                paren_depth += 1
+            elif char == ")":
+                paren_depth -= 1
+            elif char == "," and paren_depth == 0:
+                clause_match = _SEM_VIEW_TRAILING_CLAUSE_RE.search(
+                    masked, seg_start, cursor
+                )
+                head = view_definition[
+                    seg_start : (clause_match.start() if clause_match else cursor)
+                ].strip()
+                if head:
+                    heads.append(head)
+                seg_start = cursor + 1
+        return heads
 
     def _fetch_semantic_columns(
         self,

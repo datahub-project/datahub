@@ -721,11 +721,12 @@ def test_parse_base_tables_from_ddl_simple():
 
 
 def test_parse_base_tables_from_ddl_with_alias():
-    """AS alias should be preferred over the table name as the logical key."""
+    """Per Snowflake grammar the alias comes first (`alias AS table`) and is the
+    logical key; the physical table is the fully-qualified name after AS."""
     ddl = """
     CREATE SEMANTIC VIEW my_view AS
     TABLES (
-        DB1.SCH1.LONG_PHYSICAL_NAME AS orders PRIMARY KEY (id),
+        orders AS DB1.SCH1.LONG_PHYSICAL_NAME PRIMARY KEY (id),
         DB2.SCH2.ANOTHER_TABLE PRIMARY KEY (id)
     )
     """
@@ -763,6 +764,86 @@ def test_parse_base_tables_from_ddl_empty_string():
     assert result == {}
 
 
+def test_parse_base_tables_from_ddl_comment_only_no_primary_key():
+    """Regression: real GET_DDL output uses lowercase keywords and a base table
+    often carries only COMMENT (no PRIMARY KEY). Both must parse."""
+    ddl = (
+        "create or replace semantic view REFERENCE_ANALYTICS\n"
+        "tables (\n"
+        "  DEV_DB.REF_V.CAL_DT comment='Cal Date data',\n"
+        "  DEV_DB.REF_V.LKP_MKT_TYP comment='market type, region'\n"
+        ")"
+    )
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {
+        "CAL_DT": ("DEV_DB", "REF_V", "CAL_DT"),
+        # COMMENT value contains a comma, which must not be treated as a separator
+        "LKP_MKT_TYP": ("DEV_DB", "REF_V", "LKP_MKT_TYP"),
+    }
+
+
+def test_parse_base_tables_from_ddl_all_trailing_clauses():
+    """A single entry may carry alias + PRIMARY KEY + WITH SYNONYMS + COMMENT."""
+    ddl = (
+        "CREATE SEMANTIC VIEW v AS TABLES (\n"
+        "  ord AS DB1.SCH1.ORDERS PRIMARY KEY (id, region)\n"
+        "    WITH SYNONYMS ('purchases', 'sales') COMMENT='orders, all of them',\n"
+        "  DB2.SCH2.CUSTOMERS UNIQUE (email)\n"
+        ")"
+    )
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {
+        "ORD": ("DB1", "SCH1", "ORDERS"),
+        "CUSTOMERS": ("DB2", "SCH2", "CUSTOMERS"),
+    }
+
+
+def test_parse_base_tables_from_ddl_skips_sql_query_logical_table():
+    """SQL-query logical tables (`alias AS (SELECT ...)`) have no single physical
+    base table and must be skipped, while sibling physical tables still parse."""
+    ddl = (
+        "CREATE SEMANTIC VIEW v AS TABLES (\n"
+        "  derived AS (SELECT id, region FROM DB1.SCH1.RAW),\n"
+        "  DB2.SCH2.CUSTOMERS PRIMARY KEY (id)\n"
+        ")"
+    )
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {"CUSTOMERS": ("DB2", "SCH2", "CUSTOMERS")}
+
+
+def test_parse_base_tables_from_ddl_ignores_non_qualified_names():
+    """Two-part (schema.table) names cannot yield a cross-database URN and are
+    skipped, without dropping the fully-qualified sibling."""
+    ddl = (
+        "CREATE SEMANTIC VIEW v AS TABLES (\n"
+        "  SCH1.LOCAL_TABLE PRIMARY KEY (id),\n"
+        "  DB2.SCH2.CUSTOMERS PRIMARY KEY (id)\n"
+        ")"
+    )
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {"CUSTOMERS": ("DB2", "SCH2", "CUSTOMERS")}
+
+
+def test_parse_base_tables_from_ddl_ignores_over_qualified_names():
+    """Names with more than three parts are not a valid base-table reference and
+    are skipped, without dropping the fully-qualified sibling."""
+    ddl = (
+        "CREATE SEMANTIC VIEW v AS TABLES (\n"
+        "  DB.SCH.TBL.EXTRA PRIMARY KEY (id),\n"
+        "  DB2.SCH2.CUSTOMERS PRIMARY KEY (id)\n"
+        ")"
+    )
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {"CUSTOMERS": ("DB2", "SCH2", "CUSTOMERS")}
+
+
+def test_parse_base_tables_from_ddl_doubled_quote_escape_in_comment():
+    """A '' escape inside a COMMENT string must not break comma/clause scanning."""
+    ddl = "CREATE SEMANTIC VIEW v AS TABLES ( DB.S.T comment='it''s, fine' )"
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {"T": ("DB", "S", "T")}
+
+
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
 def test_populate_semantic_view_base_tables_ddl_fallback(mock_connection):
     """When INFORMATION_SCHEMA.SEMANTIC_TABLES returns 0 rows, base tables
@@ -790,7 +871,7 @@ def test_populate_semantic_view_base_tables_ddl_fallback(mock_connection):
         "CREATE SEMANTIC VIEW cross_db_view AS\n"
         "TABLES (\n"
         "  BASE_DB.BASE_SCHEMA.CUSTOMERS PRIMARY KEY (id),\n"
-        "  BASE_DB.BASE_SCHEMA.ORDERS AS orders PRIMARY KEY (id)\n"
+        "  orders AS BASE_DB.BASE_SCHEMA.ORDERS PRIMARY KEY (id)\n"
         ")"
     )
     mock_ddl_cursor = MagicMock()
@@ -799,11 +880,11 @@ def test_populate_semantic_view_base_tables_ddl_fallback(mock_connection):
     connection = mock_connection.return_value
     connection.query.side_effect = [
         mock_semantic_views_cursor,  # get_semantic_views_for_database
-        mock_ddl_cursor,             # GET_DDL
-        mock_semantic_tables_cursor, # get_semantic_tables_for_database (0 rows)
-        mock_empty_cursor,           # semantic_dimensions
-        mock_empty_cursor,           # semantic_facts
-        mock_empty_cursor,           # semantic_metrics
+        mock_ddl_cursor,  # GET_DDL
+        mock_semantic_tables_cursor,  # get_semantic_tables_for_database (0 rows)
+        mock_empty_cursor,  # semantic_dimensions
+        mock_empty_cursor,  # semantic_facts
+        mock_empty_cursor,  # semantic_metrics
     ]
 
     report = SnowflakeV2Report()
