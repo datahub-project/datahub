@@ -13,7 +13,7 @@ corpuser: "CorpUsers represent individual people or service accounts in DataHub,
 dashboard: "Dashboards are collections of charts ingested from BI tools like Looker, Tableau, or Power BI, capturing their layout, inputs, and ownership."
 dataContract: "Data Contracts are producer-owned agreements built on assertions that declare quality, schema, and SLA guarantees consumers can rely on."
 dataFlow: "DataFlows represent data pipelines orchestrated by tools like Airflow, Dagster, or Prefect, acting as the parent container for related DataJobs."
-dataHubAccessToken: "Internal DataHub entity that tracks personal access tokens issued for authenticating CLI, SDK, and API calls against the metadata service."
+dataHubAccessToken: "Internal DataHub entity that tracks stateful DataHub tokens, including personal access tokens, service account tokens, and optional UI session tokens."
 dataHubAction: "Internal DataHub entity that registers automated actions executed by the Actions Framework in response to metadata change events."
 dataHubConnection: "Internal DataHub entity that stores credentials and connection details used by ingestion sources to reach upstream data platforms."
 dataHubExecutionRequest: "Internal DataHub entity that tracks ingestion run requests, including their input config, dispatch signal, and final execution result."
