@@ -12,6 +12,7 @@ import com.linkedin.metadata.usage.flush.UsageFlushBatch;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricRegistry;
 import io.datahubproject.metadata.context.usage.UsageActorClass;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.testng.Assert;
@@ -33,13 +34,13 @@ public class MicrometerUsageFlushSinkTest {
 
     Map<String, String> dimensions =
         Map.of(
-            "usage_operation",
+            UsageDimensions.USAGE_OPERATION,
             "metadata_read",
-            "agent_class",
+            UsageDimensions.AGENT_CLASS,
             "browser",
-            "request_api",
+            UsageDimensions.REQUEST_API,
             "openapi",
-            "auth_channel",
+            UsageDimensions.AUTH_CHANNEL,
             "session");
     UsageFlushBatch batch =
         new UsageFlushBatch(
@@ -56,10 +57,47 @@ public class MicrometerUsageFlushSinkTest {
 
     Assert.assertEquals(registry.get("datahub_request_count").counter().count(), 3.0);
     Assert.assertEquals(
-        registry.get("datahub_request_count").tag("auth_channel", "session").counter().count(),
+        registry
+            .get("datahub_request_count")
+            .tag(UsageDimensions.AUTH_CHANNEL, "session")
+            .tag(UsageDimensions.ACTOR_CLASS, "regular")
+            .counter()
+            .count(),
         3.0);
     Assert.assertEquals(registry.get("datahub.usage.input_bytes").counter().count(), 100.0);
     Assert.assertEquals(registry.get("datahub.usage.output_bytes").counter().count(), 200.0);
+  }
+
+  @Test
+  public void testPublishesActorClassFromDimensionsWhenRowActorClassNull() {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    MicrometerUsageFlushSink sink = new MicrometerUsageFlushSink(metricRegistry(), registry);
+
+    Map<String, String> dimensions = new HashMap<>();
+    dimensions.put(UsageDimensions.USAGE_OPERATION, "metadata_read");
+    dimensions.put(UsageDimensions.AGENT_CLASS, "browser");
+    dimensions.put(UsageDimensions.REQUEST_API, "openapi");
+    dimensions.put(UsageDimensions.AUTH_CHANNEL, "session");
+    dimensions.put(UsageDimensions.ACTOR_CLASS, "support");
+
+    UsageFlushBatch batch =
+        new UsageFlushBatch(
+            java.time.Instant.now(),
+            java.time.Instant.now(),
+            FlushTrigger.SCHEDULED,
+            List.of(new AdditiveUsageRow("api_calls", null, dimensions, 2)),
+            List.of());
+
+    sink.publish(batch);
+
+    Assert.assertEquals(
+        registry
+            .get("datahub_request_count")
+            .tag(UsageDimensions.ACTOR_CLASS, "support")
+            .tag(UsageDimensions.USAGE_OPERATION, "metadata_read")
+            .counter()
+            .count(),
+        2.0);
   }
 
   @Test
@@ -87,7 +125,7 @@ public class MicrometerUsageFlushSinkTest {
     Assert.assertEquals(
         registry
             .get("datahub.usage.active_identities")
-            .tag("actor_class", "support")
+            .tag(UsageDimensions.ACTOR_CLASS, "support")
             .tag("identity_metric", "active_readers")
             .gauge()
             .value(),
@@ -119,7 +157,7 @@ public class MicrometerUsageFlushSinkTest {
     Assert.assertEquals(
         registry
             .get("datahub.usage.active_identities")
-            .tag("actor_class", "regular")
+            .tag(UsageDimensions.ACTOR_CLASS, "regular")
             .tag("identity_metric", "active_users")
             .gauge()
             .value(),
@@ -127,10 +165,10 @@ public class MicrometerUsageFlushSinkTest {
     var gauge =
         registry
             .get("datahub.usage.active_identities")
-            .tag("actor_class", "regular")
+            .tag(UsageDimensions.ACTOR_CLASS, "regular")
             .tag("identity_metric", "active_users")
             .gauge();
-    Assert.assertNull(gauge.getId().getTag("auth_channel"));
+    Assert.assertNull(gauge.getId().getTag(UsageDimensions.AUTH_CHANNEL));
   }
 
   @Test
@@ -162,7 +200,7 @@ public class MicrometerUsageFlushSinkTest {
         registry
             .get("datahub.usage.active_identities")
             .tag("identity_metric", "active_users")
-            .tag("actor_class", "regular")
+            .tag(UsageDimensions.ACTOR_CLASS, "regular")
             .gauge()
             .value(),
         2.0);
@@ -186,7 +224,7 @@ public class MicrometerUsageFlushSinkTest {
     Assert.assertEquals(
         registry
             .get("datahub.usage.active_identities")
-            .tag("actor_class", "support")
+            .tag(UsageDimensions.ACTOR_CLASS, "support")
             .tag("identity_metric", "active_users")
             .gauge()
             .value(),

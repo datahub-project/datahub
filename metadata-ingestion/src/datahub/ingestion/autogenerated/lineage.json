@@ -169,6 +169,25 @@
         ]
       }
     },
+    "semanticModel": {
+      "upstreamLineage": {
+        "aspect": "upstreamLineage",
+        "fields": [
+          {
+            "name": "dataset",
+            "path": "upstreams.dataset",
+            "isLineage": true,
+            "relationship": {
+              "name": "DownstreamOf",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
     "chart": {
       "chartInfo": {
         "aspect": "chartInfo",
@@ -269,6 +288,23 @@
       }
     },
     "metric": {
+      "metricInfo": {
+        "aspect": "metricInfo",
+        "fields": [
+          {
+            "name": "semanticModel",
+            "path": "semanticModel",
+            "isLineage": true,
+            "relationship": {
+              "name": "ModeledBy",
+              "entityTypes": [
+                "semanticModel"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
       "metricUpstreams": {
         "aspect": "metricUpstreams",
         "fields": [
@@ -434,5 +470,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2026-07-07T21:00:47.994417+00:00"
+  "generated_at": "2026-07-10T00:23:09.000683+00:00"
 }

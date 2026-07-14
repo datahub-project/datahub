@@ -39,26 +39,26 @@ def parse_cypress_results(artifact_dir: Path) -> Dict[str, List[float]]:
             root = tree.getroot()
 
             # Find the root suite with file attribute
-            root_suite = root.find('.//testsuite[@file]')
+            root_suite = root.find(".//testsuite[@file]")
             if root_suite is None:
                 continue
 
-            file_path = root_suite.get('file')
+            file_path = root_suite.get("file")
 
             # Strip "cypress/e2e/" prefix to get relative path
-            if file_path.startswith('cypress/e2e/'):
-                relative_path = file_path.replace('cypress/e2e/', '')
+            if file_path.startswith("cypress/e2e/"):
+                relative_path = file_path.replace("cypress/e2e/", "")
             else:
                 relative_path = file_path
 
             # Find all other testsuites (not the root suite) to get actual test durations
-            all_testsuites = root.findall('.//testsuite')
+            all_testsuites = root.findall(".//testsuite")
             for testsuite in all_testsuites:
                 # Skip if this is the root suite with file attribute
-                if testsuite.get('file'):
+                if testsuite.get("file"):
                     continue
 
-                time_str = testsuite.get('time', '0')
+                time_str = testsuite.get("time", "0")
                 try:
                     duration = float(time_str)
 
@@ -108,10 +108,10 @@ def parse_pytest_results(artifact_dir: Path) -> Dict[str, List[float]]:
             root = tree.getroot()
 
             # Find all testcase elements
-            for testcase in root.findall('.//testcase'):
-                classname = testcase.get('classname', '')
-                name = testcase.get('name', '')
-                time_str = testcase.get('time', '0')
+            for testcase in root.findall(".//testcase"):
+                classname = testcase.get("classname", "")
+                name = testcase.get("name", "")
+                time_str = testcase.get("time", "0")
 
                 # Build test ID
                 if classname and name:
@@ -141,8 +141,7 @@ def parse_pytest_results(artifact_dir: Path) -> Dict[str, List[float]]:
 
 
 def calculate_median_weights(
-    test_durations: Dict[str, List[float]],
-    key_name: str = "filePath"
+    test_durations: Dict[str, List[float]], key_name: str = "filePath"
 ) -> List[Dict]:
     """
     Calculate median duration for each test.
@@ -162,10 +161,7 @@ def calculate_median_weights(
             continue
 
         median = statistics.median(durations)
-        results.append({
-            key_name: test_id,
-            "duration": f"{median:.3f}s"
-        })
+        results.append({key_name: test_id, "duration": f"{median:.3f}s"})
 
     # Sort by duration descending
     results.sort(key=lambda x: float(x["duration"][:-1]), reverse=True)
@@ -181,19 +177,19 @@ def main():
         "--input-dir",
         type=Path,
         required=True,
-        help="Directory containing test artifacts (organized by run ID)"
+        help="Directory containing test artifacts (organized by run ID)",
     )
     parser.add_argument(
         "--cypress-output",
         type=Path,
-        required=True,
-        help="Output path for Cypress test weights JSON"
+        required=False,
+        help="Output path for Cypress test weights JSON",
     )
     parser.add_argument(
         "--pytest-output",
         type=Path,
         required=True,
-        help="Output path for Pytest test weights JSON"
+        help="Output path for Pytest test weights JSON",
     )
 
     args = parser.parse_args()
@@ -202,11 +198,13 @@ def main():
         print(f"Error: Input directory does not exist: {args.input_dir}")
         sys.exit(1)
 
-    print("=" * 60)
-    print("Parsing Cypress test results...")
-    print("=" * 60)
-    cypress_durations = parse_cypress_results(args.input_dir)
-    print(f"Found {len(cypress_durations)} unique Cypress tests")
+    cypress_durations = {}
+    if args.cypress_output:
+        print("=" * 60)
+        print("Parsing Cypress test results...")
+        print("=" * 60)
+        cypress_durations = parse_cypress_results(args.input_dir)
+        print(f"Found {len(cypress_durations)} unique Cypress tests")
 
     print("\n" + "=" * 60)
     print("Parsing Pytest test results...")
@@ -218,14 +216,20 @@ def main():
     print("Calculating median weights...")
     print("=" * 60)
 
-    cypress_weights = calculate_median_weights(cypress_durations, key_name="filePath")
+    cypress_weights = (
+        calculate_median_weights(cypress_durations, key_name="filePath")
+        if args.cypress_output
+        else []
+    )
     pytest_weights = calculate_median_weights(pytest_durations, key_name="testId")
 
-    print(f"Generated {len(cypress_weights)} Cypress weights")
+    if args.cypress_output:
+        print(f"Generated {len(cypress_weights)} Cypress weights")
     print(f"Generated {len(pytest_weights)} Pytest weights")
 
     # Create output directories if they don't exist
-    args.cypress_output.parent.mkdir(parents=True, exist_ok=True)
+    if args.cypress_output:
+        args.cypress_output.parent.mkdir(parents=True, exist_ok=True)
     args.pytest_output.parent.mkdir(parents=True, exist_ok=True)
 
     # Write output files
@@ -233,14 +237,15 @@ def main():
     print("Writing output files...")
     print("=" * 60)
 
-    with open(args.cypress_output, 'w') as f:
-        json.dump(cypress_weights, f, indent=2)
-        f.write('\n')
-    print(f"Wrote Cypress weights to: {args.cypress_output}")
+    if args.cypress_output:
+        with open(args.cypress_output, "w") as f:
+            json.dump(cypress_weights, f, indent=2)
+            f.write("\n")
+        print(f"Wrote Cypress weights to: {args.cypress_output}")
 
-    with open(args.pytest_output, 'w') as f:
+    with open(args.pytest_output, "w") as f:
         json.dump(pytest_weights, f, indent=2)
-        f.write('\n')
+        f.write("\n")
     print(f"Wrote Pytest weights to: {args.pytest_output}")
 
     # Print top 5 longest tests for each type
