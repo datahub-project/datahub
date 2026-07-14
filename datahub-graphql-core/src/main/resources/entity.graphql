@@ -13553,11 +13553,6 @@ type DataProduct implements Entity {
   privileges: EntityPrivileges
 
   """
-  Lineage information for the Data Product (upstream and downstream entities)
-  """
-  lineage(input: LineageInput!): EntityLineageResult
-
-  """
   Whether the Data Product exists in DataHub
   """
   exists: Boolean
