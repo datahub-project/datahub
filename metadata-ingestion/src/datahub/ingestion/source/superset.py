@@ -569,7 +569,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                         title="Unresolvable Superset owner",
                         message="Skipped an owner with no resolvable email; ownership may be incomplete",
                         context=f"Owner ID: {owner_id}, Entity Type: {entity_type}, Entity ID: {data.get('id', 'unknown')}",
-                        log=False,
                     )
         return owner_urns
 
