@@ -517,6 +517,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedUploadUrlExpirationSeconds",
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
+          "datahub.objectStorage.uri",
+          "datahub.objectStorage.path",
+          "datahub.objectStorage.provider",
+          "datahub.objectStorage.multipartThresholdBytes",
+          "datahub.objectStorage.multipartPartSizeBytes",
           "datahub.readOnly",
           "datahub.usage.aggregation.enabled",
           "datahub.usage.aggregation.micrometerExport.enabled",
@@ -525,6 +530,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.usage.aggregation.flush.scheduledIntervalSeconds",
           "datahub.usage.aggregation.flush.retryAttempts",
           "datahub.usage.aggregation.flush.retryInitialBackoffMillis",
+          "datahub.usage.aggregation.flush.alignmentPeriodSeconds",
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags

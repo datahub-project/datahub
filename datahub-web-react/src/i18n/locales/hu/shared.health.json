@@ -1,0 +1,15 @@
+{
+    "failAssertions": "Sikertelen Assertionök megtekintése →",
+    "failChecks": "Sikertelen ellenőrzések megtekintése →",
+    "failIncidents": "Aktív incidensek megtekintése →",
+    "passAssertions": "Minden Assertion sikeres",
+    "passChecks": "Minden ellenőrzés sikeres",
+    "passIncidents": "Nincsenek aktív incidensek",
+    "summaryHealthy": "Ez az eszköz jó állapotban van",
+    "summaryUnhealthy": "Ez az eszköz problémás lehet",
+    "typeAssertions": "Assertionök",
+    "typeIncidents": "Incidensek",
+    "typeTests": "Tesztek",
+    "warnAssertions": "Néhány Assertion-nel probléma van.",
+    "warnChecks": "Néhány ellenőrzéssel probléma van."
+}

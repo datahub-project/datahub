@@ -1,10 +1,11 @@
+import { ArrowCounterClockwise } from '@phosphor-icons/react/dist/csr/ArrowCounterClockwise';
 import { ArrowsIn } from '@phosphor-icons/react/dist/csr/ArrowsIn';
 import { ArrowsOut } from '@phosphor-icons/react/dist/csr/ArrowsOut';
 import { CalendarBlank } from '@phosphor-icons/react/dist/csr/CalendarBlank';
 import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { House } from '@phosphor-icons/react/dist/csr/House';
 import { SidebarSimple } from '@phosphor-icons/react/dist/csr/SidebarSimple';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Panel, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
@@ -47,11 +48,18 @@ type PanelType = 'filters' | 'timeRange';
 
 export default function LineageControls() {
     const { t } = useTranslation('lineage');
-    const { rootUrn, hideTransformations, showDataProcessInstances, showGhostEntities } =
+    const { rootUrn, hideTransformations, showDataProcessInstances, showGhostEntities, setDisplayVersion } =
         useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
     const { isDefault: isLineageTimeUnchanged } = useGetLineageTimeParams();
-    const { fitView } = useReactFlow();
+    const { fitView, setNodes } = useReactFlow();
+
+    // Clear manual drag flags so the recompute re-lays-out every node from scratch, then bump the
+    // display version to trigger that recompute.
+    const onRedraw = useCallback(() => {
+        setNodes((nodes) => nodes.map((n) => ({ ...n, data: { ...n.data, dragged: false } })));
+        setDisplayVersion(([version, urns]) => [version + 1, urns]);
+    }, [setNodes, setDisplayVersion]);
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [visiblePanel, setVisiblePanel] = useState<PanelType | null>(null);
@@ -88,6 +96,10 @@ export default function LineageControls() {
                     >
                         <LineageControlIcon icon={House} color="icon" />
                         {showExpandedText ? t('controls.focusOnHome.label') : null}
+                    </StyledPanelButton>
+                    <StyledPanelButton $showText={isExpanded} onClick={onRedraw}>
+                        <LineageControlIcon icon={ArrowCounterClockwise} color="icon" />
+                        {showExpandedText ? t('controls.redraw.label') : null}
                     </StyledPanelButton>
                     <StyledDivider />
                     <StyledPanelButton
