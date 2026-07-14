@@ -37,6 +37,9 @@ concurrency:
 env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
+  # Toggle backend test sharding. Repo variable (Settings → Actions → Variables); unset → '' →
+  # falsy → defaults OFF, so it flips without a commit and each repo sets its own value.
+  SHARDED_TESTS_RUNS_ENABLED: ${{ vars.SHARDED_TESTS_RUNS_ENABLED || 'false' }}
 
 jobs:
   setup:
@@ -56,11 +59,13 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
-      - name: Read CI flags from gradle.properties
+      - name: Read CI flags
         id: flags
-        # In-repo, CI-agnostic flag (not a GitHub repo variable) so it survives a CI migration.
+        # Sharding toggle comes from the SHARDED_TESTS_RUNS_ENABLED repo variable (workflow env
+        # above, default 'false'). Normalize to lowercase so "True"/"TRUE" also count as on.
         run: |
-          if grep -qE '^[[:space:]]*datahub\.ci\.backendTestSharding[[:space:]]*=[[:space:]]*true[[:space:]]*$' gradle.properties; then
+          value="$(echo "${SHARDED_TESTS_RUNS_ENABLED}" | tr '[:upper:]' '[:lower:]')"
+          if [ "$value" = "true" ]; then
             echo "backend_sharding=true" >> "$GITHUB_OUTPUT"
           else
             echo "backend_sharding=false" >> "$GITHUB_OUTPUT"
@@ -76,8 +81,8 @@ jobs:
             echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
           fi
 
-  # Runs unless the in-repo sharding flag (gradle.properties datahub.ci.backendTestSharding)
-  # is on. When on, backend-seed + backend-test-shard below replace this single job.
+  # Runs unless the sharding toggle (SHARDED_TESTS_RUNS_ENABLED repo variable) is on. When on,
+  # backend-seed + backend-test-shard below replace this single job.
   build-except-metadata-ingestion:
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 60
@@ -409,7 +414,7 @@ jobs:
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-  # ── Experimental backend test sharding (behind gradle.properties backendTestSharding) ───
+  # ── Experimental backend test sharding (behind the SHARDED_TESTS_RUNS_ENABLED repo variable) ─
   # Timing-balanced across shards (committed .github/backend_test_weights.json, refreshed by
   # the update-test-weights workflow; falls back to an even split if absent). Each shard runs
   # WHOLE modules (`:module:test`, never --tests) so no test can be silently dropped; a heavy
