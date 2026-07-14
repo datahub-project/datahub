@@ -172,11 +172,6 @@ FILTER_COLUMN_REF_RE = re.compile(r"`[a-zA-Z_][a-zA-Z0-9_]*`")
 # Same, but captures the column name (without backticks).
 BACKTICK_COLUMN_NAME_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`")
 
-# Captures the column and date from `col` = 'YYYY-MM-DD' filters.
-BACKTICK_EQ_DATE_RE = re.compile(
-    r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*=\s*'(\d{4}-\d{2}-\d{2})'", re.IGNORECASE
-)
-
 # Recognised SQL comparison / membership operators in filter expressions.
 FILTER_OPERATOR_RE = re.compile(
     r"(?:=|!=|<>|<|>|<=|>=|IS\s+(?:NOT\s+)?NULL|LIKE|NOT\s+LIKE|IN\s*\()",
@@ -210,12 +205,17 @@ PARTITION_ID_YYYYMMDD_PATTERN = re.compile(r"^\d{8}$")
 PARTITION_ID_YYYYMM_PATTERN = re.compile(r"^\d{6}$")
 PARTITION_ID_YYYYMMDDHH_PATTERN = re.compile(r"^\d{10}$")
 
-# Detects an existing date literal's format so date windowing keeps the same format.
-DATE_FORMAT_PATTERNS = {
-    DATE_FORMAT_YYYYMMDD: re.compile(r"'(\d{8})'"),
-    DATE_FORMAT_YYYY_MM_DD: re.compile(r"'(\d{4}-\d{2}-\d{2})'"),
-    DATE_FORMAT_YYYYMMDDHH: re.compile(r"'(\d{10})'"),
-}
+# Captures the column and right-hand literal of a `col` = <literal> partition
+# predicate so date windowing can reproduce the literal's exact shape.
+PARTITION_EQ_LITERAL_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*=\s*(.+?)\s*$")
+
+# Shape of a date literal's inner (unquoted) value -> format name. Used to render
+# a windowing range bound with the same format the source equality filter used.
+DATE_LITERAL_SHAPES = (
+    (DATE_FORMAT_YYYYMMDDHH, PARTITION_ID_YYYYMMDDHH_PATTERN),
+    (DATE_FORMAT_YYYY_MM_DD, ISO_DATE_PATTERN),
+    (DATE_FORMAT_YYYYMMDD, PARTITION_ID_YYYYMMDD_PATTERN),
+)
 
 
 MAX_PARTITION_VALUES = 1000

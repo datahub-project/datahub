@@ -16,14 +16,13 @@ from datahub.ingestion.source.bigquery_v2.common import BQ_SPECIAL_PARTITION_IDS
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     BACKTICK_COLUMN_NAME_RE,
-    BACKTICK_EQ_DATE_RE,
     BQ_SAFETY_ROW_LIMIT,
     BQ_SAFETY_ROW_LIMIT_THRESHOLD,
     CUSTOM_SQL_KWARG,
-    DATE_FORMAT_PATTERNS,
     DATE_FORMAT_YYYY_MM_DD,
-    DATE_FORMAT_YYYYMMDD,
     DATE_LIKE_COLUMN_NAMES,
+    DATE_LITERAL_SHAPES,
+    PARTITION_EQ_LITERAL_RE,
     PARTITION_HANDLING_ENABLED,
     PARTITION_HANDLING_KWARG,
     PARTITIONING_COLUMN_FLAG,
@@ -802,62 +801,103 @@ class BigqueryProfiler(GenericProfiler):
             )
             return partition_filters
 
-        reference_date = self._get_reference_date_from_filters(
-            partition_filters, date_columns
-        )
-        if not reference_date:
-            reference_date = datetime.now(timezone.utc).date()
+        # Build one range per date column, reproducing the exact shape (format,
+        # quoting, and any DATE()/TIMESTAMP() wrapper) of that column's equality
+        # literal so the comparison keeps the column's type — a STRING column
+        # must not be compared against an unquoted integer, which BigQuery
+        # rejects with "No matching signature for operator >=".
+        ranges: Dict[str, str] = {}
+        for col_name in date_columns:
+            literal = self._find_equality_literal(partition_filters, col_name)
+            if literal is None:
+                # No pinned date (e.g. an IS NOT NULL fallback): window from today
+                # using a quoted ISO literal, which BigQuery coerces for
+                # STRING/DATE/TIMESTAMP columns.
+                fmt, quoted, wrapper = DATE_FORMAT_YYYY_MM_DD, True, None
+                reference_date = datetime.now(timezone.utc).date()
+            else:
+                spec = self._parse_date_literal(literal)
+                if spec is None:
+                    # Unrecognised literal shape: leave the equality untouched
+                    # rather than risk a type-mismatched range.
+                    continue
+                fmt, quoted, wrapper, reference_date = spec
 
-        start_date = reference_date - timedelta(days=window_days)
+            start_date = reference_date - timedelta(days=window_days)
+            start_str = self._render_date_bound(start_date, fmt, quoted, wrapper)
+            end_str = self._render_date_bound(reference_date, fmt, quoted, wrapper)
+            ranges[col_name] = (
+                f"`{col_name}` >= {start_str} AND `{col_name}` <= {end_str}"
+            )
 
-        # Drop each windowed column's single-date equality; the range below replaces it.
+        if not ranges:
+            return partition_filters
+
+        # Drop each windowed column's single-date equality; the range replaces it.
         # Keeping `col = X` would AND-collapse the range back to `col = X`.
         windowed_filters = [
             f
             for f in partition_filters
-            if not any(f"`{col}` = " in f for col in date_columns)
+            if not any(f"`{col}` = " in f for col in ranges)
         ]
-
-        for col_name in date_columns:
-            existing_format = self._detect_date_format_in_filters(
-                partition_filters, col_name
-            )
-
-            if existing_format == DATE_FORMAT_YYYYMMDD:
-                # YYYYMMDD partitions are stored as integers; emit unquoted literals.
-                fmt = STRFTIME_FORMATS[DATE_FORMAT_YYYYMMDD]
-                start_date_str = start_date.strftime(fmt)
-                end_date_str = reference_date.strftime(fmt)
-            else:
-                fmt = STRFTIME_FORMATS[DATE_FORMAT_YYYY_MM_DD]
-                start_date_str = f"'{start_date.strftime(fmt)}'"
-                end_date_str = f"'{reference_date.strftime(fmt)}'"
-
-            windowed_filters.append(
-                f"`{col_name}` >= {start_date_str} AND `{col_name}` <= {end_date_str}"
-            )
+        windowed_filters.extend(ranges.values())
 
         logger.debug(
             f"Applied {window_days}-day partition window for {table.name}: "
-            f"{start_date.strftime('%Y-%m-%d')} to {reference_date.strftime('%Y-%m-%d')}"
+            f"windowed columns {sorted(ranges)}"
         )
 
         return windowed_filters
 
-    def _detect_date_format_in_filters(
+    def _find_equality_literal(
         self, partition_filters: List[str], col_name: str
     ) -> Optional[str]:
-        col_prefix = f"`{re.escape(col_name)}`"
-
         for filter_expr in partition_filters:
-            if col_prefix not in filter_expr:
-                continue
-
-            for format_name, pattern in DATE_FORMAT_PATTERNS.items():
-                if pattern.search(filter_expr):
-                    return format_name
-
+            match = PARTITION_EQ_LITERAL_RE.search(filter_expr)
+            if match and match.group(1) == col_name:
+                return match.group(2).strip()
         return None
+
+    def _parse_date_literal(
+        self, literal: str
+    ) -> Optional[Tuple[str, bool, Optional[str], date]]:
+        """Parse a partition equality literal into (format, quoted, wrapper, date).
+
+        Recognises bare and quoted YYYYMMDD / YYYY-MM-DD / YYYYMMDDHH literals,
+        optionally wrapped in DATE()/DATETIME()/TIMESTAMP(). Returns None for
+        anything else so the caller can leave that filter unchanged.
+        """
+        text = literal.strip()
+        wrapper: Optional[str] = None
+        wrapper_match = re.fullmatch(
+            r"(DATE|DATETIME|TIMESTAMP)\((.+)\)", text, re.IGNORECASE
+        )
+        if wrapper_match:
+            wrapper = wrapper_match.group(1).upper()
+            text = wrapper_match.group(2).strip()
+
+        quoted = len(text) >= 2 and text[0] == "'" and text[-1] == "'"
+        inner = text[1:-1] if quoted else text
+
+        for fmt, pattern in DATE_LITERAL_SHAPES:
+            if pattern.fullmatch(inner):
+                try:
+                    parsed = datetime.strptime(inner, STRFTIME_FORMATS[fmt]).date()
+                except ValueError:
+                    return None
+                return fmt, quoted, wrapper, parsed
+        return None
+
+    @staticmethod
+    def _render_date_bound(
+        value: date, fmt: str, quoted: bool, wrapper: Optional[str]
+    ) -> str:
+        rendered = value.strftime(STRFTIME_FORMATS[fmt])
+        if quoted:
+            rendered = f"'{rendered}'"
+        if wrapper:
+            rendered = f"{wrapper}({rendered})"
+        return rendered
 
     def _extract_date_columns_from_filters(
         self, partition_filters: List[str]
@@ -879,18 +919,3 @@ class BigqueryProfiler(GenericProfiler):
                     date_columns.append(col_name)
 
         return date_columns
-
-    def _get_reference_date_from_filters(
-        self, partition_filters: List[str], date_columns: List[str]
-    ) -> Optional[date]:
-        date_column_set = set(date_columns)
-        for filter_expr in partition_filters:
-            for col_name, date_str in BACKTICK_EQ_DATE_RE.findall(filter_expr):
-                if col_name not in date_column_set:
-                    continue
-                try:
-                    return datetime.strptime(date_str, "%Y-%m-%d").date()
-                except ValueError:
-                    continue
-
-        return None

@@ -414,18 +414,6 @@ def test_profiler_extract_date_columns_from_filters():
     assert "user_id" not in result
 
 
-def test_profiler_get_reference_date_from_filters():
-    config = create_test_config()
-    report = BigQueryV2Report()
-    profiler = BigqueryProfiler(config, report)
-
-    filters = ["`event_date` = '2023-12-25'", "`user_id` = 123"]
-    date_columns = ["event_date"]
-
-    result = profiler._get_reference_date_from_filters(filters, date_columns)
-    assert result == date(2023, 12, 25)
-
-
 def test_profiler_should_skip_profiling_due_to_staleness():
     config = create_test_config()
     report = BigQueryV2Report()
@@ -1148,34 +1136,9 @@ def test_profiler_apply_partition_date_windowing_comprehensive():
             assert result == input_filters
 
 
-def test_profiler_detect_date_format_in_filters():
-    """Test BigqueryProfiler._detect_date_format_in_filters for consistent formatting."""
-    config = create_test_config()
-    report = BigQueryV2Report()
-    profiler = BigqueryProfiler(config, report)
-
-    filters_yyyymmdd = ["`date` = '20250913'", "`user_id` = 123"]
-    format_result = profiler._detect_date_format_in_filters(filters_yyyymmdd, "date")
-    assert format_result == "YYYYMMDD"
-
-    filters_yyyy_mm_dd = ["`event_date` = '2025-09-13'", "`status` = 'active'"]
-    format_result = profiler._detect_date_format_in_filters(
-        filters_yyyy_mm_dd, "event_date"
-    )
-    assert format_result == "YYYY-MM-DD"
-
-    # Test no specific format (should return None for DATE functions)
-    filters_no_format = ["`user_id` = 123", "`status` = 'active'"]
-    format_result = profiler._detect_date_format_in_filters(filters_no_format, "date")
-    assert format_result is None
-
-    filters_other_col = ["`other_date` = '20250913'"]
-    format_result = profiler._detect_date_format_in_filters(filters_other_col, "date")
-    assert format_result is None
-
-
-def test_profiler_date_windowing_with_string_format():
-    """Test that date windowing uses consistent string formats to avoid type mismatches."""
+def test_profiler_date_windowing_preserves_literal_type():
+    """The range bound must reuse the source literal's quoting so the comparison
+    keeps the column's type (a STRING column must not be compared against an int)."""
     config = create_test_config()
     config.profiling.partition_datetime_window_days = 7
     report = BigQueryV2Report()
@@ -1183,23 +1146,30 @@ def test_profiler_date_windowing_with_string_format():
 
     table = create_test_table()
 
-    # YYYYMMDD partitions are stored as integers, so the range uses unquoted literals.
-    input_filters = ["`date` = '20250913'"]
-    result = profiler._apply_partition_date_windowing(input_filters, table)
+    # Quoted YYYYMMDD is a STRING column -> range must stay quoted (regression:
+    # this previously emitted `date` >= 20250906, causing STRING >= INT64).
+    result = profiler._apply_partition_date_windowing(["`date` = '20250913'"], table)
+    assert result == ["`date` >= '20250906' AND `date` <= '20250913'"]
 
-    assert len(result) == len(input_filters)
-    windowing_filter = result[0]
-    assert "DATE(" not in windowing_filter
-    assert ">= " in windowing_filter and "<= " in windowing_filter
+    # Unquoted YYYYMMDD is an INT64 column -> range must stay unquoted.
+    result_int = profiler._apply_partition_date_windowing(["`date` = 20250913"], table)
+    assert result_int == ["`date` >= 20250906 AND `date` <= 20250913"]
 
-    # YYYY-MM-DD partitions are strings, so the range uses quoted string literals.
-    input_filters_dash = ["`event_date` = '2025-09-13'"]
-    result_dash = profiler._apply_partition_date_windowing(input_filters_dash, table)
+    # Quoted ISO date -> quoted range.
+    result_iso = profiler._apply_partition_date_windowing(
+        ["`event_date` = '2025-09-13'"], table
+    )
+    assert result_iso == [
+        "`event_date` >= '2025-09-06' AND `event_date` <= '2025-09-13'"
+    ]
 
-    assert len(result_dash) == len(input_filters_dash)
-    windowing_filter_dash = result_dash[0]
-    assert "DATE(" not in windowing_filter_dash
-    assert ">= '" in windowing_filter_dash and "<= '" in windowing_filter_dash
+    # TIMESTAMP() wrapper is preserved so the comparison stays a TIMESTAMP.
+    result_ts = profiler._apply_partition_date_windowing(
+        ["`event_ts` = TIMESTAMP('2025-09-13')"], table
+    )
+    assert result_ts == [
+        "`event_ts` >= TIMESTAMP('2025-09-06') AND `event_ts` <= TIMESTAMP('2025-09-13')"
+    ]
 
 
 def test_profiler_get_dataset_name_variations():
