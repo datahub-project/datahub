@@ -503,9 +503,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Shard count = this list's length (the ONLY place it's defined). The values are unused;
-        # --split-index/--split-total are read from strategy.job-index/strategy.job-total below.
-        batch: [1, 2, 3, 4, 5, 6]
+        # Shard count = this list's length (the ONLY place it's defined). --split-index/--split-total
+        # come from strategy.job-index/strategy.job-total; values here match job-index so artifact
+        # and PostHog labels (shard${{ matrix.batch }}) line up with the actual split index.
+        batch: [0, 1, 2, 3, 4, 5]
     runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 40
     steps:
@@ -579,22 +580,109 @@ jobs:
           junit-file-globs: |
             **/build/test-results/test/**/*.xml
             **/junit.*.xml
-      - name: Generate cross-module coverage report
-        if: ${{ !cancelled() }}
-        # Merges JaCoCo for the modules THIS shard ran. Each shard uploads its partial report
-        # under the shared `backend` flag; Codecov server-merges them into full backend coverage
-        # (same pattern as the frontend-test shards). continue-on-error: a coverage hiccup must
-        # not fail a shard whose tests already passed.
+      - name: Send failed test metrics to PostHog
+        if: failure()
         continue-on-error: true
-        run: ./gradlew jacocoMergedReport --no-configure-on-demand
-      - name: Gather coverage files
-        if: ${{ !cancelled() }}
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
         run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+          TEMP_DIR=$(mktemp -d)
+          mkdir -p "$TEMP_DIR/test-results"
+          find . -name "*.xml" -path "*/build/test-results/*" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir "$TEMP_DIR/test-results" \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${GH_HEAD_REF}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --command "backend-shard${{ matrix.batch }}" \
+            --timezone "UTC"
+          rm -rf "$TEMP_DIR"
+      # Raw per-module JaCoCo execution data. The backend-coverage job merges ALL shards' exec
+      # into ONE report, so cross-module coverage (a module covered by tests on another shard)
+      # is not lost. Paths are preserved so jacocoMergedReport finds them under */build/jacoco/.
+      - name: Upload JaCoCo exec for cross-shard merge
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: backend-jacoco-exec-shard${{ matrix.batch }}
+          retention-days: 1
+          if-no-files-found: warn
+          path: |
+            **/build/jacoco/*.exec
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
+
+  # Merges JaCoCo execution data from ALL shards into one cross-module report and uploads it
+  # once to Codecov (`backend` flag). Merging the union of .exec — rather than per-shard partial
+  # reports — recovers coverage where one module's classes are exercised by another module's
+  # tests that landed on a different shard (parity with the single build-except job).
+  backend-coverage:
+    needs: [setup, backend-test-shard]
+    if: ${{ !cancelled() && needs.setup.outputs.backend_change == 'true' && needs.setup.outputs.backend_sharding == 'true' }}
+    runs-on: ${{ needs.setup.outputs.runner_type }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          cache-read-only: true
+          gradle-home-cache-excludes: caches/build-cache-1
+      - name: Restore Gradle build cache (exact key from seed this run)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-backend-build-cache-${{ github.run_id }}
+          restore-keys: |
+            gradle-backend-build-cache-
+      - name: Download all shards' JaCoCo exec
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: backend-jacoco-exec-shard*
+          merge-multiple: true
+      - name: Merge coverage across shards
+        # Best-effort: a coverage-merge hiccup must not red a PR whose tests already passed.
+        continue-on-error: true
+        run: |
+          # testClasses restores compiled classes FROM the build cache (fast) so jacocoMergedReport
+          # has classDirectories; the downloaded .exec (union of all shards) are its executionData.
+          ./gradlew testClasses jacocoMergedReport --no-configure-on-demand --build-cache --max-workers="$(nproc)" \
+            -x :metadata-ingestion:build \
+            -x :docs-website:build \
+            -x :datahub-frontend:build \
+            -x :datahub-web-react:build \
+            -x :docker:build
           {
             echo "BACKEND_FILES=$(find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade|jacoco-merged)' | xargs | tr ' ' ',')"
           } >> "$GITHUB_ENV"
-      # One step each (not release-split ×2): override_branch is only set on release, empty
-      # otherwise (= Codecov's default branch detection). Halves the per-shard upload steps.
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload backend coverage to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
@@ -604,15 +692,8 @@ jobs:
           disable_search: true
           fail_ci_if_error: false
           flags: backend
-          name: backend-shard${{ matrix.batch }}
+          name: backend-merged
           verbose: true
-          override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: test_results
           override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
 
   event-file:
