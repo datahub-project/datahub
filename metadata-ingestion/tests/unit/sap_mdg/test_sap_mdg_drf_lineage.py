@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 import pytest
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sap_mdg.config import SapMdgSourceConfig
@@ -235,7 +236,9 @@ def test_logical_parent_emitted_alongside_lineage() -> None:
     # at the MDG entity; COPY lineage is still emitted in addition.
     assert source.report.logical_parents_emitted == 2
     assert source.report.lineage_edges_emitted == 2
-    aspect = parents[0].metadata.aspect
+    mcp = parents[0].metadata
+    assert isinstance(mcp, MetadataChangeProposalWrapper)
+    aspect = mcp.aspect
     assert isinstance(aspect, LogicalParentClass)
     assert aspect.parent is not None
     assert "sap-mdg" in aspect.parent.destinationUrn

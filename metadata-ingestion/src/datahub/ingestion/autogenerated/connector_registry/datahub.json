@@ -4065,6 +4065,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Emitted for downstream fields matching the MDG entity by name when `drf.emit_column_lineage` is set",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default via SAP labels",
           "subtype_modifier": null,
@@ -4090,7 +4096,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Emitted as foreign keys derived from OData navigation properties",
+          "description": "Foreign keys from OData navigation properties, plus cross-platform lineage to systems MDG replicates to (via the DRF replication model) when `drf.enabled`",
           "subtype_modifier": null,
           "supported": true
         },
