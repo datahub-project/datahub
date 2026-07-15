@@ -648,8 +648,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                             f"rule={skipped}"
                         ),
                     )
+                self.report.assertions_emitted += len(assertion_urns)
                 for mcp in assertion_mcps:
-                    self.report.assertions_emitted += 1
                     yield mcp.as_workunit()
 
             if self.config.emit_schema_assertion:
