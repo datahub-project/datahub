@@ -26,6 +26,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     CONFLUENT_MAGIC_BYTE,
     CONFLUENT_WIRE_HEADER_LENGTH,
     DEFAULT_CONSUMER_TIMEOUT_SECONDS,
+    OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS,
     SCHEMA_TYPE_AVRO,
     SamplingStrategy,
 )
@@ -179,7 +180,7 @@ def get_kafka_consumer(
         # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
         # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
         logger.debug("Initiating polling for kafka consumer")
-        consumer.poll(timeout=30)
+        consumer.poll(timeout=OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS)
         logger.debug("Initiated polling for kafka consumer")
 
     return consumer
@@ -199,7 +200,7 @@ def get_kafka_admin_client(
         # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
         # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
         logger.debug("Initiating polling for kafka admin client")
-        client.poll(timeout=30)
+        client.poll(timeout=OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS)
         logger.debug("Initiated polling for kafka admin client")
     return client
 
@@ -529,8 +530,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     )
 
     def _locked_warning(self, key: str, message: str) -> None:
-        # report_warning mutates a LossyList and counters, so serialize the calls
-        # made from profiling worker threads (matches the counter locking above).
+        # report_warning is not thread-safe; serialize the profiling worker calls.
         with self._report_lock:
             self.report.report_warning(key, message)
 
@@ -1017,9 +1017,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         logger.warning(f"No profile generated for topic: {topic_name}")
 
                 except Exception as e:
-                    # A topic that throws is a dropped profile; always tally it so the
-                    # final profiled/dropped counts stay correct. Locked because worker
-                    # threads may still be mutating the same counters concurrently.
+                    # A thrown topic is a dropped profile; tally it under the lock since
+                    # other workers may still be mutating the same counters.
                     with self._report_lock:
                         self.report.profiling_topics_dropped += 1
                         self.report.report_warning(

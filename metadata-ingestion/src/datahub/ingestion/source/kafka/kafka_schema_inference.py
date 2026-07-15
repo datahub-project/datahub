@@ -13,6 +13,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_CPU_COUNT_FALLBACK,
     DEFAULT_MAX_WORKERS_MULTIPLIER,
     DEFAULT_SESSION_TIMEOUT_MS,
+    OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS,
     OffsetResetStrategy,
 )
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
@@ -183,9 +184,7 @@ class KafkaSchemaInference:
         try:
             consumer = Consumer(consumer_config)
             if KafkaOAuthCallbackResolver.is_callable_config(self.consumer_config):
-                # Poll once so the OAuth callback executes; without this, auth fails
-                # on OAuth/OIDC clusters (mirrors get_kafka_consumer).
-                consumer.poll(timeout=30)
+                consumer.poll(timeout=OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS)
         except Exception as e:
             logger.debug(
                 f"Failed to create consumer for topic {topic} with '{offset_strategy}' strategy: {e}"

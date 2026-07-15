@@ -172,8 +172,7 @@ def test_histogram_generation_degenerate_inputs(profiler):
 
 
 def test_histogram_independent_of_distinct_count(sample_data, schema_metadata):
-    # Histograms must render even when distinct-count is disabled, since both used to
-    # share the same frequency map.
+    # Histograms must render even with distinct-count disabled.
     config = ProfilerConfig(
         include_field_histogram=True,
         include_field_distinct_count=False,

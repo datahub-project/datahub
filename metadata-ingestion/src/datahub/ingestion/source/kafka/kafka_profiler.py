@@ -632,8 +632,7 @@ class KafkaProfiler:
             return
 
         need_distinct = self.profiler_config.include_field_distinct_count
-        # Numeric histograms are reconstructed from the frequency map downstream, so
-        # build it when either distinct-count or histograms are requested.
+        # Histograms are rebuilt from this frequency map, so also build it for them.
         need_histogram = (
             self.profiler_config.include_field_histogram
             and stats.data_type == ProfilerFieldType.NUMERIC
