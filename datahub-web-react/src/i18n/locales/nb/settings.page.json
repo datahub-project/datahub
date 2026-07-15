@@ -13,6 +13,8 @@
     "nav.permissions": "Tillatelser",
     "nav.personal": "Personlig",
     "nav.preferences": "Preferanser",
+    "nav.collapseSidebar": "Skjul innstillingssidefelt",
+    "nav.expandSidebar": "Vis innstillingssidefelt",
     "nav.usersGroups": "Brukere og grupper",
     "nav.views": "Visninger",
     "subTitle": "Administrer innstillingene dine",
