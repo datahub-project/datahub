@@ -47,7 +47,7 @@ import org.dataloader.DataLoader;
  * <p>This class provides a {@link Builder} builder for constructing {@link GraphQL} instances
  * provided one or more schemas, {@link DataLoader}s, & a configured {@link RuntimeWiring}.
  *
- * <p>In addition, it provides a simplified 'execute' API that accepts a 1) query string and 2) set
+ * <p>In additio, it provides a simplified 'execute' API that accepts a 1) query string and 2) set
  * of variables.
  */
 @Slf4j
