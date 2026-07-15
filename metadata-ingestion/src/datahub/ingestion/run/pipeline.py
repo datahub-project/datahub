@@ -14,6 +14,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional
 import click
 import humanfriendly
 import psutil
+import requests
 
 from datahub._version import nice_version_name
 from datahub.cli import config_utils
@@ -198,8 +199,6 @@ def _kafka_endpoints_reachable(bootstrap: str, schema_registry_url: str) -> bool
     # Schema registry: a bounded GET against the subjects endpoint. MCP schemas
     # can't be registered if this is wrong.
     try:
-        import requests
-
         resp = requests.get(
             f"{schema_registry_url.rstrip('/')}/subjects",
             timeout=timeout_s,

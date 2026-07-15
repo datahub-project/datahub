@@ -98,9 +98,9 @@ This feature is supported only in specific configurations of DataHub Cloud and o
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
 
-#### Note: Not Supported in DataHub Cloud
+#### Note: Requires direct Kafka access
 
-The `datahub-kafka` sink requires direct network access to the Kafka cluster, which is only available in self-hosted DataHub environments (like OSS). For DataHub Cloud, use the `datahub-rest` sink instead.
+The `datahub-kafka` sink produces directly to the Kafka cluster, so the process running ingestion must have network access to the broker and schema registry. This holds for OSS and for in-cluster managed ingestion. Executors that run outside the cluster (e.g. remote executors with no direct Kafka access) cannot use it — those should emit via the `datahub-rest` sink instead.
 
 ### Setup
 

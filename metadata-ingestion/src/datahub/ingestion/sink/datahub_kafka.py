@@ -1,7 +1,7 @@
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 from confluent_kafka import KafkaError, Message
 from pydantic import Field
@@ -89,7 +89,9 @@ class _KafkaCallback:
     # thread, so a threading.Event (thread-safe) is used.
     failure_signal: Optional[threading.Event] = None
 
-    def kafka_callback(self, err: Optional[KafkaError], msg: Optional[Message]) -> None:
+    def kafka_callback(
+        self, err: Optional[Union[KafkaError, Exception]], msg: Optional[Message]
+    ) -> None:
         """
         Kafka delivery callback invoked by confluent-kafka producer.
 
@@ -161,7 +163,9 @@ class _AggregatingKafkaCallback:
     def __post_init__(self) -> None:
         self._remaining = self.total
 
-    def kafka_callback(self, err: Optional[KafkaError], msg: Optional[Message]) -> None:
+    def kafka_callback(
+        self, err: Optional[Union[KafkaError, Exception]], msg: Optional[Message]
+    ) -> None:
         with self._lock:
             self._remaining -= 1
             if err is not None and not self._failed:
@@ -211,7 +215,9 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
     def _emit_mcp_via_rest_fallback(
         self,
         record: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
-        delivery_callback: Callable[[Optional[KafkaError], Optional[Message]], None],
+        delivery_callback: Callable[
+            [Optional[Union[KafkaError, Exception]], Optional[Message]], None
+        ],
     ) -> None:
         """Degrade an oversize MCP (MessageTooLargeError) to the REST fallback.
 
@@ -227,9 +233,9 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
                 record, emit_mode=EmitMode.SYNC_PRIMARY
             )
         except Exception as rest_err:
-            # The callback wraps err in Exception(str(err)) and fires on_failure;
-            # cast is a type-only narrowing for the KafkaError-typed parameter.
-            delivery_callback(cast(Optional[KafkaError], rest_err), None)
+            # REST failures surface as a plain Exception (not a KafkaError); the
+            # callback reports it via str(err), so pass it through directly.
+            delivery_callback(rest_err, None)
             return
         delivery_callback(None, None)
 

@@ -373,6 +373,26 @@ class TestPipeline:
         assert pipeline.sink_type == "datahub-rest"
 
     @time_machine.travel(FROZEN_TIME, tick=False)
+    def test_explicit_sink_overrides_kafka_default(self, monkeypatch):
+        # The kafka default only applies to no-sink recipes; a recipe with an
+        # explicit sink must be honored as-is even when the default selector is
+        # set to datahub-kafka.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+                "sink": {"type": "console"},
+            },
+            report_to=None,
+        )
+        assert pipeline.sink_type == "console"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     @patch(
         "datahub.cli.config_utils.load_client_config",
