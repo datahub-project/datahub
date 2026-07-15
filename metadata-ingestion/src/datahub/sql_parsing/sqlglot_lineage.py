@@ -1314,8 +1314,8 @@ def _get_direct_raw_col_upstreams(
             node_parents[id(child)] = node
 
     # Build each parent's subfield map once up front (many leaves share a parent),
-    # keyed by id(parent). Membership guards recompute, so an empty map still counts
-    # as cached.
+    # keyed by id(parent). Only Table leaves consume it (the branch below), so we
+    # skip the rest. Membership guards recompute, so an empty map still counts as cached.
     parent_subfields: Dict[int, Dict[str, OrderedSet[str]]] = {}
     for node in lineage_node.walk():
         if node.downstream or not isinstance(node.expression, sqlglot.exp.Table):
@@ -1347,7 +1347,7 @@ def _get_direct_raw_col_upstreams(
             # the "" fallback emits the base column.
             parent = node_parents.get(id(node))
             leaf_subfields = (
-                parent_subfields[id(parent)].get(node.name)
+                parent_subfields.get(id(parent), {}).get(node.name)
                 if parent is not None
                 else None
             )
