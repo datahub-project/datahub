@@ -3631,8 +3631,10 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         # super().close() first guarantees the summary is emitted even if a teardown
         # step raises; the summary reads from self.report and does not touch the
         # resources being released.
-        super().close()
-        self._exit_stack.close()
+        try:
+            super().close()
+        finally:
+            self._exit_stack.close()
 
     def generate_profile_candidates(
         self,
