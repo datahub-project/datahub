@@ -1,6 +1,7 @@
+import dataclasses
 import io
 from pathlib import Path
-from types import SimpleNamespace
+from typing import Optional
 
 import boto3
 import fastavro
@@ -32,8 +33,18 @@ def make_profiler(**config_kwargs: object) -> FileProfiler:
     )
 
 
-def make_table_data(path: str) -> SimpleNamespace:
-    return SimpleNamespace(
+@dataclasses.dataclass
+class StubTableData:
+    """Minimal stand-in for s3.source.TableData satisfying TableDataLike."""
+
+    display_name: str
+    full_path: str
+    table_path: str
+    partitions: Optional[list] = None
+
+
+def make_table_data(path: str) -> StubTableData:
+    return StubTableData(
         display_name="test_table",
         full_path=path,
         table_path=path,
@@ -239,7 +250,7 @@ def test_profiles_single_s3_parquet_file() -> None:
     s3.put_object(Bucket="test-bucket", Key="data/demo.parquet", Body=parquet_bytes())
 
     profiler = make_s3_profiler()
-    table_data = SimpleNamespace(
+    table_data = StubTableData(
         display_name="demo",
         full_path="s3://test-bucket/data/demo.parquet",
         table_path="s3://test-bucket/data/demo.parquet",
@@ -264,7 +275,7 @@ def test_profiles_partitioned_s3_table_lists_all_files() -> None:
         )
 
     profiler = make_s3_profiler()
-    table_data = SimpleNamespace(
+    table_data = StubTableData(
         display_name="demo",
         full_path="s3://test-bucket/data/year=2023/part.parquet",
         table_path="s3://test-bucket/data",
@@ -279,7 +290,7 @@ def test_profiles_partitioned_s3_table_lists_all_files() -> None:
 
 def test_s3_path_without_aws_config_reports_warning() -> None:
     profiler = make_profiler()  # aws_config=None
-    table_data = SimpleNamespace(
+    table_data = StubTableData(
         display_name="demo",
         full_path="s3://test-bucket/data/demo.parquet",
         table_path="s3://test-bucket/data/demo.parquet",
@@ -293,7 +304,7 @@ def test_s3_path_without_aws_config_reports_warning() -> None:
 
 def test_partitioned_s3_without_aws_config_raises() -> None:
     profiler = make_profiler()  # aws_config=None
-    table_data = SimpleNamespace(
+    table_data = StubTableData(
         display_name="demo",
         full_path="s3://test-bucket/data/year=2023/part.parquet",
         table_path="s3://test-bucket/data",
@@ -314,7 +325,7 @@ def test_profiles_partitioned_local_directory(tmp_path: Path) -> None:
         )
 
     profiler = make_profiler()
-    table_data = SimpleNamespace(
+    table_data = StubTableData(
         display_name="events",
         full_path=str(table_dir / "year=2023" / "part.parquet"),
         table_path=str(table_dir),

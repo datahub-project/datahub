@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import IO, TYPE_CHECKING, Any, Iterable, List, Optional, Union
+from typing import IO, Any, Collection, Iterable, List, Optional, Protocol, Union
 
 from smart_open import open as smart_open
 
@@ -37,14 +37,28 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 
-if TYPE_CHECKING:
-    # Imported for typing only; a runtime import would be circular because
-    # s3.source lazily imports FileProfiler from this module.
-    from datahub.ingestion.source.s3.source import TableData
-
 logger: logging.Logger = logging.getLogger(__name__)
 
 NUM_SAMPLE_ROWS = 20
+
+
+class TableDataLike(Protocol):
+    """The subset of a source's table descriptor that the profiler needs.
+
+    Declared structurally (rather than importing s3's ``TableData``) so the
+    profiler stays decoupled from the file-based data-access layer and can be
+    driven by any source that exposes these fields. Also avoids a circular
+    import, since ``s3.source`` imports ``FileProfiler`` from this module.
+    """
+
+    @property
+    def display_name(self) -> str: ...
+    @property
+    def full_path(self) -> str: ...
+    @property
+    def table_path(self) -> str: ...
+    @property
+    def partitions(self) -> Optional[Collection[Any]]: ...
 
 
 def null_str(value: Any) -> Optional[str]:
@@ -93,7 +107,7 @@ class FileProfiler:
             return smart_open(normalized, "rb", transport_params={"client": s3_client})
         return smart_open(path, "rb")
 
-    def _iter_table_paths(self, table_data: "TableData") -> Iterable[str]:
+    def _iter_table_paths(self, table_data: TableDataLike) -> Iterable[str]:
         """Enumerate every file under a (possibly partitioned) table path.
 
         `table_data.table_path` is a directory when the table spans multiple
@@ -190,7 +204,7 @@ class FileProfiler:
         return field_profile
 
     def get_table_profile(
-        self, table_data: "TableData", dataset_urn: str
+        self, table_data: TableDataLike, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         config = self.profiling_config
         extension = os.path.splitext(table_data.full_path)[1]
