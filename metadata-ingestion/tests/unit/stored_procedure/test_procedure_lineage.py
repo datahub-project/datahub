@@ -4,9 +4,9 @@ from pathlib import Path
 import pytest
 
 from datahub.ingestion.source.sql.stored_procedures.base import (
-    BaseProcedure,
     generate_procedure_lineage,
 )
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.testing import mce_helpers
 

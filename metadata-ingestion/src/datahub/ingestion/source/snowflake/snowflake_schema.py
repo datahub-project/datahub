@@ -31,7 +31,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.prefix_batch_builder import PrefixGroup, build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache

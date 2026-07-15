@@ -28,7 +28,7 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
     SqlAlchemyTableDataReader,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
@@ -463,6 +463,9 @@ class TestOracleSource:
 
         # Mock inspector and connection
         mock_inspector = Mock()
+        # denormalize_name returns a real str in production; give the mock a
+        # concrete value so BaseProcedure's schema field validates.
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
 
         # Set up context manager support

@@ -76,10 +76,10 @@ from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
     SqlAlchemyTableDataReader,
 )
 from datahub.ingestion.source.sql.stored_procedures.base import (
-    BaseProcedure,
     generate_procedure_container_workunits,
     generate_procedure_workunits,
 )
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
