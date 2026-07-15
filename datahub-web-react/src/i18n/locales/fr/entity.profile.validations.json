@@ -571,10 +571,10 @@
     "volumeDescription.changeAtLeastRows": "La table doit augmenter d'au moins {{parameter}} lignes",
     "volumeDescription.changeAtMostPercent": "La table doit augmenter d'au plus {{parameter}} %",
     "volumeDescription.changeAtMostRows": "La table doit augmenter d'au plus {{parameter}} lignes",
-    "volumeDescription.changeBetweenPercent": "La table doit augmenter entre {{parameter}} %",
-    "volumeDescription.changeBetweenRows": "La table doit augmenter entre {{parameter}} lignes",
+    "volumeDescription.changeBetweenPercent": "La table doit augmenter entre {{min}} et {{max}} %",
+    "volumeDescription.changeBetweenRows": "La table doit augmenter entre {{min}} et {{max}} lignes",
     "volumeDescription.totalAtLeast": "La table comporte au moins {{parameter}} lignes",
     "volumeDescription.totalAtMost": "La table comporte au plus {{parameter}} lignes",
-    "volumeDescription.totalBetween": "La table comporte entre {{parameter}} lignes",
+    "volumeDescription.totalBetween": "La table comporte entre {{min}} et {{max}} lignes",
     "volumeDescription.unknown": "La table possède une assertion de volume"
 }
