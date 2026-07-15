@@ -459,9 +459,22 @@ class AutoResolveLineageUrnsProcessor(
             return _Resolution(urn, None, None)
 
         name = dataset_urn.name
+        # A platform can have several configured resolvers (one per platform_instance /
+        # env); we iterate and take the first schema match. We deliberately don't index by
+        # platform_instance because it isn't recoverable from the URN — it's fused into the
+        # name, and separating it would require fetching the dataPlatformInstance aspect
+        # (overkill). env *is* recoverable from the URN, so we could additionally
+        # disambiguate on it (e.g. avoid healing a PROD ref to a DEV entity), but that
+        # collision is unlikely in practice, so it's left as a possible follow-up.
         for resolver in resolvers:
             table = self._strip_platform_instance(name, resolver.platform_instance)
             try:
+                # We pass the whole name as `table` and rely on get_urn_for_table
+                # concatenating the parts back into the name. This leans on SchemaResolver
+                # internals and is a bit fragile (get_urn_for_table carries a TODO about
+                # 2/3-layer hierarchy). A read-only resolve_dataset_urn(urn) helper on
+                # SchemaResolver is a tracked follow-up (additive, separate from the
+                # normalizedUrn work).
                 resolved_urn, schema = resolver.resolve_table_parts(
                     database=None, db_schema=None, table=table
                 )
