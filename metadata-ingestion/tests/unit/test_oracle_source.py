@@ -528,6 +528,14 @@ class TestOracleSource:
             assert result[0].language == "SQL"
             assert result[0].argument_signature == "IN param1 VARCHAR2"
             assert result[1].argument_signature is None  # not present in schema map
+            assert (
+                result[0].procedure_definition
+                == "CREATE PROCEDURE test_proc AS BEGIN NULL; END;"
+            )
+            assert (
+                result[1].procedure_definition
+                == "CREATE FUNCTION test_func RETURN NUMBER AS BEGIN RETURN 1; END;"
+            )
             assert result[0].extra_properties is not None
             assert "upstream_dependencies" in result[0].extra_properties
 
@@ -536,7 +544,7 @@ class TestOracleSource:
 
         Older implementations ran 3 enrichment queries per procedure, which
         dominated ingestion time on schemas with hundreds of procedures. The
-        connection should be hit exactly 4 times regardless of procedure count:
+        connection should be hit exactly 5 times regardless of procedure count:
         once for the procedure list and once each for sources, arguments, and
         the two combined dependency queries.
         """
@@ -625,6 +633,128 @@ class TestOracleSource:
         }
         mock_connection.execute.assert_called_once()
         assert "dba_source" in str(mock_connection.execute.call_args[0][0]).lower()
+
+    def test_get_procedure_source_codes_for_schema_merges_package_body(self):
+        """PACKAGE BODY rows must merge into the PACKAGE key, since
+        PROCEDURES_QUERY only ever yields the 'PACKAGE' object type."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        rows = [
+            Mock(type="PACKAGE", line=1, text="CREATE PACKAGE pkg1 AS\n"),
+            Mock(type="PACKAGE", line=2, text="  PROCEDURE do_it;\nEND;"),
+            Mock(type="PACKAGE BODY", line=1, text="CREATE PACKAGE BODY pkg1 AS\n"),
+            Mock(
+                type="PACKAGE BODY",
+                line=2,
+                text="  PROCEDURE do_it IS BEGIN NULL; END;\nEND;",
+            ),
+        ]
+        for row in rows:
+            row.name = "PKG1"
+        mock_connection.execute.return_value = rows
+
+        result = source._get_procedure_source_codes_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert set(result.keys()) == {("PKG1", "PACKAGE")}
+        combined = result[("PKG1", "PACKAGE")]
+        assert "CREATE PACKAGE pkg1 AS" in combined
+        assert "CREATE PACKAGE BODY pkg1 AS" in combined
+        # Spec text must precede body text so the definition reads top-to-bottom.
+        assert combined.index("CREATE PACKAGE pkg1") < combined.index(
+            "CREATE PACKAGE BODY pkg1"
+        )
+
+    def test_get_procedures_for_schema_package_definition_includes_body(self):
+        """End-to-end: a PACKAGE row from PROCEDURES_QUERY picks up both spec
+        and body source through get_procedures_for_schema."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_inspector = Mock()
+        mock_connection = Mock()
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__ = Mock(return_value=mock_connection)
+        mock_context_manager.__exit__ = Mock(return_value=None)
+        mock_inspector.engine.connect.return_value = mock_context_manager
+
+        pkg = Mock()
+        pkg.name = "PKG1"
+        pkg.type = "PACKAGE"
+        pkg.created = datetime.now()
+        pkg.last_ddl_time = datetime.now()
+        pkg.status = "VALID"
+
+        source_rows = [
+            Mock(type="PACKAGE", line=1, text="CREATE PACKAGE pkg1 AS\nEND;"),
+            Mock(type="PACKAGE BODY", line=1, text="CREATE PACKAGE BODY pkg1 AS\nEND;"),
+        ]
+        for row in source_rows:
+            row.name = "PKG1"
+
+        mock_connection.execute.side_effect = [
+            [pkg],  # PROCEDURES_QUERY
+            source_rows,  # source codes (spec + body)
+            [],  # arguments
+            [],  # upstream deps
+            [],  # downstream deps
+        ]
+
+        result = source.get_procedures_for_schema(
+            inspector=mock_inspector, schema="TEST_SCHEMA", db_name="TEST_DB"
+        )
+
+        assert len(result) == 1
+        assert result[0].procedure_definition == (
+            "CREATE PACKAGE pkg1 AS\nEND;CREATE PACKAGE BODY pkg1 AS\nEND;"
+        )
+
+    def test_get_procedures_for_schema_emits_unenriched_when_helpers_fail(self):
+        """If the procedures query succeeds but every enrichment helper
+        fails, procedures must still be emitted, just unenriched."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_inspector = Mock()
+        mock_connection = Mock()
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__ = Mock(return_value=mock_connection)
+        mock_context_manager.__exit__ = Mock(return_value=None)
+        mock_inspector.engine.connect.return_value = mock_context_manager
+
+        procedures = []
+        for name in ("PROC_A", "PROC_B"):
+            proc = Mock()
+            proc.name = name
+            proc.type = "PROCEDURE"
+            proc.created = datetime.now()
+            proc.last_ddl_time = datetime.now()
+            proc.status = "VALID"
+            procedures.append(proc)
+        mock_connection.execute.return_value = procedures
+
+        with (
+            patch.object(
+                source, "_get_procedure_source_codes_for_schema", return_value={}
+            ),
+            patch.object(
+                source, "_get_procedure_arguments_for_schema", return_value={}
+            ),
+            patch.object(
+                source, "_get_procedure_dependencies_for_schema", return_value={}
+            ),
+        ):
+            result = source.get_procedures_for_schema(
+                inspector=mock_inspector, schema="TEST_SCHEMA", db_name="TEST_DB"
+            )
+
+        assert len(result) == 2
+        for base_procedure in result:
+            assert base_procedure.procedure_definition is None
+            assert base_procedure.argument_signature is None
+            extra_properties = base_procedure.extra_properties or {}
+            assert "upstream_dependencies" not in extra_properties
+            assert "downstream_dependencies" not in extra_properties
 
     def test_get_procedure_arguments_for_schema(self):
         """Arguments are fetched in one round-trip and grouped per procedure."""
@@ -726,6 +856,29 @@ class TestOracleSource:
         assert p2_deps.downstream is None
 
         assert mock_connection.execute.call_count == 2
+
+    def test_get_procedure_dependencies_for_schema_downstream_only_entry(self):
+        """A name that appears only in the downstream query must still
+        surface in the result, with upstream=None."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        upstream_rows: List[Mock] = []
+        downstream_rows = [Mock(owner="TEST_SCHEMA", type="PROCEDURE")]
+        downstream_rows[0].name = "P2"
+        downstream_rows[0].referenced_name = "P3"
+
+        mock_connection.execute.side_effect = [upstream_rows, downstream_rows]
+
+        result = source._get_procedure_dependencies_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert set(result.keys()) == {"P3"}
+        p3_deps = result["P3"]
+        assert p3_deps.upstream is None
+        assert p3_deps.downstream is not None
+        assert "TEST_SCHEMA.P2 (PROCEDURE)" in p3_deps.downstream
 
     def test_loop_materialized_views(self):
         """Test looping through materialized views."""
@@ -911,6 +1064,30 @@ class TestOracleSource:
             )
             == {}
         )
+
+    def test_error_handling_in_procedure_methods_reports_via_report(self):
+        """Batch-helper failures must be visible on self.report, not just a
+        bare logger, and must increment procedures_missing_enrichment."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        mock_connection.execute.side_effect = Exception("ORA-01555: snapshot too old")
+
+        source._get_procedure_source_codes_for_schema(
+            conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+        )
+        source._get_procedure_arguments_for_schema(
+            conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+        )
+        source._get_procedure_dependencies_for_schema(
+            conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+        )
+
+        assert source.report.procedures_missing_enrichment == 3
+        assert len(source.report.warnings) == 3
+        for warning in source.report.warnings:
+            assert warning.title == "Failed to Fetch Stored Procedure Enrichment"
+            assert any("TEST_SCHEMA" in c for c in warning.context)
 
 
 class TestOracleQueryExtraction:
