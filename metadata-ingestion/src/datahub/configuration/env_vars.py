@@ -85,7 +85,7 @@ def get_ingestion_default_sink() -> str:
     ``datahub-rest`` -- unrecognized values also log a warning -- so the historical
     REST behavior is always the safe fallback.
     """
-    raw = os.getenv("DATAHUB_INGESTION_DEFAULT_SINK", DEFAULT_SINK_KAFKA).strip().lower()
+    raw = os.getenv("DATAHUB_INGESTION_DEFAULT_SINK", DEFAULT_SINK_REST).strip().lower()
     if raw not in (DEFAULT_SINK_REST, DEFAULT_SINK_KAFKA):
         logger.warning(
             "Unrecognized DATAHUB_INGESTION_DEFAULT_SINK=%r; falling back to %s. "
