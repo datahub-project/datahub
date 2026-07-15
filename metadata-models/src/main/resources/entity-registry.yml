@@ -695,6 +695,7 @@ entities:
     searchGroup: primary
     aspects:
       - semanticModelInfo
+      - upstreamLineage
       - ownership
       - domains
       - globalTags

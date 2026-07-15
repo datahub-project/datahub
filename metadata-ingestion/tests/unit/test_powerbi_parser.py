@@ -1,13 +1,16 @@
 import pytest
 
+from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     AthenaPlatformOverride,
+    OraclePlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     ResolvePlatformInstanceFromDatasetTypeMapping,
+    ResolvePlatformInstanceFromServerToPlatformInstance,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
@@ -16,8 +19,19 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     AmazonAthenaLineage,
     MSSqlLineage,
+    OracleLineage,
+    _remap_column_lineage_to_pbi_fields,
 )
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Column,
+    Table,
+)
+from datahub.metadata.schema_classes import StringTypeClass
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 
 
 @pytest.fixture
@@ -1231,3 +1245,382 @@ def test_athena_table_platform_override_known_platform_valid():
     )
     assert len(config.athena_table_platform_override) == 1
     assert config.athena_table_platform_override[0].platform == "mysql"
+
+
+def _make_oracle_invoke(server_literal: str, record_fields: dict[str, str]) -> dict:
+    elements: list = [
+        {
+            "kind": "LiteralExpression",
+            "literalKind": "Text",
+            "literal": f'"{server_literal}"',
+        }
+    ]
+    if record_fields:
+        record_elements = [
+            {
+                "kind": "GeneralizedIdentifierPairedExpression",
+                "key": {"literal": key},
+                "value": {
+                    "kind": "LiteralExpression",
+                    "literalKind": "Text",
+                    "literal": f'"{value}"',
+                },
+            }
+            for key, value in record_fields.items()
+        ]
+        elements.append(
+            {
+                "kind": "RecordExpression",
+                "content": {"kind": "ArrayWrapper", "elements": record_elements},
+            }
+        )
+    return {
+        "kind": "InvokeExpression",
+        "content": {"kind": "ArrayWrapper", "elements": elements},
+    }
+
+
+@pytest.fixture
+def oracle_config_tns():
+    return PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        server_to_platform_instance={
+            "oracle-tns.example.com": PlatformDetail(platform_instance="oracle_prod"),
+        },
+    )
+
+
+@pytest.fixture
+def oracle_lineage_tns(oracle_config_tns):
+    return OracleLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=Table(name="orders", full_name="SALES.orders"),
+        reporter=PowerBiDashboardSourceReport(),
+        config=oracle_config_tns,
+        platform_instance_resolver=ResolvePlatformInstanceFromServerToPlatformInstance(
+            oracle_config_tns
+        ),
+    )
+
+
+def test_oracle_parse_tns_alias():
+    server, db = OracleLineage._get_server_and_db_name("oracle-tns.example.com")
+    assert server == "oracle-tns.example.com"
+    assert db is None
+
+
+def test_oracle_parse_tns_descriptor_service_name():
+    server, db = OracleLineage._get_server_and_db_name(
+        "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=host)(PORT=1521))"
+        "(CONNECT_DATA=(SERVICE_NAME=orclpdb)))"
+    )
+    assert server == "orclpdb"
+    assert db is None
+
+
+def test_oracle_hierarchical_tns_with_platform_instance(oracle_lineage_tns):
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "ORDERS"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="source", items={"Schema": "SALES"}, next=table_accessor
+    )
+
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com", {"HierarchicalNavigation": "true"}
+    )
+
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=schema_accessor,
+        node_map={},
+    )
+
+    lineage = oracle_lineage_tns.create_lineage(detail)
+
+    assert len(lineage.upstreams) == 1
+    assert "oracle_prod.sales.orders" in lineage.upstreams[0].urn.lower()
+
+
+def test_oracle_hierarchical_no_default_database_reports_two_part_urn(
+    oracle_lineage_tns,
+):
+    # Bare TNS alias, no default_database configured -> 2-part URN plus a
+    # best-effort info telling the operator how to get 3-part URNs.
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "ORDERS"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="source", items={"Schema": "SALES"}, next=table_accessor
+    )
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com", {"HierarchicalNavigation": "true"}
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=schema_accessor,
+        node_map={},
+    )
+
+    lineage = oracle_lineage_tns.create_lineage(detail)
+
+    assert len(lineage.upstreams) == 1
+    assert "oracle_prod.sales.orders" in lineage.upstreams[0].urn.lower()
+    info_titles = [entry.title for entry in oracle_lineage_tns.reporter.infos]
+    assert any("2-part URN" in (t or "") for t in info_titles)
+
+
+def test_oracle_hierarchical_missing_name_warns_and_skips(oracle_lineage_tns):
+    # Two-step navigation confirmed but the table Name item is absent: skip, but
+    # surface a warning rather than dropping lineage silently.
+    table_accessor = IdentifierAccessor(identifier="table", items={}, next=None)
+    schema_accessor = IdentifierAccessor(
+        identifier="source", items={"Schema": "SALES"}, next=table_accessor
+    )
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com", {"HierarchicalNavigation": "true"}
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=schema_accessor,
+        node_map={},
+    )
+
+    lineage = oracle_lineage_tns.create_lineage(detail)
+
+    assert lineage.upstreams == []
+    warning_titles = [entry.title for entry in oracle_lineage_tns.reporter.warnings]
+    assert any("missing schema/table" in (t or "") for t in warning_titles)
+
+
+def test_oracle_native_query_tns_extracts_tables(oracle_lineage_tns):
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com",
+        {"Query": "SELECT * FROM SALES.ORDERS"},
+    )
+
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=None,
+        node_map={},
+    )
+
+    lineage = oracle_lineage_tns.create_lineage(detail)
+
+    assert len(lineage.upstreams) == 1
+    assert (
+        lineage.upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.sales.orders,PROD)"
+    )
+
+
+def test_oracle_native_query_takes_precedence_over_hierarchical(oracle_lineage_tns):
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "SOME_OTHER_TABLE"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="source", items={"Schema": "SALES"}, next=table_accessor
+    )
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com",
+        {"Query": "SELECT * FROM SALES.ORDERS"},
+    )
+
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=schema_accessor,
+        node_map={},
+    )
+
+    lineage = oracle_lineage_tns.create_lineage(detail)
+
+    # SQL path wins: ORDERS, not SOME_OTHER_TABLE
+    urns = [u.urn.lower() for u in lineage.upstreams]
+    assert any("orders" in u for u in urns)
+    assert not any("some_other_table" in u for u in urns)
+
+
+def _oracle_lineage_with(server_map: dict) -> OracleLineage:
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        server_to_platform_instance=server_map,
+    )
+    return OracleLineage(
+        ctx=PipelineContext(run_id="test-run-id"),
+        table=Table(name="orders", full_name="SALES.orders"),
+        reporter=PowerBiDashboardSourceReport(),
+        config=config,
+        platform_instance_resolver=ResolvePlatformInstanceFromServerToPlatformInstance(
+            config
+        ),
+    )
+
+
+def test_oracle_hierarchical_tns_default_database_adds_db_segment():
+    # A bare TNS alias carries no database; default_database supplies the segment
+    # so the URN matches an Oracle ingestion running add_database_name_to_urn=true.
+    lineage = _oracle_lineage_with(
+        {
+            "oracle-tns.example.com": OraclePlatformDetail(
+                platform_instance="oracle_prod", default_database="edwprd"
+            )
+        }
+    )
+    table_accessor = IdentifierAccessor(
+        identifier="table", items={"Name": "ORDERS"}, next=None
+    )
+    schema_accessor = IdentifierAccessor(
+        identifier="source", items={"Schema": "SALES"}, next=table_accessor
+    )
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com", {"HierarchicalNavigation": "true"}
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=schema_accessor,
+        node_map={},
+    )
+
+    result = lineage.create_lineage(detail)
+
+    assert len(result.upstreams) == 1
+    assert "oracle_prod.edwprd.sales.orders" in result.upstreams[0].urn.lower()
+
+
+def test_oracle_native_query_default_database_adds_db_segment():
+    lineage = _oracle_lineage_with(
+        {
+            "oracle-tns.example.com": OraclePlatformDetail(
+                platform_instance="oracle_prod",
+                default_database="edwprd",
+                default_schema="sales",
+            )
+        }
+    )
+    arg_list = _make_oracle_invoke(
+        "oracle-tns.example.com",
+        {"Query": "SELECT * FROM ORDERS"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=arg_list,
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=None,
+        node_map={},
+    )
+
+    result = lineage.create_lineage(detail)
+
+    assert len(result.upstreams) == 1
+    assert "oracle_prod.edwprd.sales.orders" in result.upstreams[0].urn.lower()
+
+
+def test_oracle_platform_detail_requires_at_least_one_default():
+    with pytest.raises(ValueError):
+        OraclePlatformDetail(platform_instance="oracle_prod")
+
+
+def test_oracle_platform_detail_rejects_blank_default():
+    with pytest.raises(ValueError):
+        OraclePlatformDetail(default_schema="   ")
+
+
+def test_oracle_platform_detail_accepts_single_knob():
+    # A single-field Oracle entry is valid (the "at least one" validator accepts it).
+    OraclePlatformDetail(default_database="edwprd")
+    OraclePlatformDetail(default_schema="sales")
+
+
+def test_server_to_platform_instance_union_disambiguation():
+    # A plain entry resolves to PlatformDetail; an Oracle-only knob resolves to
+    # OraclePlatformDetail (the "at least one default" rule keeps them distinct).
+    config = PowerBiDashboardSourceConfig(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        server_to_platform_instance={
+            "plain-host": {"platform_instance": "pi"},
+            "oracle-alias": {"default_database": "edwprd"},
+        },
+    )
+
+    plain = config.server_to_platform_instance["plain-host"]
+    assert isinstance(plain, PlatformDetail)
+    assert not isinstance(plain, OraclePlatformDetail)
+
+    oracle = config.server_to_platform_instance["oracle-alias"]
+    assert isinstance(oracle, OraclePlatformDetail)
+    assert oracle.default_database == "edwprd"
+    assert oracle.default_schema is None
+
+
+_ORACLE_URN = "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.edw.orders,PROD)"
+
+
+def _make_cll(
+    downstream_col: str, upstream_col: str = "upstream_col"
+) -> ColumnLineageInfo:
+    return ColumnLineageInfo(
+        downstream=DownstreamColumnRef(column=downstream_col),
+        upstreams=[ColumnRef(table=_ORACLE_URN, column=upstream_col)],
+    )
+
+
+def _pbi_col(name: str) -> Column:
+    return Column(
+        name=name,
+        dataType="string",
+        isHidden=False,
+        datahubDataType=StringTypeClass(),
+    )
+
+
+def test_remap_returns_unchanged_when_no_pbi_columns():
+    cll = [_make_cll("adep"), _make_cll("ades")]
+    result = _remap_column_lineage_to_pbi_fields(cll, [])
+    assert result is cll
+
+
+def test_remap_returns_unchanged_when_no_column_lineage():
+    pbi_cols = [_pbi_col("ADEP"), _pbi_col("ADES")]
+    result = _remap_column_lineage_to_pbi_fields([], pbi_cols)
+    assert result == []
+
+
+def test_remap_corrects_case_mismatch():
+    cll = [_make_cll("adep"), _make_cll("ades")]
+    pbi_cols = [_pbi_col("ADEP"), _pbi_col("ADES")]
+
+    result = _remap_column_lineage_to_pbi_fields(cll, pbi_cols)
+
+    assert result[0].downstream.column == "ADEP"
+    assert result[1].downstream.column == "ADES"
+    assert result[0].upstreams == cll[0].upstreams
+
+
+def test_remap_leaves_already_matching_columns_unchanged():
+    cll = [_make_cll("ADEP")]
+    pbi_cols = [_pbi_col("ADEP")]
+
+    result = _remap_column_lineage_to_pbi_fields(cll, pbi_cols)
+
+    assert result[0] is cll[0]
+
+
+def test_remap_preserves_columns_absent_from_pbi_schema():
+    cll = [_make_cll("calculated_col"), _make_cll("adep")]
+    pbi_cols = [_pbi_col("ADEP")]
+
+    result = _remap_column_lineage_to_pbi_fields(cll, pbi_cols)
+
+    assert result[0].downstream.column == "calculated_col"
+    assert result[1].downstream.column == "ADEP"

@@ -63,6 +63,21 @@ function assertLazyIconsGenerated(): PluginOption {
     };
 }
 
+// In production the datahub-frontend Play server substitutes @basePath in index.html
+// at serve time. The Vite dev server serves the template verbatim, leaving a broken
+// relative <base href="@basePath">, so relative asset URLs (e.g. platform logos at
+// assets/platforms/*) resolve against the current route instead of the site root and
+// 404 on deep routes. Substitute it to '/' for dev, matching what Play does.
+function substituteBasePathForDev(): PluginOption {
+    return {
+        name: 'substitute-base-path-dev',
+        apply: 'serve',
+        transformIndexHtml(html) {
+            return html.replace('@basePath', '/');
+        },
+    };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
@@ -140,6 +155,7 @@ export default defineConfig(async ({ mode }) => {
         appType: 'spa',
         base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
+            substituteBasePathForDev(),
             assertLazyIconsGenerated(),
             ...devPlugins,
             react(),

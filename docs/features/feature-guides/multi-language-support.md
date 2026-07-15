@@ -23,6 +23,7 @@ most comfortable with.
 - Italian (Italiano) — Beta
 - Norwegian (Norsk bokmål) — Beta
 - Swedish (Svenska) — Beta
+- Hungarian (Magyar) — Beta
 
 Languages marked _Beta_ are still being refined and may have untranslated strings.
 
