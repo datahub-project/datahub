@@ -197,6 +197,11 @@ def get_kafka_broker_container() -> Optional[str]:
     return os.getenv("KAFKA_BROKER_CONTAINER")
 
 
+def get_datahub_usage_event_topic() -> str:
+    """DataHub usage event topic name."""
+    return str(os.getenv("DATAHUB_USAGE_EVENT_NAME", "DataHubUsageEvent_v1"))
+
+
 # ============================================================================
 # Cypress Testing
 # ============================================================================
@@ -210,6 +215,12 @@ def get_cypress_record_key() -> Optional[str]:
 def get_filtered_tests_file() -> Optional[str]:
     """Path to file containing filtered test paths (one per line)."""
     return os.getenv("FILTERED_TESTS")
+
+
+def get_smoke_policy_phase() -> Optional[str]:
+    """Smoke-test policy phase: ``1`` (non-mutators), ``2`` (mutators), or unset (all)."""
+    raw = os.getenv("SMOKE_POLICY_PHASE", "").strip()
+    return raw or None
 
 
 # ============================================================================

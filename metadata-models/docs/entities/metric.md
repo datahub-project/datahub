@@ -34,9 +34,11 @@ Core metadata is stored in the `metricInfo` aspect:
 - **`aiContext`** — optional hints for AI/LLM consumers: synonyms, natural-language instructions,
   few-shot examples, and custom instructions.
 - **`semanticModel`** -- URN of the `semanticModel` entity that defines this metric's
-  dimensional context. Optional: null when the metric
-  was ingested without a semantic model context (e.g. thin catalog-only metrics from BI
-  tools like Tableau) or is a native / SDK-authored metric awaiting a model.
+  dimensional context. Optional: null when the metric was ingested without a semantic model
+  context (e.g. thin catalog-only metrics from BI tools like Tableau) or is a native /
+  SDK-authored metric awaiting a model. The `ModeledBy` relationship on this field carries
+  `isLineage: true`, so when `semanticModel` is populated the metric automatically appears as a
+  downstream node in the semantic model's lineage explorer — no additional lineage MCPs are needed.
 
 ### Metric Relationships
 
@@ -60,20 +62,19 @@ The metric entity reuses these standard governance aspects: `ownership`, `domain
 
 ## Relationships with Other Entities
 
-| Relationship           | Direction | Target entity   | Aspect / edge name                 |
-| ---------------------- | --------- | --------------- | ---------------------------------- |
-| ModeledBy              | outbound  | `semanticModel` | `metricInfo`                       |
-| IsPartOf               | outbound  | `metric`        | `metricRelationships`              |
-| DerivedFrom            | outbound  | `metric`        | `metricRelationships`              |
-| RelatedTo              | outbound  | `metric`        | `metricRelationships`              |
-| Consumes (dataset)     | outbound  | `dataset`       | `metricUpstreams.datasetUpstreams` |
-| Consumes (schemaField) | outbound  | `schemaField`   | `metricUpstreams.fieldUpstreams`   |
+| Relationship           | Direction | Target entity   | Aspect / edge name                 | Lineage? |
+| ---------------------- | --------- | --------------- | ---------------------------------- | -------- |
+| ModeledBy              | outbound  | `semanticModel` | `metricInfo`                       | yes      |
+| IsPartOf               | outbound  | `metric`        | `metricRelationships`              | no       |
+| DerivedFrom            | outbound  | `metric`        | `metricRelationships`              | yes      |
+| RelatedTo              | outbound  | `metric`        | `metricRelationships`              | no       |
+| Consumes (dataset)     | outbound  | `dataset`       | `metricUpstreams.datasetUpstreams` | yes      |
+| Consumes (schemaField) | outbound  | `schemaField`   | `metricUpstreams.fieldUpstreams`   | yes      |
 
-Metric-to-dataset and metric-to-column lineage are carried by the dedicated
-`metricUpstreams` aspect. `datasetUpstreams` and `fieldUpstreams` are independently
-optional so ingestion sources can populate whichever granularity they can extract.
-Metric-to-metric derivation lineage lives on `metricRelationships.derivedFrom` and is
-not folded into `metricUpstreams`.
+Metric-to-dataset and metric-to-column lineage are carried by the dedicated `metricUpstreams`
+aspect. `datasetUpstreams` and `fieldUpstreams` are independently optional so ingestion sources
+can populate whichever granularity they can extract. Metric-to-metric derivation lineage lives on
+`metricRelationships.derivedFrom` and is not folded into `metricUpstreams`.
 
 ## Notable Exceptions
 

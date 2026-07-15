@@ -7,7 +7,8 @@ import com.linkedin.common.Urn
  * Core information about a Metric entity.
  */
 @Aspect = {
-  "name": "metricInfo"
+  "name": "metricInfo",
+  "schemaVersion": 2
 }
 record MetricInfo {
 
@@ -65,7 +66,8 @@ record MetricInfo {
    */
   @Relationship = {
     "name": "ModeledBy",
-    "entityTypes": [ "semanticModel" ]
+    "entityTypes": [ "semanticModel" ],
+    "isLineage": true
   }
   @Searchable = {
     "fieldName": "semanticModel",

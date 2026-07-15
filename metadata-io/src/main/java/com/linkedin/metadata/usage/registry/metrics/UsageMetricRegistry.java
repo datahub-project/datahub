@@ -73,7 +73,17 @@ public class UsageMetricRegistry {
     WRITER_ACTIVITY_ALLOWLIST,
     INGESTION_REQUEST,
     COST_PROFILE,
-    INTEGRATIONS_MCP_REPORT;
+    /**
+     * Additive metrics recorded only via {@link
+     * com.linkedin.metadata.usage.store.UsageAggregationStore#recordReportedUsage} (not
+     * request-path {@code recordRequest}).
+     */
+    REPORTED;
+
+    /** True when the metric is incremented only from report-driven usage. */
+    public boolean isReportDriven() {
+      return this == REPORTED;
+    }
 
     static EmitWhen fromYaml(String raw) {
       return switch (raw.toLowerCase()) {
@@ -83,7 +93,7 @@ public class UsageMetricRegistry {
         case "writer_activity_allowlist" -> WRITER_ACTIVITY_ALLOWLIST;
         case "ingestion_request" -> INGESTION_REQUEST;
         case "cost_profile" -> COST_PROFILE;
-        case "integrations_mcp_report" -> INTEGRATIONS_MCP_REPORT;
+        case "reported" -> REPORTED;
         default -> throw new IllegalArgumentException("Unknown emit_when: " + raw);
       };
     }
@@ -94,7 +104,6 @@ public class UsageMetricRegistry {
       MergeKind mergeKind,
       String distinctKey,
       ValueUnit valueUnit,
-      boolean metronomeBatch,
       EmitWhen emitWhen) {
 
     public static MetricDefinition fromYamlDefinition(
@@ -104,7 +113,6 @@ public class UsageMetricRegistry {
           MergeKind.fromYaml(def.getMergeKind()),
           def.getDistinctKey(),
           ValueUnit.fromYaml(def.getValueUnit()),
-          def.isMetronomeBatch(),
           EmitWhen.fromYaml(def.getEmitWhen()));
     }
   }
