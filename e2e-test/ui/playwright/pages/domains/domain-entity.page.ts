@@ -123,7 +123,7 @@ export class DomainEntityPage extends BasePage {
     await this.createDomainConfirmButton.click();
 
     // Wait for success message indicating domain was created
-    await expect(this.page.getByText('Created domain!')).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await this.toast.expectVisible('Created domain!', { timeout: TIMEOUTS.LONG });
 
     // Get URN from GraphQL response
     const response = await responsePromise;
@@ -153,7 +153,7 @@ export class DomainEntityPage extends BasePage {
     await this.moveDomainConfirmButton.click();
 
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await expect(this.page.getByText('Moved Domain!')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await this.toast.expectVisible('Moved Domain!', { timeout: TIMEOUTS.MEDIUM });
   }
 
   async addDocumentation(description: string): Promise<void> {
