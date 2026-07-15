@@ -332,9 +332,6 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         return thread_local.emitter
 
     def to_graph(self) -> Optional["DataHubGraph"]:
-        # Lets the pipeline obtain a GMS client from the default sink
-        # polymorphically (no isinstance branch): the REST emitter already
-        # wraps a graph client.
         return self.emitter.to_graph()
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:

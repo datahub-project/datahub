@@ -412,10 +412,6 @@ class Pipeline:
 
             if self.graph is None:
                 with _add_init_error_context("setup default datahub client"):
-                    # Sink.to_graph() (default None) lets a default sink provide a
-                    # GMS client so features like stateful ingestion still work:
-                    # datahub-rest returns its emitter's graph, datahub-kafka its
-                    # REST fallback's; other sinks return None (no graph).
                     self.graph = self.sink.to_graph()
                     if self.graph is not None:
                         self.graph.test_connection()

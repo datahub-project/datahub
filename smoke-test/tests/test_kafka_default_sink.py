@@ -55,6 +55,7 @@ def test_default_sink_ingests_end_to_end(
     # Clean slate so a passing existence check proves this run delivered.
     graph_client.hard_delete_entity(DATASET_URN)
     wait_for_writes_to_sync()
+    assert not graph_client.exists(DATASET_URN)
 
     pipeline = _create_default_sink_pipeline(auth_session, monkeypatch, default_sink)
     assert pipeline.sink_type == expected_sink_type

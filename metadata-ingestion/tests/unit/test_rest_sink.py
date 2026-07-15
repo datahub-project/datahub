@@ -11,7 +11,12 @@ import time_machine
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
-from datahub.ingestion.sink.datahub_rest import DatahubRestSink, RestSinkMode
+from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.sink.datahub_rest import (
+    DatahubRestSink,
+    DatahubRestSinkConfig,
+    RestSinkMode,
+)
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 
@@ -484,9 +489,6 @@ def test_rest_sink_config_accepts_client_config_dump():
     # client-config field isn't also a DatahubRestSinkConfig field. Guard it so
     # such a drift fails here (a targeted unit test) instead of at runtime on
     # every Kafka-default ingestion run.
-    from datahub.ingestion.graph.config import DatahubClientConfig
-    from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
-
     client = DatahubClientConfig(server="http://localhost:8080")
     cfg = DatahubRestSinkConfig(**client.model_dump())
     assert cfg.server == "http://localhost:8080"
