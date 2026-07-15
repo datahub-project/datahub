@@ -29,7 +29,9 @@ from datahub.metadata.urns import (
     DatasetUrn,
     DataTypeUrn,
     EntityTypeUrn,
+    MetricUrn,
     SchemaFieldUrn,
+    SemanticModelUrn,
     StructuredPropertyUrn,
 )
 
@@ -150,6 +152,11 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
                 EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn(),
                 EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
                 EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
+                # Needed so tag-derived structured properties can be applied to
+                # semanticModel (view-level tags) and metric (metric-column tags)
+                # entities in the semanticModel emission mode.
+                EntityTypeUrn(f"datahub.{SemanticModelUrn.ENTITY_TYPE}").urn(),
+                EntityTypeUrn(f"datahub.{MetricUrn.ENTITY_TYPE}").urn(),
             ],
             lastModified=AuditStamp(
                 time=get_sys_time(), actor="urn:li:corpuser:datahub"
