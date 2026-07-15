@@ -1,15 +1,19 @@
 import aerospikeLogo from '@images/aerospike.png';
+import airbyteLogo from '@images/airbytelogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
+import bigidLogo from '@images/bigidlogo.png';
 import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
 import cockroachdbLogo from '@images/cockroachdblogo.png';
 import confluenceLogo from '@images/confluencelogo.svg';
 import csvLogo from '@images/csv-logo.png';
+import cubeLogo from '@images/cubelogo.png';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
+import dataprocMetastoreLogo from '@images/dataprocmetastorelogo.svg';
 import dbtLogo from '@images/dbtlogo.png';
 import dltLogo from '@images/dltlogo.svg';
 import dremioLogo from '@images/dremiologo.png';
@@ -31,6 +35,7 @@ import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
 import matillionLogo from '@images/matillionlogo.png';
 import metabaseLogo from '@images/metabaselogo.png';
+import microstrategyLogo from '@images/microstrategylogo.svg';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
 import mongodbLogo from '@images/mongodblogo.png';
@@ -55,18 +60,25 @@ import starrocksLogo from '@images/starrockslogo.svg';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
+import thoughtspotLogo from '@images/thoughtspotlogo.svg';
+import tidbLogo from '@images/tidblogo.svg';
+import timescaledbLogo from '@images/timescalelogo.png';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
 
 const AEROSPIKE = 'aerospike';
 const AEROSPIKE_URN = `urn:li:dataPlatform:${AEROSPIKE}`;
+export const AIRBYTE = 'airbyte';
+export const AIRBYTE_URN = `urn:li:dataPlatform:${AIRBYTE}`;
 const ATHENA = 'athena';
 const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
 const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
 const AZURE_DATA_FACTORY = 'azure-data-factory';
 const AZURE_DATA_FACTORY_URN = `urn:li:dataPlatform:${AZURE_DATA_FACTORY}`;
+export const BIGID = 'bigid';
+export const BIGID_URN = `urn:li:dataPlatform:${BIGID}`;
 const BIGQUERY = 'bigquery';
 const BIGQUERY_USAGE = 'bigquery-usage';
 export const BIGQUERY_BETA = 'bigquery-beta';
@@ -78,6 +90,8 @@ const COCKROACHDB = 'cockroachdb';
 const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
 export const CONFLUENCE = 'confluence';
 const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
+export const CUBE = 'cube';
+const CUBE_URN = `urn:li:dataPlatform:${CUBE}`;
 const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
 const DREMIO = 'dremio';
@@ -111,6 +125,8 @@ export const MATILLION_DPC = 'matillion-dpc';
 export const MATILLION_URN = `urn:li:dataPlatform:${MATILLION}`;
 const METABASE = 'metabase';
 const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
+export const MICROSTRATEGY = 'microstrategy';
+const MICROSTRATEGY_URN = `urn:li:dataPlatform:${MICROSTRATEGY}`;
 const MLFLOW = 'mlflow';
 const MLFLOW_URN = `urn:li:dataPlatform:${MLFLOW}`;
 export const MODE = 'mode';
@@ -147,6 +163,12 @@ const SUPERSET = 'superset';
 const SUPERSET_URN = `urn:li:dataPlatform:${SUPERSET}`;
 const TABLEAU = 'tableau';
 export const TABLEAU_URN = `urn:li:dataPlatform:${TABLEAU}`;
+export const THOUGHTSPOT = 'thoughtspot';
+export const THOUGHTSPOT_URN = `urn:li:dataPlatform:${THOUGHTSPOT}`;
+const TIDB = 'tidb';
+const TIDB_URN = `urn:li:dataPlatform:${TIDB}`;
+const TIMESCALEDB = 'timescaledb';
+const TIMESCALEDB_URN = `urn:li:dataPlatform:${TIMESCALEDB}`;
 const TRINO = 'trino';
 const TRINO_URN = `urn:li:dataPlatform:${TRINO}`;
 export const CUSTOM = 'custom';
@@ -154,6 +176,8 @@ const UNITY_CATALOG = 'unity-catalog';
 const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
 export const DATABRICKS = 'databricks';
 const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
+export const DATAPROC_METASTORE = 'dataproc-metastore';
+const DATAPROC_METASTORE_URN = `urn:li:dataPlatform:${DATAPROC_METASTORE}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
 export const DLT = 'dlt';
@@ -200,6 +224,7 @@ export const OMNI_URN = `urn:li:dataPlatform:${OMNI}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [AEROSPIKE_URN]: aerospikeLogo,
+    [AIRBYTE_URN]: airbyteLogo,
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
@@ -207,11 +232,13 @@ export const PLATFORM_URN_TO_LOGO = {
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
     [CONFLUENCE_URN]: confluenceLogo,
+    [CUBE_URN]: cubeLogo,
     [DBT_URN]: dbtLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
+    [BIGID_URN]: bigidLogo,
     [FEAST_URN]: feastLogo,
     [FLINK_URN]: flinkLogo,
     [GLUE_URN]: glueLogo,
@@ -222,6 +249,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MARIA_DB_URN]: mariadbLogo,
     [MATILLION_URN]: matillionLogo,
     [METABASE_URN]: metabaseLogo,
+    [MICROSTRATEGY_URN]: microstrategyLogo,
     [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
@@ -238,10 +266,14 @@ export const PLATFORM_URN_TO_LOGO = {
     [SNOWPLOW_URN]: snowplowLogo,
     [STARROCKS_URN]: starrocksLogo,
     [TABLEAU_URN]: tableauLogo,
+    [THOUGHTSPOT_URN]: thoughtspotLogo,
+    [TIDB_URN]: tidbLogo,
+    [TIMESCALEDB_URN]: timescaledbLogo,
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
     [DATABRICKS_URN]: databricksLogo,
+    [DATAPROC_METASTORE_URN]: dataprocMetastoreLogo,
     [VERTICA_URN]: verticaLogo,
     [DLT_URN]: dltLogo,
     [FIVETRAN_URN]: fivetranLogo,

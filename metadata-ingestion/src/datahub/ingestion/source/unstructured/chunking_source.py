@@ -237,6 +237,22 @@ class DocumentChunkingSource(Source):
             self._provider = create_embedding_provider(self.config.embedding)
         return self._provider
 
+    def get_model_embedding_key(self) -> Optional[str]:
+        """Return the SemanticContent embeddings map key for the active embedding model.
+
+        Mirrors the key derivation used when emitting SemanticContent. Returns None when
+        no embedding provider/model is configured (nothing will be embedded).
+        """
+        if not self.embedding_model or not self.config.embedding.model:
+            return None
+        if self.config.embedding.model_embedding_key:
+            return self.config.embedding.model_embedding_key
+        if "embed-english-v3" in self.config.embedding.model:
+            return "cohere_embed_v3"
+        # Map any non-alphanumeric character to '_' so the result is a legal
+        # Elasticsearch field name (matches _emit_semantic_content).
+        return re.sub(r"[^a-zA-Z0-9_]", "_", self.config.embedding.model)
+
     def process_elements_inline(
         self, document_urn: str, elements: list[dict[str, Any]]
     ) -> Iterable[MetadataWorkUnit]:
@@ -847,7 +863,12 @@ class DocumentChunkingSource(Source):
             aspect=semantic_content,
         )
 
-        workunit = MetadataWorkUnit(id=f"{document_urn}-semanticContent", mcp=mcp)
+        # Mark as non-primary so AutoStatusAspectProcessor does not emit a
+        # StatusClass UPSERT for these document URNs — that would overwrite
+        # lifecycleStage / lifecycleState set by other sources or users.
+        workunit = MetadataWorkUnit(
+            id=f"{document_urn}-semanticContent", mcp=mcp, is_primary_source=False
+        )
 
         logger.info(
             f"Emitting SemanticContent for {document_urn} with {len(chunks)} chunks"
@@ -902,6 +923,12 @@ class DocumentChunkingSource(Source):
                         )
 
                     # Validate local config matches server
+                    if server_config.embedding_config is None:
+                        raise ValueError(
+                            "Server reports semantic search is enabled but has no embedding configuration. "
+                            "This indicates a misconfigured server."
+                        )
+
                     logger.info(
                         "Validating local embedding configuration against server..."
                     )
@@ -986,45 +1013,32 @@ class DocumentChunkingSource(Source):
                         f"\n  AWS Region: {server_config.embedding_config.aws_region or 'N/A'}"
                     )
                     return resolved
+                elif server_config and not server_config.enabled:
+                    # Server is reachable and has explicitly disabled semantic search.
+                    # Respect the server's setting — do not embed.
+                    logger.info(
+                        "Semantic search is disabled on the DataHub server — skipping embedding generation."
+                    )
+                    return EmbeddingConfig()
                 else:
-                    # Server doesn't have semantic search enabled - use defaults
+                    # Server reachable but no embedding_config (semantic search enabled
+                    # but not yet configured). Skip embedding rather than guess a provider.
                     logger.info(
-                        "Semantic search not enabled on server - using default client-side embedding config (Bedrock/Cohere)"
+                        "Semantic search enabled on server but no embedding provider configured — skipping embedding generation."
                     )
-                    default_config = EmbeddingConfig.get_default_config()
-                    logger.info(
-                        "✓ Using default embedding configuration"
-                        f"\n  Provider: {default_config.provider}"
-                        f"\n  Model: {default_config.model}"
-                        f"\n  AWS Region: {default_config.aws_region}"
-                    )
-                    return default_config
+                    return EmbeddingConfig()
 
             except Exception as e:
                 logger.warning(
-                    f"Failed to load embedding config from server: {e}. Using default client-side embedding config."
+                    f"Failed to load embedding config from server: {e}. Skipping embedding generation."
                 )
-                default_config = EmbeddingConfig.get_default_config()
-                logger.info(
-                    "✓ Using default embedding configuration"
-                    f"\n  Provider: {default_config.provider}"
-                    f"\n  Model: {default_config.model}"
-                    f"\n  AWS Region: {default_config.aws_region}"
-                )
-                return default_config
+                return EmbeddingConfig()
         else:
-            # No graph available - use defaults
+            # No graph available — cannot determine server config, so skip embedding.
             logger.info(
-                "No DataHub server connection available - using default client-side embedding config"
+                "No DataHub server connection available — skipping embedding generation."
             )
-            default_config = EmbeddingConfig.get_default_config()
-            logger.info(
-                "✓ Using default embedding configuration"
-                f"\n  Provider: {default_config.provider}"
-                f"\n  Model: {default_config.model}"
-                f"\n  AWS Region: {default_config.aws_region}"
-            )
-            return default_config
+            return EmbeddingConfig()
 
     @staticmethod
     def _validate_provider_config(

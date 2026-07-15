@@ -1,15 +1,20 @@
-import { EditOutlined, FileOutlined } from '@ant-design/icons';
+import { File } from '@phosphor-icons/react/dist/csr/File';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
+import { useLinkListActions } from '@app/entityV2/shared/components/links/useLinkListActions';
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import { SectionContainer, SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
-import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
+import { ResourceLinkPill } from '@app/entityV2/shared/tabs/Documentation/components/ResourceLinkPill';
 import { Button, Editor } from '@src/alchemy-components';
 
 const UNEXPANDED_HEIGHT = 2000;
+const DOCUMENTATION_TAB_NAME = 'Documentation';
 
 const DocumentationWrapper = styled.div<{ canExpand?: boolean }>`
     position: relative;
@@ -45,9 +50,20 @@ const ExpandButton = styled(Button)`
     z-index: 1;
 `;
 
+const LinkPillsContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+`;
+
 export default function SummaryAboutSection() {
+    const { t } = useTranslation('entity.shared.profile');
+    const { t: tc } = useTranslation('common.actions');
     const { entityData } = useEntityData();
     const routeToTab = useRouteToTab();
+    const links = entityData?.institutionalMemory?.elements || [];
+    const { editingMetadata, isEditModalOpen, onEdit, onCloseEditModal, handleDeleteLink } = useLinkListActions();
 
     const [height, setHeight] = useState(0);
     const measuredRef = useCallback((node) => {
@@ -65,14 +81,14 @@ export default function SummaryAboutSection() {
 
     return (
         <SectionContainer>
-            <SummaryTabHeaderTitle title="Documentation" icon={<FileOutlined />} />
+            <SummaryTabHeaderTitle title={t('summary.documentationTitle')} icon={<File />} />
             <DocumentationWrapper canExpand={canExpand ? true : undefined}>
                 {!!description && (
                     <>
                         <EditorWrapper ref={measuredRef} mask={canExpand ? true : undefined} maxHeight={maxHeight}>
                             <Editor content={description} readOnly />
                         </EditorWrapper>
-                        {canExpand && <ExpandButton onClick={() => setExpanded(true)}>Expand</ExpandButton>}
+                        {canExpand && <ExpandButton onClick={() => setExpanded(true)}>{tc('expand')}</ExpandButton>}
                     </>
                 )}
                 {!description && (
@@ -80,14 +96,28 @@ export default function SummaryAboutSection() {
                         <AddLinkModal />
                         <Button
                             data-testid="add-documentation"
-                            onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                            onClick={() =>
+                                routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true } })
+                            }
                         >
-                            <EditOutlined /> Add Documentation
+                            <PencilSimple /> {t('summary.addDocumentation')}
                         </Button>
                     </EmptyTab>
                 )}
-                <LinkList />
+                {links.length > 0 && (
+                    <LinkPillsContainer data-testid="link-list">
+                        {links.map((link) => (
+                            <ResourceLinkPill
+                                key={`link-${link.url}`}
+                                link={link}
+                                onEdit={onEdit}
+                                onDelete={handleDeleteLink}
+                            />
+                        ))}
+                    </LinkPillsContainer>
+                )}
             </DocumentationWrapper>
+            {isEditModalOpen && <EditLinkModal link={editingMetadata} onClose={onCloseEditModal} />}
         </SectionContainer>
     );
 }

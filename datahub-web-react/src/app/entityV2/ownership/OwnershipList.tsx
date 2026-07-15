@@ -1,6 +1,7 @@
 import { EmptyState, Pagination, SearchBar, toast } from '@components';
 import { Users } from '@phosphor-icons/react/dist/csr/Users';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { OwnershipBuilderModal } from '@app/entityV2/ownership/OwnershipBuilderModal';
 import { OwnershipTable } from '@app/entityV2/ownership/table/OwnershipTable';
@@ -19,6 +20,7 @@ type OwnershipListProps = {
  * This component renders a paginated, searchable list of Ownership Types.
  */
 export const OwnershipList = ({ showOwnershipBuilder, setShowOwnershipBuilder }: OwnershipListProps) => {
+    const { t } = useTranslation('entity.ownership');
     const [page, setPage] = useState(1);
     const [ownershipType, setOwnershipType] = useState<undefined | OwnershipTypeEntity>(undefined);
     const [query, setQuery] = useState('');
@@ -50,10 +52,10 @@ export const OwnershipList = ({ showOwnershipBuilder, setShowOwnershipBuilder }:
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading Ownership Types..." />}
-            {error && toast.error('Failed to load Ownership Types! An unexpected error occurred.')}
+            {!data && loading && <Message type="loading" content={t('loading')} />}
+            {error && toast.error(t('loadError'))}
             <SearchBar
-                placeholder="Search..."
+                placeholder={t('searchPlaceholder')}
                 value={query}
                 onChange={(value) => {
                     setQuery(value);
@@ -84,11 +86,11 @@ export const OwnershipList = ({ showOwnershipBuilder, setShowOwnershipBuilder }:
             ) : (
                 !loading && (
                     <EmptyState
-                        title="No Ownership Types found"
-                        description="Create a custom ownership type to categorize asset owners."
+                        title={t('emptyTitle')}
+                        description={t('emptyDescription')}
                         icon={Users}
                         action={{
-                            label: 'Create Ownership Type',
+                            label: t('createOwnershipType'),
                             onClick: () => setShowOwnershipBuilder(true),
                         }}
                         style={{ flex: 1, justifyContent: 'center' }}

@@ -1,7 +1,9 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { Button, Space, Typography } from 'antd';
+import { Button, Space } from 'antd';
+import i18next from 'i18next';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import DatePicker from '@utils/DayjsDatePicker';
@@ -11,6 +13,25 @@ import type { Dayjs } from '@utils/dayjs';
 const { RangePicker } = DatePicker;
 
 export type Datetime = Dayjs | null;
+
+const TimeRangeTrigger = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 16px;
+    color: ${(props) => props.theme.colors.text};
+    cursor: pointer;
+`;
+
+const TriggerCaret = styled(CaretDownOutlined)`
+    font-size: 10px;
+    color: ${(props) => props.theme.colors.icon};
+`;
 
 const ConfirmButtonWrapper = styled.div`
     position: absolute;
@@ -41,6 +62,8 @@ type Props = {
 };
 
 export default function LineageTimeSelector({ onChange, startTimeMillis, endTimeMillis }: Props) {
+    const { t } = useTranslation('lineage');
+    const { t: tcAction } = useTranslation('common.actions');
     const [startDate, setStartDate] = useState<Datetime>(startTimeMillis ? dayjs(startTimeMillis) : null);
     const [endDate, setEndDate] = useState<Datetime>(endTimeMillis ? dayjs(endTimeMillis) : null);
     const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -83,15 +106,13 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
 
     return (
         <>
-            {showText ? ( // Conditionally render All Time selection
-                <Tooltip title="Filter lineage edges by observed date" placement="topLeft" showArrow={false}>
-                    <Button type="text" onClick={() => handleOpenChange(true)}>
+            {showText ? (
+                <Tooltip title={t('timeSelector.filterTooltip')} placement="topLeft" showArrow={false}>
+                    <TimeRangeTrigger type="button" onClick={() => handleOpenChange(true)}>
                         <CalendarOutlined style={{ marginRight: '4px' }} />
-                        <Typography.Text>
-                            <b>{getTimeRangeDescription(startDate, endDate)}</b>
-                        </Typography.Text>
-                        <CaretDownOutlined style={{ fontSize: '10px' }} />
-                    </Button>
+                        {getTimeRangeDescription(startDate, endDate)}
+                        <TriggerCaret />
+                    </TimeRangeTrigger>
                 </Tooltip>
             ) : (
                 <Space direction="vertical" size={12}>
@@ -108,7 +129,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                         renderExtraFooter={() => (
                             <ConfirmButtonWrapper>
                                 <ConfirmButton type="text" onClick={() => handleOpenChange(false)}>
-                                    <b>Confirm</b>
+                                    {tcAction('confirm')}
                                 </ConfirmButton>
                             </ConfirmButtonWrapper>
                         )}
@@ -128,20 +149,20 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
 
 function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs | null): string {
     if (!startDate && !endDate) {
-        return 'All Time';
+        return i18next.t('lineage:timeSelector.allTime');
     }
 
     if (!startDate && endDate) {
-        return `Until ${endDate.format('ll')}`;
+        return i18next.t('lineage:timeSelector.until', { date: endDate.format('ll') });
     }
 
     if (startDate && !endDate) {
         const dayDiff = dayjs().diff(startDate, 'days');
         if (dayDiff <= 30) {
-            return `Last ${dayDiff} days`;
+            return i18next.t('lineage:timeSelector.lastNDays', { count: dayDiff });
         }
-        return `From ${startDate.format('ll')}`;
+        return i18next.t('lineage:timeSelector.from', { date: startDate.format('ll') });
     }
 
-    return 'Unknown time range';
+    return i18next.t('lineage:timeSelector.unknownRange');
 }

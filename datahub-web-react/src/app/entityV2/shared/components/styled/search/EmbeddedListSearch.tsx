@@ -1,5 +1,6 @@
 import { ApolloError } from '@apollo/client';
 import React, { useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -167,6 +168,7 @@ export const EmbeddedListSearch = ({
     sort,
     searchFlags,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     const userContext = useUserContext();
 
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
@@ -381,7 +383,7 @@ export const EmbeddedListSearch = ({
     let errorMessage = '';
     if (error) {
         console.error('Failed to load results', error);
-        errorMessage = `Failed to load results due to an unexpected error. Please try again later.`;
+        errorMessage = t('embeddedSearch.loadError');
     }
 
     return (

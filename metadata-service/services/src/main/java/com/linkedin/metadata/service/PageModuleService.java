@@ -39,6 +39,7 @@ public class PageModuleService {
           "urn:li:dataHubPageModule:your_subscriptions",
           "urn:li:dataHubPageModule:top_domains",
           "urn:li:dataHubPageModule:assets",
+          "urn:li:dataHubPageModule:output_ports",
           "urn:li:dataHubPageModule:child_hierarchy",
           "urn:li:dataHubPageModule:data_products",
           "urn:li:dataHubPageModule:related_terms",
@@ -54,7 +55,8 @@ public class PageModuleService {
    * Upserts a DataHub page module. If the page module with the provided urn already exists, then it
    * will be overwritten.
    *
-   * <p>This method assumes that authorization has already been verified at the calling layer.
+   * <p>Callers must hold MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE to create or modify GLOBAL-scoped
+   * modules, or to modify any module whose existing scope is GLOBAL.
    *
    * @return the URN of the new page module.
    */
@@ -85,6 +87,27 @@ public class PageModuleService {
     // 2. Build Page Module Properties
     DataHubPageModuleProperties properties = new DataHubPageModuleProperties();
     DataHubPageModuleProperties existingProperties = getPageModuleProperties(opContext, moduleUrn);
+
+    // Prevent scope-hijacking: a low-privileged user must not be able to overwrite a GLOBAL module
+    // by supplying its URN with scope=PERSONAL in the request. Check the persisted scope, not the
+    // caller-supplied scope.
+    if (existingProperties != null
+        && existingProperties.getVisibility() != null
+        && PageModuleScope.GLOBAL.equals(existingProperties.getVisibility().getScope())
+        && !AuthUtil.isAuthorized(opContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE)) {
+      throw new UnauthorizedException(
+          String.format(
+              "User is unauthorized to modify global page module with urn %s", moduleUrn));
+    }
+
+    // Prevent privilege escalation: creating or re-scoping a module to GLOBAL also requires the
+    // manage privilege.
+    if (PageModuleScope.GLOBAL.equals(scope)
+        && !AuthUtil.isAuthorized(opContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE)) {
+      throw new UnauthorizedException(
+          "User is unauthorized to create or modify global page modules.");
+    }
+
     if (existingProperties != null) {
       properties = existingProperties;
     } else {

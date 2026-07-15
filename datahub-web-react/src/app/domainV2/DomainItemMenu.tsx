@@ -1,6 +1,7 @@
 import { DeleteOutlined } from '@ant-design/icons';
 import { Dropdown, Menu, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { MenuIcon } from '@app/entity/shared/EntityDropdown/EntityDropdown';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -16,6 +17,8 @@ type Props = {
 };
 
 export default function DomainItemMenu({ name, urn, onDelete }: Props) {
+    const { t } = useTranslation('governance.domain');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const [deleteDomainMutation] = useDeleteDomainMutation();
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -28,14 +31,14 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success('Deleted Domain!');
+                    message.success(t('itemMenu.deleteSuccess'));
                     onDelete?.();
                 }
             })
             .catch((e) => {
                 console.error('Issue deleting a domain:', e);
                 message.destroy();
-                message.error({ content: `Failed to delete Domain!: An unknown error occurred.`, duration: 3 });
+                message.error({ content: t('itemMenu.deleteError'), duration: 3 });
             });
     };
 
@@ -46,7 +49,7 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
                 overlay={
                     <Menu>
                         <Menu.Item onClick={() => setShowDeleteModal(true)} key="delete" danger>
-                            <DeleteOutlined /> &nbsp;Delete
+                            <DeleteOutlined /> &nbsp;{tc('delete')}
                         </Menu.Item>
                     </Menu>
                 }
@@ -57,8 +60,10 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
                 isOpen={showDeleteModal}
                 handleClose={() => setShowDeleteModal(false)}
                 handleConfirm={deleteDomain}
-                modalTitle={`Delete Domain '${name}'`}
-                modalText={`Are you sure you want to remove this ${entityRegistry.getEntityName(EntityType.Domain)}?`}
+                modalTitle={t('itemMenu.deleteConfirmTitle', { name })}
+                modalText={t('itemMenu.deleteConfirmText', {
+                    entityName: entityRegistry.getEntityName(EntityType.Domain),
+                })}
             />
         </>
     );

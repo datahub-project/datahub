@@ -102,7 +102,8 @@
                 "updated_at": "2021-12-10T23:12:53.273Z",
                 "last_run_id": "1897576958",
                 "data_source_id": "34499",
-                "explorations_count": "1"
+                "explorations_count": "1",
+                "chart_count": "1"
             },
             "externalUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e/details/queries/6e26a9f3d4e2",
             "name": "Customer and staff",
@@ -767,9 +768,53 @@
                     }
                 },
                 {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),Staff Last Name)",
+                    "schemaField": {
+                        "fieldPath": "Staff Last Name",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": [
+                                {
+                                    "tag": "urn:li:tag:Dimension"
+                                }
+                            ]
+                        },
+                        "isPartOfKey": false
+                    }
+                },
+                {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),payment_date)",
                     "schemaField": {
                         "fieldPath": "payment_date",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": [
+                                {
+                                    "tag": "urn:li:tag:Dimension"
+                                }
+                            ]
+                        },
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD),Staff First Name)",
+                    "schemaField": {
+                        "fieldPath": "Staff First Name",
                         "nullable": false,
                         "type": {
                             "type": {

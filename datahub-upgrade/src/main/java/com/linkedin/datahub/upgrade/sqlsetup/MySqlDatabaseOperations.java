@@ -1,9 +1,13 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
+import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Arrays;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -78,13 +82,14 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public java.util.List<String> grantCdcPrivilegesSql(String cdcUser, String databaseName) {
+  public List<String> grantCdcPrivilegesSql(
+      String cdcUser, String databaseName, String postgresMetadataSchema) {
     // MySQL - comprehensive CDC privileges (matching original init-cdc.sql)
     // Return as separate statements since JDBC doesn't support multiple statements in one execution
     String escapedUser = escapeMysqlStringLiteral(cdcUser);
     String escapedDatabase = escapeMysqlIdentifier(databaseName);
 
-    return java.util.Arrays.asList(
+    return Arrays.asList(
         String.format("GRANT SELECT ON %s.* TO %s@'%%'", escapedDatabase, escapedUser),
         String.format("GRANT RELOAD ON *.* TO %s@'%%'", escapedUser),
         String.format("GRANT REPLICATION CLIENT ON *.* TO %s@'%%'", escapedUser),
@@ -93,12 +98,12 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public java.util.List<String> createTableSqlStatements(boolean createSchemaVersionIndex) {
+  public List<String> createTableSqlStatements(boolean createSchemaVersionIndex) {
     // schemaVersionIndex is intentionally not created for MySQL: MySQL's query optimizer typically
     // uses only one index per table scan, so an additional index on schemaVersion rarely helps and
     // adds write overhead. This query only helps during the upgrade process during background
     // migration.
-    return java.util.Arrays.asList(
+    return Arrays.asList(
         """
         CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (
           urn                           varchar(500) not null,
@@ -127,7 +132,7 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
         try (ResultSet rs = stmt.executeQuery()) {
           if (rs.next() && rs.getInt(1) > 0) {
             log.info("Dropping legacy index {} on metadata_aspect_v2", indexName);
-            try (java.sql.Statement alterStmt = connection.createStatement()) {
+            try (Statement alterStmt = connection.createStatement()) {
               alterStmt.execute(
                   "ALTER TABLE metadata_aspect_v2 DROP INDEX " + escapeMysqlIdentifier(indexName));
             }
@@ -155,7 +160,7 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
       try (ResultSet rs = stmt.executeQuery()) {
         if (rs.next() && rs.getInt(1) == 0) {
           log.info("Adding index {} on metadata_aspect_v2", indexName);
-          try (java.sql.Statement alterStmt = connection.createStatement()) {
+          try (Statement alterStmt = connection.createStatement()) {
             alterStmt.execute(
                 "ALTER TABLE metadata_aspect_v2 ADD INDEX "
                     + escapeMysqlIdentifier(indexName)

@@ -1,6 +1,7 @@
 import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
@@ -47,6 +48,8 @@ export const GroupList = ({
     isCreatingGroup: externalIsCreating,
     setIsCreatingGroup: externalSetIsCreating,
 }: GroupListProps) => {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || '';
@@ -129,27 +132,27 @@ export const GroupList = ({
 
     const columns = [
         {
-            title: 'Name',
+            title: t('groups.table.name'),
             dataIndex: 'name',
             key: 'name',
             width: '30%',
             render: (group: ListGroupsGroup) => <GroupNameCell group={group} />,
         },
         {
-            title: 'Description',
+            title: t('groups.table.description'),
             dataIndex: 'description',
             key: 'description',
             width: '35%',
             render: (group: ListGroupsGroup) => <GroupDescriptionCell group={group} />,
         },
         {
-            title: 'Members',
+            title: t('groups.table.members'),
             key: 'members',
             width: '12%',
             render: (group: ListGroupsGroup) => <GroupMembersCell group={group} />,
         },
         {
-            title: 'Role',
+            title: t('groups.table.role'),
             key: 'role',
             width: '15%',
             render: (group: ListGroupsGroup) => (
@@ -177,14 +180,14 @@ export const GroupList = ({
     return (
         <PageContainer>
             <OnboardingTour stepIds={[GROUPS_INTRO_ID]} />
-            {!data && loading && <Message type="loading" content="Loading groups..." />}
-            {error && <Message type="error" content="Failed to load groups! An unexpected error occurred." />}
+            {!data && loading && <Message type="loading" content={t('groups.loading')} />}
+            {error && <Message type="error" content={t('groups.loadError')} />}
 
             <GroupContainer>
                 <FiltersHeader>
                     <SearchContainer>
                         <SearchBar
-                            placeholder="Search groups..."
+                            placeholder={t('groups.searchPlaceholder')}
                             value={query}
                             onChange={(value) => {
                                 setQuery(value);
@@ -212,10 +215,10 @@ export const GroupList = ({
                     </>
                 ) : (
                     <EmptyState
-                        title="No groups found"
-                        description="Create a group to organize users and manage access controls"
+                        title={t('groups.emptyTitle')}
+                        description={t('groups.emptyDescription')}
                         icon={UsersThree}
-                        action={{ label: 'Create Group', onClick: () => setIsCreatingGroup(true) }}
+                        action={{ label: t('groups.createButton'), onClick: () => setIsCreatingGroup(true) }}
                         style={{ flex: 1, justifyContent: 'center' }}
                     />
                 )}
@@ -234,15 +237,15 @@ export const GroupList = ({
             {roleAssignmentState && (
                 <Modal
                     open={roleAssignmentState.isViewingAssignRole}
-                    title="Confirm Role Assignment"
+                    title={t('roleAssignment.confirmTitle')}
                     onCancel={onCancelRoleAssignment}
                     footer={
                         <ModalFooter>
                             <Button variant="outline" onClick={onCancelRoleAssignment}>
-                                Cancel
+                                {tc('cancel')}
                             </Button>
                             <Button variant="filled" onClick={onConfirmRoleAssignment}>
-                                Confirm
+                                {tc('confirm')}
                             </Button>
                         </ModalFooter>
                     }

@@ -1,6 +1,5 @@
-import functools
 import logging
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
@@ -11,9 +10,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -51,9 +48,6 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
     RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -98,11 +92,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(
     SourceCapability.OPERATION_CAPTURE,
     "Enabled by default via usage extraction, can be disabled via `usage.include_operational_stats`",
-)
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
 )
 @capability(
     SourceCapability.PARTITION_SUPPORT,
@@ -261,17 +250,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
         return SchemaResolver(platform=self.platform, env=self.config.env)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def _warn_deprecated_configs(self):
         if (
             self.config.match_fully_qualified_names is not None
@@ -286,6 +264,45 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 context="Config option deprecation warning",
                 title="Config option deprecation warning",
             )
+
+        # Unlike the forwarded usage.start_time/end_time/bucket_duration/max_query_duration
+        # fields, these two are never popped from self.config.usage, so we can still see
+        # here whether the user set them - surface it in the structured report (visible
+        # in the UI), not just the config-validation-time logger.warning.
+        if self.config.use_queries_v2:
+            if self.config.usage.include_read_operational_stats:
+                self.report.report_warning(
+                    message="`usage.include_read_operational_stats` is only supported with the legacy extraction path "
+                    "(`use_queries_v2: False`) and is ignored under queries-v2.",
+                    context="Config option deprecation warning",
+                    title="Config option deprecation warning",
+                )
+            if self.config.usage.apply_view_usage_to_tables:
+                self.report.report_warning(
+                    message="`usage.apply_view_usage_to_tables` is only supported with the legacy extraction path "
+                    "(`use_queries_v2: False`) and is ignored under queries-v2.",
+                    context="Config option deprecation warning",
+                    title="Config option deprecation warning",
+                )
+
+    def _build_queries_extractor_config(self) -> BigQueryQueriesExtractorConfig:
+        return BigQueryQueriesExtractorConfig(
+            window=self.config,
+            user_email_pattern=self.config.usage.user_email_pattern,
+            pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+            pushdown_allow_usernames=self.config.pushdown_allow_usernames,
+            include_lineage=self.config.include_table_lineage,
+            include_usage_statistics=self.config.include_usage_statistics,
+            include_operations=self.config.usage.include_operational_stats,
+            include_queries=self.config.include_queries,
+            include_query_usage_statistics=self.config.include_query_usage_statistics,
+            top_n_queries=self.config.usage.top_n_queries,
+            format_sql_queries=self.config.usage.format_sql_queries,
+            include_top_n_queries=self.config.usage.include_top_n_queries,
+            queries_character_limit=self.config.usage.queries_character_limit,
+            region_qualifiers=self.config.region_qualifiers,
+            region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._warn_deprecated_configs()
@@ -333,25 +350,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 BigQueryQueriesExtractor(
                     connection=self.config.get_bigquery_client(),
                     schema_api=self.bq_schema_extractor.schema_api,
-                    config=BigQueryQueriesExtractorConfig(
-                        window=self.config,
-                        user_email_pattern=self.config.usage.user_email_pattern,
-                        pushdown_deny_usernames=self.config.pushdown_deny_usernames,
-                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
-                        include_lineage=self.config.include_table_lineage,
-                        include_usage_statistics=self.config.include_usage_statistics,
-                        include_operations=self.config.usage.include_operational_stats,
-                        include_queries=self.config.include_queries,
-                        include_query_usage_statistics=self.config.include_query_usage_statistics,
-                        top_n_queries=self.config.usage.top_n_queries,
-                        region_qualifiers=self.config.region_qualifiers,
-                    ),
+                    config=self._build_queries_extractor_config(),
                     structured_report=self.report,
                     filters=self.filters,
                     identifiers=self.identifiers,
                     redundant_run_skip_handler=redundant_queries_run_skip_handler,
                     schema_resolver=self.sql_parser_schema_resolver,
                     discovered_tables=self.bq_schema_extractor.table_refs,
+                    discovered_locations=self.bq_schema_extractor.discovered_locations,
                 ) as queries_extractor,
             ):
                 self.report.queries_extractor = queries_extractor.report

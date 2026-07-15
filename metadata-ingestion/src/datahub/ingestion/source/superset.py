@@ -41,11 +41,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -972,7 +970,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         # Create DashboardInfo object
         dashboard_info = DashboardInfoClass(
-            description="",
+            description=dashboard_data.get("description") or "",
             title=title,
             charts=chart_urns,
             dashboardUrl=dashboard_url,
@@ -1643,7 +1641,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         chart_info = ChartInfoClass(
             type=chart_type,
-            description="",
+            description=chart_data.get("description") or "",
             title=title,
             chartUrl=chart_url,
             inputs=[datasource_urn] if datasource_urn else None,
@@ -2271,14 +2269,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             yield from self.emit_chart_mces()
         if self.config.ingest_dashboards:
             yield from self.emit_dashboard_mces()
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report

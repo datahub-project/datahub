@@ -94,9 +94,6 @@ from datahub.ingestion.source.snowplow.utils.cache_manager import CacheManager
 from datahub.ingestion.source.snowplow.utils.field_reference_parser import (
     FieldReferenceParser,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -171,9 +168,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         self.user_resolver.load_users()
 
         # Initialize stale entity removal handler
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
-        )
 
         # Domain registry (optional)
         self.domain_registry: Optional[DomainRegistry] = None

@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { ItemType } from '@components/components/Menu/types';
 
@@ -9,6 +10,8 @@ import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext'
 import { SummaryElementType } from '@types';
 
 export default function usePropertyMenuItems(position: number, elementType: SummaryElementType): ItemType[] {
+    const { t } = useTranslation('entity.profile.summary');
+    const { t: ta } = useTranslation('common.actions');
     const { removeSummaryElement, replaceSummaryElement } = usePageTemplateContext();
 
     const onRemove = useCallback(
@@ -33,7 +36,7 @@ export default function usePropertyMenuItems(position: number, elementType: Summ
             {
                 type: 'item',
                 key: 'remove',
-                title: 'Remove',
+                title: ta('remove'),
                 onClick: onRemove,
                 danger: true,
             },
@@ -44,13 +47,13 @@ export default function usePropertyMenuItems(position: number, elementType: Summ
             items.unshift({
                 type: 'item',
                 key: 'replace',
-                title: 'Replace Property',
+                title: t('menu.replaceProperty'),
                 children: addPropertyMenuItems,
             });
         }
 
         return items;
-    }, [addPropertyMenuItems, onRemove]);
+    }, [t, ta, addPropertyMenuItems, onRemove]);
 
     return menuItems;
 }

@@ -3,19 +3,21 @@ on:
   push:
     branches:
       - master
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
-      - ".github/**"
-      - "!.github/workflows/react-cloudflare-pages.yml"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/react-cloudflare-pages.yml"
   pull_request:
     branches:
       - "**"
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
-      - ".github/**"
-      - "!.github/workflows/react-cloudflare-pages.yml"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/react-cloudflare-pages.yml"
   release:
     types: [published]
 
@@ -47,6 +49,7 @@ jobs:
     permissions:
       contents: read
       deployments: write
+      pull-requests: write
     timeout-minutes: 30
     needs: setup
     if: ${{ github.event.pull_request.head.repo.fork != 'true' }}
@@ -58,11 +61,62 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 21
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-web-react:build -x test -x check --parallel
+      - name: Report initial JS bundle size
+        if: ${{ needs.setup.outputs.frontend_change == 'true' && github.event_name == 'pull_request' }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Measure PR bundle (dist already built by Gradle above)
+          PR_BYTES=$(cd datahub-web-react && yarn --silent size --json 2>/dev/null \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['size'])")
+
+          # Checkout base commit's src/ only — keeps PR's node_modules, vite.config, package.json
+          git fetch origin "$BASE_SHA" --depth=1 2>/dev/null
+          git checkout "$BASE_SHA" -- datahub-web-react/src
+
+          # Build base (skip codegen — generated types are close enough for size measurement)
+          cd datahub-web-react
+          CI=false NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' \
+            npx vite build --mode production 2>/dev/null
+
+          # Measure base bundle
+          BASE_BYTES=$(yarn --silent size --json 2>/dev/null \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['size'])")
+
+          # Format sizes and diff
+          fmt_bytes() { awk "BEGIN {b=$1; if(b>=1048576) printf \"%.2f MB\",b/1048576; else printf \"%.0f KB\",b/1024}"; }
+          PR_DISPLAY=$(fmt_bytes "$PR_BYTES")
+          BASE_DISPLAY=$(fmt_bytes "$BASE_BYTES")
+          DIFF_BYTES=$((PR_BYTES - BASE_BYTES))
+          DIFF_ABS=$(( DIFF_BYTES < 0 ? -DIFF_BYTES : DIFF_BYTES ))
+          if [ "$DIFF_BYTES" -ge 0 ]; then SIGN_STR="+"; else SIGN_STR="-"; fi
+          DIFF_KB=$(awk "BEGIN {printf \"%.0f\", $DIFF_ABS/1024}")
+          PCT=$(awk "BEGIN {printf \"%.1f\", ($DIFF_ABS/$BASE_BYTES)*100}")
+          if [ "$DIFF_BYTES" -gt 2048 ]; then ICON="🔺"
+          elif [ "$DIFF_BYTES" -lt -2048 ]; then ICON="🟢"
+          else ICON="➡️"; fi
+          DIFF_STR="${SIGN_STR}${DIFF_KB} KB (${SIGN_STR}${PCT}%)"
+          BASE_SHORT="${BASE_SHA:0:7}"
+
+          BODY="## Initial JS bundle size ${ICON}
+          | | Gzipped |
+          |---|---|
+          | Base (\`${BASE_SHORT}\`) | ${BASE_DISPLAY} |
+          | This PR | ${PR_DISPLAY} |
+          | **Diff** | **${DIFF_STR}** |
+
+          > Eager entry chunks (\`dist/assets/index-*.js\`) only. Codecov reports total bundle including lazy chunks — these intentionally differ."
+
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY" --edit-last \
+            || gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY"
       - name: Publish
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
         uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1

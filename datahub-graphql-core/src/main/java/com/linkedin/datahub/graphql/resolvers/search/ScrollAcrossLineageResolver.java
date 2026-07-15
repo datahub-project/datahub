@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
@@ -23,7 +24,6 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -43,13 +43,12 @@ public class ScrollAcrossLineageResolver
   private final EntityClient _entityClient;
 
   @Override
-  public CompletableFuture<ScrollAcrossLineageResults> get(DataFetchingEnvironment environment)
-      throws URISyntaxException {
+  public CompletableFuture<ScrollAcrossLineageResults> get(DataFetchingEnvironment environment) {
     final ScrollAcrossLineageInput input =
         bindArgument(environment.getArgument("input"), ScrollAcrossLineageInput.class);
 
     final QueryContext context = environment.getContext();
-    final Urn urn = Urn.createFromString(input.getUrn());
+    final Urn urn = UrnUtils.requireUrn(input.getUrn());
 
     final LineageDirection lineageDirection = input.getDirection();
 

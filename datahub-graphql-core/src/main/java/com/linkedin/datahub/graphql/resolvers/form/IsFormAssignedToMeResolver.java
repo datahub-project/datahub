@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
-import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -11,21 +10,13 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class IsFormAssignedToMeResolver implements DataFetcher<CompletableFuture<Boolean>> {
-
-  private final GroupService _groupService;
-
-  public IsFormAssignedToMeResolver(@Nonnull final GroupService groupService) {
-    _groupService = Objects.requireNonNull(groupService, "groupService must not be null");
-  }
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) {
@@ -60,7 +51,8 @@ public class IsFormAssignedToMeResolver implements DataFetcher<CompletableFuture
             // Next check whether the user is assigned indirectly, by group.
             if (assignedGroupUrns.size() > 0) {
               final List<Urn> groupUrns =
-                  _groupService.getGroupsForUser(context.getOperationContext(), userUrn);
+                  List.copyOf(
+                      context.getOperationContext().getSessionActorContext().getGroupMembership());
               boolean isUserGroupAssigned =
                   groupUrns.stream()
                       .anyMatch(groupUrn -> assignedGroupUrns.contains(groupUrn.toString()));

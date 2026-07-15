@@ -21,7 +21,6 @@ TBD
 - **On-Prem Versions**:
   - **Helm**: TBD
   - **API Gateway**: TBD
-  - **Actions**: TBD
 
 ## Release Changelog
 

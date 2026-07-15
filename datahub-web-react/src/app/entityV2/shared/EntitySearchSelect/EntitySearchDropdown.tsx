@@ -1,5 +1,6 @@
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -78,7 +79,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
     entityTypes,
     selectedUrns,
     onSelectionChange,
-    placeholder = 'Search for entities...',
+    placeholder,
     isMultiSelect = true,
     onEntitySelect,
     defaultFilters,
@@ -91,6 +92,8 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
     actionButtons,
     dropdownContainerStyle,
 }) => {
+    const { t } = useTranslation('entity.shared.selectors');
+    const resolvedPlaceholder = placeholder ?? t('entitySearch.placeholder');
     const entityRegistry = useEntityRegistry();
     const [searchQuery, setSearchQuery] = useState('');
     const prevOpenRef = useRef<boolean>(false);
@@ -179,7 +182,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                     label=""
                     value={searchQuery}
                     setValue={handleSearchChange}
-                    placeholder={placeholder}
+                    placeholder={resolvedPlaceholder}
                     icon={{ icon: MagnifyingGlass }}
                     data-testid="entity-search-select-input"
                 />
@@ -190,7 +193,9 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                         <Loader size="sm" />
                     </LoadingState>
                 )}
-                {!searchLoading && entityOptions.length === 0 && <EmptyState>No entities found</EmptyState>}
+                {!searchLoading && entityOptions.length === 0 && (
+                    <EmptyState>{t('entitySearch.noEntitiesFound')}</EmptyState>
+                )}
                 {!searchLoading &&
                     entityOptions.map((option) => (
                         <OptionLabel

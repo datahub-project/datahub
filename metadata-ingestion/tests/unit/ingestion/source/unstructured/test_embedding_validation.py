@@ -438,6 +438,7 @@ def test_get_semantic_search_config_parses_vertex():
         }
     }
     result = get_semantic_search_config(fake_graph)
+    assert result.embedding_config is not None
     assert result.embedding_config.provider == "vertex_ai"
     assert result.embedding_config.vertex_project_id == "my-project"
     assert result.embedding_config.vertex_location == "us-east1"

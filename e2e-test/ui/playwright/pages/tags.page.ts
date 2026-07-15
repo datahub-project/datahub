@@ -23,7 +23,6 @@ export class TagsPage extends BasePage {
   readonly createTagDescriptionInput: Locator;
   readonly createTagCreateButton: Locator;
   readonly createTagCancelButton: Locator;
-  readonly createTagFailedToast: Locator;
 
   // ── Edit-tag modal elements ──────────────────────────────────────────────
 
@@ -47,18 +46,17 @@ export class TagsPage extends BasePage {
 
     this.createTagCreateButton = page.getByTestId('create-tag-modal-create-button');
     this.createTagCancelButton = page.getByTestId('create-tag-modal-cancel-button');
-    this.createTagFailedToast = page.getByText(/Failed to create tag/);
-    this.createTagModalContent = page.locator(
-      '.ant-modal-wrap:has([data-testid="create-tag-modal-create-button"]) .ant-modal-content',
-    );
-    this.createTagNameInput = this.createTagModalContent.getByTestId('tag-name-field').locator('input');
-    this.createTagDescriptionInput = this.createTagModalContent.getByTestId('tag-description-field').locator('input');
+    this.createTagModalContent = page
+      .getByRole('dialog')
+      .filter({ has: page.getByTestId('create-tag-modal-create-button') });
+    this.createTagNameInput = this.createTagModalContent.getByTestId('tag-name-field').getByRole('textbox');
+    this.createTagDescriptionInput = this.createTagModalContent
+      .getByTestId('tag-description-field')
+      .getByRole('textbox');
 
     this.editTagSaveButton = page.getByTestId('update-tag-button');
-    this.editTagModalContent = page.locator(
-      '.ant-modal-wrap:has([data-testid="update-tag-button"]) .ant-modal-content',
-    );
-    this.editTagDescriptionInput = this.editTagModalContent.getByTestId('tag-description-field').locator('input');
+    this.editTagModalContent = page.getByRole('dialog').filter({ has: page.getByTestId('update-tag-button') });
+    this.editTagDescriptionInput = this.editTagModalContent.getByTestId('tag-description-field').getByRole('textbox');
     this.actionEditButton = page.getByTestId('action-edit');
 
     this.deleteTagConfirmButton = page.getByTestId('delete-tag-button');
@@ -123,7 +121,7 @@ export class TagsPage extends BasePage {
       await expect(this.createTagModalContent).toBeHidden();
       await expect(this.createTagButton).toBeVisible();
     } else {
-      await expect(this.createTagFailedToast).toBeVisible();
+      await this.toast.expectVisible(/Failed to create tag/);
       await this.createTagCancelButton.click();
       await expect(this.createTagModalContent).toBeHidden();
     }

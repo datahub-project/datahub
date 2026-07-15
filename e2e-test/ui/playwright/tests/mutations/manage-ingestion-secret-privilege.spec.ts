@@ -14,7 +14,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { PoliciesPage } from '../../pages/policies.page';
+import { PoliciesPage } from '../../pages/settings/policies.page';
 
 const testId = Math.floor(Math.random() * 100000);
 const platformPolicyName = `Platform test policy ${testId}`;
@@ -40,13 +40,13 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     logger,
     logDir,
   }) => {
-    const policiesPage = new PoliciesPage(page, logger, logDir);
+    const policiesPage = new PoliciesPage(page, { logger, logDir });
     logger.step('navigate to policies');
     await policiesPage.navigate();
 
     // Filter to show all policies
-    await page.locator('[data-testid="policy-filter"]').click();
-    await page.locator('[data-testid="option-ALL"]').click();
+    await page.getByTestId('policy-filter').click();
+    await page.getByTestId('option-ALL').click();
     await page.waitForTimeout(500);
 
     // Deactivate any existing "All Users" policies that might conflict
@@ -55,35 +55,41 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
 
     // Create a new platform policy
     await page.getByText('Create new policy').click();
-    await page.locator('[data-testid="policy-name"]').clear();
-    await page.locator('[data-testid="policy-name"]').fill(platformPolicyName);
-    await page.locator('[data-testid="policy-type"]').locator('[title="Metadata"]').click();
-    await page.locator('[data-testid="platform"]').click({ force: true });
+    await page.getByTestId('policy-name').clear();
+    await page.getByTestId('policy-name').fill(platformPolicyName);
+    await page.getByTestId('policy-type').getByTitle('Metadata').click();
+    await page.getByTestId('platform').click({ force: true });
 
     // Policy description and privileges
-    await page.locator('[data-testid="policy-description"]').click();
-    await page.locator('[data-testid="policy-description"]').fill(`Platform policy description ${testId}`);
+    await page.getByTestId('policy-description').click();
+    await page.getByTestId('policy-description').fill(`Platform policy description ${testId}`);
+    // eslint-disable-next-line playwright/no-raw-locators -- React-generated HTML id; no data-testid on this button
     await page.locator('#nextButton').click();
-    await page.locator('[data-testid="privileges"]').fill('Ingestion');
+    await page.getByTestId('privileges').fill('Ingestion');
+    // eslint-disable-next-line playwright/no-raw-locators -- rc-virtual-list internal class; no data-testid available
     await page.locator('.rc-virtual-list').getByText('Manage Metadata Ingestion').click({ force: true });
-    await page.locator('[data-testid="privileges"]').blur();
+    await page.getByTestId('privileges').blur();
     await page.waitForTimeout(1000);
+    // eslint-disable-next-line playwright/no-raw-locators -- React-generated HTML id; no data-testid on this button
     await page.locator('#nextButton').click();
 
     // Assign to All Users
-    await page.locator('[data-testid="users"]').fill('All');
+    await page.getByTestId('users').fill('All');
+    // eslint-disable-next-line playwright/no-raw-locators -- rc-virtual-list internal class; no data-testid available
     await page.locator('.rc-virtual-list').getByText('All Users').click({ force: true });
+    // eslint-disable-next-line playwright/no-raw-locators -- React-generated HTML id; no data-testid on this button
     await page.locator('#saveButton').click();
     await expect(page.getByText('Successfully saved policy.')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('Successfully saved policy.')).not.toBeVisible({ timeout: 15000 });
 
     await page.reload();
     await policiesPage.searchForPolicy(platformPolicyName);
+    // eslint-disable-next-line playwright/no-raw-locators -- tbody element has no ARIA role equivalent
     await expect(page.locator('tbody').getByText(platformPolicyName)).toBeVisible({ timeout: 15000 });
 
     // Log out admin
-    await page.locator('[data-testid="manage-account-menu"]').click();
-    await page.locator('[data-testid="log-out-menu-item"]').click({ force: true });
+    await page.getByTestId('manage-account-menu').click();
+    await page.getByTestId('log-out-menu-item').click({ force: true });
     await expect(page.getByText('Username')).toBeVisible();
   });
 
@@ -96,15 +102,15 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     const inviteLink = (await page.getByText(/signup\?invite_token=\w{32}/).textContent()) ?? '';
 
     await page.goto('/settings/identities/users');
-    await page.locator('[data-testid="manage-account-menu"]').click();
-    await page.locator('[data-testid="log-out-menu-item"]').click({ force: true });
+    await page.getByTestId('manage-account-menu').click();
+    await page.getByTestId('log-out-menu-item').click({ force: true });
 
     await page.goto(inviteLink);
-    await page.locator('[data-testid="email"]').fill(email);
-    await page.locator('[data-testid="name"]').fill(name);
-    await page.locator('[data-testid="password"]').fill(userPassword);
-    await page.locator('[data-testid="confirmPassword"]').fill(userPassword);
-    await page.locator('[data-testid="sign-up"]').click();
+    await page.getByTestId('email').fill(email);
+    await page.getByTestId('name').fill(name);
+    await page.getByTestId('password').fill(userPassword);
+    await page.getByTestId('confirmPassword').fill(userPassword);
+    await page.getByTestId('sign-up').click();
     await expect(page.getByText('Welcome back')).toBeVisible({ timeout: 30000 });
 
     // Suppress onboarding tour
@@ -123,9 +129,9 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     await page.context().clearCookies();
 
     await page.goto('/login');
-    await page.locator('[data-testid="username"]').fill(email);
-    await page.locator('[data-testid="password"]').fill(userPassword);
-    await page.locator('[data-testid="sign-in"]').click();
+    await page.getByTestId('username').fill(email);
+    await page.getByTestId('password').fill(userPassword);
+    await page.getByTestId('sign-in').click();
     await expect(page.getByText('Welcome back')).toBeVisible({ timeout: 30000 });
 
     await page.keyboard.press('Control+ +Meta+ +h');
@@ -133,14 +139,19 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
 
     // Navigate to the ingestion page
     logger.step('navigate to ingestion page');
+    // eslint-disable-next-line playwright/no-raw-locators -- React-generated HTML id on home page nav item; no data-testid available
     await page.locator('[id="home-page-ingestion"]').scrollIntoViewIfNeeded();
+    // eslint-disable-next-line playwright/no-raw-locators -- React-generated HTML id on home page nav item; no data-testid available
     await page.locator('[id="home-page-ingestion"]').click();
     await page.waitForTimeout(1000);
+    // eslint-disable-next-line playwright/no-raw-locators -- clicking body to dismiss popovers; no semantic Playwright equivalent
     await page.locator('body').click();
 
     await expect(page.getByText('Manage Data Sources')).toBeVisible({ timeout: 30000 });
     await expect(page.getByText('Sources')).toBeVisible();
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design tabs nav list class; no data-testid available
     await expect(page.locator('.ant-tabs-nav-list').getByText('Source')).toBeVisible();
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design tab class; no data-testid on individual tab elements
     await expect(page.locator('.ant-tabs-tab')).toHaveCount(1);
   });
 });

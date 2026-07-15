@@ -14,6 +14,10 @@ Rules:
   - If a non-aspect record A is included by aspect B and A changes, B is bumped
   - If a non-aspect record A is referenced as a field type in aspect B
     (e.g. `schedule: optional A`) and A changes, B is bumped
+  - The check is skipped entirely (exit 0, no bump) when the base is a
+    release (releases/*) or hotfix (hotfixes/*) branch. CI classifies the
+    explicit --base-branch; the local pre-commit hook infers the nearest
+    ancestor branch. OSS repos have no such branches, so this never fires there.
 
 Environment variables:
   PDL_ROOTS    Colon-separated list of PDL source roots to scan.
@@ -25,6 +29,7 @@ Usage:
     python3 scripts/bump_schema_versions.py
     python3 scripts/bump_schema_versions.py --base-branch master
     python3 scripts/bump_schema_versions.py --dry-run --verbose
+    python3 scripts/bump_schema_versions.py --check   # CI: fail if a bump is missing
     PDL_ROOTS="metadata-models/src/main/pegasus:other/src/main/pegasus" python3 scripts/bump_schema_versions.py
 """
 
@@ -64,6 +69,120 @@ def detect_default_branch() -> str:
         return env_branch
 
     return "master"
+
+
+# Branch-name prefixes for release and hotfix branches. A branch whose base is
+# one of these represents a targeted release/hotfix line, not trunk — the
+# schemaVersion bump check must not run against it (it would demand pulling
+# unrelated trunk schema churn into the release). Matches the convention in
+# .github/workflows/post-workflow-actions.yml.
+RELEASE_BRANCH_PREFIXES = ("releases/", "hotfixes/")
+
+_REMOTE_REF_PREFIXES = ("refs/remotes/origin/", "origin/")
+
+
+def is_release_or_hotfix_branch(name: str) -> bool:
+    """Return True if name refers to a releases/* or hotfixes/* branch.
+
+    Accepts bare names ('releases/x'), remote-tracking short names
+    ('origin/releases/x'), and full refs ('refs/remotes/origin/releases/x').
+    The match is a prefix on the branch portion — 'feature/releases-x' is not
+    a release branch.
+    """
+    for prefix in _REMOTE_REF_PREFIXES:
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    return name.startswith(RELEASE_BRANCH_PREFIXES)
+
+
+def _list_release_hotfix_refs() -> list[str]:
+    """Return short names of all local/remote releases/* and hotfixes/* refs.
+
+    Empty on git failure or when none exist (e.g. OSS DataHub).
+    """
+    result = subprocess.run(
+        [
+            "git",
+            "for-each-ref",
+            "--format=%(refname:short)",
+            "refs/remotes/*/releases/*",
+            "refs/remotes/*/hotfixes/*",
+            "refs/heads/releases/*",
+            "refs/heads/hotfixes/*",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return []
+    return [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+
+
+def _merge_base_distance(ref: str) -> int | None:
+    """Return the number of commits from merge-base(HEAD, ref) to HEAD.
+
+    Smaller means ref is a nearer ancestor of HEAD. Returns None if ref does
+    not resolve or shares no history with HEAD.
+    """
+    mb = subprocess.run(
+        ["git", "merge-base", "HEAD", ref], capture_output=True, text=True
+    )
+    if mb.returncode != 0 or not mb.stdout.strip():
+        return None
+    count = subprocess.run(
+        ["git", "rev-list", "--count", f"{mb.stdout.strip()}..HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    if count.returncode != 0 or not count.stdout.strip():
+        return None
+    try:
+        return int(count.stdout.strip())
+    except ValueError:
+        return None
+
+
+def find_nearest_ancestor_release_branch(default_branch: str) -> str | None:
+    """Return the releases/*|hotfixes/* branch that is the nearest ancestor of
+    HEAD, or None if the default branch is a nearer ancestor, none exist, or
+    the default branch cannot be resolved.
+
+    "Nearest" = fewest commits from the merge-base to HEAD. On a tie with the
+    default branch, the default branch wins (a tie means HEAD shares the
+    same fork point with both, i.e. a trunk branch). Fails safe toward None
+    so the check runs when in doubt.
+    """
+    candidates = _list_release_hotfix_refs()
+    if not candidates:
+        return None
+
+    # Distance to the default branch — try remote-tracking then bare name,
+    # since CI checkouts often only have the remote-tracking ref.
+    default_distance = None
+    for ref in (f"refs/remotes/origin/{default_branch}", default_branch):
+        default_distance = _merge_base_distance(ref)
+        if default_distance is not None:
+            break
+    if default_distance is None:
+        return None
+
+    nearest_ref = None
+    nearest_distance = None
+    for ref in candidates:
+        d = _merge_base_distance(ref)
+        if d is None:
+            continue
+        if nearest_distance is None or d < nearest_distance:
+            nearest_ref = ref
+            nearest_distance = d
+
+    if nearest_ref is None:
+        return None
+    # Only a strictly-nearer release/hotfix branch wins. A tie means HEAD shares
+    # the same fork point with both (e.g. a feature branch off trunk and a
+    # release cut from trunk afterward) — that is a trunk branch, so run the check.
+    return nearest_ref if nearest_distance < default_distance else None
 
 
 def get_merge_base(remote_ref: str) -> str:
@@ -147,6 +266,30 @@ def get_file_at_branch(filepath: str, branch: str) -> str | None:
         text=True,
     )
     return result.stdout if result.returncode == 0 else None
+
+
+def is_comment_only_change(filepath: str, base_ref: str) -> bool:
+    """Return True if filepath's only diff vs base_ref is comments/whitespace.
+
+    PDL doc comments (`/** */`) and line comments (`//`) carry no schema
+    semantics, so a doc-only clarification must not trigger a schemaVersion
+    bump — nor cascade a bump into every aspect that references the edited
+    record. Compares the working-tree file against base_ref with comments
+    removed and whitespace collapsed.
+
+    New files (absent on base_ref) and unreadable files are treated as real
+    changes (returns False) so they are never silently dropped.
+    """
+    base_content = get_file_at_branch(filepath, base_ref)
+    if base_content is None:
+        return False
+    try:
+        current_content = Path(filepath).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return normalize_pdl_for_compare(base_content) == normalize_pdl_for_compare(
+        current_content
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -275,6 +418,54 @@ def _strip_strings_and_comments(content: str) -> str:
     content = _BLOCK_COMMENT_RE.sub(" ", content)
     content = _LINE_COMMENT_RE.sub(" ", content)
     return content
+
+
+def strip_pdl_comments(content: str) -> str:
+    """Remove PDL block (`/* */`) and line (`//`) comments.
+
+    Unlike `_strip_strings_and_comments`, this preserves the *contents* of
+    string literals — it only drops comments. That distinction matters for
+    semantic comparison: masking strings to `""` would hide a real change to a
+    string value (e.g. an annotation `"name"`) and mis-classify it as
+    comment-only. A single linear scan tracks string state so comment markers
+    appearing inside a string literal are not treated as comments.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(content)
+    while i < n:
+        ch = content[i]
+        if ch == '"':
+            # Copy the string literal verbatim, honoring backslash escapes.
+            j = i + 1
+            while j < n:
+                if content[j] == "\\":
+                    j += 2
+                    continue
+                if content[j] == '"':
+                    j += 1
+                    break
+                j += 1
+            out.append(content[i:j])
+            i = j
+        elif ch == "/" and i + 1 < n and content[i + 1] == "*":
+            end = content.find("*/", i + 2)
+            i = end + 2 if end != -1 else n
+        elif ch == "/" and i + 1 < n and content[i + 1] == "/":
+            end = content.find("\n", i + 2)
+            i = end if end != -1 else n
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def normalize_pdl_for_compare(content: str) -> str:
+    """Canonical form for semantic comparison: comments removed and runs of
+    whitespace collapsed to single spaces. Two PDL files with identical
+    canonical forms differ only in comments and/or formatting.
+    """
+    return " ".join(strip_pdl_comments(content).split())
 
 
 def _strip_annotation_blocks(content: str) -> str:
@@ -569,8 +760,6 @@ def find_transitively_affected_aspects(
 
 
 def main() -> int:
-    default_branch = detect_default_branch()
-
     parser = argparse.ArgumentParser(
         description="Bump schemaVersion on changed PDL aspect files.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -578,13 +767,21 @@ def main() -> int:
     )
     parser.add_argument(
         "--base-branch",
-        default=default_branch,
-        help=f"Branch to compare against (default: auto-detected '{default_branch}')",
+        default=None,
+        help="Branch to compare against. Defaults to the auto-detected default "
+        "branch. The check is skipped entirely when the base is a releases/* or "
+        "hotfixes/* branch.",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print what would change without writing files",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="CI enforcement mode: write nothing and exit non-zero if any "
+        "changed aspect still needs a schemaVersion bump",
     )
     parser.add_argument(
         "--verbose",
@@ -594,10 +791,48 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    remote_ref = f"refs/remotes/origin/{args.base_branch}"
+    # Skip on release/hotfix lines: the version-bump check compares against
+    # trunk and would demand pulling unrelated trunk schema churn into a
+    # release/hotfix. When an explicit base is given (CI passes the PR target),
+    # classify it directly; otherwise (local pre-commit hook) infer the nearest
+    # ancestor branch from git topology.
+    if args.base_branch is not None:
+        if is_release_or_hotfix_branch(args.base_branch):
+            print(
+                f"Base branch '{args.base_branch}' is a release/hotfix branch; "
+                "skipping schema version check."
+            )
+            return 0
+        base_branch = args.base_branch
+    else:
+        default_branch = detect_default_branch()
+        nearest = find_nearest_ancestor_release_branch(default_branch)
+        if nearest:
+            print(
+                f"Nearest base branch '{nearest}' is a release/hotfix branch; "
+                "skipping schema version check."
+            )
+            return 0
+        base_branch = default_branch
+
+    remote_ref = f"refs/remotes/origin/{base_branch}"
     merge_base = get_merge_base(remote_ref)
 
     directly_changed = get_changed_pdl_files(merge_base)
+
+    # Drop files whose only diff vs the merge-base is comments/whitespace. A
+    # doc-comment clarification carries no schema semantics, so it must neither
+    # bump the edited file nor cascade a bump into aspects that reference it.
+    comment_only = [
+        f for f in directly_changed if is_comment_only_change(f, merge_base)
+    ]
+    if comment_only:
+        directly_changed = [f for f in directly_changed if f not in set(comment_only)]
+        if args.verbose:
+            print(f"Ignoring {len(comment_only)} comment-only PDL change(s):")
+            for f in comment_only:
+                print(f"  {f}")
+            print()
 
     if not directly_changed:
         print("No changed PDL files found.")
@@ -612,15 +847,15 @@ def main() -> int:
     if conflicting:
         files_list = "\n".join(f"  {f}" for f in conflicting)
         print(
-            f"ERROR: The following PDL file(s) also changed on {args.base_branch} "
+            f"ERROR: The following PDL file(s) also changed on {base_branch} "
             f"since this branch diverged. Please merge or rebase from "
-            f"{args.base_branch} first:\n{files_list}",
+            f"{base_branch} first:\n{files_list}",
             file=sys.stderr,
         )
         return 1
 
     if args.verbose:
-        print(f"Comparing against branch: {args.base_branch} (merge-base: {merge_base[:12]})")
+        print(f"Comparing against branch: {base_branch} (merge-base: {merge_base[:12]})")
         print(f"Found {len(directly_changed)} directly changed PDL file(s):")
         for f in directly_changed:
             print(f"  {f}")
@@ -684,7 +919,13 @@ def main() -> int:
             errors.append(filepath)
             continue
 
-        if args.dry_run:
+        if args.check:
+            print(
+                f"NEEDS BUMP  {filepath}  v{current_version} → v{new_version}"
+                f"  [{reason}]"
+            )
+            bumped.append(filepath)
+        elif args.dry_run:
             print(
                 f"BUMP  {filepath}  v{base_version} → v{new_version}"
                 f"  [{reason}]  [dry-run]"
@@ -695,9 +936,23 @@ def main() -> int:
             print(f"BUMP  {filepath}  v{base_version} → v{new_version}  [{reason}]")
             bumped.append(filepath)
 
+    verb = "need bump" if args.check else "bumped"
     print(
-        f"\nSummary: {len(bumped)} bumped, {len(skipped)} skipped, {len(errors)} errors"
+        f"\nSummary: {len(bumped)} {verb}, {len(skipped)} skipped, {len(errors)} errors"
     )
+
+    if args.check and bumped:
+        print(
+            "\nERROR: The following aspect(s) changed but their schemaVersion was "
+            "not bumped:\n"
+            + "\n".join(f"  {f}" for f in bumped)
+            + "\n\nRun the bump hook locally and commit the result:\n"
+            "  pre-commit run bump-schema-versions --all-files\n"
+            "or run the script directly:\n"
+            "  python .github/scripts/bump_schema_versions.py",
+            file=sys.stderr,
+        )
+        return 1
 
     return 1 if errors else 0
 
