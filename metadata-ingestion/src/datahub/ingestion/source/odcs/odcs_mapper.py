@@ -318,7 +318,9 @@ def _resolve_server(
             mapping.platform if mapping is not None and mapping.platform else None
         ) or SERVER_TYPE_TO_PLATFORM.get((server.type or "").strip().lower())
         if platform:
-            return ResolvedServer(server=server, platform=platform, mapping=mapping), None
+            return ResolvedServer(
+                server=server, platform=platform, mapping=mapping
+            ), None
         unmappable.append(f"{server.server} (type={server.type or 'missing'})")
     return None, (
         "no servers[] entry maps to a DataHub platform; "
@@ -1064,7 +1066,9 @@ def _rule_external_url(rule: ODCSQualityRule) -> Optional[str]:
     return None
 
 
-def _assertion_info_template(ctx: _RuleContext, assertion_type: str) -> AssertionInfoClass:
+def _assertion_info_template(
+    ctx: _RuleContext, assertion_type: str
+) -> AssertionInfoClass:
     """Shared header for an AssertionInfoClass; caller sets the sub-aspect."""
     return AssertionInfoClass(
         type=assertion_type,
@@ -1075,7 +1079,9 @@ def _assertion_info_template(ctx: _RuleContext, assertion_type: str) -> Assertio
     )
 
 
-def assertion_platform_instance_mcp(assertion_urn: str) -> MetadataChangeProposalWrapper:
+def assertion_platform_instance_mcp(
+    assertion_urn: str,
+) -> MetadataChangeProposalWrapper:
     """Attach the `odcs` platform to an assertion entity.
 
     AssertionInfo's contract: an EXTERNAL-source assertion is expected to have
@@ -1196,9 +1202,7 @@ def _build_custom_assertion(
     if logic is None:
         return None
     assertion_urn = _stable_assertion_urn(ctx, rule_kind="custom")
-    resolved_type = (
-        custom_type or ctx.rule.effective_metric or ctx.rule.type or "odcs"
-    )
+    resolved_type = custom_type or ctx.rule.effective_metric or ctx.rule.type or "odcs"
     field_urn = (
         mce_builder.make_schema_field_urn(ctx.entity_urn, ctx.column)
         if ctx.column

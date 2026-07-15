@@ -6,6 +6,12 @@ from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
 
 # Display name and platform id for the logical-model platform ODCS contracts are
 # materialized under. ODCS v3 describes a producer-published dataset spec, so it
@@ -80,7 +86,9 @@ class ServerMapping(ConfigModel):
 _SCHEMA_ASSERTION_COMPATIBILITY_MODES = ("EXACT_MATCH", "SUPERSET", "SUBSET")
 
 
-class ODCSSourceConfig(EnvConfigMixin):
+class ODCSSourceConfig(
+    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], EnvConfigMixin
+):
     """Config for the ODCS ingestion source.
 
     Reads Open Data Contract Standard (ODCS) v3.x YAML files from a path (file,
@@ -141,16 +149,6 @@ class ODCSSourceConfig(EnvConfigMixin):
             "contract is then a one-time enricher rather than a source of truth)."
         ),
     )
-    state_file_path: Optional[str] = Field(
-        default=None,
-        description=(
-            "Optional path to a JSON file used to track the logical `odcs` Dataset and Assertion "
-            "URNs ODCS emitted on the previous run. On the next run, URNs ODCS no longer emits are "
-            "soft-deleted (Status.removed=true). Physical datasets and their `logicalParent` links "
-            "are NEVER soft-deleted by ODCS. If unset, no cross-run state is persisted; soft-delete "
-            "falls back to a per-invocation diff (within-run consistency only)."
-        ),
-    )
     odcs_versions: List[str] = Field(
         default_factory=lambda: ["3.0.0", "3.0.1", "3.0.2", "3.1.0"],
         description="List of supported ODCS `apiVersion` values. Contracts with `apiVersion` "
@@ -185,6 +183,7 @@ class ODCSSourceConfig(EnvConfigMixin):
                 f"{_SCHEMA_ASSERTION_COMPATIBILITY_MODES}, found {v}"
             )
         return upper
+
     emit_logical_parent: bool = Field(
         default=True,
         description="Whether to emit a `logicalParent` link from each resolved physical dataset to "
