@@ -36,6 +36,7 @@ from datahub.metadata.schema_classes import (
     KafkaSchemaClass,
     KeyValueSchemaClass,
     MetadataChangeProposalClass,
+    ModelDatasetClass,
     MySqlDDLClass,
     NumberTypeClass,
     OracleDDLClass,
@@ -53,6 +54,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     SchemalessClass,
     SchemaMetadataClass,
+    SemanticModelInfoClass,
     StatusClass,
     StringTypeClass,
     SubTypesClass,
@@ -1526,6 +1528,130 @@ def test_ensure_size_removes_formatted_view_logic_entirely_when_too_small(
     )
 
 
+def proper_semantic_model_info() -> SemanticModelInfoClass:
+    """A semantic model info with a small (~1KB) native definition."""
+    return SemanticModelInfoClass(
+        name="Sales_Analytics",
+        nativeDefinition="CREATE SEMANTIC VIEW Sales_Analytics AS SELECT 1;",
+        datasets=[
+            ModelDatasetClass(
+                name="ORDERS",
+                source="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.orders,PROD)",
+            )
+        ],
+    )
+
+
+def too_big_semantic_model_info() -> SemanticModelInfoClass:
+    """A semantic model info whose nativeDefinition (~20MB) exceeds the limit."""
+    large_definition = "CREATE SEMANTIC VIEW Sales_Analytics AS SELECT " + (
+        "col_a, " * 3_000_000
+    )
+    return SemanticModelInfoClass(
+        name="Sales_Analytics",
+        nativeDefinition=large_definition,
+        datasets=[
+            ModelDatasetClass(
+                name="ORDERS",
+                source="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.orders,PROD)",
+            )
+        ],
+    )
+
+
+def test_ensure_size_of_proper_semantic_model_info(processor):
+    """Properly-sized semanticModelInfo is left byte-identical (no-op)."""
+    semantic_model_info = proper_semantic_model_info()
+    orig_repr = json.dumps(semantic_model_info.to_obj())
+
+    processor.ensure_semantic_model_info_size(
+        "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,db.public,sales_analytics)",
+        semantic_model_info,
+    )
+
+    assert orig_repr == json.dumps(semantic_model_info.to_obj())
+    assert len(processor.ctx.source_report.warnings) == 0
+
+
+def test_ensure_size_of_too_big_semantic_model_info(processor):
+    semantic_model_info = too_big_semantic_model_info()
+    assert semantic_model_info.nativeDefinition is not None
+    original_definition_size = len(semantic_model_info.nativeDefinition)
+
+    initial_size = len(json.dumps(semantic_model_info.to_obj()))
+    assert initial_size > INGEST_MAX_PAYLOAD_BYTES
+
+    processor.ensure_semantic_model_info_size(
+        "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,db.public,sales_analytics)",
+        semantic_model_info,
+    )
+
+    # nativeDefinition is truncated with the truncation marker.
+    assert semantic_model_info.nativeDefinition is not None
+    assert len(semantic_model_info.nativeDefinition) < original_definition_size
+    assert (
+        "truncated from" in semantic_model_info.nativeDefinition
+        or "removed due to size" in semantic_model_info.nativeDefinition
+    )
+
+    # datasets structure is left intact.
+    assert semantic_model_info.datasets is not None
+    assert len(semantic_model_info.datasets) == 1
+
+    final_size = len(json.dumps(semantic_model_info.to_obj()))
+    assert final_size < INGEST_MAX_PAYLOAD_BYTES
+    assert len(processor.ctx.source_report.warnings) >= 1
+
+
+def test_ensure_size_semantic_model_info_datasets_oversized(processor_ctx):
+    """When the datasets array alone exceeds the budget, nativeDefinition is still
+    minimized but the datasets structure is left untouched and a distinct warning
+    is emitted."""
+    small_constraint = 2000  # 2KB
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    processor.payload_constraint = small_constraint
+
+    # Many datasets so the structure alone exceeds the small constraint, plus a
+    # nativeDefinition large enough to enter the shrink path.
+    datasets = [
+        ModelDatasetClass(
+            name=f"logical_table_{i:04d}",
+            source=f"urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.table_{i:04d},PROD)",
+        )
+        for i in range(200)
+    ]
+    semantic_model_info = SemanticModelInfoClass(
+        name="Sales_Analytics",
+        nativeDefinition="CREATE SEMANTIC VIEW Sales_Analytics AS SELECT "
+        + "x, " * 500,
+        datasets=datasets,
+    )
+
+    assert len(json.dumps(semantic_model_info.to_obj())) > small_constraint
+
+    processor.ensure_semantic_model_info_size(
+        "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,db.public,sales_analytics)",
+        semantic_model_info,
+    )
+
+    # nativeDefinition was minimized (removed, since even empty won't make it fit).
+    assert semantic_model_info.nativeDefinition is not None
+    assert "removed due to size" in semantic_model_info.nativeDefinition
+
+    # datasets structure is NOT corrupted - all entries retained intact.
+    assert semantic_model_info.datasets is not None
+    assert len(semantic_model_info.datasets) == 200
+    assert semantic_model_info.datasets[0].name == "logical_table_0000"
+
+    # A distinct "remains oversized" warning is emitted in addition to the
+    # truncation warning.
+    warning_titles = [w for w in processor.ctx.source_report.warnings]
+    assert any("remains oversized" in str(t).lower() for t in warning_titles)
+
+    # Truncation is still recorded.
+    assert processor.report.num_truncations_by_aspect.get("semanticModelInfo", 0) == 1
+
+
 class TestEnsureAspectSizeProcessorReport:
     @pytest.fixture
     def ctx(self):
@@ -1581,6 +1707,11 @@ class TestEnsureAspectSizeProcessorReport:
         proc = EnsureAspectSizeProcessor.create(ctx)
         proc.ensure_view_properties_size("urn:x", too_big_view_properties())
         assert proc.report.num_truncations_by_aspect.get("viewProperties", 0) == 1
+
+    def test_semantic_model_info_truncation_recorded(self, ctx):
+        proc = EnsureAspectSizeProcessor.create(ctx)
+        proc.ensure_semantic_model_info_size("urn:x", too_big_semantic_model_info())
+        assert proc.report.num_truncations_by_aspect.get("semanticModelInfo", 0) == 1
 
     def test_multiple_workunits_accumulate_count(self, ctx):
         proc = EnsureAspectSizeProcessor.create(ctx)

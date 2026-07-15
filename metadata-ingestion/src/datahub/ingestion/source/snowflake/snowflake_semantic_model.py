@@ -1,6 +1,8 @@
 import logging
-import re
 from typing import Dict, Iterable, List, Optional, Set
+
+import sqlglot
+import sqlglot.expressions
 
 from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
@@ -17,6 +19,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SemanticViewColumnMetadata,
     SnowflakeSemanticView,
+    SnowflakeTag,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SNOWFLAKE_FIELD_TYPE_MAPPINGS,
@@ -68,7 +71,6 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger = logging.getLogger(__name__)
 
 _UNKNOWN_ACTOR_URN = "urn:li:corpuser:unknown"
-_IDENTIFIER_TOKEN_REGEX = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
 
 
 class SnowflakeSemanticModelMapper:
@@ -129,6 +131,9 @@ class SnowflakeSemanticModelMapper:
         )
 
         yield from self._gen_view_tags(semantic_view, model_urn)
+        yield from self._gen_field_structured_property_workunits(
+            semantic_view, model_urn
+        )
 
         if self.domain_registry and self.config.domain:
             yield from get_domain_wu(
@@ -185,7 +190,11 @@ class SnowflakeSemanticModelMapper:
         self, semantic_view: SnowflakeSemanticView
     ) -> List[ModelDatasetClass]:
         datasets: List[ModelDatasetClass] = []
-        placed_columns: Set[str] = set()
+        # Metrics are never placed on a logical table (they become metric entities,
+        # not fields), so they must not count as "unplaced" below - seed them up
+        # front rather than relying on the per-logical-table loop below, which does
+        # not run at all when logical_to_physical_table is empty.
+        placed_columns: Set[str] = set(self._metric_occurrences(semantic_view).keys())
 
         for (
             logical_name_upper,
@@ -206,7 +215,6 @@ class SnowflakeSemanticModelMapper:
                 for occurrence in occurrences:
                     if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
                         # Metrics become first-class metric entities, not fields.
-                        placed_columns.add(col_name_upper)
                         continue
                     if (
                         occurrence.table_name
@@ -252,7 +260,18 @@ class SnowflakeSemanticModelMapper:
 
         return SemanticFieldClass(
             schemaField=SchemaFieldClass(
-                fieldPath=self.identifiers.snowflake_identifier(occurrence.name),
+                # Intentionally uppercased. The column_occurrences key and the
+                # fine-grained-lineage downstream field anchor built in
+                # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view
+                # both use `col_name_upper`, so the field path must match to keep the
+                # SemanticField and its lineage anchor in sync. The cost is that a
+                # quoted mixed-case Snowflake identifier ("myCol") renders as MYCOL in
+                # semanticModelInfo when convert_urns_to_lowercase=False. Do NOT
+                # "restore" the original case here - that would desync the field path
+                # from its lineage anchor and break column-level lineage resolution.
+                fieldPath=self.identifiers.snowflake_identifier(
+                    occurrence.name.upper()
+                ),
                 type=SchemaFieldDataTypeClass(type_class()),
                 nativeDataType=occurrence.data_type,
                 description=occurrence.comment,
@@ -319,6 +338,10 @@ class SnowflakeSemanticModelMapper:
             ],
         )
 
+        yield from self._emit_tags_for_entity(
+            metric_urn, semantic_view.column_tags.get(occurrence.name, [])
+        )
+
         upstreams = self._build_metric_upstreams(metric_lineages)
         if upstreams:
             yield MetadataChangeProposalWrapper(
@@ -364,19 +387,37 @@ class SnowflakeSemanticModelMapper:
         schema_name: str,
         db_name: str,
     ) -> List[DerivedMetricInputClass]:
-        # Token-level match is intentionally simple: a metric expression referencing
-        # another metric of the same view (e.g. REVENUE / ORDER_COUNT) shows up as a
-        # bare identifier token. Full expression parsing happens in the column-lineage
-        # pass; this only wires metric-to-metric derivation edges.
+        # In Snowflake semantic view expressions, a reference to another metric is a
+        # bare (unqualified) column name (e.g. REVENUE / ORDER_COUNT), while a
+        # reference to a fact/dimension column on a logical table is qualified
+        # (e.g. ORDERS.AMOUNT). Parsing with sqlglot instead of regex tokenization
+        # avoids matching identifiers inside string literals and correctly handles
+        # quoted identifiers; requiring no table qualifier avoids misreading a
+        # qualified fact reference that happens to share a metric's name. Names that
+        # are ambiguous - both a metric and a dimension/fact column of the same view -
+        # are shadowed and omitted: derivedFrom is isLineage:true, so a wrong edge is
+        # worse than a missing one.
         if not occurrence.expression:
             return []
+        try:
+            parsed = sqlglot.parse_one(occurrence.expression, dialect="snowflake")
+        except Exception:
+            return []
         referenced = {
-            token.upper()
-            for token in _IDENTIFIER_TOKEN_REGEX.findall(occurrence.expression)
+            column.name.upper()
+            for column in parsed.find_all(sqlglot.expressions.Column)
+            if not column.table
+        }
+        shadowed = {
+            col_upper
+            for col_upper, occs in semantic_view.column_occurrences.items()
+            if any(o.subtype != SemanticViewColumnSubtype.METRIC for o in occs)
         }
         derived: List[DerivedMetricInputClass] = []
         for name_upper in sorted(
-            (referenced & metric_occurrences.keys()) - {occurrence.name.upper()}
+            (referenced & metric_occurrences.keys())
+            - {occurrence.name.upper()}
+            - shadowed
         ):
             # Build the destination URN from the referenced metric's own occurrence
             # (preserving its original case), not from the upper-cased lookup key -
@@ -433,24 +474,32 @@ class SnowflakeSemanticModelMapper:
     def _gen_view_tags(
         self, semantic_view: SnowflakeSemanticView, model_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        if not semantic_view.tags:
+        yield from self._emit_tags_for_entity(model_urn, semantic_view.tags or [])
+
+    def _emit_tags_for_entity(
+        self, entity_urn: str, tags: List[SnowflakeTag]
+    ) -> Iterable[MetadataWorkUnit]:
+        # Shared by the semanticModel entity (view-level tags) and each metric
+        # entity (that metric column's tags): both need the same GlobalTags-vs-
+        # structured-properties branching.
+        if not tags:
             return
         if self.config.extract_tags_as_structured_properties:
             yield from add_structured_properties_to_entity_wu(
-                model_urn,
+                entity_urn,
                 {
                     StructuredPropertyUrn(
                         self.identifiers.snowflake_identifier(
                             tag.structured_property_identifier()
                         )
                     ): tag.value
-                    for tag in semantic_view.tags
+                    for tag in tags
                 },
                 write_mode=self.config.structured_properties_write_mode,
             )
         else:
             yield MetadataChangeProposalWrapper(
-                entityUrn=model_urn,
+                entityUrn=entity_urn,
                 aspect=GlobalTagsClass(
                     tags=[
                         TagAssociationClass(
@@ -460,7 +509,7 @@ class SnowflakeSemanticModelMapper:
                                 )
                             )
                         )
-                        for tag in semantic_view.tags
+                        for tag in tags
                     ]
                 ),
             ).as_workunit()
@@ -483,6 +532,47 @@ class SnowflakeSemanticModelMapper:
                 for tag in semantic_view.column_tags[column_name]
             ]
         )
+
+    def _gen_field_structured_property_workunits(
+        self, semantic_view: SnowflakeSemanticView, model_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # _column_tags only handles the normal (GlobalTags) tag mode, since it is
+        # embedded directly into the SchemaFieldClass built in _build_semantic_field.
+        # In extract_tags_as_structured_properties mode there is no aspect on
+        # SchemaFieldClass to carry structured properties, so DIMENSION/FACT field
+        # tags must be emitted as separate schemaField-level structured-properties
+        # MCPs here, mirroring gen_column_tags_as_structured_properties in
+        # snowflake_schema_gen.py for the legacy dataset-mode path.
+        if not self.config.extract_tags_as_structured_properties:
+            return
+        for occurrences in semantic_view.column_occurrences.values():
+            representative = next(
+                (
+                    o
+                    for o in occurrences
+                    if o.subtype != SemanticViewColumnSubtype.METRIC
+                    and o.name in semantic_view.column_tags
+                ),
+                None,
+            )
+            if representative is None:
+                continue
+            field_urn = SchemaFieldUrn(
+                model_urn,
+                self.identifiers.snowflake_identifier(representative.name.upper()),
+            ).urn()
+            yield from add_structured_properties_to_entity_wu(
+                field_urn,
+                {
+                    StructuredPropertyUrn(
+                        self.identifiers.snowflake_identifier(
+                            tag.structured_property_identifier()
+                        )
+                    ): tag.value
+                    for tag in semantic_view.column_tags[representative.name]
+                },
+                write_mode=self.config.structured_properties_write_mode,
+            )
 
     def _expression(
         self, occurrence: SemanticViewColumnMetadata

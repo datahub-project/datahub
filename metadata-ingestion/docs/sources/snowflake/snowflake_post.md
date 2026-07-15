@@ -407,7 +407,7 @@ semantic_view_pattern:
 - **Metadata Extraction**: Extracts each semantic view's columns, tags, comments, and timestamps
 - **Lineage Support**: Semantic views participate in table-level lineage extraction like regular views, and column-level lineage when `column_lineage` is enabled
 - **Tags Support**: Tags applied to semantic views are extracted if `extract_tags` is enabled
-- **External URLs**: Direct links to Snowflake Snowsight UI for semantic views
+- **External URLs**: Direct links to Snowflake Snowsight UI for semantic views — only in the default dataset mode; the **semanticModel** entity emitted under `emit_semantic_model_entities` does not carry a Snowsight external URL
 - **Query Entities**: When `include_queries` is enabled, queries against semantic views are ingested as query entities
 
 ##### What changes with `emit_semantic_model_entities`
@@ -416,7 +416,8 @@ semantic_view_pattern:
 - Table-level and column-level lineage are emitted directly on the semanticModel/metric entities instead of as dataset `upstreamLineage`.
 - `semantic_views.include_usage` is fully supported in both modes: usage statistics (query counts, unique users, top queries per time bucket) are written to the semanticModel entity instead of a dataset. Note that read-side support (rendering usage stats in the UI) for the semanticModel entity is still in progress. `semantic_views.include_queries` is unaffected and continues to emit query entities, attributed to the semanticModel instead of a dataset.
 - Semantic views no longer have a container aspect, so they no longer appear inside their database/schema container pages. Find them via search, lineage, or the metrics experience instead.
-- **Known limitation:** a dataset or dashboard whose SQL selects `FROM SEMANTIC_VIEW(...)` cannot yet declare the semanticModel as an upstream, since dataset `upstreamLineage` only accepts dataset URNs.
+- **Known limitation:** a dataset or dashboard whose SQL selects `FROM SEMANTIC_VIEW(...)` cannot yet declare the semanticModel as an upstream, since dataset `upstreamLineage` only accepts dataset URNs. With `use_queries_v2` enabled, query-history parsing may still resolve that `FROM SEMANTIC_VIEW(...)` reference to the legacy (now soft-deleted) dataset URN for the semantic view, rather than the new semanticModel URN.
+- **Known limitation:** `emit_semantic_model_entities` has no effect when `include_technical_schema: false` — no semanticModel or metric entities are emitted in that case, since semantic view processing itself is skipped, so enabling the flag together with `include_technical_schema: false` is not useful.
 
 ##### Requirements
 

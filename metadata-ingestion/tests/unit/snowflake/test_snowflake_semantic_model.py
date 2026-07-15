@@ -10,6 +10,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SemanticViewColumnMetadata,
     SnowflakeSemanticView,
+    SnowflakeTag,
 )
 from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
     SnowflakeSemanticModelMapper,
@@ -31,6 +32,7 @@ from datahub.metadata.schema_classes import (
     SemanticFieldTypeClass,
     SemanticModelInfoClass,
     StatusClass,
+    StructuredPropertiesClass,
     SubTypesClass,
     UpstreamLineageClass,
 )
@@ -90,6 +92,7 @@ def _make_mapper(
     convert_urns_to_lowercase: bool = True,
     platform_instance: Optional[str] = None,
     include_view_definitions: bool = True,
+    extract_tags_as_structured_properties: bool = False,
 ) -> SnowflakeSemanticModelMapper:
     config = SnowflakeV2Config.model_validate(
         {
@@ -99,6 +102,7 @@ def _make_mapper(
             "convert_urns_to_lowercase": convert_urns_to_lowercase,
             "platform_instance": platform_instance,
             "include_view_definitions": include_view_definitions,
+            "extract_tags_as_structured_properties": extract_tags_as_structured_properties,
         }
     )
     report = SnowflakeV2Report()
@@ -618,8 +622,6 @@ def test_native_definition_gated_by_include_view_definitions():
 
 def test_view_level_tags_emitted_as_global_tags():
     mapper = _make_mapper()
-    from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTag
-
     semantic_view = _make_semantic_view(
         column_occurrences={},
         tags=[SnowflakeTag(database=_DB, schema=_SCHEMA, name="PII", value="true")],
@@ -641,3 +643,392 @@ def test_view_level_tags_emitted_as_global_tags():
     assert len(tags) == 1
     assert len(tags[0].tags) == 1
     assert "true" in tags[0].tags[0].tag
+
+
+def test_derived_from_ignores_qualified_column_matching_metric_name():
+    # A fact reference that is qualified by its logical table (ORDERS.AMOUNT) must
+    # not be mistaken for a reference to a metric named AMOUNT: in Snowflake
+    # semantic view expressions, metric-to-metric references are always bare
+    # (unqualified) names.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "AMOUNT": [
+                _col(
+                    "amount",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="SUM(orders.amount)",
+                )
+            ],
+            "DOUBLE_AMOUNT": [
+                _col(
+                    "double_amount",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="orders.amount * 2",
+                )
+            ],
+        },
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    double_amount_urn = mapper.identifiers.gen_metric_urn(
+        "double_amount", semantic_view.name, _SCHEMA, _DB
+    )
+
+    assert not _aspects_for(workunits, double_amount_urn, MetricRelationshipsClass)
+
+
+def test_derived_from_ignores_metric_name_inside_string_literal():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_COUNT": [
+                _col(
+                    "order_count",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="COUNT(orders.order_id)",
+                )
+            ],
+            "LABEL_METRIC": [
+                _col(
+                    "label_metric",
+                    "VARCHAR",
+                    SemanticViewColumnSubtype.METRIC,
+                    # 'order_count' appears here as a string literal, not an
+                    # identifier reference to the ORDER_COUNT metric.
+                    expression="'order_count'",
+                )
+            ],
+        },
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    label_metric_urn = mapper.identifiers.gen_metric_urn(
+        "label_metric", semantic_view.name, _SCHEMA, _DB
+    )
+
+    assert not _aspects_for(workunits, label_metric_urn, MetricRelationshipsClass)
+
+
+def test_derived_from_unparseable_expression_yields_no_edges():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_COUNT": [
+                _col(
+                    "order_count",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="COUNT(orders.order_id)",
+                )
+            ],
+            "BROKEN_METRIC": [
+                _col(
+                    "broken_metric",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="not a valid ((( sql",
+                )
+            ],
+        },
+    )
+
+    # Must not raise despite the unparseable expression.
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    broken_metric_urn = mapper.identifiers.gen_metric_urn(
+        "broken_metric", semantic_view.name, _SCHEMA, _DB
+    )
+
+    assert not _aspects_for(workunits, broken_metric_urn, MetricRelationshipsClass)
+
+
+def test_metric_column_tags_emitted_as_global_tags():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "TOTAL_REVENUE": [
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="SUM(orders.order_total)",
+                )
+            ],
+        },
+        column_tags={
+            "total_revenue": [
+                SnowflakeTag(database=_DB, schema=_SCHEMA, name="PII", value="true")
+            ]
+        },
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue", semantic_view.name, _SCHEMA, _DB
+    )
+
+    tags = _aspects_for(workunits, metric_urn, GlobalTagsClass)
+    assert len(tags) == 1
+    assert len(tags[0].tags) == 1
+    assert "pii" in tags[0].tags[0].tag
+
+
+def test_metric_column_tags_emitted_as_structured_properties():
+    mapper = _make_mapper(extract_tags_as_structured_properties=True)
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "TOTAL_REVENUE": [
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="SUM(orders.order_total)",
+                )
+            ],
+        },
+        column_tags={
+            "total_revenue": [
+                SnowflakeTag(database=_DB, schema=_SCHEMA, name="PII", value="true")
+            ]
+        },
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue", semantic_view.name, _SCHEMA, _DB
+    )
+
+    structured_props = _aspects_for(workunits, metric_urn, StructuredPropertiesClass)
+    assert len(structured_props) == 1
+    assert len(structured_props[0].properties) == 1
+
+    # No GlobalTags should be emitted for the metric in structured-property mode.
+    assert not _aspects_for(workunits, metric_urn, GlobalTagsClass)
+
+
+def test_dimension_field_tags_emitted_as_structured_properties_in_sp_mode():
+    # In SP mode, DIMENSION/FACT field tags cannot ride on the SchemaField aspect,
+    # so they are emitted as schemaField-level structured properties instead.
+    mapper = _make_mapper(extract_tags_as_structured_properties=True)
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_DATE": [
+                _col(
+                    "order_date",
+                    "DATE",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+        column_tags={
+            "order_date": [
+                SnowflakeTag(database=_DB, schema=_SCHEMA, name="PII", value="true")
+            ]
+        },
+    )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+    field_urn = make_schema_field_urn(
+        model_urn, mapper.identifiers.snowflake_identifier("ORDER_DATE")
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    field_props = _aspects_for(workunits, field_urn, StructuredPropertiesClass)
+    assert len(field_props) == 1
+    assert len(field_props[0].properties) == 1
+
+    # The field's globalTags must not carry the tag in SP mode.
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    field = _fields_by_path(info.datasets[0])[
+        mapper.identifiers.snowflake_identifier("ORDER_DATE")
+    ]
+    assert field.schemaField.globalTags is None
+
+
+def test_metrics_not_reported_as_unplaced_when_no_logical_tables():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "TOTAL_REVENUE": [
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="SUM(orders.order_total)",
+                )
+            ],
+        },
+        logical_to_physical_table={},
+    )
+
+    list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    messages = [w.title for w in mapper.report.warnings]
+    assert not any("without a logical table" in (m or "") for m in messages)
+
+
+def test_semantic_field_path_matches_fine_grained_lineage_anchor_when_no_lowercasing():
+    # Regression test: snowflake_schema_gen.py anchors the fine-grained-lineage
+    # downstream field on `snowflake_identifier(col_name_upper)` (the uppercased
+    # column_occurrences key). The mapper's SemanticField.fieldPath must use the
+    # same casing so the two match under convert_urns_to_lowercase=False.
+    mapper = _make_mapper(convert_urns_to_lowercase=False)
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_DATE": [
+                _col(
+                    "Order_Date",
+                    "DATE",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+    )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    fields_by_path = _fields_by_path(info.datasets[0])
+    field_path = next(iter(fields_by_path))
+
+    lineage_anchor_urn = make_schema_field_urn(
+        model_urn, mapper.identifiers.snowflake_identifier("ORDER_DATE")
+    )
+    semantic_field_urn = make_schema_field_urn(model_urn, field_path)
+    assert semantic_field_urn == lineage_anchor_urn
+
+
+def test_derived_from_omits_metric_name_shadowed_by_a_column():
+    # A bare name referenced in a metric expression that is BOTH a metric and a
+    # dimension/fact column of the same view is ambiguous. Since derivedFrom is
+    # isLineage:true, the ambiguous edge is omitted; an unambiguous metric-only
+    # reference is still emitted.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            # REVENUE exists both as a fact column and as a metric of the view.
+            "REVENUE": [
+                _col(
+                    "revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.FACT,
+                    table_name="ORDERS",
+                ),
+                _col(
+                    "revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="SUM(orders.amount)",
+                ),
+            ],
+            # ORDER_COUNT is unambiguously a metric only.
+            "ORDER_COUNT": [
+                _col(
+                    "order_count",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="COUNT(orders.order_id)",
+                )
+            ],
+            "MARGIN": [
+                _col(
+                    "margin",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="revenue / order_count",
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    margin_urn = mapper.identifiers.gen_metric_urn(
+        "margin", semantic_view.name, _SCHEMA, _DB
+    )
+    revenue_urn = mapper.identifiers.gen_metric_urn(
+        "revenue", semantic_view.name, _SCHEMA, _DB
+    )
+    count_urn = mapper.identifiers.gen_metric_urn(
+        "order_count", semantic_view.name, _SCHEMA, _DB
+    )
+
+    relationships = _aspects_for(workunits, margin_urn, MetricRelationshipsClass)[0]
+    derived_urns = [d.destinationUrn for d in relationships.derivedFrom]
+    # REVENUE is shadowed by the fact column and omitted; ORDER_COUNT remains.
+    assert count_urn in derived_urns
+    assert revenue_urn not in derived_urns
