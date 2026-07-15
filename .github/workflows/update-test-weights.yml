@@ -83,6 +83,7 @@ jobs:
           cp smoke-test/pytest_test_weights.json ./weights-backup/pytest_weights.json || echo "No existing Pytest weights"
           cp metadata-ingestion/tests/integration_test_weights.json \
             ./weights-backup/integration_test_weights.json || echo "No existing integration weights"
+          cp .github/backend_test_weights.json ./weights-backup/gradle_weights.json || echo "No existing Gradle weights"
 
       - name: Generate smoke test weights
         run: |
@@ -98,6 +99,13 @@ jobs:
           python .github/scripts/generate_test_weights.py \
             --input-dir ./test-artifacts-ingestion \
             --pytest-output metadata-ingestion/tests/integration_test_weights.json
+
+      - name: Generate gradle test weights
+        run: |
+          echo "Generating Gradle backend weights (keyed by FQCN)..."
+          python .github/scripts/generate_test_weights.py \
+            --input-dir ./test-artifacts-gradle \
+            --gradle-output .github/backend_test_weights.json
 
       - name: Compare smoke weights
         id: compare-smoke
@@ -140,10 +148,28 @@ jobs:
             echo "✓ Ingestion changes below 5% threshold. No PR needed."
           fi
 
+      - name: Compare gradle weights
+        id: compare-gradle
+        run: |
+          # Gradle weights are keyed by FQCN and aren't diffed by compare_test_weights.py
+          # (pytest-only). Trigger a PR whenever the file changed at all, so its refresh isn't
+          # gated on the pytest 5% threshold.
+          if ! cmp -s ./weights-backup/gradle_weights.json .github/backend_test_weights.json; then
+            echo "create_pr_gradle=true" >> "$GITHUB_OUTPUT"
+            echo "✓ Gradle backend weights changed. Will create PR."
+            {
+              echo ""
+              echo "- Gradle backend test weights (\`.github/backend_test_weights.json\`) refreshed."
+            } > ./pr-body-gradle.md
+          else
+            echo "create_pr_gradle=false" >> "$GITHUB_OUTPUT"
+            echo "✓ Gradle backend weights unchanged. No PR needed."
+          fi
+
       - name: Decide PR creation
         id: decide
         run: |
-          if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ] || [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ]; then
+          if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ] || [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ] || [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ]; then
             echo "create_pr=true" >> "$GITHUB_OUTPUT"
             echo "✓ At least one suite exceeded the 5% threshold. Will create PR."
           else
@@ -162,9 +188,10 @@ jobs:
           BRANCH_NAME="auto/update-test-weights-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH_NAME"
 
-          # Add and commit changes for both suites
+          # Add and commit changes for all suites
           git add smoke-test/pytest_test_weights.json
           git add metadata-ingestion/tests/integration_test_weights.json
+          git add .github/backend_test_weights.json
 
           git commit -m "chore(test): update test weights from recent CI runs
 
@@ -186,7 +213,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Concatenate whichever PR body sections were generated (empty files contribute nothing)
-          PR_BODY=$(cat ./pr-body-smoke.md ./pr-body-ingestion.md 2>/dev/null)
+          PR_BODY=$(cat ./pr-body-smoke.md ./pr-body-ingestion.md ./pr-body-gradle.md 2>/dev/null)
 
           # Create PR
           gh pr create \
@@ -215,6 +242,9 @@ jobs:
               fi
               if [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ]; then
                 echo "- ingestion"
+              fi
+              if [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ]; then
+                echo "- gradle (backend)"
               fi
             else
               echo "ℹ️ **No PR Created**: Changes below 5% threshold"
