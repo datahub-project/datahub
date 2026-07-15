@@ -628,10 +628,17 @@ class KafkaProfiler:
     def _add_distinct_value_statistics(
         self, stats: KafkaFieldStatistics, values: List[FieldValue]
     ) -> None:
-        if not (
-            self.profiler_config.include_field_distinct_count
-            and not self._expensive_profiling_disabled
-        ):
+        if self._expensive_profiling_disabled:
+            return
+
+        need_distinct = self.profiler_config.include_field_distinct_count
+        # Numeric histograms are reconstructed from the frequency map downstream, so
+        # build it when either distinct-count or histograms are requested.
+        need_histogram = (
+            self.profiler_config.include_field_histogram
+            and stats.data_type == ProfilerFieldType.NUMERIC
+        )
+        if not (need_distinct or need_histogram):
             return
 
         # Convert to strings only for counting distinct values, skip NaN
@@ -643,9 +650,10 @@ class KafkaProfiler:
                 str_value = str(value)
                 value_counts[str_value] = value_counts.get(str_value, 0) + 1
 
-        stats.unique_count = len(value_counts)
-        stats.unique_proportion = stats.unique_count / len(values) if values else 0
         stats.distinct_value_frequencies = value_counts
+        if need_distinct:
+            stats.unique_count = len(value_counts)
+            stats.unique_proportion = stats.unique_count / len(values) if values else 0
 
     def _add_numeric_field_statistics(
         self, stats: KafkaFieldStatistics, non_null_values: List[FieldValue]

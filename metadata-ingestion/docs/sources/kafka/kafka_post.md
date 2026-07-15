@@ -358,7 +358,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 The current implementation of the support for `PROTOBUF` schema type has the following limitations:
 
 - Recursive types are not supported.
-- If the schemas of different topics define a type in the same package, the source would raise an exception.
+- Protobuf compilation uses a **process-global descriptor pool**. The first topic that compiles a given fully-qualified message type succeeds; any later topic that embeds the same type name hits a `duplicate symbol` error and is left with no schema fields (DataHub logs a warning and continues). On estates where many topics share common proto types, most protobuf topics after the first will therefore have no schema fields. Enable `schema_resolution` so those topics fall back to schema inference from message data.
 
 In addition to this, maps are represented as arrays of messages. The following message,
 

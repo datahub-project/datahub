@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Set, Union
 
 from confluent_kafka import Consumer
 
+from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
 from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_CPU_COUNT_FALLBACK,
@@ -181,6 +182,10 @@ class KafkaSchemaInference:
 
         try:
             consumer = Consumer(consumer_config)
+            if KafkaOAuthCallbackResolver.is_callable_config(self.consumer_config):
+                # Poll once so the OAuth callback executes; without this, auth fails
+                # on OAuth/OIDC clusters (mirrors get_kafka_consumer).
+                consumer.poll(timeout=30)
         except Exception as e:
             logger.debug(
                 f"Failed to create consumer for topic {topic} with '{offset_strategy}' strategy: {e}"
