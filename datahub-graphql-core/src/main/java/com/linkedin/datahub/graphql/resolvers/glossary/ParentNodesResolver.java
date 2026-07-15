@@ -7,7 +7,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.ParentNodesResult;
@@ -18,10 +17,11 @@ import com.linkedin.metadata.graph.cache.client.BoundHierarchyAccess;
 import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 
 public class ParentNodesResolver implements DataFetcher<CompletableFuture<ParentNodesResult>> {
 
@@ -46,41 +46,41 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
                     sourceUrn,
                     context.getMaxParentDepth());
 
-            List<GlossaryNode> viewable =
-                parentUrns.stream()
-                    .map(parentUrn -> loadGlossaryNode(context, parentUrn))
-                    .filter(
-                        node ->
-                            canViewRelationship(
-                                context.getOperationContext(),
-                                UrnUtils.getUrn(node.getUrn()),
-                                sourceUrn))
-                    .collect(Collectors.toList());
+            List<GlossaryNode> viewable = new ArrayList<>();
+            if (!parentUrns.isEmpty()) {
+              // All ancestors in a glossary hierarchy are glossary nodes, so a single batch call
+              // over one entity type replaces the per-parent getV2 round-trips (N+1).
+              Map<Urn, EntityResponse> responses =
+                  _entityClient.batchGetV2(
+                      context.getOperationContext(),
+                      parentUrns.get(0).getEntityType(),
+                      new HashSet<>(parentUrns),
+                      null);
+
+              // Re-iterate parentUrns to preserve hierarchy order (batchGetV2 returns an unordered
+              // map), then apply the same relationship-visibility filter as before.
+              for (Urn parentUrn : parentUrns) {
+                EntityResponse response = responses.get(parentUrn);
+                if (response == null) {
+                  throw new RuntimeException("Failed to retrieve glossary node " + parentUrn);
+                }
+                GlossaryNode node = GlossaryNodeMapper.map(context, response);
+                if (canViewRelationship(
+                    context.getOperationContext(), UrnUtils.getUrn(node.getUrn()), sourceUrn)) {
+                  viewable.add(node);
+                }
+              }
+            }
 
             final ParentNodesResult result = new ParentNodesResult();
             result.setCount(viewable.size());
             result.setNodes(viewable);
             return result;
-          } catch (DataHubGraphQLException e) {
+          } catch (Exception e) {
             throw new RuntimeException("Failed to load parent nodes", e);
           }
         },
         this.getClass().getSimpleName(),
         "get");
-  }
-
-  @Nonnull
-  private GlossaryNode loadGlossaryNode(@Nonnull QueryContext context, @Nonnull Urn parentUrn) {
-    try {
-      EntityResponse response =
-          _entityClient.getV2(
-              context.getOperationContext(), parentUrn.getEntityType(), parentUrn, null);
-      if (response == null) {
-        throw new RuntimeException("Failed to retrieve glossary node " + parentUrn);
-      }
-      return GlossaryNodeMapper.map(context, response);
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to retrieve glossary node " + parentUrn, e);
-    }
   }
 }
