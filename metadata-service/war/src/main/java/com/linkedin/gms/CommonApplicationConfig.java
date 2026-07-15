@@ -38,6 +38,8 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.usage",
+      "com.linkedin.gms.factory.datahubusage",
+      "com.linkedin.gms.factory.graph",
       "com.linkedin.gms.factory.entity",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.messaging",
@@ -69,9 +71,13 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.kafka.trace",
       "com.linkedin.gms.factory.system_info",
       "com.linkedin.gms.factory.consistency",
+      "com.linkedin.gms.factory.health",
       "com.linkedin.gms.factory.lifecycle",
-      "com.linkedin.metadata.aspect.consistency.check",
-      "com.linkedin.metadata.aspect.consistency.fix",
+      // Note: consistency check/fix components live in
+      // com.linkedin.metadata.aspect.consistency.{check,fix} but are scanned by
+      // ConsistencyServiceFactory (which itself is gated on elasticsearch.enabled). They are
+      // intentionally not scanned here so that Postgres-only profiles do not try to register
+      // ES-dependent @Components like DeleteIndexDocumentsFix.
       "com.linkedin.metadata.aspect.hooks.migrations",
     })
 @Slf4j

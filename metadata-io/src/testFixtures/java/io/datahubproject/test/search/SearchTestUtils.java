@@ -13,9 +13,11 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.ExecutorServiceConfig;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
+import com.linkedin.metadata.config.TimeseriesAspectServiceImplementation;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
@@ -78,6 +80,7 @@ public class SearchTestUtils {
   // Base configuration for tests
   private static final ElasticSearchConfiguration BASE_TEST_CONFIG =
       ElasticSearchConfiguration.builder()
+          .enabled(true)
           .search(
               SearchConfiguration.builder()
                   .pointInTimeCreationEnabled(false) // Disable PIT for search entities by default
@@ -186,7 +189,11 @@ public class SearchTestUtils {
       GraphServiceConfiguration.builder().limit(TEST_1K_LIMIT_CONFIG).build();
 
   public static TimeseriesAspectServiceConfig TEST_TIMESERIES_ASPECT_SERVICE_CONFIG =
-      TimeseriesAspectServiceConfig.builder().limit(TEST_1K_LIMIT_CONFIG).build();
+      TimeseriesAspectServiceConfig.builder()
+          .implementation(TimeseriesAspectServiceImplementation.elasticsearch)
+          .query(ExecutorServiceConfig.builder().build())
+          .limit(TEST_1K_LIMIT_CONFIG)
+          .build();
 
   public static void syncAfterWrite(ESBulkProcessor bulkProcessor)
       throws InterruptedException, IOException {

@@ -12,7 +12,8 @@ import com.linkedin.common.Edge
  * Information about a chart
  */
 @Aspect = {
-  "name": "chartInfo"
+  "name": "chartInfo",
+  "schemaVersion": 2
 }
 record ChartInfo includes CustomProperties, ExternalReference {
 

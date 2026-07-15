@@ -14,6 +14,7 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.steps.CreateUserStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.datahubusage.UsageEventsInfrastructureProvisioner;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
@@ -52,7 +53,8 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final OperationContext opContext,
       final EntityService<?> entityService,
       final GitVersion gitVersion,
-      final String revision) {
+      final String revision,
+      final UsageEventsInfrastructureProvisioner usageEventsInfrastructureProvisioner) {
 
     _indexedServices =
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
@@ -80,7 +82,8 @@ public class BuildIndices implements BlockingSystemUpgrade {
             aspectDao,
             opContext,
             entityService,
-            String.format("%s-%s", gitVersion.getVersion(), revision));
+            String.format("%s-%s", gitVersion.getVersion(), revision),
+            usageEventsInfrastructureProvisioner);
   }
 
   @Override
@@ -118,13 +121,16 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final AspectDao aspectDao,
       final OperationContext opContext,
       final EntityService<?> entityService,
-      final String upgradeVersion) {
+      final String upgradeVersion,
+      final UsageEventsInfrastructureProvisioner usageEventsInfrastructureProvisioner) {
 
     final List<UpgradeStep> steps = new ArrayList<>();
     // Setup Elasticsearch users and roles (if enabled)
     steps.add(new CreateUserStep(baseElasticSearchComponents, configurationProvider));
-    // Setup usage event indices and policies
-    steps.add(new CreateUsageEventIndicesStep(baseElasticSearchComponents, configurationProvider));
+    // Usage-event storage (OpenSearch/Elasticsearch indices or PostgreSQL partitions)
+    steps.add(
+        new CreateUsageEventIndicesStep(
+            configurationProvider, usageEventsInfrastructureProvisioner));
 
     if (_incrementalReindexEnabled) {
       // Incremental path: create next indices + _reindex without blocking writes or swapping

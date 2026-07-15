@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -13,7 +14,9 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +29,11 @@ import org.springframework.context.annotation.Import;
 public class LoadIndicesConfig {
 
   @Bean(name = "loadIndicesIndexManager")
+  @ConditionalOnProperty(
+      prefix = "elasticsearch",
+      name = "enabled",
+      havingValue = "true",
+      matchIfMissing = true)
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   public LoadIndicesIndexManager createIndexManager(
@@ -39,6 +47,11 @@ public class LoadIndicesConfig {
   }
 
   @Bean(name = "loadIndices")
+  @ConditionalOnProperty(
+      prefix = "elasticsearch",
+      name = "enabled",
+      havingValue = "true",
+      matchIfMissing = true)
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   public LoadIndices createInstance(
@@ -49,7 +62,8 @@ public class LoadIndicesConfig {
       final TimeseriesAspectService timeseriesAspectService,
       final EntitySearchService entitySearchService,
       final GraphService graphService,
-      final AspectDao aspectDao) {
+      final AspectDao aspectDao,
+      @Autowired(required = false) @Nullable ElasticSearchService elasticSearchService) {
     return new LoadIndices(
         ebeanServer,
         updateIndicesService,
@@ -58,7 +72,8 @@ public class LoadIndicesConfig {
         timeseriesAspectService,
         entitySearchService,
         graphService,
-        aspectDao);
+        aspectDao,
+        elasticSearchService);
   }
 
   @Bean(name = "loadIndicesCassandra")

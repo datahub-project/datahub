@@ -2,14 +2,18 @@ package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.graph.CompositeGraphService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.graph.write.GraphWriteSink;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.util.List;
 import javax.annotation.Nonnull;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +23,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
+@ConditionalOnProperty(
+    prefix = "elasticsearch",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 @ConditionalOnProperty(
     name = "graphService.type",
     havingValue = "elasticsearch",
@@ -52,16 +61,25 @@ public class ElasticSearchGraphServiceFactory {
       final EntityRegistry entityRegistry,
       @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
       MetricUtils metricUtils,
-      @Qualifier("esGraphQueryDAO") final ESGraphQueryDAO esGraphQueryDAO) {
+      @Qualifier("esGraphQueryDAO") final ESGraphQueryDAO esGraphQueryDAO,
+      final ObjectProvider<GraphWriteSink> graphWriteSinkProvider,
+      final ConfigurationProvider configurationProvider) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
-    return new ElasticSearchGraphService(
-        lineageRegistry,
-        components.getBulkProcessor(),
-        components.getIndexConvention(),
-        esGraphWriteDAO,
-        esGraphQueryDAO,
-        components.getIndexBuilder(),
-        idHashAlgo);
+    ElasticSearchGraphService primary =
+        new ElasticSearchGraphService(
+            lineageRegistry,
+            components.getBulkProcessor(),
+            components.getIndexConvention(),
+            esGraphWriteDAO,
+            esGraphQueryDAO,
+            components.getIndexBuilder(),
+            idHashAlgo);
+    GraphWriteSink graphWriteSink =
+        graphWriteSinkProvider.getIfAvailable(() -> GraphWriteSink.NOOP);
+    if (graphWriteSink == GraphWriteSink.NOOP || configurationProvider.getDatahub().isReadOnly()) {
+      return primary;
+    }
+    return new CompositeGraphService(primary, List.of(graphWriteSink));
   }
 
   @Bean(name = "esGraphQueryDAO")

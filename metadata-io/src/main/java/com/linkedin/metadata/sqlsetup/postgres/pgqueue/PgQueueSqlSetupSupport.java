@@ -2,6 +2,7 @@ package com.linkedin.metadata.sqlsetup.postgres.pgqueue;
 
 import com.linkedin.metadata.config.postgres.PgQueueResolvedTopicCatalogEntry;
 import com.linkedin.metadata.config.postgres.PgQueueSetupOptions;
+import com.linkedin.metadata.sqlsetup.postgres.PostgresPartmanSqlSetupSupport;
 import com.linkedin.metadata.sqlsetup.postgres.migration.PostgresSqlUtils;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -92,17 +93,7 @@ public final class PgQueueSqlSetupSupport {
   @Nullable
   public static String resolvePgPartmanExtensionSchema(@Nonnull Connection connection)
       throws SQLException {
-    try (Statement st = connection.createStatement();
-        ResultSet rs =
-            st.executeQuery(
-                "SELECT n.nspname FROM pg_extension e "
-                    + "JOIN pg_namespace n ON n.oid = e.extnamespace "
-                    + "WHERE e.extname = 'pg_partman' LIMIT 1")) {
-      if (!rs.next()) {
-        return null;
-      }
-      return rs.getString(1);
-    }
+    return PostgresPartmanSqlSetupSupport.resolvePgPartmanExtensionSchema(connection);
   }
 
   @Nonnull
@@ -111,40 +102,19 @@ public final class PgQueueSqlSetupSupport {
       @Nonnull String schema,
       @Nullable String partmanRetentionIntervalText,
       @Nonnull String tablePrefix) {
-    if (partmanRetentionIntervalText == null || partmanRetentionIntervalText.isEmpty()) {
-      return "";
-    }
-    String escRetention = partmanRetentionIntervalText.replace("'", "''");
-    String escSchema = schema.replace("'", "''");
-    return "  UPDATE "
-        + PostgresSqlUtils.quotePgIdentifier(partmanExtensionSchema)
-        + ".part_config\n"
-        + "  SET retention = '"
-        + escRetention
-        + "',\n"
-        + "      retention_keep_table = false,\n"
-        + "      retention_keep_index = false\n"
-        + "  WHERE parent_table = '"
-        + escSchema
-        + "."
-        + tablePrefix
-        + "_message';\n";
+    return PostgresPartmanSqlSetupSupport.partmanRetentionUpdateSql(
+        partmanExtensionSchema, schema, partmanRetentionIntervalText, tablePrefix + "_message");
   }
 
   @Nonnull
   public static String sanitizePartmanIntervalLiteral(@Nonnull String partmanPartitionInterval) {
-    return partmanPartitionInterval.replace("'", "''");
+    return PostgresPartmanSqlSetupSupport.sanitizePartmanIntervalLiteral(partmanPartitionInterval);
   }
 
   @Nonnull
   public static String buildRetentionPartmanTail(
       @Nonnull String partmanExtensionSchema, @Nonnull String schema, @Nonnull String tablePrefix) {
-    return "    PERFORM "
-        + PostgresSqlUtils.quotePgIdentifier(partmanExtensionSchema)
-        + ".run_maintenance('"
-        + schema.replace("'", "''")
-        + "."
-        + tablePrefix
-        + "_message');\n";
+    return PostgresPartmanSqlSetupSupport.buildRetentionPartmanTail(
+        partmanExtensionSchema, schema, tablePrefix + "_message");
   }
 }

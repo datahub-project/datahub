@@ -86,7 +86,16 @@ import org.opensearch.search.suggest.SuggestBuilders;
 import org.opensearch.search.suggest.SuggestionBuilder;
 import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 
-/** TODO: Add more robust unit tests for this critical class. */
+/**
+ * Elasticsearch-oriented helpers for indexed entity search: query DSL builders, PIT/scroll, mapping
+ * field conventions, and Pegasus filters translated to the Elasticsearch JSON DSL.
+ *
+ * <p>Implementations call through {@link SearchClientShim}, which abstracts Elasticsearch 7 vs 8/9
+ * and OpenSearch 2. Low-level request types are from the OpenSearch Java client artifacts bundled
+ * with DataHub for compatibility; engine-specific behavior belongs in the shim rather than here.
+ *
+ * <p>Higher-level Pegasus/domain utilities live in {@link SearchUtils}.
+ */
 @Slf4j
 public class ESUtils {
 
@@ -206,15 +215,16 @@ public class ESUtils {
 
   /**
    * Builds a map of field names to their types based on entity registry. This method extracts field
-   * types from searchable annotations with fallback to ES mappings for all entities in the
+   * types from searchable annotations with fallback to index mappings for all entities in the
    * registry.
    *
-   * @param mappingsBuilder mappings builder instance to use for extracting field types
    * @param entityRegistry entity registry to extract field types from
+   * @param mappingsBuilder mappings builder for index mapping fallback, or null to use annotations
+   *     only
    * @return map of field names to their searchable field types
    */
   public static Map<String, Set<SearchableAnnotation.FieldType>> buildSearchableFieldTypes(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull MappingsBuilder mappingsBuilder) {
+      @Nonnull EntityRegistry entityRegistry, @Nullable MappingsBuilder mappingsBuilder) {
     List<EntitySpec> entitySpecs =
         entityRegistry.getEntitySpecs().values().stream().collect(Collectors.toList());
     return buildSearchableFieldTypes(mappingsBuilder, entityRegistry, entitySpecs);
@@ -222,15 +232,16 @@ public class ESUtils {
 
   /**
    * Builds a map of field names to their types based on entity specs. This method extracts field
-   * types from searchable annotations with fallback to ES mappings.
+   * types from searchable annotations with fallback to index mappings.
    *
-   * @param mappingsBuilder mappings builder instance to use for extracting field types
+   * @param mappingsBuilder mappings builder for index mapping fallback, or null to use annotations
+   *     only
    * @param entityRegistry entity registry for looking up mappings
    * @param entitySpecs list of entity specs to extract field types from
    * @return map of field names to their searchable field types
    */
   public static Map<String, Set<SearchableAnnotation.FieldType>> buildSearchableFieldTypes(
-      @Nonnull MappingsBuilder mappingsBuilder,
+      @Nullable MappingsBuilder mappingsBuilder,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull List<EntitySpec> entitySpecs) {
     return entitySpecs.stream()
@@ -242,18 +253,21 @@ public class ESUtils {
               // fallback to mappings
               @SuppressWarnings("unchecked")
               Map<String, Map<String, Object>> rawMappingTypes =
-                  ((Map<String, Object>)
-                          mappingsBuilder
-                              .getIndexMappings(entityRegistry, entitySpec)
-                              .getOrDefault("properties", Map.<String, Object>of()))
-                      .entrySet().stream()
-                          .filter(
-                              entry ->
-                                  !annotationFieldTypes.containsKey(entry.getKey())
-                                      && ((Map<String, Object>) entry.getValue()).containsKey(TYPE))
-                          .collect(
-                              Collectors.toMap(
-                                  Map.Entry::getKey, e -> (Map<String, Object>) e.getValue()));
+                  mappingsBuilder == null
+                      ? Map.of()
+                      : ((Map<String, Object>)
+                              mappingsBuilder
+                                  .getIndexMappings(entityRegistry, entitySpec)
+                                  .getOrDefault("properties", Map.<String, Object>of()))
+                          .entrySet().stream()
+                              .filter(
+                                  entry ->
+                                      !annotationFieldTypes.containsKey(entry.getKey())
+                                          && ((Map<String, Object>) entry.getValue())
+                                              .containsKey(TYPE))
+                              .collect(
+                                  Collectors.toMap(
+                                      Map.Entry::getKey, e -> (Map<String, Object>) e.getValue()));
 
               Map<String, Set<SearchableAnnotation.FieldType>> mappingFieldTypes =
                   rawMappingTypes.entrySet().stream()
@@ -373,7 +387,7 @@ public class ESUtils {
   /**
    * Builds a filter query as a Map suitable for low-level REST clients.
    *
-   * <p>This method takes a Filter object and transforms it into an optimized OpenSearch query,
+   * <p>This method takes a Filter object and transforms it into an optimized Elasticsearch query,
    * including rewrites and optimizations, while returning a Map for use with the Low-Level client.
    *
    * <p>Output shape is ensured to have a top-level {@code bool} object. If the optimized query is
@@ -1637,7 +1651,7 @@ public class ESUtils {
    * Clean up a Point-in-Time (PIT) to prevent hitting the PIT context limit. This method should be
    * called in finally blocks after PIT usage.
    *
-   * @param client The OpenSearch client
+   * @param client Search client shim (Elasticsearch or OpenSearch)
    * @param pitId The PIT ID to clean up
    * @param context Optional context for logging (e.g., "slice 0", "search request")
    */

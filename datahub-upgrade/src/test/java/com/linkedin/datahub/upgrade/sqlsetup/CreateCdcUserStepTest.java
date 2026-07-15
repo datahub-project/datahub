@@ -56,8 +56,8 @@ public class CreateCdcUserStepTest {
             3306, // port
             "testdb", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
     createCdcUserStep = new CreateCdcUserStep(mockDatabase, defaultSetupArgs);
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
 
@@ -120,8 +120,7 @@ public class CreateCdcUserStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     CreateCdcUserStep disabledCdcStep = new CreateCdcUserStep(mockDatabase, disabledCdcArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = disabledCdcStep.executable();
@@ -156,8 +155,7 @@ public class CreateCdcUserStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     CreateCdcUserStep mysqlCdcStep = new CreateCdcUserStep(mockDatabase, mysqlCdcArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = mysqlCdcStep.executable();
@@ -193,8 +191,7 @@ public class CreateCdcUserStepTest {
             5432,
             "testdb",
             "testdb",
-            false,
-            null);
+            false);
     CreateCdcUserStep postgresCdcStep = new CreateCdcUserStep(mockDatabase, postgresCdcArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = postgresCdcStep.executable();
@@ -284,8 +281,7 @@ public class CreateCdcUserStepTest {
             5432,
             "custom_db",
             "custom_db",
-            false,
-            null);
+            false);
     CreateCdcUserStep customCdcStep = new CreateCdcUserStep(mockDatabase, customCdcArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = customCdcStep.executable();
@@ -320,8 +316,7 @@ public class CreateCdcUserStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     CreateCdcUserStep defaultCdcStep = new CreateCdcUserStep(mockDatabase, defaultCdcArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = defaultCdcStep.executable();
@@ -355,8 +350,7 @@ public class CreateCdcUserStepTest {
             5432,
             "testdb",
             "testdb",
-            false,
-            null);
+            false);
     CreateCdcUserStep postgresStep = new CreateCdcUserStep(mockDatabase, postgresArgs);
 
     // This test is now covered by DatabaseOperationsTest
@@ -384,8 +378,7 @@ public class CreateCdcUserStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     CreateCdcUserStep mysqlStep = new CreateCdcUserStep(mockDatabase, mysqlArgs);
 
     // This test is now covered by DatabaseOperationsTest
@@ -413,8 +406,7 @@ public class CreateCdcUserStepTest {
             5432,
             "testdb",
             "testdb",
-            false,
-            null);
+            false);
     CreateCdcUserStep postgresStep = new CreateCdcUserStep(mockDatabase, postgresArgs);
 
     // This test is now covered by DatabaseOperationsTest
@@ -442,8 +434,7 @@ public class CreateCdcUserStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     CreateCdcUserStep mysqlStep = new CreateCdcUserStep(mockDatabase, mysqlArgs);
 
     // This test is now covered by DatabaseOperationsTest
@@ -477,8 +468,7 @@ public class CreateCdcUserStepTest {
               3306,
               "testdb",
               null,
-              false,
-              null);
+              false);
       createCdcUserStep.createCdcUser(testArgs);
       assertTrue(false, "Expected RuntimeException to be thrown");
     } catch (Exception e) {
@@ -508,8 +498,7 @@ public class CreateCdcUserStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
@@ -547,8 +536,7 @@ public class CreateCdcUserStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
@@ -579,8 +567,7 @@ public class CreateCdcUserStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
@@ -608,8 +595,7 @@ public class CreateCdcUserStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);
@@ -641,8 +627,7 @@ public class CreateCdcUserStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
 
     assertNotNull(result);

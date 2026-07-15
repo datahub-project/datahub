@@ -34,7 +34,8 @@ import org.junit.BeforeClass;
  * <p>Required environment variables:
  *
  * <ul>
- *   <li>DATAHUB_SERVER: DataHub GMS server URL (default: http://localhost:8080)
+ *   <li>DATAHUB_SERVER: DataHub GMS server URL (must be set to run these tests; e.g.
+ *       http://localhost:8080 for quickstart)
  * </ul>
  *
  * <p>Optional environment variables:
@@ -51,16 +52,17 @@ public abstract class BaseIntegrationTest {
 
   protected static DataHubClientV2 client;
 
-  private static final String DEFAULT_SERVER = "http://localhost:8080";
   private static final String DEFAULT_USERNAME = "datahub";
   private static final String DEFAULT_PASSWORD = "datahub";
   private static final String DEFAULT_FRONTEND_PORT = "9002";
 
-  // Only use defaults for local dev - CI should explicitly set DATAHUB_SERVER or tests skip
-  protected static final String TEST_SERVER =
-      System.getenv("CI") != null
-          ? System.getenv("DATAHUB_SERVER")
-          : getEnvOrDefault("DATAHUB_SERVER", DEFAULT_SERVER);
+  /**
+   * GMS base URL; only non-null when {@code DATAHUB_SERVER} is set in the environment. Unset means
+   * integration tests are skipped (see {@code build.gradle} — default {@code ./gradlew test} must
+   * not require a live DataHub).
+   */
+  protected static final String TEST_SERVER = getNonEmptyEnv("DATAHUB_SERVER");
+
   private static final String ADMIN_USERNAME = getEnvOrDefault("ADMIN_USERNAME", DEFAULT_USERNAME);
   private static final String ADMIN_PASSWORD = getEnvOrDefault("ADMIN_PASSWORD", DEFAULT_PASSWORD);
 
@@ -71,10 +73,10 @@ public abstract class BaseIntegrationTest {
 
   @BeforeClass
   public static void setupClass() throws Exception {
-    // Skip if server not available
     assumeTrue(
-        "DATAHUB_SERVER not set or empty, skipping integration tests",
-        TEST_SERVER != null && !TEST_SERVER.isEmpty());
+        "Set DATAHUB_SERVER (e.g. http://localhost:8080) to run integration tests; "
+            + "omit for unit-test-only builds",
+        TEST_SERVER != null);
 
     // Check if token was provided via environment variable
     String providedToken = System.getenv("DATAHUB_TOKEN");
@@ -283,6 +285,11 @@ public abstract class BaseIntegrationTest {
   private static String getEnvOrDefault(String key, String defaultValue) {
     String value = System.getenv(key);
     return (value != null && !value.isEmpty()) ? value : defaultValue;
+  }
+
+  private static String getNonEmptyEnv(String key) {
+    String value = System.getenv(key);
+    return (value != null && !value.isEmpty()) ? value : null;
   }
 
   /**

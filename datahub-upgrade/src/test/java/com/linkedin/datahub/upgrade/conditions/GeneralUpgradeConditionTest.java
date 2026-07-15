@@ -11,6 +11,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.context.annotation.ConditionContext;
+import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -21,6 +22,7 @@ public class GeneralUpgradeConditionTest {
   @Mock private AnnotatedTypeMetadata mockAnnotatedTypeMetadata;
   @Mock private ConfigurableListableBeanFactory mockBeanFactory;
   @Mock private ApplicationArguments mockApplicationArguments;
+  @Mock private Environment mockEnvironment;
 
   private GeneralUpgradeCondition condition;
 
@@ -30,6 +32,8 @@ public class GeneralUpgradeConditionTest {
     condition = new GeneralUpgradeCondition();
     when(mockConditionContext.getBeanFactory()).thenReturn(mockBeanFactory);
     when(mockBeanFactory.getBean(ApplicationArguments.class)).thenReturn(mockApplicationArguments);
+    when(mockConditionContext.getEnvironment()).thenReturn(mockEnvironment);
+    when(mockEnvironment.getProperty("elasticsearch.enabled", Boolean.class)).thenReturn(null);
   }
 
   @Test
@@ -48,6 +52,13 @@ public class GeneralUpgradeConditionTest {
   public void testDoesNotMatchWhenLoadIndicesPresent() {
     when(mockApplicationArguments.getNonOptionArgs()).thenReturn(Arrays.asList("LoadIndices"));
     assertFalse(condition.matches(mockConditionContext, mockAnnotatedTypeMetadata));
+  }
+
+  @Test
+  public void testMatchesWhenLoadIndicesPresentAndElasticsearchDisabled() {
+    when(mockApplicationArguments.getNonOptionArgs()).thenReturn(Arrays.asList("LoadIndices"));
+    when(mockEnvironment.getProperty("elasticsearch.enabled", Boolean.class)).thenReturn(false);
+    assertTrue(condition.matches(mockConditionContext, mockAnnotatedTypeMetadata));
   }
 
   @Test

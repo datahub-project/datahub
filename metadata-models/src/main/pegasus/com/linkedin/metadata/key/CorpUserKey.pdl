@@ -4,7 +4,8 @@ namespace com.linkedin.metadata.key
  * Key for a CorpUser
  */
 @Aspect = {
-  "name": "corpUserKey"
+  "name": "corpUserKey",
+  "schemaVersion": 2
 }
 record CorpUserKey {
   /**
@@ -14,7 +15,8 @@ record CorpUserKey {
     "fieldName": "ldap",
     "fieldType": "WORD_GRAM",
     "boostScore": 2.0,
-    "enableAutocomplete": true
+    "enableAutocomplete": true,
+    "searchTier": 1
   }
   username: string
 }

@@ -106,7 +106,9 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
             .map(
                 entry -> {
                   try {
-                    Urn entityUrn = Urn.createFromString(entry.getKey());
+                    Urn entityUrn =
+                        Urn.createFromString(
+                            FacetAggregationUrnKeys.coerceFacetKeyToUrnString(entry.getKey()));
                     return Optional.of(Pair.of(entityUrn, entry.getValue()));
                   } catch (URISyntaxException e) {
                     log.error("Invalid entity urn {}", entry.getKey(), e);

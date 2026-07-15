@@ -5,11 +5,13 @@ import com.google.common.base.Suppliers;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.GracefulShutdownHandler;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.health.DatastoreHealthStatus;
+import com.linkedin.metadata.health.PrimaryDatastoreHealthProbe;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +39,7 @@ public class HealthCheckController {
 
   private static final Logger log = LoggerFactory.getLogger(HealthCheckController.class);
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
 
@@ -62,22 +64,36 @@ public class HealthCheckController {
   @Autowired(required = false)
   private GracefulShutdownHandler shutdownHandler;
 
-  private final Supplier<ResponseEntity<String>> memoizedSupplier;
+  private final ConfigurationProvider configurationProvider;
+  private final PrimaryDatastoreHealthProbe primaryDatastoreHealthProbe;
+  private final Supplier<ResponseEntity<String>> memoizedElasticSupplier;
+  private final Supplier<ResponseEntity<String>> memoizedDatastoreSupplier;
 
-  public HealthCheckController(ConfigurationProvider config) {
+  public HealthCheckController(
+      ConfigurationProvider config,
+      @Autowired(required = false) PrimaryDatastoreHealthProbe primaryDatastoreHealthProbe) {
 
-    this.memoizedSupplier =
-        Suppliers.memoizeWithExpiration(
-            this::getElasticHealth,
-            config.getHealthCheck().getCacheDurationSeconds(),
-            TimeUnit.SECONDS);
+    this.configurationProvider = config;
+    this.primaryDatastoreHealthProbe = primaryDatastoreHealthProbe;
+    long cacheDurationSeconds = config.getHealthCheck().getCacheDurationSeconds();
+    this.memoizedElasticSupplier = memoize(cacheDurationSeconds, this::getElasticHealth);
+    this.memoizedDatastoreSupplier = memoize(cacheDurationSeconds, this::getPrimaryDatastoreHealth);
+  }
+
+  private static Supplier<ResponseEntity<String>> memoize(
+      long cacheDurationSeconds, Supplier<ResponseEntity<String>> delegate) {
+    if (cacheDurationSeconds <= 0) {
+      return delegate;
+    }
+    return Suppliers.memoizeWithExpiration(delegate, cacheDurationSeconds, TimeUnit.SECONDS);
   }
 
   @GetMapping(path = "/check/ready", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Boolean> getCombinedHealthCheck(
-      @RequestParam(name = "checks", defaultValue = "elasticsearch") List<String> checks) {
-    return ResponseEntity.status(getCombinedDebug(checks).getStatusCode())
-        .body(getCombinedDebug(checks).getStatusCode().is2xxSuccessful());
+      @RequestParam(name = "checks", required = false) List<String> checks) {
+    ResponseEntity<Map<String, ResponseEntity<String>>> combined = getCombinedDebug(checks);
+    return ResponseEntity.status(combined.getStatusCode())
+        .body(combined.getStatusCode().is2xxSuccessful());
   }
 
   /**
@@ -124,12 +140,13 @@ public class HealthCheckController {
   }
 
   /**
-   * Detailed health endpoint that consolidates all health checks into a single JSON response.
-   * Designed for agent tooling (datahub-dev status) to get a comprehensive view in one call.
+   * Detailed health endpoint that consolidates checks into a single JSON response.
    *
-   * <p>Returns a JSON object with bootstrap status, elasticsearch health, and overall readiness.
-   * Always returns HTTP 200 with the status in the body (so agents can parse the response even when
-   * unhealthy).
+   * <p>Includes Elasticsearch/OpenSearch when enabled, and the primary datastore (JDBC via Ebean or
+   * Cassandra) when a probe is registered.
+   *
+   * <p>Always returns HTTP 200 with the status in the body (so agents can parse the response even
+   * when unhealthy).
    */
   @GetMapping(path = "/health/detailed", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Map<String, Object>> getDetailedHealth() {
@@ -138,7 +155,6 @@ public class HealthCheckController {
     boolean bootstrapped = bootstrapManager.areBlockingStepsComplete();
     result.put("bootstrapped", bootstrapped);
 
-    // Elasticsearch health
     ResponseEntity<String> esHealth;
     try {
       esHealth = getElasticDebugWithCache();
@@ -147,11 +163,21 @@ public class HealthCheckController {
       esHealth = ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(e.getMessage());
     }
     boolean esHealthy = esHealth.getStatusCode() == HttpStatus.OK;
-    String esStatus = esHealthy ? "green" : "unhealthy";
-    result.put("elasticsearch", esStatus);
+    result.put("elasticsearch", esHealthy ? "green" : "unhealthy");
     result.put("elasticsearch_detail", esHealth.getBody());
 
-    boolean ready = bootstrapped && esHealthy;
+    ResponseEntity<String> dsHealth;
+    try {
+      dsHealth = getPrimaryDatastoreDebugWithCache();
+    } catch (Exception e) {
+      log.error("Unexpected error getting primary datastore health", e);
+      dsHealth = ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(e.getMessage());
+    }
+    boolean dsHealthy = dsHealth.getStatusCode() == HttpStatus.OK;
+    result.put("primary_metadata_store", dsHealthy ? "green" : "unhealthy");
+    result.put("primary_metadata_store_detail", dsHealth.getBody());
+
+    boolean ready = bootstrapped && esHealthy && dsHealthy;
     result.put("ready", ready);
     result.put("timestamp", System.currentTimeMillis());
 
@@ -159,24 +185,22 @@ public class HealthCheckController {
   }
 
   /**
-   * Combined health check endpoint for checking GMS clients. For now, just checks the health of the
-   * ElasticSearch client
+   * Combined health check for configured infrastructure clients (search cluster and primary
+   * datastore).
    *
-   * @return A ResponseEntity with a Map of String (component name) to ResponseEntity (the health
-   *     check status of that component). The status code will be 200 if all components are okay,
-   *     and 500 if one or more components are not healthy.
+   * @return Map of component name to health ResponseEntity; HTTP 503 if any active check fails.
    */
   @GetMapping(path = "/debug/ready", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Map<String, ResponseEntity<String>>> getCombinedDebug(
-      @RequestParam(name = "checks", defaultValue = "elasticsearch") List<String> checks) {
-    Map<String, Supplier<ResponseEntity<String>>> healthChecks = new HashMap<>();
+      @RequestParam(name = "checks", required = false) List<String> checks) {
+    Map<String, Supplier<ResponseEntity<String>>> healthChecks = new LinkedHashMap<>();
     healthChecks.put("elasticsearch", this::getElasticDebugWithCache);
-    // Add new components here
+    healthChecks.put("primary_metadata_store", this::getPrimaryDatastoreDebugWithCache);
 
     List<String> componentsToCheck =
         checks != null && !checks.isEmpty() ? checks : new ArrayList<>(healthChecks.keySet());
 
-    Map<String, ResponseEntity<String>> componentHealth = new HashMap<>();
+    Map<String, ResponseEntity<String>> componentHealth = new LinkedHashMap<>();
     for (String check : componentsToCheck) {
       componentHealth.put(
           check,
@@ -203,22 +227,41 @@ public class HealthCheckController {
         .body(getElasticDebugWithCache().getStatusCode().is2xxSuccessful());
   }
 
-  /**
-   * Checks the memoized cache for the latest elastic health check result
-   *
-   * @return The ResponseEntity containing the health check result
-   */
   @GetMapping(path = "/debug/elastic", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<String> getElasticDebugWithCache() {
-    return this.memoizedSupplier.get();
+    return this.memoizedElasticSupplier.get();
   }
 
-  /**
-   * Query ElasticSearch health endpoint
-   *
-   * @return A response including the result from ElasticSearch
-   */
+  /** Cached JDBC/Cassandra primary entity store probe (same TTL as Elasticsearch health). */
+  @GetMapping(path = "/debug/primary_metadata_store", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<String> getPrimaryDatastoreDebugWithCache() {
+    return this.memoizedDatastoreSupplier.get();
+  }
+
+  private ResponseEntity<String> getPrimaryDatastoreHealth() {
+    if (primaryDatastoreHealthProbe == null) {
+      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+          .body("Primary datastore health probe is not registered");
+    }
+    DatastoreHealthStatus status = primaryDatastoreHealthProbe.probe();
+    if (status.isHealthy()) {
+      return ResponseEntity.ok(status.getMessage());
+    }
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(status.getMessage());
+  }
+
   private ResponseEntity<String> getElasticHealth() {
+    ElasticSearchConfiguration es = configurationProvider.getElasticSearch();
+    if (es == null || !es.isEnabled()) {
+      return ResponseEntity.ok(
+          "Elasticsearch/OpenSearch integration disabled (elasticsearch.enabled=false)");
+    }
+    if (elasticClient == null) {
+      return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+          .body(
+              "Elasticsearch/OpenSearch is enabled in configuration but the search client is not "
+                  + "available");
+    }
     String responseString = null;
     try {
       ClusterHealthRequest request = new ClusterHealthRequest();
@@ -234,7 +277,6 @@ public class HealthCheckController {
       }
     } catch (Exception e) {
       if (responseString == null) {
-        // Couldn't get a response, fill in the string from the exception message
         responseString = e.getMessage();
       }
     }

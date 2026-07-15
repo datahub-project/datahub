@@ -1,11 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
-<suite name="metadata-io-postgresql" parallel="classes" thread-count="2">
-    <test name="postgresql-sqlsetup">
+<suite name="metadata-io-postgresql" parallel="classes" thread-count="8">
+    <!--
+      PostgreSQL + Testcontainers (see PostgresTestUtils, DATAHUB_POSTGRES_* env).
+
+      parallel="classes": one shared Postgres container per JVM (PostgresTestUtils.startPostgres);
+      each IT class must use PostgresTestUtils.newIntegrationNamespace() so schemas do not clash.
+
+      Add a <package> line per Java package that holds JDBC / :docker:postgres integration tests.
+
+      com.linkedin.metadata.timeseries.postgres and       com.linkedin.metadata.graph.postgres include
+      both fast unit tests (e.g. TimeseriesFilterSqlBuilderTest) and *IT classes; they are excluded
+      from testng-other.xml so this suite is the single place they run in ./gradlew test.
+
+      com.linkedin.metadata.postgres also holds PostgresSystemMetadataServiceIT (SqlSetup-aligned
+      system_metadata_service_v1 DDL + service behavior).
+    -->
+    <test name="postgresql-testcontainers">
         <packages>
             <package name="com.linkedin.metadata.sqlsetup.postgres.migration"/>
             <package name="com.linkedin.metadata.sqlsetup.postgres.pgqueue"/>
             <package name="com.linkedin.metadata.entity.storage"/>
+            <package name="com.linkedin.metadata.postgres"/>
+            <package name="com.linkedin.metadata.timeseries.postgres"/>
+            <package name="com.linkedin.metadata.graph.postgres"/>
+            <package name="com.linkedin.metadata.queue.postgres"/>
         </packages>
     </test>
 </suite>

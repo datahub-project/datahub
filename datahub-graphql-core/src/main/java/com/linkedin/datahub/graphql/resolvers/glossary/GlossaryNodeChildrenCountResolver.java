@@ -86,7 +86,10 @@ public class GlossaryNodeChildrenCountResolver
             return childrenCount;
           } catch (Exception e) {
             throw new RuntimeException(
-                String.format("Failed to check whether entity %s exists", entityUrn.toString()));
+                String.format(
+                    "Failed to resolve glossary children counts for entity %s",
+                    entityUrn.toString()),
+                e);
           }
         },
         this.getClass().getSimpleName(),

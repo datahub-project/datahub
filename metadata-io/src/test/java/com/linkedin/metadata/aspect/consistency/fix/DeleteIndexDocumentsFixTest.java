@@ -10,7 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 /** Tests for DeleteIndexDocumentsFix. */
 public class DeleteIndexDocumentsFixTest {
 
-  @Mock private ESSystemMetadataDAO mockEsSystemMetadataDAO;
+  @Mock private SystemMetadataService mockSystemMetadataService;
   @Mock private EntitySearchService mockEntitySearchService;
   @Mock private GraphService mockGraphService;
   @Mock private OperationContext mockOpContext;
@@ -40,7 +40,7 @@ public class DeleteIndexDocumentsFixTest {
     MockitoAnnotations.openMocks(this);
     fix =
         new DeleteIndexDocumentsFix(
-            mockEsSystemMetadataDAO, mockEntitySearchService, mockGraphService);
+            mockSystemMetadataService, mockEntitySearchService, mockGraphService);
 
     // Setup mock chain for getEntityDocumentId
     when(mockOpContext.getSearchContext()).thenReturn(mockSearchContext);
@@ -91,14 +91,12 @@ public class DeleteIndexDocumentsFixTest {
     fix.apply(mockOpContext, issue, false);
 
     // Verify order: search first, then graph, then system metadata LAST
-    InOrder inOrder = inOrder(mockEntitySearchService, mockGraphService, mockEsSystemMetadataDAO);
+    InOrder inOrder = inOrder(mockEntitySearchService, mockGraphService, mockSystemMetadataService);
     inOrder
         .verify(mockEntitySearchService)
         .deleteDocument(mockOpContext, "assertion", getExpectedDocId(urn));
     inOrder.verify(mockGraphService).removeNode(mockOpContext, urn);
-    inOrder
-        .verify(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+    inOrder.verify(mockSystemMetadataService).deleteUrn(mockOpContext, urn.toString());
   }
 
   @Test
@@ -132,14 +130,12 @@ public class DeleteIndexDocumentsFixTest {
     assertTrue(result.isSuccess());
 
     // Verify all were called in order
-    InOrder inOrder = inOrder(mockEntitySearchService, mockGraphService, mockEsSystemMetadataDAO);
+    InOrder inOrder = inOrder(mockEntitySearchService, mockGraphService, mockSystemMetadataService);
     inOrder
         .verify(mockEntitySearchService)
         .deleteDocument(mockOpContext, "assertion", getExpectedDocId(urn));
     inOrder.verify(mockGraphService).removeNode(mockOpContext, urn);
-    inOrder
-        .verify(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+    inOrder.verify(mockSystemMetadataService).deleteUrn(mockOpContext, urn.toString());
   }
 
   // ============================================================================
@@ -167,7 +163,7 @@ public class DeleteIndexDocumentsFixTest {
     assertTrue(result.getDetails().contains("Deleted index documents"));
 
     // Verify all three indices were called
-    verify(mockEsSystemMetadataDAO).deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+    verify(mockSystemMetadataService).deleteUrn(mockOpContext, urn.toString());
     verify(mockEntitySearchService)
         .deleteDocument(mockOpContext, "assertion", getExpectedDocId(urn));
     verify(mockGraphService).removeNode(mockOpContext, urn);
@@ -193,7 +189,7 @@ public class DeleteIndexDocumentsFixTest {
     assertTrue(result.getDetails().contains("Deleted index documents"));
 
     // Verify NO indices were called in dry run
-    verifyNoInteractions(mockEsSystemMetadataDAO);
+    verifyNoInteractions(mockSystemMetadataService);
     verifyNoInteractions(mockEntitySearchService);
     verifyNoInteractions(mockGraphService);
   }
@@ -220,8 +216,8 @@ public class DeleteIndexDocumentsFixTest {
     assertTrue(result.getDetails().contains("2 entities"));
 
     // Verify both URNs were deleted from all indices
-    verify(mockEsSystemMetadataDAO).deleteByUrn(any(OperationContext.class), eq(urn1.toString()));
-    verify(mockEsSystemMetadataDAO).deleteByUrn(any(OperationContext.class), eq(urn2.toString()));
+    verify(mockSystemMetadataService).deleteUrn(mockOpContext, urn1.toString());
+    verify(mockSystemMetadataService).deleteUrn(mockOpContext, urn2.toString());
     verify(mockEntitySearchService)
         .deleteDocument(mockOpContext, "monitor", getExpectedDocId(urn1));
     verify(mockEntitySearchService)
@@ -249,7 +245,7 @@ public class DeleteIndexDocumentsFixTest {
     assertTrue(result.isSuccess());
 
     // Verify entityUrn was used
-    verify(mockEsSystemMetadataDAO).deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+    verify(mockSystemMetadataService).deleteUrn(mockOpContext, urn.toString());
     verify(mockEntitySearchService).deleteDocument(mockOpContext, "dataset", getExpectedDocId(urn));
     verify(mockGraphService).removeNode(mockOpContext, urn);
   }
@@ -277,8 +273,8 @@ public class DeleteIndexDocumentsFixTest {
 
     // System metadata fails for urn2, but other indices succeed
     doThrow(new RuntimeException("Delete failed"))
-        .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(urn2.toString()));
+        .when(mockSystemMetadataService)
+        .deleteUrn(mockOpContext, urn2.toString());
 
     ConsistencyFixDetail result = fix.apply(mockOpContext, issue, false);
 
@@ -304,8 +300,8 @@ public class DeleteIndexDocumentsFixTest {
 
     // All indices fail
     doThrow(new RuntimeException("System metadata delete failed"))
-        .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+        .when(mockSystemMetadataService)
+        .deleteUrn(mockOpContext, urn.toString());
     doThrow(new RuntimeException("Search delete failed"))
         .when(mockEntitySearchService)
         .deleteDocument(any(), eq("assertion"), eq(getExpectedDocId(urn)));
@@ -340,8 +336,8 @@ public class DeleteIndexDocumentsFixTest {
 
     // System metadata fails
     doThrow(new RuntimeException("System metadata delete failed"))
-        .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+        .when(mockSystemMetadataService)
+        .deleteUrn(mockOpContext, urn.toString());
 
     ConsistencyFixDetail result = fix.apply(mockOpContext, issue, false);
 
@@ -379,7 +375,7 @@ public class DeleteIndexDocumentsFixTest {
     assertTrue(result.isSuccess());
 
     // Verify other indices were called
-    verify(mockEsSystemMetadataDAO).deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+    verify(mockSystemMetadataService).deleteUrn(mockOpContext, urn.toString());
     verify(mockGraphService).removeNode(mockOpContext, urn);
   }
 
@@ -408,7 +404,7 @@ public class DeleteIndexDocumentsFixTest {
     assertTrue(result.isSuccess());
 
     // Verify other indices were called first
-    verify(mockEsSystemMetadataDAO).deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+    verify(mockSystemMetadataService).deleteUrn(mockOpContext, urn.toString());
     verify(mockEntitySearchService)
         .deleteDocument(mockOpContext, "assertion", getExpectedDocId(urn));
   }
@@ -436,7 +432,7 @@ public class DeleteIndexDocumentsFixTest {
     assertTrue(result.isSuccess());
 
     // Should fall back to entityUrn
-    verify(mockEsSystemMetadataDAO).deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+    verify(mockSystemMetadataService).deleteUrn(mockOpContext, urn.toString());
   }
 
   // ============================================================================
@@ -460,8 +456,8 @@ public class DeleteIndexDocumentsFixTest {
 
     // All indices fail - this should now throw from deleteFromAllIndices
     doThrow(new RuntimeException("System metadata delete failed"))
-        .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+        .when(mockSystemMetadataService)
+        .deleteUrn(mockOpContext, urn.toString());
     doThrow(new RuntimeException("Search delete failed"))
         .when(mockEntitySearchService)
         .deleteDocument(any(), eq("assertion"), eq(getExpectedDocId(urn)));
@@ -499,8 +495,8 @@ public class DeleteIndexDocumentsFixTest {
 
     // All indices fail for both URNs
     doThrow(new RuntimeException("Delete failed"))
-        .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), any());
+        .when(mockSystemMetadataService)
+        .deleteUrn(any(), any());
     doThrow(new RuntimeException("Delete failed"))
         .when(mockEntitySearchService)
         .deleteDocument(any(), any(), any());
@@ -536,8 +532,8 @@ public class DeleteIndexDocumentsFixTest {
 
     // All indices fail for failUrn only
     doThrow(new RuntimeException("Delete failed"))
-        .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(failUrn.toString()));
+        .when(mockSystemMetadataService)
+        .deleteUrn(mockOpContext, failUrn.toString());
     doThrow(new RuntimeException("Delete failed"))
         .when(mockEntitySearchService)
         .deleteDocument(any(), eq("assertion"), eq(getExpectedDocId(failUrn)));
@@ -578,8 +574,8 @@ public class DeleteIndexDocumentsFixTest {
     // All indices fail for fail1 and fail2
     for (Urn failUrn : List.of(fail1, fail2)) {
       doThrow(new RuntimeException("Delete failed"))
-          .when(mockEsSystemMetadataDAO)
-          .deleteByUrn(any(OperationContext.class), eq(failUrn.toString()));
+          .when(mockSystemMetadataService)
+          .deleteUrn(mockOpContext, failUrn.toString());
       doThrow(new RuntimeException("Delete failed"))
           .when(mockEntitySearchService)
           .deleteDocument(any(), eq("assertion"), eq(getExpectedDocId(failUrn)));
@@ -605,8 +601,8 @@ public class DeleteIndexDocumentsFixTest {
 
     // All indices fail
     doThrow(new RuntimeException("System metadata delete failed"))
-        .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+        .when(mockSystemMetadataService)
+        .deleteUrn(mockOpContext, urn.toString());
     doThrow(new RuntimeException("Search delete failed"))
         .when(mockEntitySearchService)
         .deleteDocument(any(), eq("assertion"), eq(getExpectedDocId(urn)));
@@ -631,14 +627,14 @@ public class DeleteIndexDocumentsFixTest {
 
     // Only system metadata fails, others succeed
     doThrow(new RuntimeException("System metadata delete failed"))
-        .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+        .when(mockSystemMetadataService)
+        .deleteUrn(mockOpContext, urn.toString());
 
     // Should not throw - at least one index succeeded
     fix.deleteFromAllIndices(mockOpContext, urn, "assertion");
 
     // Verify all indices were attempted
-    verify(mockEsSystemMetadataDAO).deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+    verify(mockSystemMetadataService).deleteUrn(mockOpContext, urn.toString());
     verify(mockEntitySearchService)
         .deleteDocument(mockOpContext, "assertion", getExpectedDocId(urn));
     verify(mockGraphService).removeNode(mockOpContext, urn);
@@ -650,8 +646,8 @@ public class DeleteIndexDocumentsFixTest {
 
     // System metadata and search fail, only graph succeeds
     doThrow(new RuntimeException("System metadata delete failed"))
-        .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+        .when(mockSystemMetadataService)
+        .deleteUrn(mockOpContext, urn.toString());
     doThrow(new RuntimeException("Search delete failed"))
         .when(mockEntitySearchService)
         .deleteDocument(any(), eq("assertion"), eq(getExpectedDocId(urn)));

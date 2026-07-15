@@ -380,6 +380,20 @@ public interface TimeseriesAspectService {
       @Nonnull final String docId,
       @Nonnull final JsonNode document);
 
+  /**
+   * Deletes a single timeseries document identified by {@code docId} (same key as {@link
+   * #upsertDocument}). {@code isExploded} is retained for API compatibility with the Elasticsearch
+   * path; some implementations ignore it.
+   */
+  default void deleteDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nonnull final String docId,
+      boolean isExploded) {
+    // Implementations that only expose bulk-delete APIs can leave this as a no-op.
+  }
+
   List<TimeseriesIndexSizeResult> getIndexSizes(@Nonnull OperationContext opContext);
 
   @Nonnull

@@ -9,7 +9,8 @@ import com.linkedin.common.VersionTag
  * Properties associated with a MLFeature
  */
 @Aspect = {
-  "name": "mlFeatureProperties"
+  "name": "mlFeatureProperties",
+  "schemaVersion": 2
 }
 record MLFeatureProperties includes CustomProperties {
 

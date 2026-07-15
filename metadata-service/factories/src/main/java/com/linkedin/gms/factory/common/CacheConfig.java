@@ -39,6 +39,7 @@ import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 @Configuration
 public class CacheConfig {
@@ -72,6 +73,7 @@ public class CacheConfig {
   private int rateLimitEndpointBucketMaxSize;
 
   @Bean
+  @Primary
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "caffeine")
   public CacheManager caffeineCacheManager() {
     CaffeineCacheManager cacheManager = new CaffeineCacheManager();
@@ -167,6 +169,7 @@ public class CacheConfig {
   }
 
   @Bean
+  @Primary
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
   public CacheManager hazelcastCacheManager(
       @Qualifier("hazelcastInstance") final HazelcastInstance hazelcastInstance) {

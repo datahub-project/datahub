@@ -356,6 +356,8 @@ entityService:
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
+  # Upper bound on edges per batch chunk (with postgres.pgGraph.maxEdgeWriteBatchSize for PG JDBC).
+  maxEdgeBatchSize: ${GRAPH_SERVICE_MAX_EDGE_BATCH_SIZE:1000}
   limit:
     results:
       max: ${GRAPH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
@@ -390,6 +392,8 @@ searchService:
       strict: ${SEARCH_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 timeseriesAspectService:
+  # Source of truth for timeseries reads (and filter-based deletes on the read path). Use postgres with postgres.pgTimeseries.enabled and SqlSetup. elasticsearch and opensearch both use the configured search client; pick opensearch when the cluster is OpenSearch.
+  implementation: ${TIMESERIES_ASPECT_SERVICE_IMPLEMENTATION:elasticsearch} # elasticsearch | opensearch | postgres
   query:
     concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
     queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY_QUEUE_SIZE:500}
@@ -404,6 +408,7 @@ timeseriesAspectService:
       apiDefault: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
       strict: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
+# System metadata query limits (both OpenSearch/ES and Postgres-backed implementations).
 systemMetadataService:
   limit:
     results:
@@ -424,6 +429,16 @@ platformAnalytics:
     usageEventTypes: ${ANALYTICS_DATAHUB_USAGE_EVENT_TYPES:CreateAccessTokenEvent,CreatePolicyEvent,UpdatePolicyEvent,CreateIngestionSourceEvent,UpdateIngestionSourceEvent,RevokeAccessTokenEvent,CreateUserEvent,UpdateUserEvent,DeletePolicyEvent} # Comma separated list that determines which usage event types to listen to, See DataHubUsageEventType for list
     aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
     userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all
+  usageEvents:
+    # elasticsearch: OpenSearch/Elasticsearch data stream (legacy). postgres: partitioned SQL backend (no search cluster).
+    # postgres: uses postgres.pgTimeseries.pool (bean pgTimeseriesEbeanServer) — same dedicated pool as SqlSetup pgTimeseries aspect storage; co-configure under postgres.pgTimeseries in application.yaml.
+    implementation: ${DATAHUB_USAGE_EVENTS_IMPLEMENTATION:elasticsearch}
+    retentionMonths: ${DATAHUB_USAGE_EVENTS_RETENTION_MONTHS:18}
+    partitionsAheadMonths: ${DATAHUB_USAGE_EVENTS_PARTITIONS_AHEAD:3}
+    recommendationLookbackDays: ${DATAHUB_USAGE_EVENTS_RECOMMENDATION_LOOKBACK_DAYS:90}
+    partitionMaintenance:
+      enabled: ${DATAHUB_USAGE_EVENTS_PARTITION_MAINTENANCE_ENABLED:false}
+      cron: ${DATAHUB_USAGE_EVENTS_PARTITION_MAINTENANCE_CRON:0 0 3 * * *}
 
 mclProcessing:
   cdcSource:
@@ -543,7 +558,7 @@ cassandra:
     port: ${CASSANDRA_READ_POOL_PORT:${CASSANDRA_PORT:9042}}
     datacenter: ${CASSANDRA_READ_POOL_DATACENTER:${CASSANDRA_DATACENTER:datacenter1}}
 
-# PostgreSQL optional SqlSetup (pgQueue).
+# PostgreSQL optional SqlSetup (pgGraph, pgSearch entity store, pgTimeseries, pgQueue, pgSystemMetadata).
 # postgres.schema: Ebean/metadata tables (default public). pgQueue uses postgres.pgQueue.schema only
 # (default queue)—queue DDL never lands in postgres.schema unless you explicitly set both to the same value.
 # The JDBC URL path selects the database only.
@@ -569,6 +584,83 @@ postgres:
       googleApplicationCredentials: ${GOOGLE_APPLICATION_CREDENTIALS:#{null}}
       gcpProject: ${GCP_PROJECT:#{null}}
       instanceConnectionName: ${INSTANCE_CONNECTION_NAME:#{null}}
+  pgGraph:
+    enabled: ${DATAHUB_PGGRAPH_ENABLED:false}
+    # SqlSetup object name prefix (tables/views: {prefix}_vertices, {prefix}_edges, {prefix}_cc_definitions, ...)
+    tablePrefix: ${DATAHUB_PGGRAPH_TABLE_PREFIX:metadata_graph}
+    partitionCount: ${DATAHUB_PGGRAPH_PARTITION_COUNT:2}
+    # Vertex BIGINT id scheme for xxhash64_id (PostgresGraphWriteSink). Allow-listed: XXHASH64.
+    idHashAlgo: ${DATAHUB_PGGRAPH_ID_HASH_ALGO:XXHASH64}
+    # Max edges per JDBC executeBatch chunk for batched graph writes (addEdges/removeEdges).
+    maxEdgeWriteBatchSize: ${DATAHUB_PGGRAPH_MAX_EDGE_WRITE_BATCH_SIZE:1000}
+    # Dedicated runtime connection pool for the graph store (separate from the main ebean.* pool).
+    # Defaults fall through to ebean.* so a single-Postgres deployment works with zero extra config;
+    # override DATAHUB_PGGRAPH_DATASOURCE_* to point pgGraph at a different DB or role.
+    pool:
+      url: ${DATAHUB_PGGRAPH_DATASOURCE_URL:${ebean.url}}
+      driver: ${DATAHUB_PGGRAPH_DATASOURCE_DRIVER:${ebean.driver}}
+      username: ${DATAHUB_PGGRAPH_DATASOURCE_USERNAME:${ebean.username}}
+      password: ${DATAHUB_PGGRAPH_DATASOURCE_PASSWORD:${ebean.password}}
+      minConnections: ${DATAHUB_PGGRAPH_MIN_CONNECTIONS:1}
+      maxConnections: ${DATAHUB_PGGRAPH_MAX_CONNECTIONS:12}
+      maxInactiveTimeSeconds: ${DATAHUB_PGGRAPH_MAX_INACTIVE_TIME_SECONDS:120}
+      maxAgeMinutes: ${DATAHUB_PGGRAPH_MAX_AGE_MINUTES:120}
+      leakTimeMinutes: ${DATAHUB_PGGRAPH_LEAK_TIME_MINUTES:15}
+      waitTimeoutMillis: ${DATAHUB_PGGRAPH_WAIT_TIMEOUT_MILLIS:1000}
+  pgSearch:
+    entity:
+      enabled: ${DATAHUB_PGSEARCH_ENTITY_ENABLED:false}
+      # SqlSetup table name prefix (tables: {prefix}_group_registry, {prefix}_search_row)
+      tablePrefix: ${DATAHUB_PGSEARCH_ENTITY_TABLE_PREFIX:metadata_search}
+      query:
+        # Keyword entity search reads from PostgreSQL pgSearch instead of OpenSearch (writes remain on OpenSearch).
+        enabled: ${DATAHUB_PGSEARCH_ENTITY_QUERY_ENABLED:false}
+      vector:
+        enabled: ${DATAHUB_PGSEARCH_ENTITY_VECTOR_ENABLED:true}
+        embeddingDimensions: ${DATAHUB_PGSEARCH_ENTITY_VECTOR_EMBEDDING_DIMENSIONS:3072}
+      fulltext:
+        defaultLanguage: ${DATAHUB_PGSEARCH_ENTITY_FULLTEXT_DEFAULT_LANGUAGE:english}
+        # Tier depth for {prefix}_search_row: search_text_tierN, search_vector_tierN, and embedding_tierN (when vector enabled). Higher @Searchable searchTier maps to last tier.
+        tierTsvectorColumnCount: ${DATAHUB_PGSEARCH_ENTITY_FULLTEXT_TIER_TSVECTOR_COLUMN_COUNT:4}
+      pool:
+        url: ${DATAHUB_PGSEARCH_ENTITY_DATASOURCE_URL:${ebean.url}}
+        driver: ${DATAHUB_PGSEARCH_ENTITY_DATASOURCE_DRIVER:${ebean.driver}}
+        username: ${DATAHUB_PGSEARCH_ENTITY_DATASOURCE_USERNAME:${ebean.username}}
+        password: ${DATAHUB_PGSEARCH_ENTITY_DATASOURCE_PASSWORD:${ebean.password}}
+        minConnections: ${DATAHUB_PGSEARCH_ENTITY_MIN_CONNECTIONS:1}
+        maxConnections: ${DATAHUB_PGSEARCH_ENTITY_MAX_CONNECTIONS:12}
+        maxInactiveTimeSeconds: ${DATAHUB_PGSEARCH_ENTITY_MAX_INACTIVE_TIME_SECONDS:120}
+        maxAgeMinutes: ${DATAHUB_PGSEARCH_ENTITY_MAX_AGE_MINUTES:120}
+        leakTimeMinutes: ${DATAHUB_PGSEARCH_ENTITY_LEAK_TIME_MINUTES:15}
+        waitTimeoutMillis: ${DATAHUB_PGSEARCH_ENTITY_WAIT_TIMEOUT_MILLIS:1000}
+  # PostgreSQL timeseries aspect store (SqlSetup when entity store is Postgres). Requires pg_partman (RANGE on event time); optional pg_cron for partman.run_maintenance when enabled.
+  # Dedicated runtime pool (below) is also used for platformAnalytics.usageEvents when implementation is postgres (partitioned usage-event table; same pattern as pgGraph/pgQueue pools vs ebeanServer).
+  pgTimeseries:
+    enabled: ${DATAHUB_PGTIMESERIES_ENABLED:false}
+    # SqlSetup table name prefix (table: {prefix}_aspect_row)
+    tablePrefix: ${DATAHUB_PGTIMESERIES_TABLE_PREFIX:metadata_timeseries}
+    partitioning:
+      # Allowlisted: 1 hour, 6 hours, 12 hours, 1 day, 1 week, 1 month (pg_partman time interval on event_time)
+      partmanPartitionInterval: ${DATAHUB_PGTIMESERIES_PARTITIONING_PARTMAN_INTERVAL:1 day}
+      partmanPremake: ${DATAHUB_PGTIMESERIES_PARTITIONING_PARTMAN_PREMAKE:4}
+    retention:
+      # When > 0, sets partman.part_config.retention (seconds-based policy + buffer in SqlSetup). Default 90 days.
+      maxAgeSeconds: ${DATAHUB_PGTIMESERIES_RETENTION_MAX_AGE_SECONDS:7776000}
+    maintenance:
+      cronEnabled: ${DATAHUB_PGTIMESERIES_MAINTENANCE_CRON_ENABLED:false}
+      intervalSeconds: ${DATAHUB_PGTIMESERIES_MAINTENANCE_INTERVAL_SECONDS:3600}
+    # Dedicated runtime connection pool for pgTimeseries JDBC and Postgres usage events (platformAnalytics.usageEvents.implementation=postgres). Defaults fall through to ebean.*.
+    pool:
+      url: ${DATAHUB_PGTIMESERIES_DATASOURCE_URL:${ebean.url}}
+      driver: ${DATAHUB_PGTIMESERIES_DATASOURCE_DRIVER:${ebean.driver}}
+      username: ${DATAHUB_PGTIMESERIES_DATASOURCE_USERNAME:${ebean.username}}
+      password: ${DATAHUB_PGTIMESERIES_DATASOURCE_PASSWORD:${ebean.password}}
+      minConnections: ${DATAHUB_PGTIMESERIES_MIN_CONNECTIONS:1}
+      maxConnections: ${DATAHUB_PGTIMESERIES_MAX_CONNECTIONS:12}
+      maxInactiveTimeSeconds: ${DATAHUB_PGTIMESERIES_MAX_INACTIVE_TIME_SECONDS:120}
+      maxAgeMinutes: ${DATAHUB_PGTIMESERIES_MAX_AGE_MINUTES:120}
+      leakTimeMinutes: ${DATAHUB_PGTIMESERIES_LEAK_TIME_MINUTES:15}
+      waitTimeoutMillis: ${DATAHUB_PGTIMESERIES_WAIT_TIMEOUT_MILLIS:1000}
   # PostgreSQL queue DDL + maintenance (SqlSetup when entity store is Postgres). At-least-once; requires pg_partman for the message table; optional pg_cron when enabled.
   pgQueue:
     enabled: ${DATAHUB_PGQUEUE_ENABLED:false}
@@ -639,6 +731,16 @@ postgres:
       mclEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MCL_EMPTY_POLL_SLEEP_MS:25}
       missingTopicSleepMillis: ${DATAHUB_PGQUEUE_MISSING_TOPIC_SLEEP_MS:500}
       errorRecoverySleepMillis: ${DATAHUB_PGQUEUE_ERROR_RECOVERY_SLEEP_MS:1000}
+  # PostgreSQL system metadata document store when elasticsearch.enabled=false (table + indexes in postgres.schema).
+  pgSystemMetadata:
+    enabled: ${DATAHUB_PG_SYSTEM_METADATA_ENABLED:false}
+    tablePrefix: ${DATAHUB_PG_SYSTEM_METADATA_TABLE_PREFIX:metadata_system}
+    tableName: ${DATAHUB_PG_SYSTEM_METADATA_TABLE_NAME:system_metadata_service_v1}
+  # PostgreSQL usage events parent table (SqlSetup; runtime partitions still managed by the store).
+  pgUsageEvents:
+    enabled: ${DATAHUB_PGUSAGEEVENTS_ENABLED:false}
+    tablePrefix: ${DATAHUB_PGUSAGEEVENTS_TABLE_PREFIX:metadata_usage}
+    parentTableName: ${DATAHUB_PGUSAGEEVENTS_PARENT_TABLE_NAME:datahub_usage_events}
 
 # MAE consumer (standalone or embedded in GMS): separate ES HTTP tuning from interactive defaults.
 maeConsumer:
@@ -662,6 +764,8 @@ peConsumer:
     platformEventMaxBatch: ${DATAHUB_PGQUEUE_PE_POLL_MAX_BATCH:50}
 
 elasticsearch:
+  # When false, skips OpenSearch/Elasticsearch as an external dependency (used with Postgres pgSearch/pgGraph/pgQueue).
+  enabled: ${ELASTICSEARCH_ENABLED:true}
   host: ${ELASTICSEARCH_HOST:localhost}
   port: ${ELASTICSEARCH_PORT:9200}
   threadCount: ${ELASTICSEARCH_THREAD_COUNT:2}
@@ -677,10 +781,12 @@ elasticsearch:
   dataNodeCount: ${ELASTICSEARCH_DATA_NODE_COUNT:1}
   entityIndex:
     v2:
-      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:true}
+      # Unset -> follows elasticsearch.enabled (so ELASTICSEARCH_ENABLED=false implies v2 off).
+      enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:${elasticsearch.enabled:true}}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:true}
       coalesceBatchUpdates: ${ELASTICSEARCH_ENTITY_INDEX_V2_COALESCE_BATCH_UPDATES:false}
     v3:
+      # elasticsearch.enabled=false implies v3 is inactive (see ElasticSearchConfiguration.effectiveEntityIndex()).
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
@@ -1176,8 +1282,6 @@ management:
   # management.server.port is not set here: use env MANAGEMENT_SERVER_PORT (Docker start.sh defaults to 4319).
   # When unset, Actuator stays on the main application port.
   metrics:
-    cache:
-      enabled: false
     export:
       jmx:
         enabled: ${MANAGEMENT_METRICS_EXPORT_JMX_ENABLED:true} # Enable jmx metrics export

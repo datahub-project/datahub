@@ -25,12 +25,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
 @Import(EntityRegistryFactory.class)
 @Slf4j
+@ConditionalOnProperty(
+    prefix = "elasticsearch",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class SettingsBuilderFactory {
 
   @Autowired
@@ -49,7 +55,7 @@ public class SettingsBuilderFactory {
   }
 
   @Bean("multiEntitySettingsBuilder")
-  @ConditionalOnProperty(name = "elasticsearch.entityIndex.v3.enabled", havingValue = "true")
+  @Conditional(EntityIndexV3EnabledCondition.class)
   @Nonnull
   protected SettingsBuilder createMultiEntitySettingsBuilder(
       ConfigurationProvider configProvider,

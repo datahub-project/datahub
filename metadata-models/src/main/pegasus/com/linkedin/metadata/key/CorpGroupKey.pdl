@@ -4,7 +4,8 @@ namespace com.linkedin.metadata.key
  * Key for a CorpGroup
  */
 @Aspect = {
-  "name": "corpGroupKey"
+  "name": "corpGroupKey",
+  "schemaVersion": 2
 }
 record CorpGroupKey {
   /**
@@ -14,7 +15,8 @@ record CorpGroupKey {
     "fieldType": "WORD_GRAM",
     "queryByDefault": true,
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "searchTier": 1
   }
   name: string
 }

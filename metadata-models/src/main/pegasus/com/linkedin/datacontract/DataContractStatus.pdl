@@ -7,7 +7,8 @@ import com.linkedin.common.CustomProperties
  * Information about the status of a data contract
  */
 @Aspect = {
-  "name": "dataContractStatus"
+  "name": "dataContractStatus",
+  "schemaVersion": 2
 }
 record DataContractStatus includes CustomProperties {
   /**
