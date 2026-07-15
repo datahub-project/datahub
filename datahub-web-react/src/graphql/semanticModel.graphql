@@ -103,6 +103,32 @@ fragment semanticModelInfoFields on SemanticModelInfo {
     }
 }
 
+fragment semanticModelProfileInfoFields on SemanticModelInfo {
+    name
+    description
+    created {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    nativeDefinition
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
+}
+
 fragment semanticModelFields on SemanticModel {
     urn
     type
@@ -112,7 +138,7 @@ fragment semanticModelFields on SemanticModel {
         ...platformFields
     }
     info {
-        ...semanticModelInfoFields
+        ...semanticModelProfileInfoFields
     }
     ownership {
         ...ownershipFields
@@ -149,28 +175,5 @@ fragment semanticModelFields on SemanticModel {
 query getSemanticModel($urn: String!) {
     semanticModel(urn: $urn) {
         ...semanticModelFields
-        metrics(input: { count: 20, query: "*" }) {
-            nextScrollId
-            count
-            total
-            searchResults {
-                entity {
-                    urn
-                    type
-                    ... on Metric {
-                        info {
-                            name
-                            description
-                        }
-                        platform {
-                            ...platformFields
-                        }
-                        subTypes {
-                            typeNames
-                        }
-                    }
-                }
-            }
-        }
     }
 }

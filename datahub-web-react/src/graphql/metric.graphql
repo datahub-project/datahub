@@ -179,11 +179,5 @@ fragment metricFields on Metric {
 query getMetric($urn: String!) {
     metric(urn: $urn) {
         ...metricFields
-        metricRelationships {
-            ...metricRelationshipsFields
-        }
-        metricUpstreams {
-            ...metricUpstreamsFields
-        }
     }
 }

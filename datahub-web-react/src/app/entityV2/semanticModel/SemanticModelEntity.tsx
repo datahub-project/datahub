@@ -1,4 +1,4 @@
-import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
+import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
 import i18next from 'i18next';
 import React from 'react';
 
@@ -28,7 +28,7 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         return (
-            <Graph
+            <Cube
                 className={TYPE_ICON_CLASS_NAME}
                 size={fontSize || 14}
                 color={color || 'currentColor'}
