@@ -53,6 +53,9 @@ class ServerMapping(ConfigModel):
         return v.upper()
 
 
+_SCHEMA_ASSERTION_COMPATIBILITY_MODES = ("EXACT_MATCH", "SUPERSET", "SUBSET")
+
+
 class ODCSSourceConfig(EnvConfigMixin):
     """Config for the ODCS ingestion source.
 
@@ -117,9 +120,32 @@ class ODCSSourceConfig(EnvConfigMixin):
     emit_assertions: bool = Field(
         default=True,
         description="Whether to emit Assertion entities derived from the ODCS `quality[]` rules. "
-        "Assertions are only emitted for schema entries that resolve to a physical dataset "
-        "(strict binding); without a binding no assertions are produced regardless of this flag.",
+        "Assertions target the logical `odcs` dataset and are emitted whether or not a "
+        "physical binding resolves.",
     )
+    emit_schema_assertion: bool = Field(
+        default=True,
+        description="Whether to emit one DATA_SCHEMA assertion per `schema[]` entry, pinning the "
+        "contract's declared schema on the logical dataset so schema drift is evaluable as a "
+        "contract violation.",
+    )
+    schema_assertion_compatibility: str = Field(
+        default="SUPERSET",
+        description="Compatibility mode for the DATA_SCHEMA assertion: `SUPERSET` (an instance "
+        "must contain at least the contract's fields; extras allowed), `EXACT_MATCH`, or "
+        "`SUBSET`.",
+    )
+
+    @field_validator("schema_assertion_compatibility")
+    @classmethod
+    def compatibility_must_be_valid(cls, v: str) -> str:
+        upper = v.upper()
+        if upper not in _SCHEMA_ASSERTION_COMPATIBILITY_MODES:
+            raise ValueError(
+                "schema_assertion_compatibility must be one of "
+                f"{_SCHEMA_ASSERTION_COMPATIBILITY_MODES}, found {v}"
+            )
+        return upper
     emit_logical_parent: bool = Field(
         default=True,
         description="Whether to emit a `logicalParent` link from each resolved physical dataset to "

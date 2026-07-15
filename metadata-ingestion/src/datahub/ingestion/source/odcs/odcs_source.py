@@ -28,6 +28,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
+    odcs_to_schema_assertion_mcps,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
@@ -100,6 +101,7 @@ class ODCSSourceReport(SourceReport):
     physical_bindings_resolved: int = 0
     logical_parents_emitted: int = 0
     assertions_emitted: int = 0
+    schema_assertions_emitted: int = 0
     aspects_soft_deleted: int = 0
     unknown_fields_count: int = 0
     validation_errors: int = 0
@@ -132,9 +134,12 @@ class ODCSSource(Source):
     ODCS v3 describes a producer-published dataset specification, so each
     `schema[]` entry is materialized as a **logical dataset** on the `odcs`
     platform (DatasetProperties / SchemaMetadata / GlobalTags / Ownership /
-    InstitutionalMemory). When a physical dataset can be resolved, the source
-    also links it with `logicalParent` (the `PhysicalInstanceOf` relationship)
-    and emits one Assertion per `quality[]` rule against the physical dataset.
+    InstitutionalMemory), with one Assertion per `quality[]` rule and one
+    schema-compliance assertion — all targeting the logical dataset. When a
+    physical dataset can be resolved from the contract's `servers[]`, the
+    source also links it with `logicalParent` (the `PhysicalInstanceOf`
+    relationship); propagation of the assertions onto physical datasets is
+    handled by DataHub, not by this source.
     """
 
     def __init__(self, config: ODCSSourceConfig, ctx: PipelineContext):
@@ -670,41 +675,29 @@ class ODCSSource(Source):
                     f"{contract.id}/{schema_entry.name}: {unmapped}"
                 )
 
-            if binding.physical_urn is None:
-                # Strict gating: no binding means no logicalParent link and no
-                # assertions. The unmapped reason is informational, not an error.
-                if binding.unmapped_reason:
-                    self.report.unmappable_servers += 1
-                    self.report.info(
-                        title="ODCS schema entry has no physical binding",
-                        message=(
-                            f"{binding.unmapped_reason}. Emitted the logical "
-                            "dataset only; no logicalParent link or assertions."
-                        ),
-                        context=(
-                            f"file={file_path} schema_index={binding.index} "
-                            f"schema_name={schema_entry.name}"
-                        ),
-                    )
-                continue
-
-            self.report.physical_bindings_resolved += 1
-            physical_urn = binding.physical_urn
-
-            if self.config.emit_logical_parent:
-                yield odcs_to_logical_parent_mcp(
-                    physical_urn, logical_urn
-                ).as_workunit()
-                self.report.logical_parents_emitted += 1
-
+            # Assertions target the LOGICAL dataset and are emitted whether or
+            # not a physical binding resolved. Propagation of these
+            # expectations onto bound physical datasets is handled by a
+            # separate DataHub mechanism via the PhysicalInstanceOf link.
             if self.config.emit_assertions:
                 assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
                     contract=contract,
                     schema_entry=schema_entry,
-                    physical_urn=physical_urn,
                     logical_urn=logical_urn,
                 )
                 self.report.rules_routed_to_custom.extend(trace.routed_to_custom)
+                if trace.deprecated_rule_key:
+                    self.report.info(
+                        title="ODCS quality rules use the deprecated `rule` key",
+                        message=(
+                            "This v3.1 contract names library rules via the "
+                            "deprecated `rule` key; use `metric` instead."
+                        ),
+                        context=(
+                            f"file={file_path} schema={schema_entry.name} "
+                            f"rules={', '.join(trace.deprecated_rule_key)}"
+                        ),
+                    )
                 for skipped in trace.skipped_no_body:
                     self.report.rules_skipped_no_threshold.append(skipped)
                     self.report.warning(
@@ -728,6 +721,48 @@ class ODCSSource(Source):
                     self.report.assertions_emitted += 1
                     yield mcp.as_workunit()
 
+            if self.config.emit_schema_assertion:
+                schema_assertion_urn, schema_assertion_mcps = (
+                    odcs_to_schema_assertion_mcps(
+                        contract=contract,
+                        schema_entry=schema_entry,
+                        logical_urn=logical_urn,
+                        compatibility=self.config.schema_assertion_compatibility,
+                    )
+                )
+                if schema_assertion_urn is not None:
+                    emitted_assertion_urns.append(schema_assertion_urn)
+                    self.report.schema_assertions_emitted += 1
+                    for mcp in schema_assertion_mcps:
+                        yield mcp.as_workunit()
+
+            if binding.physical_urn is None:
+                # No binding costs only the logicalParent link — never the
+                # assertions. The unmapped reason is informational.
+                if binding.unmapped_reason:
+                    self.report.unmappable_servers += 1
+                    self.report.info(
+                        title="ODCS schema entry has no physical binding",
+                        message=(
+                            f"{binding.unmapped_reason}. Emitted the logical "
+                            "dataset and its assertions; no logicalParent link."
+                        ),
+                        context=(
+                            f"file={file_path} schema_index={binding.index} "
+                            f"schema_name={schema_entry.name}"
+                        ),
+                    )
+                continue
+
+            self.report.physical_bindings_resolved += 1
+            physical_urn = binding.physical_urn
+
+            if self.config.emit_logical_parent:
+                yield odcs_to_logical_parent_mcp(
+                    physical_urn, logical_urn
+                ).as_workunit()
+                self.report.logical_parents_emitted += 1
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Emit the odcs platform aspect once per run. Also registered at GMS
         # boot (PR #17332); this is the version-independent fallback, and its
@@ -749,23 +784,26 @@ class ODCSSource(Source):
                 self.report.contracts_skipped += 1
 
         # Surface the silent-by-default case: logical datasets were emitted but
-        # nothing bound to a physical dataset. With no binding there are no
-        # assertions, and the logical `odcs` datasets only render once the
+        # nothing bound to a physical dataset. Assertions are unaffected (they
+        # target the logical dataset), but no logicalParent links were produced,
+        # and the logical `odcs` datasets only render once the
         # LOGICAL_MODELS_ENABLED feature flag is enabled (off by default in OSS),
         # so the run can otherwise look like it did nothing.
         if (
             self.report.logical_datasets_emitted > 0
             and self.report.physical_bindings_resolved == 0
         ):
-            self.report.warning(
-                title="ODCS emitted logical datasets but resolved no physical bindings",
+            self.report.info(
+                title="ODCS resolved no physical bindings",
                 message=(
                     f"{self.report.logical_datasets_emitted} logical `odcs` dataset(s) "
-                    "were emitted with no physical binding, so no assertions were "
-                    "produced. Logical Models also require the LOGICAL_MODELS_ENABLED "
-                    "feature flag (off by default) to render in the UI. Configure "
-                    "`servers_to_platform` or `physical_urn_overrides` to bind physical "
-                    "datasets and emit assertions."
+                    "were emitted (with their assertions), but none bound to a "
+                    "physical dataset, so no logicalParent links were produced. "
+                    "Logical Models also require the LOGICAL_MODELS_ENABLED feature "
+                    "flag (off by default) to render in the UI. Declare typed "
+                    "`servers[]` entries in the contract, or configure "
+                    "`server_overrides` / `physical_urn_overrides`, to link physical "
+                    "datasets."
                 ),
             )
 
