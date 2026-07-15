@@ -19,8 +19,7 @@ public final class UsageMetricIncrementResolver {
 
   /**
    * Returns true when the metric's {@code (emit_when, value_unit)} pair is recognized. Distinct
-   * metrics and explicit no-op rules ({@link UsageMetricRegistry.EmitWhen#INTEGRATIONS_MCP_REPORT})
-   * are always supported.
+   * metrics and report-driven ({@link UsageMetricRegistry.EmitWhen#REPORTED}) rules are supported.
    */
   public static boolean isSupported(@Nonnull UsageMetricRegistry.MetricDefinition metric) {
     if (metric.mergeKind() == UsageMetricRegistry.MergeKind.DISTINCT) {
@@ -30,8 +29,14 @@ public final class UsageMetricIncrementResolver {
       };
     }
     return resolveRequestPhaseIncrement(metric, null, null) >= 0
-        || metric.emitWhen() == UsageMetricRegistry.EmitWhen.INTEGRATIONS_MCP_REPORT
+        || isReportDrivenMetric(metric)
         || isResponsePhaseMetric(metric);
+  }
+
+  /** Additive metrics incremented only via {@code recordReportedUsage}. */
+  public static boolean isReportDrivenMetric(@Nonnull UsageMetricRegistry.MetricDefinition metric) {
+    return metric.mergeKind() == UsageMetricRegistry.MergeKind.ADDITIVE
+        && metric.emitWhen().isReportDriven();
   }
 
   /** True for additive metrics incremented during {@code recordResponse}. */
@@ -69,7 +74,7 @@ public final class UsageMetricIncrementResolver {
           metric.valueUnit(), operationEntry, requestContext);
       case COST_PROFILE -> resolveCostProfileIncrement(
           metric.valueUnit(), operationEntry, usageQuantity);
-      case INTEGRATIONS_MCP_REPORT -> 0L;
+      case REPORTED -> 0L;
       default -> -1;
     };
   }
@@ -92,7 +97,11 @@ public final class UsageMetricIncrementResolver {
     if ("billed_bytes".equals(metric.metricName())) {
       return Optional.of(BILLED_BYTES_METRIC);
     }
-    if (metric.metronomeBatch()) {
+    if (isReportDrivenMetric(metric)) {
+      // Do not share DATAHUB_REQUEST_COUNT with api_calls; export under the registry name.
+      if (metric.valueUnit() == ValueUnit.COUNT) {
+        return Optional.of("datahub.usage." + metric.metricName());
+      }
       return Optional.empty();
     }
     return switch (metric.valueUnit()) {
@@ -129,7 +138,7 @@ public final class UsageMetricIncrementResolver {
           || metric.valueUnit() == ValueUnit.INPUT_BYTES;
       case INGESTION_REQUEST -> metric.valueUnit() == ValueUnit.INPUT_BYTES;
       case COST_PROFILE -> metric.valueUnit() == ValueUnit.COST_UNITS;
-      case INTEGRATIONS_MCP_REPORT -> true;
+      case REPORTED -> true;
       default -> false;
     };
   }

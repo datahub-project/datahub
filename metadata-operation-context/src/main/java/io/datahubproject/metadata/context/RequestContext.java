@@ -693,8 +693,16 @@ public class RequestContext implements ContextInterface {
     RESTLI,
     OPENAPI,
     GRAPHQL,
-    /** Kafka / pgQueue MCP consumption (MCE consumer), not HTTP. */
-    MESSAGING;
+    /**
+     * MetadataChangeProposal queue consumption (Kafka / pgQueue on the MCE consumer). Distinct from
+     * {@link #MCP} (Model Context Protocol server traffic).
+     */
+    MESSAGING,
+    /**
+     * Model Context Protocol server traffic (report-driven metering). Distinct from {@link
+     * #MESSAGING} (MetadataChangeProposal ingest).
+     */
+    MCP;
 
     @Nonnull
     public String toMetricLabel() {

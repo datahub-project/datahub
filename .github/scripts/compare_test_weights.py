@@ -88,12 +88,14 @@ def calculate_changes(
 
 
 def generate_pr_body(
-    pytest_changes: Dict, cypress_changes: Optional[Dict] = None
+    pytest_changes: Dict,
+    cypress_changes: Optional[Dict] = None,
+    title: str = "🤖 Automated Test Weight Update",
 ) -> str:
     """Generate markdown PR body with change analysis."""
 
     lines = []
-    lines.append("## 🤖 Automated Test Weight Update")
+    lines.append(f"## {title}")
     lines.append("")
     lines.append(
         "This PR updates test weights based on recent CI runs to improve batch balancing."
@@ -279,6 +281,13 @@ def main():
         default=5.0,
         help="Minimum total change percentage to trigger PR (default: 5.0)",
     )
+    parser.add_argument(
+        "--title",
+        default="🤖 Automated Test Weight Update",
+        help="Top-level PR body heading (default: '🤖 Automated Test Weight Update'). "
+        "Pass a suite-specific title so concatenated smoke + ingestion bodies don't "
+        "produce duplicate identical headers.",
+    )
 
     args = parser.parse_args()
 
@@ -313,7 +322,7 @@ def main():
 
     print("\n✓ Changes exceed threshold. Generating PR body...")
 
-    pr_body = generate_pr_body(pytest_changes, cypress_changes)
+    pr_body = generate_pr_body(pytest_changes, cypress_changes, title=args.title)
 
     with open(args.output, "w") as f:
         f.write(pr_body)
