@@ -6,9 +6,10 @@ The DataHub Kafka connector extracts topic metadata and schemas from Kafka clust
 
 ## Concept Mapping
 
-| Kafka Concept    | DataHub Concept                                               | Notes                                  |
-| ---------------- | ------------------------------------------------------------- | -------------------------------------- |
-| Topic            | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `Topic`                        |
-| Schema (Subject) | [Schema Metadata](../../metamodel/entities/dataset.md#schema) | Avro, Protobuf, JSON schemas           |
-| Message Fields   | [Dataset Fields](../../metamodel/entities/dataset.md#fields)  | Extracted from schemas or inferred     |
-| Kafka Cluster    | [Data Platform Instance](../../../platform-instances.md)      | When `platform_instance` is configured |
+| Kafka Concept    | DataHub Concept                                                                                                                                                                  | Notes                                                                                                                                       |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Topic            | [Dataset](../../metamodel/entities/dataset.md)                                                                                                                                   | Subtype `Topic`                                                                                                                             |
+| Schema (Subject) | [Schema Metadata](../../metamodel/entities/dataset.md#schema)                                                                                                                    | Avro, Protobuf, JSON schemas                                                                                                                |
+| Message Fields   | [Dataset Fields](../../metamodel/entities/dataset.md#fields)                                                                                                                     | Extracted from schemas or inferred                                                                                                          |
+| Kafka Cluster    | [Data Platform Instance](../../../platform-instances.md)                                                                                                                         | When `platform_instance` is configured                                                                                                      |
+| Schema metadata  | Tags, [Glossary Terms](../../metamodel/entities/glossaryTerm.md), Owners ([CorpUser](../../metamodel/entities/corpuser.md) / [CorpGroup](../../metamodel/entities/corpGroup.md)) | Optional, Avro only: derived from schema properties when `enable_meta_mapping` is set with `meta_mapping` / `field_meta_mapping` directives |
