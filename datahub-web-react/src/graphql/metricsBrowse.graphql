@@ -1,0 +1,100 @@
+query getRootMetricsBrowse($input: GetRootEntitiesInput!) {
+    getRootMetrics(input: $input) {
+        total
+        start
+        count
+        metrics {
+            urn
+            type
+            id
+            path
+            platform {
+                ...platformFields
+            }
+            info {
+                name
+                description
+                lastModified {
+                    time
+                }
+            }
+            semanticModel {
+                urn
+                type
+                info {
+                    name
+                }
+            }
+            childMetrics(input: { count: 0, query: "*" }) {
+                total
+            }
+            subTypes {
+                typeNames
+            }
+        }
+    }
+}
+
+query getSemanticModelsBrowse($input: GetRootEntitiesInput!) {
+    getSemanticModels(input: $input) {
+        total
+        start
+        count
+        semanticModels {
+            urn
+            type
+            id
+            path
+            platform {
+                ...platformFields
+            }
+            info {
+                name
+                description
+                lastModified {
+                    time
+                }
+            }
+            subTypes {
+                typeNames
+            }
+        }
+    }
+}
+
+query getSemanticModelMetrics($urn: String!, $input: ScrollAcrossEntitiesInput!) {
+    semanticModel(urn: $urn) {
+        urn
+        metrics(input: $input) {
+            nextScrollId
+            count
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Metric {
+                        id
+                        path
+                        platform {
+                            ...platformFields
+                        }
+                        info {
+                            name
+                            description
+                            lastModified {
+                                time
+                            }
+                        }
+                        childMetrics(input: { count: 0, query: "*" }) {
+                            total
+                        }
+                        subTypes {
+                            typeNames
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
