@@ -681,9 +681,9 @@ public class RequestContextTest {
   @Test
   public void testResolveIngestUsageQuantityFromJsonArray() throws Exception {
     ObjectMapper mapper = new ObjectMapper();
-    assertEquals(RequestContext.resolveIngestUsageQuantity("[1,2,3]", mapper), 3);
-    assertEquals(RequestContext.resolveIngestUsageQuantity("{\"a\":1}", mapper), 1);
-    assertEquals(RequestContext.resolveIngestUsageQuantity("not-json", mapper), 1);
+    assertEquals(RequestContext.resolveIngestUsageQuantity("[1,2,3]", mapper), 3L);
+    assertEquals(RequestContext.resolveIngestUsageQuantity("{\"a\":1}", mapper), 1L);
+    assertEquals(RequestContext.resolveIngestUsageQuantity("not-json", mapper), 1L);
   }
 
   @Test
@@ -692,8 +692,8 @@ public class RequestContextTest {
     JsonNode root =
         mapper.readTree(
             "{\"dataset\":[{\"urn\":\"a\"},{\"urn\":\"b\"}],\"chart\":{\"urn\":\"c\"}}");
-    assertEquals(RequestContext.resolveIngestUsageQuantity(root), 3);
-    assertEquals(RequestContext.resolveIngestUsageQuantity(mapper.readTree("[1]")), 1);
+    assertEquals(RequestContext.resolveIngestUsageQuantity(root), 3L);
+    assertEquals(RequestContext.resolveIngestUsageQuantity(mapper.readTree("[1]")), 1L);
   }
 
   @Test
@@ -745,6 +745,6 @@ public class RequestContextTest {
     assertEquals(builder.peekUsageOperation(), null);
 
     RequestContext context = builder.metricUtils(mockMetricUtils).build();
-    assertEquals(context.getUsageQuantity(), 1);
+    assertEquals(context.getUsageQuantity(), 1L);
   }
 }
