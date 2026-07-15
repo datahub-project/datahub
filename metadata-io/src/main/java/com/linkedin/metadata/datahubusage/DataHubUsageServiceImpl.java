@@ -2,8 +2,6 @@ package com.linkedin.metadata.datahubusage;
 
 import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 
-import com.linkedin.metadata.datahubusage.event.EventSource;
-import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -12,9 +10,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -120,59 +116,7 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
   @Nonnull
   private static UsageEventResult mapUsageEventResult(
       SearchHit searchHit, OperationContext opContext) {
-    InternalUsageEventResult.InternalUsageEventResultBuilder usageEventResultBuilder =
-        InternalUsageEventResult.builder();
-    Map<String, Object> searchResultMap = searchHit.getSourceAsMap();
-    usageEventResultBuilder.rawUsageEvent(new LinkedHashMap<>(searchResultMap));
-    if (searchResultMap.get(DataHubUsageEventConstants.TYPE) instanceof String) {
-      usageEventResultBuilder.eventType(
-          (String) searchResultMap.get(DataHubUsageEventConstants.TYPE));
-    }
-    if (searchResultMap.get(DataHubUsageEventConstants.ACTOR_URN) instanceof String) {
-      usageEventResultBuilder.actorUrn(
-          (String) searchResultMap.get(DataHubUsageEventConstants.ACTOR_URN));
-    }
-    if (searchResultMap.get(DataHubUsageEventConstants.TIMESTAMP) instanceof Long) {
-      usageEventResultBuilder.timestamp(
-          (Long) searchResultMap.get(DataHubUsageEventConstants.TIMESTAMP));
-    }
-    if (searchResultMap.get(DataHubUsageEventConstants.SOURCE_IP) instanceof String) {
-      usageEventResultBuilder.sourceIP(
-          (String) searchResultMap.get(DataHubUsageEventConstants.SOURCE_IP));
-    }
-    if (searchResultMap.get(DataHubUsageEventConstants.EVENT_SOURCE) instanceof String) {
-      usageEventResultBuilder.eventSource(
-          EventSource.getSource(
-              (String) searchResultMap.get(DataHubUsageEventConstants.EVENT_SOURCE)));
-    }
-    if (searchResultMap.get(DataHubUsageEventConstants.LOGIN_SOURCE) instanceof String) {
-      usageEventResultBuilder.loginSource(
-          LoginSource.getSource(
-              (String) searchResultMap.get(DataHubUsageEventConstants.LOGIN_SOURCE)));
-    }
-    if (searchResultMap.get(DataHubUsageEventConstants.ENTITY_TYPE) instanceof String) {
-      usageEventResultBuilder.entityType(
-          (String) searchResultMap.get(DataHubUsageEventConstants.ENTITY_TYPE));
-    }
-    if (searchResultMap.get(DataHubUsageEventConstants.ENTITY_URN) instanceof String) {
-      usageEventResultBuilder.entityUrn(
-          (String) searchResultMap.get(DataHubUsageEventConstants.ENTITY_URN));
-    }
-    if (searchResultMap.get(DataHubUsageEventConstants.ASPECT_NAME) instanceof String) {
-      usageEventResultBuilder.aspectName(
-          (String) searchResultMap.get(DataHubUsageEventConstants.ASPECT_NAME));
-    }
-    if (searchResultMap.get(DataHubUsageEventConstants.TRACE_ID) instanceof String) {
-      usageEventResultBuilder.telemetryTraceId(
-          (String) searchResultMap.get(DataHubUsageEventConstants.TRACE_ID));
-    }
-    if (searchResultMap.get(DataHubUsageEventConstants.USER_AGENT) instanceof String) {
-      usageEventResultBuilder.userAgent(
-          (String) searchResultMap.get(DataHubUsageEventConstants.USER_AGENT));
-    }
-    InternalUsageEventResult usageEventResult = usageEventResultBuilder.build();
-    // Identify subtype automatically so that serialization happens correctly
-    return opContext.getObjectMapper().convertValue(usageEventResult, UsageEventResult.class);
+    return DataHubUsageEventResultMapper.fromSourceMap(opContext, searchHit.getSourceAsMap());
   }
 
   private SearchResponse executeAndExtractDocuments(

@@ -1,16 +1,14 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
 import com.linkedin.metadata.config.postgres.DatabaseType;
-import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.Value;
 
 /**
- * Command-line / environment-driven SqlSetup operations (tables, database, users, CDC). Optional
- * PostgreSQL extension DDL ({@code postgres.*}, pgQueue) is nested in {@link #postgres} when the
- * entity store is PostgreSQL.
+ * Command-line / environment-driven SqlSetup operations (tables, database, users, CDC). Details for
+ * optional PostgreSQL extensions use {@code postgres.*} via {@link
+ * com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties}.
  */
 @Value
 @ToString(exclude = {"cdcPassword", "createUserPassword"})
@@ -37,9 +35,6 @@ public class SqlSetupArgs {
 
   @Getter(lombok.AccessLevel.NONE)
   boolean createSchemaVersionIndex;
-
-  /** Spring {@code postgres.*} config; null for MySQL or when extensions are disabled. */
-  @Nullable PostgresSqlSetupProperties postgres;
 
   public boolean createSchemaVersionIndex() {
     return createSchemaVersionIndex;

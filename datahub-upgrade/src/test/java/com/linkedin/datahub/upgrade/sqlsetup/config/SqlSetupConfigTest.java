@@ -10,6 +10,7 @@ import com.linkedin.datahub.upgrade.sqlsetup.SqlSetup;
 import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.metadata.config.postgres.PgQueueSetupOptions;
+import com.linkedin.metadata.config.postgres.PgTimeseriesSetupOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
@@ -184,10 +185,12 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
-    SqlSetup sqlSetup = sqlSetupConfig.createInstance(mockDatabase, setupArgs);
+    SqlSetup sqlSetup =
+        sqlSetupConfig.createInstance(
+            mockDatabase, setupArgs, PostgresSqlSetupProperties.disabled());
 
     assertNotNull(sqlSetup);
     assertTrue(sqlSetup instanceof SqlSetup);
@@ -242,8 +245,8 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     // Should not throw exception - IAM auth is valid without role
     sqlSetupConfig.validateAuthenticationConfig(args);
@@ -267,8 +270,8 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     sqlSetupConfig.validateAuthenticationConfig(args);
   }
@@ -291,8 +294,8 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     try {
       sqlSetupConfig.validateAuthenticationConfig(args);
@@ -320,8 +323,8 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     try {
       sqlSetupConfig.validateAuthenticationConfig(args);
@@ -349,8 +352,8 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     // Should not throw exception
     sqlSetupConfig.validateAuthenticationConfig(args);
@@ -374,8 +377,8 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     // Should not throw exception
     sqlSetupConfig.validateAuthenticationConfig(args);
@@ -469,8 +472,8 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     // Test IAM auth without password is valid (no exception expected)
     sqlSetupConfig.validateAuthenticationConfig(args1);
@@ -492,8 +495,8 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     // Test IAM auth without password is valid (no exception expected)
     sqlSetupConfig.validateAuthenticationConfig(args2);
@@ -515,8 +518,8 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     try {
       sqlSetupConfig.validateAuthenticationConfig(args3);
@@ -542,8 +545,8 @@ public class SqlSetupConfigTest {
             0, // port
             "datahub", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
 
     try {
       sqlSetupConfig.validateAuthenticationConfig(args4);
@@ -635,6 +638,26 @@ public class SqlSetupConfigTest {
     pg.validateForUse(DatabaseType.POSTGRES);
   }
 
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPgSearchEntityInvalidTierTsvectorColumnCountThrows() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.setSchema("public");
+    pg.getPgSearch().getEntity().setEnabled(true);
+    pg.getPgSearch().getEntity().setTablePrefix("metadata_search");
+    pg.getPgSearch().getEntity().getFulltext().setTierTsvectorColumnCount(0);
+    pg.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPgSearchEntityTierTsvectorColumnCountAboveMaxThrows() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.setSchema("public");
+    pg.getPgSearch().getEntity().setEnabled(true);
+    pg.getPgSearch().getEntity().setTablePrefix("metadata_search");
+    pg.getPgSearch().getEntity().getFulltext().setTierTsvectorColumnCount(33);
+    pg.validateForUse(DatabaseType.POSTGRES);
+  }
+
   @Test
   public void testResolvePartmanPartitionRetentionUsesMaxOfDefaultsAndTopics() {
     // Same as prior PgQueueSetupOptions test: 1 day default + 2x 1 week buffer => 15 days
@@ -693,6 +716,68 @@ public class SqlSetupConfigTest {
     assertNotNull(q);
     assertEquals(q.getSchema(), "datahub_pgqueue");
     assertEquals(q.getTopicDefaultPriorityBands(), BANDS_JSON);
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPgTimeseriesUsePartmanInvalidIntervalThrows() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.setSchema("ts");
+    pg.getPgTimeseries().setEnabled(true);
+    pg.getPgTimeseries().setTablePrefix("ts");
+    pg.getPgTimeseries().getRetention().setMaxAgeSeconds(0);
+    pg.getPgTimeseries().getPartitioning().setPartmanPartitionInterval("1 fortnight");
+    pg.getPgTimeseries().getPartitioning().setPartmanPremake(4);
+    pg.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test
+  public void testPgTimeseriesEnabledOnPostgres() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.getPgTimeseries().setEnabled(true);
+    pg.getPgTimeseries().setTablePrefix("metadata_timeseries");
+    pg.getPgTimeseries().getPartitioning().setPartmanPartitionInterval("1 day");
+    pg.getPgTimeseries().getPartitioning().setPartmanPremake(4);
+    pg.getPgTimeseries().getRetention().setMaxAgeSeconds(90 * 86400);
+    pg.setSchema("DataHub_Pgts");
+    pg.validateForUse(DatabaseType.POSTGRES);
+    PgTimeseriesSetupOptions o = pg.buildPgTimeseriesOptions();
+    assertNotNull(o);
+    assertEquals(o.getSchema(), "datahub_pgts");
+    assertEquals(o.getTablePrefix(), "metadata_timeseries");
+    assertEquals(o.getPartmanPartitionInterval(), "1 day");
+    assertEquals(o.getRetentionMaxAgeSeconds(), 90 * 86400);
+  }
+
+  @Test
+  public void testPgGraphEnabledNormalizesTablePrefixOnPostgres() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.setSchema("graph");
+    pg.getPgGraph().setEnabled(true);
+    pg.getPgGraph().setTablePrefix("MetaGraph");
+    pg.getPgGraph().setMaxEdgeWriteBatchSize(1000);
+    pg.validateForUse(DatabaseType.POSTGRES);
+    assertEquals(pg.normalizedPgGraphTablePrefix(), "metagraph");
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPgGraphEnabledEmptyTablePrefixThrows() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.setSchema("graph");
+    pg.getPgGraph().setEnabled(true);
+    pg.getPgGraph().setTablePrefix(" ");
+    pg.getPgGraph().setMaxEdgeWriteBatchSize(1000);
+    pg.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPgGraphEnabledUnsupportedIdHashAlgoThrows() {
+    PostgresSqlSetupProperties pg = new PostgresSqlSetupProperties();
+    pg.setSchema("graph");
+    pg.getPgGraph().setEnabled(true);
+    pg.getPgGraph().setTablePrefix("metadata_graph");
+    pg.getPgGraph().setMaxEdgeWriteBatchSize(1000);
+    pg.getPgGraph().setIdHashAlgo("MD5");
+    pg.validateForUse(DatabaseType.POSTGRES);
   }
 
   @Test

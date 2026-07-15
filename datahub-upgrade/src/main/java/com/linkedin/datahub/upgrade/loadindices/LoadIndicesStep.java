@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -43,14 +45,17 @@ public class LoadIndicesStep implements UpgradeStep {
   private final Database server;
   private final UpdateIndicesService updateIndicesService;
   private final LoadIndicesIndexManager indexManager;
+  private final ElasticSearchService elasticSearchService;
 
   public LoadIndicesStep(
       final Database server,
       final UpdateIndicesService updateIndicesService,
-      final LoadIndicesIndexManager indexManager) {
+      final LoadIndicesIndexManager indexManager,
+      @Nullable final ElasticSearchService elasticSearchService) {
     this.server = server;
     this.updateIndicesService = updateIndicesService;
     this.indexManager = indexManager;
+    this.elasticSearchService = elasticSearchService;
   }
 
   @Override
@@ -334,8 +339,10 @@ public class LoadIndicesStep implements UpgradeStep {
           System.currentTimeMillis() - totalStartTime - result.timeSqlQueryMs;
 
       try {
-        updateIndicesService.flush();
-        log.info("Final flush completed - all data written to Elasticsearch");
+        if (elasticSearchService != null) {
+          elasticSearchService.flush();
+          log.info("Final flush completed - all pending bulk writes sent to Elasticsearch");
+        }
       } catch (Exception e) {
         log.error("Failed to perform final flush: {}", e.getMessage());
       }

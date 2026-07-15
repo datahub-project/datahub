@@ -1,7 +1,5 @@
 package com.linkedin.metadata.service;
 
-import static com.linkedin.metadata.Constants.*;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
@@ -36,13 +34,19 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Coordinates metadata-change side effects for search indexing: pluggable {@link
+ * UpdateIndicesStrategy} implementations (OpenSearch, PostgreSQL entity search, etc.), graph
+ * updates, and system metadata. OpenSearch bulk flush is {@link
+ * com.linkedin.metadata.search.elasticsearch.ElasticSearchService#flush()}, not here — except for
+ * {@link #flush()} / {@link #flushAndWaitIfConfigured()} which no-op when ES is disabled.
+ */
 @Slf4j
 public class UpdateIndicesService implements SearchIndicesService {
 
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
-  private final ElasticSearchService elasticSearchService;
   private final SystemMetadataService systemMetadataService;
-  @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
+  @Nullable private final ElasticSearchService elasticSearchService;
 
   @Getter private final boolean searchDiffMode;
 
@@ -52,9 +56,6 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   // Update indices strategies
   private final Collection<UpdateIndicesStrategy> updateStrategies;
-
-  private static final String DOCUMENT_TRANSFORM_FAILED_METRIC = "document_transform_failed";
-  private static final String SEARCH_DIFF_MODE_SKIPPED_METRIC = "search_diff_no_changes_detected";
 
   public static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
@@ -66,18 +67,33 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   public UpdateIndicesService(
       UpdateGraphIndicesService updateGraphIndicesService,
-      ElasticSearchService elasticSearchService,
       SystemMetadataService systemMetadataService,
       @Nonnull Collection<UpdateIndicesStrategy> updateStrategies,
-      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
+      boolean searchDiffMode,
+      boolean structuredPropertiesHookEnabled,
+      boolean structuredPropertiesWriteEnabled) {
+    this(
+        updateGraphIndicesService,
+        systemMetadataService,
+        updateStrategies,
+        null,
+        searchDiffMode,
+        structuredPropertiesHookEnabled,
+        structuredPropertiesWriteEnabled);
+  }
+
+  public UpdateIndicesService(
+      UpdateGraphIndicesService updateGraphIndicesService,
+      SystemMetadataService systemMetadataService,
+      @Nonnull Collection<UpdateIndicesStrategy> updateStrategies,
+      @Nullable ElasticSearchService elasticSearchService,
       boolean searchDiffMode,
       boolean structuredPropertiesHookEnabled,
       boolean structuredPropertiesWriteEnabled) {
     this.updateGraphIndicesService = updateGraphIndicesService;
-    this.elasticSearchService = elasticSearchService;
     this.systemMetadataService = systemMetadataService;
     this.updateStrategies = updateStrategies;
-    this.timeseriesThrottleCache = timeseriesThrottleCache;
+    this.elasticSearchService = elasticSearchService;
     this.searchDiffMode = searchDiffMode;
     this.structuredPropertiesHookEnabled = structuredPropertiesHookEnabled;
     this.structuredPropertiesWriteEnabled = structuredPropertiesWriteEnabled;
@@ -116,11 +132,9 @@ public class UpdateIndicesService implements SearchIndicesService {
       }
     }
 
-    // Record throttle writes after all strategies have processed, so no strategy's
-    // recordWrite can race with another strategy's shouldThrottle on the same event.
-    recordThrottleWrites(groupedEvents);
+    // Process each group of events for the same URN. Each strategy manages its own
+    // TimeseriesWriteThrottleCache/ThrottleSummary internally within processBatch above.
 
-    // Process each group of events for the same URN together
     for (List<MCLItem> urnEvents : groupedEvents.values()) {
       // Process update events
       List<MCLItem> updateEvents =
@@ -248,50 +262,22 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   /**
-   * After all strategies have processed, record throttle writes for timeseries events that were not
-   * throttled. This ensures no strategy's recordWrite races with another strategy's shouldThrottle
-   * on the same event within a batch.
-   */
-  private void recordThrottleWrites(LinkedHashMap<Urn, List<MCLItem>> groupedEvents) {
-    if (timeseriesThrottleCache == null || !timeseriesThrottleCache.isEnabled()) {
-      return;
-    }
-
-    for (List<MCLItem> urnEvents : groupedEvents.values()) {
-      for (MCLItem event : urnEvents) {
-        if (!UPDATE_CHANGE_TYPES.contains(event.getMetadataChangeLog().getChangeType())) {
-          continue;
-        }
-        if (!event.getAspectSpec().isTimeseries()) {
-          continue;
-        }
-
-        String entityName = event.getEntitySpec().getName();
-        String urnStr = event.getUrn().toString();
-        String aspectName = event.getAspectName();
-        long eventTimeMs =
-            event.getAuditStamp() != null
-                ? event.getAuditStamp().getTime()
-                : System.currentTimeMillis();
-
-        if (!timeseriesThrottleCache.shouldThrottle(entityName, urnStr, aspectName, eventTimeMs)) {
-          timeseriesThrottleCache.recordWrite(urnStr, aspectName, eventTimeMs);
-        }
-      }
-    }
-  }
-
-  /**
    * Flushes any pending operations in the bulk processor to ensure all data is written to
-   * Elasticsearch. This is particularly important for loadIndices operations where we want to
-   * ensure all data is persisted.
+   * Elasticsearch. No-op when Elasticsearch is not configured (PostgreSQL-only search).
    */
   public void flush() {
+    if (elasticSearchService == null) {
+      return;
+    }
     try {
-      // Access the bulk processor through the ElasticSearchService's ESWriteDAO
       ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
+      if (writeDAO == null) {
+        return;
+      }
       ESBulkProcessor bulkProcessor = writeDAO.getBulkProcessor();
-
+      if (bulkProcessor == null) {
+        return;
+      }
       bulkProcessor.flush();
       log.info("Successfully flushed bulk processor");
     } catch (Exception e) {
@@ -302,10 +288,13 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   /**
    * When {@code ES_BULK_ACK_AFTER_TRANSFER} is enabled, flush and wait for bulk transfer before the
-   * caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when the flag is false or when the write
-   * path is unavailable (e.g. unit tests with a mocked search service).
+   * caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when ES is disabled, the flag is false,
+   * or when the write path is unavailable (e.g. unit tests with a mocked search service).
    */
   public void flushAndWaitIfConfigured() {
+    if (elasticSearchService == null) {
+      return;
+    }
     ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
     if (writeDAO == null) {
       return;

@@ -12,7 +12,8 @@ import com.linkedin.common.TimeStamp
  * Properties associated with a ML Model
  */
 @Aspect = {
-  "name": "mlModelProperties"
+  "name": "mlModelProperties",
+  "schemaVersion": 2
 }
 record MLModelProperties includes CustomProperties, ExternalReference, MLModelLineageInfo {
 

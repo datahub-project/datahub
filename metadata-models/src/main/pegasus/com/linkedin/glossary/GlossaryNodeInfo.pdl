@@ -7,7 +7,8 @@ import com.linkedin.common.GlossaryNodeUrn
  * Properties associated with a GlossaryNode
  */
 @Aspect = {
-   "name": "glossaryNodeInfo"
+   "name": "glossaryNodeInfo",
+   "schemaVersion": 2
 }
 record GlossaryNodeInfo includes CustomProperties {
 

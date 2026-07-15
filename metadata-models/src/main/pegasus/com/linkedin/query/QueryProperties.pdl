@@ -8,7 +8,8 @@ import com.linkedin.common.Urn
  * Information about a Query against one or more data assets (e.g. Tables or Views).
  */
 @Aspect = {
-  "name": "queryProperties"
+  "name": "queryProperties",
+  "schemaVersion": 2
 }
 record QueryProperties includes CustomProperties {
   /**

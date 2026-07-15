@@ -11,7 +11,8 @@ import com.linkedin.common.FabricType
  * Information about a Data processing job
  */
 @Aspect = {
-  "name": "dataJobInfo"
+  "name": "dataJobInfo",
+  "schemaVersion": 2
 }
 record DataJobInfo includes CustomProperties, ExternalReference {
 

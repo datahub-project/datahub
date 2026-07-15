@@ -46,7 +46,8 @@ public class LoadIndicesTest {
             mockTimeseriesAspectService,
             mockEntitySearchService,
             mockGraphService,
-            mockAspectDao);
+            mockAspectDao,
+            null);
   }
 
   @Test
@@ -86,7 +87,7 @@ public class LoadIndicesTest {
   public void testLoadIndicesWithNullDependencies() {
     // Test constructor with null dependencies (graceful degradation)
     LoadIndices loadIndicesWithoutDeps =
-        new LoadIndices(null, null, null, null, null, null, null, null);
+        new LoadIndices(null, null, null, null, null, null, null, null, null);
     assertNotNull(loadIndicesWithoutDeps);
     assertEquals("LoadIndices", loadIndicesWithoutDeps.id());
     // When server or indexManager is null, should return empty steps list

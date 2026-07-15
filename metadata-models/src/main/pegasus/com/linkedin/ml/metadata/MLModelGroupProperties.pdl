@@ -11,7 +11,8 @@ import com.linkedin.common.ExternalReference
  * Properties associated with an ML Model Group
  */
 @Aspect = {
-  "name": "mlModelGroupProperties"
+  "name": "mlModelGroupProperties",
+  "schemaVersion": 2
 }
 record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo, ExternalReference {
 
@@ -23,6 +24,7 @@ record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo, Ext
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "queryByDefault": true,
+    "searchTier": 1
   }
   name: optional string
 
@@ -31,7 +33,8 @@ record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo, Ext
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2
   }
   description: optional string
 

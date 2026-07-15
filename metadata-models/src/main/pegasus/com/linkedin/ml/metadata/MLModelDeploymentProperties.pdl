@@ -9,7 +9,8 @@ import com.linkedin.common.ExternalReference
  * Properties associated with an ML Model Deployment
  */
 @Aspect = {
-  "name": "mlModelDeploymentProperties"
+  "name": "mlModelDeploymentProperties",
+  "schemaVersion": 2
 }
 record MLModelDeploymentProperties includes CustomProperties, ExternalReference {
 

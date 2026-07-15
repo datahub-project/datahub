@@ -22,7 +22,9 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollClient;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollRequest;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import java.util.ArrayList;
@@ -34,10 +36,6 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.search.SearchHit;
-import org.opensearch.search.SearchHits;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -46,7 +44,7 @@ public class ConsistencyServiceTest {
 
   @Mock private EntityService<?> mockEntityService;
 
-  @Mock private ESSystemMetadataDAO mockEsSystemMetadataDAO;
+  @Mock private SystemMetadataScrollClient mockScrollClient;
 
   private ConsistencyService consistencyService;
   private ConsistencyCheckRegistry checkRegistry;
@@ -228,7 +226,12 @@ public class ConsistencyServiceTest {
 
     consistencyService =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, checkRegistry, fixRegistry);
+
+    // By default the scroll client returns nothing — individual tests stub it where needed.
+    when(mockScrollClient.scrollUrns(
+            any(OperationContext.class), any(SystemMetadataScrollRequest.class)))
+        .thenReturn(SystemMetadataScrollResult.empty());
   }
 
   // ============================================================================
@@ -306,7 +309,7 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry discoverRegistry = new ConsistencyCheckRegistry(List.of(issueCheck));
     ConsistencyService serviceWithDiscoverCheck =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, discoverRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, discoverRegistry, fixRegistry);
 
     Optional<ConsistencyIssue> result =
         serviceWithDiscoverCheck.discoverIssue(mockOpContext, testUrn, "test-discover-check");
@@ -383,7 +386,7 @@ public class ConsistencyServiceTest {
         new ConsistencyCheckRegistry(List.of(new TestRequiresAllAspectsCheck()));
     ConsistencyService serviceWithAllAspects =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, allAspectsRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, allAspectsRegistry, fixRegistry);
 
     Optional<ConsistencyIssue> result =
         serviceWithAllAspects.discoverIssue(mockOpContext, testUrn, "test-requires-all-aspects");
@@ -528,7 +531,7 @@ public class ConsistencyServiceTest {
         new ConsistencyCheckRegistry(List.of(wildcardCheck));
     ConsistencyService serviceWithWildcard =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, wildcardRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, wildcardRegistry, fixRegistry);
 
     try {
       serviceWithWildcard.checkBatch(
@@ -660,7 +663,7 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry emptyRegistry = new ConsistencyCheckRegistry(List.of());
     ConsistencyService serviceWithEmptyRegistry =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, emptyRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, emptyRegistry, fixRegistry);
 
     CheckResult result =
         serviceWithEmptyRegistry.checkBatch(
@@ -693,12 +696,7 @@ public class ConsistencyServiceTest {
 
     ConsistencyService serviceWithConfigs =
         new ConsistencyService(
-            mockEntityService,
-            mockEsSystemMetadataDAO,
-            null,
-            checkRegistry,
-            fixRegistry,
-            checkConfigs);
+            mockEntityService, mockScrollClient, null, checkRegistry, fixRegistry, checkConfigs);
 
     assertNotNull(serviceWithConfigs);
   }
@@ -920,7 +918,7 @@ public class ConsistencyServiceTest {
     ConsistencyService serviceWithGraph =
         new ConsistencyService(
             mockEntityService,
-            mockEsSystemMetadataDAO,
+            mockScrollClient,
             mockGraphClient,
             checkRegistry,
             fixRegistry,
@@ -955,26 +953,30 @@ public class ConsistencyServiceTest {
   }
 
   // ============================================================================
-  // buildSystemMetadataQuery Tests
+  // buildScrollRequest Tests
   // ============================================================================
+  //
+  // These verify the backend-agnostic SystemMetadataScrollRequest produced by ConsistencyService.
+  // Backend-specific query construction (OpenSearch BoolQuery, Postgres SQL) is tested in the
+  // respective SystemMetadataScrollClient implementations.
 
   @Test
-  public void testBuildSystemMetadataQueryEntityTypeFilter() {
+  public void testBuildScrollRequestEntityTypeFilter() {
     List<ConsistencyCheck> checks = List.of(new TestAssertionCheck());
 
-    BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery(mockOpContext, "assertion", checks, null, null);
+    SystemMetadataScrollRequest request =
+        consistencyService.buildScrollRequest(
+            mockOpContext, "assertion", checks, null, null, null, 50);
 
-    assertNotNull(query);
-    String queryString = query.toString();
-    // Should contain URN prefix filter for entity type
-    assertTrue(queryString.contains("urn:li:assertion:"));
-    assertTrue(queryString.contains("prefix"));
+    assertNotNull(request);
+    assertEquals(request.getEntityType(), "assertion");
+    assertNull(request.getUrns());
+    assertNull(request.getScrollId());
+    assertEquals(request.getBatchSize(), 50);
   }
 
   @Test
-  public void testBuildSystemMetadataQuerySingleAspectFilter() {
-    // Create a check that returns a single target aspect
+  public void testBuildScrollRequestSingleAspectFilter() {
     ConsistencyCheck checkWithTargetAspect =
         new ConsistencyCheck() {
           @Override
@@ -1021,124 +1023,95 @@ public class ConsistencyServiceTest {
           }
         };
 
-    BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery(
-            mockOpContext, "assertion", List.of(checkWithTargetAspect), null, null);
+    SystemMetadataScrollRequest request =
+        consistencyService.buildScrollRequest(
+            mockOpContext, "assertion", List.of(checkWithTargetAspect), null, null, null, 100);
 
-    assertNotNull(query);
-    String queryString = query.toString();
-    // Should contain term query for single aspect
-    assertTrue(queryString.contains("assertionInfo"));
-    assertTrue(queryString.contains("term"));
+    assertNotNull(request.getAspects());
+    assertEquals(request.getAspects(), List.of("assertionInfo"));
   }
 
   @Test
-  public void testBuildSystemMetadataQueryMultipleAspectFilters() {
-    // Filter with multiple aspects
+  public void testBuildScrollRequestMultipleAspectFilters() {
     SystemMetadataFilter filter =
         SystemMetadataFilter.builder()
             .aspectFilters(List.of("assertionInfo", "assertionRunEvent"))
             .build();
 
-    BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery(
-            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
+    SystemMetadataScrollRequest request =
+        consistencyService.buildScrollRequest(
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null, null, 100);
 
-    assertNotNull(query);
-    String queryString = query.toString();
-    // Should contain terms query (plural) for multiple aspects
-    assertTrue(queryString.contains("terms"));
+    assertNotNull(request.getAspects());
+    assertTrue(request.getAspects().contains("assertionInfo"));
+    assertTrue(request.getAspects().contains("assertionRunEvent"));
   }
 
   @Test
-  public void testBuildSystemMetadataQueryTimestampGePitEpochMs() {
+  public void testBuildScrollRequestPropagatesGePitEpochMs() {
     SystemMetadataFilter filter = SystemMetadataFilter.builder().gePitEpochMs(1000000L).build();
 
-    BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery(
-            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
+    SystemMetadataScrollRequest request =
+        consistencyService.buildScrollRequest(
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null, null, 100);
 
-    assertNotNull(query);
-    String queryString = query.toString();
-    // Should contain timestamp query for aspectModifiedTime
-    assertTrue(queryString.contains("aspectModifiedTime"));
-    // Should have fallback to aspectCreatedTime
-    assertTrue(queryString.contains("aspectCreatedTime"));
-    // Should have range query
-    assertTrue(queryString.contains("range"));
-    assertTrue(queryString.contains("1000000"));
+    assertEquals(request.getGePitEpochMs(), Long.valueOf(1000000L));
+    assertNull(request.getLePitEpochMs());
   }
 
   @Test
-  public void testBuildSystemMetadataQueryTimestampLePitEpochMs() {
+  public void testBuildScrollRequestPropagatesLePitEpochMs() {
     SystemMetadataFilter filter = SystemMetadataFilter.builder().lePitEpochMs(2000000L).build();
 
-    BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery(
-            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
+    SystemMetadataScrollRequest request =
+        consistencyService.buildScrollRequest(
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null, null, 100);
 
-    assertNotNull(query);
-    String queryString = query.toString();
-    // Should contain timestamp query
-    assertTrue(queryString.contains("aspectModifiedTime"));
-    assertTrue(queryString.contains("aspectCreatedTime"));
-    assertTrue(queryString.contains("2000000"));
+    assertEquals(request.getLePitEpochMs(), Long.valueOf(2000000L));
+    assertNull(request.getGePitEpochMs());
   }
 
   @Test
-  public void testBuildSystemMetadataQueryCombinedTimestampFilters() {
+  public void testBuildScrollRequestPropagatesBothTimestamps() {
     SystemMetadataFilter filter =
         SystemMetadataFilter.builder().gePitEpochMs(1000000L).lePitEpochMs(2000000L).build();
 
-    BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery(
-            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
+    SystemMetadataScrollRequest request =
+        consistencyService.buildScrollRequest(
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null, null, 100);
 
-    assertNotNull(query);
-    String queryString = query.toString();
-    // Should contain both timestamps
-    assertTrue(queryString.contains("1000000"));
-    assertTrue(queryString.contains("2000000"));
-    // Should have minimum_should_match for the OR logic
-    assertTrue(queryString.contains("minimum_should_match"));
+    assertEquals(request.getGePitEpochMs(), Long.valueOf(1000000L));
+    assertEquals(request.getLePitEpochMs(), Long.valueOf(2000000L));
   }
 
   @Test
-  public void testBuildSystemMetadataQueryNoFilter() {
-    BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery(
-            mockOpContext, "assertion", List.of(new TestAssertionCheck()), null, null);
+  public void testBuildScrollRequestNoFilter() {
+    SystemMetadataScrollRequest request =
+        consistencyService.buildScrollRequest(
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), null, null, null, 100);
 
-    assertNotNull(query);
-    String queryString = query.toString();
-    // Should have entity type filter but no timestamp filters
-    assertTrue(queryString.contains("urn:li:assertion:"));
-    assertFalse(queryString.contains("aspectModifiedTime"));
-    assertFalse(queryString.contains("aspectCreatedTime"));
+    assertNull(request.getGePitEpochMs());
+    assertNull(request.getLePitEpochMs());
+    assertFalse(request.isIncludeSoftDeleted());
   }
 
   @Test
-  public void testBuildSystemMetadataQueryWithUrnFilter() {
+  public void testBuildScrollRequestWithUrnFilter() {
     List<ConsistencyCheck> checks = List.of(new TestAssertionCheck());
     Set<Urn> urns =
         Set.of(
             UrnUtils.getUrn("urn:li:assertion:test-1"), UrnUtils.getUrn("urn:li:assertion:test-2"));
 
-    BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery(mockOpContext, "assertion", checks, null, urns);
+    SystemMetadataScrollRequest request =
+        consistencyService.buildScrollRequest(
+            mockOpContext, "assertion", checks, null, urns, null, 100);
 
-    assertNotNull(query);
-    String queryString = query.toString();
-    // Should contain URN prefix filter for entity type
-    assertTrue(queryString.contains("urn:li:assertion:"));
-    // Should contain terms query for specific URNs
-    assertTrue(queryString.contains("urn:li:assertion:test-1"));
-    assertTrue(queryString.contains("urn:li:assertion:test-2"));
-    assertTrue(queryString.contains("terms"));
+    assertNotNull(request.getUrns());
+    assertEquals(request.getUrns().size(), 2);
   }
 
   @Test
-  public void testBuildSystemMetadataQueryKeyAspectOnly() {
+  public void testBuildScrollRequestKeyAspectOnly() {
     when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
     when(mockEntityRegistry.getEntitySpec("assertion")).thenReturn(mockEntitySpec);
     when(mockEntitySpec.getKeyAspectName()).thenReturn("assertionKey");
@@ -1149,15 +1122,13 @@ public class ConsistencyServiceTest {
             .aspectFilters(List.of("assertionInfo"))
             .build();
 
-    BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery(
-            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
+    SystemMetadataScrollRequest request =
+        consistencyService.buildScrollRequest(
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null, null, 100);
 
-    assertNotNull(query);
-    String queryString = query.toString();
-    assertTrue(queryString.contains("assertionKey"));
+    assertNotNull(request.getAspects());
     // keyAspectOnly takes precedence over aspectFilters / check target aspects
-    assertFalse(queryString.contains("assertionInfo"));
+    assertEquals(request.getAspects(), List.of("assertionKey"));
   }
 
   @Test
@@ -1166,100 +1137,32 @@ public class ConsistencyServiceTest {
     when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
     when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
 
-    Set<String> aspects =
+    List<String> aspects =
         consistencyService.getTargetAspects(
             mockOpContext,
             "dataset",
             List.of(),
             SystemMetadataFilter.builder().keyAspectOnly(true).build());
 
-    assertEquals(aspects, Set.of("datasetKey"));
-  }
-
-  // ============================================================================
-  // extractNextScrollId Tests
-  // ============================================================================
-
-  @Test
-  public void testExtractNextScrollIdWithSortValues() {
-    SearchResponse mockResponse = mock(SearchResponse.class);
-    SearchHits mockHits = mock(SearchHits.class);
-    SearchHit mockHit = mock(SearchHit.class);
-
-    when(mockResponse.getHits()).thenReturn(mockHits);
-    when(mockHits.getHits()).thenReturn(new SearchHit[] {mockHit});
-    when(mockHit.getSortValues()).thenReturn(new Object[] {"value1", 12345L});
-
-    String scrollId = consistencyService.extractNextScrollId(mockResponse);
-
-    assertNotNull(scrollId);
-    // Scroll ID should be non-empty encoded value
-    assertFalse(scrollId.isEmpty());
+    assertEquals(aspects, List.of("datasetKey"));
   }
 
   @Test
-  public void testExtractNextScrollIdNoHits() {
-    SearchResponse mockResponse = mock(SearchResponse.class);
-    SearchHits mockHits = mock(SearchHits.class);
+  public void testBuildScrollRequestPropagatesScrollIdAndIncludeSoftDeleted() {
+    SystemMetadataFilter filter = SystemMetadataFilter.builder().includeSoftDeleted(true).build();
 
-    when(mockResponse.getHits()).thenReturn(mockHits);
-    when(mockHits.getHits()).thenReturn(new SearchHit[0]);
+    SystemMetadataScrollRequest request =
+        consistencyService.buildScrollRequest(
+            mockOpContext,
+            "assertion",
+            List.of(new TestAssertionCheck()),
+            filter,
+            null,
+            "scroll-token-xyz",
+            25);
 
-    String scrollId = consistencyService.extractNextScrollId(mockResponse);
-
-    assertNull(scrollId);
-  }
-
-  @Test
-  public void testExtractNextScrollIdNoSortValues() {
-    SearchResponse mockResponse = mock(SearchResponse.class);
-    SearchHits mockHits = mock(SearchHits.class);
-    SearchHit mockHit = mock(SearchHit.class);
-
-    when(mockResponse.getHits()).thenReturn(mockHits);
-    when(mockHits.getHits()).thenReturn(new SearchHit[] {mockHit});
-    when(mockHit.getSortValues()).thenReturn(null);
-
-    String scrollId = consistencyService.extractNextScrollId(mockResponse);
-
-    assertNull(scrollId);
-  }
-
-  @Test
-  public void testExtractNextScrollIdEmptySortValues() {
-    SearchResponse mockResponse = mock(SearchResponse.class);
-    SearchHits mockHits = mock(SearchHits.class);
-    SearchHit mockHit = mock(SearchHit.class);
-
-    when(mockResponse.getHits()).thenReturn(mockHits);
-    when(mockHits.getHits()).thenReturn(new SearchHit[] {mockHit});
-    when(mockHit.getSortValues()).thenReturn(new Object[0]);
-
-    String scrollId = consistencyService.extractNextScrollId(mockResponse);
-
-    assertNull(scrollId);
-  }
-
-  @Test
-  public void testExtractNextScrollIdUsesLastHit() {
-    SearchResponse mockResponse = mock(SearchResponse.class);
-    SearchHits mockHits = mock(SearchHits.class);
-    SearchHit mockHit1 = mock(SearchHit.class);
-    SearchHit mockHit2 = mock(SearchHit.class);
-    SearchHit mockHit3 = mock(SearchHit.class);
-
-    when(mockResponse.getHits()).thenReturn(mockHits);
-    when(mockHits.getHits()).thenReturn(new SearchHit[] {mockHit1, mockHit2, mockHit3});
-    // Only the last hit's sort values should be used
-    when(mockHit3.getSortValues()).thenReturn(new Object[] {"lastValue", 99999L});
-
-    String scrollId = consistencyService.extractNextScrollId(mockResponse);
-
-    assertNotNull(scrollId);
-    // Verify only last hit was accessed for sort values
-    verify(mockHit3).getSortValues();
-    verify(mockHit1, never()).getSortValues();
-    verify(mockHit2, never()).getSortValues();
+    assertEquals(request.getScrollId(), "scroll-token-xyz");
+    assertTrue(request.isIncludeSoftDeleted());
   }
 
   // ============================================================================
@@ -1474,7 +1377,7 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry issueRegistry = new ConsistencyCheckRegistry(checks);
     ConsistencyService serviceWithIssueCheck =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, issueRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, issueRegistry, fixRegistry);
 
     // Create test entities
     Urn urn1 = UrnUtils.getUrn("urn:li:assertion:test-1");
@@ -1498,7 +1401,7 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry mixedRegistry = new ConsistencyCheckRegistry(checks);
     ConsistencyService serviceWithMixedChecks =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, mixedRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, mixedRegistry, fixRegistry);
 
     Urn urn = UrnUtils.getUrn("urn:li:assertion:test-1");
     Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());
@@ -1518,7 +1421,7 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry emptyRegistry = new ConsistencyCheckRegistry(List.of());
     ConsistencyService serviceWithNoChecks =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, emptyRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, emptyRegistry, fixRegistry);
 
     Urn urn = UrnUtils.getUrn("urn:li:assertion:test-1");
     Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());
@@ -1643,7 +1546,7 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry multiRegistry = new ConsistencyCheckRegistry(List.of(check1, check2));
     ConsistencyService serviceWithMultiChecks =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, multiRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, multiRegistry, fixRegistry);
 
     Urn urn = UrnUtils.getUrn("urn:li:assertion:test-1");
     Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());
@@ -1736,7 +1639,7 @@ public class ConsistencyServiceTest {
             List.of(new TestAssertionCheck(), new OrphanIndexDocumentCheck()));
     ConsistencyService serviceWithOrphan =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, orphanRegistry, fixRegistry);
 
     CheckResult result =
         serviceWithOrphan.processBatchResults(
@@ -1821,7 +1724,7 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry issueRegistry = new ConsistencyCheckRegistry(checks);
     ConsistencyService serviceWithIssueCheck =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, issueRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, issueRegistry, fixRegistry);
 
     Urn urn1 = UrnUtils.getUrn("urn:li:assertion:test-1");
     Urn urn2 = UrnUtils.getUrn("urn:li:assertion:test-2");
@@ -1886,7 +1789,7 @@ public class ConsistencyServiceTest {
             List.of(new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck()));
     ConsistencyService serviceWithOrphanCheck =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, orphanRegistry, fixRegistry);
 
     Optional<ConsistencyIssue> result =
         serviceWithOrphanCheck.discoverIssue(mockOpContext, orphanUrn, "orphan-index-document");
@@ -1911,7 +1814,7 @@ public class ConsistencyServiceTest {
             List.of(new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck()));
     ConsistencyService serviceWithOrphanCheck =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, orphanRegistry, fixRegistry);
 
     Optional<ConsistencyIssue> result =
         serviceWithOrphanCheck.discoverIssue(mockOpContext, existingUrn, "orphan-index-document");
@@ -2105,7 +2008,7 @@ public class ConsistencyServiceTest {
         new ConsistencyCheckRegistry(List.of(errorCheck, successCheck));
     ConsistencyService mixedService =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, mixedRegistry, fixRegistry);
+            mockEntityService, mockScrollClient, null, mixedRegistry, fixRegistry);
 
     Urn urn = UrnUtils.getUrn("urn:li:assertion:test");
     Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());

@@ -9,7 +9,8 @@ import com.linkedin.common.ChangeAuditStamps
  * Properties associated with a BusinessAttribute
  */
 @Aspect = {
-   "name": "businessAttributeInfo"
+   "name": "businessAttributeInfo",
+   "schemaVersion": 2
 }
 record BusinessAttributeInfo includes EditableSchemaFieldInfo, CustomProperties, ChangeAuditStamps {
    /**

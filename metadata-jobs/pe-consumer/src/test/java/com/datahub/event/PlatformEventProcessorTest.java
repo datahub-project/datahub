@@ -158,7 +158,7 @@ public class PlatformEventProcessorTest {
           .thenReturn(mockPlatformEvent);
 
       // Execute
-      processor.consume(mockConsumerRecord);
+      processor.consumeKafka(mockConsumerRecord);
 
       // Verify metrics
       verify(mockMetricUtils, times(1))
@@ -188,7 +188,7 @@ public class PlatformEventProcessorTest {
           .thenThrow(new RuntimeException("Conversion failed"));
 
       // Execute
-      processor.consume(mockConsumerRecord);
+      processor.consumeKafka(mockConsumerRecord);
 
       // Verify metrics
       verify(mockMetricUtils, times(1))
@@ -223,7 +223,7 @@ public class PlatformEventProcessorTest {
           .thenReturn(mockPlatformEvent);
 
       // Execute
-      processor.consume(mockConsumerRecord);
+      processor.consumeKafka(mockConsumerRecord);
 
       // Verify failure metric for hook1
       ArgumentCaptor<String> metricNameCaptor = ArgumentCaptor.forClass(String.class);
@@ -263,7 +263,7 @@ public class PlatformEventProcessorTest {
           .thenReturn(mockPlatformEvent);
 
       // Execute
-      processor.consume(mockConsumerRecord);
+      processor.consumeKafka(mockConsumerRecord);
 
       // Verify failure metrics for both hooks
       ArgumentCaptor<String> metricNameCaptor = ArgumentCaptor.forClass(String.class);
@@ -295,7 +295,7 @@ public class PlatformEventProcessorTest {
           .thenReturn(mockPlatformEvent);
 
       // Execute - should not throw even without metrics
-      processor.consume(mockConsumerRecord);
+      processor.consumeKafka(mockConsumerRecord);
 
       // Verify hook was still invoked
       verify(mockHook1, times(1)).invoke(any(OperationContext.class), eq(mockPlatformEvent));
@@ -333,7 +333,7 @@ public class PlatformEventProcessorTest {
           .thenReturn(mockPlatformEvent);
 
       // Execute
-      processor.consume(specificMockRecord);
+      processor.consumeKafka(specificMockRecord);
 
       // Verify lag calculation uses the correct timestamp
       ArgumentCaptor<Long> lagCaptor = ArgumentCaptor.forClass(Long.class);
@@ -398,8 +398,8 @@ public class PlatformEventProcessorTest {
       mockedEventUtils.when(() -> EventUtils.avroToPegasusPE(record2)).thenReturn(event2);
 
       // Execute
-      processor.consume(consumerRecord1);
-      processor.consume(consumerRecord2);
+      processor.consumeKafka(consumerRecord1);
+      processor.consumeKafka(consumerRecord2);
 
       // Verify both events were processed
       verify(mockHook1, times(1)).invoke(any(OperationContext.class), eq(event1));
@@ -436,7 +436,7 @@ public class PlatformEventProcessorTest {
           .thenThrow(new NullPointerException("Record is null"));
 
       // Execute
-      processor.consume(nullValueRecord);
+      processor.consumeKafka(nullValueRecord);
 
       // Verify conversion failure metric
       verify(mockMetricUtils, times(1))
@@ -469,7 +469,7 @@ public class PlatformEventProcessorTest {
           .thenReturn(mockPlatformEvent);
 
       // Execute
-      processor.consume(mockConsumerRecord);
+      processor.consumeKafka(mockConsumerRecord);
 
       // Verify timer was recorded
       Timer timer =
@@ -516,7 +516,7 @@ public class PlatformEventProcessorTest {
       long now = System.currentTimeMillis();
       when(mockConsumerRecord.timestamp()).thenReturn(now - 2000);
       when(mockConsumerRecord.topic()).thenReturn("PlatformEvent_v1");
-      processor.consume(mockConsumerRecord);
+      processor.consumeKafka(mockConsumerRecord);
 
       // Create second consumer record for different topic
       ConsumerRecord<String, GenericRecord> mockConsumerRecord2 = mock(ConsumerRecord.class);
@@ -530,7 +530,7 @@ public class PlatformEventProcessorTest {
       when(mockConsumerRecord2.serializedValueSize()).thenReturn(1024);
 
       // Test with second topic
-      processor.consume(mockConsumerRecord2);
+      processor.consumeKafka(mockConsumerRecord2);
 
       // Verify separate timers for different topics
       Timer timer1 =
@@ -592,7 +592,7 @@ public class PlatformEventProcessorTest {
           .thenReturn(mockPlatformEvent);
 
       // Execute
-      processor.consume(mockConsumerRecord);
+      processor.consumeKafka(mockConsumerRecord);
 
       // Verify timer was still recorded despite hook failure
       Timer timer =
@@ -630,7 +630,7 @@ public class PlatformEventProcessorTest {
           .thenReturn(mockPlatformEvent);
 
       // Execute - should not throw exception
-      processor.consume(mockConsumerRecord);
+      processor.consumeKafka(mockConsumerRecord);
 
       // Verify the histogram method was still called (for dropwizard metrics)
       verify(mockMetricUtils)
@@ -662,7 +662,7 @@ public class PlatformEventProcessorTest {
           .thenReturn(mockPlatformEvent);
 
       // Execute
-      processor.consume(mockConsumerRecord);
+      processor.consumeKafka(mockConsumerRecord);
 
       // Verify timer was recorded with custom consumer group
       Timer timer =
@@ -711,7 +711,7 @@ public class PlatformEventProcessorTest {
         when(testRecord.timestamp()).thenReturn(System.currentTimeMillis() - queueTimes[i]);
         when(testRecord.serializedValueSize()).thenReturn(1024);
 
-        processor.consume(testRecord);
+        processor.consumeKafka(testRecord);
       }
 
       // Verify timer statistics
@@ -764,7 +764,7 @@ public class PlatformEventProcessorTest {
     when(nullValueRecord.serializedValueSize()).thenReturn(0);
 
     // Execute
-    processor.consume(nullValueRecord);
+    processor.consumeKafka(nullValueRecord);
 
     // Verify timer was still recorded even for null record
     Timer timer =

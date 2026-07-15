@@ -7,7 +7,8 @@ import com.linkedin.common.CustomProperties
  * Information about a document
  */
 @Aspect = {
-  "name": "documentInfo"
+  "name": "documentInfo",
+  "schemaVersion": 2
 }
 record DocumentInfo includes CustomProperties {
 

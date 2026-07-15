@@ -30,10 +30,9 @@ public class UpdateIndicesServiceAckAfterTransferTest {
     UpdateIndicesService service =
         new UpdateIndicesService(
             mock(UpdateGraphIndicesService.class),
-            elasticSearchService,
             mock(SystemMetadataService.class),
             Collections.emptyList(),
-            null,
+            elasticSearchService,
             false,
             false,
             false);
@@ -50,10 +49,9 @@ public class UpdateIndicesServiceAckAfterTransferTest {
     UpdateIndicesService service =
         new UpdateIndicesService(
             mock(UpdateGraphIndicesService.class),
-            elasticSearchService,
             mock(SystemMetadataService.class),
             Collections.emptyList(),
-            null,
+            elasticSearchService,
             false,
             false,
             false);
@@ -116,10 +114,9 @@ public class UpdateIndicesServiceAckAfterTransferTest {
 
     return new UpdateIndicesService(
         mock(UpdateGraphIndicesService.class),
-        elasticSearchService,
         mock(SystemMetadataService.class),
         Collections.emptyList(),
-        null,
+        elasticSearchService,
         false,
         false,
         false);

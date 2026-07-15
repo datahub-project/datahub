@@ -17,7 +17,8 @@ import org.springframework.lang.Nullable;
 
 /**
  * Binds {@code postgres.*} from {@code application.yaml} for optional SqlSetup PostgreSQL DDL
- * (pgQueue).
+ * (pgRouting graph, pgSearch entity store, pgTimeseries, pgQueue, pgSystemMetadata) and GMS
+ * Postgres write sinks.
  *
  * <p>Configuration defaults live in {@code application.yaml}, not on fields in this class.
  */
@@ -51,6 +52,13 @@ public class PostgresSqlSetupProperties {
   }
 
   /**
+   * Allowlisted {@code postgres.pgTimeseries.partitioning.partmanPartitionInterval} values
+   * (pg_partman).
+   */
+  public static final Set<String> PGTIMESERIES_PARTMAN_PARTITION_INTERVALS =
+      PGQUEUE_PARTMAN_PARTITION_INTERVALS;
+
+  /**
    * PostgreSQL schema (namespace) for SqlSetup DDL and Ebean metadata tables. Defaults to {@code
    * public}; the JDBC URL supplies only the database name. Bound from {@code application.yaml} or
    * set by {@link #applySqlSetupSchemaFromJdbcUrl(String)} when {@code postgres.schema} is unset
@@ -58,7 +66,13 @@ public class PostgresSqlSetupProperties {
    */
   private String schema;
 
+  private PgGraph pgGraph = new PgGraph();
+  private PgSearch pgSearch = new PgSearch();
+  private PgTimeseries pgTimeseries = new PgTimeseries();
   private PgQueue pgQueue = new PgQueue();
+  private PgSystemMetadata pgSystemMetadata = new PgSystemMetadata();
+
+  private PgUsageEvents pgUsageEvents = new PgUsageEvents();
   private PgCron pgCron = new PgCron();
 
   /**
@@ -71,7 +85,13 @@ public class PostgresSqlSetupProperties {
   /** Disables all optional SqlSetup PostgreSQL extension steps (for tests or non-Spring use). */
   public static PostgresSqlSetupProperties disabled() {
     PostgresSqlSetupProperties p = new PostgresSqlSetupProperties();
+    p.getPgGraph().setEnabled(false);
+    p.getPgSearch().getEntity().setEnabled(false);
+    p.getPgSearch().getEntity().getQuery().setEnabled(false);
+    p.getPgTimeseries().setEnabled(false);
     p.getPgQueue().setEnabled(false);
+    p.getPgSystemMetadata().setEnabled(false);
+    p.getPgUsageEvents().setEnabled(false);
     return p;
   }
 
@@ -84,6 +104,38 @@ public class PostgresSqlSetupProperties {
       return;
     }
     normalizedPostgresSchema();
+    if (pgGraph.isEnabled()) {
+      normalizedPgGraphTablePrefix();
+      validatePgGraphIdHashAlgo();
+      validatePgGraphMaxEdgeWriteBatchSize();
+    }
+    PgSearch.Entity entity = pgSearch.getEntity();
+    if (entity.getQuery().isEnabled() && !entity.isEnabled()) {
+      throw new IllegalStateException(
+          "postgres.pgSearch.entity.query.enabled requires postgres.pgSearch.entity.enabled=true");
+    }
+    if (entity.isEnabled()) {
+      normalizedPgSearchEntityTablePrefix();
+      validatePgSearchEntityFulltextTierColumns();
+    }
+    if (entity.isEnabled() && entity.getVector().isEnabled()) {
+      int d = entity.getVector().getEmbeddingDimensions();
+      if (d < 1 || d > 16000) {
+        throw new IllegalStateException(
+            "postgres.pgSearch.entity.vector.embeddingDimensions must be between 1 and 16000 inclusive.");
+      }
+    }
+    if (pgTimeseries.isEnabled()) {
+      validatePgTimeseriesConfig();
+    }
+    if (pgSystemMetadata.isEnabled()) {
+      normalizedPgSystemMetadataTablePrefix();
+      normalizedPgSystemMetadataTableName();
+    }
+    if (pgUsageEvents.isEnabled()) {
+      normalizedPgUsageEventsTablePrefix();
+      normalizedPgUsageEventsParentTableName();
+    }
     if (pgQueue.isEnabled()) {
       validatePgQueueConfig();
     }
@@ -94,7 +146,9 @@ public class PostgresSqlSetupProperties {
     if (dbType != DatabaseType.POSTGRES) {
       return;
     }
-    boolean cronNeeded = pgQueue.isEnabled() && pgQueue.getMaintenance().isCronEnabled();
+    boolean cronNeeded =
+        (pgQueue.isEnabled() && pgQueue.getMaintenance().isCronEnabled())
+            || (pgTimeseries.isEnabled() && pgTimeseries.getMaintenance().isCronEnabled());
     if (!cronNeeded) {
       return;
     }
@@ -420,6 +474,116 @@ public class PostgresSqlSetupProperties {
     }
   }
 
+  /** Built timeseries options, or null when {@code postgres.pgTimeseries.enabled} is false. */
+  public PgTimeseriesSetupOptions buildPgTimeseriesOptions() {
+    if (!pgTimeseries.isEnabled()) {
+      return null;
+    }
+    PgTimeseries.Partitioning p = pgTimeseries.getPartitioning();
+    String rawInterval = p.getPartmanPartitionInterval();
+    String partmanIntervalNormalized =
+        rawInterval == null || rawInterval.isBlank() ? "" : rawInterval.trim().toLowerCase();
+    return new PgTimeseriesSetupOptions(
+        normalizedPostgresSchema(),
+        normalizedPgTimeseriesTablePrefix(),
+        partmanIntervalNormalized,
+        p.getPartmanPremake(),
+        pgTimeseries.getRetention().getMaxAgeSeconds(),
+        pgTimeseries.getMaintenance().isCronEnabled(),
+        pgTimeseries.getMaintenance().getIntervalSeconds());
+  }
+
+  /** Built graph options, or null when {@code postgres.pgGraph.enabled} is false. */
+  public PgGraphSetupOptions buildPgGraphOptions() {
+    if (!pgGraph.isEnabled()) {
+      return null;
+    }
+    return new PgGraphSetupOptions(
+        normalizedPostgresSchema(),
+        normalizedPgGraphTablePrefix(),
+        pgGraph.getPartitionCount(),
+        pgGraph.getIdHashAlgo(),
+        pgGraph.getMaxEdgeWriteBatchSize());
+  }
+
+  /**
+   * Built search entity options, or null when {@code postgres.pgSearch.entity.enabled} is false.
+   */
+  public PgSearchEntitySetupOptions buildPgSearchEntityOptions() {
+    if (!pgSearch.getEntity().isEnabled()) {
+      return null;
+    }
+    PgSearch.Entity entity = pgSearch.getEntity();
+    boolean vectorEnabled = entity.getVector().isEnabled();
+    String lang = entity.getFulltext().getDefaultLanguage();
+    if (lang == null || lang.isBlank()) {
+      lang = "english";
+    }
+    return new PgSearchEntitySetupOptions(
+        normalizedPostgresSchema(),
+        normalizedPgSearchEntityTablePrefix(),
+        entity.getFulltext().getTierTsvectorColumnCount(),
+        vectorEnabled,
+        vectorEnabled ? entity.getVector().getEmbeddingDimensions() : 0,
+        lang);
+  }
+
+  /**
+   * Built system metadata options, or null when {@code postgres.pgSystemMetadata.enabled} is false.
+   */
+  public PgSystemMetadataSetupOptions buildPgSystemMetadataOptions() {
+    if (!pgSystemMetadata.isEnabled()) {
+      return null;
+    }
+    return new PgSystemMetadataSetupOptions(
+        normalizedPostgresSchema(),
+        normalizedPgSystemMetadataTablePrefix(),
+        normalizedPgSystemMetadataTableName());
+  }
+
+  /** Built usage events options, or null when {@code postgres.pgUsageEvents.enabled} is false. */
+  public PgUsageEventsSetupOptions buildPgUsageEventsOptions() {
+    if (!pgUsageEvents.isEnabled()) {
+      return null;
+    }
+    return new PgUsageEventsSetupOptions(
+        normalizedPostgresSchema(),
+        normalizedPgUsageEventsTablePrefix(),
+        normalizedPgUsageEventsParentTableName());
+  }
+
+  public String normalizedPgSystemMetadataTablePrefix() {
+    String raw = pgSystemMetadata.getTablePrefix();
+    if (raw == null || raw.isBlank()) {
+      return "metadata_system";
+    }
+    return normalizeTablePrefix(raw, "postgres.pgSystemMetadata.tablePrefix");
+  }
+
+  public String normalizedPgSystemMetadataTableName() {
+    String raw = pgSystemMetadata.getTableName();
+    if (raw == null || raw.isBlank()) {
+      return "system_metadata_service_v1";
+    }
+    return normalizeTablePrefix(raw, "postgres.pgSystemMetadata.tableName");
+  }
+
+  public String normalizedPgUsageEventsTablePrefix() {
+    String raw = pgUsageEvents.getTablePrefix();
+    if (raw == null || raw.isBlank()) {
+      return "metadata_usage";
+    }
+    return normalizeTablePrefix(raw, "postgres.pgUsageEvents.tablePrefix");
+  }
+
+  public String normalizedPgUsageEventsParentTableName() {
+    String raw = pgUsageEvents.getParentTableName();
+    if (raw == null || raw.isBlank()) {
+      return "datahub_usage_events";
+    }
+    return normalizeTablePrefix(raw, "postgres.pgUsageEvents.parentTableName");
+  }
+
   /**
    * When {@link #schema} is unset and {@code jdbcUrl} targets PostgreSQL, sets it to {@code
    * public}. The database name comes only from the JDBC URL path; application DDL does not use a
@@ -451,6 +615,14 @@ public class PostgresSqlSetupProperties {
   }
 
   /**
+   * Normalized {@code postgres.pgSearch.entity.tablePrefix} (requires entity enabled in callers).
+   */
+  public String normalizedPgSearchEntityTablePrefix() {
+    return normalizeTablePrefix(
+        pgSearch.getEntity().getTablePrefix(), "postgres.pgSearch.entity.tablePrefix");
+  }
+
+  /**
    * Normalized {@code postgres.pgQueue.schema}: PostgreSQL namespace for pgQueue SqlSetup DDL
    * (default {@code queue}), separate from {@link #normalizedPostgresSchema()}.
    */
@@ -462,6 +634,16 @@ public class PostgresSqlSetupProperties {
   /** Normalized {@code postgres.pgQueue.tablePrefix}. */
   public String normalizedPgQueueTablePrefix() {
     return normalizeTablePrefix(pgQueue.getTablePrefix(), "postgres.pgQueue.tablePrefix");
+  }
+
+  /** Normalized {@code postgres.pgTimeseries.tablePrefix}. */
+  public String normalizedPgTimeseriesTablePrefix() {
+    return normalizeTablePrefix(pgTimeseries.getTablePrefix(), "postgres.pgTimeseries.tablePrefix");
+  }
+
+  /** Normalized {@code postgres.pgGraph.tablePrefix}. */
+  public String normalizedPgGraphTablePrefix() {
+    return normalizeTablePrefix(pgGraph.getTablePrefix(), "postgres.pgGraph.tablePrefix");
   }
 
   /**
@@ -495,6 +677,45 @@ public class PostgresSqlSetupProperties {
               + "(letters, digits, underscore; must not start with a digit).");
     }
     return s.toLowerCase();
+  }
+
+  private void validatePgTimeseriesConfig() {
+    normalizedPgTimeseriesTablePrefix();
+    PgTimeseries.Partitioning p = pgTimeseries.getPartitioning();
+    if (p.getPartmanPartitionInterval() == null
+        || p.getPartmanPartitionInterval().trim().isEmpty()) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.partitioning.partmanPartitionInterval must be non-empty.");
+    }
+    String pi = p.getPartmanPartitionInterval().trim().toLowerCase();
+    if (!PGTIMESERIES_PARTMAN_PARTITION_INTERVALS.contains(pi)) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.partitioning.partmanPartitionInterval must be one of "
+              + PGTIMESERIES_PARTMAN_PARTITION_INTERVALS
+              + " (got: "
+              + p.getPartmanPartitionInterval()
+              + ").");
+    }
+    if (p.getPartmanPremake() < 1 || p.getPartmanPremake() > 128) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.partitioning.partmanPremake must be between 1 and 128 inclusive.");
+    }
+    int maxAge = pgTimeseries.getRetention().getMaxAgeSeconds();
+    if (maxAge < 0) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.retention.maxAgeSeconds must be non-negative (0 disables partman retention update).");
+    }
+    if (maxAge > 0 && maxAge < 60) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.retention.maxAgeSeconds must be 0 or at least 60 when set.");
+    }
+    PgTimeseries.Maintenance m = pgTimeseries.getMaintenance();
+    if (m.isCronEnabled()) {
+      if (m.getIntervalSeconds() < 60 || m.getIntervalSeconds() > 86400 * 30) {
+        throw new IllegalStateException(
+            "postgres.pgTimeseries.maintenance.intervalSeconds must be between 60 and 2592000 inclusive when cron is enabled.");
+      }
+    }
   }
 
   private void validatePgQueueConfig() {
@@ -626,6 +847,234 @@ public class PostgresSqlSetupProperties {
         }
       }
     }
+  }
+
+  @Getter
+  @Setter
+  public static class PgGraph {
+    private boolean enabled;
+
+    /**
+     * Prefix for SqlSetup graph tables/views/functions naming (e.g. {@code
+     * metadata_graph_vertices}, {@code metadata_graph_edges}).
+     */
+    private String tablePrefix;
+
+    private int partitionCount;
+
+    /**
+     * Vertex id hash for {@code xxhash64_id} columns written by GMS. Only {@code XXHASH64} is
+     * supported today; must stay aligned with SqlSetup / extension expectations.
+     */
+    private String idHashAlgo;
+
+    /**
+     * Upper bound on edges per JDBC {@code executeBatch} chunk for {@code addEdges} / {@code
+     * removeEdges} (limits memory and driver parameter batch size). Default is defined in {@code
+     * application.yaml} ({@code postgres.pgGraph.maxEdgeWriteBatchSize}).
+     */
+    private int maxEdgeWriteBatchSize;
+  }
+
+  private void validatePgGraphMaxEdgeWriteBatchSize() {
+    int n = pgGraph.getMaxEdgeWriteBatchSize();
+    if (n < 1 || n > 100_000) {
+      throw new IllegalStateException(
+          "postgres.pgGraph.maxEdgeWriteBatchSize must be between 1 and 100000 inclusive "
+              + "(set default in application.yaml under postgres.pgGraph.maxEdgeWriteBatchSize).");
+    }
+  }
+
+  private void validatePgSearchEntityFulltextTierColumns() {
+    int n = pgSearch.getEntity().getFulltext().getTierTsvectorColumnCount();
+    if (n < 1 || n > 32) {
+      throw new IllegalStateException(
+          "postgres.pgSearch.entity.fulltext.tierTsvectorColumnCount must be between 1 and 32 inclusive.");
+    }
+  }
+
+  /**
+   * Physical column in {@code {prefix}_search_row} for lexical {@code tsvector} at a 1-based search
+   * tier (see {@link PgSearch.Entity.Fulltext#getTierTsvectorColumnCount()}).
+   */
+  public static String searchVectorTierColumnName(int tierOneBased) {
+    if (tierOneBased < 1) {
+      throw new IllegalArgumentException("tierOneBased must be >= 1");
+    }
+    return "search_vector_tier" + tierOneBased;
+  }
+
+  /**
+   * Plain-text column co-located with {@link #searchVectorTierColumnName(int)} for the same tier
+   * (embedding / ranking inputs).
+   */
+  public static String searchTextTierColumnName(int tierOneBased) {
+    if (tierOneBased < 1) {
+      throw new IllegalArgumentException("tierOneBased must be >= 1");
+    }
+    return "search_text_tier" + tierOneBased;
+  }
+
+  /**
+   * pgvector column aligned with the same search tier as {@link #searchTextTierColumnName(int)} /
+   * {@link #searchVectorTierColumnName(int)} when {@link PgSearch.Entity.Vector#isEnabled()} is
+   * true.
+   */
+  public static String embeddingTierColumnName(int tierOneBased) {
+    if (tierOneBased < 1) {
+      throw new IllegalArgumentException("tierOneBased must be >= 1");
+    }
+    return "embedding_tier" + tierOneBased;
+  }
+
+  /**
+   * {@code CREATE TABLE} fragment: one {@code embedding_tierN vector(dims)} column per line (each
+   * line ends with a comma and newline).
+   */
+  public static String buildTierEmbeddingVectorColumnDefinitionsForCreateTable(
+      int tierColumnCount, int embeddingDimensions) {
+    if (tierColumnCount < 1) {
+      throw new IllegalArgumentException("tierColumnCount must be >= 1");
+    }
+    if (embeddingDimensions < 1) {
+      throw new IllegalArgumentException("embeddingDimensions must be >= 1");
+    }
+    StringBuilder sb = new StringBuilder();
+    for (int i = 1; i <= tierColumnCount; i++) {
+      sb.append("    ")
+          .append(embeddingTierColumnName(i))
+          .append(" vector(")
+          .append(embeddingDimensions)
+          .append("),\n");
+    }
+    return sb.toString();
+  }
+
+  private void validatePgGraphIdHashAlgo() {
+    String raw = pgGraph.getIdHashAlgo();
+    if (raw == null || raw.isBlank()) {
+      return;
+    }
+    if (!"XXHASH64".equalsIgnoreCase(raw.trim())) {
+      throw new IllegalStateException(
+          "postgres.pgGraph.idHashAlgo must be XXHASH64 (only supported value today); got: " + raw);
+    }
+  }
+
+  @Getter
+  @Setter
+  public static class PgSearch {
+    private Entity entity = new Entity();
+
+    @Getter
+    @Setter
+    public static class Entity {
+      private boolean enabled;
+
+      /** Prefix for SqlSetup tables, e.g. {@code metadata_search_search_row}. */
+      private String tablePrefix;
+
+      private Vector vector = new Vector();
+      private Fulltext fulltext = new Fulltext();
+      private Query query = new Query();
+
+      @Getter
+      @Setter
+      public static class Query {
+        /**
+         * When true, GMS serves keyword entity search <strong>reads</strong> (search, filter,
+         * browse, etc.) from PostgreSQL pgSearch tables instead of OpenSearch. Writes and index
+         * lifecycle remain on OpenSearch.
+         */
+        private boolean enabled;
+      }
+
+      @Getter
+      @Setter
+      public static class Vector {
+        private boolean enabled;
+        private int embeddingDimensions;
+      }
+
+      @Getter
+      @Setter
+      public static class Fulltext {
+        private String defaultLanguage;
+
+        /**
+         * Number of tier-aligned lexical + vector columns on {@code {prefix}_search_row}: {@code
+         * search_text_tierN}, {@code search_vector_tierN}, and (when vector SqlSetup is enabled)
+         * {@code embedding_tierN}. Model {@code @Searchable} {@code searchTier} values greater than
+         * this are clamped to this tier (last column).
+         */
+        private int tierTsvectorColumnCount = 4;
+      }
+    }
+  }
+
+  @Getter
+  @Setter
+  public static class PgTimeseries {
+    private boolean enabled;
+
+    /** Prefix for SqlSetup timeseries table, e.g. {@code metadata_timeseries_aspect_row}. */
+    private String tablePrefix;
+
+    private Partitioning partitioning = new Partitioning();
+    private Retention retention = new Retention();
+    private Maintenance maintenance = new Maintenance();
+
+    @Getter
+    @Setter
+    public static class Partitioning {
+      private String partmanPartitionInterval;
+      private int partmanPremake;
+    }
+
+    @Getter
+    @Setter
+    public static class Retention {
+      /**
+       * Max age in seconds for partman {@code part_config.retention}. 0 disables the SqlSetup
+       * retention update.
+       */
+      private int maxAgeSeconds;
+    }
+
+    @Getter
+    @Setter
+    public static class Maintenance {
+      private boolean cronEnabled;
+      private int intervalSeconds;
+    }
+  }
+
+  /** PostgreSQL DDL for the system-metadata document table when OpenSearch/ES is off. */
+  @Getter
+  @Setter
+  public static class PgSystemMetadata {
+    /**
+     * When true (and metadata store is PostgreSQL), SqlSetup creates the system metadata table and
+     * indexes via versioned migrations.
+     */
+    private boolean enabled;
+
+    /** Ledger / migration namespace prefix (default metadata_system). */
+    private String tablePrefix;
+
+    /** Physical table name (default system_metadata_service_v1). */
+    private String tableName;
+  }
+
+  /** PostgreSQL DDL for usage events parent table (platform analytics). */
+  @Getter
+  @Setter
+  public static class PgUsageEvents {
+    /** When true, SqlSetup creates the partitioned usage events parent table. */
+    private boolean enabled;
+
+    private String tablePrefix;
+    private String parentTableName;
   }
 
   @Getter

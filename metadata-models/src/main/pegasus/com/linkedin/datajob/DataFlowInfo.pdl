@@ -10,7 +10,8 @@ import com.linkedin.common.FabricType
  * Information about a Data processing flow
  */
 @Aspect = {
-  "name": "dataFlowInfo"
+  "name": "dataFlowInfo",
+  "schemaVersion": 2
 }
 record DataFlowInfo includes CustomProperties, ExternalReference {
 

@@ -22,6 +22,11 @@ import org.springframework.core.annotation.Order;
 @Configuration
 @Conditional(SystemUpdateCondition.NonBlockingSystemUpdateCondition.class)
 @ConditionalOnProperty(
+    prefix = "elasticsearch",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
+@ConditionalOnProperty(
     name = "elasticsearch.buildIndices.incrementalReindexEnabled",
     havingValue = "true")
 public class IncrementalReindexConfig {

@@ -8,6 +8,8 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import com.linkedin.common.Ownership;
+import com.linkedin.container.Container;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -18,6 +20,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -46,6 +49,7 @@ public class LoadIndicesStepTest {
   private LoadIndicesStep loadIndicesStep;
   private Database database;
   @Mock private UpdateIndicesService mockUpdateIndicesService;
+  @Mock private ElasticSearchService mockElasticSearchService;
   @Mock private LoadIndicesIndexManager mockIndexManager;
   @Mock private UpgradeContext mockUpgradeContext;
   @Mock private UpgradeReport mockUpgradeReport;
@@ -65,7 +69,11 @@ public class LoadIndicesStepTest {
     // Setup test database with some sample data
     setupTestDatabase();
 
-    loadIndicesStep = new LoadIndicesStep(database, mockUpdateIndicesService, mockIndexManager);
+    doNothing().when(mockElasticSearchService).flush();
+
+    loadIndicesStep =
+        new LoadIndicesStep(
+            database, mockUpdateIndicesService, mockIndexManager, mockElasticSearchService);
 
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
     when(mockUpgradeContext.opContext()).thenReturn(mockOperationContext);
@@ -116,10 +124,19 @@ public class LoadIndicesStepTest {
     aspectV2.setUrn(urn);
     aspectV2.setAspect(aspect);
     aspectV2.setVersion(version);
-    aspectV2.setMetadata("{}"); // Required field
+    aspectV2.setMetadata(metadataForAspect(urn, aspect));
     aspectV2.setCreatedOn(Timestamp.from(createdTime));
     aspectV2.setCreatedBy(createdBy);
     database.save(aspectV2);
+  }
+
+  /** Minimal Pegasus payloads so {@code convertToMetadataChangeLog} succeeds in streaming tests. */
+  private static String metadataForAspect(String urn, String aspect) {
+    return switch (aspect) {
+      case "container" -> "{\"container\":{\"urn\":\"urn:li:container:test\"}}";
+      case "ownership" -> "{\"owners\":[]}";
+      default -> "{}";
+    };
   }
 
   private void insertTestRowWithValidData(
@@ -220,6 +237,15 @@ public class LoadIndicesStepTest {
     // Test the processAllDataDirectly method directly
     // This method processes data from the database and calls updateIndicesService
 
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    AspectSpec mockContainerSpec = mock(AspectSpec.class);
+    when(mockEntitySpec.getAspectSpec("container")).thenReturn(mockContainerSpec);
+    when(mockContainerSpec.getDataTemplateClass()).thenReturn((Class) Container.class);
+    AspectSpec mockOwnershipSpec = mock(AspectSpec.class);
+    when(mockEntitySpec.getAspectSpec("ownership")).thenReturn(mockOwnershipSpec);
+    when(mockOwnershipSpec.getDataTemplateClass()).thenReturn((Class) Ownership.class);
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+
     // Mock the updateIndicesService to not throw exceptions
     doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
 
@@ -245,9 +271,8 @@ public class LoadIndicesStepTest {
         args,
         (java.util.function.Function<String, Void>) msg -> null);
 
-    // Verify that updateIndicesService was called - it calls flush() instead of
-    // handleChangeEvents()
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockUpdateIndicesService, atLeastOnce()).handleChangeEvents(any(), any());
+    verify(mockElasticSearchService, atLeastOnce()).flush();
   }
 
   @Test
@@ -989,7 +1014,7 @@ public class LoadIndicesStepTest {
             (java.util.function.Function<String, Void>) msg -> null);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
   }
 
   @Test
@@ -1017,7 +1042,7 @@ public class LoadIndicesStepTest {
             (java.util.function.Function<String, Void>) msg -> null);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
   }
 
   @Test
@@ -1046,7 +1071,7 @@ public class LoadIndicesStepTest {
             (java.util.function.Function<String, Void>) msg -> null);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
   }
 
   @Test
@@ -1076,7 +1101,7 @@ public class LoadIndicesStepTest {
             (java.util.function.Function<String, Void>) msg -> null);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
   }
 
   @Test
@@ -1105,7 +1130,7 @@ public class LoadIndicesStepTest {
             (java.util.function.Function<String, Void>) msg -> null);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
   }
 
   @Test
@@ -1133,7 +1158,7 @@ public class LoadIndicesStepTest {
             (java.util.function.Function<String, Void>) msg -> null);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
   }
 
   @Test
@@ -1148,7 +1173,7 @@ public class LoadIndicesStepTest {
 
     // Mock successful batch processing but fail on final flush
     doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
-    doThrow(new RuntimeException("Flush failed")).when(mockUpdateIndicesService).flush();
+    doThrow(new RuntimeException("Flush failed")).when(mockElasticSearchService).flush();
 
     LoadIndicesArgs args = new LoadIndicesArgs();
     args.batchSize = 100;
@@ -1164,7 +1189,7 @@ public class LoadIndicesStepTest {
             (java.util.function.Function<String, Void>) msg -> null);
 
     // Verify flush was called and failed gracefully
-    verify(mockUpdateIndicesService).flush();
+    verify(mockElasticSearchService).flush();
     assertNotNull(result);
   }
 
@@ -1365,7 +1390,7 @@ public class LoadIndicesStepTest {
             (java.util.function.Function<String, Void>) msg -> null);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
 
     // Verify that the method completed successfully even with conversion errors
     LoadIndicesResult loadResult = (LoadIndicesResult) result;
@@ -1423,7 +1448,7 @@ public class LoadIndicesStepTest {
             (java.util.function.Function<String, Void>) msg -> null);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
 
     // Verify that the method completed successfully
     LoadIndicesResult loadResult = (LoadIndicesResult) result;
@@ -1481,7 +1506,7 @@ public class LoadIndicesStepTest {
     Object result = method.invoke(loadIndicesStep, mockOperationContext, args, reportFunction);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
 
     // Verify that progress messages were generated
     assertTrue(progressMessages.size() > 0);
@@ -1532,7 +1557,7 @@ public class LoadIndicesStepTest {
     Object result = method.invoke(loadIndicesStep, mockOperationContext, args, reportFunction);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
 
     // Verify that progress messages were generated
     assertTrue(progressMessages.size() > 0);
@@ -1554,7 +1579,7 @@ public class LoadIndicesStepTest {
     method.setAccessible(true);
 
     doNothing().when(mockUpdateIndicesService).handleChangeEvents(any(), any());
-    doThrow(new RuntimeException("Flush failed")).when(mockUpdateIndicesService).flush();
+    doThrow(new RuntimeException("Flush failed")).when(mockElasticSearchService).flush();
 
     LoadIndicesArgs args = new LoadIndicesArgs();
     args.batchSize = 100;
@@ -1570,6 +1595,6 @@ public class LoadIndicesStepTest {
             (java.util.function.Function<String, Void>) msg -> null);
 
     assertNotNull(result);
-    verify(mockUpdateIndicesService, atLeastOnce()).flush();
+    verify(mockElasticSearchService, atLeastOnce()).flush();
   }
 }

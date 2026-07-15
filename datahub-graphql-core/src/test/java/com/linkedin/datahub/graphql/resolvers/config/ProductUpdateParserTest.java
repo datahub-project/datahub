@@ -627,6 +627,8 @@ public class ProductUpdateParserTest {
     assertNotNull(result);
     assertEquals(result.getPrimaryCtaText(), "Get Started");
     assertEquals(result.getPrimaryCtaLink(), "https://example.com");
+    assertEquals(result.getCtaText(), "Get Started");
+    assertEquals(result.getCtaLink(), "https://example.com");
   }
 
   @Test
@@ -667,6 +669,7 @@ public class ProductUpdateParserTest {
 
     assertNotNull(result);
     assertEquals(result.getPrimaryCtaLink(), "https://example.com?q=abc-123");
+    assertEquals(result.getCtaLink(), "https://example.com?q=abc-123");
   }
 
   @Test
@@ -728,9 +731,9 @@ public class ProductUpdateParserTest {
     assertNotNull(result);
     assertEquals(result.getPrimaryCtaText(), "New Text");
     assertEquals(result.getPrimaryCtaLink(), "https://new.com");
-    // Legacy fields should NOT be set when primary is present
-    assertNull(result.getCtaText());
-    assertNull(result.getCtaLink());
+    // Deprecated GraphQL fields mirror primary when JSON uses new shape (JSON legacy keys ignored)
+    assertEquals(result.getCtaText(), "New Text");
+    assertEquals(result.getCtaLink(), "https://new.com");
   }
 
   @Test
@@ -873,6 +876,8 @@ public class ProductUpdateParserTest {
     assertEquals(result.getImage(), "https://example.com/image.png");
     assertEquals(result.getPrimaryCtaText(), "Get Started");
     assertEquals(result.getPrimaryCtaLink(), "https://example.com");
+    assertEquals(result.getCtaText(), "Get Started");
+    assertEquals(result.getCtaLink(), "https://example.com");
     assertEquals(result.getSecondaryCtaText(), "Watch Video");
     assertEquals(result.getSecondaryCtaLink(), "https://example.com/video");
     assertNotNull(result.getFeatures());

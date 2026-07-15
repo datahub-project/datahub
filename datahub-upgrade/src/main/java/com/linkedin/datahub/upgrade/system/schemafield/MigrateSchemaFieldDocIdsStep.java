@@ -76,6 +76,10 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
       int limit) {
     this.opContext = opContext;
     this.entityRegistry = opContext.getEntityRegistry();
+    if (elasticSearchComponents.getSearchClient() == null) {
+      throw new IllegalStateException(
+          "MigrateSchemaFieldDocIds requires elasticsearch.enabled=true and a configured OpenSearch cluster");
+    }
     this.elasticsearchClient = elasticSearchComponents.getSearchClient();
     this.entityService = entityService;
     this.batchSize = batchSize;

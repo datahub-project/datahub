@@ -67,8 +67,8 @@ public class CreateTablesStepTest {
             3306, // port
             "testdb", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
     createTablesStep = new CreateTablesStep(mockDatabase, defaultSetupArgs);
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
 
@@ -135,8 +135,8 @@ public class CreateTablesStepTest {
             5432, // port
             "testdb", // databaseName
             "public", // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresSetupArgs);
     when(mockDatabase.dataSource()).thenReturn(mockDataSource);
     when(mockDataSource.getConnection()).thenReturn(mockConnection);
@@ -336,8 +336,7 @@ public class CreateTablesStepTest {
             5432,
             "testdb",
             "testdb",
-            false,
-            null);
+            false);
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresArgs);
 
     // Mock that database exists (ResultSet.next() returns true)
@@ -391,8 +390,7 @@ public class CreateTablesStepTest {
             5432,
             "testdb",
             "testdb",
-            false,
-            null);
+            false);
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresArgs);
 
     // Mock database check failure - PreparedStatement throws exception
@@ -451,8 +449,7 @@ public class CreateTablesStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
 
     SqlSetupResult result = step.createTables(args);
@@ -482,8 +479,7 @@ public class CreateTablesStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
 
     step.createTables(args);
@@ -511,8 +507,7 @@ public class CreateTablesStepTest {
             5432,
             "testdb",
             "testdb",
-            false,
-            null);
+            false);
     CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
 
     step.createTables(args);
@@ -540,8 +535,7 @@ public class CreateTablesStepTest {
             5432,
             "testdb",
             "testdb",
-            true,
-            null);
+            true);
     CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
     when(mockResultSet.next()).thenReturn(false);
 

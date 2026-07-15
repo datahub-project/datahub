@@ -122,7 +122,6 @@ public class SqlSetupConfig {
     }
 
     String postgresMetadataSchema = null;
-    PostgresSqlSetupProperties postgresForArgs = null;
     if (dbType == DatabaseType.POSTGRES) {
       PostgresSqlSetupProperties pgProps =
           postgresSqlSetupProperties != null
@@ -132,7 +131,6 @@ public class SqlSetupConfig {
         pgProps.applySqlSetupSchemaFromJdbcUrl(ebeanUrl);
       }
       postgresMetadataSchema = pgProps.normalizedPostgresSchema();
-      postgresForArgs = pgProps;
     }
 
     SqlSetupArgs args =
@@ -151,8 +149,7 @@ public class SqlSetupConfig {
             port,
             databaseName,
             postgresMetadataSchema,
-            createSchemaVersionIndex,
-            postgresForArgs);
+            createSchemaVersionIndex);
 
     // Validate authentication configuration
     validateAuthenticationConfig(args);
@@ -252,18 +249,17 @@ public class SqlSetupConfig {
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   public SqlSetup createInstance(
-      final Database ebeanServer, @Qualifier("sqlSetupArgs") final SqlSetupArgs setupArgs) {
-    PostgresSqlSetupProperties pg = setupArgs.getPostgres();
-    if (pg != null) {
-      if (environment == null || !environment.containsProperty("postgres.schema")) {
-        pg.applySqlSetupSchemaFromJdbcUrl(ebeanUrl);
-      }
-      pg.validateForUse(setupArgs.getDbType());
-      if (configurationProvider != null) {
-        pg.setKafkaConfiguration(configurationProvider.getKafka());
-      }
+      final Database ebeanServer,
+      @Qualifier("sqlSetupArgs") final SqlSetupArgs setupArgs,
+      final PostgresSqlSetupProperties postgresSqlSetupProperties) {
+    if (environment == null || !environment.containsProperty("postgres.schema")) {
+      postgresSqlSetupProperties.applySqlSetupSchemaFromJdbcUrl(ebeanUrl);
     }
-    return new SqlSetup(ebeanServer, setupArgs);
+    postgresSqlSetupProperties.validateForUse(setupArgs.getDbType());
+    if (configurationProvider != null) {
+      postgresSqlSetupProperties.setKafkaConfiguration(configurationProvider.getKafka());
+    }
+    return new SqlSetup(ebeanServer, setupArgs, postgresSqlSetupProperties);
   }
 
   @Bean(name = "sqlSetupCassandra")

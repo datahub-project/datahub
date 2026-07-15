@@ -10,7 +10,8 @@ import com.linkedin.common.ExternalReference
  * Note: This is IN BETA version
  */
 @Aspect = {
-  "name": "notebookInfo"
+  "name": "notebookInfo",
+  "schemaVersion": 2
 }
 record NotebookInfo includes CustomProperties, ExternalReference {
 

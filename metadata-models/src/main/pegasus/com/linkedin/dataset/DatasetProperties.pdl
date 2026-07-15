@@ -9,7 +9,8 @@ import com.linkedin.common.TimeStamp
  * Properties associated with a Dataset
  */
 @Aspect = {
-  "name": "datasetProperties"
+  "name": "datasetProperties",
+  "schemaVersion": 2
 }
 record DatasetProperties includes CustomProperties, ExternalReference {
 

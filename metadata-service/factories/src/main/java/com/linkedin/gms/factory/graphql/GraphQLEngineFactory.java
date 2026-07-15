@@ -55,8 +55,6 @@ import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.aws.S3Util;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.metadata.version.GitVersion;
@@ -69,7 +67,6 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -86,16 +83,9 @@ import org.springframework.context.annotation.Import;
   AssertionServiceFactory.class,
   DocumentServiceFactory.class,
   DocumentImportServiceFactory.class,
+  PlatformAnalyticsConfiguration.class,
 })
 public class GraphQLEngineFactory {
-
-  @Autowired
-  @Qualifier("searchClientShim")
-  private SearchClientShim<?> elasticClient;
-
-  @Autowired
-  @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
-  private IndexConvention indexConvention;
 
   @Autowired
   @Qualifier("graphClient")
@@ -209,8 +199,9 @@ public class GraphQLEngineFactory {
   @Qualifier("restrictedService")
   private RestrictedService restrictedService;
 
-  @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
-  private Boolean isAnalyticsEnabled;
+  @Autowired(required = false)
+  @Qualifier(PlatformAnalyticsConfiguration.GRAPHQL_ANALYTICS_SERVICE_BEAN)
+  private AnalyticsService graphqlAnalyticsService;
 
   @Autowired
   @Qualifier("businessAttributeService")
@@ -268,9 +259,7 @@ public class GraphQLEngineFactory {
             timeseriesAspectService,
             configProvider.getCache().getClient().getUsageClient(),
             metricUtils));
-    if (isAnalyticsEnabled) {
-      args.setAnalyticsService(new AnalyticsService(elasticClient, indexConvention));
-    }
+    args.setAnalyticsService(graphqlAnalyticsService);
     args.setEntityService(entityService);
     args.setRecommendationsService(recommendationsService);
     args.setStatefulTokenService(statefulTokenService);

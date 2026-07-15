@@ -21,13 +21,13 @@ import com.linkedin.datahub.upgrade.system.restoreindices.graph.vianodes.Reindex
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializer;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
-import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.Topics;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -73,11 +73,11 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
 
   @Autowired
   @Named("duheKafkaEventProducer")
-  private KafkaEventProducer duheKafkaEventProducer;
+  private EventProducer duheKafkaEventProducer;
 
   @Autowired
   @Named("kafkaEventProducer")
-  private KafkaEventProducer kafkaEventProducer;
+  private EventProducer kafkaEventProducer;
 
   @Autowired private EntityServiceImpl entityService;
 

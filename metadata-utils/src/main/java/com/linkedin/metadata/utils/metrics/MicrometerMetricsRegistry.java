@@ -21,8 +21,13 @@ public class MicrometerMetricsRegistry {
   private MicrometerMetricsRegistry() {}
 
   /**
-   * Register cache metrics if not already registered globally. This method is thread-safe and
-   * ensures each cache is only registered once.
+   * Registers Micrometer cache metrics for a <strong>standalone</strong> native cache (e.g. a
+   * Caffeine {@link Cache} or Hazelcast {@link com.hazelcast.map.IMap} built outside Spring's
+   * {@link org.springframework.cache.CacheManager}). Do not use this for caches obtained from a
+   * Spring {@code CacheManager}; Spring Boot's actuator already binds those meters with consistent
+   * tags (including {@code cache.manager}).
+   *
+   * <p>This method is thread-safe and ensures each cache name is only registered once per process.
    */
   public static synchronized boolean registerCacheMetrics(
       @Nonnull String cacheName,
