@@ -28,7 +28,7 @@ base_requirements = {
     "typing_extensions>=4.8.0,<5.0.0",
     # Actual dependencies.
     "typing-inspect<0.10.0",
-    "pydantic>=2.4.0,<3.0.0",
+    "pydantic>=2.4.0,<3.0.0,!=2.12.0,!=2.12.1",
     "mixpanel>=4.9.0,<6.0.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     # Note: jaraco.context>=6.1.0 is required for security (GHSA-58pv-8j8x-9vj2: Path traversal
