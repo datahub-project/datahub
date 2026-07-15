@@ -571,10 +571,10 @@
     "volumeDescription.changeAtLeastRows": "Table should grow by at least {{parameter}} rows",
     "volumeDescription.changeAtMostPercent": "Table should grow by at most {{parameter}} %",
     "volumeDescription.changeAtMostRows": "Table should grow by at most {{parameter}} rows",
-    "volumeDescription.changeBetweenPercent": "Table should grow by between {{parameter}} %",
-    "volumeDescription.changeBetweenRows": "Table should grow by between {{parameter}} rows",
+    "volumeDescription.changeBetweenPercent": "Table should grow by between {{min}} and {{max}} %",
+    "volumeDescription.changeBetweenRows": "Table should grow by between {{min}} and {{max}} rows",
     "volumeDescription.totalAtLeast": "Table has at least {{parameter}} rows",
     "volumeDescription.totalAtMost": "Table has at most {{parameter}} rows",
-    "volumeDescription.totalBetween": "Table has between {{parameter}} rows",
+    "volumeDescription.totalBetween": "Table has between {{min}} and {{max}} rows",
     "volumeDescription.unknown": "Table has a volume assertion"
 }

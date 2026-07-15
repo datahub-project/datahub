@@ -571,10 +571,10 @@
     "volumeDescription.changeAtLeastRows": "Tabelle sollte um mindestens {{parameter}} Zeilen wachsen",
     "volumeDescription.changeAtMostPercent": "Tabelle sollte um höchstens {{parameter}} % wachsen",
     "volumeDescription.changeAtMostRows": "Tabelle sollte um höchstens {{parameter}} Zeilen wachsen",
-    "volumeDescription.changeBetweenPercent": "Tabelle sollte um zwischen {{parameter}} % wachsen",
-    "volumeDescription.changeBetweenRows": "Tabelle sollte um zwischen {{parameter}} Zeilen wachsen",
+    "volumeDescription.changeBetweenPercent": "Tabelle sollte um zwischen {{min}} und {{max}} % wachsen",
+    "volumeDescription.changeBetweenRows": "Tabelle sollte um zwischen {{min}} und {{max}} Zeilen wachsen",
     "volumeDescription.totalAtLeast": "Tabelle hat mindestens {{parameter}} Zeilen",
     "volumeDescription.totalAtMost": "Tabelle hat höchstens {{parameter}} Zeilen",
-    "volumeDescription.totalBetween": "Tabelle hat zwischen {{parameter}} Zeilen",
+    "volumeDescription.totalBetween": "Tabelle hat zwischen {{min}} und {{max}} Zeilen",
     "volumeDescription.unknown": "Tabelle hat eine Volumen-Assertion"
 }
