@@ -30,6 +30,14 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_physical_bindings,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
+    KNOWN_UNMAPPED_AUTHDEF_FIELDS,
+    KNOWN_UNMAPPED_CONTRACT_FIELDS,
+    KNOWN_UNMAPPED_PROPERTY_FIELDS,
+    KNOWN_UNMAPPED_QUALITY_FIELDS,
+    KNOWN_UNMAPPED_SCHEMA_FIELDS,
+    KNOWN_UNMAPPED_SERVER_FIELDS,
+    KNOWN_UNMAPPED_TEAM_FIELDS,
+    ODCSAuthoritativeDefinition,
     ODCSContract,
     ODCSProperty,
     ODCSQualityRule,
@@ -55,6 +63,17 @@ _DEFAULT_VERSION = "3.1.0"
 _ODCS_DATASET_PREFIX = f"urn:li:dataset:(urn:li:dataPlatform:{ODCS_PLATFORM},"
 
 _MODEL_FIELDS_CACHE: Dict[type, Set[str]] = {}
+
+# Spec-valid-but-unmapped field sets per model, for the unknown-field walker.
+_KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
+    ODCSContract: KNOWN_UNMAPPED_CONTRACT_FIELDS,
+    ODCSSchemaObject: KNOWN_UNMAPPED_SCHEMA_FIELDS,
+    ODCSProperty: KNOWN_UNMAPPED_PROPERTY_FIELDS,
+    ODCSQualityRule: KNOWN_UNMAPPED_QUALITY_FIELDS,
+    ODCSServer: KNOWN_UNMAPPED_SERVER_FIELDS,
+    ODCSTeamMember: KNOWN_UNMAPPED_TEAM_FIELDS,
+    ODCSAuthoritativeDefinition: KNOWN_UNMAPPED_AUTHDEF_FIELDS,
+}
 
 
 def _model_field_keys(model_cls: type[BaseModel]) -> Set[str]:
@@ -89,6 +108,7 @@ class ODCSSourceReport(SourceReport):
     rules_skipped_no_threshold: List[str] = field(default_factory=list)
     rules_routed_to_custom: List[str] = field(default_factory=list)
     schema_type_fallbacks: List[str] = field(default_factory=list)
+    spec_fields_ignored: List[str] = field(default_factory=list)
 
 
 @platform_name("Open Data Contract Standard", id="odcs")
@@ -461,19 +481,29 @@ class ODCSSource(Source):
     # ------------------------------------------------------------------
 
     def _warn_unknown_fields(self, raw_dict: dict, file_path: pathlib.Path) -> None:
-        """Walk the raw YAML dict and warn on any key not declared on the model.
+        """Walk the raw YAML dict and classify keys not declared on the model.
 
-        Pydantic's `extra="ignore"` silently drops these — ODCS files often
-        contain typos or version-specific fields, and a silent drop is a
-        footgun. One warning per (model, field) pair per file.
+        Three-way classification per key:
+          1. Declared on the model — parsed; recurse into known list shapes.
+          2. Spec-valid but unmapped (`KNOWN_UNMAPPED_*`) — collected and
+             reported once per file as an info, NOT a warning: the field is
+             legitimate ODCS that this source deliberately does not map.
+          3. Genuinely unknown — a per-field warning. Pydantic's
+             `extra="ignore"` silently drops these, and a silent drop of a
+             typo'd field is a footgun.
         """
+        spec_ignored: List[str] = []
 
         def walk(node: Any, model_cls: type[BaseModel], path_hint: str) -> None:
             if not isinstance(node, dict):
                 return
             allowed = _model_field_keys(model_cls)
+            known_unmapped = _KNOWN_UNMAPPED_BY_MODEL.get(model_cls, frozenset())
             for key, value in node.items():
                 if key not in allowed:
+                    if key in known_unmapped:
+                        spec_ignored.append(f"{path_hint}.{key}")
+                        continue
                     self.report.unknown_fields_count += 1
                     self.report.warning(
                         title="Unknown ODCS field",
@@ -484,7 +514,14 @@ class ODCSSource(Source):
                         context=f"{file_path}: {path_hint}.{key}",
                     )
                     continue
-                if model_cls is ODCSContract:
+                if key == "authoritativeDefinitions" and isinstance(value, list):
+                    for i, item in enumerate(value):
+                        walk(
+                            item,
+                            ODCSAuthoritativeDefinition,
+                            f"{path_hint}.authoritativeDefinitions[{i}]",
+                        )
+                elif model_cls is ODCSContract:
                     if key == "schema" and isinstance(value, list):
                         for i, item in enumerate(value):
                             walk(item, ODCSSchemaObject, f"{path_hint}.schema[{i}]")
@@ -494,9 +531,6 @@ class ODCSSource(Source):
                     elif key == "team" and isinstance(value, list):
                         for i, item in enumerate(value):
                             walk(item, ODCSTeamMember, f"{path_hint}.team[{i}]")
-                    elif key == "quality" and isinstance(value, list):
-                        for i, item in enumerate(value):
-                            walk(item, ODCSQualityRule, f"{path_hint}.quality[{i}]")
                 elif model_cls is ODCSSchemaObject or model_cls is ODCSProperty:
                     if key == "properties" and isinstance(value, list):
                         for i, item in enumerate(value):
@@ -506,6 +540,17 @@ class ODCSSource(Source):
                             walk(item, ODCSQualityRule, f"{path_hint}.quality[{i}]")
 
         walk(raw_dict, ODCSContract, "<root>")
+        if spec_ignored:
+            self.report.spec_fields_ignored.extend(spec_ignored)
+            self.report.info(
+                title="ODCS contract uses spec fields DataHub does not map",
+                message=(
+                    "These fields are valid ODCS but are not mapped to DataHub "
+                    "aspects by this source (e.g. SLA, support, pricing, "
+                    "relationships). They are ignored."
+                ),
+                context=f"{file_path}: {', '.join(spec_ignored)}",
+            )
 
     # ------------------------------------------------------------------
     # Per-file processing
