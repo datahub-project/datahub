@@ -48,7 +48,10 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
     LineageEdgeColumnMapping,
 )
-from datahub.ingestion.source.bigquery_v2.queries import BigqueryQuery
+from datahub.ingestion.source.bigquery_v2.queries import (
+    BigqueryQuery,
+    BigqueryTableType,
+)
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
 from datahub.metadata.schema_classes import (
@@ -1299,6 +1302,22 @@ def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() 
     # TIMESTAMP, but the mapper expects epoch millis. Dropping the wrap would
     # silently feed wrong timestamps rather than raise.
     assert "UNIX_MILLIS(max(last_modified_time)) as last_modified_time" in query
+
+
+def test_make_bigquery_table_null_partition_stats() -> None:
+    # Tables absent from PARTITIONS get null p.* stats via the LEFT JOIN; the mapper must
+    # keep them None, not default to 0/epoch (documented "empty tables lose lastModified").
+    cols = ["table_name", "table_type", "created", "comment", "ddl"]
+    row = Row(
+        ("my_table", BigqueryTableType.BASE_TABLE, None, None, None),
+        {c: i for i, c in enumerate(cols)},
+    )
+
+    table = BigQuerySchemaApi._make_bigquery_table(row, table_basic=None)
+
+    assert table.last_altered is None
+    assert table.size_in_bytes is None
+    assert table.rows_count is None
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
