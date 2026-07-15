@@ -1768,52 +1768,65 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         # pipeline has registered this source for close().
         self._exit_stack = ExitStack()
 
-        # View SQL text is offloaded to a temporary SQLite-backed dict instead of
-        # being held in `_tables_cache`. On large installations the resident view
-        # text dominated memory (e.g. thousands of views at ~100KB each). Keyed by
-        # _view_definition_key(schema, view_name). FileBackedDict mutates its
-        # in-memory LRU on read, so reads (which happen on parallel view-processing
-        # worker threads) must be guarded by `_view_definitions_lock`.
-        self._view_definitions: FileBackedDict[str] = self._exit_stack.enter_context(
-            FileBackedDict()
-        )
-        self._view_definitions_lock = Lock()
+        # Guard construction too, not just discovery below: these resources are
+        # registered on the ExitStack one at a time, so if a later one raises (e.g.
+        # the aggregator fails after the SQLite-backed view store is created) the
+        # ones built so far would leak because close() never runs on a failed
+        # __init__. Unwind whatever was registered and re-raise the original error.
+        try:
+            # Register the non-Closeable teardown first so it runs on any failure,
+            # even one during resource construction below: the pooled engine (lazily
+            # created, class-level) and the caches that must not survive into the
+            # next recipe run in the same process. ExitStack unwinds LIFO, so these
+            # run after the Closeables are closed.
+            self._exit_stack.callback(self._dispose_pooled_engine)
+            self._exit_stack.callback(self._clear_table_caches)
+            self._exit_stack.callback(self._clear_schema_lru_caches)
 
-        self.schema_resolver = self._exit_stack.enter_context(
-            self._init_schema_resolver()
-        )
-
-        # Initialize SqlParsingAggregator for modern lineage processing
-        logger.info("Initializing SqlParsingAggregator for enhanced lineage processing")
-        self.aggregator = self._exit_stack.enter_context(
-            SqlParsingAggregator(
-                platform="teradata",
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                schema_resolver=self.schema_resolver,
-                graph=self.ctx.graph,
-                generate_lineage=self.config.include_view_lineage
-                or self.config.include_table_lineage,
-                generate_queries=self.config.include_queries,
-                generate_usage_statistics=self.config.include_usage_statistics,
-                generate_query_usage_statistics=self.config.include_usage_statistics,
-                generate_operations=self.config.usage.include_operational_stats
-                if self.config.include_usage_statistics
-                else False,
-                usage_config=self.config.usage
-                if self.config.include_usage_statistics
-                else None,
-                eager_graph_load=False,
+            # View SQL text is offloaded to a temporary SQLite-backed dict instead of
+            # being held in `_tables_cache`. On large installations the resident view
+            # text dominated memory (e.g. thousands of views at ~100KB each). Keyed by
+            # _view_definition_key(schema, view_name). FileBackedDict mutates its
+            # in-memory LRU on read, so reads (which happen on parallel view-processing
+            # worker threads) must be guarded by `_view_definitions_lock`.
+            self._view_definitions: FileBackedDict[str] = (
+                self._exit_stack.enter_context(FileBackedDict())
             )
-        )
-        self.report.sql_aggregator = self.aggregator.report
+            self._view_definitions_lock = Lock()
 
-        # The teardown below isn't Closeable, so ride it on the same stack via
-        # callbacks: the pooled engine (lazily created, class-level) and the caches
-        # that must not survive into the next recipe run in the same process.
-        self._exit_stack.callback(self._dispose_pooled_engine)
-        self._exit_stack.callback(self._clear_table_caches)
-        self._exit_stack.callback(self._clear_schema_lru_caches)
+            self.schema_resolver = self._exit_stack.enter_context(
+                self._init_schema_resolver()
+            )
+
+            # Initialize SqlParsingAggregator for modern lineage processing
+            logger.info(
+                "Initializing SqlParsingAggregator for enhanced lineage processing"
+            )
+            self.aggregator = self._exit_stack.enter_context(
+                SqlParsingAggregator(
+                    platform="teradata",
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                    schema_resolver=self.schema_resolver,
+                    graph=self.ctx.graph,
+                    generate_lineage=self.config.include_view_lineage
+                    or self.config.include_table_lineage,
+                    generate_queries=self.config.include_queries,
+                    generate_usage_statistics=self.config.include_usage_statistics,
+                    generate_query_usage_statistics=self.config.include_usage_statistics,
+                    generate_operations=self.config.usage.include_operational_stats
+                    if self.config.include_usage_statistics
+                    else False,
+                    usage_config=self.config.usage
+                    if self.config.include_usage_statistics
+                    else None,
+                    eager_graph_load=False,
+                )
+            )
+            self.report.sql_aggregator = self.aggregator.report
+        except Exception:
+            self._exit_stack.close()
+            raise
 
         # Surface the size-based profiling filter at startup. This default (5 GB)
         # was previously ignored for Teradata, so log it to avoid surprising users
@@ -1846,11 +1859,8 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 try:
                     self.cache_tables_and_views()
                 except Exception:
-                    # The pipeline only registers this source for close() once
-                    # __init__ returns, so on failure here close() never runs.
-                    # Unwind the ExitStack ourselves to release every resource
-                    # built so far (temp SQLite files, pooled engine, caches),
-                    # then re-raise the original error.
+                    # Same failed-__init__ rationale as the construction guard
+                    # above: close() won't run, so unwind the ExitStack here.
                     self._exit_stack.close()
                     raise
                 logger.info(f"Found {len(self._tables_cache)} tables and views")

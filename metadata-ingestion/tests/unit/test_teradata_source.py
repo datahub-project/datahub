@@ -694,6 +694,49 @@ class TestTeradataSource:
         assert get_schema_pk_constraints.cache_info().currsize == 0
         assert get_schema_foreign_keys.cache_info().currsize == 0
 
+    def test_init_releases_resources_when_construction_fails(self):
+        """If a resource fails to construct in __init__ (before discovery), the
+        ExitStack must still release the resources registered before the failure.
+
+        The aggregator is built last of the three file-backed resources, so a
+        failure there must still close _view_definitions and schema_resolver and
+        clear the caches — those teardowns are registered on the ExitStack first,
+        so they run even though the aggregator never finished constructing.
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        view_definitions = _RecordingCloseable()
+        schema_resolver = _RecordingCloseable()
+
+        # Stale cache state from a hypothetical prior run in the same process; the
+        # failure path must clear it so it can't bleed into the next run.
+        TeradataSource._table_creator_cache[("stale_db", "stale_table")] = "owner"
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = []
+        get_schema_columns(None, mock_conn, "columnsV", "stale_db")
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.FileBackedDict",
+                return_value=view_definitions,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource._init_schema_resolver",
+                return_value=schema_resolver,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.SqlParsingAggregator",
+                side_effect=RuntimeError("aggregator init failed"),
+            ),
+            pytest.raises(RuntimeError, match="aggregator init failed"),
+        ):
+            TeradataSource(config, PipelineContext(run_id="test"))
+
+        assert view_definitions.close_calls == 1
+        assert schema_resolver.close_calls == 1
+        assert len(TeradataSource._table_creator_cache) == 0
+        assert get_schema_columns.cache_info().currsize == 0
+
     def test_make_lineage_queries_with_time_defaults(self):
         """Test that _make_lineage_queries works with automatic time defaults."""
         config_dict = {
