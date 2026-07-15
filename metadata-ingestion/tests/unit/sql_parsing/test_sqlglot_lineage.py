@@ -191,6 +191,31 @@ SELECT id, name FROM my_db.my_schema.my_table
     )
 
 
+def test_snowflake_create_view_copy_grants_with_casts() -> None:
+    assert_sql_result(
+        """
+CREATE OR REPLACE VIEW my_view
+COPY GRANTS
+                (
+    "COL_STR",
+    "COL_NUM",
+    "COL_TS",
+    "COL_BOOL"
+)
+AS SELECT
+    "COL_STR"::VARCHAR(134217728) AS "COL_STR",
+    "COL_NUM"::NUMBER(19,0) AS "COL_NUM",
+    "COL_TS"::TIMESTAMP_NTZ(6) AS "COL_TS",
+    "COL_BOOL"::BOOLEAN AS "COL_BOOL"
+FROM my_db.my_schema.my_source_table
+WHERE _FIVETRAN_DELETED != TRUE
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_create_view_copy_grants_with_casts.json",
+    )
+
+
 def test_create_view_as_block_statement() -> None:
     """Test Block with multiple statements where only 1 is not None.
 

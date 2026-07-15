@@ -1,0 +1,106 @@
+{
+    "query_type": "CREATE_DDL",
+    "query_type_props": {},
+    "query_fingerprint": "f8ab0b4f0294835b2fc56834c9d9266c1af8dee4a8134ebee36cd16d98ada1f9",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_source_table,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_view,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_view,PROD)",
+                "column": "col_str",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(134217728)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_source_table,PROD)",
+                    "column": "col_str"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(\"MY_SOURCE_TABLE\".\"COL_STR\" AS VARCHAR(134217728)) AS \"COL_STR\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_view,PROD)",
+                "column": "col_num",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(19, 0)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_source_table,PROD)",
+                    "column": "col_num"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(\"MY_SOURCE_TABLE\".\"COL_NUM\" AS DECIMAL(19, 0)) AS \"COL_NUM\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_view,PROD)",
+                "column": "col_ts",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                    }
+                },
+                "native_column_type": "TIMESTAMPNTZ(6)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_source_table,PROD)",
+                    "column": "col_ts"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(\"MY_SOURCE_TABLE\".\"COL_TS\" AS TIMESTAMPNTZ(6)) AS \"COL_TS\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_view,PROD)",
+                "column": "col_bool",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                },
+                "native_column_type": "BOOLEAN"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_source_table,PROD)",
+                    "column": "col_bool"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(\"MY_SOURCE_TABLE\".\"COL_BOOL\" AS BOOLEAN) AS \"COL_BOOL\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE OR REPLACE VIEW my_view (\"COL_STR\", \"COL_NUM\", \"COL_TS\", \"COL_BOOL\") COPY GRANTS AS SELECT CAST(\"COL_STR\" AS VARCHAR(?)) AS \"COL_STR\", CAST(\"COL_NUM\" AS DECIMAL(?, ?)) AS \"COL_NUM\", CAST(\"COL_TS\" AS TIMESTAMPNTZ(?)) AS \"COL_TS\", CAST(\"COL_BOOL\" AS BOOLEAN) AS \"COL_BOOL\" FROM my_db.my_schema.my_source_table WHERE _FIVETRAN_DELETED <> TRUE"
+    }
+}
