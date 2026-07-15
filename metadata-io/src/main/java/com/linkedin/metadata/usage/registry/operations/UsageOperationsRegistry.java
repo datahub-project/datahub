@@ -100,6 +100,7 @@ public class UsageOperationsRegistry {
       case "openapi" -> RequestContext.RequestAPI.OPENAPI;
       case "restli" -> RequestContext.RequestAPI.RESTLI;
       case "messaging" -> RequestContext.RequestAPI.MESSAGING;
+      case "mcp" -> RequestContext.RequestAPI.MCP;
       default -> throw new IllegalArgumentException("Unknown request_api in manifest: " + raw);
     };
   }

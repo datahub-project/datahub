@@ -159,6 +159,10 @@ import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeseriesAspectBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
+import com.linkedin.datahub.graphql.resolvers.metrics.GetRootMetricsResolver;
+import com.linkedin.datahub.graphql.resolvers.metrics.GetSemanticModelsResolver;
+import com.linkedin.datahub.graphql.resolvers.metrics.MetricChildMetricsResolver;
+import com.linkedin.datahub.graphql.resolvers.metrics.SemanticModelMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.module.DeletePageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.module.UpsertPageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
@@ -317,6 +321,7 @@ import com.linkedin.datahub.graphql.types.incident.IncidentType;
 import com.linkedin.datahub.graphql.types.ingestion.ExecutionRequestType;
 import com.linkedin.datahub.graphql.types.ingestion.IngestionSourceType;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentType;
+import com.linkedin.datahub.graphql.types.metric.MetricType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
@@ -332,6 +337,7 @@ import com.linkedin.datahub.graphql.types.restricted.RestrictedType;
 import com.linkedin.datahub.graphql.types.role.DataHubRoleType;
 import com.linkedin.datahub.graphql.types.rolemetadata.RoleType;
 import com.linkedin.datahub.graphql.types.schemafield.SchemaFieldType;
+import com.linkedin.datahub.graphql.types.semanticmodel.SemanticModelType;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertyType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.template.PageTemplateType;
@@ -496,6 +502,8 @@ public class GmsGraphQLEngine {
   private final ContainerType containerType;
   private final DomainType domainType;
   private final DocumentType documentType;
+  private final MetricType metricType;
+  private final SemanticModelType semanticModelType;
   private final NotebookType notebookType;
   private final AssertionType assertionType;
   private final VersionedDatasetType versionedDatasetType;
@@ -641,6 +649,8 @@ public class GmsGraphQLEngine {
     this.containerType = new ContainerType(entityClient);
     this.domainType = new DomainType(entityClient);
     this.documentType = new DocumentType(entityClient);
+    this.metricType = new MetricType(entityClient);
+    this.semanticModelType = new SemanticModelType(entityClient);
     this.notebookType = new NotebookType(entityClient);
     this.assertionType = new AssertionType(entityClient);
     this.versionedDatasetType = new VersionedDatasetType(entityClient);
@@ -701,6 +711,8 @@ public class GmsGraphQLEngine {
                 notebookType,
                 domainType,
                 documentType,
+                metricType,
+                semanticModelType,
                 assertionType,
                 versionedDatasetType,
                 dataPlatformInstanceType,
@@ -840,6 +852,8 @@ public class GmsGraphQLEngine {
     configurePageTemplateResolvers(builder);
     configureDataHubFileResolvers(builder);
     configureAssetSettingsResolver(builder);
+    configureMetricResolvers(builder);
+    configureSemanticModelResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -906,6 +920,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(METRICS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE));
 
@@ -1167,6 +1182,10 @@ public class GmsGraphQLEngine {
                     "getRootGlossaryTerms", new GetRootGlossaryTermsResolver(this.entityClient))
                 .dataFetcher(
                     "getRootGlossaryNodes", new GetRootGlossaryNodesResolver(this.entityClient))
+                .dataFetcher("metric", getResolver(metricType))
+                .dataFetcher("semanticModel", getResolver(semanticModelType))
+                .dataFetcher("getRootMetrics", new GetRootMetricsResolver(this.entityClient))
+                .dataFetcher("getSemanticModels", new GetSemanticModelsResolver(this.entityClient))
                 .dataFetcher("entityExists", new EntityExistsResolver(this.entityService))
                 .dataFetcher("entity", getEntityResolver())
                 .dataFetcher("entities", getEntitiesResolver())
@@ -1755,6 +1774,30 @@ public class GmsGraphQLEngine {
                             ((GetRootGlossaryNodesResult) env.getSource())
                                 .getNodes().stream()
                                     .map(GlossaryNode::getUrn)
+                                    .collect(Collectors.toList()))))
+        .type(
+            "GetRootMetricsResult",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "metrics",
+                    new LoadableTypeBatchResolver<>(
+                        metricType,
+                        (env) ->
+                            ((GetRootMetricsResult) env.getSource())
+                                .getMetrics().stream()
+                                    .map(Metric::getUrn)
+                                    .collect(Collectors.toList()))))
+        .type(
+            "GetSemanticModelsResult",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "semanticModels",
+                    new LoadableTypeBatchResolver<>(
+                        semanticModelType,
+                        (env) ->
+                            ((GetSemanticModelsResult) env.getSource())
+                                .getSemanticModels().stream()
+                                    .map(SemanticModel::getUrn)
                                     .collect(Collectors.toList()))))
         .type(
             "AutoCompleteResults",
@@ -3987,5 +4030,75 @@ public class GmsGraphQLEngine {
                       }
                       return null;
                     })));
+  }
+
+  private void configureMetricResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Metric",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "semanticModel",
+                    new LoadableTypeResolver<>(
+                        semanticModelType,
+                        env -> {
+                          final Metric m = env.getSource();
+                          return m.getSemanticModel() != null
+                              ? m.getSemanticModel().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "childMetrics", new MetricChildMetricsResolver(entityClient, viewService))
+                .dataFetcher(
+                    "parentMetric",
+                    new LoadableTypeResolver<>(
+                        metricType,
+                        env -> {
+                          final Metric m = env.getSource();
+                          return m.getParentMetric() != null ? m.getParentMetric().getUrn() : null;
+                        }))
+                .dataFetcher(
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        dataPlatformType, env -> ((Metric) env.getSource()).getPlatform().getUrn()))
+                .dataFetcher(
+                    "dataPlatformInstance",
+                    new LoadableTypeResolver<>(
+                        dataPlatformInstanceType,
+                        env -> {
+                          final Metric m = env.getSource();
+                          return m.getDataPlatformInstance() != null
+                              ? m.getDataPlatformInstance().getUrn()
+                              : null;
+                        }))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+  }
+
+  private void configureSemanticModelResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "SemanticModel",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("metrics", new SemanticModelMetricsResolver(entityClient, viewService))
+                .dataFetcher(
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        dataPlatformType,
+                        env -> ((SemanticModel) env.getSource()).getPlatform().getUrn()))
+                .dataFetcher(
+                    "dataPlatformInstance",
+                    new LoadableTypeResolver<>(
+                        dataPlatformInstanceType,
+                        env -> {
+                          final SemanticModel sm = env.getSource();
+                          return sm.getDataPlatformInstance() != null
+                              ? sm.getDataPlatformInstance().getUrn()
+                              : null;
+                        }))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
   }
 }

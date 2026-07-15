@@ -82,12 +82,6 @@ export class BaseSettingsPage extends BasePage {
     }
   }
 
-  async waitForToast(text: string): Promise<void> {
-    const toastMessage = this.page.getByText(text);
-    await expect(toastMessage).toBeVisible();
-    await expect(toastMessage).toBeHidden();
-  }
-
   async logout(): Promise<void> {
     if ((await this.modalDialog.count()) > 0) {
       await this.page.keyboard.press('Escape');

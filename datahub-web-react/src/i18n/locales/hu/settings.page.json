@@ -13,6 +13,8 @@
     "nav.permissions": "Jogosultságok",
     "nav.personal": "Személyes",
     "nav.preferences": "Preferenciák",
+    "nav.collapseSidebar": "Beállítások oldalsáv összecsukása",
+    "nav.expandSidebar": "Beállítások oldalsáv kinyitása",
     "nav.usersGroups": "Felhasználók és csoportok",
     "nav.views": "Nézetek",
     "subTitle": "Beállítások kezelése",

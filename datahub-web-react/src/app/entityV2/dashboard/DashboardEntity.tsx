@@ -55,6 +55,7 @@ import {
 import { LOOKER_URN, MODE_URN } from '@app/ingest/source/builder/constants';
 import { matchedInputFieldRenderer } from '@app/search/matches/matchedInputFieldRenderer';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
+import { MatchContext } from '@app/searchV2/matches/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -303,9 +304,6 @@ export class DashboardEntity implements Entity<Dashboard> {
         const data = result.entity as Dashboard;
         const genericProperties = this.getGenericEntityProperties(data);
 
-        /* eslint-disable i18next/no-literal-string -- (untranslated-text) matchSuffix is an English fragment concatenated
-           into a match-summary sentence by MatchedFieldList; word order differs by language and would require splitting
-           the sentence across keys */
         return (
             <DashboardPreview
                 urn={data.urn}
@@ -330,7 +328,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 snippet={
                     <MatchedFieldList
                         customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
-                        matchSuffix="on a contained chart"
+                        matchContext={MatchContext.ContainedChart}
                     />
                 }
                 subtype={getFirstSubType(data)}
@@ -342,21 +340,16 @@ export class DashboardEntity implements Entity<Dashboard> {
                 previewType={PreviewType.SEARCH}
             />
         );
-        /* eslint-enable i18next/no-literal-string */
     };
 
     renderSearchMatches = (result: SearchResult) => {
         const data = result.entity as Dashboard;
-        /* eslint-disable i18next/no-literal-string -- (untranslated-text) matchSuffix is an English fragment concatenated
-           into a match-summary sentence by MatchedFieldList; word order differs by language and would require splitting
-           the sentence across keys */
         return (
             <MatchedFieldList
                 customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
-                matchSuffix="on a contained chart"
+                matchContext={MatchContext.ContainedChart}
             />
         );
-        /* eslint-enable i18next/no-literal-string */
     };
 
     getLineageVizConfig = (entity: Dashboard) => {

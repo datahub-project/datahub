@@ -38,6 +38,8 @@
     "editor.table.insertRowBelow": "Inserir linha abaixo",
     "editor.upload.chooseFile": "Escolher arquivo",
     "editor.upload.failedTitle": "Falha no upload",
+    "editor.upload.fileTooLarge": "O tamanho do seu arquivo ({{sizeGb}}GB) excedeu o máximo de {{maxGb}}GB",
+    "editor.upload.fileTypeNotSupported": "Tipo de arquivo não suportado{{extensionSuffix}}",
     "editor.upload.notSupported": "O upload de arquivos neste contexto não é suportado no momento",
     "editor.upload.tabUrl": "URL",
     "editor.upload.uploadFile": "Enviar arquivo",

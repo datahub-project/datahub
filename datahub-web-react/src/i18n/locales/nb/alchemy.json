@@ -38,6 +38,8 @@
     "editor.table.insertRowBelow": "Sett inn rad under",
     "editor.upload.chooseFile": "Velg fil",
     "editor.upload.failedTitle": "Opplasting mislyktes",
+    "editor.upload.fileTooLarge": "Filstørrelsen din ({{sizeGb}}GB) overskred maksgrensen på {{maxGb}}GB",
+    "editor.upload.fileTypeNotSupported": "Filtypen støttes ikke{{extensionSuffix}}",
     "editor.upload.notSupported": "Opplasting av filer støttes for øyeblikket ikke i denne konteksten",
     "editor.upload.tabUrl": "URL",
     "editor.upload.uploadFile": "Last opp fil",
