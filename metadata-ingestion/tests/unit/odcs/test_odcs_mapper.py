@@ -26,14 +26,20 @@ from datahub.ingestion.source.odcs.odcs_models import (
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionStdOperatorClass,
+    AssertionStdParameterClass,
+    AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
     BooleanTypeClass,
+    CustomAssertionInfoClass,
     DataPlatformInfoClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    FieldAssertionInfoClass,
     FieldAssertionTypeClass,
+    FieldMetricAssertionClass,
     FieldMetricTypeClass,
+    FieldValuesAssertionClass,
     FieldValuesFailThresholdTypeClass,
     InstitutionalMemoryClass,
     LogicalParentClass,
@@ -92,7 +98,7 @@ def _route_single(
     *,
     on_column: Optional[str] = "col",
     api_version: str = "v3.1.0",
-):
+) -> Any:
     """Build a one-rule contract and return (urns, mcps, trace)."""
     if on_column:
         schema = [
@@ -111,6 +117,40 @@ def _route_single(
         schema_entry=_first_schema(contract),
         logical_urn=LOGICAL_URN,
     )
+
+
+def _field_assertion(info: AssertionInfoClass) -> FieldAssertionInfoClass:
+    assert info.fieldAssertion is not None
+    return info.fieldAssertion
+
+
+def _field_values(info: AssertionInfoClass) -> FieldValuesAssertionClass:
+    fva = _field_assertion(info).fieldValuesAssertion
+    assert fva is not None
+    return fva
+
+
+def _field_metric(info: AssertionInfoClass) -> FieldMetricAssertionClass:
+    fma = _field_assertion(info).fieldMetricAssertion
+    assert fma is not None
+    return fma
+
+
+def _custom(info: AssertionInfoClass) -> CustomAssertionInfoClass:
+    assert info.customAssertion is not None
+    return info.customAssertion
+
+
+def _custom_logic(info: AssertionInfoClass) -> str:
+    logic = _custom(info).logic
+    assert logic is not None
+    return logic
+
+
+def _param(params: Optional[AssertionStdParametersClass]) -> AssertionStdParameterClass:
+    assert params is not None
+    assert params.value is not None
+    return params.value
 
 
 def _single_info(mcps: List) -> AssertionInfoClass:
@@ -626,8 +666,7 @@ def test_null_values_percent_threshold_builds_null_percentage_metric() -> None:
     _, mcps, _ = _route_single(
         {"metric": "nullValues", "mustBeLessThan": 1, "unit": "percent"}
     )
-    fma = _single_info(mcps).fieldAssertion.fieldMetricAssertion
-    assert fma is not None
+    fma = _field_metric(_single_info(mcps))
     assert fma.metric == FieldMetricTypeClass.NULL_PERCENTAGE
     assert fma.operator == AssertionStdOperatorClass.LESS_THAN
 
@@ -650,16 +689,15 @@ def test_duplicate_values_zero_builds_unique_percentage(metric_name: str) -> Non
     assert fma is not None
     assert fma.metric == FieldMetricTypeClass.UNIQUE_PERCENTAGE
     assert fma.operator == AssertionStdOperatorClass.EQUAL_TO
-    assert fma.parameters.value.value == "100"
+    assert _param(fma.parameters).value == "100"
 
 
 def test_duplicate_values_tolerance_routes_to_custom() -> None:
     _, mcps, trace = _route_single({"metric": "duplicateValues", "mustBeLessThan": 10})
     info = _single_info(mcps)
     assert info.type == AssertionTypeClass.CUSTOM
-    assert info.customAssertion is not None
-    assert "duplicateValues" in info.customAssertion.logic
-    assert "mustBeLessThan" in info.customAssertion.logic
+    assert "duplicateValues" in _custom_logic(info)
+    assert "mustBeLessThan" in _custom_logic(info)
 
 
 def test_duplicate_values_multi_column_routes_to_custom() -> None:
@@ -679,12 +717,11 @@ def test_invalid_values_no_threshold_builds_in_with_zero_tolerance() -> None:
     _, mcps, _ = _route_single(
         {"metric": "invalidValues", "arguments": {"validValues": ["a", "b"]}}
     )
-    fva = _single_info(mcps).fieldAssertion.fieldValuesAssertion
-    assert fva is not None
+    fva = _field_values(_single_info(mcps))
     assert fva.operator == AssertionStdOperatorClass.IN
     assert fva.excludeNulls
     assert fva.failThreshold.value == 0
-    param = fva.parameters.value
+    param = _param(fva.parameters)
     assert param.type == AssertionStdParameterTypeClass.SET
     assert json.loads(param.value) == ["a", "b"]
 
@@ -698,7 +735,7 @@ def test_invalid_values_count_tolerance_maps_exactly() -> None:
             "unit": "rows",
         }
     )
-    fva = _single_info(mcps).fieldAssertion.fieldValuesAssertion
+    fva = _field_values(_single_info(mcps))
     assert fva.failThreshold.type == FieldValuesFailThresholdTypeClass.COUNT
     assert fva.failThreshold.value == 5
 
@@ -712,7 +749,7 @@ def test_invalid_values_percent_tolerance_maps_exactly() -> None:
             "unit": "percent",
         }
     )
-    fva = _single_info(mcps).fieldAssertion.fieldValuesAssertion
+    fva = _field_values(_single_info(mcps))
     assert fva.failThreshold.type == FieldValuesFailThresholdTypeClass.PERCENTAGE
     assert fva.failThreshold.value == 2
 
@@ -738,10 +775,10 @@ def test_invalid_values_pattern_builds_regex_match() -> None:
             "arguments": {"pattern": "^[A-Z]+$"},
         }
     )
-    fva = _single_info(mcps).fieldAssertion.fieldValuesAssertion
+    fva = _field_values(_single_info(mcps))
     assert fva.operator == AssertionStdOperatorClass.REGEX_MATCH
-    assert fva.parameters.value.value == "^[A-Z]+$"
-    assert fva.parameters.value.type == AssertionStdParameterTypeClass.STRING
+    assert _param(fva.parameters).value == "^[A-Z]+$"
+    assert _param(fva.parameters).type == AssertionStdParameterTypeClass.STRING
 
 
 def test_invalid_values_pattern_and_valid_values_routes_to_custom() -> None:
@@ -759,9 +796,9 @@ def test_v30_valid_values_rule_with_direct_list_builds_in() -> None:
         {"rule": "validValues", "validValues": ["pounds", "kg"]},
         api_version="v3.0.2",
     )
-    fva = _single_info(mcps).fieldAssertion.fieldValuesAssertion
+    fva = _field_values(_single_info(mcps))
     assert fva.operator == AssertionStdOperatorClass.IN
-    assert json.loads(fva.parameters.value.value) == ["pounds", "kg"]
+    assert json.loads(_param(fva.parameters).value) == ["pounds", "kg"]
 
 
 def test_missing_values_routes_to_custom_preserving_arguments() -> None:
@@ -774,7 +811,7 @@ def test_missing_values_routes_to_custom_preserving_arguments() -> None:
     )
     info = _single_info(mcps)
     assert info.type == AssertionTypeClass.CUSTOM
-    assert "missingValues" in info.customAssertion.logic
+    assert "missingValues" in _custom_logic(info)
     assert info.customProperties["odcs.rule.arguments"] == json.dumps(
         {"missingValues": [None, "", "N/A"]}, sort_keys=True
     )
@@ -789,6 +826,7 @@ def test_row_count_builds_volume_assertion() -> None:
     va = info.volumeAssertion
     assert va is not None
     assert va.entity == LOGICAL_URN
+    assert va.rowCountTotal is not None
     assert va.rowCountTotal.operator == (
         AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
     )
@@ -808,14 +846,14 @@ def test_must_not_be_between_routes_to_custom_with_rendered_logic() -> None:
     )
     info = _single_info(mcps)
     assert info.type == AssertionTypeClass.CUSTOM
-    assert "mustNotBeBetween" in info.customAssertion.logic
+    assert "mustNotBeBetween" in _custom_logic(info)
 
 
 def test_unknown_metric_routes_to_custom() -> None:
     _, mcps, trace = _route_single({"metric": "entropy", "mustBeLessThan": 3})
     info = _single_info(mcps)
     assert info.type == AssertionTypeClass.CUSTOM
-    assert info.customAssertion.type == "entropy"
+    assert _custom(info).type == "entropy"
     assert trace.routed_to_custom
 
 
@@ -842,7 +880,7 @@ def test_sql_rule_without_threshold_routes_to_custom_with_query_logic() -> None:
     _, mcps, _ = _route_single({"type": "sql", "query": "SELECT 1"}, on_column=None)
     info = _single_info(mcps)
     assert info.type == AssertionTypeClass.CUSTOM
-    assert info.customAssertion.logic == "SELECT 1"
+    assert _custom_logic(info) == "SELECT 1"
 
 
 def test_custom_rule_uses_engine_and_implementation() -> None:
@@ -856,8 +894,8 @@ def test_custom_rule_uses_engine_and_implementation() -> None:
     )
     info = _single_info(mcps)
     assert info.type == AssertionTypeClass.CUSTOM
-    assert info.customAssertion.type == "soda"
-    assert "row_count > 0" in info.customAssertion.logic
+    assert _custom(info).type == "soda"
+    assert "row_count > 0" in _custom_logic(info)
 
 
 def test_text_rule_uses_description_as_logic() -> None:
@@ -866,7 +904,7 @@ def test_text_rule_uses_description_as_logic() -> None:
     )
     info = _single_info(mcps)
     assert info.type == AssertionTypeClass.CUSTOM
-    assert info.customAssertion.logic == "Data must be fresh."
+    assert _custom_logic(info) == "Data must be fresh."
 
 
 def test_rule_with_no_body_is_skipped() -> None:

@@ -170,7 +170,7 @@ class ODCSSource(StatefulIngestionSourceBase):
     platform = ODCS_PLATFORM
 
     def __init__(self, config: ODCSSourceConfig, ctx: PipelineContext):
-        super().__init__(config, ctx)
+        super().__init__(config, ctx)  # type: ignore[arg-type]
         self.config = config
         self.report: ODCSSourceReport = ODCSSourceReport()
         self._validators = self._load_validators()
@@ -202,7 +202,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         config = ODCSSourceConfig.model_validate(config_dict)
         return cls(config=config, ctx=ctx)
 
-    def get_excluded_workunit_processors(self) -> List[type]:
+    def get_excluded_workunit_processors(self):
         # Stale removal is wired manually below so the handler instance is
         # shared with this source; exclude the framework's automatic processor.
         return [AutoStaleEntityRemovalProcessor]

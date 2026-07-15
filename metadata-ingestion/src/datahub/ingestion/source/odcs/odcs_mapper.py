@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple, Type
+from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeGuard
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
@@ -825,7 +825,7 @@ def _num(v: object) -> AssertionStdParameterClass:
     )
 
 
-def _is_plain_number(value: object) -> bool:
+def _is_plain_number(value: object) -> TypeGuard[float]:
     """True for int/float but NOT bool (bool is an int subclass in Python)."""
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
