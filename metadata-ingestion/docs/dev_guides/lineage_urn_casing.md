@@ -156,3 +156,8 @@ ingest-time only: existing metadata is updated only when its source is re-ingest
   bundles it, so the target use case needs no extra install. If you enable the flag on a source that
   doesn't, the feature reports a clear failure (`install acryl-datahub[sql-parser]`) and emits lineage
   unchanged.
+- **Only reconciles full-aspect (UPSERT) lineage, not PATCH.** A lineage aspect emitted as a patch
+  (e.g. `dataJobInputOutput` via `DatasetPatchBuilder.add_upstream_lineage` / `DataJobPatchBuilder`,
+  used by some dbt / Airflow / Spark paths) is emitted unchanged and counted under
+  `num_patch_lineage_skipped` with an end-of-run warning. The BI/dashboard targets emit full aspects
+  and are unaffected; broadening this to patches is a tracked follow-up.

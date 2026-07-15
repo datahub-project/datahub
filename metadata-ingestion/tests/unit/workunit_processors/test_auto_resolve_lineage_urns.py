@@ -22,6 +22,7 @@ from datahub.ingestion.workunit_processors.auto_resolve_lineage_urns import (
 )
 from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
+    ChangeTypeClass,
     ChartInfoClass,
     DashboardInfoClass,
     DataJobInputOutputClass,
@@ -30,6 +31,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    GenericAspectClass,
     LineageMatchTypeClass,
     MetadataChangeEventClass,
     MetadataChangeProposalClass,
@@ -832,6 +834,36 @@ def test_unchanged_raw_mcp_is_not_reserialized():
 
     assert isinstance(out.metadata, MetadataChangeProposalClass)
     assert out.metadata.aspect is original_generic_aspect
+
+
+def test_patch_lineage_is_skipped_and_counted():
+    # A lineage aspect emitted as a PATCH (not UPSERT) can't be reconciled: for a raw MCP,
+    # get_aspect_of_type routes through try_from_mcpc, which drops non-upserts. It must be
+    # counted (not silently passed through) and left unchanged. dataJobInputOutput is
+    # emitted as a patch by some dbt / Airflow / Spark paths.
+    raw_patch = MetadataChangeProposalClass(
+        entityType="dataJob",
+        entityUrn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,PROD),task)",
+        changeType=ChangeTypeClass.PATCH,
+        aspectName=DataJobInputOutputClass.ASPECT_NAME,
+        aspect=GenericAspectClass(
+            value=b"[]", contentType="application/json-patch+json"
+        ),
+    )
+    wu = MetadataWorkUnit(id="patch-lineage", mcp_raw=raw_patch)
+    original_aspect = raw_patch.aspect
+
+    processor, _provide, patcher = _make_processor({LOWER: {"amount": "int"}})
+    try:
+        [out] = list(processor.process(iter([wu])))
+    finally:
+        patcher.stop()
+
+    assert processor.report.num_patch_lineage_skipped == 1
+    # Skipped before the normalizer loop, so it doesn't count as a lineage-bearing wu.
+    assert processor.report.num_workunits_with_lineage_aspect == 0
+    assert isinstance(out.metadata, MetadataChangeProposalClass)
+    assert out.metadata.aspect is original_aspect  # passed through untouched
 
 
 def test_workunit_level_counters_track_lineage_and_modified():

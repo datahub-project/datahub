@@ -38,6 +38,7 @@ from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessorReport,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     ChartInfoClass,
     DashboardInfoClass,
     DataJobInputOutputClass,
@@ -89,6 +90,8 @@ class AutoResolveLineageUrnsProcessorReport(WorkunitProcessorReport):
     num_refs_unchanged: int = 0  # Left as-is (exact match, or out of scope)
     num_refs_unresolved: int = 0  # Configured platform, no unique match (flagged)
     num_exceptions: int = 0  # Failed to process a workunit
+    # Lineage aspect emitted as a PATCH (not UPSERT); can't be reconciled, so skipped.
+    num_patch_lineage_skipped: int = 0
     num_workunits_with_lineage_aspect: int = 0
     num_workunits_modified: int = 0
     # Bounded sample of references left UNRESOLVED, alongside the num_refs_unresolved
@@ -231,6 +234,11 @@ class AutoResolveLineageUrnsProcessor(
             (DataJobInputOutputClass, self._normalize_datajob_io),
             (ChartInfoClass, self._normalize_chart_info),
         ]
+        # Aspect names of the above, used to detect a lineage aspect that arrived as a
+        # PATCH (which get_aspect_of_type can't surface — see _resolve_workunit).
+        self._lineage_aspect_names: Set[str] = {
+            aspect_cls.ASPECT_NAME for aspect_cls, _ in self._normalizers
+        }
         self._load_catalogs()
 
     @classmethod
@@ -271,6 +279,7 @@ class AutoResolveLineageUrnsProcessor(
             yield wu
         self._warn_unmatched_platforms()
         self._warn_unresolved_refs()
+        self._warn_patch_lineage_skipped()
 
     def _resolve_workunit(self, wu: MetadataWorkUnit) -> None:
         """Reconcile casing on each lineage aspect the workunit carries, in place.
@@ -282,6 +291,20 @@ class AutoResolveLineageUrnsProcessor(
         a raw MCP is deserialized to inspect, and re-serialized (via _write_back_if_mcp)
         only when something actually changed.
         """
+        # A lineage aspect emitted as a raw MCP PATCH (not UPSERT) can't be reconciled:
+        # get_aspect_of_type routes a raw MCP through try_from_mcpc, which returns None for
+        # non-upserts, so the aspect is invisible to the normalizers below and would pass
+        # through silently. Count it so the skip surfaces in the report. (dataJobInputOutput
+        # can be emitted as a patch by dbt/Airflow/Spark; BI sources emit full upserts and
+        # are unaffected.)
+        md = wu.metadata
+        if (
+            isinstance(md, MetadataChangeProposalClass)
+            and md.changeType != ChangeTypeClass.UPSERT
+            and md.aspectName in self._lineage_aspect_names
+        ):
+            self.report.num_patch_lineage_skipped += 1
+            return
         # At most one of the four aspects is present per work unit (each belongs to a
         # different entity type — dataset / dashboard / chart / dataJob — and a work unit
         # targets one entity), so incrementing inside the loop still counts work units.
@@ -338,6 +361,25 @@ class AutoResolveLineageUrnsProcessor(
             "collision) and were left unchanged; that lineage may be broken.",
             context=f"{self.report.num_refs_unresolved} reference(s); "
             f"sample: {list(self.report.unresolved_refs_sample)}",
+        )
+
+    def _warn_patch_lineage_skipped(self) -> None:
+        """Surface patch-based lineage aspects that couldn't be reconciled, once.
+
+        The processor only reconciles UPSERT aspects; a lineage aspect emitted as a PATCH
+        is passed through unchanged (see _resolve_workunit). Emit one end-of-run warning so
+        the skip is visible rather than silent.
+        """
+        if self.report.num_patch_lineage_skipped == 0:
+            return
+        self.ctx.source_report.warning(
+            title="Patch-based lineage not reconciled for casing",
+            message="Some lineage aspects were emitted as PATCH change proposals rather "
+            "than full upserts; casing reconciliation only applies to upserts, so these "
+            "were emitted unchanged. This affects patch-based lineage (e.g. "
+            "dataJobInputOutput from dbt/Airflow/Spark); sources that emit full aspects "
+            "are unaffected.",
+            context=f"{self.report.num_patch_lineage_skipped} aspect(s)",
         )
 
     @staticmethod
