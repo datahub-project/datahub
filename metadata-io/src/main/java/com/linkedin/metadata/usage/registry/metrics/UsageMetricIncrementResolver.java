@@ -66,7 +66,7 @@ public final class UsageMetricIncrementResolver {
       return isKnownRequestPhasePair(metric) ? 0 : -1;
     }
 
-    int usageQuantity = Math.max(1, requestContext.getUsageQuantity());
+    long usageQuantity = Math.max(1L, requestContext.getUsageQuantity());
     return switch (metric.emitWhen()) {
       case ALWAYS -> resolveAlwaysIncrement(
           metric.valueUnit(), operationEntry, requestContext, usageQuantity);
@@ -147,9 +147,9 @@ public final class UsageMetricIncrementResolver {
       @Nonnull ValueUnit valueUnit,
       @Nonnull UsageOperationsRegistry.UsageOperationEntry operationEntry,
       @Nonnull RequestContext requestContext,
-      int usageQuantity) {
+      long usageQuantity) {
     return switch (valueUnit) {
-      case COUNT -> operationEntry.ingestionEndpoint() ? (long) usageQuantity : 1L;
+      case COUNT -> operationEntry.ingestionEndpoint() ? usageQuantity : 1L;
       case INPUT_BYTES -> requestContext.getInputBytes() != null
           ? requestContext.getInputBytes()
           : 0L;
@@ -171,7 +171,7 @@ public final class UsageMetricIncrementResolver {
   private static long resolveCostProfileIncrement(
       @Nonnull ValueUnit valueUnit,
       @Nonnull UsageOperationsRegistry.UsageOperationEntry operationEntry,
-      int usageQuantity) {
+      long usageQuantity) {
     if (valueUnit != ValueUnit.COST_UNITS) {
       return -1;
     }
