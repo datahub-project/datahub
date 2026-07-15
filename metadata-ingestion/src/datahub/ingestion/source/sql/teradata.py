@@ -2825,7 +2825,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                     "pool_size": base_connections,
                     "max_overflow": max_overflow,
                     "pool_pre_ping": True,
-                    "pool_recycle": 1800,
+                    "pool_recycle": 900,
                     "pool_reset_on_return": "rollback",
                 }
                 # Use setdefault so that a user-supplied pool_timeout in
