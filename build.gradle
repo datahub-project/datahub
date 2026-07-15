@@ -75,6 +75,10 @@ buildscript {
   ext.slf4jVersion = '1.7.36'
   // CVE-2026-1225 / GHSA-qqpg-mvqg-649v: logback-core fixed in 1.5.25+
   ext.logbackClassic = '1.5.32'
+  // Janino evaluates the <if> conditionals in logback.xml (e.g. gating the optional log-shipping appender).
+  ext.janinoVersion = '3.0.12'
+  // Loki4j appender for optional log shipping. Pinned to 1.x: 2.x changes the XML config format.
+  ext.lokiLogbackAppenderVersion = '1.6.0'
   ext.hadoop3Version = '3.4.1' // Hadoop >=3.4.0 for CVE-2024-23454 (RunJar temp-dir permissions per HADOOP-19031); >3.3.4 for CVE-2021-37404, command injection, path traversal, deserialization RCE
   // CVE-2017-3162 (DataNode servlet, Hadoop before 2.7.0) is fixed by any 3.x client; pin thirdparty jar so scanners do not flag Hadoop 2.x-era metadata on 1.3.0.
   ext.hadoopShadedProtobuf_3_25_Version = '1.5.0'
@@ -273,6 +277,8 @@ project.ext.externalDependency = [
     'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$kafkaVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.7',
+    'janino': "org.codehaus.janino:janino:$janinoVersion",
+    'lokiLogbackAppender': "com.github.loki4j:loki-logback-appender:$lokiLogbackAppenderVersion",
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
