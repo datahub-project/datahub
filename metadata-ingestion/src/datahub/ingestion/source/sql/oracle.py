@@ -177,14 +177,6 @@ class OracleSQLCommandType:
     MERGE = 189
 
 
-class UpstreamTableInfo(BaseModel):
-    """Structure for upstream table dependency information."""
-
-    schema_name: str
-    table: str
-    type: OracleObjectType
-
-
 class ProcedureDependencies(BaseModel):
     """Structure for stored procedure dependencies.
 
@@ -192,9 +184,6 @@ class ProcedureDependencies(BaseModel):
     """
 
     upstream: Optional[List[str]] = None
-    # Structured form of the table/view upstreams already folded into `upstream`
-    # as strings. Unused today; kept as a hook for future table-level lineage.
-    upstream_tables: Optional[List[UpstreamTableInfo]] = None
     downstream: Optional[List[str]] = None
 
 
@@ -223,35 +212,29 @@ def _sql_type_list(*types: OracleObjectType) -> str:
 
 
 # Object types that PROCEDURES_QUERY yields and that the enrichment queries
-# key their results by.
-_PROCEDURE_LIKE_TYPES_SQL = _sql_type_list(
-    OracleObjectType.PROCEDURE, OracleObjectType.FUNCTION, OracleObjectType.PACKAGE
+# key their results by. Other IN-lists below extend this base set instead of
+# repeating its members.
+PROCEDURE_LIKE_TYPES = (
+    OracleObjectType.PROCEDURE,
+    OracleObjectType.FUNCTION,
+    OracleObjectType.PACKAGE,
 )
+TABLE_LIKE_TYPES = (
+    OracleObjectType.TABLE,
+    OracleObjectType.VIEW,
+    OracleObjectType.MATERIALIZED_VIEW,
+)
+
+_PROCEDURE_LIKE_TYPES_SQL = _sql_type_list(*PROCEDURE_LIKE_TYPES)
 # ALL_SOURCE/DBA_SOURCE splits packages into a spec ('PACKAGE') and a body
 # ('PACKAGE BODY') row; both are merged under 'PACKAGE' in
 # _get_procedure_source_codes_for_schema.
 _PROCEDURE_SOURCE_TYPES_SQL = _sql_type_list(
-    OracleObjectType.PROCEDURE,
-    OracleObjectType.FUNCTION,
-    OracleObjectType.PACKAGE,
-    OracleObjectType.PACKAGE_BODY,
+    *PROCEDURE_LIKE_TYPES, OracleObjectType.PACKAGE_BODY
 )
-_DEPENDENT_OBJECT_TYPES_SQL = _sql_type_list(
-    OracleObjectType.TABLE,
-    OracleObjectType.VIEW,
-    OracleObjectType.MATERIALIZED_VIEW,
-    OracleObjectType.PROCEDURE,
-    OracleObjectType.FUNCTION,
-    OracleObjectType.PACKAGE,
-)
+_DEPENDENT_OBJECT_TYPES_SQL = _sql_type_list(*TABLE_LIKE_TYPES, *PROCEDURE_LIKE_TYPES)
 _UPSTREAM_REFERENCED_TYPES_SQL = _sql_type_list(
-    OracleObjectType.TABLE,
-    OracleObjectType.VIEW,
-    OracleObjectType.MATERIALIZED_VIEW,
-    OracleObjectType.PROCEDURE,
-    OracleObjectType.FUNCTION,
-    OracleObjectType.PACKAGE,
-    OracleObjectType.SYNONYM,
+    *TABLE_LIKE_TYPES, *PROCEDURE_LIKE_TYPES, OracleObjectType.SYNONYM
 )
 
 # SQL Query Constants
@@ -1886,16 +1869,24 @@ class OracleSource(SQLAlchemySource):
                 tables_prefix=tables_prefix
             )
 
-            source_lines: Dict[Tuple[str, str], List[str]] = defaultdict(list)
+            texts_by_type: Dict[Tuple[str, str], str] = {}
             for row in conn.execute(sql.text(source_query), dict(schema=schema)):
-                key_type = (
-                    OracleObjectType.PACKAGE.value
-                    if row.type == OracleObjectType.PACKAGE_BODY.value
-                    else row.type
-                )
-                source_lines[(row.name, key_type)].append(row.text)
+                key = (row.name, row.type)
+                texts_by_type[key] = texts_by_type.get(key, "") + row.text
 
-            return {key: "".join(lines) for key, lines in source_lines.items()}
+            merged: Dict[Tuple[str, str], str] = {}
+            for (name, obj_type), text in texts_by_type.items():
+                if obj_type != OracleObjectType.PACKAGE_BODY.value:
+                    merged[(name, obj_type)] = text
+                    continue
+                spec_key = (name, OracleObjectType.PACKAGE.value)
+                spec_text = merged.get(spec_key, "")
+                # Oracle doesn't guarantee the spec's last source line ends
+                # with a newline, so force a boundary before the body.
+                if spec_text and not spec_text.endswith("\n"):
+                    spec_text += "\n"
+                merged[spec_key] = spec_text + text
+            return merged
 
         return self._run_schema_enrichment_query(
             operation=f"fetch procedure source code for schema {schema}",
@@ -1961,25 +1952,11 @@ class OracleSource(SQLAlchemySource):
             )
 
             upstream_strs: Dict[str, List[str]] = defaultdict(list)
-            upstream_tables: Dict[str, List[UpstreamTableInfo]] = defaultdict(list)
             for row in conn.execute(sql.text(upstream_query), dict(schema=schema)):
-                dep_str = (
+                upstream_strs[row.name].append(
                     f"{row.referenced_owner}.{row.referenced_name} "
                     f"({row.referenced_type})"
                 )
-                upstream_strs[row.name].append(dep_str)
-                if row.referenced_type in (
-                    OracleObjectType.TABLE.value,
-                    OracleObjectType.VIEW.value,
-                    OracleObjectType.MATERIALIZED_VIEW.value,
-                ):
-                    upstream_tables[row.name].append(
-                        UpstreamTableInfo(
-                            schema_name=row.referenced_owner,
-                            table=row.referenced_name,
-                            type=OracleObjectType(row.referenced_type),
-                        )
-                    )
 
             downstream_strs: Dict[str, List[str]] = defaultdict(list)
             for row in conn.execute(sql.text(downstream_query), dict(schema=schema)):
@@ -1991,7 +1968,6 @@ class OracleSource(SQLAlchemySource):
             for name in set(upstream_strs) | set(downstream_strs):
                 result[name] = ProcedureDependencies(
                     upstream=upstream_strs.get(name) or None,
-                    upstream_tables=upstream_tables.get(name) or None,
                     downstream=downstream_strs.get(name) or None,
                 )
             return result

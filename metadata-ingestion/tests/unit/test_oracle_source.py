@@ -17,7 +17,6 @@ from datahub.ingestion.source.sql.oracle import (
     VSQL_USAGE_QUERY,
     OracleConfig,
     OracleInspectorObjectWrapper,
-    OracleObjectType,
     OracleSource,
     ProcedureDependencies,
     VSqlPrerequisiteCheckResult,
@@ -667,6 +666,29 @@ class TestOracleSource:
             "CREATE PACKAGE BODY pkg1"
         )
 
+    def test_get_procedure_source_codes_for_schema_inserts_newline_boundary(self):
+        """Oracle's ALL_SOURCE doesn't guarantee a trailing newline on the
+        spec's last source line; merging must still insert a boundary so the
+        body doesn't run into the spec on the same line."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        rows = [
+            Mock(type="PACKAGE", line=1, text="CREATE PACKAGE pkg1 AS\nEND;"),
+            Mock(type="PACKAGE BODY", line=1, text="CREATE PACKAGE BODY pkg1 AS\n"),
+        ]
+        for row in rows:
+            row.name = "PKG1"
+        mock_connection.execute.return_value = rows
+
+        result = source._get_procedure_source_codes_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert result[("PKG1", "PACKAGE")] == (
+            "CREATE PACKAGE pkg1 AS\nEND;\nCREATE PACKAGE BODY pkg1 AS\n"
+        )
+
     def test_get_procedures_for_schema_package_definition_includes_body(self):
         """End-to-end: a PACKAGE row from PROCEDURES_QUERY picks up both spec
         and body source through get_procedures_for_schema."""
@@ -706,8 +728,10 @@ class TestOracleSource:
         )
 
         assert len(result) == 1
+        # A newline is forced between spec and body even though neither mock
+        # row ends with one, mirroring Oracle's actual ALL_SOURCE behavior.
         assert result[0].procedure_definition == (
-            "CREATE PACKAGE pkg1 AS\nEND;CREATE PACKAGE BODY pkg1 AS\nEND;"
+            "CREATE PACKAGE pkg1 AS\nEND;\nCREATE PACKAGE BODY pkg1 AS\nEND;"
         )
 
     def test_get_procedures_for_schema_emits_unenriched_when_helpers_fail(self):
@@ -1415,73 +1439,6 @@ class TestOracleQueryExtraction:
 
         assert source.report.num_queries_extracted == 1
         mock_engine.dispose.assert_called_once()
-
-
-class TestOracleProcedureLineage:
-    """Tests for stored procedure dependency extraction."""
-
-    @pytest.fixture
-    def ctx(self):
-        return PipelineContext(run_id="test")
-
-    @pytest.fixture
-    def config_with_procedures(self):
-        """Config with stored procedures enabled."""
-        return OracleConfig.model_validate(
-            {
-                "username": "test_user",
-                "password": "test_pass",
-                "host_port": "localhost:1521",
-                "service_name": "test_service",
-                "include_stored_procedures": True,
-            }
-        )
-
-    def test_get_procedure_dependencies_returns_upstream_tables(
-        self, config_with_procedures, ctx
-    ):
-        """Schema-batched dependency fetch keeps structured upstream_tables per procedure."""
-        source = OracleSource(config_with_procedures, ctx)
-
-        mock_conn = Mock()
-
-        upstream_rows = [
-            Mock(
-                referenced_owner="HR_SCHEMA",
-                referenced_type="TABLE",
-            ),
-            Mock(
-                referenced_owner="HR_SCHEMA",
-                referenced_type="VIEW",
-            ),
-            Mock(
-                referenced_owner="HR_SCHEMA",
-                referenced_type="PROCEDURE",
-            ),
-        ]
-        # Mock auto-creates a `name` kwarg as the mock's name; override so attribute
-        # access returns the string value used by the helper.
-        for row in upstream_rows:
-            row.name = "PROCESS_EMPLOYEES"
-        upstream_rows[0].referenced_name = "EMPLOYEES"
-        upstream_rows[1].referenced_name = "DEPARTMENTS"
-        upstream_rows[2].referenced_name = "OTHER_PROC"
-
-        mock_conn.execute = Mock(side_effect=[upstream_rows, []])
-
-        result = source._get_procedure_dependencies_for_schema(
-            conn=mock_conn,
-            schema="HR_SCHEMA",
-            tables_prefix="ALL",
-        )
-
-        dependencies = result["PROCESS_EMPLOYEES"]
-        assert dependencies.upstream_tables is not None
-        assert len(dependencies.upstream_tables) == 2
-        assert dependencies.upstream_tables[0].schema_name == "HR_SCHEMA"
-        assert dependencies.upstream_tables[0].table == "EMPLOYEES"
-        assert dependencies.upstream_tables[0].type == OracleObjectType.TABLE
-        assert dependencies.upstream_tables[1].type == OracleObjectType.VIEW
 
 
 def test_oracle_sample_query_uses_where_rownum():
