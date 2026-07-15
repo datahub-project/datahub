@@ -629,6 +629,11 @@ def _simple_metric(
         ),
         _mcp(urn, _ownership()),
         _mcp(urn, _browse_paths([path])),
+        # Emit MetricRelationships even with no parent so `hasParentMetric` is
+        # explicitly indexed as false — getRootMetrics filters on that field,
+        # and an absent aspect leaves it unindexed (excluded from both root
+        # and child listings).
+        _mcp(urn, MetricRelationshipsClass()),
     ]
     if tags:
         mcps.append(_mcp(urn, _tags(*tags)))
@@ -901,8 +906,10 @@ def _deep_chain_mcps() -> List[MetadataChangeProposalWrapper]:
                 ),
             )
         )
-        if parent_urn:
-            mcps.append(_mcp(urn, MetricRelationshipsClass(parentMetric=parent_urn)))
+        # Always emit MetricRelationships (even with parentMetric=None for the
+        # root) so `hasParentMetric` is explicitly indexed — see note in
+        # _simple_metric().
+        mcps.append(_mcp(urn, MetricRelationshipsClass(parentMetric=parent_urn)))
         mcps.append(_mcp(urn, _ownership()))
         mcps.append(_mcp(urn, _browse_paths(["b2b_sales"])))
     return mcps
@@ -959,6 +966,8 @@ def _sparse_metric_mcps() -> List[MetadataChangeProposalWrapper]:
     return [
         _mcp(urn, MetricKeyClass(platform=platform_urn, path=path, id=metric_id)),
         _mcp(urn, MetricInfoClass(name="tableau_metric_sparse")),
+        # Explicitly index hasParentMetric=false — see note in _simple_metric().
+        _mcp(urn, MetricRelationshipsClass()),
     ]
 
 
