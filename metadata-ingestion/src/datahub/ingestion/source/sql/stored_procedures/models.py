@@ -29,7 +29,10 @@ class BaseProcedure(BaseModel):
     """
 
     # Reject unknown fields so a mistyped kwarg fails loudly instead of being dropped.
-    model_config = ConfigDict(extra="forbid")
+    # Frozen because a procedure's metadata is fixed once read from the catalogue —
+    # nothing in ingestion mutates it after construction, and making that explicit
+    # lets the value be safely shared/hashed.
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str
     procedure_definition: Optional[str]
