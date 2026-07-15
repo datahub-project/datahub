@@ -133,6 +133,23 @@ To use LookML ingestion through the UI, or automate github checkout through the 
 
 3. **Save private key** file contents for the **GitHub Deploy Key** field in [UI-based ingestion](#ui-based-ingestion-recommended-for-ease-of-use)
 
+#### Clone Timeout
+
+By default, DataHub allows up to **600 seconds** for the git clone to complete. If your repository is large or your network is slow, you can increase this value:
+
+```yml
+source:
+  type: lookml
+  config:
+    git_info:
+      repo: https://github.com/your-org/your-lookml-repo
+      branch: main
+      deploy_key: ${DEPLOY_KEY}
+      clone_timeout: 900 # seconds; set to null to disable
+```
+
+If the clone fails (network error, SSH misconfiguration, timeout), ingestion will stop with a clear error entry rather than crashing the pipeline.
+
 #### Setup your connection mapping
 
 Connection mapping enables accurate lineage to upstream warehouses by mapping Looker connection names to platforms and databases.

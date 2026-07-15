@@ -14,6 +14,7 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
@@ -34,16 +36,16 @@ import java.util.List;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -62,6 +64,10 @@ import org.testng.annotations.Test;
 @AutoConfigureWebMvc
 @AutoConfigureMockMvc
 public class RelationshipControllerTest extends AbstractTestNGSpringContextTests {
+  @MockitoBean private ConfigurationProvider configurationProvider;
+  @MockitoBean private EntityRegistry entityRegistry;
+  @MockitoBean private SystemTelemetryContext systemTelemetryContext;
+
   @Autowired private RelationshipController relationshipController;
   @Autowired private MockMvc mockMvc;
   @Autowired private GraphService mockGraphService;
@@ -74,9 +80,6 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
   @TestConfiguration
   public static class RelationshipControllerTestConfig {
-    @MockBean private ConfigurationProvider configurationProvider;
-    @MockBean private EntityRegistry entityRegistry;
-    @MockBean private SystemTelemetryContext systemTelemetryContext;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -157,16 +160,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId());
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax());
     assertEquals(
-        0,
-        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue(),
+        0);
     assertEquals(
-        2,
-        capturedOpContext
-            .getSearchContext()
-            .getSearchFlags()
-            .getSliceOptions()
-            .getMax()
-            .intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
+        2);
   }
 
   @Test
@@ -291,16 +289,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId());
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax());
     assertEquals(
-        1,
-        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue(),
+        1);
     assertEquals(
-        3,
-        capturedOpContext
-            .getSearchContext()
-            .getSearchFlags()
-            .getSliceOptions()
-            .getMax()
-            .intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
+        3);
   }
 
   @Test
@@ -486,7 +479,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     // Verify specific relationship types were passed
     Set capturedTypes = relationshipTypesCaptor.getValue();
-    assertEquals(2, capturedTypes.size());
+    assertEquals(capturedTypes.size(), 2);
     assertTrue(capturedTypes.contains("DownstreamOf"));
     assertTrue(capturedTypes.contains("Consumes"));
   }
@@ -528,7 +521,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     // Verify specific relationship type was passed
     Set capturedTypes = relationshipTypesCaptor.getValue();
-    assertEquals(1, capturedTypes.size());
+    assertEquals(capturedTypes.size(), 1);
     assertTrue(capturedTypes.contains("DownstreamOf"));
   }
 
@@ -676,16 +669,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     OperationContext capturedOpContext = opContextCaptor.getValue();
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
     assertEquals(
-        2,
-        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue(),
+        2);
     assertEquals(
-        5,
-        capturedOpContext
-            .getSearchContext()
-            .getSearchFlags()
-            .getSliceOptions()
-            .getMax()
-            .intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
+        5);
     assertTrue(capturedOpContext.getSearchContext().getSearchFlags().isIncludeSoftDeleted());
 
     // Verify INCOMING direction parameters
@@ -694,14 +682,14 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     // Verify relationship types
     Set capturedTypes = relationshipTypesCaptor.getValue();
-    assertEquals(2, capturedTypes.size());
+    assertEquals(capturedTypes.size(), 2);
     assertTrue(capturedTypes.contains("DownstreamOf"));
     assertTrue(capturedTypes.contains("Consumes"));
 
     // Verify other parameters
-    assertEquals("prev-scroll-id", scrollIdCaptor.getValue());
-    assertEquals("15m", pitKeepAliveCaptor.getValue());
-    assertEquals(20, countCaptor.getValue().intValue());
+    assertEquals(scrollIdCaptor.getValue(), "prev-scroll-id");
+    assertEquals(pitKeepAliveCaptor.getValue(), "15m");
+    assertEquals(countCaptor.getValue().intValue(), 20);
   }
 
   @Test
@@ -751,23 +739,18 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     // Verify relationship types
     Set capturedTypes = relationshipTypesCaptor.getValue();
-    assertEquals(1, capturedTypes.size());
+    assertEquals(capturedTypes.size(), 1);
     assertTrue(capturedTypes.contains("Produces"));
 
     // Verify slice options
     OperationContext capturedOpContext = opContextCaptor.getValue();
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
     assertEquals(
-        1,
-        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue(),
+        1);
     assertEquals(
-        4,
-        capturedOpContext
-            .getSearchContext()
-            .getSearchFlags()
-            .getSliceOptions()
-            .getMax()
-            .intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
+        4);
   }
 
   @Test
@@ -820,20 +803,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     RelatedEntitiesScrollResult expectedResult =
         new RelatedEntitiesScrollResult(0, 10, "scroll-1", Arrays.asList());
 
-    ArgumentCaptor<Set> relationshipTypesCaptor = ArgumentCaptor.forClass(Set.class);
-    ArgumentCaptor<Set> sourceTypesCaptor = ArgumentCaptor.forClass(Set.class);
-    ArgumentCaptor<Set> destTypesCaptor = ArgumentCaptor.forClass(Set.class);
-    ArgumentCaptor<Filter> sourceFilterCaptor = ArgumentCaptor.forClass(Filter.class);
-    ArgumentCaptor<Filter> destFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
 
     when(mockGraphService.scrollRelatedEntities(
             any(),
-            sourceTypesCaptor.capture(),
-            sourceFilterCaptor.capture(),
-            destTypesCaptor.capture(),
-            destFilterCaptor.capture(),
-            relationshipTypesCaptor.capture(),
-            any(),
+            graphFiltersCaptor.capture(),
             any(),
             isNull(),
             anyString(),
@@ -851,19 +825,21 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("scroll-1"));
 
+    GraphFilters captured = graphFiltersCaptor.getValue();
     // No relationshipTypes param → null → empty set (all types)
-    assertTrue(relationshipTypesCaptor.getValue().isEmpty());
+    assertTrue(captured.getRelationshipTypes().isEmpty());
     // No sourceType / destinationType → null passed through
-    assertNull(sourceTypesCaptor.getValue());
-    assertNull(destTypesCaptor.getValue());
+    assertNull(captured.getSourceTypes());
+    assertNull(captured.getDestinationTypes());
     // No filters in body → EMPTY_FILTER (no criteria)
     assertTrue(
-        sourceFilterCaptor.getValue().getOr().isEmpty()
-            || sourceFilterCaptor.getValue().getOr().stream()
+        captured.getSourceEntityFilter().getOr().isEmpty()
+            || captured.getSourceEntityFilter().getOr().stream()
                 .allMatch(cc -> cc.getAnd().isEmpty()));
     assertTrue(
-        destFilterCaptor.getValue().getOr().isEmpty()
-            || destFilterCaptor.getValue().getOr().stream().allMatch(cc -> cc.getAnd().isEmpty()));
+        captured.getDestinationEntityFilter().getOr().isEmpty()
+            || captured.getDestinationEntityFilter().getOr().stream()
+                .allMatch(cc -> cc.getAnd().isEmpty()));
   }
 
   @Test
@@ -871,16 +847,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     RelatedEntitiesScrollResult expectedResult =
         new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
 
-    ArgumentCaptor<Set> relationshipTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
 
     when(mockGraphService.scrollRelatedEntities(
             any(),
-            any(),
-            any(),
-            any(),
-            any(),
-            relationshipTypesCaptor.capture(),
-            any(),
+            graphFiltersCaptor.capture(),
             any(),
             isNull(),
             anyString(),
@@ -899,8 +870,8 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
-    Set capturedTypes = relationshipTypesCaptor.getValue();
-    assertEquals(2, capturedTypes.size());
+    Set<String> capturedTypes = graphFiltersCaptor.getValue().getRelationshipTypes();
+    assertEquals(capturedTypes.size(), 2);
     assertTrue(capturedTypes.contains("DownstreamOf"));
     assertTrue(capturedTypes.contains("Consumes"));
   }
@@ -910,17 +881,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     RelatedEntitiesScrollResult expectedResult =
         new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
 
-    ArgumentCaptor<Set> sourceTypesCaptor = ArgumentCaptor.forClass(Set.class);
-    ArgumentCaptor<Set> destTypesCaptor = ArgumentCaptor.forClass(Set.class);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
 
     when(mockGraphService.scrollRelatedEntities(
             any(),
-            sourceTypesCaptor.capture(),
-            any(),
-            destTypesCaptor.capture(),
-            any(),
-            anySet(),
-            any(),
+            graphFiltersCaptor.capture(),
             any(),
             isNull(),
             anyString(),
@@ -940,12 +905,13 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
-    Set capturedSrcTypes = sourceTypesCaptor.getValue();
-    assertEquals(1, capturedSrcTypes.size());
+    GraphFilters captured = graphFiltersCaptor.getValue();
+    Set<String> capturedSrcTypes = captured.getSourceTypes();
+    assertEquals(capturedSrcTypes.size(), 1);
     assertTrue(capturedSrcTypes.contains("dataset"));
 
-    Set capturedDstTypes = destTypesCaptor.getValue();
-    assertEquals(2, capturedDstTypes.size());
+    Set<String> capturedDstTypes = captured.getDestinationTypes();
+    assertEquals(capturedDstTypes.size(), 2);
     assertTrue(capturedDstTypes.contains("chart"));
     assertTrue(capturedDstTypes.contains("dashboard"));
   }
@@ -959,17 +925,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     RelatedEntitiesScrollResult expectedResult =
         new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
 
-    ArgumentCaptor<Filter> sourceFilterCaptor = ArgumentCaptor.forClass(Filter.class);
-    ArgumentCaptor<Filter> destFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
 
     when(mockGraphService.scrollRelatedEntities(
             any(),
-            any(),
-            sourceFilterCaptor.capture(),
-            any(),
-            destFilterCaptor.capture(),
-            anySet(),
-            any(),
+            graphFiltersCaptor.capture(),
             any(),
             isNull(),
             anyString(),
@@ -1021,19 +981,20 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
+    GraphFilters captured = graphFiltersCaptor.getValue();
     // Source filter should have a non-empty criterion on the "urn" field
-    Filter capturedSrcFilter = sourceFilterCaptor.getValue();
+    Filter capturedSrcFilter = captured.getSourceEntityFilter();
     assertNotNull(capturedSrcFilter);
     assertFalse(capturedSrcFilter.getOr().isEmpty());
-    assertEquals("urn", capturedSrcFilter.getOr().get(0).getAnd().get(0).getField());
+    assertEquals(capturedSrcFilter.getOr().get(0).getAnd().get(0).getField(), "urn");
     assertFalse(capturedSrcFilter.getOr().get(0).getAnd().get(0).getValues().isEmpty());
 
     // Destination filter should have a non-empty criterion on the "urn" field with both URNs
-    Filter capturedDstFilter = destFilterCaptor.getValue();
+    Filter capturedDstFilter = captured.getDestinationEntityFilter();
     assertNotNull(capturedDstFilter);
     assertFalse(capturedDstFilter.getOr().isEmpty());
-    assertEquals("urn", capturedDstFilter.getOr().get(0).getAnd().get(0).getField());
-    assertEquals(2, capturedDstFilter.getOr().get(0).getAnd().get(0).getValues().size());
+    assertEquals(capturedDstFilter.getOr().get(0).getAnd().get(0).getField(), "urn");
+    assertEquals(capturedDstFilter.getOr().get(0).getAnd().get(0).getValues().size(), 2);
   }
 
   @Test
@@ -1046,12 +1007,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     when(mockGraphService.scrollRelatedEntities(
             opContextCaptor.capture(),
-            any(),
-            any(),
-            any(),
-            any(),
-            anySet(),
-            any(),
+            any(GraphFilters.class),
             any(),
             isNull(),
             anyString(),
@@ -1073,16 +1029,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     OperationContext capturedOpContext = opContextCaptor.getValue();
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
     assertEquals(
-        1,
-        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue(),
+        1);
     assertEquals(
-        4,
-        capturedOpContext
-            .getSearchContext()
-            .getSearchFlags()
-            .getSliceOptions()
-            .getMax()
-            .intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
+        4);
   }
 
   @Test
@@ -1095,25 +1046,14 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
 
     ArgumentCaptor<OperationContext> opContextCaptor =
         ArgumentCaptor.forClass(OperationContext.class);
-    ArgumentCaptor<Set> sourceTypesCaptor = ArgumentCaptor.forClass(Set.class);
-    ArgumentCaptor<Filter> sourceFilterCaptor = ArgumentCaptor.forClass(Filter.class);
-    ArgumentCaptor<Set> destTypesCaptor = ArgumentCaptor.forClass(Set.class);
-    ArgumentCaptor<Filter> destFilterCaptor = ArgumentCaptor.forClass(Filter.class);
-    ArgumentCaptor<Set> relTypesCaptor = ArgumentCaptor.forClass(Set.class);
-    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
-        ArgumentCaptor.forClass(RelationshipFilter.class);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
     ArgumentCaptor<String> scrollIdCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<String> pitCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<Integer> countCaptor = ArgumentCaptor.forClass(Integer.class);
 
     when(mockGraphService.scrollRelatedEntities(
             opContextCaptor.capture(),
-            sourceTypesCaptor.capture(),
-            sourceFilterCaptor.capture(),
-            destTypesCaptor.capture(),
-            destFilterCaptor.capture(),
-            relTypesCaptor.capture(),
-            relFilterCaptor.capture(),
+            graphFiltersCaptor.capture(),
             any(),
             scrollIdCaptor.capture(),
             pitCaptor.capture(),
@@ -1190,46 +1130,46 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("next-scroll"));
 
+    GraphFilters captured = graphFiltersCaptor.getValue();
+
     // Verify relationship types
-    assertEquals(1, relTypesCaptor.getValue().size());
-    assertTrue(relTypesCaptor.getValue().contains("DownstreamOf"));
+    assertEquals(captured.getRelationshipTypes().size(), 1);
+    assertTrue(captured.getRelationshipTypes().contains("DownstreamOf"));
 
     // Verify entity type filters
-    assertEquals(1, sourceTypesCaptor.getValue().size());
-    assertTrue(sourceTypesCaptor.getValue().contains("dataset"));
-    assertEquals(1, destTypesCaptor.getValue().size());
-    assertTrue(destTypesCaptor.getValue().contains("chart"));
+    assertEquals(captured.getSourceTypes().size(), 1);
+    assertTrue(captured.getSourceTypes().contains("dataset"));
+    assertEquals(captured.getDestinationTypes().size(), 1);
+    assertTrue(captured.getDestinationTypes().contains("chart"));
 
     // Verify URN filters from request body
-    assertFalse(sourceFilterCaptor.getValue().getOr().isEmpty());
-    assertFalse(destFilterCaptor.getValue().getOr().isEmpty());
+    assertFalse(captured.getSourceEntityFilter().getOr().isEmpty());
+    assertFalse(captured.getDestinationEntityFilter().getOr().isEmpty());
 
     // Verify edge filter was embedded in the RelationshipFilter
-    RelationshipFilter capturedRelFilter = relFilterCaptor.getValue();
+    RelationshipFilter capturedRelFilter = captured.getRelationshipFilter();
     assertNotNull(capturedRelFilter);
     assertFalse(capturedRelFilter.getOr().isEmpty());
-    assertEquals("relationshipType", capturedRelFilter.getOr().get(0).getAnd().get(0).getField());
+    assertEquals(capturedRelFilter.getOr().get(0).getAnd().get(0).getField(), "relationshipType");
 
     // Verify pagination parameters
-    assertEquals("prev-scroll", scrollIdCaptor.getValue());
-    assertEquals("10m", pitCaptor.getValue());
-    assertEquals(20, countCaptor.getValue().intValue());
+    assertEquals(scrollIdCaptor.getValue(), "prev-scroll");
+    assertEquals(pitCaptor.getValue(), "10m");
+    assertEquals(countCaptor.getValue().intValue(), 20);
 
     // Verify slice options and includeSoftDelete
     OperationContext capturedOpContext = opContextCaptor.getValue();
     assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
     assertEquals(
-        0,
-        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue(),
+        0);
     assertEquals(
-        3,
-        capturedOpContext
-            .getSearchContext()
-            .getSearchFlags()
-            .getSliceOptions()
-            .getMax()
-            .intValue());
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getMax().intValue(),
+        3);
     assertTrue(capturedOpContext.getSearchContext().getSearchFlags().isIncludeSoftDeleted());
+
+    // Verify no lineage triplets on the regular scroll endpoint
+    assertNull(captured.getAllowedEdgeTriplets());
   }
 
   @Test
@@ -1237,17 +1177,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     RelatedEntitiesScrollResult expectedResult =
         new RelatedEntitiesScrollResult(0, 10, "scroll-1", Arrays.asList());
 
-    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
-        ArgumentCaptor.forClass(RelationshipFilter.class);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
 
     when(mockGraphService.scrollRelatedEntities(
             any(),
-            any(),
-            any(),
-            any(),
-            any(),
-            anySet(),
-            relFilterCaptor.capture(),
+            graphFiltersCaptor.capture(),
             any(),
             isNull(),
             anyString(),
@@ -1264,7 +1198,9 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
-    assertEquals(RelationshipDirection.OUTGOING, relFilterCaptor.getValue().getDirection());
+    assertEquals(
+        graphFiltersCaptor.getValue().getRelationshipFilter().getDirection(),
+        RelationshipDirection.OUTGOING);
   }
 
   @Test
@@ -1272,17 +1208,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     RelatedEntitiesScrollResult expectedResult =
         new RelatedEntitiesScrollResult(0, 10, "scroll-out", Arrays.asList());
 
-    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
-        ArgumentCaptor.forClass(RelationshipFilter.class);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
 
     when(mockGraphService.scrollRelatedEntities(
             any(),
-            any(),
-            any(),
-            any(),
-            any(),
-            anySet(),
-            relFilterCaptor.capture(),
+            graphFiltersCaptor.capture(),
             any(),
             isNull(),
             anyString(),
@@ -1301,7 +1231,9 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("scroll-out"));
 
-    assertEquals(RelationshipDirection.OUTGOING, relFilterCaptor.getValue().getDirection());
+    assertEquals(
+        graphFiltersCaptor.getValue().getRelationshipFilter().getDirection(),
+        RelationshipDirection.OUTGOING);
   }
 
   @Test
@@ -1309,17 +1241,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     RelatedEntitiesScrollResult expectedResult =
         new RelatedEntitiesScrollResult(0, 10, "scroll-in", Arrays.asList());
 
-    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
-        ArgumentCaptor.forClass(RelationshipFilter.class);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
 
     when(mockGraphService.scrollRelatedEntities(
             any(),
-            any(),
-            any(),
-            any(),
-            any(),
-            anySet(),
-            relFilterCaptor.capture(),
+            graphFiltersCaptor.capture(),
             any(),
             isNull(),
             anyString(),
@@ -1338,7 +1264,9 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("scroll-in"));
 
-    assertEquals(RelationshipDirection.INCOMING, relFilterCaptor.getValue().getDirection());
+    assertEquals(
+        graphFiltersCaptor.getValue().getRelationshipFilter().getDirection(),
+        RelationshipDirection.INCOMING);
   }
 
   @Test
@@ -1346,17 +1274,11 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     RelatedEntitiesScrollResult expectedResult =
         new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
 
-    ArgumentCaptor<RelationshipFilter> relFilterCaptor =
-        ArgumentCaptor.forClass(RelationshipFilter.class);
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
 
     when(mockGraphService.scrollRelatedEntities(
             any(),
-            any(),
-            any(),
-            any(),
-            any(),
-            anySet(),
-            relFilterCaptor.capture(),
+            graphFiltersCaptor.capture(),
             any(),
             isNull(),
             anyString(),
@@ -1374,7 +1296,9 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful());
 
-    assertEquals(RelationshipDirection.OUTGOING, relFilterCaptor.getValue().getDirection());
+    assertEquals(
+        graphFiltersCaptor.getValue().getRelationshipFilter().getDirection(),
+        RelationshipDirection.OUTGOING);
   }
 
   @Test
@@ -1387,5 +1311,40 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
                 .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is4xxClientError());
+  }
+
+  @Test
+  public void testScrollEndpointDoesNotSetTriplets() throws Exception {
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, null, Arrays.asList());
+
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            opContextCaptor.capture(),
+            graphFiltersCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    assertEquals(
+        UsageOperation.METADATA_READ.key(),
+        opContextCaptor.getValue().getRequestContext().getUsageOperation());
+    // Regular scroll should NOT set triplets
+    assertNull(graphFiltersCaptor.getValue().getAllowedEdgeTriplets());
   }
 }

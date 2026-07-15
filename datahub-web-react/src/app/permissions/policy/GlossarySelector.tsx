@@ -1,11 +1,12 @@
-import { Select, Tag } from 'antd';
+import { Select, Tag, Typography } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
 import { createCriterionValueWithEntity, getFieldValues, setFieldValues } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export default function GlossarySelector({ resources, setResources }: Props) {
+    const { t } = useTranslation('settings.permissions');
     const entityRegistry = useEntityRegistry();
     const [glossaryInputValue, setGlossaryInputValue] = useState('');
     const [isFocusedOnGlossaryInput, setIsFocusedOnGlossaryInput] = useState(false);
@@ -142,42 +144,47 @@ export default function GlossarySelector({ resources, setResources }: Props) {
     }
 
     return (
-        <ClickOutside onClickOutside={handleClickOutsideGlossary}>
-            <Select
-                showSearch
-                value={glossarySelectValue}
-                mode="multiple"
-                filterOption={false}
-                placeholder="Select glossary terms or term groups to apply to specific resources."
-                onSelect={(value) => onSelectGlossaryEntity(value)}
-                onDeselect={onDeselectGlossaryEntity}
-                onSearch={handleGlossarySearch}
-                onFocus={() => setIsFocusedOnGlossaryInput(true)}
-                onBlur={handleBlurGlossary}
-                tagRender={(tagProps) => (
-                    <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                        {displayStringWithMaxLength(
-                            glossaryUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                            75,
-                        )}
-                    </Tag>
-                )}
-                dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
-            >
-                {glossarySearchResults?.map((result) => (
-                    <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                        {renderSearchResult(result)}
-                    </Select.Option>
-                ))}
-            </Select>
-            <StyledBrowserWrapper isHidden={!isShowingGlossaryBrowser} width="100%" maxHeight={350}>
-                <GlossaryBrowser
-                    isSelecting
-                    selectTerm={selectGlossaryTermFromBrowser}
-                    selectNode={selectGlossaryNodeFromBrowser}
-                    selectedUrns={glossarySelectValue}
-                />
-            </StyledBrowserWrapper>
-        </ClickOutside>
+        <>
+            <Typography.Paragraph>
+                <Trans t={t} i18nKey="glossarySelectorDescription" components={{ bold: <b /> }} />
+            </Typography.Paragraph>
+            <ClickOutside onClickOutside={handleClickOutsideGlossary}>
+                <Select
+                    showSearch
+                    value={glossarySelectValue}
+                    mode="multiple"
+                    filterOption={false}
+                    placeholder={t('glossarySelectorPlaceholder')}
+                    onSelect={(value) => onSelectGlossaryEntity(value)}
+                    onDeselect={onDeselectGlossaryEntity}
+                    onSearch={handleGlossarySearch}
+                    onFocus={() => setIsFocusedOnGlossaryInput(true)}
+                    onBlur={handleBlurGlossary}
+                    tagRender={(tagProps) => (
+                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                            {displayStringWithMaxLength(
+                                glossaryUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
+                                75,
+                            )}
+                        </Tag>
+                    )}
+                    dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
+                >
+                    {glossarySearchResults?.map((result) => (
+                        <Select.Option key={result.entity.urn} value={result.entity.urn}>
+                            {renderSearchResult(result)}
+                        </Select.Option>
+                    ))}
+                </Select>
+                <StyledBrowserWrapper isHidden={!isShowingGlossaryBrowser} width="100%" maxHeight={350}>
+                    <GlossaryBrowser
+                        isSelecting
+                        selectTerm={selectGlossaryTermFromBrowser}
+                        selectNode={selectGlossaryNodeFromBrowser}
+                        selectedUrns={glossarySelectValue}
+                    />
+                </StyledBrowserWrapper>
+            </ClickOutside>
+        </>
     );
 }

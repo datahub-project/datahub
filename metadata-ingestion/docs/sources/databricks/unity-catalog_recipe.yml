@@ -27,7 +27,7 @@ source:
     include_ml_model_aliases: false
     ml_model_max_results: 1000
     profiling:
-      method: "ge"
+      method: "sqlalchemy"
       enabled: true
       warehouse_id: "<warehouse_id>"
       profile_table_level_only: false

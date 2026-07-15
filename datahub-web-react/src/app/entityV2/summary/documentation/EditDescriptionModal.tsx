@@ -1,6 +1,7 @@
 import { Editor, Modal } from '@components';
 import { message } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -45,6 +46,8 @@ export default function EditDescriptionModal({
     emptyDescriptionText,
     closeModal,
 }: Props) {
+    const { t } = useTranslation('entity.profile.summary');
+    const { t: tc } = useTranslation('common.actions');
     const canEditDescription = useDocumentationPermission();
     const { urn: assetUrn } = useEntityData();
     const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
@@ -54,25 +57,25 @@ export default function EditDescriptionModal({
     const { uploadFile } = useFileUpload({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn });
     return (
         <Modal
-            title="Edit Description"
+            title={t('documentation.editTitle')}
             onCancel={closeModal}
             width="80vw"
             style={{ maxWidth: '1200px' }}
             maskClosable={false}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: () => closeModal(),
                     buttonDataTestId: 'cancel-button',
                 },
                 {
-                    text: 'Publish',
+                    text: tc('publish'),
                     onClick: () => {
                         handleDescriptionUpdate().catch((e) => {
                             message.destroy();
                             message.error({
-                                content: `Failed to update description: \n ${e.message || ''}`,
+                                content: t('documentation.updateError', { error: e.message || '' }),
                                 duration: 3,
                             });
                         });

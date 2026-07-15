@@ -18,17 +18,14 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
+from datahub.ingestion.source.notion.notion_hierarchy import NotionHierarchyExtractor
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -349,10 +346,19 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # Notion parent metadata tracking
         self.notion_parent_metadata: Dict[str, Any] = {}
 
+        # page_id -> emitted document title, used to label browse-path ancestors
+        self.notion_page_titles: Dict[str, str] = {}
+
+        # When the user scopes ingestion via page_ids/database_ids, browse paths
+        # are anchored at those roots instead of walking up to un-ingested parents.
+        if config.page_ids or config.database_ids:
+            self._browse_path_root_ids: Set[str] = set(config.page_ids) | set(
+                config.database_ids
+            )
+        else:
+            self._browse_path_root_ids = set()
+
         # Initialize stateful ingestion handler for stale entity removal
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, ctx
-        )
 
         # Initialize document state tracking for content-based change detection
         self.document_state: Dict[str, Dict[str, Any]] = {}
@@ -832,6 +838,158 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         except Exception as e:
             logger.warning(f"Failed to apply NumberedListItem monkeypatch: {e}")
 
+    @staticmethod
+    def _monkeypatch_icon_dispatcher_unknown_types() -> None:
+        """Gracefully degrade unknown Notion icon types to None instead of raising.
+
+        unstructured-ingest 0.7.2's ``Icon.from_dict`` (in
+        ``types.blocks.callout``) only handles ``emoji`` and ``external`` icon
+        types; anything else raises ``ValueError: Unexpected icon type: ...``.
+        Notion has since introduced a built-in named icon type
+        (``{"type": "icon", "icon": {"name": "...", "color": "..."}}``) that
+        appears on Callout blocks and aborts the indexer's page-discovery walk.
+
+        This is a value-discriminator failure, not a kwargs-filter failure, so
+        it isn't covered by ``_monkeypatch_notion_types_filter_unknown_fields``.
+        Patch the dispatcher to return ``None`` for unknown icon types — the
+        Callout block still ingests with its text content preserved; only the
+        icon visualization is lost (``Callout.get_html`` already handles
+        ``icon is None``).
+        """
+        try:
+            from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+                Icon,
+            )
+
+            warned: Set[Optional[str]] = set()
+            original_from_dict = Icon.from_dict.__func__
+
+            def patched_from_dict(cls: Type[Any], data: Optional[dict]) -> Any:
+                # Notion returns icon=null on Callouts with no icon set;
+                # Callout.from_dict passes data.pop("icon") (which may be None)
+                # straight into Icon.from_dict, so handle the None case here.
+                if data is None:
+                    return None
+                t = data.get("type")
+                if t in ("emoji", "external"):
+                    return original_from_dict(cls, data)
+                if t not in warned:
+                    warned.add(t)
+                    logger.warning(
+                        f"Notion API returned unknown icon type '{t}' — "
+                        f"substituting None. Icon visualization on affected "
+                        f"blocks will be lost; page text content is preserved."
+                    )
+                return None
+
+            Icon.from_dict = classmethod(patched_from_dict)
+            logger.info("Applied monkeypatch to Icon dispatcher for unknown icon types")
+        except ImportError as e:
+            logger.warning(f"Icon dispatcher not found - skipping monkeypatch: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to apply Icon dispatcher monkeypatch: {e}")
+
+    @staticmethod
+    def _monkeypatch_notion_types_filter_unknown_fields() -> None:
+        """Filter unknown kwargs on every FromJSONMixin dataclass in notion types.
+
+        Notion's API regularly adds new fields across blocks, pages, databases,
+        and properties (icon, color, is_locked, is_archived, list_start_index,
+        list_format, ...). unstructured-ingest 0.7.2 models these as
+        dataclasses and parses them with ``cls(**data)``, so any new field
+        raises ``TypeError: __init__() got an unexpected keyword argument`` and
+        aborts the whole ingestion (AI-603: Paragraph 'icon'; also observed:
+        Page 'is_archived').
+
+        FromJSONMixin is the common ancestor of every type in
+        unstructured_ingest.processes.connectors.notion.types (blocks via
+        BlockBase, pages directly, db properties via DBPropertyBase, db cells
+        via DBCellBase). Walking its subclasses after importing all submodules
+        catches the whole surface. Each __init__ is wrapped to drop unknown
+        kwargs and log a one-shot warning per (class, field). New API
+        additions degrade to "minor metadata not captured" instead of a hard
+        failure.
+        """
+        try:
+            import dataclasses
+            import importlib
+            import pkgutil
+
+            from unstructured_ingest.processes.connectors.notion.interfaces import (
+                FromJSONMixin,
+            )
+            from unstructured_ingest.processes.connectors.notion.types import (
+                __name__ as types_name,
+                __path__ as types_path,
+            )
+
+            # Eagerly import every notion type submodule so FromJSONMixin
+            # subclasses are registered before we walk them.
+            for module_info in pkgutil.walk_packages(
+                types_path, prefix=f"{types_name}."
+            ):
+                try:
+                    importlib.import_module(module_info.name)
+                except Exception as e:
+                    logger.debug(
+                        f"Skipped notion type submodule {module_info.name}: {e}"
+                    )
+
+            warned: Set[tuple] = set()
+            patched_count = 0
+
+            stack: List[type] = [FromJSONMixin]
+            seen: Set[type] = set()
+            while stack:
+                parent = stack.pop()
+                for cls in parent.__subclasses__():
+                    if cls in seen:
+                        continue
+                    seen.add(cls)
+                    stack.append(cls)
+                    if not dataclasses.is_dataclass(cls):
+                        continue
+                    if getattr(cls.__init__, "_datahub_filters_unknown", False):
+                        continue
+
+                    valid_fields = {f.name for f in dataclasses.fields(cls)}
+                    original_init = cls.__init__
+                    cls_name = cls.__name__
+
+                    def make_wrapped(orig: Any, valid: Set[str], name: str) -> Any:
+                        def wrapped_init(self: Any, *args: Any, **kwargs: Any) -> None:
+                            unknown = [k for k in kwargs if k not in valid]
+                            for k in unknown:
+                                key = (name, k)
+                                if key not in warned:
+                                    warned.add(key)
+                                    logger.warning(
+                                        f"Notion API returned unknown field '{k}' on "
+                                        f"{name} — filtering. Content for this field "
+                                        f"will be dropped; consider upgrading "
+                                        f"unstructured-ingest or extending the connector."
+                                    )
+                                kwargs.pop(k)
+                            orig(self, *args, **kwargs)
+
+                        wrapped_init._datahub_filters_unknown = True  # type: ignore[attr-defined]
+                        return wrapped_init
+
+                    cls.__init__ = make_wrapped(  # type: ignore[method-assign]
+                        original_init, valid_fields, cls_name
+                    )
+                    patched_count += 1
+
+            logger.info(
+                f"Applied generic unknown-field filter to {patched_count} Notion type classes"
+            )
+        except ImportError as e:
+            logger.warning(
+                f"Notion types not found - skipping generic field filter: {e}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to apply generic notion-type field filter: {e}")
+
     def _initialize_state_tracking(self) -> None:
         """Initialize state tracking for content-based change detection.
 
@@ -1177,17 +1335,6 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         config = NotionSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        """Register workunit processors for stateful ingestion.
-
-        The stale entity removal handler will automatically track all emitted
-        document URNs and generate deletion workunits for any that disappeared.
-        """
-        return [
-            *super().get_workunit_processors(),
-            self.stale_entity_removal_handler.workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main method to generate work units."""
         try:
@@ -1367,6 +1514,8 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         self._monkeypatch_databases_endpoint_query()
         self._monkeypatch_syncblock_from_dict()
         self._monkeypatch_numbered_list_item_new_fields()
+        self._monkeypatch_icon_dispatcher_unknown_types()
+        self._monkeypatch_notion_types_filter_unknown_fields()
 
         # Auto-discover pages if none provided
         page_ids = self.config.page_ids
@@ -1594,6 +1743,32 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 if page_id:
                     ingested_page_ids.add(page_id)
 
+                    # Pre-compute the title so browse-path ancestor labels match
+                    # the titles emitted on the ancestor documents themselves.
+                    # This is best-effort: a failure only affects ancestor labels
+                    # (which fall back to the page ID), so never fail the page.
+                    try:
+                        self._inject_notion_url(metadata)
+                        page_elements = data.get("elements", [])
+                        title = self.document_builder.title_extractor.extract_title(
+                            page_elements if isinstance(page_elements, list) else [],
+                            metadata.get("filename", "unknown"),
+                            metadata,
+                        )
+                        if title:
+                            self.notion_page_titles[page_id] = title
+                    except Exception as e:
+                        self.report.warning(
+                            title="Browse path label resolution failed",
+                            message=(
+                                "Failed to pre-compute a Notion page title for "
+                                "browse-path labels; ancestor entries may fall "
+                                "back to the raw page ID."
+                            ),
+                            context=f"page_id={page_id}",
+                            exc=e,
+                        )
+
                 # Save for second pass
                 files_to_process.append(data)
 
@@ -1645,40 +1820,15 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         record_locator = data_source.get("record_locator", {})
         current_page_id = record_locator.get("page_id")
 
-        # Check for Notion page ID prefix filtering
-        # If page_ids were specified, only keep docs with matching prefixes
-        if self.config.page_ids:
-            # Extract page_id from metadata
-            data_source = metadata.get("data_source", {})
-            record_locator = data_source.get("record_locator", {})
-            page_id = record_locator.get("page_id")
-            database_id = record_locator.get("database_id")
-
-            # Check if this document matches any of the page_id prefixes
-            # Normalize IDs by removing hyphens for comparison (Notion returns both formats)
-            should_keep = False
-            for configured_page_id in self.config.page_ids:
-                # Normalize configured ID (remove hyphens) and take first 13 chars
-                normalized_prefix = configured_page_id.replace("-", "")[:13]
-
-                # Keep if page_id or database_id starts with the prefix (after normalization)
-                if page_id:
-                    normalized_page_id = page_id.replace("-", "")
-                    if normalized_page_id.startswith(normalized_prefix):
-                        should_keep = True
-                        break
-                if database_id:
-                    normalized_database_id = database_id.replace("-", "")
-                    if normalized_database_id.startswith(normalized_prefix):
-                        should_keep = True
-                        break
-
-            if not should_keep:
-                self.report.report_file_skipped(
-                    metadata.get("filename", "unknown"),
-                    "Notion page_id/database_id doesn't match configured page_ids prefix",
-                )
-                return True
+        # Note: we previously prefix-matched discovered page IDs against the
+        # first 13 chars of each configured page_id to "scope" the ingestion.
+        # That heuristic is broken: Notion v2 page IDs use a time-window
+        # prefix, so legitimate descendants reached via `recursive: true`
+        # often diverge in the first 8 chars and were silently dropped.
+        # The unstructured-ingest NotionIndexer with the configured
+        # page_ids/database_ids and recursive=true only walks descendants of
+        # those roots, so any document it emits is in-scope by construction —
+        # no extra filtering is needed here.
 
         # Check for empty documents
         if self.config.filtering.skip_empty_documents:
@@ -1867,15 +2017,41 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
         # Generate parent URN using same ID pattern as documents
-        parent_doc_id = self.document_builder.id_generator.generate_id(
-            filename=f"{parent_id}.html",
-            directory="",
-            metadata={"source_record_locator": f"page_id={parent_id}"},
-        )
+        return self._build_notion_document_urn(parent_id)
 
-        # Construct URN
-        parent_urn = f"urn:li:document:{parent_doc_id}"
-        return parent_urn
+    def _build_notion_document_urn(self, page_id: str) -> str:
+        """Construct the DataHub document URN for a Notion page ID.
+
+        Uses the same id-generation logic as emitted documents so that
+        references (parent links, browse paths) resolve to real entities.
+        """
+        doc_id = self.document_builder.id_generator.generate_id(
+            filename=f"{page_id}.html",
+            directory="",
+            metadata={"source_record_locator": f"page_id={page_id}"},
+        )
+        return f"urn:li:document:{doc_id}"
+
+    def _inject_notion_url(self, metadata: Dict[str, Any]) -> Optional[str]:
+        """Resolve a page's Notion URL and inject it into ``data_source``.
+
+        The DocumentSource aspect and title extraction both read the URL from
+        ``metadata["data_source"]["url"]``. Returns the resolved URL (if any).
+        """
+        notion_url = self._extract_notion_url(metadata)
+        if notion_url:
+            if "data_source" not in metadata:
+                metadata["data_source"] = {}
+            metadata["data_source"]["url"] = notion_url
+        return notion_url
+
+    def _notion_title_for_page(self, page_id: str) -> str:
+        """Resolve a display label for a browse-path ancestor.
+
+        Prefers the title actually emitted for the page; falls back to the raw
+        page ID for ancestors outside the ingestion scope (which carry no URN).
+        """
+        return self.notion_page_titles.get(page_id) or page_id
 
     def _create_document_entity(
         self, data: dict, ingested_page_ids: Optional[Set[str]] = None
@@ -1917,13 +2093,8 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             self.config.processing.partition.strategy
         )
 
-        # Extract Notion URL from additional_metadata
-        notion_url = self._extract_notion_url(metadata)
-        if notion_url:
-            # Inject URL into data_source for DocumentSource aspect
-            if "data_source" not in metadata:
-                metadata["data_source"] = {}
-            metadata["data_source"]["url"] = notion_url
+        # Inject Notion URL into data_source for DocumentSource aspect
+        self._inject_notion_url(metadata)
 
         # Determine parent URN
         parent_urn = None
@@ -1953,6 +2124,35 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             platform="urn:li:dataPlatform:notion"
         )
         doc._set_aspect(platform_instance)
+
+        # Add BrowsePathsV2 for hierarchical navigation, mirroring Confluence.
+        # Notion exposes only the immediate parent per page, so the extractor
+        # reconstructs the full ancestor chain from the parent-metadata map.
+        # Browse paths are a navigation enhancement, not core document data, so
+        # any failure here must degrade gracefully rather than drop the document.
+        if self.config.hierarchy.enabled:
+            try:
+                browse_path_v2 = NotionHierarchyExtractor.build_browse_path_v2(
+                    page_id=page_id,
+                    parent_metadata=self.notion_parent_metadata,
+                    urn_builder=self._build_notion_document_urn,
+                    title_resolver=self._notion_title_for_page,
+                    ingested_page_ids=ingested_page_ids,
+                    browse_path_root_ids=self._browse_path_root_ids or None,
+                )
+                if browse_path_v2:
+                    doc._set_aspect(browse_path_v2)
+            except Exception as e:
+                self.report.warning(
+                    title="Browse path generation failed",
+                    message=(
+                        "Failed to build the browse path for a Notion page; it "
+                        "was emitted without one. Hierarchical navigation may be "
+                        "incomplete for the affected page."
+                    ),
+                    context=f"page_id={page_id}",
+                    exc=e,
+                )
 
         # Get document URN for chunking/embedding (convert to string)
         document_urn = str(doc.urn)

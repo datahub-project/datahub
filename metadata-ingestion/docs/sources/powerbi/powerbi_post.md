@@ -49,6 +49,17 @@ ownership:
 
 Valid values depend on the PowerBI access right types for your resources (e.g., dataset, report, dashboard). If `owner_criteria` is not set or is an empty list, all users with `principalType: User` qualify as owners.
 
+#### Admin scan vs. workspace listing
+
+PowerBI ingestion uses two metadata paths per workspace:
+
+| Path                       | When                                                                               | What it fetches                                                                                                                            | API volume                         |
+| -------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| Admin scan                 | The configured principal has admin-API access and the workspace scan returns data. | Reports, users, datasets, lineage, endorsements — all from a single workspace scan response.                                               | 1 scan request per workspace batch |
+| Workspace listing fallback | The admin scan returns no data for a workspace (permissions, throttling, etc.).    | Reports via the per-workspace `/reports` endpoint; users via `/admin/reports/{id}/users` per report (only when `extract_ownership: true`). | O(workspaces + reports) requests   |
+
+When the fallback engages, the ingestion report includes a **Report Scan Fallback Active** entry per workspace so you can correlate that workspace's slower ingestion with the missing scan output.
+
 #### Lineage
 
 This source extracts table lineage for tables present in PowerBI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset.
@@ -73,7 +84,61 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 8.  Amazon Redshift
 9.  Amazon Athena
 
-Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, and ODBC data sources.
+Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracle`, and ODBC data sources.
+
+#### Oracle TNS Aliases and Inline Native Queries
+
+PowerBI users can connect to Oracle via a TNS alias (any `tnsnames.ora`-based deployment) and embed SQL inline using a `Query=` argument:
+
+```text
+let
+  Source = Oracle.Database(
+    "EDWPSFN",
+    [HierarchicalNavigation = true,
+     Query = "SELECT … FROM PS_VENDOR, PS_COR_CNTRCT_PROJ …"])
+in
+  Source
+```
+
+Three Oracle.Database first-argument forms are recognized:
+
+1. EZ-Connect: `host:port/service[.domain]`
+2. Bare TNS alias: e.g. `EDWPSFN`, `MYDB.WORLD`
+3. Full TNS descriptor: `(DESCRIPTION=(ADDRESS=…)(CONNECT_DATA=(SERVICE_NAME=foo)))`
+
+For the bare-alias and descriptor forms, the alias / SERVICE_NAME becomes the `server` key for `server_to_platform_instance` lookup. The lookup is case-insensitive, so `EDWPSFN` in the M-Query matches an `EDWPSFN` (or `edwpsfn`) entry in the recipe.
+
+##### Matching the Oracle URN shape (database segment)
+
+The generated upstream URN must match the URN that your Oracle ingestion produces for the same table, otherwise the lineage edge points at a dataset that does not exist. Oracle ingestion emits **2-part `schema.table`** URNs by default, and **3-part `database.schema.table`** URNs only when it runs with `add_database_name_to_urn: true`.
+
+PowerBI derives the database segment from the connection form:
+
+| Oracle.Database form           | Database segment              |
+| ------------------------------ | ----------------------------- |
+| EZ-Connect `host:port/service` | the `service` (always 3-part) |
+| Bare TNS alias / descriptor    | none — 2-part by default      |
+
+So a bare TNS alias produces a 2-part URN, which is correct for a default Oracle ingestion. If your Oracle ingestion uses `add_database_name_to_urn: true`, set `default_database` on the alias entry to supply the missing segment (use the same value as the Oracle ingestion's `database` / `urn_db_name`):
+
+```yaml
+source:
+  type: powerbi
+  config:
+    server_to_platform_instance:
+      EDWPSFN:
+        default_database: edwprd # only if Oracle ingestion uses 3-part URNs
+        default_schema: sysadm # owner schema for unqualified inline-SQL tables
+        # platform_instance: EDWPSFN  # only set this if your Oracle ingestion uses one
+```
+
+##### Qualifying unqualified inline SQL (`default_schema`)
+
+Because inline `Query=` SQL often references unqualified tables, declare a `default_schema` on the alias entry so those references resolve to the ingested Oracle datasets. `default_schema` only applies to inline native SQL — hierarchical navigation takes the schema from the M-Query itself.
+
+If `default_schema` is missing and the inline SQL references unqualified tables, lineage will still be drawn for any qualified tables in the SQL, and a structured warning will appear in the ingestion report telling you exactly which alias needs the knob set.
+
+At least one of `default_schema` / `default_database` must be set for an Oracle entry; a mapping that needs neither should be a plain `platform_instance` / `env` entry.
 
 #### Athena Federated Query Platform Override
 

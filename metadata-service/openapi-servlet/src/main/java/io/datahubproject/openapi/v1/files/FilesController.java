@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.aws.S3Util;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,7 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class FilesController {
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("s3Util")
   private S3Util s3Util;
 
@@ -98,6 +99,10 @@ public class FilesController {
     }
 
     try {
+      if (s3Util == null) {
+        log.error("S3Util bean is not available; S3 is not configured");
+        return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+      }
       String bucket = configProvider.getDatahub().getS3().getBucketName();
       if (bucket == null) {
         log.error("S3 bucket name not configured");
@@ -141,7 +146,8 @@ public class FilesController {
     return OperationContext.asSession(
         systemOperationContext,
         RequestContext.builder()
-            .buildOpenapi(authentication.getActor().toUrnStr(), request, action, entityNames),
+            .buildOpenapi(authentication.getActor().toUrnStr(), request, action, entityNames)
+            .withUsageOperation(UsageOperation.METADATA_READ),
         authorizationChain,
         authentication,
         true);

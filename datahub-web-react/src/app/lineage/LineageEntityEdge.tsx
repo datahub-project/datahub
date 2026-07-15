@@ -4,6 +4,7 @@ import { Group } from '@visx/group';
 import { LinePath } from '@visx/shape';
 import { Tooltip } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { VizEdge } from '@app/lineage/types';
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Props) {
+    const { t } = useTranslation('lineage');
     const theme = useTheme();
     const createdOnTimestamp = edge?.createdOn;
     const updatedOnTimestamp = edge?.updatedOn;
@@ -35,6 +37,9 @@ export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Prop
     const updatedOn = updatedOnTimestamp ? dayjs(updatedOnTimestamp).format('ll') : undefined;
     const hasTimestamps = createdOn || updatedOn;
     const isManual = edge?.isManual;
+    // Presentational SVG values (marker URL suffix, dash pattern) — not translatable.
+    const highlightSuffix = isHighlighted ? '-highlighted' : '';
+    const dashArray = isManual ? '5, 5' : 'none';
 
     return (
         <>
@@ -44,12 +49,15 @@ export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Prop
                         <>
                             {createdOn && (
                                 <EdgeTimestamp>
-                                    <StyledClockCircleOutlined /> Created {isManual && 'manually '}on {createdOn}
+                                    <StyledClockCircleOutlined />{' '}
+                                    {isManual
+                                        ? t('edge.createdOnManually', { date: createdOn })
+                                        : t('edge.createdOn', { date: createdOn })}
                                 </EdgeTimestamp>
                             )}
                             {updatedOn && !isManual && (
                                 <EdgeTimestamp>
-                                    <StyledEyeOutlined /> Last observed on {updatedOn}
+                                    <StyledEyeOutlined /> {t('edge.lastObservedOn', { date: updatedOn })}
                                 </EdgeTimestamp>
                             )}
                         </>
@@ -72,10 +80,10 @@ export default function LineageEntityEdge({ edge, edgeKey, isHighlighted }: Prop
                         data={edge.curve}
                         stroke={isHighlighted ? theme.colors.hyperlinks : theme.colors.border}
                         strokeWidth="1"
-                        markerEnd={`url(#triangle-downstream${isHighlighted ? '-highlighted' : ''})`}
-                        markerStart={`url(#triangle-upstream${isHighlighted ? '-highlighted' : ''})`}
+                        markerEnd={`url(#triangle-downstream${highlightSuffix})`}
+                        markerStart={`url(#triangle-upstream${highlightSuffix})`}
                         data-testid={`edge-${edge.source.data.urn}-${edge.target.data.urn}-${edge.target.direction}`}
-                        strokeDasharray={isManual ? '5, 5' : 'none'}
+                        strokeDasharray={dashArray}
                     />
                 </Group>
             </Tooltip>

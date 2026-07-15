@@ -1,6 +1,10 @@
+import json
+import logging
 import pathlib
+import tempfile
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
 from typing import Iterable, List, Optional, cast
 from unittest.mock import MagicMock, patch
 
@@ -18,7 +22,11 @@ from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
-from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.run.pipeline import (
+    Pipeline,
+    PipelineContext,
+)
+from datahub.ingestion.sink.datahub_kafka import DatahubKafkaSink
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
 from datahub.metadata.schema_classes import (
@@ -96,6 +104,293 @@ class TestPipeline:
         assert isinstance(pipeline.sink, DatahubRestSink)
         assert pipeline.sink.config.server == "http://fake-gms-server:8080"
         assert pipeline.sink.config.token is None
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_configure_without_sink_kafka_default(
+        self,
+        mock_producer,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # Kafka default is selected purely by DATAHUB_INGESTION_DEFAULT_SINK.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
+        monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
+        # This test asserts sink config, not connectivity; stub the init probe
+        # so it doesn't try to reach the fake broker/registry.
+        monkeypatch.setattr(
+            "datahub.ingestion.run.pipeline._kafka_endpoints_reachable",
+            lambda *a, **k: True,
+        )
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubKafkaSink)
+        assert pipeline.sink_type == "datahub-kafka"
+        assert pipeline.sink.config.connection.bootstrap == "fake-broker:9092"
+        # Schema registry URL resolves from KAFKA_SCHEMAREGISTRY_URL.
+        assert (
+            pipeline.sink.config.connection.schema_registry_url
+            == "http://fake-registry:8081"
+        )
+        # DELETE/RESTATE fallback is auto-wired to the default GMS so those
+        # change types degrade to REST instead of failing over Kafka.
+        assert pipeline.sink.config.rest_fallback is not None
+        assert (
+            pipeline.sink.config.rest_fallback.server == "http://fake-gms-server:8080"
+        )
+        # ctx.graph must be populated (from the REST fallback) so stateful
+        # ingestion / stale-entity soft-deletion still work under the Kafka sink.
+        assert pipeline.ctx.graph is not None
+        # Producer buffer bounds are wired (OOM protection). Regression guard:
+        # a dropped/typoed key would silently revert to librdkafka's ~1 GiB.
+        pc = pipeline.sink.config.connection.producer_config
+        assert pc["queue.buffering.max.kbytes"] == 131072
+        assert pc["queue.buffering.max.messages"] == 20000
+        assert pc["linger.ms"] == 100
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("datahub.emitter.kafka_emitter.SerializingProducer", autospec=True)
+    def test_configure_without_sink_kafka_default_buffer_env_override(
+        self,
+        mock_producer,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # The producer buffer tuning knobs are overridable via env.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES", "262144")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES", "50000")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_LINGER_MS", "50")
+        # Config-only test; stub the connectivity probe.
+        monkeypatch.setattr(
+            "datahub.ingestion.run.pipeline._kafka_endpoints_reachable",
+            lambda *a, **k: True,
+        )
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubKafkaSink)
+        pc = pipeline.sink.config.connection.producer_config
+        assert pc["queue.buffering.max.kbytes"] == 262144
+        assert pc["queue.buffering.max.messages"] == 50000
+        assert pc["linger.ms"] == 50
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_kafka_default_without_bootstrap_falls_back_to_rest(
+        self,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # Kafka default selected but no broker configured: don't fail the run --
+        # degrade to REST so metadata still lands.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVER", raising=False)
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        # On degrade, sink_type must reflect the sink actually built, not the
+        # requested datahub-kafka default.
+        assert pipeline.sink_type == "datahub-rest"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("confluent_kafka.Producer")
+    def test_configure_kafka_default_unreachable_broker_falls_back_to_rest(
+        self,
+        mock_producer,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # A broker that never answers the metadata fetch: fall back to REST
+        # rather than buffering silently and stalling ~300s at flush().
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "unreachable:9092")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", "1")
+        mock_fetch_config.return_value = mock_server_config
+        mock_producer.return_value.list_topics.side_effect = Exception("broker down")
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    @patch("requests.get")
+    @patch("confluent_kafka.Producer")
+    def test_configure_kafka_default_unreachable_registry_falls_back_to_rest(
+        self,
+        mock_producer,
+        mock_requests_get,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # Broker reachable, schema registry not: fall back to REST, since MCP
+        # schemas can't be registered against an unreachable registry.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
+        monkeypatch.setenv("KAFKA_SCHEMAREGISTRY_URL", "http://fake-registry:8081")
+        monkeypatch.setenv("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", "1")
+        mock_fetch_config.return_value = mock_server_config
+        # Broker probe succeeds (default MagicMock), registry GET fails.
+        mock_requests_get.side_effect = Exception("registry down")
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_without_sink_unrecognized_selector_warns_and_uses_rest(
+        self,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+        caplog,
+    ):
+        # A garbage selector value must warn and fall back to REST (fail-safe).
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "kafak")  # typo
+        mock_fetch_config.return_value = mock_server_config
+
+        with caplog.at_level(logging.WARNING):
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "file",
+                        "config": {"path": "test_file.json"},
+                    },
+                }
+            )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
+        assert any(
+            "DATAHUB_INGESTION_DEFAULT_SINK" in r.message for r in caplog.records
+        )
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_configure_without_sink_defaults_to_rest_when_ff_unset(
+        self,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
+        monkeypatch,
+    ):
+        # With the FF unset the injected default must stay datahub-rest,
+        # byte-identical to historical behavior.
+        monkeypatch.delenv("DATAHUB_INGESTION_DEFAULT_SINK", raising=False)
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+            }
+        )
+        assert isinstance(pipeline.sink, DatahubRestSink)
+        assert pipeline.sink_type == "datahub-rest"
+
+    @time_machine.travel(FROZEN_TIME, tick=False)
+    def test_explicit_sink_overrides_kafka_default(self, monkeypatch):
+        # The kafka default only applies to no-sink recipes; a recipe with an
+        # explicit sink must be honored as-is even when the default selector is
+        # set to datahub-kafka.
+        monkeypatch.setenv("DATAHUB_INGESTION_DEFAULT_SINK", "datahub-kafka")
+        monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVER", "fake-broker:9092")
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_file.json"},
+                },
+                "sink": {"type": "console"},
+            },
+            report_to=None,
+        )
+        assert pipeline.sink_type == "console"
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
@@ -688,22 +983,45 @@ class TestSinkReportTimingOnClose:
     def _create_real_pipeline_with_realistic_sink(self):
         """Create a real Pipeline instance with a realistic sink using Pipeline.create()"""
 
+        from datahub.cli.datapack.loader import IndexFileEntry
+        from datahub.cli.datapack.models import DataPackInfo, TrustTier
         from datahub.ingestion.run.pipeline import Pipeline
 
         # Create realistic sink
         sink = RealisticDatahubRestSink()
 
-        # Create pipeline using Pipeline.create() like the existing tests do
-        # Use demo data source which is simpler and doesn't require external dependencies
-        pipeline = Pipeline.create(
-            {
-                "source": {
-                    "type": "demo-data",
-                    "config": {},
-                },
-                "sink": {"type": "console"},  # Use console sink to avoid network issues
-            }
+        mock_pack = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
         )
+
+        # demo-data now pre-ingests via datapack loader; avoid network and ~/.datahubenv
+        with (
+            patch("datahub.cli.datapack.loader.check_trust"),
+            patch("datahub.cli.datapack.registry.get_pack", return_value=mock_pack),
+            patch("datahub.cli.datapack.loader.ingest_datapack_file_entries"),
+            patch("datahub.cli.datapack.loader.download_pack") as mock_download,
+            tempfile.NamedTemporaryFile(suffix=".json", mode="w") as pack_file,
+        ):
+            json.dump([], pack_file)
+            pack_file.flush()
+            mock_download.return_value = [IndexFileEntry(path=Path(pack_file.name))]
+
+            # Create pipeline using Pipeline.create() like the existing tests do
+            # Use demo data source which is simpler and doesn't require external dependencies
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "demo-data",
+                        "config": {},
+                    },
+                    "sink": {
+                        "type": "console"
+                    },  # Use console sink to avoid network issues
+                }
+            )
 
         # Replace the sink with our realistic sink and register it with the exit_stack
         # This ensures the context manager calls close() on our realistic sink

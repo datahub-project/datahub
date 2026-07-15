@@ -1,82 +1,122 @@
+import i18next from 'i18next';
+
 import { SelectInputMode, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 import { EntityType } from '@src/types.generated';
 
 export const properties = [
     {
         id: '_entityType',
-        displayName: 'Type',
-        description: 'The type of the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.type');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.typeDesc');
+        },
         valueType: ValueTypeId.ENUM,
         valueOptions: {
             mode: SelectInputMode.MULTIPLE,
             options: [
                 {
                     id: 'dataset',
-                    displayName: 'Dataset',
+                    get displayName() {
+                        return i18next.t('entity.types:dataset.name');
+                    },
                 },
                 {
                     id: 'dashboard',
-                    displayName: 'Dashboard',
+                    get displayName() {
+                        return i18next.t('entity.types:dashboard.name');
+                    },
                 },
                 {
                     id: 'chart',
-                    displayName: 'Chart',
+                    get displayName() {
+                        return i18next.t('entity.types:chart.name');
+                    },
                 },
                 {
                     id: 'dataJob',
-                    displayName: 'Data Job (Task)',
+                    get displayName() {
+                        return i18next.t('entity.types:dataJob.alternativeName');
+                    },
                 },
                 {
                     id: 'dataFlow',
-                    displayName: 'Data Flow (Pipeline)',
+                    get displayName() {
+                        return i18next.t('entity.types:dataFlow.alternativeName');
+                    },
                 },
                 {
                     id: 'container',
-                    displayName: 'Container',
+                    get displayName() {
+                        return i18next.t('entity.types:container.name');
+                    },
                 },
                 {
                     id: 'domain',
-                    displayName: 'Domain',
+                    get displayName() {
+                        return i18next.t('entity.types:domain.name');
+                    },
                 },
                 {
                     id: 'dataProduct',
-                    displayName: 'Data Product',
+                    get displayName() {
+                        return i18next.t('entity.types:dataProduct.name');
+                    },
                 },
                 {
                     id: 'glossaryTerm',
-                    displayName: 'Glossary Term',
+                    get displayName() {
+                        return i18next.t('entity.types:glossaryTerm.name');
+                    },
                 },
                 {
                     id: 'glossaryNode',
-                    displayName: 'Term Group',
+                    get displayName() {
+                        return i18next.t('entity.types:glossaryNode.name');
+                    },
                 },
                 {
                     id: 'mlModel',
-                    displayName: 'ML Model',
+                    get displayName() {
+                        return i18next.t('entity.types:mlModel.name');
+                    },
                 },
                 {
                     id: 'mlModelGroup',
-                    displayName: 'ML Model Group',
+                    get displayName() {
+                        return i18next.t('shared.query-builder:entityType.mlModelGroup');
+                    },
                 },
                 {
                     id: 'mlFeature',
-                    displayName: 'ML Feature',
+                    get displayName() {
+                        return i18next.t('shared.query-builder:entityType.mlFeature');
+                    },
                 },
                 {
                     id: 'mlFeatureTable',
-                    displayName: 'ML Feature Table',
+                    get displayName() {
+                        return i18next.t('shared.query-builder:entityType.mlFeatureTable');
+                    },
                 },
                 {
                     id: 'mlPrimaryKey',
-                    displayName: 'ML Primary Key',
+                    get displayName() {
+                        return i18next.t('entity.types:mlPrimaryKey.name');
+                    },
                 },
             ],
         },
     },
     {
         id: 'platform',
-        displayName: 'Platform',
-        description: 'The data platform where the asset lives.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.platform');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.platformDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.DataPlatform],
@@ -85,8 +125,12 @@ export const properties = [
     },
     {
         id: 'container',
-        displayName: 'Container',
-        description: 'The parent container of the asset.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.container');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.containerDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Container],
@@ -95,8 +139,12 @@ export const properties = [
     },
     {
         id: 'domains',
-        displayName: 'Domain',
-        description: 'The domain that the asset is a part of.',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.domain');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.domainDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Domain],
@@ -105,8 +153,12 @@ export const properties = [
     },
     {
         id: 'glossaryTerms',
-        displayName: 'Glossary Terms',
-        description: 'The glossary terms applied to an asset',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.glossaryTerms');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.glossaryTermsAppliedDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.GlossaryTerm],
@@ -115,8 +167,12 @@ export const properties = [
     },
     {
         id: 'tags',
-        displayName: 'Tags',
-        description: 'The tags applied to an asset',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.tags');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.tagsAppliedDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Tag],
@@ -125,8 +181,12 @@ export const properties = [
     },
     {
         id: 'owners',
-        displayName: 'Owned By',
-        description: 'The owners of an asset',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.ownedBy');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.ownedByDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
@@ -135,8 +195,12 @@ export const properties = [
     },
     {
         id: 'urn',
-        displayName: 'Asset',
-        description: 'The specific asset itself',
+        get displayName() {
+            return i18next.t('shared.query-builder:prop.asset');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:prop.assetDesc');
+        },
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [

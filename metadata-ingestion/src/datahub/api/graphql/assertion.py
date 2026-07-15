@@ -36,11 +36,21 @@ query dataset($urn: String!, $start: Int, $count: Int, $status: AssertionRunStat
             result {
               __typename
               type
+              severity
               rowCount
               missingCount
               unexpectedCount
               actualAggValue
               externalUrl
+              nativeResults {
+                value
+              }
+              error {
+                type
+                properties {
+                  value
+                }
+              }
             }
             assertionUrn
           }

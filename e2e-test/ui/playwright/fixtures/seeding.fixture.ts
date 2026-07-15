@@ -47,10 +47,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { test as base, request, type Browser } from '@playwright/test';
 import { readGmsToken, gmsTokenPath } from './login';
-import type { UserCredentials } from './users';
-import { LoginPage } from '../pages/login-page';
+import type { UserCredentials } from '../data/users';
+import { LoginPage } from '../pages/login.page';
 import { gmsUrl } from '../utils/constants';
-import { extractUrn, type Mcp } from '../helpers/seeder-utils';
+import {
+  extractUrn,
+  normalizeMcp,
+  extractComplexAspects,
+  ingestComplexAspects,
+  type Mcp,
+} from '../helpers/seeder-utils';
 import { createLogger, type DataHubLogger } from '../utils/logger';
 
 // ── GMS token bootstrap ───────────────────────────────────────────────────────
@@ -176,10 +182,7 @@ async function ingestMcps(
 ): Promise<void> {
   const dataFile = explicitDataFile ?? dataFilePath(featureName);
   if (!fs.existsSync(dataFile)) {
-    throw new Error(
-      `Seed data file not found: ${dataFile}\n` +
-        `Expected: tests/${featureName}/fixtures/data.json`,
-    );
+    throw new Error(`Seed data file not found: ${dataFile}\n` + `Expected: tests/${featureName}/fixtures/data.json`);
   }
 
   // Strip the legacy "pegasus2avro." namespace prefix from Avro-translated class names so
@@ -209,15 +212,19 @@ async function ingestMcps(
         continue;
       }
 
+      // Normalise the MCP: strip explicit nulls (RestLi rejects null for optional fields)
+      // and convert "aspect.json: {...}" shorthand to the required GenericAspect format.
+      const normalized = normalizeMcp(mcp);
+
       // Legacy snapshot format uses /entities?action=ingest;
       // new MCP format (with entityUrn but no proposedSnapshot) uses /aspects?action=ingestProposal.
-      const response = mcp.proposedSnapshot
+      const response = normalized.proposedSnapshot
         ? await apiContext.post(`${gmsBaseUrl}/entities?action=ingest`, {
-            data: { entity: { value: mcp.proposedSnapshot } },
+            data: { entity: { value: normalized.proposedSnapshot } },
             failOnStatusCode: false,
           })
         : await apiContext.post(`${gmsBaseUrl}/aspects?action=ingestProposal`, {
-            data: { proposal: mcp },
+            data: { proposal: normalized },
             failOnStatusCode: false,
           });
 
@@ -237,6 +244,16 @@ async function ingestMcps(
       } else {
         logger.warn(msg);
       }
+    }
+
+    // Second pass: re-ingest aspects that /entities?action=ingest silently drops
+    // (Avro union types, null optional fields, enum union formats). extractComplexAspects
+    // pulls only the affected aspects from the already-parsed MCPs and ingestComplexAspects
+    // posts them via /aspects?action=ingestProposal which accepts them correctly.
+    const complexAspects = extractComplexAspects(mcps);
+    if (complexAspects.length > 0) {
+      logger.info(`re-ingesting ${complexAspects.length} complex aspects via MCP endpoint`);
+      await ingestComplexAspects(apiContext, gmsToken, complexAspects, logger);
     }
 
     // Write state file so other workers (and next runs) skip re-seeding.
@@ -280,9 +297,7 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
       }
 
       const tokenFile = gmsTokenPath(user.username);
-      const gmsToken = fs.existsSync(tokenFile)
-        ? readGmsToken(user.username)
-        : await bootstrapGmsToken(browser, user);
+      const gmsToken = fs.existsSync(tokenFile) ? readGmsToken(user.username) : await bootstrapGmsToken(browser, user);
 
       // Track whether any fresh ingestion happened this run so we can wait
       // for the search index to catch up before tests start.
@@ -313,7 +328,11 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
       const stateFile = stateFilePath(featureName);
       if (fs.existsSync(stateFile)) {
         const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8')) as SeedState;
-        logger.info('reusing seeded data', { featureName, seededAt: state.seededAt, entityCount: state.entityCount });
+        logger.info('reusing seeded data', {
+          featureName,
+          seededAt: state.seededAt,
+          entityCount: state.entityCount,
+        });
         if (freshlySeeded) {
           logger.info('waiting 15s for search index to catch up');
           await new Promise<void>((resolve) => setTimeout(resolve, 15_000));
@@ -331,6 +350,8 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
 
       await use();
     },
-    { auto: true, scope: 'worker' },
+    // 90 s: ingestMcps + 15 s ES index wait + network overhead can exceed the
+    // default fixture timeout (which mirrors the 30 s test timeout).
+    { auto: true, scope: 'worker', timeout: 90_000 },
   ],
 });

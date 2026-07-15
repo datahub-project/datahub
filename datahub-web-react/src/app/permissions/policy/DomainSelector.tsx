@@ -1,12 +1,13 @@
 import { Select, Tag } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import { createCriterionValueWithEntity, getFieldValues, setFieldValues } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
@@ -27,6 +28,8 @@ type Props = {
 };
 
 export function DomainSelector({ resources, setResources }: Props) {
+    const { t } = useTranslation('settings.permissions');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const [domainInputValue, setDomainInputValue] = useState('');
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
@@ -115,7 +118,7 @@ export function DomainSelector({ resources, setResources }: Props) {
                     rel="noopener noreferrer"
                     to={() => `${entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}`}
                 >
-                    View
+                    {tc('view')}
                 </Link>
             </SearchResultContainer>
         );
@@ -143,7 +146,7 @@ export function DomainSelector({ resources, setResources }: Props) {
                 value={domainSelectValue}
                 mode="multiple"
                 filterOption={false}
-                placeholder="Apply to ALL domains by default. Select domains to apply to specific domains."
+                placeholder={t('privilegeForm.domainPlaceholder')}
                 onSelect={(value) => onSelectDomain(value)}
                 onDeselect={onDeselectDomain}
                 onSearch={handleDomainSearch}

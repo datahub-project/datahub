@@ -10,7 +10,7 @@
  */
 
 import { test } from '../../fixtures/base-test';
-import { BusinessAttributePage } from '../../pages/business-attribute-page';
+import { BusinessAttributePage } from '../../pages/business-attribute.page';
 import { GraphQLHelper } from '../../helpers/graphql-helper';
 
 test.describe('Business Attribute Navigation', () => {

@@ -42,13 +42,13 @@ public class QueryUtils {
 
   private QueryUtils() {}
 
-  // Creates new Criterion with field and value, using EQUAL condition.
+  // Creates new Criterion with field and values, using EQUAL condition.
   @Nullable
   public static Criterion newCriterion(@Nonnull String field, @Nonnull List<String> values) {
     return newCriterion(field, values, Condition.EQUAL);
   }
 
-  // Creates new Criterion with field, value and condition.
+  // Creates new Criterion with field, values and condition.
   @Null
   public static Criterion newCriterion(
       @Nonnull String field, @Nonnull List<String> values, @Nonnull Condition condition) {
@@ -57,7 +57,6 @@ public class QueryUtils {
     }
     return new Criterion()
         .setField(field)
-        .setValue(values.get(0)) // Hack! This is due to bad modeling.
         .setValues(new StringArray(values))
         .setCondition(condition);
   }

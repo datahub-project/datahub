@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import RowCountByValuePopover from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/components/RowCountByValuePopover';
@@ -28,6 +29,7 @@ const ScrollableContent = styled.div<{ $height: number }>`
 `;
 
 export default function RowCountByValueChart() {
+    const { t } = useTranslation('entity.profile.schema');
     const { properties } = useStatsTabContext();
 
     const data = useMemo(
@@ -52,8 +54,8 @@ export default function RowCountByValueChart() {
 
     return (
         <GraphCard
-            title="Row Count by Value"
-            subTitle="Number of rows with each distinct value"
+            title={t('statsV2Charts.rowCountByValueTitle')}
+            subTitle={t('statsV2Charts.rowCountByValueSubtitle')}
             loading={properties?.profilesDataLoading}
             graphHeight={`${AVAILABLE_HEIGHT}px`}
             renderGraph={() => (

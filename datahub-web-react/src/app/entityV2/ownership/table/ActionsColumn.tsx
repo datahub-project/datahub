@@ -4,12 +4,15 @@ import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVerti
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Menu } from '@components/components/Menu';
 import { ItemType } from '@components/components/Menu/types';
 
 import { useDeleteOwnershipTypeMutation } from '@graphql/ownership.generated';
 import { OwnershipTypeEntity } from '@types';
+
+const BUTTON_STYLE = { background: 'none', border: 'none', boxShadow: 'none' };
 
 type Props = {
     ownershipType: OwnershipTypeEntity;
@@ -19,6 +22,8 @@ type Props = {
 };
 
 export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refetch }: Props) => {
+    const { t } = useTranslation('entity.ownership');
+    const { t: tc } = useTranslation('common.actions');
     const [deleteOwnershipTypeMutation] = useDeleteOwnershipTypeMutation();
 
     const onEdit = () => {
@@ -37,13 +42,13 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
             },
         })
             .then(() => {
-                toast.success('Successfully deleted ownership type.');
+                toast.success(t('deleteSuccess'));
                 setTimeout(() => {
                     refetch();
                 }, 3000);
             })
             .catch(() => {
-                toast.error('Failed to delete ownership type');
+                toast.error(t('deleteError'));
             });
     };
 
@@ -51,21 +56,21 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
         {
             type: 'item',
             key: 'edit',
-            title: 'Edit',
+            title: tc('edit'),
             icon: PencilSimple,
             onClick: onEdit,
         },
         {
             type: 'item',
             key: 'copy',
-            title: 'Copy Urn',
+            title: t('menu.copyUrn'),
             icon: Copy,
             onClick: onCopy,
         },
         {
             type: 'item',
             key: 'delete',
-            title: 'Delete',
+            title: tc('delete'),
             icon: Trash,
             onClick: onDelete,
             danger: true,
@@ -80,7 +85,7 @@ export const ActionsColumn = ({ ownershipType, setIsOpen, setOwnershipType, refe
                 size="lg"
                 isCircle
                 data-testid="ownership-table-dropdown"
-                style={{ background: 'none', border: 'none', boxShadow: 'none' }}
+                style={BUTTON_STYLE}
             />
         </Menu>
     );

@@ -2,6 +2,7 @@ import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { isEqual } from 'lodash';
 import queryString from 'query-string';
 import React, { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -243,7 +244,11 @@ export const defaultTabDisplayConfig = {
     enabled: (_, _1) => true,
 };
 
-const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: EntitySidebarSection[]) => {
+const getFinalSidebarTabs = (
+    tabs: EntitySidebarTab[],
+    sidebarSections: EntitySidebarSection[],
+    t: (key: string) => string,
+) => {
     const sidebarTabsWithDefaults = tabs.map((tab) => ({
         ...tab,
         display: { ...defaultTabDisplayConfig, ...tab.display },
@@ -255,7 +260,7 @@ const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: EntitySi
     if ((sidebarSections || [])?.length > 0) {
         finalTabs = [
             {
-                name: 'Summary',
+                name: t('profile.defaultSummaryTabLabel'),
                 icon: BookOpen,
                 component: EntitySidebarSectionsTab,
                 properties: {
@@ -272,13 +277,13 @@ const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: EntitySi
     return finalTabs;
 };
 
-export function getPopularityColumn(tier: PopularityTier): SidebarStatsColumn | null {
+export function getPopularityColumn(tier: PopularityTier, t: (key: string) => string): SidebarStatsColumn | null {
     if (tier === undefined) return null;
 
     const status = getBarsStatusFromPopularityTier(tier);
     if (status) {
         return {
-            title: 'Popularity',
+            title: t('profile.popularityColumnTitle'),
             content: <SidebarPopularityHeaderSection />,
         };
     }
@@ -295,5 +300,6 @@ export function useFinalSidebarTabs(
     sidebarSections: EntitySidebarSection[] | undefined,
     _contextType: TabContextType,
 ) {
-    return useMemo(() => getFinalSidebarTabs(baseTabs, sidebarSections || []), [baseTabs, sidebarSections]);
+    const { t } = useTranslation('entity.shared.containers');
+    return useMemo(() => getFinalSidebarTabs(baseTabs, sidebarSections || [], t), [baseTabs, sidebarSections, t]);
 }

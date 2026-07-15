@@ -1,4 +1,5 @@
 import logging
+import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Callable, Dict, List, Optional, Tuple, Type
@@ -13,6 +14,7 @@ from datahub.ingestion.source.powerbi.config import (
     Constant,
     DataBricksPlatformDetail,
     DataPlatformPair,
+    OraclePlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     PowerBIPlatformDetail,
@@ -42,7 +44,10 @@ from datahub.ingestion.source.powerbi.m_query.odbc import (
     extract_server,
     normalize_platform_name,
 )
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Column,
+    Table,
+)
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -51,6 +56,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
     SqlParsingResult,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 
 logger = logging.getLogger(__name__)
 
@@ -178,19 +184,53 @@ def urn_to_lowercase(value: str, flag: bool) -> str:
     return value
 
 
+def _remap_column_lineage_to_pbi_fields(
+    column_lineage: List[ColumnLineageInfo],
+    pbi_columns: Optional[List[Column]],
+) -> List[ColumnLineageInfo]:
+    """sqlglot returns downstream column names in the upstream's case (Oracle is
+    lowercase), but PowerBI fields keep their original casing in the API
+    response. Without this remap, the downstream schemaField URN does not
+    resolve and the column-level edge points to a non-existent field."""
+    if not column_lineage or not pbi_columns:
+        return column_lineage
+
+    pbi_col_map: Dict[str, str] = {col.name.lower(): col.name for col in pbi_columns}
+
+    remapped: List[ColumnLineageInfo] = []
+    for cll_info in column_lineage:
+        if cll_info.downstream and cll_info.downstream.column:
+            pbi_name = pbi_col_map.get(cll_info.downstream.column.lower())
+            if pbi_name and pbi_name != cll_info.downstream.column:
+                cll_info = ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(
+                        table=cll_info.downstream.table,
+                        column=pbi_name,
+                        column_type=cll_info.downstream.column_type,
+                        native_column_type=cll_info.downstream.native_column_type,
+                    ),
+                    upstreams=cll_info.upstreams,
+                    logic=cll_info.logic,
+                )
+        remapped.append(cll_info)
+    return remapped
+
+
 def make_urn(
     config: PowerBiDashboardSourceConfig,
     platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     data_platform_pair: DataPlatformPair,
     server: str,
     qualified_table_name: str,
+    platform_detail: Optional[PlatformDetail] = None,
 ) -> str:
-    platform_detail: PlatformDetail = platform_instance_resolver.get_platform_instance(
-        PowerBIPlatformDetail(
-            data_platform_pair=data_platform_pair,
-            data_platform_server=server,
+    if platform_detail is None:
+        platform_detail = platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=data_platform_pair,
+                data_platform_server=server,
+            )
         )
-    )
 
     return builder.make_dataset_urn_with_platform_instance(
         platform=data_platform_pair.datahub_data_platform_name,
@@ -330,12 +370,22 @@ class AbstractLineage(ABC):
         return None
 
     @staticmethod
-    def is_sql_query(query: Optional[str]) -> bool:
+    def is_sql_query(query: Optional[str], platform: Optional[str] = None) -> bool:
         if not query:
             return False
         query = native_sql_parser.remove_special_characters(query)
+        # Use the platform dialect so platform-specific syntax (e.g. BigQuery
+        # backtick-quoted, hyphenated project ids) parses as SQL. Platforms
+        # sqlglot has no dialect for (e.g. db2, vertica) fall back to the
+        # default dialect rather than raising.
+        dialect: Optional[sqlglot.Dialect] = None
+        if platform:
+            try:
+                dialect = get_dialect(platform)
+            except ValueError:
+                dialect = None
         try:
-            expression = sqlglot.parse_one(query)
+            expression = sqlglot.parse_one(query, dialect=dialect)
             return isinstance(expression, exp.Select)
         except (ParseError, Exception):
             logger.debug(f"Failed to parse query as SQL: {query}")
@@ -348,19 +398,19 @@ class AbstractLineage(ABC):
         database: Optional[str],
         schema: Optional[str],
         platform_pair: Optional[DataPlatformPair] = None,
+        platform_detail: Optional[PlatformDetail] = None,
     ) -> Lineage:
         dataplatform_tables: List[DataPlatformTable] = []
         if not platform_pair:
             platform_pair = self.get_platform_pair()
 
-        platform_detail: PlatformDetail = (
-            self.platform_instance_resolver.get_platform_instance(
+        if platform_detail is None:
+            platform_detail = self.platform_instance_resolver.get_platform_instance(
                 PowerBIPlatformDetail(
                     data_platform_pair=platform_pair,
                     data_platform_server=server,
                 )
             )
-        )
 
         # remove_special_characters must run first to expand #(lf) → \n before
         # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
@@ -430,7 +480,12 @@ class AbstractLineage(ABC):
                 upstreams = [
                     ColumnRef(
                         table=urn,
-                        column=column.name.lower(),
+                        # Preserve the source column casing so the upstream
+                        # schemaField URN matches the warehouse's field, which
+                        # stores columns in their original casing. Lowercasing is
+                        # governed for the dataset portion by
+                        # convert_lineage_urns_to_lowercase downstream in powerbi.py.
+                        column=column.name,
                     )
                 ]
 
@@ -649,23 +704,47 @@ class AmazonRedshiftLineage(AbstractLineage):
 
 
 class OracleLineage(AbstractLineage):
+    # Hyphens are valid in host names and TNS aliases (e.g. "oracle-tns.example.com").
+    _TNS_ALIAS_RE = re.compile(r"^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$")
+    _TNS_SERVICE_NAME_RE = re.compile(r"service_name\s*=\s*([A-Za-z0-9_.-]+)")
+
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.ORACLE.value
 
     @staticmethod
     def _get_server_and_db_name(value: str) -> Tuple[Optional[str], Optional[str]]:
-        error_message: str = (
-            f"The target argument ({value}) should in the format of <host-name>:<port>/<db-name>["
-            ".<domain>]"
-        )
         splitter_result: List[str] = value.split("/")
-        if len(splitter_result) != 2:
-            logger.debug(error_message)
-            return None, None
+        if len(splitter_result) == 2:
+            db_name = splitter_result[1].split(".")[0]
+            return splitter_result[0].strip('"'), db_name
 
-        db_name = splitter_result[1].split(".")[0]
+        # Lowercased so customer recipe keys match regardless of the M-query's
+        # casing of the TNS alias (Oracle TNS lookup is case-insensitive).
+        cleaned = value.strip().strip('"').lower()
 
-        return splitter_result[0].strip('"'), db_name
+        if OracleLineage._TNS_ALIAS_RE.match(cleaned):
+            return cleaned, None
+
+        if cleaned.startswith("(") and "service_name" in cleaned:
+            m = OracleLineage._TNS_SERVICE_NAME_RE.search(cleaned)
+            if m:
+                return m.group(1), None
+
+        logger.debug(
+            "Oracle.Database connection string %r is not in a recognized form "
+            "(EZ-Connect, bare TNS alias, or descriptor with SERVICE_NAME). "
+            "Skipping lineage.",
+            value,
+        )
+        return None, None
+
+    def _resolve_platform_detail(self, server: str) -> PlatformDetail:
+        return self.platform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=self.get_platform_pair(),
+                data_platform_server=server,
+            )
+        )
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -684,17 +763,78 @@ class OracleLineage(AbstractLineage):
 
         server, db_name = self._get_server_and_db_name(args[0])
 
-        if db_name is None or server is None:
+        if server is None:
+            self.reporter.warning(
+                title="Oracle.Database connection string not recognized",
+                message=(
+                    "Could not parse host/db from the Oracle.Database first "
+                    "argument; lineage skipped. Supported forms: EZ-Connect "
+                    "'host:port/db', bare TNS alias, or a descriptor "
+                    "containing SERVICE_NAME=."
+                ),
+                context=f"table={self.table.full_name}, value={args[0]!r}",
+            )
             return Lineage.empty()
+
+        record_fields = _get_record_args(
+            data_access_func_detail.node_map,
+            data_access_func_detail.arg_list,
+        )
+        inline_query: Optional[str] = record_fields.get("Query")
+        if inline_query:
+            return self._create_lineage_from_query(
+                server=server,
+                query=inline_query,
+            )
 
         accessor = data_access_func_detail.identifier_accessor
         if accessor is None or accessor.next is None:
+            logger.debug(
+                "Oracle.Database for %s has no two-step identifier accessor; "
+                "skipping hierarchical lineage.",
+                self.table.full_name,
+            )
             return Lineage.empty()
 
         schema_name: Optional[str] = accessor.items.get("Schema")
         table_name: Optional[str] = accessor.next.items.get("Name")
+        if schema_name is None or table_name is None:
+            self.reporter.warning(
+                title="Oracle.Database hierarchical navigation missing schema/table",
+                message=(
+                    "Oracle.Database hierarchical navigation was found but its "
+                    "Schema or table Name item is missing; lineage skipped."
+                ),
+                context=(
+                    f"table={self.table.full_name}, server={server}, "
+                    f"schema={schema_name}, name={table_name}"
+                ),
+            )
+            return Lineage.empty()
 
-        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+        platform_detail = self._resolve_platform_detail(server)
+
+        # A bare TNS alias / descriptor carries no database; fall back to a
+        # configured `default_database` so Oracle ingestions using 3-part URNs
+        # match, otherwise emit a 2-part `schema.table` URN.
+        effective_db: Optional[str] = db_name
+        if effective_db is None and isinstance(platform_detail, OraclePlatformDetail):
+            effective_db = platform_detail.default_database
+        if db_name is None and effective_db is None:
+            self.reporter.info(
+                title="Oracle lineage produced a 2-part URN",
+                message=(
+                    "A bare Oracle TNS alias/descriptor carries no database, so a "
+                    "2-part schema.table URN was produced. If your Oracle "
+                    "ingestion runs with add_database_name_to_urn=true (3-part "
+                    "URNs), set 'default_database' under server_to_platform_instance."
+                ),
+                context=f"table={self.table.full_name}, server={server}",
+            )
+
+        qualified_table_name = ".".join(
+            part for part in (effective_db, schema_name, table_name) if part is not None
+        )
 
         urn = make_urn(
             config=self.config,
@@ -702,6 +842,7 @@ class OracleLineage(AbstractLineage):
             data_platform_pair=self.get_platform_pair(),
             server=server,
             qualified_table_name=qualified_table_name,
+            platform_detail=platform_detail,
         )
 
         column_lineage = self.create_table_column_lineage(urn)
@@ -715,6 +856,83 @@ class OracleLineage(AbstractLineage):
             ],
             column_lineage=column_lineage,
         )
+
+    def _create_lineage_from_query(self, server: str, query: str) -> Lineage:
+        """Resolve lineage for an ``Oracle.Database(…, Query="…")`` invocation."""
+        if self.config.enable_advance_lineage_sql_construct is False:
+            self.reporter.info(
+                title="Oracle inline native-query lineage skipped",
+                message=(
+                    "Oracle.Database(…, Query=…) was found but "
+                    "enable_advance_lineage_sql_construct=False — set the flag "
+                    "to extract lineage from inline native SQL."
+                ),
+                context=f"table={self.table.full_name}",
+            )
+            return Lineage.empty()
+
+        platform_detail = self._resolve_platform_detail(server)
+
+        default_schema: Optional[str] = None
+        default_database: Optional[str] = None
+        if isinstance(platform_detail, OraclePlatformDetail):
+            default_schema = platform_detail.default_schema
+            default_database = platform_detail.default_database
+
+        if default_schema is None and self._sql_has_unqualified_tables(query):
+            self.reporter.warning(
+                title="Oracle native-query lineage missing default_schema",
+                message=(
+                    'Oracle.Database(…, Query="…") references unqualified tables '
+                    "but no default_schema is configured for this server. Add "
+                    "'default_schema: <schema>' under server_to_platform_instance "
+                    "in your PowerBI recipe."
+                ),
+                context=f"table={self.table.full_name}, server={server}",
+            )
+
+        # `default_database` is None for the default 2-part URN shape; set, it
+        # produces 3-part URNs matching `add_database_name_to_urn: true`.
+        lineage = self.parse_custom_sql(
+            query=query,
+            server=server,
+            database=default_database,
+            schema=default_schema,
+            platform_detail=platform_detail,
+        )
+        return Lineage(
+            upstreams=lineage.upstreams,
+            column_lineage=_remap_column_lineage_to_pbi_fields(
+                lineage.column_lineage,
+                self.table.columns,
+            ),
+        )
+
+    def _sql_has_unqualified_tables(self, query: str) -> bool:
+        """True if the SQL contains any table reference without a schema/owner prefix."""
+        try:
+            cleaned = native_sql_parser.remove_special_characters(query)
+            cleaned = native_sql_parser.remove_drop_statement(cleaned)
+            for statement in sqlglot.parse(cleaned, dialect="oracle"):
+                if statement is None:
+                    continue
+                for table in statement.find_all(exp.Table):
+                    if not table.db:
+                        return True
+        except (sqlglot.errors.SqlglotError, ValueError, AttributeError) as e:
+            # Conservative: parse failure is reported as "unqualified" so the user
+            # gets the missing-default_schema warning instead of silent zero-lineage.
+            # Logged at WARNING so a dialect regression is visible, not hidden by
+            # a perpetual default_schema warning.
+            logger.warning(
+                "Could not parse Oracle inline SQL for table %s to detect unqualified "
+                "tables; assuming unqualified. Error type=%s: %s",
+                self.table.full_name,
+                type(e).__name__,
+                e,
+            )
+            return True
+        return False
 
 
 class DatabricksLineage(AbstractLineage):
@@ -1357,6 +1575,13 @@ class NativeQueryLineage(AbstractLineage):
         )
 
 
+# Two-tier platforms whose connector URNs are schema.table. Their ODBC
+# navigation exposes a pseudo-catalog (e.g. Hive's constant "HIVE") that must be
+# dropped so URNs match (HiveSource is a TwoTierSQLAlchemySource). Derived from
+# the enum so a platform-name rename can't silently disable the catalog drop.
+ODBC_TWO_TIER_PLATFORMS = {SupportedDataPlatform.HIVE.value.datahub_data_platform_name}
+
+
 class OdbcLineage(AbstractLineage):
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -1424,7 +1649,7 @@ class OdbcLineage(AbstractLineage):
         elif not server_name:
             server_name = "unknown"
 
-        if self.is_sql_query(query):
+        if self.is_sql_query(query, platform_pair.datahub_data_platform_name):
             return self.query_lineage(query, platform_pair, server_name, dsn)
         else:
             return self.expression_lineage(
@@ -1660,7 +1885,9 @@ class OdbcLineage(AbstractLineage):
             if temp_accessor.items.get("Kind") == "Schema":
                 schema_name = temp_accessor.items["Name"]
 
-            if temp_accessor.items.get("Kind") == "Table":
+            # A view leaf uses Kind="View"; treat it as a table leaf
+            # (cf. create_reference_table).
+            if temp_accessor.items.get("Kind") in ("Table", "View"):
                 table_name = temp_accessor.items["Name"]
 
             if temp_accessor.next is not None:
@@ -1668,7 +1895,20 @@ class OdbcLineage(AbstractLineage):
             else:
                 break
 
-        if (
+        if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
+            if schema_name is not None:
+                # Drop the pseudo-catalog database_name for two-tier platforms.
+                qualified_table_name = f"{schema_name}.{table_name}"
+            else:
+                # database_name here is the pseudo-catalog (e.g. "HIVE"), not a real
+                # schema; emitting it would produce a dangling URN. Surface instead.
+                self.reporter.warning(
+                    title="Cannot build two-tier ODBC table name",
+                    message="Two-tier ODBC navigation had no schema level; skipping lineage.",
+                    context=f"table-name={self.table.full_name}, data-platform={data_platform}, database={database_name}, table={table_name}",
+                )
+                return Lineage.empty()
+        elif (
             database_name is not None
             and schema_name is not None
             and table_name is not None

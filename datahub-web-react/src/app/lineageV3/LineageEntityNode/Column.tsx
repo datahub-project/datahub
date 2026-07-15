@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Spin, Typography } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
@@ -135,6 +136,7 @@ export default function Column({
     hoveredColumn,
     setHoveredColumn,
 }: Props) {
+    const { t } = useTranslation('lineage');
     const { config } = useAppConfig();
     const id = useMemo(() => createColumnRef(parentUrn, fieldPath), [parentUrn, fieldPath]);
     const selected = selectedColumn === id;
@@ -231,7 +233,7 @@ export default function Column({
                     target="_blank"
                     rel="noopener noreferrer"
                 >
-                    <Tooltip title="Explore complete column lineage" mouseEnterDelay={0.3}>
+                    <Tooltip title={t('column.exploreCompleteLineage.tooltip')} mouseEnterDelay={0.3}>
                         <LinkOutIcon />
                     </Tooltip>
                 </ColumnLinkWrapper>
@@ -242,7 +244,7 @@ export default function Column({
 
     return (
         <Tooltip
-            title="Column has no lineage"
+            title={t('column.noLineage.tooltip')}
             open={(showDisabledTooltipOnHover && hoveredColumn === id) || showDisabledTooltipOnSelect}
             placement="right"
             showArrow={false}

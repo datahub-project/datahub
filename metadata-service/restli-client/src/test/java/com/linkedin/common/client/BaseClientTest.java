@@ -1245,6 +1245,34 @@ public class BaseClientTest {
   }
 
   @Test
+  public void testFilterExistingUrns() throws RemoteInvocationException, URISyntaxException {
+    Urn existingUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,test,PROD)");
+    Urn missingUrn = Urn.createFromString("urn:li:structuredProperty:deleted");
+
+    Response<StringArray> mockResponse = mock(Response.class);
+    ResponseFuture<StringArray> mockFuture = mock(ResponseFuture.class);
+    when(mockResponse.getEntity()).thenReturn(new StringArray(List.of(existingUrn.toString())));
+    when(mockFuture.getResponse()).thenReturn(mockResponse);
+    when(mockRestliClient.sendRequest(any(ActionRequest.class))).thenReturn(mockFuture);
+
+    testClient =
+        new RestliEntityClient(
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ExponentialBackoff(1))
+                .retryCount(0)
+                .batchGetV2Size(10)
+                .batchGetV2Concurrency(2)
+                .build(),
+            mockMetricUtils);
+
+    Set<Urn> existing = testClient.filterExistingUrns(opContext, List.of(existingUrn, missingUrn));
+
+    assertEquals(existing, Set.of(existingUrn));
+    verify(mockRestliClient, times(1)).sendRequest(any(ActionRequest.class));
+  }
+
+  @Test
   public void testGetAspectOrNull() throws RemoteInvocationException {
     // Setup for successful case
     VersionedAspect mockVersionedAspect = new VersionedAspect();

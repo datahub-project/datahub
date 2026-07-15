@@ -1,3 +1,7 @@
+---
+title: Assertions API Tutorial
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -5,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability saasOnly />
 
-This guide specifically covers how to use the Assertion APIs for **DataHub Cloud** native assertions, including:
+This guide specifically covers how to use the Assertion APIs and Python SDK for **DataHub Cloud** native assertions, including:
 
 - [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions.md)
 - [Volume Assertions](/docs/managed-datahub/observe/volume-assertions.md)
@@ -13,9 +17,9 @@ This guide specifically covers how to use the Assertion APIs for **DataHub Cloud
 - [Schema Assertions](/docs/managed-datahub/observe/schema-assertions.md)
 - [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions.md)
 
-## Why Would You Use Assertions APIs?
+## Why Would You Use Assertions APIs & SDK?
 
-The Assertions APIs allow you to create, schedule, run, and delete Assertions with DataHub Cloud. Additionally, you can manage subscriptions to receive notifications when assertions change state or when other entity changes occur.
+The Assertions APIs and SDK allow you to create, schedule, run, and delete Assertions with DataHub Cloud. Additionally, you can manage subscriptions to receive notifications when assertions change state or when other entity changes occur.
 
 ### Goal Of This Guide
 
@@ -87,15 +91,15 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create smart freshness assertion (AI-powered anomaly detection)
+# Create a Freshness assertion with Anomaly Detection (AI-powered thresholding)
 dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
 
 smart_freshness_assertion = client.assertions.sync_smart_freshness_assertion(
     dataset_urn=dataset_urn,
-    display_name="Smart Freshness Anomaly Monitor",
+    display_name="Freshness Anomaly Monitor",
     # Detection mechanism - information_schema is recommended
     detection_mechanism="information_schema",
-    # Smart sensitivity setting
+    # AI sensitivity setting
     sensitivity="medium",  # options: "low", "medium", "high"
     # Tags for grouping
     tags=["automated", "freshness", "data_quality"],
@@ -103,7 +107,7 @@ smart_freshness_assertion = client.assertions.sync_smart_freshness_assertion(
     enabled=True
 )
 
-print(f"Created smart freshness assertion: {smart_freshness_assertion.urn}")
+print(f"Created freshness anomaly monitor: {smart_freshness_assertion.urn}")
 
 # Create traditional freshness assertion (fixed interval)
 freshness_assertion = client.assertions.sync_freshness_assertion(
@@ -232,15 +236,16 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create smart volume assertion (AI-powered anomaly detection)
+# Create a Volume assertion with Anomaly Detection (AI-powered thresholding)
 dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
 
 smart_volume_assertion = client.assertions.sync_smart_volume_assertion(
     dataset_urn=dataset_urn,
-    display_name="Smart Volume Check",
-    # Detection mechanism options
-    detection_mechanism="information_schema",
-    # Smart sensitivity setting
+    display_name="Volume Anomaly Monitor",
+    # Bucketing always requires a query-based source; information_schema and
+    # DataHub Dataset Profile cannot be bucketed.
+    detection_mechanism="query",
+    # AI sensitivity setting
     sensitivity="medium",  # options: "low", "medium", "high"
     # Tags for grouping
     tags=["automated", "volume", "data_quality"],
@@ -256,9 +261,9 @@ smart_volume_assertion = client.assertions.sync_smart_volume_assertion(
     enabled=True
 )
 
-print(f"Created smart volume assertion: {smart_volume_assertion.urn}")
+print(f"Created volume anomaly monitor: {smart_volume_assertion.urn}")
 
-# Create traditional volume assertion (fixed threshold range)
+# Create fixed-threshold volume assertion (static range)
 volume_assertion = client.assertions.sync_volume_assertion(
     dataset_urn=dataset_urn,
     display_name="Row Count Range Check",
@@ -369,21 +374,21 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create smart column metric assertion (AI-powered anomaly detection).
-# Note: Smart Assertions currently only support the following column metrics:
-# null_count, unique_count, empty_count, zero_count, negative_count.
-# For other metrics (e.g. min, max, mean), use a regular column metric assertion
-# with a fixed threshold (see below).
+# Create a Column Metric assertion with Anomaly Detection.
+# Note: Anomaly Detection for Column Metrics currently only supports the
+# following metrics: null_count, unique_count, empty_count, zero_count,
+# negative_count. For other metrics (e.g. min, max, mean), use a fixed-threshold
+# column metric assertion (see below).
 dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
 
 smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
     dataset_urn=dataset_urn,
     column_name="user_id",
     metric_type="null_count",
-    display_name="Smart Null Count Check - user_id",
+    display_name="Null Count Anomaly Monitor - user_id",
     # Detection mechanism for column metrics
     detection_mechanism="all_rows_query_datahub_dataset_profile",
-    # Smart sensitivity setting
+    # AI sensitivity setting
     sensitivity="medium",  # options: "low", "medium", "high"
     # Optional: partition data into daily time buckets
     time_bucketing_strategy={
@@ -398,10 +403,10 @@ smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
     enabled=True
 )
 
-print(f"Created smart column assertion: {smart_column_assertion.urn}")
+print(f"Created column metric anomaly monitor: {smart_column_assertion.urn}")
 
-# Create regular column metric assertion (fixed threshold on aggregated metric).
-# Use this for metrics not supported by Smart Assertions (e.g. min, max, mean, median, stddev).
+# Create fixed-threshold column metric assertion.
+# Use this for metrics not supported by Anomaly Detection (e.g. min, max, mean, median, stddev).
 column_metric_assertion = client.assertions.sync_column_metric_assertion(
     dataset_urn=dataset_urn,
     column_name="price",
@@ -510,7 +515,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 
 ---
 
-To create a new **smart SQL** assertion (AI anomaly detection), use the same mutation with `inferWithAI: true`.
+To create a new **Custom SQL assertion with Anomaly Detection**, use the same mutation with `inferWithAI: true`.
 
 ```graphql
 mutation upsertDatasetSqlAssertionMonitor {
@@ -518,7 +523,7 @@ mutation upsertDatasetSqlAssertionMonitor {
     input: {
       entityUrn: "<urn of entity being monitored>"
       type: METRIC
-      description: "<description of the smart SQL assertion>"
+      description: "<description of the Custom SQL anomaly monitor>"
       statement: "<SQL query to be evaluated>"
       inferWithAI: true
       inferenceSettings: { sensitivity: { level: 5 } }
@@ -579,13 +584,13 @@ range_sql_assertion = client.assertions.sync_sql_assertion(
 
 print(f"Created range SQL assertion: {range_sql_assertion.urn}")
 
-# ----------------------------
-# Smart SQL assertions (AI anomaly detection)
-# ----------------------------
+# -----------------------------------------------------------
+# Custom SQL assertion with Anomaly Detection
+# -----------------------------------------------------------
 
 smart_sql_assertion = client.assertions.sync_smart_sql_assertion(
     dataset_urn=dataset_urn,
-    display_name="Smart Revenue Monitor",
+    display_name="Revenue Anomaly Monitor",
     # The SQL statement to evaluate - should return a single numeric value
     statement="SELECT SUM(revenue) FROM database.schema.table WHERE date >= CURRENT_DATE - INTERVAL '1 day'",
     # AI sensitivity setting
@@ -595,11 +600,11 @@ smart_sql_assertion = client.assertions.sync_smart_sql_assertion(
     # Optional: training data lookback
     training_data_lookback_days=60,
     # Tags
-    tags=["automated", "revenue", "smart_sql"],
+    tags=["automated", "revenue", "anomaly_detection"],
     enabled=True
 )
 
-print(f"Created smart SQL assertion: {smart_sql_assertion.urn}")
+print(f"Created Custom SQL anomaly monitor: {smart_sql_assertion.urn}")
 ```
 
 </TabItem>
@@ -723,9 +728,97 @@ print(f"Created detailed schema assertion: {detailed_schema_assertion.urn}")
 
 For more details, see the [Schema Assertions](/docs/managed-datahub/observe/schema-assertions.md) guide.
 
+### Configure Failure Severity
+
+Assertions can optionally set the severity assigned when an assertion fails. Use a default severity when any failure should be treated the same way, or add rules to map observed failed values to `LOW`, `MEDIUM`, or `HIGH`.
+
+The example below creates a Volume assertion that passes when row count is at most 1,000. If it fails and the observed row count is at least 2,000, the failure is marked `HIGH`; otherwise, it falls back to `MEDIUM`.
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```graphql
+mutation upsertDatasetVolumeAssertionMonitor {
+  upsertDatasetVolumeAssertionMonitor(
+    input: {
+      entityUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
+      type: ROW_COUNT_TOTAL
+      rowCountTotal: {
+        operator: LESS_THAN_OR_EQUAL_TO
+        parameters: { value: { value: "1000", type: NUMBER } }
+        failureSeverityConfig: {
+          defaultSeverity: MEDIUM
+          rules: [
+            {
+              severity: HIGH
+              operator: GREATER_THAN_OR_EQUAL_TO
+              parameters: { value: { value: "2000", type: NUMBER } }
+            }
+          ]
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */4 * * *"
+      }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from acryl_datahub_cloud.sdk import (
+    AssertionFailureSeverity,
+    AssertionFailureSeverityConfig,
+    AssertionFailureSeverityOperator,
+    AssertionFailureSeverityRule,
+)
+from datahub.metadata.urns import DatasetUrn
+from datahub.sdk import DataHubClient
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+dataset_urn = DatasetUrn.from_string(
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
+)
+
+volume_assertion = client.assertions.sync_volume_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Maximum Row Count Check",
+    criteria_condition="ROW_COUNT_IS_LESS_THAN_OR_EQUAL_TO",
+    criteria_parameters=1000,
+    detection_mechanism="information_schema",
+    schedule="0 */4 * * *",
+    failure_severity_config=AssertionFailureSeverityConfig(
+        default_severity=AssertionFailureSeverity.MEDIUM,
+        rules=[
+            AssertionFailureSeverityRule(
+                severity=AssertionFailureSeverity.HIGH,
+                operator=AssertionFailureSeverityOperator.GREATER_THAN_OR_EQUAL_TO,
+                value=2000,
+            )
+        ],
+    ),
+    enabled=True,
+)
+
+print(f"Created volume assertion: {volume_assertion.urn}")
+```
+
+</TabItem>
+</Tabs>
+
+Freshness supports default severity only, and Assertions with anomaly detection do not support manual severity configuration.
+
 ## Run Assertions
 
-You can use the following APIs to trigger the assertions you've created to run on-demand. This is
+You can use the following APIs and SDK functions to trigger the assertions you've created to run on-demand. This is
 particularly useful for running assertions on a custom schedule, for example from your production
 data pipelines.
 

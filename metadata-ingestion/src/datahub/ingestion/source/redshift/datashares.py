@@ -1,6 +1,8 @@
+import logging
+from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from datahub.api.entities.platformresource.platform_resource import (
     ElasticPlatformResourceQuery,
@@ -23,6 +25,8 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
 from datahub.utilities.search_utils import LogicalOperator
 
+logger: logging.Logger = logging.getLogger(__name__)
+
 
 class OutboundSharePlatformResource(BaseModel):
     namespace: str
@@ -30,12 +34,24 @@ class OutboundSharePlatformResource(BaseModel):
     env: str
     source_database: str
     share_name: str
+    # Optional for backward-compat with resources written before this field was added.
+    ingested_at: Optional[datetime] = None
+
+    @field_validator("ingested_at")
+    @classmethod
+    def _ensure_aware(cls, v: Optional[datetime]) -> Optional[datetime]:
+        # Coerce naive datetimes to UTC; legacy resources may lack tzinfo.
+        if v is None or v.tzinfo is not None:
+            return v
+        return v.replace(tzinfo=timezone.utc)
 
     def get_key(self) -> str:
         return f"{self.namespace}.{self.share_name}"
 
 
 PLATFORM_RESOURCE_TYPE = "OUTBOUND_DATASHARE"
+
+_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
 
 
 class RedshiftDatasharesHelper:
@@ -88,6 +104,7 @@ class RedshiftDatasharesHelper:
                     env=self.config.env,
                     source_database=share.source_database,
                     share_name=share.share_name,
+                    ingested_at=datetime.now(timezone.utc),
                 )
 
                 platform_resource = PlatformResource.create(
@@ -165,23 +182,66 @@ class RedshiftDatasharesHelper:
                 )
             else:
                 # Ideally we should get only one resource as primary key is namespace+share
-                # and type is "OUTBOUND_DATASHARE"
+                # and type is "OUTBOUND_DATASHARE"; if duplicates exist they are resolved below.
+                parsed: List[OutboundSharePlatformResource] = []
                 for resource in resources:
+                    if (
+                        resource.resource_info is None
+                        or resource.resource_info.value is None
+                    ):
+                        continue
+                    if resource.resource_info.resource_type != PLATFORM_RESOURCE_TYPE:
+                        continue
                     try:
-                        assert (
-                            resource.resource_info is not None
-                            and resource.resource_info.value is not None
-                        )
-                        return resource.resource_info.value.as_pydantic_object(
-                            OutboundSharePlatformResource, True
+                        parsed.append(
+                            resource.resource_info.value.as_pydantic_object(
+                                OutboundSharePlatformResource, True
+                            )
                         )
                     except Exception as e:
                         self.report.warning(
                             title="Upstream lineage of inbound datashare will be missing",
                             message="Failed to parse platform resource for outbound datashare",
-                            context=share.get_description(),
+                            context=f"{share.get_description()} resource={resource.id!r}",
                             exc=e,
                         )
+
+                if not parsed:
+                    self.report.warning(
+                        title="Upstream lineage of inbound datashare will be missing",
+                        message="Could not parse any matching OUTBOUND_DATASHARE PlatformResource for this share.",
+                        context=share.get_description(),
+                    )
+                    return None
+
+                def _aware(ts: Optional[datetime]) -> datetime:
+                    return ts if ts is not None else _EPOCH
+
+                def _priority(
+                    p: OutboundSharePlatformResource,
+                ) -> tuple:
+                    return (
+                        p.ingested_at is not None,  # timestamped > legacy
+                        _aware(p.ingested_at),  # newer > older
+                        p.platform_instance is not None,  # has platform_instance > not
+                        p.namespace,  # stable tiebreaker
+                    )
+
+                best = max(parsed, key=_priority)
+
+                if len(parsed) > 1:
+                    self.report.warning(
+                        title="Multiple matching outbound datashare PlatformResources",
+                        message=(
+                            f"Found {len(parsed)} matching resources; picked "
+                            f"ingested_at={best.ingested_at!r}, "
+                            f"platform_instance={best.platform_instance!r}. "
+                            f"Clean up duplicates."
+                        ),
+                        context=share.get_description(),
+                    )
+
+                return best
 
         return None
 

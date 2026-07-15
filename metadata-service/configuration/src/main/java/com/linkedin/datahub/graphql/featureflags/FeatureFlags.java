@@ -53,12 +53,24 @@ public class FeatureFlags {
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;
+  private boolean metricsEnabled = false;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
   private boolean multipleDataProductsPerAsset = false;
   private boolean hideLineageInSearchCards = false;
   private boolean contextDocumentsEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
+  private boolean showTestsInHealthIcon = false;
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;
+  private boolean i18nEnabled = true;
+  private boolean timeseriesAspectBatchLoadEnabled = true;
+  private boolean timeseriesAspectAggBatchLoadEnabled = true;
+  // Enables browser-side (RUM) OpenTelemetry tracing in the React app. When on, the SPA emits spans
+  // (page load, route changes, fetch/GraphQL) that propagate W3C traceparent to the frontend and
+  // correlate with backend spans. Spans are exported through the frontend's /otel/v1/traces proxy.
+  private boolean browserTracingEnabled = false;
+  // Gates browser Core Web Vitals (LCP/CLS/FID/FCP/TTFB) emission as OTel spans. Independent of
+  // browserTracingEnabled so vitals can stay off while browser request tracing is validated.
+  private boolean browserWebVitalsEnabled = false;
 }

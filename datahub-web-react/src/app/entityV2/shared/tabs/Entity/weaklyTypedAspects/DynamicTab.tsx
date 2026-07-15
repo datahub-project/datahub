@@ -22,6 +22,9 @@ const QueryText = styled(Typography.Paragraph)`
     }
 `;
 
+const SYNTAX_LANGUAGE_JSON = 'json';
+const EMPTY_JSON_OBJECT = '{}';
+
 // NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
 // to the component, so there's no way around this
 const NestedSyntax = styled(StyledSyntaxHighlighter)`
@@ -42,7 +45,9 @@ export default function DynamicTab({ renderSpec, payload, type }: Props) {
         <>
             <QueryText>
                 <pre>
-                    <NestedSyntax language="json">{JSON.stringify(JSON.parse(payload || '{}'), null, 2)}</NestedSyntax>
+                    <NestedSyntax language={SYNTAX_LANGUAGE_JSON}>
+                        {JSON.stringify(JSON.parse(payload || EMPTY_JSON_OBJECT), null, 2)}
+                    </NestedSyntax>
                 </pre>
             </QueryText>
         </>

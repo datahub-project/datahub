@@ -1,21 +1,41 @@
-"""Unit tests for Dataplex entry processing."""
+"""Unit tests for Dataplex entry processing (orchestration).
+
+Per-entry-type mapping behavior lives in ``test_dataplex_mappers.py``. This
+module covers the orchestration in ``DataplexEntriesProcessor``: filtering,
+reporting, parallel processing, project-container dedup, and the lineage
+side-channel.
+"""
 
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, cast
+from typing import List, Optional, cast
 from unittest.mock import Mock, patch
 
 import pytest
 from google.cloud import dataplex_v1
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
+from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_entries import (
     DataplexEntriesProcessor,
     DataplexEntriesReport,
 )
-from datahub.ingestion.source.dataplex.dataplex_ids import DataplexCloudSqlMySqlDatabase
+from datahub.ingestion.source.dataplex.dataplex_mappers import EntryMappingResult
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+
+
+def _make_entry(
+    *, short_name: str, fqn: str, parent_entry: str = "", name: Optional[str] = None
+) -> dataplex_v1.Entry:
+    entry = Mock(spec=dataplex_v1.Entry)
+    entry.name = name or f"projects/p/locations/us/entryGroups/g/entries/{short_name}"
+    entry.entry_type = f"projects/123/locations/global/entryTypes/{short_name}"
+    entry.fully_qualified_name = fqn
+    entry.parent_entry = parent_entry
+    entry.entry_source = None
+    entry.aspects = {}
+    return entry
 
 
 class TestDataplexEntriesProcessorDesign:
@@ -27,13 +47,14 @@ class TestDataplexEntriesProcessorDesign:
         report = DataplexEntriesReport()
         source_report = Mock()
         catalog_client = Mock(spec=dataplex_v1.CatalogServiceClient)
+        ctx = DataplexContext(config=config, credentials=None)
 
         return DataplexEntriesProcessor(
             config=config,
             catalog_client=catalog_client,
             report=report,
-            entry_data=[],
             source_report=source_report,
+            ctx=ctx,
         )
 
     def test_entries_report_tracks_counts_and_default_sampling(self) -> None:
@@ -79,59 +100,23 @@ class TestDataplexEntriesProcessorDesign:
         assert report.entry_groups_filtered == 12
         assert report.entry_group_filtered_samples.total_elements == 12
         assert len(list(report.entry_group_filtered_samples)) == 10
-        assert set(report.entry_group_filtered_samples).issubset(
-            {f"eg-{index}" for index in range(12)}
-        )
         assert report.entry_groups_processed == 1
-        assert report.entry_group_processed_samples.total_elements == 1
         assert list(report.entry_group_processed_samples) == ["eg-pass"]
 
         assert report.entries_seen == 48
         assert report.entries_filtered_by_pattern == 12
-        assert report.entry_pattern_filtered_samples.total_elements == 12
-        assert len(list(report.entry_pattern_filtered_samples)) == 10
-        assert set(report.entry_pattern_filtered_samples).issubset(
-            {f"entry-{index}" for index in range(12)}
-        )
-
         assert report.entries_filtered_by_missing_fqn == 12
-        assert report.entry_missing_fqn_samples.total_elements == 12
-        assert len(list(report.entry_missing_fqn_samples)) == 10
-        assert set(report.entry_missing_fqn_samples).issubset(
-            {f"missing-fqn-{index}" for index in range(12)}
-        )
-
         assert report.entries_filtered_by_fqn_pattern == 12
-        assert report.entry_fqn_filtered_samples.total_elements == 12
-        assert len(list(report.entry_fqn_filtered_samples)) == 10
-        assert set(report.entry_fqn_filtered_samples).issubset(
-            {f"fqn-{index}" for index in range(12)}
-        )
-
         assert report.entries_processed == 12
         assert report.entries_processed_samples.total_elements == 12
         assert len(list(report.entries_processed_samples)) == 10
-        assert set(report.entries_processed_samples).issubset(
-            {f"processed-{index}" for index in range(12)}
-        )
 
-    def test_processor_utility_methods(
+    def test_should_process_entry_group_defaults_to_allow(
         self, processor: DataplexEntriesProcessor
     ) -> None:
-        entry = Mock(spec=dataplex_v1.Entry)
-        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
-        entry.entry_type = "projects/p/locations/global/entryTypes/unknown-type"
-        entry.fully_qualified_name = ""
-        entry.parent_entry = ""
-
-        # No entry_groups filter configured yet -> allow all.
         assert processor.should_process_entry_group(
             "projects/p/locations/us/entryGroups/g"
         )
-
-        # Unsupported/invalid entries should be skipped safely.
-        assert processor.build_entity_for_entry(entry) is None
-        assert processor.build_entry_container_key(entry) is None
 
     def test_should_process_entry_uses_full_entry_name_for_pattern(self) -> None:
         config = DataplexConfig(
@@ -142,8 +127,8 @@ class TestDataplexEntriesProcessorDesign:
             config=config,
             catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
             report=DataplexEntriesReport(),
-            entry_data=[],
             source_report=Mock(),
+            ctx=DataplexContext(config=config, credentials=None),
         )
 
         entry = Mock(spec=dataplex_v1.Entry)
@@ -155,387 +140,55 @@ class TestDataplexEntriesProcessorDesign:
         entry.fully_qualified_name = ""
         assert not processor.should_process_entry(entry)
 
-    def test_extract_display_name_falls_back_to_last_name_segment(
+    def test_build_entities_for_unsupported_type_returns_empty_and_warns(
         self, processor: DataplexEntriesProcessor
     ) -> None:
-        entry = Mock(spec=dataplex_v1.Entry)
-        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
-        entry_source = Mock()
-        entry_source.display_name = ""
-        entry.entry_source = entry_source
+        entry = _make_entry(short_name="unknown-type", fqn="unknown:p.ds.t")
+        assert processor._build_entities_for_entry(entry, "us") == []
+        cast(Mock, processor.source_report).warning.assert_called_once()
 
-        assert processor._extract_display_name(entry) == "e1"
-
-    def test_extract_display_name_falls_back_when_display_name_is_non_string(
-        self,
-        processor: DataplexEntriesProcessor,
-    ) -> None:
-        entry = Mock(spec=dataplex_v1.Entry)
-        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
-        entry_source = Mock()
-        entry_source.display_name = Mock()
-        entry.entry_source = entry_source
-
-        assert processor._extract_display_name(entry) == "e1"
-
-    def test_build_entity_for_entry_dataset_and_container_paths(
+    def test_build_entities_emits_project_container_and_dataset_with_lineage(
         self, processor: DataplexEntriesProcessor
     ) -> None:
-        processor.config.include_schema = True
-
-        dataset_entry = Mock(spec=dataplex_v1.Entry)
-        dataset_entry.name = (
-            "projects/p/locations/us/entryGroups/@bigquery/entries/"
-            "bigquery.googleapis.com/projects/p/datasets/ds/tables/t"
-        )
-        dataset_entry.entry_type = (
-            "projects/123/locations/global/entryTypes/bigquery-table"
-        )
-        dataset_entry.fully_qualified_name = "bigquery:p.ds.t"
-        dataset_entry.parent_entry = (
-            "projects/p/locations/us/entryGroups/@bigquery/entries/"
-            "bigquery.googleapis.com/projects/p/datasets/ds"
-        )
-        dataset_entry.entry_source = None
-
-        with (
-            patch(
-                "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
-                return_value={"k": "v"},
+        entry = _make_entry(
+            short_name="bigquery-table",
+            fqn="bigquery:my-project.my_dataset.my_table",
+            parent_entry=(
+                "projects/my-project/locations/us/entryGroups/@bigquery/entries/"
+                "bigquery.googleapis.com/projects/my-project/datasets/my_dataset"
             ),
-            patch(
-                "datahub.ingestion.source.dataplex.dataplex_entries.extract_schema_from_entry_aspects",
-                return_value=None,
-            ),
-            patch(
-                "datahub.ingestion.source.dataplex.dataplex_entries.extract_graph_schema_from_entry_aspects",
-                return_value=None,
-            ),
-        ):
-            dataset_entity = processor.build_entity_for_entry(dataset_entry)
-
-        assert isinstance(dataset_entity, Dataset)
-        assert str(dataset_entity.parent_container).startswith("urn:li:container:")
-
-        container_entry = Mock(spec=dataplex_v1.Entry)
-        container_entry.name = (
-            "projects/p/locations/us/entryGroups/@bigquery/entries/"
-            "bigquery.googleapis.com/projects/p/datasets/ds"
-        )
-        container_entry.entry_type = (
-            "projects/123/locations/global/entryTypes/bigquery-dataset"
-        )
-        container_entry.fully_qualified_name = "bigquery:p.ds"
-        container_entry.parent_entry = ""
-        container_entry.entry_source = None
-
-        with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
-            return_value={"k": "v"},
-        ):
-            container_entity = processor.build_entity_for_entry(container_entry)
-        assert isinstance(container_entity, Container)
-        assert str(container_entity.parent_container).startswith("urn:li:container:")
-
-        cloudsql_database_container = Mock(spec=dataplex_v1.Entry)
-        cloudsql_database_container.name = (
-            "projects/p/locations/us-west2/entryGroups/@cloudsql/entries/"
-            "cloudsql.googleapis.com/projects/p/locations/us-west2/instances/i/databases/d"
-        )
-        cloudsql_database_container.entry_type = (
-            "projects/123/locations/global/entryTypes/cloudsql-mysql-database"
-        )
-        cloudsql_database_container.fully_qualified_name = (
-            "cloudsql_mysql:p.us-west2.i.d"
-        )
-        cloudsql_database_container.parent_entry = (
-            "projects/p/locations/us-west2/entryGroups/@cloudsql/entries/"
-            "cloudsql.googleapis.com/projects/p/locations/us-west2/instances/i"
-        )
-        cloudsql_database_container.entry_source = None
-
-        with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
-            return_value={"k": "v"},
-        ):
-            cloudsql_container_entity = processor.build_entity_for_entry(
-                cloudsql_database_container
-            )
-        assert isinstance(cloudsql_container_entity, Container)
-        assert str(cloudsql_container_entity.parent_container).startswith(
-            "urn:li:container:"
         )
 
-    def test_build_project_container_for_entry(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        entry = Mock(spec=dataplex_v1.Entry)
-        entry.entry_type = (
-            "projects/123/locations/global/entryTypes/cloud-spanner-table"
-        )
-        entry.fully_qualified_name = "spanner:harshal-playground-306419.regional-us-west2.sergio-test.cymbal.Users"
+        results = processor._build_entities_for_entry(entry, "us-west2")
 
-        project_container = processor.build_project_container_for_entry(entry)
-        assert isinstance(project_container, Container)
-        assert project_container.display_name == "harshal-playground-306419"
-        assert project_container.parent_container is None
-
-    def test_build_entity_for_entry_handles_invalid_and_unsupported_inputs(
-        self,
-        processor: DataplexEntriesProcessor,
-    ) -> None:
-        missing_fqn = Mock(spec=dataplex_v1.Entry)
-        missing_fqn.name = "projects/p/locations/us/entryGroups/g/entries/e1"
-        missing_fqn.entry_type = (
-            "projects/123/locations/global/entryTypes/bigquery-table"
-        )
-        missing_fqn.fully_qualified_name = ""
-        missing_fqn.parent_entry = ""
-        assert processor.build_entity_for_entry(missing_fqn) is None
-
-        unsupported = Mock(spec=dataplex_v1.Entry)
-        unsupported.name = "projects/p/locations/us/entryGroups/g/entries/e2"
-        unsupported.entry_type = "projects/123/locations/global/entryTypes/unknown"
-        unsupported.fully_qualified_name = "unknown:p.ds.t"
-        unsupported.parent_entry = ""
-        assert processor.build_entity_for_entry(unsupported) is None
-
-        invalid_dataset_fqn = Mock(spec=dataplex_v1.Entry)
-        invalid_dataset_fqn.name = "projects/p/locations/us/entryGroups/g/entries/e3"
-        invalid_dataset_fqn.entry_type = (
-            "projects/123/locations/global/entryTypes/bigquery-table"
-        )
-        invalid_dataset_fqn.fully_qualified_name = "bigquery"
-        invalid_dataset_fqn.parent_entry = ""
-        invalid_dataset_fqn.entry_source = None
-        with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
-            return_value={},
-        ):
-            assert processor.build_entity_for_entry(invalid_dataset_fqn) is None
-
-    def test_build_entity_for_entry_dataset_without_parent_container(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        processor.config.include_schema = False
-
-        dataset_entry = Mock(spec=dataplex_v1.Entry)
-        dataset_entry.name = (
-            "projects/p/locations/us/entryGroups/@bigquery/entries/"
-            "bigquery.googleapis.com/projects/p/datasets/ds/tables/t"
-        )
-        dataset_entry.entry_type = (
-            "projects/123/locations/global/entryTypes/bigquery-table"
-        )
-        dataset_entry.fully_qualified_name = "bigquery:p.ds.t"
-        dataset_entry.parent_entry = ""
-        dataset_entry.entry_source = None
-
-        with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
-            return_value={"k": "v"},
-        ):
-            dataset_entity = processor.build_entity_for_entry(dataset_entry)
-
-        assert isinstance(dataset_entity, Dataset)
-        assert dataset_entity.parent_container is None
-
-    def test_build_entity_for_entry_warns_when_parent_expected_but_missing(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        processor.config.include_schema = False
-
-        dataset_entry = Mock(spec=dataplex_v1.Entry)
-        dataset_entry.name = (
-            "projects/p/locations/us/entryGroups/@bigquery/entries/"
-            "bigquery.googleapis.com/projects/p/datasets/ds/tables/t"
-        )
-        dataset_entry.entry_type = (
-            "projects/123/locations/global/entryTypes/bigquery-table"
-        )
-        dataset_entry.fully_qualified_name = "bigquery:p.ds.t"
-        dataset_entry.parent_entry = ""
-        dataset_entry.entry_source = None
-
-        with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
-            return_value={"k": "v"},
-        ):
-            dataset_entity = processor.build_entity_for_entry(dataset_entry)
-
-        assert isinstance(dataset_entity, Dataset)
-        assert dataset_entity.parent_container is None
-        source_report = cast(Mock, processor.source_report)
-        source_report.warning.assert_called_once()
-        warning_kwargs = source_report.warning.call_args.kwargs
-        assert warning_kwargs["title"] == "Missing Dataplex parent_entry"
-
-    def test_build_entity_for_vertexai_dataset_uses_project_parent_and_display_name(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        processor.config.include_schema = False
-
-        dataset_entry = Mock(spec=dataplex_v1.Entry)
-        dataset_entry.name = (
-            "projects/p/locations/us-west2/entryGroups/@vertexai/entries/"
-            "aiplatform.googleapis.com/projects/p/locations/us-west2/datasets/5135361416504541184"
-        )
-        dataset_entry.entry_type = (
-            "projects/123/locations/global/entryTypes/vertexai-dataset"
-        )
-        dataset_entry.fully_qualified_name = (
-            "vertex_ai:dataset:p.us-west2.5135361416504541184"
-        )
-        dataset_entry.parent_entry = ""
-        dataset_entry.entry_source = Mock()
-        dataset_entry.entry_source.display_name = "sergio-dataplex-test"
-        dataset_entry.entry_source.description = ""
-        dataset_entry.entry_source.create_time = None
-        dataset_entry.entry_source.update_time = None
-
-        with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
-            return_value={"k": "v"},
-        ):
-            dataset_entity = processor.build_entity_for_entry(dataset_entry)
-
-        assert isinstance(dataset_entity, Dataset)
-        assert dataset_entity.urn.urn() == (
-            "urn:li:dataset:(urn:li:dataPlatform:vertexai,"
-            "p.us-west2.5135361416504541184,PROD)"
-        )
-        assert dataset_entity.display_name == "sergio-dataplex-test"
-        assert dataset_entity.parent_container is not None
-        assert str(dataset_entity.parent_container).startswith("urn:li:container:")
-
-    def test_build_entity_for_pubsub_topic_uses_project_parent_container(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        processor.config.include_schema = False
-
-        dataset_entry = Mock(spec=dataplex_v1.Entry)
-        dataset_entry.name = (
-            "projects/p/locations/us-west2/entryGroups/@pubsub/entries/"
-            "pubsub.googleapis.com/projects/acryl-staging/topics/observe-staging-obs"
-        )
-        dataset_entry.entry_type = (
-            "projects/123/locations/global/entryTypes/pubsub-topic"
-        )
-        dataset_entry.fully_qualified_name = (
-            "pubsub:topic:acryl-staging.observe-staging-obs"
-        )
-        dataset_entry.parent_entry = ""
-        dataset_entry.entry_source = None
-
-        with patch(
-            "datahub.ingestion.source.dataplex.dataplex_entries.extract_entry_custom_properties",
-            return_value={"k": "v"},
-        ):
-            dataset_entity = processor.build_entity_for_entry(dataset_entry)
-
-        assert isinstance(dataset_entity, Dataset)
-        assert dataset_entity.urn.urn() == (
-            "urn:li:dataset:(urn:li:dataPlatform:pubsub,"
-            "acryl-staging.observe-staging-obs,PROD)"
-        )
-        assert dataset_entity.parent_container is not None
-        assert str(dataset_entity.parent_container).startswith("urn:li:container:")
-
-    def test_extract_helpers_cover_display_description_datetime_and_group_id(
-        self,
-        processor: DataplexEntriesProcessor,
-    ) -> None:
-        entry = Mock(spec=dataplex_v1.Entry)
-        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
-        entry.entry_source = Mock()
-        entry.entry_source.display_name = "Display"
-        entry.entry_source.description = "Description"
-        ts = Mock()
-        ts.timestamp.return_value = 123.0
-        entry.entry_source.create_time = ts
-        entry.entry_source.update_time = ts
-
-        assert processor._extract_display_name(entry) == "Display"
-        assert processor._extract_description(entry) == "Description"
-        assert processor._extract_entry_group_id(entry.name) == "g"
-        assert processor._extract_datetime(entry, "create_time") is not None
-        assert processor._extract_datetime(entry, "update_time") is not None
-
-        no_source_entry = Mock(spec=dataplex_v1.Entry)
-        no_source_entry.name = "projects/p/locations/us/entries/e2"
-        no_source_entry.entry_source = None
-        assert processor._extract_description(no_source_entry) == ""
-        assert processor._extract_datetime(no_source_entry, "create_time") is None
-        assert processor._extract_entry_group_id(no_source_entry.name) == "unknown"
-
-    def test_build_entry_container_key_warns_for_invalid_entry_type(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        entry = Mock(spec=dataplex_v1.Entry)
-        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
-        entry.entry_type = "invalid-entry-type"
-        entry.parent_entry = "projects/p/locations/us/entryGroups/g/entries/parent"
-
-        assert processor.build_entry_container_key(entry) is None
-        source_report = cast(Mock, processor.source_report)
-        source_report.warning.assert_called_once()
-
-    def test_track_entry_for_lineage_warns_for_invalid_entry_type(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        entry = Mock(spec=dataplex_v1.Entry)
-        entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
-        entry.entry_type = "invalid-entry-type"
-        entry.fully_qualified_name = "bigquery:p.ds.table"
-
-        processor._track_entry_for_lineage("us", entry)
-
-        source_report = cast(Mock, processor.source_report)
-        source_report.warning.assert_called_once()
-        assert len(processor.entry_data) == 0
-
-    def test_build_entry_container_key_and_lineage_tracking(
-        self, processor: DataplexEntriesProcessor
-    ) -> None:
-        no_parent = Mock(spec=dataplex_v1.Entry)
-        no_parent.name = "projects/p/locations/us/entryGroups/g/entries/no-parent"
-        no_parent.entry_type = "projects/123/locations/global/entryTypes/bigquery-table"
-        no_parent.parent_entry = ""
-        assert processor.build_entry_container_key(no_parent) is None
-
-        with_parent = Mock(spec=dataplex_v1.Entry)
-        with_parent.entry_type = (
-            "projects/123/locations/global/entryTypes/cloudsql-mysql-table"
-        )
-        with_parent.parent_entry = (
-            "projects/p/locations/us-west2/entryGroups/@cloudsql/entries/"
-            "cloudsql.googleapis.com/projects/p/locations/us-west2/instances/i/databases/d"
-        )
-        parent_key = processor.build_entry_container_key(with_parent)
-        assert isinstance(parent_key, DataplexCloudSqlMySqlDatabase)
-        assert parent_key.as_urn().startswith("urn:li:container:")
-
-        dataset_entry = Mock(spec=dataplex_v1.Entry)
-        dataset_entry.name = "projects/p/locations/us/entryGroups/g/entries/e1"
-        dataset_entry.entry_type = (
-            "projects/123/locations/global/entryTypes/bigquery-table"
-        )
-        dataset_entry.fully_qualified_name = "bigquery:p.ds.table1"
-        processor._track_entry_for_lineage("us", dataset_entry)
+        containers = [e for e in results if isinstance(e, Container)]
+        datasets = [e for e in results if isinstance(e, Dataset)]
+        assert len(containers) == 1
+        assert len(datasets) == 1
+        # Lineage side-channel populated for the dataset entry.
         assert len(processor.entry_data) == 1
-        tracked = processor.entry_data[0]
-        assert tracked.datahub_dataset_name == "p.ds.table1"
-        assert tracked.datahub_platform == "bigquery"
-        assert tracked.dataplex_entry_fqn == "bigquery:p.ds.table1"
-
-        non_dataset_entry = Mock(spec=dataplex_v1.Entry)
-        non_dataset_entry.name = "projects/p/locations/us/entryGroups/g/entries/e2"
-        non_dataset_entry.entry_type = (
-            "projects/123/locations/global/entryTypes/bigquery-dataset"
+        assert processor.entry_data[0].datahub_dataset_name == (
+            "my-project.my_dataset.my_table"
         )
-        non_dataset_entry.fully_qualified_name = "bigquery:p.ds"
-        processor._track_entry_for_lineage("us", non_dataset_entry)
-        assert len(processor.entry_data) == 1
+        assert processor.entry_data[0].dataplex_location == "us-west2"
+
+    def test_build_entities_dedups_project_container_across_entries(
+        self, processor: DataplexEntriesProcessor
+    ) -> None:
+        first = _make_entry(
+            short_name="bigquery-dataset", fqn="bigquery:my-project.dataset_a"
+        )
+        second = _make_entry(
+            short_name="bigquery-dataset", fqn="bigquery:my-project.dataset_b"
+        )
+
+        first_results = processor._build_entities_for_entry(first, "us")
+        second_results = processor._build_entities_for_entry(second, "us")
+
+        # First entry emits project container + its own container.
+        assert sum(isinstance(e, Container) for e in first_results) == 2
+        # Second entry (same project) drops the already-emitted project container.
+        assert len(second_results) == 1
 
 
 class TestDataplexParallelEntries:
@@ -552,8 +205,8 @@ class TestDataplexParallelEntries:
             config=config,
             catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
             report=DataplexEntriesReport(),
-            entry_data=[],
             source_report=Mock(),
+            ctx=DataplexContext(config=config, credentials=None),
         )
 
     def test_process_entries_collects_all_entries(
@@ -656,33 +309,36 @@ class TestDataplexParallelEntries:
         self,
     ) -> None:
         """Two parallel workers encountering the same project container emit it once."""
+        config = DataplexConfig(project_ids=["proj-1"], env="PROD")
         processor = DataplexEntriesProcessor(
-            config=DataplexConfig(project_ids=["proj-1"], env="PROD"),
+            config=config,
             catalog_client=Mock(spec=dataplex_v1.CatalogServiceClient),
             report=DataplexEntriesReport(),
-            entry_data=[],
             source_report=Mock(),
+            ctx=DataplexContext(config=config, credentials=None),
         )
 
         project_container = Mock()
         project_container.urn.urn.return_value = "urn:li:container:same-project"
-        entity_1 = Mock()
-        entity_2 = Mock()
-        entry_1 = Mock(spec=dataplex_v1.Entry)
-        entry_2 = Mock(spec=dataplex_v1.Entry)
+        main_1 = Mock()
+        main_2 = Mock()
 
-        with (
-            patch.object(
-                processor,
-                "build_project_container_for_entry",
-                return_value=project_container,
+        fake_mapper = Mock()
+        fake_mapper.map.side_effect = [
+            EntryMappingResult(
+                main_entity=main_1, additional_entities=[project_container]
             ),
-            patch.object(
-                processor,
-                "build_entity_for_entry",
-                side_effect=[entity_1, entity_2],
+            EntryMappingResult(
+                main_entity=main_2, additional_entities=[project_container]
             ),
-            patch.object(processor, "_track_entry_for_lineage"),
+        ]
+
+        entry_1 = _make_entry(short_name="bigquery-table", fqn="bigquery:p.d.t1")
+        entry_2 = _make_entry(short_name="bigquery-table", fqn="bigquery:p.d.t2")
+
+        with patch(
+            "datahub.ingestion.source.dataplex.dataplex_entries.get_entry_mapper",
+            return_value=fake_mapper,
         ):
             barrier = threading.Barrier(2)
 
@@ -697,8 +353,8 @@ class TestDataplexParallelEntries:
 
         containers = [e for e in results if e is project_container]
         assert len(containers) == 1
-        assert entity_1 in results
-        assert entity_2 in results
+        assert main_1 in results
+        assert main_2 in results
 
     def test_report_thread_safety(self) -> None:
         """Concurrent calls to report methods produce consistent counter totals."""

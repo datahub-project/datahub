@@ -2,6 +2,7 @@ import airflowLogo from '@images/airflowlogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
+import bigidLogo from '@images/bigidlogo.png';
 import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
@@ -11,7 +12,10 @@ import csvLogo from '@images/csv-logo.png';
 import dagsterLogo from '@images/dagsterlogo.svg';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
+import dataprocMetastoreLogo from '@images/dataprocmetastorelogo.svg';
 import dbtLogo from '@images/dbtlogo.png';
+import dltLogo from '@images/dltlogo.svg';
+import documentdbLogo from '@images/documentdblogo.svg';
 import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
@@ -22,15 +26,19 @@ import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import flinkLogo from '@images/flinklogo.svg';
+import githubLogo from '@images/githublogo.png';
 import glueLogo from '@images/gluelogo.png';
 import grafanaLogo from '@images/grafana.png';
 import hexLogo from '@images/hex.png';
 import hiveLogo from '@images/hivelogo.png';
 import icebergLogo from '@images/iceberglogo.png';
+import informaticaLogo from '@images/informaticalogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
+import matillionLogo from '@images/matillionlogo.png';
 import metabaseLogo from '@images/metabaselogo.png';
+import microstrategyLogo from '@images/microstrategylogo.svg';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
 import mongodbLogo from '@images/mongodblogo.png';
@@ -57,6 +65,9 @@ import sparkLogo from '@images/sparklogo.png';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
+import thoughtspotLogo from '@images/thoughtspotlogo.svg';
+import tidbLogo from '@images/tidblogo.svg';
+import timescaledbLogo from '@images/timescalelogo.png';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
@@ -69,6 +80,8 @@ export const AZURE = 'azure-ad';
 const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
 const AZURE_DATA_FACTORY = 'azure-data-factory';
 const AZURE_DATA_FACTORY_URN = `urn:li:dataPlatform:${AZURE_DATA_FACTORY}`;
+export const BIGID = 'bigid';
+export const BIGID_URN = `urn:li:dataPlatform:${BIGID}`;
 const BIGQUERY = 'bigquery';
 const BIGQUERY_URN = `urn:li:dataPlatform:${BIGQUERY}`;
 const CLICKHOUSE = 'clickhouse';
@@ -80,6 +93,8 @@ const DAGSTER = 'dagster';
 const DAGSTER_URN = `urn:li:dataPlatform:${DAGSTER}`;
 const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
+const DOCUMENTDB = 'documentdb';
+const DOCUMENTDB_URN = `urn:li:dataPlatform:${DOCUMENTDB}`;
 const DREMIO = 'dremio';
 const DREMIO_URN = `urn:li:dataPlatform:${DREMIO}`;
 const DRUID = 'druid';
@@ -97,7 +112,7 @@ const GRAFANA = 'grafana';
 const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 const GLUE = 'glue';
 const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
-const HEX = 'hex';
+export const HEX = 'hex';
 const HEX_URN = `urn:li:dataPlatform:${HEX}`;
 const HIVE = 'hive';
 const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
@@ -110,8 +125,13 @@ export const LOOK_ML = 'lookml';
 const LOOKER_URN = `urn:li:dataPlatform:${LOOKER}`;
 const MARIA_DB = 'mariadb';
 const MARIA_DB_URN = `urn:li:dataPlatform:${MARIA_DB}`;
+export const MATILLION = 'matillion';
+export const MATILLION_DPC = 'matillion-dpc';
+export const MATILLION_URN = `urn:li:dataPlatform:${MATILLION}`;
 const METABASE = 'metabase';
 const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
+export const MICROSTRATEGY = 'microstrategy';
+const MICROSTRATEGY_URN = `urn:li:dataPlatform:${MICROSTRATEGY}`;
 const MLFLOW = 'mlflow';
 const MLFLOW_URN = `urn:li:dataPlatform:${MLFLOW}`;
 const MODE = 'mode';
@@ -125,6 +145,9 @@ const MYSQL_URN = `urn:li:dataPlatform:${MYSQL}`;
 export const CONFLUENCE = 'confluence';
 const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
 export const NOTION = 'notion';
+export const GITHUB = 'github';
+export const GITHUB_DOCUMENTS = 'github-documents';
+const GITHUB_URN = `urn:li:dataPlatform:${GITHUB}`;
 const NOTION_URN = `urn:li:dataPlatform:${NOTION}`;
 export const OKTA = 'okta';
 const OKTA_URN = `urn:li:dataPlatform:${OKTA}`;
@@ -152,6 +175,12 @@ const SUPERSET = 'superset';
 const SUPERSET_URN = `urn:li:dataPlatform:${SUPERSET}`;
 const TABLEAU = 'tableau';
 const TABLEAU_URN = `urn:li:dataPlatform:${TABLEAU}`;
+export const THOUGHTSPOT = 'thoughtspot';
+export const THOUGHTSPOT_URN = `urn:li:dataPlatform:${THOUGHTSPOT}`;
+const TIDB = 'tidb';
+const TIDB_URN = `urn:li:dataPlatform:${TIDB}`;
+const TIMESCALEDB = 'timescaledb';
+const TIMESCALEDB_URN = `urn:li:dataPlatform:${TIMESCALEDB}`;
 const TRINO = 'trino';
 const TRINO_URN = `urn:li:dataPlatform:${TRINO}`;
 export const CUSTOM = 'custom';
@@ -159,6 +188,8 @@ const UNITY_CATALOG = 'unity-catalog';
 const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
 export const DATABRICKS = 'databricks';
 const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
+export const DATAPROC_METASTORE = 'dataproc-metastore';
+const DATAPROC_METASTORE_URN = `urn:li:dataPlatform:${DATAPROC_METASTORE}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const VERTICA = 'vertica';
 const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
@@ -189,8 +220,12 @@ export const NEO4J = 'neo4j';
 export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
 export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
+export const INFORMATICA = 'informatica';
+export const INFORMATICA_URN = `urn:li:dataPlatform:${INFORMATICA}`;
 export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
+export const DLT = 'dlt';
+export const DLT_URN = `urn:li:dataPlatform:${DLT}`;
 export const SNOWPLOW = 'snowplow';
 export const SNOWPLOW_URN = `urn:li:dataPlatform:${SNOWPLOW}`;
 export const FABRIC = 'fabric';
@@ -206,11 +241,14 @@ export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
+    [BIGID_URN]: bigidLogo,
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
     [DAGSTER_URN]: dagsterLogo,
     [DBT_URN]: dbtLogo,
+    [DLT_URN]: dltLogo,
+    [DOCUMENTDB_URN]: documentdbLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,
@@ -225,13 +263,16 @@ export const PLATFORM_URN_TO_LOGO = {
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
+    [MATILLION_URN]: matillionLogo,
     [METABASE_URN]: metabaseLogo,
+    [MICROSTRATEGY_URN]: microstrategyLogo,
     [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
     [MSSQL_URN]: mssqlLogo,
     [MYSQL_URN]: mysqlLogo,
     [CONFLUENCE_URN]: confluenceLogo,
+    [GITHUB_URN]: githubLogo,
     [NOTION_URN]: notionLogo,
     [OKTA_URN]: oktaLogo,
     [ORACLE_URN]: oracleLogo,
@@ -247,10 +288,14 @@ export const PLATFORM_URN_TO_LOGO = {
     [STREAMLIT_URN]: streamlitLogo,
     [SPARK_URN]: sparkLogo,
     [TABLEAU_URN]: tableauLogo,
+    [THOUGHTSPOT_URN]: thoughtspotLogo,
+    [TIDB_URN]: tidbLogo,
+    [TIMESCALEDB_URN]: timescaledbLogo,
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
     [DATABRICKS_URN]: databricksLogo,
+    [DATAPROC_METASTORE_URN]: dataprocMetastoreLogo,
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,
@@ -261,6 +306,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
     [VERTEXAI_URN]: vertexAI,
+    [INFORMATICA_URN]: informaticaLogo,
     [SNAPLOGIC_URN]: snaplogicLogo,
     [FABRIC_URN]: fabricLogo,
     [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,
@@ -271,6 +317,7 @@ export const SOURCE_TO_PLATFORM_URN = {
     [CLICKHOUSE_USAGE]: CLICKHOUSE_URN,
     [FEAST_LEGACY]: FEAST_URN,
     [LOOK_ML]: LOOKER_URN,
+    [MATILLION_DPC]: MATILLION_URN,
     [REDSHIFT_USAGE]: REDSHIFT_URN,
     [SNOWFLAKE_BETA]: SNOWFLAKE_URN,
     [SNOWFLAKE_USAGE]: SNOWFLAKE_URN,
@@ -279,4 +326,5 @@ export const SOURCE_TO_PLATFORM_URN = {
     [DATAHUB_GC]: DATAHUB_URN,
     [DATAHUB_LINEAGE_FILE]: DATAHUB_URN,
     [DATAHUB_BUSINESS_GLOSSARY]: DATAHUB_URN,
+    [GITHUB_DOCUMENTS]: GITHUB_URN,
 };

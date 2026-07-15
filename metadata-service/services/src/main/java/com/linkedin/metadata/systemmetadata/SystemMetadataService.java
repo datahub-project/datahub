@@ -21,32 +21,48 @@ public interface SystemMetadataService {
   /**
    * Deletes a specific aspect from the system metadata service.
    *
+   * @param opContext per-event operation context
    * @param urn the urn of the entity
    * @param aspect the aspect to delete
    */
-  void deleteAspect(String urn, String aspect);
+  void deleteAspect(@Nonnull OperationContext opContext, String urn, String aspect);
 
-  Optional<GetTaskResponse> getTaskStatus(@Nonnull String nodeId, long taskId);
+  Optional<GetTaskResponse> getTaskStatus(
+      @Nonnull OperationContext opContext, @Nonnull String nodeId, long taskId);
 
-  void deleteUrn(String finalOldUrn);
+  void deleteUrn(@Nonnull OperationContext opContext, String finalOldUrn);
 
-  void setDocStatus(String urn, boolean removed);
+  void setDocStatus(@Nonnull OperationContext opContext, String urn, boolean removed);
 
-  void insert(@Nullable SystemMetadata systemMetadata, String urn, String aspect);
+  void insert(
+      @Nonnull OperationContext opContext,
+      @Nullable SystemMetadata systemMetadata,
+      String urn,
+      String aspect);
 
   List<AspectRowSummary> findByRunId(
-      String runId, boolean includeSoftDeleted, int from, @Nullable Integer size);
+      @Nonnull OperationContext opContext,
+      String runId,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size);
 
   List<AspectRowSummary> findByUrn(
-      String urn, boolean includeSoftDeleted, int from, @Nullable Integer size);
+      @Nonnull OperationContext opContext,
+      String urn,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size);
 
   List<AspectRowSummary> findByParams(
+      @Nonnull OperationContext opContext,
       Map<String, String> systemMetaParams,
       boolean includeSoftDeleted,
       int from,
       @Nullable Integer size);
 
   List<AspectRowSummary> findByRegistry(
+      @Nonnull OperationContext opContext,
       String registryName,
       String registryVersion,
       boolean includeSoftDeleted,
@@ -54,14 +70,20 @@ public interface SystemMetadataService {
       @Nullable Integer size);
 
   List<IngestionRunSummary> listRuns(
-      Integer pageOffset, Integer pageSize, boolean includeSoftDeleted);
+      @Nonnull OperationContext opContext,
+      Integer pageOffset,
+      Integer pageSize,
+      boolean includeSoftDeleted);
 
   List<AspectRowSummary> findAspectsByUrn(
-      @Nonnull Urn urn, @Nonnull List<String> aspects, boolean includeSoftDeleted);
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull List<String> aspects,
+      boolean includeSoftDeleted);
 
   default void configure() {}
 
-  void clear();
+  void clear(@Nonnull OperationContext opContext);
 
   /**
    * Returns raw elasticsearch documents
@@ -72,4 +94,19 @@ public interface SystemMetadataService {
    */
   Map<Urn, Map<String, Map<String, Object>>> raw(
       OperationContext opContext, Map<String, Set<String>> urnAspects);
+
+  /**
+   * Count entities for a single registry key aspect, split by active vs soft-deleted system
+   * metadata documents.
+   */
+  @Nonnull
+  KeyAspectCount countByKeyAspect(
+      @Nonnull OperationContext opContext, @Nonnull String keyAspectName);
+
+  /**
+   * Count entities for multiple registry key aspects in one query, split by active vs soft-deleted.
+   */
+  @Nonnull
+  Map<String, KeyAspectCount> countByKeyAspects(
+      @Nonnull OperationContext opContext, @Nonnull List<String> keyAspectNames);
 }

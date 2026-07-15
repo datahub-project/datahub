@@ -179,8 +179,8 @@ function get_slug(filepath: string): string {
 }
 
 const hardcoded_titles = {
-  "README.md": "Introduction",
-  "docs/actions/README.md": "Introduction",
+  "README.md": "DataHub Docs Overview",
+  "docs/actions/README.md": "DataHub Actions Framework",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
   "docs/saas.md": "DataHub Cloud",
@@ -471,7 +471,10 @@ function markdown_process_inline_directives(
   filepath: string
 ): void {
   const new_content = contents.content.replace(
-    /^(\s*){{(\s*)inline\s+(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$/gm,
+    // Use [ \t]* (not \s*) for the leading-indent capture so a preceding blank
+    // line's \n isn't swallowed and prepended to every embedded line, which
+    // would insert blank lines between rows of an embedded table.
+    /^([ \t]*){{(\s*)inline\s+(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$/gm,
     (
       _,
       indent: string,

@@ -75,6 +75,22 @@ This is enabled by default, can be disabled via setting `include_share_lineage: 
 It is mandatory to run redshift ingestion of datashare producer namespace at least once so that lineage
 shows up correctly after datashare consumer namespace is ingested.
 
+#### Usage Statistics
+
+Usage extraction is controlled by `include_usage_statistics` (disabled by default). It is the master flag for all usage statistics; `email_domain` must be set when it is enabled so user URNs can be constructed. It has two independent sub-flags that only take effect when `include_usage_statistics: true`:
+
+- `include_column_usage_stats` (default `false`): generates column-level usage (`fieldCounts`) on datasets by parsing the SQL query text instead of attributing reads via Redshift's `stl_scan` system table. This is slower (every read query is parsed) but adds per-column usage.
+- `include_query_usage_statistics` (default `true`): generates per-query popularity statistics (`queryUsageStatistics`) on the Query entities emitted by the SQL-based lineage collector. This requires `lineage_generate_queries: true` (the default) so that Query entities exist to attach the statistics to.
+
+```yaml
+include_usage_statistics: true
+email_domain: example.com
+include_query_usage_statistics: true # per-query popularity (default true)
+include_column_usage_stats: false # column-level usage (default false)
+```
+
+Enabling either sub-flag causes read queries to be parsed by the lineage aggregator, which is heavier than the default `stl_scan` table-usage path.
+
 #### Profiling
 
 Profiling runs sql queries on the redshift cluster to get statistics about the tables. To be able to do that, the user needs to have read access to the tables that should be profiled.
