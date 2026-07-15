@@ -122,6 +122,17 @@ public class UsageActorClassResolverTest {
   }
 
   @Test
+  public void testUnknownUsageIdentityIsRegular() throws Exception {
+    // Stable unknown principal (unparsed JWT subject, etc.) — regular, not system.
+    Assert.assertEquals(
+        defaultResolver.resolve(
+            context(Constants.UNKNOWN_ACTOR),
+            request(Constants.UNKNOWN_ACTOR),
+            userAuth(Constants.SYSTEM_ACTOR)),
+        UsageActorClass.REGULAR);
+  }
+
+  @Test
   public void testResolvesCorpUserFromActorUrnWhenUsageIdentityMissing() throws Exception {
     UsageActorClassResolver resolver =
         new UsageActorClassResolver(new FixedCorpUserFlagsProvider(false, true));
@@ -166,6 +177,32 @@ public class UsageActorClassResolverTest {
     org.mockito.Mockito.when(auth.getActor()).thenReturn(null);
     Assert.assertEquals(
         defaultResolver.resolve(opContext, requestContext, auth), UsageActorClass.REGULAR);
+  }
+
+  @Test
+  public void testSystemAuthWithAttributedCorpUserClassifiesAttributedIdentity() throws Exception {
+    UsageActorClassResolver resolver =
+        new UsageActorClassResolver(new FixedCorpUserFlagsProvider(false, true));
+    RequestContext requestContext = request(UsageTestFixtures.REGULAR_CORP_USER_URN);
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoValidate().toBuilder()
+            .requestContext(requestContext)
+            .build(TestOperationContexts.systemContextNoValidate().getSessionActorContext(), false);
+    Assert.assertEquals(
+        resolver.resolve(opContext, requestContext, userAuth(Constants.SYSTEM_ACTOR)),
+        UsageActorClass.SUPPORT);
+  }
+
+  @Test
+  public void testSystemAuthWithoutAttributedIdentityRemainsSystem() throws Exception {
+    RequestContext requestContext = request(Constants.SYSTEM_ACTOR);
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoValidate().toBuilder()
+            .requestContext(requestContext)
+            .build(TestOperationContexts.systemContextNoValidate().getSessionActorContext(), false);
+    Assert.assertEquals(
+        defaultResolver.resolve(opContext, requestContext, userAuth(Constants.SYSTEM_ACTOR)),
+        UsageActorClass.SYSTEM);
   }
 
   @Test
