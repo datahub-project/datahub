@@ -176,7 +176,7 @@ class AutoResolveLineageUrnsProcessor(
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
         graph = ctx.pipeline_context.graph
-        # Guaranteed non-None by should_enable(); assert for the type checker.
+        # assert for the type checker.
         assert graph is not None
         self._graph: DataHubGraph = graph
         self._config: List[UpstreamPlatformCasing] = (
@@ -265,7 +265,7 @@ class AutoResolveLineageUrnsProcessor(
                     title="Lineage URN casing not reconciled",
                     message="Failed to reconcile lineage URN casing for a work unit; "
                     "its lineage is emitted unchanged.",
-                    context=wu.id,
+                    context=wu.get_urn(),
                     exc=e,
                 )
             yield wu
