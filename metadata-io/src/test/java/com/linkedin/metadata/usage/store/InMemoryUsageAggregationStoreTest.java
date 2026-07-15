@@ -32,6 +32,7 @@ import java.util.Comparator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
@@ -598,15 +599,11 @@ public class InMemoryUsageAggregationStoreTest {
 
   @Test
   public void testTryDrainSkipsWhenDrainInProgress() throws Exception {
-    sink = new RecordingUsageFlushSink();
     UsageOperationsRegistry usageRegistry =
         UsageOperationsRegistry.loadOssOnly(new UsageOperationsLoader(yamlMapper()));
     UsageMetricRegistry metricRegistry =
         UsageMetricRegistry.loadBundled(
             new UsageMetricRegistryLoader(yamlMapper()), java.util.List.of());
-    InMemoryUsageAggregationStore lowCardinalityStore =
-        new InMemoryUsageAggregationStore(
-            usageRegistry, metricRegistry, deterministicActorClassResolver(), sink, 2, 300);
 
     CountDownLatch flushStarted = new CountDownLatch(1);
     CountDownLatch releaseFlush = new CountDownLatch(1);
@@ -623,23 +620,34 @@ public class InMemoryUsageAggregationStoreTest {
             super.publish(batch);
           }
         };
-    lowCardinalityStore =
+    // High cardinality limit: a single metadata_read already creates more than a few rollup
+    // keys. A tiny maxCardinality would auto-drain into this blocking sink on the first
+    // recordRequest and race with the scheduled flush below.
+    InMemoryUsageAggregationStore blockingStore =
         new InMemoryUsageAggregationStore(
-            usageRegistry, metricRegistry, deterministicActorClassResolver(), slowSink, 2, 300);
-    final InMemoryUsageAggregationStore blockingStore = lowCardinalityStore;
+            usageRegistry,
+            metricRegistry,
+            deterministicActorClassResolver(),
+            slowSink,
+            10_000,
+            300);
 
-    blockingStore.recordRequest(
-        session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
+    Assert.assertTrue(
+        blockingStore.recordRequest(
+            session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null)));
 
     ExecutorService executor = Executors.newSingleThreadExecutor();
     try {
-      executor.submit(() -> blockingStore.flush(FlushTrigger.SCHEDULED));
+      Future<?> flushFuture = executor.submit(() -> blockingStore.flush(FlushTrigger.SCHEDULED));
       Assert.assertTrue(flushStarted.await(10, TimeUnit.SECONDS));
 
-      blockingStore.recordRequest(session("urn:li:corpuser:other", "metadata_read", null));
+      Assert.assertTrue(
+          blockingStore.recordRequest(session("urn:li:corpuser:other", "metadata_read", null)));
 
       releaseFlush.countDown();
+      flushFuture.get(30, TimeUnit.SECONDS);
     } finally {
+      releaseFlush.countDown();
       executor.shutdownNow();
     }
 
