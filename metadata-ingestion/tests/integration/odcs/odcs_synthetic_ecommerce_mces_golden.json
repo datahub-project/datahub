@@ -21,22 +21,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -56,7 +40,7 @@
                 "odcs.tenant": "acme"
             },
             "name": "AcmeStore Retail \u2014 customers",
-            "description": "**purpose**: AcmeStore retail operational tables for the storefront data product.\n\n**usage**: Joinable across customers / orders / products / inventory by their natural keys.\n\n**limitations**: Operational copy; not a star schema. Refresh latency ~15 min.",
+            "description": "One row per registered AcmeStore shopper.",
             "tags": []
         }
     },
@@ -174,16 +158,23 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,inventory,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.customers,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "globalTags",
     "aspect": {
         "json": {
-            "removed": false
+            "tags": [
+                {
+                    "tag": "urn:li:tag:retail"
+                },
+                {
+                    "tag": "urn:li:tag:customer-data"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705338000000,
+        "lastObserved": 1705320000000,
         "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
         "lastRunId": "no-run-id-provided"
     }
@@ -215,6 +206,166 @@
     }
 },
 {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4101a9428751fe15850aa581d4303b24",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "00000000-0000-0000-0000-000000000003",
+                "odcs.scope": "schema",
+                "odcs.assertion": "schema-compliance"
+            },
+            "type": "DATA_SCHEMA",
+            "schemaAssertion": {
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.customers,PROD)",
+                "schema": {
+                    "schemaName": "customers",
+                    "platform": "urn:li:dataPlatform:odcs",
+                    "version": 0,
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "hash": "",
+                    "platformSchema": {
+                        "com.linkedin.schema.OtherSchema": {
+                            "rawSchema": ""
+                        }
+                    },
+                    "fields": [
+                        {
+                            "fieldPath": "customer_id",
+                            "nullable": false,
+                            "description": "Surrogate key for the shopper.",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.NumberType": {}
+                                }
+                            },
+                            "nativeDataType": "number",
+                            "recursive": false,
+                            "isPartOfKey": true
+                        },
+                        {
+                            "fieldPath": "email",
+                            "nullable": false,
+                            "description": "Shopper's contact email.",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "string",
+                            "recursive": false,
+                            "globalTags": {
+                                "tags": [
+                                    {
+                                        "tag": "urn:li:tag:pii"
+                                    }
+                                ]
+                            },
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "full_name",
+                            "nullable": true,
+                            "description": "Display name as entered by the shopper.",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "string",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "signup_date",
+                            "nullable": true,
+                            "description": "First account creation date.",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.DateType": {}
+                                }
+                            },
+                            "nativeDataType": "date",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "country_code",
+                            "nullable": true,
+                            "description": "ISO 3166-1 alpha-2 country code for the billing address.",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "string",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        }
+                    ]
+                },
+                "compatibility": "SUPERSET"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Schema compliance with ODCS contract '00000000-0000-0000-0000-000000000003' schema 'customers'"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4101a9428751fe15850aa581d4303b24",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,acmestore.public.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+        "json": {
+            "parent": {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.customers,PROD)"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.orders,PROD)",
     "changeType": "UPSERT",
@@ -235,7 +386,7 @@
                 "odcs.tenant": "acme"
             },
             "name": "AcmeStore Retail \u2014 orders",
-            "description": "**purpose**: AcmeStore retail operational tables for the storefront data product.\n\n**usage**: Joinable across customers / orders / products / inventory by their natural keys.\n\n**limitations**: Operational copy; not a star schema. Refresh latency ~15 min.",
+            "description": "One row per checkout completion.",
             "tags": []
         }
     },
@@ -343,16 +494,23 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.orders,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "globalTags",
     "aspect": {
         "json": {
-            "removed": false
+            "tags": [
+                {
+                    "tag": "urn:li:tag:retail"
+                },
+                {
+                    "tag": "urn:li:tag:customer-data"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705338000000,
+        "lastObserved": 1705320000000,
         "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
         "lastRunId": "no-run-id-provided"
     }
@@ -384,20 +542,181 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.customers,PROD)",
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:5e9a85b3658141178d2b774e0102b902",
     "changeType": "UPSERT",
-    "aspectName": "globalTags",
+    "aspectName": "assertionInfo",
     "aspect": {
         "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:retail"
-                },
-                {
-                    "tag": "urn:li:tag:customer-data"
+            "customProperties": {
+                "odcs.rule": "true",
+                "odcs.scope": "property",
+                "odcs.id": "00000000-0000-0000-0000-000000000003",
+                "odcs.rule.name": "order_total_non_negative",
+                "odcs.rule.metric": "range"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "range",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.orders,PROD),order_total)",
+                "logic": "range mustBeGreaterOrEqualTo 0.0"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
                 }
-            ]
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:5e9a85b3658141178d2b774e0102b902",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ca0a6e25ea7208c9bd55eadc402e6f20",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "00000000-0000-0000-0000-000000000003",
+                "odcs.scope": "schema",
+                "odcs.assertion": "schema-compliance"
+            },
+            "type": "DATA_SCHEMA",
+            "schemaAssertion": {
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.orders,PROD)",
+                "schema": {
+                    "schemaName": "orders",
+                    "platform": "urn:li:dataPlatform:odcs",
+                    "version": 0,
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "hash": "",
+                    "platformSchema": {
+                        "com.linkedin.schema.OtherSchema": {
+                            "rawSchema": ""
+                        }
+                    },
+                    "fields": [
+                        {
+                            "fieldPath": "order_id",
+                            "nullable": false,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.NumberType": {}
+                                }
+                            },
+                            "nativeDataType": "number",
+                            "recursive": false,
+                            "isPartOfKey": true
+                        },
+                        {
+                            "fieldPath": "customer_id",
+                            "nullable": false,
+                            "description": "Foreign key to customers.customer_id.",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.NumberType": {}
+                                }
+                            },
+                            "nativeDataType": "number",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "order_total",
+                            "nullable": false,
+                            "description": "Order total in shopper currency, post-tax.",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.NumberType": {}
+                                }
+                            },
+                            "nativeDataType": "number",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "order_status",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "string",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "placed_at",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.TimeType": {}
+                                }
+                            },
+                            "nativeDataType": "timestamp",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        }
+                    ]
+                },
+                "compatibility": "SUPERSET"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Schema compliance with ODCS contract '00000000-0000-0000-0000-000000000003' schema 'orders'"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ca0a6e25ea7208c9bd55eadc402e6f20",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
         }
     },
     "systemMetadata": {
@@ -408,169 +727,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.orders,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:retail"
-                },
-                {
-                    "tag": "urn:li:tag:customer-data"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,products,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:customer-data",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "customer-data"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,acmestore.public.orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "logicalParent",
     "aspect": {
         "json": {
             "parent": {
                 "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.orders,PROD)"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:e2848fb3725555d1f59d4731b5434021",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "odcs.rule": "true",
-                "odcs.scope": "property",
-                "odcs.rule.name": "order_total_non_negative",
-                "odcs.rule.library": "range"
-            },
-            "type": "CUSTOM",
-            "customAssertion": {
-                "type": "range",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)",
-                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD),order_total)",
-                "logic": "order_total_non_negative:property"
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1705320000000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "logicalParent",
-    "aspect": {
-        "json": {
-            "parent": {
-                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.customers,PROD)"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:10f87102cd8db54340d75e10a1987507",
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "odcs.rule": "true",
-                "odcs.scope": "property",
-                "odcs.rule.name": "sku_unique",
-                "odcs.rule.library": "unique"
-            },
-            "type": "FIELD",
-            "fieldAssertion": {
-                "type": "FIELD_METRIC",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:postgres,products,PROD)",
-                "fieldMetricAssertion": {
-                    "field": {
-                        "path": "sku",
-                        "type": "",
-                        "nativeType": ""
-                    },
-                    "metric": "UNIQUE_PERCENTAGE",
-                    "operator": "EQUAL_TO",
-                    "parameters": {
-                        "value": {
-                            "value": "100",
-                            "type": "NUMBER"
-                        }
-                    }
-                }
-            },
-            "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1705320000000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
             }
         }
     },
@@ -601,7 +764,7 @@
                 "odcs.tenant": "acme"
             },
             "name": "AcmeStore Retail \u2014 products",
-            "description": "**purpose**: AcmeStore retail operational tables for the storefront data product.\n\n**usage**: Joinable across customers / orders / products / inventory by their natural keys.\n\n**limitations**: Operational copy; not a star schema. Refresh latency ~15 min.",
+            "description": "AcmeStore catalog rows.",
             "tags": []
         }
     },
@@ -707,31 +870,20 @@
     }
 },
 {
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:pii",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "pii"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705338000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,products,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.products,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "logicalParent",
+    "aspectName": "globalTags",
     "aspect": {
         "json": {
-            "parent": {
-                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.products,PROD)"
-            }
+            "tags": [
+                {
+                    "tag": "urn:li:tag:retail"
+                },
+                {
+                    "tag": "urn:li:tag:customer-data"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -768,12 +920,45 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:10f87102cd8db54340d75e10a1987507",
+    "entityUrn": "urn:li:assertion:adeeac16965d317adedc212bc500ef3a",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "assertionInfo",
     "aspect": {
         "json": {
-            "removed": false
+            "customProperties": {
+                "odcs.rule": "true",
+                "odcs.scope": "property",
+                "odcs.id": "00000000-0000-0000-0000-000000000003",
+                "odcs.rule.name": "sku_unique",
+                "odcs.rule.metric": "duplicateValues"
+            },
+            "type": "FIELD",
+            "fieldAssertion": {
+                "type": "FIELD_METRIC",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.products,PROD)",
+                "fieldMetricAssertion": {
+                    "field": {
+                        "path": "sku",
+                        "type": "",
+                        "nativeType": ""
+                    },
+                    "metric": "UNIQUE_PERCENTAGE",
+                    "operator": "EQUAL_TO",
+                    "parameters": {
+                        "value": {
+                            "value": "100",
+                            "type": "NUMBER"
+                        }
+                    }
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            }
         }
     },
     "systemMetadata": {
@@ -783,17 +968,166 @@
     }
 },
 {
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:retail",
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:adeeac16965d317adedc212bc500ef3a",
     "changeType": "UPSERT",
-    "aspectName": "tagKey",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "name": "retail"
+            "platform": "urn:li:dataPlatform:odcs"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1705338000000,
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4a92a7bac394388d84872b82a917f4b8",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "00000000-0000-0000-0000-000000000003",
+                "odcs.scope": "schema",
+                "odcs.assertion": "schema-compliance"
+            },
+            "type": "DATA_SCHEMA",
+            "schemaAssertion": {
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.products,PROD)",
+                "schema": {
+                    "schemaName": "products",
+                    "platform": "urn:li:dataPlatform:odcs",
+                    "version": 0,
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "hash": "",
+                    "platformSchema": {
+                        "com.linkedin.schema.OtherSchema": {
+                            "rawSchema": ""
+                        }
+                    },
+                    "fields": [
+                        {
+                            "fieldPath": "product_id",
+                            "nullable": false,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.NumberType": {}
+                                }
+                            },
+                            "nativeDataType": "number",
+                            "recursive": false,
+                            "isPartOfKey": true
+                        },
+                        {
+                            "fieldPath": "sku",
+                            "nullable": false,
+                            "description": "Vendor SKU; expected unique across the catalog.",
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "string",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "title",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "string",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "price_cents",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.NumberType": {}
+                                }
+                            },
+                            "nativeDataType": "number",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "category",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "string",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        }
+                    ]
+                },
+                "compatibility": "SUPERSET"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Schema compliance with ODCS contract '00000000-0000-0000-0000-000000000003' schema 'products'"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4a92a7bac394388d84872b82a917f4b8",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,acmestore.public.products,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+        "json": {
+            "parent": {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.products,PROD)"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
         "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
         "lastRunId": "no-run-id-provided"
     }
@@ -819,7 +1153,7 @@
                 "odcs.tenant": "acme"
             },
             "name": "AcmeStore Retail \u2014 inventory",
-            "description": "**purpose**: AcmeStore retail operational tables for the storefront data product.\n\n**usage**: Joinable across customers / orders / products / inventory by their natural keys.\n\n**limitations**: Operational copy; not a star schema. Refresh latency ~15 min.",
+            "description": "Per-SKU on-hand inventory snapshot.",
             "tags": []
         }
     },
@@ -913,7 +1247,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.products,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.inventory,PROD)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -961,8 +1295,224 @@
     }
 },
 {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:936503476206df44176a8ee9e5305eb2",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "00000000-0000-0000-0000-000000000003",
+                "odcs.scope": "schema",
+                "odcs.assertion": "schema-compliance"
+            },
+            "type": "DATA_SCHEMA",
+            "schemaAssertion": {
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.inventory,PROD)",
+                "schema": {
+                    "schemaName": "inventory",
+                    "platform": "urn:li:dataPlatform:odcs",
+                    "version": 0,
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "hash": "",
+                    "platformSchema": {
+                        "com.linkedin.schema.OtherSchema": {
+                            "rawSchema": ""
+                        }
+                    },
+                    "fields": [
+                        {
+                            "fieldPath": "sku",
+                            "nullable": false,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "string",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "warehouse_id",
+                            "nullable": false,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "string",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "on_hand",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.NumberType": {}
+                                }
+                            },
+                            "nativeDataType": "number",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "snapshot_at",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.TimeType": {}
+                                }
+                            },
+                            "nativeDataType": "timestamp",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        }
+                    ]
+                },
+                "compatibility": "SUPERSET"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Schema compliance with ODCS contract '00000000-0000-0000-0000-000000000003' schema 'inventory'"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:936503476206df44176a8ee9e5305eb2",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,acmestore.public.inventory,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+        "json": {
+            "parent": {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.inventory,PROD)"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4101a9428751fe15850aa581d4303b24",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:4a92a7bac394388d84872b82a917f4b8",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:5e9a85b3658141178d2b774e0102b902",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:936503476206df44176a8ee9e5305eb2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:adeeac16965d317adedc212bc500ef3a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ca0a6e25ea7208c9bd55eadc402e6f20",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -996,29 +1546,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.inventory,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:retail"
-                },
-                {
-                    "tag": "urn:li:tag:customer-data"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.inventory,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
@@ -1033,14 +1560,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,inventory,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.orders,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "logicalParent",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "parent": {
-                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000003.inventory,PROD)"
-            }
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -1066,13 +1591,45 @@
     }
 },
 {
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:e2848fb3725555d1f59d4731b5434021",
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:customer-data",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "removed": false
+            "name": "customer-data"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:pii",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "pii"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_synthetic_ecommerce_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:retail",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "retail"
         }
     },
     "systemMetadata": {

@@ -1,4 +1,9 @@
-"""Integration / golden-file tests for the ODCS source (logical-model architecture)."""
+"""Integration / golden-file tests for the ODCS source (logical-model architecture).
+
+Pipelines here use the file sink, so no DataHub graph is available and
+`verify_physical_urns_exist` degrades to emitting `logicalParent` links without
+verification (fail-open) — physical binding is exercised end-to-end.
+"""
 
 import json
 import pathlib
@@ -18,13 +23,11 @@ def _run_pipeline(
     test_resources_dir: pathlib.Path,
     fixture: str,
     output_name: str,
-    server_mappings: list,
     extra_config: Optional[Dict[str, Any]] = None,
 ) -> pathlib.Path:
     output_path = tmp_path / output_name
     config: Dict[str, Any] = {
         "path": str(test_resources_dir / fixture),
-        "servers_to_platform": server_mappings,
         "strict_validation": False,
     }
     if extra_config:
@@ -50,15 +53,23 @@ def _read_mces(path: pathlib.Path) -> List[Dict[str, Any]]:
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_odcs_minimal(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
+    """Platform is derived from the typed server; the override only refines
+    env / platform_instance for the physical URN."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/odcs"
     output_path = _run_pipeline(
         tmp_path=tmp_path,
         test_resources_dir=test_resources_dir,
         fixture="odcs_minimal.odcs.yaml",
         output_name="odcs_minimal_mces.json",
-        server_mappings=[
-            {"server": "prod-snowflake", "platform": "snowflake", "env": "PROD"}
-        ],
+        extra_config={
+            "server_overrides": [
+                {
+                    "server": "prod-snowflake",
+                    "env": "PROD",
+                    "platform_instance": "prod",
+                }
+            ]
+        },
     )
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -71,19 +82,30 @@ def test_odcs_minimal(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> No
 def test_odcs_minimal_no_binding(
     pytestconfig: pytest.Config, tmp_path: pathlib.Path
 ) -> None:
-    """No server mapping: only the logical `odcs` dataset is emitted — no
-    physical logicalParent link and no assertions (strict gating)."""
+    """An entry explicitly unbound via physical_urn_overrides gets no
+    logicalParent link — but its assertions (which target the logical dataset)
+    are still emitted."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/odcs"
     output_path = _run_pipeline(
         tmp_path=tmp_path,
         test_resources_dir=test_resources_dir,
         fixture="odcs_minimal.odcs.yaml",
         output_name="odcs_minimal_no_binding_mces.json",
-        server_mappings=[],
+        extra_config={
+            "physical_urn_overrides": {
+                "00000000-0000-0000-0000-000000000001": {"my_table": ""}
+            }
+        },
     )
     mces = _read_mces(output_path)
     assert not any(m.get("aspectName") == "logicalParent" for m in mces)
-    assert not any(m.get("entityType") == "assertion" for m in mces)
+    # The schema-compliance assertion targets the logical dataset and is
+    # emitted regardless of binding.
+    assertion_infos = [m for m in mces if m.get("aspectName") == "assertionInfo"]
+    assert assertion_infos
+    for info in assertion_infos:
+        entity = info["aspect"]["json"]["schemaAssertion"]["entity"]
+        assert "urn:li:dataPlatform:odcs" in entity
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_path,
@@ -99,15 +121,80 @@ def test_odcs_full_v31(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
         test_resources_dir=test_resources_dir,
         fixture="odcs_full_v31.odcs.yaml",
         output_name="odcs_full_v31_mces.json",
-        server_mappings=[
-            {"server": "prod-postgres", "platform": "postgres", "env": "PROD"},
-            {"server": "prod-snowflake", "platform": "snowflake", "env": "PROD"},
-        ],
+    )
+    mces = _read_mces(output_path)
+    # Every assertion targets the LOGICAL dataset, never a physical URN.
+    for mce in mces:
+        if mce.get("aspectName") != "assertionInfo":
+            continue
+        aspect = mce["aspect"]["json"]
+        for key in (
+            "fieldAssertion",
+            "volumeAssertion",
+            "sqlAssertion",
+            "customAssertion",
+            "schemaAssertion",
+        ):
+            sub = aspect.get(key)
+            if sub:
+                assert "urn:li:dataPlatform:odcs" in sub["entity"]
+    # logicalParent links point from the composed physical URNs (postgres,
+    # fully qualified) to the logical datasets.
+    logical_parents = [m for m in mces if m.get("aspectName") == "logicalParent"]
+    assert logical_parents
+    for lp in logical_parents:
+        assert "urn:li:dataPlatform:postgres,customers_db.public." in lp["entityUrn"]
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "odcs_full_v31_mces_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_odcs_full_v31_strict(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """The full fixture is spec-conformant: strict JSON-Schema validation must
+    accept it and produce the same output as the lenient run."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/odcs"
+    output_path = _run_pipeline(
+        tmp_path=tmp_path,
+        test_resources_dir=test_resources_dir,
+        fixture="odcs_full_v31.odcs.yaml",
+        output_name="odcs_full_v31_strict_mces.json",
+        extra_config={"strict_validation": True},
     )
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_path,
         golden_path=test_resources_dir / "odcs_full_v31_mces_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_odcs_v302(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
+    """v3.0.2 vocabulary: `rule` key with duplicateCount / validValues /
+    rowCount, and mysql two-part physical naming."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/odcs"
+    output_path = _run_pipeline(
+        tmp_path=tmp_path,
+        test_resources_dir=test_resources_dir,
+        fixture="odcs_v302.odcs.yaml",
+        output_name="odcs_v302_mces.json",
+        extra_config={"strict_validation": True},
+    )
+    mces = _read_mces(output_path)
+    logical_parents = [m for m in mces if m.get("aspectName") == "logicalParent"]
+    assert logical_parents
+    assert (
+        "urn:li:dataPlatform:mysql,logistics.shipments,"
+        in (logical_parents[0]["entityUrn"])
+    )
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "odcs_v302_mces_golden.json",
     )
 
 
@@ -137,9 +224,6 @@ def test_odcs_synthetic_ecommerce(
         test_resources_dir=test_resources_dir,
         fixture="odcs_synthetic_ecommerce.odcs.yaml",
         output_name="odcs_synthetic_ecommerce_mces.json",
-        server_mappings=[
-            {"server": "prod-postgres", "platform": "postgres", "env": "PROD"}
-        ],
         extra_config={"replicate_contract_metadata": True},
     )
 
