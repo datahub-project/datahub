@@ -106,6 +106,9 @@ class ODCSSourceReport(SourceReport):
     unknown_fields_count: int = 0
     validation_errors: int = 0
     unmappable_servers: int = 0
+    physical_urns_verified: int = 0
+    physical_urns_unverified: int = 0
+    physical_names_passthrough: int = 0
     files_skipped: List[str] = field(default_factory=list)
     rules_skipped_no_threshold: List[str] = field(default_factory=list)
     rules_routed_to_custom: List[str] = field(default_factory=list)
@@ -155,6 +158,12 @@ class ODCSSource(Source):
         # Logical `odcs` dataset URNs emitted this run, to detect collisions when
         # two contracts resolve to the same {contract_id}.{schema_name}.
         self._seen_logical_urns: Set[str] = set()
+        # Physical URNs already claimed by a logicalParent link this run:
+        # logicalParent is single-valued, so a second contract binding the same
+        # physical dataset silently overwrites the first (last-writer-wins).
+        self._seen_physical_urns: Dict[str, str] = {}
+        # Per-run cache for graph existence checks (one lookup per unique URN).
+        self._physical_exists_cache: Dict[str, bool] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ODCSSource":
@@ -561,6 +570,36 @@ class ODCSSource(Source):
     # Per-file processing
     # ------------------------------------------------------------------
 
+    def _physical_urn_exists(self, urn: str) -> bool:
+        """Best-effort existence check for a derived physical dataset URN.
+
+        No graph (file sink) and lookup errors both fail OPEN (return True) so
+        a missing or flaky GMS never silently unbinds contracts. Results are
+        cached per run — one lookup per unique URN.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return True
+        cached = self._physical_exists_cache.get(urn)
+        if cached is not None:
+            return cached
+        try:
+            exists = bool(graph.exists(urn))
+            if exists:
+                self.report.physical_urns_verified += 1
+        except Exception as e:
+            self.report.warning(
+                title="Could not verify physical dataset existence",
+                message=(
+                    "Graph lookup failed; assuming the dataset exists (fail-open)."
+                ),
+                context=urn,
+                exc=e,
+            )
+            exists = True
+        self._physical_exists_cache[urn] = exists
+        return exists
+
     def _file_state_key(self, file_path: pathlib.Path) -> str:
         """Stable key for storing per-file state (absolute path, str-form)."""
         try:
@@ -603,6 +642,20 @@ class ODCSSource(Source):
             )
             self.report.contracts_skipped += 1
             return
+
+        overrides = self.config.physical_urn_overrides.get(contract.id)
+        if overrides:
+            schema_names = {entry.name for entry in contract.schema_ or []}
+            unmatched = sorted(set(overrides) - schema_names)
+            if unmatched:
+                self.report.warning(
+                    title="physical_urn_overrides keys match no schema entry",
+                    message=(
+                        "These override keys do not name any schema[] entry in "
+                        "the contract — check for typos or renamed entries."
+                    ),
+                    context=f"file={file_path} contract={contract.id} keys={unmatched}",
+                )
 
         bindings = odcs_to_physical_bindings(contract, self.config)
         if not bindings:
@@ -754,8 +807,47 @@ class ODCSSource(Source):
                     )
                 continue
 
-            self.report.physical_bindings_resolved += 1
             physical_urn = binding.physical_urn
+            if binding.name_passthrough:
+                self.report.physical_names_passthrough += 1
+
+            if (
+                self.config.verify_physical_urns_exist
+                and not self._physical_urn_exists(physical_urn)
+            ):
+                self.report.physical_urns_unverified += 1
+                self.report.warning(
+                    title="Derived physical dataset not found in DataHub",
+                    message=(
+                        "The physical URN derived from the contract's servers[] "
+                        "does not exist in DataHub, so no logicalParent link was "
+                        "emitted (this avoids creating a stub dataset). Ingest "
+                        "the physical platform first, fix the derived name via "
+                        "physical_urn_overrides, or set "
+                        "verify_physical_urns_exist=false to emit optimistically."
+                    ),
+                    context=(
+                        f"file={file_path} schema_name={schema_entry.name} "
+                        f"urn={physical_urn}"
+                    ),
+                )
+                continue
+
+            self.report.physical_bindings_resolved += 1
+
+            prior_claim = self._seen_physical_urns.get(physical_urn)
+            if prior_claim is not None:
+                self.report.warning(
+                    title="Physical dataset bound by multiple ODCS schema entries",
+                    message=(
+                        "logicalParent is single-valued; the last writer wins "
+                        f"(already bound by {prior_claim})."
+                    ),
+                    context=f"file={file_path} urn={physical_urn}",
+                )
+            self._seen_physical_urns[physical_urn] = (
+                f"{contract.id}/{schema_entry.name}"
+            )
 
             if self.config.emit_logical_parent:
                 yield odcs_to_logical_parent_mcp(
