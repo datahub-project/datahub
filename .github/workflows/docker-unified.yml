@@ -304,21 +304,6 @@ jobs:
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
           restore_gradle: true
 
-      # Persisted Gradle build cache (task outputs). restore-dependency-caches restores only
-      # dependency jars, not build-cache-1, so with org.gradle.caching=true every run still
-      # recompiled all Java (restli codegen, avro, compileJava across the image modules) cold
-      # before baking. Restore the latest master-written cache — the exact per-run key misses
-      # cross-run, the prefix restore-key picks up master's newest — so unchanged modules resolve
-      # FROM-CACHE and only the changed modules recompile. Read-only: only master writes (below),
-      # so PRs never race or pollute the cache.
-      - name: Restore Gradle build cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.gradle/caches/build-cache-1
-          key: docker-gradle-build-cache-${{ github.run_id }}
-          restore-keys: |
-            docker-gradle-build-cache-
-
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
@@ -393,15 +378,6 @@ jobs:
             ~/.gradle/caches/jars-*
             ~/.gradle/caches/transforms-*
           key: gradle-plugins-cache
-
-      # Save the Gradle build cache (task outputs) so PR builds restore it above. Per-run key
-      # keeps each master push fresh; the restore step's prefix key picks up the newest.
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' }}
-        with:
-          path: |
-            ~/.gradle/caches/build-cache-1
-          key: docker-gradle-build-cache-${{ github.run_id }}
 
   comment_pr_images:
     name: Comment PR image tags

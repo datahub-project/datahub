@@ -118,6 +118,10 @@ jobs:
           ./gradlew build --max-workers="$(nproc)" \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
+            -x :datahub-agent-context:build \
+            -x :datahub-agent-context:check \
+            -x :datahub-actions:build \
+            -x :datahub-actions:check \
             -x :docs-website:build \
             -x :metadata-integration:java:acryl-spark-lineage:test \
             -x :metadata-io:test \
@@ -435,6 +439,8 @@ jobs:
         # Fail loudly if the globs/excludes discover far too few backend test modules, instead
         # of silently sharding a near-empty suite (green CI that tested nothing). Keep the
         # glob/exclude set in sync with the backend-test-shard step below.
+        # Weight flags (--module-overhead/--extra-weight) omitted intentionally — this only counts
+        # discovered modules (--split-total 1) and ignores weights, so balance tuning is irrelevant.
         run: |
           count=$(python3 .github/scripts/split_gradle_tests.py \
             --split-index 0 --split-total 1 --repo-root . \
@@ -476,10 +482,18 @@ jobs:
         # and that's fine: the generators RUN and produce their sources, so yarnBuild/vite and
         # graphqlUsageRegistryCheck succeed. Do NOT exclude the generators — that leaves yarnBuild
         # building against missing sources (vite exit 1). Proven-green command (run 29288221733).
+        # :datahub-agent-context and :datahub-actions are excluded (build+check): pure-python
+        # modules whose `check` pulls installDev + a full pytest suite (602 and 200 tests), none of
+        # which the Java shards need — each is fully covered by its own workflow (agent-context.yml,
+        # actions.yml). Same rationale as :metadata-ingestion and the ingestion plugins below.
         run: |
           ./gradlew build testClasses -x test --build-cache --max-workers="$(nproc)" \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
+            -x :datahub-agent-context:build \
+            -x :datahub-agent-context:check \
+            -x :datahub-actions:build \
+            -x :datahub-actions:check \
             -x :docs-website:build \
             -x :metadata-ingestion-modules:airflow-plugin:build \
             -x :metadata-ingestion-modules:airflow-plugin:check \
@@ -550,6 +564,14 @@ jobs:
         # jacocoTestReport + testFixtures); --extra-weight charges datahub-client the ~90s
         # :metadata-ingestion:installDev venv build its `test` depends on, so it stops landing on
         # an already-heavy shard.
+        # Calibrated from run 29413236517, shard 3 (job 87346550030): predicted 250s vs actual
+        # ~516s for 11 modules -> ~10s/module unmodeled overhead; installDev measured ~90s. These
+        # are coarse estimates — recheck when backend_test_weights.json is next refreshed, and drop
+        # the datahub-client charge if installDev stops gating that shard.
+        # Only datahub-client is charged: schematron:cli/lib also dependsOn installDev, but
+        # datahub-client:test dependsOn cli:test + lib:test (datahub-client/build.gradle:130-131),
+        # so they always run on datahub-client's shard — installDev fires once there. cli is
+        # exclude-globbed (never independently discovered), so charging it here would be a no-op.
         run: |
           python3 .github/scripts/split_gradle_tests.py \
             --split-index "${{ strategy.job-index }}" --split-total "${{ strategy.job-total }}" \
