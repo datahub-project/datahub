@@ -2043,12 +2043,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         # instead of holding them all resident is what prevents OOMs on large
         # tenants. Cache size holds a scan batch plus buffer to avoid thrashing.
         ws_cache_size = min(max(self.source_config.scan_batch_size * 2, 10), 200)
-        workspaces: FileBackedDict[powerbi_data_classes.Workspace] = FileBackedDict(
+        with FileBackedDict[powerbi_data_classes.Workspace](
             tablename="workspaces",
             cache_max_size=ws_cache_size,
             cache_eviction_batch_size=max(ws_cache_size // 2, 1),
-        )
-        try:
+        ) as workspaces:
             for workspace in allowed_workspaces:
                 workspaces[workspace.id] = workspace
             del allowed_workspaces
@@ -2142,12 +2141,15 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 # Fully emitted and never revisited; drop it to free its
                 # scan_result and parsed children.
                 del workspaces[workspace_id]
-        finally:
-            workspaces.close()
 
     def get_report(self) -> SourceReport:
         return self.reporter
 
     def close(self) -> None:
-        self.powerbi_client.close()
-        super().close()
+        # Best-effort temp-file cleanup must not skip the stateful-ingestion
+        # commit in super().close(); a cleanup failure would otherwise corrupt
+        # incremental state on the next run.
+        try:
+            self.powerbi_client.close()
+        finally:
+            super().close()

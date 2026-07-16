@@ -144,9 +144,7 @@ def _api(
         admin_apis_only=admin_apis_only
     )
     api.reporter = PowerBiDashboardSourceReport()
-    # A plain dict is a sufficient duck-typed stand-in for the FileBackedDict
-    # here (only __getitem__/__contains__ are exercised).
-    api.dataset_registry = dataset_registry or {}  # type: ignore[assignment]
+    api.dataset_registry = dataset_registry or {}
     # log_http_error inspects sys.exc_info(); stub it (it's not under test here).
     api.log_http_error = MagicMock()  # type: ignore[method-assign]
 

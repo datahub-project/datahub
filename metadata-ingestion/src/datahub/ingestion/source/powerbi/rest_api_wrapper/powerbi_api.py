@@ -1,7 +1,7 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, List, Literal, Optional, Set, cast
+from typing import Any, Dict, List, Literal, MutableMapping, Optional, Set, cast
 
 import requests
 
@@ -99,8 +99,13 @@ class PowerBiAPI:
         # It spans every scanned workspace, so on large tenants it can hold tens
         # of thousands of datasets. It is file-backed so the bulk spills to disk
         # rather than staying resident, which previously caused OOMs.
+        #
+        # Snapshot semantics: unlike the old plain dict, a lookup that misses the
+        # cache returns a freshly-unpickled copy, not the same instance stored in
+        # workspace.datasets. Entries are read-only snapshots for cross-workspace
+        # lineage; mutating a returned dataset would not write through.
         self._file_backed_conn = ConnectionWrapper()
-        self.dataset_registry: FileBackedDict[PowerBIDataset] = FileBackedDict(
+        self.dataset_registry: MutableMapping[str, PowerBIDataset] = FileBackedDict(
             shared_connection=self._file_backed_conn,
             tablename="dataset_registry",
         )
