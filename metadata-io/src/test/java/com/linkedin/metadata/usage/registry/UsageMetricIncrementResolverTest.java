@@ -24,7 +24,7 @@ public class UsageMetricIncrementResolverTest {
         new UsageMetricRegistryLoader(yamlMapper), java.util.List.of());
   }
 
-  private static RequestContext requestContextWithQuantity(int usageQuantity) {
+  private static RequestContext requestContextWithQuantity(long usageQuantity) {
     return RequestContext.builder()
         .actorUrn("urn:li:corpuser:test")
         .sourceIP("127.0.0.1")

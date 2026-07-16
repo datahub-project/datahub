@@ -2349,7 +2349,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default, configured using `extract_usage_history`",
+          "description": "Dashboard, chart, and explore usage. Enabled by default, configured using `extract_usage_history`",
           "subtype_modifier": null,
           "supported": true
         },

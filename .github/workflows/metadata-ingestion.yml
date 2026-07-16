@@ -230,6 +230,7 @@ jobs:
           artifact-name: metadata-ingestion-test-results-${{ strategy.job-index }}
           test-results-paths: "metadata-ingestion/test-results/**"
           junit-file-globs: "metadata-ingestion/test-results/*.xml"
+          retention-days: 14
       - name: Upload coverage to Codecov with ingestion flag
         if: ${{ always() && matrix.python-version == '3.11' }}
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4

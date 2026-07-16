@@ -98,9 +98,10 @@ type Metric implements Entity {
   semanticModel: SemanticModel
 
   """
-  Parent metrics in the metric hierarchy.
+  The direct parent metric in the sidebar hierarchy. Null for root metrics.
+  For deeper ancestor chains, use nested selection: parentMetric { parentMetric { ... } }.
   """
-  parentMetrics: [Metric!]!
+  parentMetric: Metric
 
   """
   Child metrics in the metric hierarchy.
@@ -239,11 +240,6 @@ type SemanticModel implements Entity {
   metrics(input: ScrollAcrossEntitiesInput!): ScrollResults
 
   """
-  Count of Metrics defined within this SemanticModel (field-resolver in CAT-2566).
-  """
-  metricsCount: SemanticModelMetricsCount
-
-  """
   Ownership metadata of the SemanticModel.
   """
   ownership: Ownership
@@ -340,11 +336,6 @@ type MetricInfo {
 Relationship edges from a Metric to other Metrics.
 """
 type MetricRelationships {
-  """
-  The immediate parent in the metric hierarchy.
-  """
-  parentMetric: Metric
-
   """
   Edges to metrics that this metric is derived from.
   """
@@ -485,11 +476,4 @@ type AiContext {
   instructions: String
   examples: [String!]
   customInstructions: String
-}
-
-"""
-Count of Metrics associated with a SemanticModel.
-"""
-type SemanticModelMetricsCount {
-  total: Int!
 }
