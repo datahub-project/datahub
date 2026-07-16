@@ -11,7 +11,9 @@ import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BulkEntityDataProductsInput;
+import com.linkedin.datahub.graphql.generated.BulkEntityDataProductsResult;
 import com.linkedin.datahub.graphql.generated.DataProduct;
+import com.linkedin.datahub.graphql.generated.EntityDataProductAssociation;
 import com.linkedin.datahub.graphql.generated.EntityDataProducts;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.dataproduct.DataProductAssociation;
@@ -53,7 +55,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class BulkEntityDataProductsResolver
-    implements DataFetcher<CompletableFuture<List<EntityDataProducts>>> {
+    implements DataFetcher<CompletableFuture<BulkEntityDataProductsResult>> {
 
   private static final String DATA_PRODUCT_CONTAINS_RELATIONSHIP = "DataProductContains";
   private static final int MAX_URNS = 100;
@@ -71,7 +73,7 @@ public class BulkEntityDataProductsResolver
   }
 
   @Override
-  public CompletableFuture<List<EntityDataProducts>> get(DataFetchingEnvironment environment) {
+  public CompletableFuture<BulkEntityDataProductsResult> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
     final OperationContext opContext = context.getOperationContext();
     final BulkEntityDataProductsInput input =
@@ -116,15 +118,19 @@ public class BulkEntityDataProductsResolver
               getOutputPortsByDataProduct(opContext, allDataProductUrns);
 
           // 5. Assemble results, folding in siblings' memberships and output-port status.
-          return inputUrns.stream()
-              .map(
-                  urn ->
-                      buildEntityDataProducts(
-                          urn,
-                          siblingsByEntity.getOrDefault(urn, Collections.emptySet()),
-                          dataProductsByEntity,
-                          outputPortsByDataProduct))
-              .collect(Collectors.toList());
+          final List<EntityDataProducts> entities =
+              inputUrns.stream()
+                  .map(
+                      urn ->
+                          buildEntityDataProducts(
+                              urn,
+                              siblingsByEntity.getOrDefault(urn, Collections.emptySet()),
+                              dataProductsByEntity,
+                              outputPortsByDataProduct))
+                  .collect(Collectors.toList());
+          final BulkEntityDataProductsResult result = new BulkEntityDataProductsResult();
+          result.setEntities(entities);
+          return result;
         },
         this.getClass().getSimpleName(),
         "get");
@@ -210,6 +216,16 @@ public class BulkEntityDataProductsResolver
       for (RelatedEntities related : scroll.getEntities()) {
         // Incoming DataProductContains: source is the data product, destination is the entity.
         final String dataProductUrn = related.getSourceUrn();
+        // Guard against a malformed edge whose source is not actually a data product; skip rather
+        // than surface a non-data-product urn as a member.
+        if (!Constants.DATA_PRODUCT_ENTITY_NAME.equals(
+            UrnUtils.getUrn(dataProductUrn).getEntityType())) {
+          log.warn(
+              "Skipping non-data-product source urn {} on {} relationship",
+              dataProductUrn,
+              DATA_PRODUCT_CONTAINS_RELATIONSHIP);
+          continue;
+        }
         final boolean viewable =
             viewableByDataProduct.computeIfAbsent(
                 dataProductUrn, urn -> canView(opContext, UrnUtils.getUrn(urn)));
@@ -292,26 +308,25 @@ public class BulkEntityDataProductsResolver
 
     final EntityDataProducts result = new EntityDataProducts();
     result.setUrn(urn);
-    result.setDataProducts(
+    result.setDataProductAssociations(
         dataProductUrns.stream()
             .map(
                 dataProductUrn -> {
                   final DataProduct dataProduct = new DataProduct();
                   dataProduct.setUrn(dataProductUrn);
                   dataProduct.setType(EntityType.DATA_PRODUCT);
-                  return dataProduct;
-                })
-            .collect(Collectors.toList()));
 
-    // A data product is an output port for this entity if it marks the entity, or any of its
-    // siblings, as an output port.
-    result.setOutputPortInDataProducts(
-        dataProductUrns.stream()
-            .filter(
-                dataProductUrn -> {
+                  // The entity is an output port of the data product if the data product marks the
+                  // entity, or any of its siblings, as an output port.
                   final Set<String> outputPorts =
                       outputPortsByDataProduct.getOrDefault(dataProductUrn, Collections.emptySet());
-                  return entityGroup.stream().anyMatch(outputPorts::contains);
+                  final boolean isOutputPort = entityGroup.stream().anyMatch(outputPorts::contains);
+
+                  final EntityDataProductAssociation association =
+                      new EntityDataProductAssociation();
+                  association.setDataProduct(dataProduct);
+                  association.setIsOutputPort(isOutputPort);
+                  return association;
                 })
             .collect(Collectors.toList()));
     return result;

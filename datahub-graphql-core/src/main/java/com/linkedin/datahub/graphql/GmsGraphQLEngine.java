@@ -908,7 +908,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(FILES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1724,17 +1725,16 @@ public class GmsGraphQLEngine {
                                   : null;
                             })))
         .type(
-            "EntityDataProducts",
+            "EntityDataProductAssociation",
             typeWiring ->
                 typeWiring.dataFetcher(
-                    "dataProducts",
-                    new LoadableTypeBatchResolver<>(
+                    "dataProduct",
+                    new LoadableTypeResolver<>(
                         dataProductType,
                         (env) ->
-                            ((EntityDataProducts) env.getSource())
-                                .getDataProducts().stream()
-                                    .map(DataProduct::getUrn)
-                                    .collect(Collectors.toList()))))
+                            ((EntityDataProductAssociation) env.getSource())
+                                .getDataProduct()
+                                .getUrn())))
         .type(
             "ListDomainsResult",
             typeWiring ->
