@@ -1,7 +1,10 @@
-# Synthetic 4-table ODCS contract — fictional schema for DataHub fan-out test coverage. No upstream similarity.
+# Synthetic 4-table ODCS contract — fictional schema for DataHub fan-out test
+# coverage; deliberately "messy" (unknown root field, unknown metric, deprecated
+# rule: key) to exercise lenient ingestion. No upstream similarity.
 apiVersion: v3.1.0
 kind: DataContract
 id: 00000000-0000-0000-0000-000000000003
+frobozz: 42                       # unknown field — exercises the extras warning
 name: AcmeStore Retail
 version: 1.4.0
 status: active
@@ -77,7 +80,7 @@ schema:
         description: Order total in shopper currency, post-tax.
         quality:
           - name: order_total_non_negative
-            rule: range
+            metric: range              # unknown metric — falls through to custom
             mustBeGreaterOrEqualTo: 0
       - name: order_status
         physicalName: order_status
@@ -101,7 +104,8 @@ schema:
         description: Vendor SKU; expected unique across the catalog.
         quality:
           - name: sku_unique
-            rule: unique
+            rule: duplicateValues      # deprecated rule: key in a 3.1 doc
+            mustBe: 0
       - name: title
         physicalName: title
         logicalType: string

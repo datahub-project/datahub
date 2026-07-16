@@ -3,9 +3,10 @@
 The `odcs` module ingests Open Data Contract Standard (ODCS) v3.0 and v3.1 YAML files from
 a path, directory, or glob, and models each contract as a **logical dataset** on the `odcs`
 platform: dataset properties, canonical schema metadata, ownership, top-level and
-column-level tags, and a link to the source document. When a `schema[]` entry resolves to a
-physical dataset, the source also emits a `logicalParent` link from the physical dataset and
-materializes the contract's `quality[]` rules as Assertions against it. ODCS is governed by
+column-level tags, a link to the source document, and the contract's `quality[]` rules as
+Assertions attached to the logical dataset. When a `schema[]` entry resolves to a physical
+dataset (derived from the contract's typed `servers[]`), the source also emits a
+`logicalParent` link from the physical dataset to the logical one. ODCS is governed by
 the Linux Foundation under the Bitol project; see [bitol.io](https://bitol.io/) and the
 [open-data-contract-standard repository](https://github.com/bitol-io/open-data-contract-standard).
 
@@ -28,33 +29,40 @@ how to disable replication.
 - ODCS v3.0 and v3.1 are supported (any `3.0.x` patch level validates against the same
   v3.0.2 JSON Schema; `3.1.0` against the v3.1 schema). Contracts whose `apiVersion` reports
   v2.x — or any value outside `odcs_versions` — are skipped with a warning.
-- **A physical binding is optional but recommended.** Map every distinct `servers[].server`
-  value in your contracts to a DataHub platform via `servers_to_platform`, or set
-  per-contract `physical_urn_overrides` (a list of physical Dataset URNs, one per `schema[]`
-  entry). When a `schema[]` entry binds to a physical dataset, the source emits a
-  `logicalParent` link and the contract's quality assertions against that dataset. When it
-  does **not** bind, only the logical dataset and its schema are emitted — **no assertions
-  and no `logicalParent` link** (strict gating). The logical dataset still records the rule
-  count via `odcs.qualityRuleCount`.
-- **Logical Models are in private beta.** The logical `odcs` datasets this source emits
-  render in the UI only when `LOGICAL_MODELS_ENABLED` is enabled (off by default). For the
-  common contract-first case (an ODCS file with no physical table yet), a default OSS
-  deployment ingests the logical dataset but does not display it and emits no assertions. The
-  recommended workflow is: ingest the physical platform source (postgres / snowflake / …),
-  ingest ODCS with a matching `servers_to_platform` mapping, and enable
-  `LOGICAL_MODELS_ENABLED` to see the logical models and their physical links.
-- Files are loaded leniently by default (`strict_validation: false`) so that contracts using
-  deprecated-but-real ODCS forms (e.g. legacy library `rule:` key, top-level `quality[]`)
-  are accepted. Unknown YAML fields surface as warnings via `report.unknown_fields_count`
-  rather than blocking ingestion. Set `strict_validation: true` to fail on JSON Schema
-  violations — recommended for multi-tenant or untrusted directories.
-- **Stateful ingestion is scoped to ODCS-owned entities only.** When you remove a `schema[]`
-  entry from a contract file, ODCS marks the corresponding logical `odcs` Dataset and
-  Assertion URNs as removed. **It does NOT mark physical datasets as removed** — those are
-  owned by their platform-of-record source, and the `logicalParent` link is a non-destructive
-  enrichment. When you enable `state_file_path` for the first time, the initial run
-  establishes a baseline — no soft-deletes are emitted on that run. Soft-delete behavior
-  activates from the second run onward.
+- **Assertions always attach to the logical dataset.** Quality rules and the
+  schema-compliance assertion are emitted whether or not a physical table exists yet, so
+  contract-first workflows keep their expectations. Propagation of those expectations onto
+  bound physical datasets is handled by DataHub via the `PhysicalInstanceOf` relationship —
+  not by this source.
+- **Physical binding is derived from the contract itself.** The spec requires
+  `servers[].type`; the source maps supported types (postgres, mysql, snowflake, bigquery,
+  redshift, databricks, sqlserver, trino) to DataHub platforms and composes fully-qualified
+  dataset names from the server's own fields (e.g. `database.schema.table`). Use
+  `server_overrides` to refine `env` / `platform_instance`, or `physical_urn_overrides`
+  (keyed by contract id, then `schema[]` entry name) for explicit URNs. Binding affects only
+  the `logicalParent` link.
+- **Derived physical URNs are verified by default.** With a DataHub graph available
+  (datahub-rest sink), a derived URN that does not exist in DataHub is left unbound with a
+  warning instead of creating a stub dataset (`verify_physical_urns_exist: false` opts out).
+  With a file sink there is no graph, and links are emitted without verification.
+- **Logical Models are in private beta.** The logical `odcs` datasets this source emits —
+  and the assertions attached to them — render in the UI only when `LOGICAL_MODELS_ENABLED`
+  is enabled (off by default). The metadata is ingested either way. The recommended workflow
+  is: ingest the physical platform source (postgres / snowflake / …), ingest ODCS, and
+  enable `LOGICAL_MODELS_ENABLED` to see the logical models, their assertions, and their
+  physical links.
+- Files are loaded leniently by default (`strict_validation: false`) so that contracts with
+  extra or non-conformant fields are accepted with warnings. Spec-valid fields the source
+  does not map (SLA, support, pricing, relationships, …) are summarized once per file as an
+  info; genuinely unknown fields warn individually. Set `strict_validation: true` to fail on
+  JSON Schema violations — recommended for multi-tenant or untrusted directories.
+- **Stale-metadata removal uses standard stateful ingestion.** Enable it via the
+  `stateful_ingestion` block (server-side checkpoints; requires a DataHub graph). When you
+  remove a `schema[]` entry from a contract file, the corresponding logical `odcs` Dataset
+  and Assertion URNs are marked removed on the next run. Physical datasets and their
+  `logicalParent` links are **never** marked removed — those are owned by their
+  platform-of-record source. The `fail_safe_threshold` guard (default 75%) blocks mass
+  deletions caused by config or naming changes.
 - Symlinks are not followed by default (`follow_symlinks: false`). If your directory layout
   organises contracts using symlinks, set `follow_symlinks: true` deliberately. The default
   is conservative because following symlinks in a shared directory can disclose files

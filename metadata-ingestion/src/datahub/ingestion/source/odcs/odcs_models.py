@@ -2,14 +2,91 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# ---------------------------------------------------------------------------
+# Spec-valid fields the source deliberately does not map.
+#
+# The unknown-field walker in odcs_source.py classifies YAML keys three ways:
+# declared on the model (parsed), listed here (spec-valid but unmapped -- one
+# aggregate info per file, no warning), or neither (genuinely unknown -- a
+# per-field warning). These sets are the union of the property keys declared
+# in the vendored v3.0.2 and v3.1.0 JSON Schemas minus the model fields; the
+# drift-guard unit test in tests/unit/odcs/test_odcs_models.py enforces that
+# invariant so a future spec bump fails loudly instead of producing spurious
+# "check spelling" warnings.
+# ---------------------------------------------------------------------------
+
+KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
+    (
+        "price",
+        "slaDefaultElement",
+        "slaProperties",
+        "support",
+    )
+)
+
+KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
+    (
+        "customProperties",
+        "dataGranularityDescription",
+        "id",
+        "relationships",
+    )
+)
+
+KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
+    (
+        "businessName",
+        "examples",
+        "id",
+        "items",
+        "logicalTypeOptions",
+        "physicalName",
+        "relationships",
+        "transformDescription",
+        "transformLogic",
+        "transformSourceObjects",
+    )
+)
+
+KNOWN_UNMAPPED_QUALITY_FIELDS: frozenset = frozenset()
+
+KNOWN_UNMAPPED_SERVER_FIELDS = frozenset(
+    (
+        "customProperties",
+        "delimiter",
+        "endpointUrl",
+        "format",
+        "id",
+        "path",
+        "regionName",
+        "roles",
+        "serviceName",
+        "stagingDir",
+        "stream",
+    )
+)
+
+KNOWN_UNMAPPED_TEAM_FIELDS = frozenset(
+    (
+        "authoritativeDefinitions",
+        "customProperties",
+        "id",
+        "members",
+        "tags",
+    )
+)
+
+# v3.1 adds `id` and `description` to authoritative-definition entries.
+KNOWN_UNMAPPED_AUTHDEF_FIELDS = frozenset(("description", "id"))
+
 
 class ODCSBaseModel(BaseModel):
     """Base model for ODCS documents.
 
-    `extra="ignore"` (D5): unknown YAML keys are dropped silently here so the
+    `extra="ignore"`: unknown YAML keys are dropped silently here so the
     parsed model has a clean shape. The source layer is responsible for
-    detecting unknown keys against the raw dict and emitting per-field
-    warnings via `report.warning(...)` so typos do not slip through silently.
+    classifying unknown keys against the raw dict (spec-valid-but-unmapped vs
+    genuinely unknown) and reporting them via `report.info`/`report.warning`.
     """
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
@@ -64,14 +141,32 @@ class ODCSSchemaObject(ODCSBaseModel):
 
 
 class ODCSQualityRule(ODCSBaseModel):
-    """A quality rule from `schema[].quality[]` or `schema[].properties[].quality[]`."""
+    """A quality rule from `schema[].quality[]` or `schema[].properties[].quality[]`.
 
+    Library-rule vocabulary is version-dependent:
+      - v3.0.x: the library key is `rule`; documented rules are
+        `duplicateCount`, `validValues` (with the `validValues` list directly
+        on the rule), and `rowCount`.
+      - v3.1.0: the library key is `metric` (required for `type: library`);
+        metrics are `nullValues`, `missingValues`, `invalidValues`,
+        `duplicateValues`, `rowCount`, with `arguments` carrying
+        `validValues` / `pattern` / `missingValues` / `properties`. `rule` is
+        retained by the spec as a deprecated alias.
+    """
+
+    id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    # ODCS rule type: one of library | sql | custom | text.
+    # ODCS rule type: one of library | text | sql | custom.
     type: Optional[str] = None
-    # Name of a library rule, e.g. "rowCount", "unique", "notNull", "duplicateCount".
+    # v3.1 library metric name (canonical since 3.1).
+    metric: Optional[str] = None
+    # v3.0.x library rule name; deprecated alias of `metric` in v3.1.
     rule: Optional[str] = None
+    # v3.1 metric arguments: validValues, pattern, missingValues, properties.
+    arguments: Optional[Dict[str, Any]] = None
+    # v3.0.x form: static list of valid values directly on the rule.
+    validValues: Optional[List[Any]] = None
     dimension: Optional[str] = None
     severity: Optional[str] = None
     businessImpact: Optional[str] = None
@@ -91,11 +186,21 @@ class ODCSQualityRule(ODCSBaseModel):
     mustNotBeBetween: Optional[List[float]] = None
     unit: Optional[str] = None
     tags: Optional[List[str]] = None
-    # Set when the rule's YAML declares a column directly (top-level rule on a
-    # column outside any schema). Most rules attach to a property via the YAML
-    # tree shape rather than this field; the mapper reads it for the legacy
-    # top-level `quality[]` form.
-    column: Optional[str] = None
+    customProperties: Optional[List[ODCSCustomProperty]] = None
+    authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
+
+    @property
+    def effective_metric(self) -> Optional[str]:
+        """The library metric/rule name, preferring the canonical v3.1 key."""
+        value = self.metric or self.rule
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @property
+    def used_deprecated_rule_key(self) -> bool:
+        """True when only the legacy `rule` key carries the library name."""
+        return self.metric is None and self.rule is not None
 
 
 class ODCSTeamMember(ODCSBaseModel):
@@ -106,7 +211,6 @@ class ODCSTeamMember(ODCSBaseModel):
     dateIn: Optional[str] = None
     dateOut: Optional[str] = None
     replacedByUsername: Optional[str] = None
-    comment: Optional[str] = None
 
 
 class ODCSServer(ODCSBaseModel):
@@ -130,9 +234,10 @@ class ODCSServer(ODCSBaseModel):
 class ODCSContract(ODCSBaseModel):
     """Top-level ODCS contract document.
 
-    Field set is the v3.0.x / v3.1.x intersection plus a few common extensions.
-    Unknown fields are dropped (see `ODCSBaseModel`); the source emits a
-    warning per unknown field detected against the raw YAML dict.
+    Field set is the v3.0.x / v3.1.x union of the sections this source maps.
+    Spec-valid-but-unmapped fields are listed in
+    `KNOWN_UNMAPPED_CONTRACT_FIELDS`; genuinely unknown fields get a warning
+    from the source layer.
     """
 
     apiVersion: Optional[str] = None
@@ -150,8 +255,8 @@ class ODCSContract(ODCSBaseModel):
     servers: Optional[List[ODCSServer]] = None
     team: Optional[List[ODCSTeamMember]] = None
     roles: Optional[List[Dict[str, Any]]] = None
-    quality: Optional[List[ODCSQualityRule]] = None  # deprecated top-level form
     customProperties: Optional[List[ODCSCustomProperty]] = None
+    authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     contractCreatedTs: Optional[str] = None
 
 

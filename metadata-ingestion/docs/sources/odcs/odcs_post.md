@@ -6,151 +6,165 @@ does not capture.
 
 #### Quality rule mapping
 
-When a `schema[]` entry resolves to a physical dataset, the source translates each entry in
-the contract's `quality[]` array into a DataHub assertion **against the physical dataset**.
-Only the rules listed below map to typed assertions; rules that carry intent but no
-DataHub-modeled type are routed to `CustomAssertionInfo` with their original logic preserved.
-Rules that carry no executable intent at all are skipped (never fabricated). When no physical
-binding resolves, no assertions are emitted at all (strict gating) — the rule count is still
-recorded on the logical dataset via `odcs.qualityRuleCount`.
+Each entry in a `schema[]` (table-level) or `properties[]` (column-level) `quality[]` array
+becomes a DataHub assertion **attached to the logical `odcs` dataset**, emitted whether or
+not a physical binding resolves. The library vocabulary is spec-exact and
+version-dependent:
 
-| ODCS `quality[]` rule                | DataHub aspect                                                             |
-| ------------------------------------ | -------------------------------------------------------------------------- |
-| Library `notNull` (with `column`)    | `FieldAssertionInfo` + `FieldValuesAssertion` (`NOT_NULL`)                 |
-| Library `unique` (with `column`)     | `FieldAssertionInfo` + `FieldMetricAssertion` (`UNIQUE_PERCENTAGE` == 100) |
-| Library `rowCount`                   | `VolumeAssertionInfo`                                                      |
-| `type: sql` with a non-empty `query` | `SqlAssertionInfo`                                                         |
-| Anything else with operator or body  | `CustomAssertionInfo` (logic preserved)                                    |
-| Anything else with no operator/body  | Skipped with a warning                                                     |
+| ODCS rule                                                                         | DataHub aspect                                                                   |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| v3.1 `metric: nullValues` with `mustBe: 0`                                        | `FieldAssertionInfo` + `FieldValuesAssertion` (`NOT_NULL`)                       |
+| v3.1 `metric: nullValues` with another threshold                                  | `FieldAssertionInfo` + `FieldMetricAssertion` (`NULL_COUNT` / `NULL_PERCENTAGE`) |
+| v3.1 `metric: duplicateValues` / v3.0 `rule: duplicateCount` with `mustBe: 0`     | `FieldAssertionInfo` + `FieldMetricAssertion` (`UNIQUE_PERCENTAGE` == 100)       |
+| v3.1 `metric: invalidValues` (`arguments.validValues`) / v3.0 `rule: validValues` | `FieldAssertionInfo` + `FieldValuesAssertion` (`IN`)                             |
+| v3.1 `metric: invalidValues` with `arguments.pattern`                             | `FieldAssertionInfo` + `FieldValuesAssertion` (`REGEX_MATCH`)                    |
+| `metric: rowCount` (v3.0 `rule: rowCount`)                                        | `VolumeAssertionInfo` (`unit: rows` only)                                        |
+| `type: sql` with a `query` and a mappable threshold                               | `SqlAssertionInfo`                                                               |
+| `type: custom` (`engine` + `implementation`)                                      | `CustomAssertionInfo` (`type` = the engine, `logic` = the implementation)        |
+| `type: text`                                                                      | `CustomAssertionInfo` (`logic` = the description)                                |
+| Anything else with content                                                        | `CustomAssertionInfo` (original rule intent preserved as `logic`)                |
+| Anything with no operator and no body                                             | Skipped with a warning                                                           |
 
-:::warning Routing is explicit; nothing is fabricated
+The v3.1 library key is `metric`; `rule` is accepted as the v3.0 canonical key and as the
+deprecated v3.1 alias (v3.1 documents using `rule` get an informational notice). Every
+assertion carries ODCS provenance in `customProperties` (`odcs.id`, `odcs.rule.id`,
+`odcs.rule.metric`, `odcs.rule.unit`, serialized `odcs.rule.arguments`, dimension /
+severity / businessImpact when present), a `dataPlatformInstance` aspect attributing it to
+the `odcs` platform, and an `externalUrl` from the rule's `authoritativeDefinitions` when
+provided. Assertion URNs are seeded from the spec's `quality.id` when present, so renames
+and reordering do not churn identities.
 
-Rules are routed in three buckets, by design:
+:::warning Routing is exact; nothing is approximated
 
-- **Skipped** (added to `report.rules_skipped_no_threshold`): rules with **no operator
-  AND no body** (no `query`, no `implementation`, no description-as-logic). The source
-  emits a warning and does not fabricate an operator or threshold.
-- **Routed to `CustomAssertionInfo`** (added to `report.rules_routed_to_custom`): rules
-  with an operator OR a body but no DataHub-modeled type. The custom assertion's `logic`
-  field is set in priority order from `query`, then `implementation`, then `description`.
-  This bucket includes:
-  - `range`, `freshness`, and any other library rule not in the typed list
-  - Vendor-specific rules (Soda, Great Expectations, dbt test names, etc.)
-  - A `unique` rule that omits `column` (cannot bind to a single field)
-  - A `sql` rule that omits `query` — `logic` falls back to `implementation` or `description`
-  - `mustNotBeBetween` — `logic` is set explicitly to `f"value not between {low} and {high}"`
-- **Routed to a typed assertion**: only the rules listed in the table above.
+Tolerances map to typed assertions only when they are exactly representable:
 
-ODCS does not constrain library rule names, so the universe of rule shapes is open. The
-typed allowlist is intentionally small to avoid silent misinterpretation. If you expected
-your rule to land as a typed assertion and it did not, check this list first.
-
-:::
-
-:::tip Verify your contract's rules round-tripped
-
-Compare your contract's rule list to `report.assertions_emitted`,
-`report.rules_skipped_no_threshold`, and `report.rules_routed_to_custom` to verify every
-rule's intent was preserved. If `report.physical_bindings_resolved` is `0`, no assertions
-are emitted regardless of the rule content — add a `servers_to_platform` mapping or a
-`physical_urn_overrides` entry to bind the contract to a physical dataset.
+- No threshold at all (the v3.0 `validValues` form) and `mustBe: 0` both mean "no failing
+  rows tolerated".
+- An integral `mustBeLessOrEqualTo` maps to a fail threshold in rows (`unit: rows`) or
+  percent (`unit: percent`).
+- Everything else — strict less-than tolerances, non-integral percents,
+  `mustNotBeBetween`, duplicate-count tolerances, percent-based `rowCount`, multi-column
+  `duplicateValues` (`arguments.properties`), `missingValues` — is preserved as a
+  `CustomAssertionInfo` whose `logic` carries a stable rendition of the original rule
+  (metric, arguments, thresholds, unit) rather than being approximated into a typed shape.
+- Rules routed to custom are listed in `report.rules_routed_to_custom`; rules with no
+  modelable content at all are skipped and listed in `report.rules_skipped_no_threshold`.
 
 :::
 
-#### Schema type mapping
+#### Schema-compliance assertion
 
-Each `schema[].properties[]` entry becomes a `schemaMetadata` field on the logical dataset.
-ODCS `logicalType` (and, as a fallback, `physicalType`) is mapped to a DataHub
-`SchemaFieldDataType` (string, number, boolean, date/time, record, array, map, bytes, enum).
-The original ODCS type string is always preserved as `nativeDataType`. Types that do not map
-to a known DataHub type fall back to `NullType` and are recorded in
-`report.schema_type_fallbacks` so the gap is visible rather than silent.
+For every `schema[]` entry that declares properties, the source emits one `DATA_SCHEMA`
+assertion (`SchemaAssertionInfo`) on the logical dataset carrying the contract's declared
+schema. This makes schema drift an evaluable contract violation rather than an implied
+one. `schema_assertion_compatibility` controls the mode: `SUPERSET` (default — an instance
+must contain at least the contract's fields, extras allowed), `EXACT_MATCH`, or `SUBSET`.
+Disable with `emit_schema_assertion: false`.
+
+#### Physical dataset binding (the `logicalParent` link)
+
+Binding exists to link physical datasets to their logical model — assertions never depend
+on it. Resolution per `schema[]` entry, in priority order:
+
+1. `physical_urn_overrides[<contract id>][<schema entry name>]` — an explicit URN, or an
+   empty string to deliberately leave the entry unbound. Entries absent from the map fall
+   back to derivation; keys that match no schema entry warn.
+2. The contract's first mappable `servers[]` entry. The platform comes from the
+   spec-required `servers[].type` (or a matching `server_overrides` entry), and the table
+   name (`physicalName`, falling back to `name`) is qualified with the server's own fields
+   per the platform's URN convention:
+
+| Server `type` | DataHub platform | Physical name                                                                                |
+| ------------- | ---------------- | -------------------------------------------------------------------------------------------- |
+| `postgres`    | `postgres`       | `database.schema.table`                                                                      |
+| `redshift`    | `redshift`       | `database.schema.table`                                                                      |
+| `sqlserver`   | `mssql`          | `database.schema.table`                                                                      |
+| `snowflake`   | `snowflake`      | `database.schema.table` (lowercased by default; `convert_urns_to_lowercase: false` opts out) |
+| `bigquery`    | `bigquery`       | `project.dataset.table`                                                                      |
+| `databricks`  | `databricks`     | `catalog.schema.table`                                                                       |
+| `trino`       | `trino`          | `catalog.schema.table`                                                                       |
+| `mysql`       | `mysql`          | `database.table`                                                                             |
+| `oracle`      | `oracle`         | not composable — supply a dotted `physicalName` or an explicit override                      |
+| anything else | —                | unbound (logical dataset and assertions unaffected)                                          |
+
+A `physicalName` that already contains a dot is used verbatim (assumed pre-qualified) and
+counted in `report.physical_names_passthrough`. Missing server fields leave the entry
+unbound with an actionable reason — the source never guesses a schema name. When a DataHub
+graph is available and `verify_physical_urns_exist` is on (default), derived URNs that do
+not exist in DataHub are left unbound with a warning instead of creating stub datasets.
+Two schema entries binding the same physical dataset warn: `logicalParent` is
+single-valued, so the last writer wins.
 
 ### Limitations
 
 - ODCS v3.0 and v3.1 only. Contracts reporting v2.x in `apiVersion` are skipped with a
   warning.
 - **Logical Models are in private beta** and render in the UI only when
-  `LOGICAL_MODELS_ENABLED` is enabled (off by default). A standalone ODCS file with no
-  physical binding produces a logical dataset that, on a default deployment, is ingested but
-  not displayed and carries no assertions. See the Prerequisites above for the recommended
-  workflow.
-- **Assertions require a physical binding** (strict gating). Quality rules on a contract with
-  no resolvable physical dataset produce no assertions; only the `odcs.qualityRuleCount`
-  provenance counter is recorded.
-- **Nested-column assertions and field-path resolution.** Field-scoped assertions
-  (`notNull`, `unique`, and property-scoped custom rules) reference the column by the path
-  given in the ODCS contract — `rule.column`, or the dotted property path for nested
-  `properties[]` (e.g. `address.city`). These resolve cleanly for top-level columns. For a
-  nested column to anchor to a field on the **physical** dataset, that dataset must use the
-  same dotted naming; SQL connectors that emit v2-encoded field paths for nested structs will
-  not match, and the assertion will have no field anchor in the UI. Top-level columns (the
-  common case) are unaffected.
-- **Property-level `unique: true` is not yet emitted as an assertion.** Uniqueness expressed
-  via the idiomatic ODCS property flag (`properties[].unique: true`) is currently not
-  materialized; express it as a `quality[]` rule (`rule: unique` with a `column`) to get a
-  `FieldMetricAssertion`. Property-flag support is a planned follow-up.
-- **Disabling `emit_assertions` after a prior run soft-deletes earlier assertions.** If a run
-  with `emit_assertions: true` is followed by one with `emit_assertions: false` (and
-  `state_file_path` set), the assertions from the earlier run fall out of state and are
-  marked removed — expected cleanup, but worth knowing.
+  `LOGICAL_MODELS_ENABLED` is enabled (off by default). The logical datasets and their
+  assertions are ingested while the flag is off — they just aren't displayed.
+- **Nested-column assertions and field-path resolution.** Field-scoped assertions reference
+  the column by its dotted property path (`address.city`), matching the logical dataset's
+  own `schemaMetadata`. Propagation onto physical datasets whose connectors encode nested
+  struct paths differently is subject to the platform propagation mechanism.
+- **Property-level `unique: true` / `required: true` flags are not emitted as
+  assertions** — they map into `schemaMetadata` (nullability, keys) and are enforced via
+  the schema-compliance assertion; express uniqueness checks as `quality[]` rules
+  (`metric: duplicateValues` with `mustBe: 0`) to get a typed field assertion.
 - File loading is capped at 5 MB by default (`max_input_file_bytes`). Larger YAML files
   are skipped with a warning before parsing.
-- Out of scope: SLA, pricing, support channels, `customProperties` → DataHub
-  `customProperties` (only the `odcs.*` subset is emitted), `classification` →
-  `GlossaryTerm` linking, schemaField-level `logicalParent` (only dataset-level links are
-  emitted today), and ODCS export. These may land in a follow-up.
-- Real-world contracts using deprecated top-level `quality[]` or the legacy library `rule:`
-  key may fail strict JSON-Schema validation. The source defaults to
-  `strict_validation: false` so these contracts ingest with warnings rather than rejection.
-  Set `strict_validation: true` to opt back into strict JSON-Schema enforcement.
+- Out of scope: SLA (`slaProperties`), `support`, `price`, v3.1 `relationships` (foreign
+  keys), `customProperties` → DataHub `customProperties` (only the `odcs.*` provenance
+  subset is emitted), `classification` → `GlossaryTerm` linking, schemaField-level
+  `logicalParent` column links, and ODCS export. Spec-valid-but-unmapped fields are
+  reported once per file via `report.spec_fields_ignored`. These may land in a follow-up.
 - **Contract metadata replication**: By default, contract-level ownership and tags are
   written to every logical dataset on each run. If you edit these aspects in the DataHub UI,
   they will be overwritten on the next ingest. Set `replicate_contract_metadata: false` to
   disable replication (useful for one-time enrichment workflows).
-- **Mixed-platform `servers[]`**: A single contract binds to one DataHub platform via
-  `servers_to_platform`. Contracts that reference multiple platforms bind only to the first
-  matching mapping; use `physical_urn_overrides` for per-table control. Per-table platform
-  binding is a follow-up feature.
+- **Mixed-platform `servers[]`**: binding uses the first server whose `type` maps to a
+  platform; contracts that reference multiple platforms bind to that one only. Use
+  `physical_urn_overrides` for per-table control.
 
 ### Troubleshooting
 
-#### My contract's quality rules produced no assertions
+#### Where do the emitted assertions appear?
 
-Assertions are emitted only when a `schema[]` entry resolves to a physical dataset (strict
-gating). Check `report.physical_bindings_resolved`: if it is `0`, no binding was found. Add a
-`servers_to_platform` mapping that matches the contract's `servers[].server` value, or add a
-`physical_urn_overrides` entry for the contract's `id`.
+On the **logical `odcs` dataset** — open it in the UI (requires `LOGICAL_MODELS_ENABLED`)
+and look under its **Quality / Assertions** tab. Assertions are not written to physical
+datasets by this source; DataHub propagates expectations to physical instances via the
+`PhysicalInstanceOf` relationship.
+
+#### My contract produced no logicalParent link
+
+Check `report.unmappable_servers` and the per-entry info messages: the contract may
+declare no `servers[]`, use a server `type` with no platform mapping (e.g. `kafka`, `s3`),
+or be missing the fields needed to qualify a table name (e.g. a postgres server without
+`schema`). With a DataHub graph attached, `report.physical_urns_unverified` counts derived
+URNs that were skipped because they do not exist in DataHub yet — ingest the physical
+platform first, or set `verify_physical_urns_exist: false` to link optimistically.
 
 #### My logical `odcs` dataset doesn't appear in the UI
 
 Logical Models are in private beta and require the `LOGICAL_MODELS_ENABLED` feature flag
-(off by default). Enable it to view logical datasets and their `logicalParent` links. The
-metadata is still ingested while the flag is off — it just isn't displayed. The flag is set
-on the GMS service (for self-hosted OSS, the `LOGICAL_MODELS_ENABLED` environment variable on
-the `datahub-gms` container; on DataHub Cloud, ask your administrator to enable it). The
-source also emits a run-summary warning whenever it produced logical datasets but resolved
-no physical bindings, so a "nothing showed up" run is visible in the ingestion report.
+(off by default). Enable it to view logical datasets, their assertions, and their
+`logicalParent` links. The metadata is still ingested while the flag is off — it just
+isn't displayed. The flag is set on the GMS service (for self-hosted OSS, the
+`LOGICAL_MODELS_ENABLED` environment variable on the `datahub-gms` container; on DataHub
+Cloud, ask your administrator to enable it).
 
-#### Where do the emitted assertions appear?
+#### My `missingValues`/`mustNotBeBetween`/vendor rule shows up as a Custom Assertion
 
-When a physical binding resolves, assertions are attached to the **physical** dataset — open
-that dataset in the UI and look under its **Quality / Assertions** tab (not the logical
-`odcs` dataset). `report.assertions_emitted` counts how many were produced.
-
-#### My `range`/`freshness`/`<vendor>` quality rule shows up as a Custom Assertion
-
-Expected. See [Quality rule mapping](#quality-rule-mapping) above for the full allowlist
-of typed assertions. Anything outside that list is preserved verbatim as
-`CustomAssertionInfo` rather than misinterpreted into a typed assertion shape.
+Expected. See [Quality rule mapping](#quality-rule-mapping) for the exact typed-assertion
+allowlist and the threshold-representability rules. Anything outside them is preserved
+verbatim as `CustomAssertionInfo` rather than approximated.
 
 #### I removed a table from my ODCS file but the physical dataset is still in DataHub
 
 That's expected. ODCS owns the logical `odcs` Dataset and the Assertions it emitted; the
 physical Dataset belongs to its platform-of-record source (postgres / snowflake / …), and
-the `logicalParent` link is a non-destructive enrichment. Removing the `schema[]` entry
-soft-deletes the logical dataset and its assertions on the next ODCS ingest, but never the
-physical dataset.
+the `logicalParent` link is a non-destructive enrichment. With `stateful_ingestion`
+enabled, removing the `schema[]` entry marks the logical dataset and its assertions
+removed on the next ODCS ingest — never the physical dataset.
 
 #### I edited owners on a logical dataset and the next ingest reverted them
 

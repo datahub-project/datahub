@@ -4,13 +4,13 @@ import logging
 import os
 import pathlib
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 import jsonschema
 import yaml
 from pydantic import BaseModel, ValidationError
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -19,7 +19,10 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceCapability,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_mapper import (
@@ -28,8 +31,17 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
+    odcs_to_schema_assertion_mcps,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
+    KNOWN_UNMAPPED_AUTHDEF_FIELDS,
+    KNOWN_UNMAPPED_CONTRACT_FIELDS,
+    KNOWN_UNMAPPED_PROPERTY_FIELDS,
+    KNOWN_UNMAPPED_QUALITY_FIELDS,
+    KNOWN_UNMAPPED_SCHEMA_FIELDS,
+    KNOWN_UNMAPPED_SERVER_FIELDS,
+    KNOWN_UNMAPPED_TEAM_FIELDS,
+    ODCSAuthoritativeDefinition,
     ODCSContract,
     ODCSProperty,
     ODCSQualityRule,
@@ -37,7 +49,18 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSServer,
     ODCSTeamMember,
 )
-from datahub.metadata.schema_classes import StatusClass
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    auto_stale_entity_removal,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +73,30 @@ _VERSION_TO_SCHEMA = {
 }
 _DEFAULT_VERSION = "3.1.0"
 
-# URN prefix for the logical datasets ODCS owns. State and soft-delete are
-# scoped strictly to these (plus the assertions ODCS emits).
-_ODCS_DATASET_PREFIX = f"urn:li:dataset:(urn:li:dataPlatform:{ODCS_PLATFORM},"
-
 _MODEL_FIELDS_CACHE: Dict[type, Set[str]] = {}
+
+# Spec-valid-but-unmapped field sets per model, for the unknown-field walker.
+_KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
+    ODCSContract: KNOWN_UNMAPPED_CONTRACT_FIELDS,
+    ODCSSchemaObject: KNOWN_UNMAPPED_SCHEMA_FIELDS,
+    ODCSProperty: KNOWN_UNMAPPED_PROPERTY_FIELDS,
+    ODCSQualityRule: KNOWN_UNMAPPED_QUALITY_FIELDS,
+    ODCSServer: KNOWN_UNMAPPED_SERVER_FIELDS,
+    ODCSTeamMember: KNOWN_UNMAPPED_TEAM_FIELDS,
+    ODCSAuthoritativeDefinition: KNOWN_UNMAPPED_AUTHDEF_FIELDS,
+}
+
+# Which list-valued keys of each model recurse into which child model, for the
+# unknown-field walker. `authoritativeDefinitions` is handled generically.
+_CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
+    ODCSContract: {
+        "schema": ODCSSchemaObject,
+        "servers": ODCSServer,
+        "team": ODCSTeamMember,
+    },
+    ODCSSchemaObject: {"properties": ODCSProperty, "quality": ODCSQualityRule},
+    ODCSProperty: {"properties": ODCSProperty, "quality": ODCSQualityRule},
+}
 
 
 def _model_field_keys(model_cls: type[BaseModel]) -> Set[str]:
@@ -73,7 +115,7 @@ def _model_field_keys(model_cls: type[BaseModel]) -> Set[str]:
 
 
 @dataclass
-class ODCSSourceReport(SourceReport):
+class ODCSSourceReport(StaleEntityRemovalSourceReport):
     contracts_scanned: int = 0
     contracts_parsed: int = 0
     contracts_skipped: int = 0
@@ -81,14 +123,18 @@ class ODCSSourceReport(SourceReport):
     physical_bindings_resolved: int = 0
     logical_parents_emitted: int = 0
     assertions_emitted: int = 0
-    aspects_soft_deleted: int = 0
+    schema_assertions_emitted: int = 0
     unknown_fields_count: int = 0
     validation_errors: int = 0
     unmappable_servers: int = 0
+    physical_urns_verified: int = 0
+    physical_urns_unverified: int = 0
+    physical_names_passthrough: int = 0
     files_skipped: List[str] = field(default_factory=list)
     rules_skipped_no_threshold: List[str] = field(default_factory=list)
     rules_routed_to_custom: List[str] = field(default_factory=list)
     schema_type_fallbacks: List[str] = field(default_factory=list)
+    spec_fields_ignored: List[str] = field(default_factory=list)
 
 
 @platform_name("Open Data Contract Standard", id="odcs")
@@ -103,143 +149,69 @@ class ODCSSourceReport(SourceReport):
 @capability(SourceCapability.DESCRIPTIONS, "Dataset and column descriptions.")
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "ODCS soft-deletes only the logical `odcs` Datasets and Assertions it owns; "
-    "physical datasets and their `logicalParent` links are never marked removed.",
+    "Via standard stateful ingestion (`stateful_ingestion.remove_stale_metadata`): only "
+    "the logical `odcs` Datasets and Assertions ODCS owns are stale-removed; physical "
+    "datasets and their `logicalParent` links are never marked removed.",
 )
-class ODCSSource(Source):
+class ODCSSource(StatefulIngestionSourceBase):
     """Ingest Open Data Contract Standard (ODCS) v3.x YAML documents as logical models.
 
     ODCS v3 describes a producer-published dataset specification, so each
     `schema[]` entry is materialized as a **logical dataset** on the `odcs`
     platform (DatasetProperties / SchemaMetadata / GlobalTags / Ownership /
-    InstitutionalMemory). When a physical dataset can be resolved, the source
-    also links it with `logicalParent` (the `PhysicalInstanceOf` relationship)
-    and emits one Assertion per `quality[]` rule against the physical dataset.
+    InstitutionalMemory), with one Assertion per `quality[]` rule and one
+    schema-compliance assertion — all targeting the logical dataset. When a
+    physical dataset can be resolved from the contract's `servers[]`, the
+    source also links it with `logicalParent` (the `PhysicalInstanceOf`
+    relationship); propagation of the assertions onto physical datasets is
+    handled by DataHub, not by this source.
     """
 
+    platform = ODCS_PLATFORM
+
     def __init__(self, config: ODCSSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)  # type: ignore[arg-type]
         self.config = config
-        self.report = ODCSSourceReport()
+        self.report: ODCSSourceReport = ODCSSourceReport()
         self._validators = self._load_validators()
-        # URNs ODCS emitted on this run, indexed by source-file. Persisted
-        # across runs (when state_file_path is set). Only contains logical
-        # `odcs` Dataset and Assertion URNs — never physical datasets.
-        self._current_state: Dict[str, Dict[str, List[str]]] = {}
-        self._prior_state: Dict[str, Dict[str, List[str]]] = self._load_prior_state()
+        # Stale-entity removal via standard stateful ingestion. Ownership is
+        # scoped per-workunit: aspects emitted onto entities ODCS does not own
+        # (the logicalParent link on physical datasets, the platform-info
+        # aspect) are marked is_primary_source=False and are never removed.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            state_provider=self.state_provider,
+            report=self.report,
+            config=self.config,
+            state_type_class=GenericCheckpointState,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+            platform=self.platform,
+        )
         # Logical `odcs` dataset URNs emitted this run, to detect collisions when
         # two contracts resolve to the same {contract_id}.{schema_name}.
         self._seen_logical_urns: Set[str] = set()
+        # Physical URNs already claimed by a logicalParent link this run:
+        # logicalParent is single-valued, so a second contract binding the same
+        # physical dataset silently overwrites the first (last-writer-wins).
+        self._seen_physical_urns: Dict[str, str] = {}
+        # Per-run cache for graph existence checks (one lookup per unique URN).
+        self._physical_exists_cache: Dict[str, bool] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ODCSSource":
         config = ODCSSourceConfig.model_validate(config_dict)
         return cls(config=config, ctx=ctx)
 
-    # ------------------------------------------------------------------
-    # State management for scoped soft-delete
-    # ------------------------------------------------------------------
+    def get_excluded_workunit_processors(self):
+        # Stale removal is wired manually below so the handler instance is
+        # shared with this source; exclude the framework's automatic processor.
+        return [AutoStaleEntityRemovalProcessor]
 
-    def _state_path(self) -> Optional[pathlib.Path]:
-        if not self.config.state_file_path:
-            return None
-        return pathlib.Path(os.path.expanduser(self.config.state_file_path))
-
-    def _load_prior_state(self) -> Dict[str, Dict[str, List[str]]]:
-        """Load `{file_path: {"datasets": [urns], "assertions": [urns]}}` from disk.
-
-        First-run-no-state, missing-file, and corrupt-JSON all degrade to "no
-        prior state" (empty dict) with a warning so soft-delete becomes a
-        no-op rather than crashing the source.
-        """
-        path = self._state_path()
-        if path is None or not path.exists():
-            return {}
-        try:
-            with open(path) as fp:
-                raw = json.load(fp)
-        except (OSError, json.JSONDecodeError) as e:
-            self.report.warning(
-                title="Could not read ODCS state file",
-                message=(
-                    "Failed to load prior-run state; soft-delete will be a no-op "
-                    "for this run. The state file will be rewritten at end-of-run."
-                ),
-                context=str(path),
-                exc=e,
-            )
-            return {}
-        if not isinstance(raw, dict):
-            return {}
-        # Filter aggressively to entity types ODCS owns. Refuse to load any URN
-        # that is not a logical `odcs` dataset or an assertion — physical
-        # datasets are out of scope for ODCS soft-delete.
-        cleaned: Dict[str, Dict[str, List[str]]] = {}
-        for file_key, payload in raw.items():
-            if not isinstance(payload, dict):
-                continue
-            datasets = [
-                u
-                for u in payload.get("datasets", [])
-                if isinstance(u, str) and u.startswith(_ODCS_DATASET_PREFIX)
-            ]
-            assertions = [
-                u
-                for u in payload.get("assertions", [])
-                if isinstance(u, str) and u.startswith("urn:li:assertion:")
-            ]
-            cleaned[file_key] = {"datasets": datasets, "assertions": assertions}
-        return cleaned
-
-    def _persist_state(self) -> None:
-        path = self._state_path()
-        if path is None:
-            return
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path, "w") as fp:
-                json.dump(self._current_state, fp, indent=2, sort_keys=True)
-        except OSError as e:
-            self.report.warning(
-                title="Could not write ODCS state file",
-                message=(
-                    "End-of-run state could not be persisted; next run will not "
-                    "be able to soft-delete URNs that fell out of this run."
-                ),
-                context=str(path),
-                exc=e,
-            )
-
-    def _emit_soft_deletes(self) -> Iterable[MetadataWorkUnit]:
-        """Diff current vs. prior state and emit Status(removed=True) for fall-outs.
-
-        Scoped strictly to logical `odcs` Dataset + Assertion URNs. The diff is
-        per source-file: a logical dataset removed from `file_a.yaml` is only a
-        soft-delete candidate if the file was processed this run (or the file
-        disappeared entirely — the legitimate "contract removed" case).
-        """
-        for file_key, prior in self._prior_state.items():
-            current = self._current_state.get(
-                file_key, {"datasets": [], "assertions": []}
-            )
-            current_set = set(current.get("datasets", [])) | set(
-                current.get("assertions", [])
-            )
-            for urn in list(prior.get("datasets", [])) + list(
-                prior.get("assertions", [])
-            ):
-                if urn in current_set:
-                    continue
-                if not (
-                    urn.startswith(_ODCS_DATASET_PREFIX)
-                    or urn.startswith("urn:li:assertion:")
-                ):
-                    continue
-                self.report.aspects_soft_deleted += 1
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=urn,
-                    aspect=StatusClass(removed=True),
-                ).as_workunit()
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
+        ]
 
     # ------------------------------------------------------------------
     # Schema validation + file IO
@@ -461,19 +433,30 @@ class ODCSSource(Source):
     # ------------------------------------------------------------------
 
     def _warn_unknown_fields(self, raw_dict: dict, file_path: pathlib.Path) -> None:
-        """Walk the raw YAML dict and warn on any key not declared on the model.
+        """Walk the raw YAML dict and classify keys not declared on the model.
 
-        Pydantic's `extra="ignore"` silently drops these — ODCS files often
-        contain typos or version-specific fields, and a silent drop is a
-        footgun. One warning per (model, field) pair per file.
+        Three-way classification per key:
+          1. Declared on the model — parsed; recurse into known list shapes.
+          2. Spec-valid but unmapped (`KNOWN_UNMAPPED_*`) — collected and
+             reported once per file as an info, NOT a warning: the field is
+             legitimate ODCS that this source deliberately does not map.
+          3. Genuinely unknown — a per-field warning. Pydantic's
+             `extra="ignore"` silently drops these, and a silent drop of a
+             typo'd field is a footgun.
         """
+        spec_ignored: List[str] = []
 
         def walk(node: Any, model_cls: type[BaseModel], path_hint: str) -> None:
             if not isinstance(node, dict):
                 return
             allowed = _model_field_keys(model_cls)
+            known_unmapped = _KNOWN_UNMAPPED_BY_MODEL.get(model_cls, frozenset())
+            child_models = _CHILD_MODEL_BY_KEY.get(model_cls, {})
             for key, value in node.items():
                 if key not in allowed:
+                    if key in known_unmapped:
+                        spec_ignored.append(f"{path_hint}.{key}")
+                        continue
                     self.report.unknown_fields_count += 1
                     self.report.warning(
                         title="Unknown ODCS field",
@@ -484,51 +467,61 @@ class ODCSSource(Source):
                         context=f"{file_path}: {path_hint}.{key}",
                     )
                     continue
-                if model_cls is ODCSContract:
-                    if key == "schema" and isinstance(value, list):
-                        for i, item in enumerate(value):
-                            walk(item, ODCSSchemaObject, f"{path_hint}.schema[{i}]")
-                    elif key == "servers" and isinstance(value, list):
-                        for i, item in enumerate(value):
-                            walk(item, ODCSServer, f"{path_hint}.servers[{i}]")
-                    elif key == "team" and isinstance(value, list):
-                        for i, item in enumerate(value):
-                            walk(item, ODCSTeamMember, f"{path_hint}.team[{i}]")
-                    elif key == "quality" and isinstance(value, list):
-                        for i, item in enumerate(value):
-                            walk(item, ODCSQualityRule, f"{path_hint}.quality[{i}]")
-                elif model_cls is ODCSSchemaObject or model_cls is ODCSProperty:
-                    if key == "properties" and isinstance(value, list):
-                        for i, item in enumerate(value):
-                            walk(item, ODCSProperty, f"{path_hint}.properties[{i}]")
-                    elif key == "quality" and isinstance(value, list):
-                        for i, item in enumerate(value):
-                            walk(item, ODCSQualityRule, f"{path_hint}.quality[{i}]")
+                child_cls = (
+                    ODCSAuthoritativeDefinition
+                    if key == "authoritativeDefinitions"
+                    else child_models.get(key)
+                )
+                if child_cls is not None and isinstance(value, list):
+                    for i, item in enumerate(value):
+                        walk(item, child_cls, f"{path_hint}.{key}[{i}]")
 
         walk(raw_dict, ODCSContract, "<root>")
+        if spec_ignored:
+            self.report.spec_fields_ignored.extend(spec_ignored)
+            self.report.info(
+                title="ODCS contract uses spec fields DataHub does not map",
+                message=(
+                    "These fields are valid ODCS but are not mapped to DataHub "
+                    "aspects by this source (e.g. SLA, support, pricing, "
+                    "relationships). They are ignored."
+                ),
+                context=f"{file_path}: {', '.join(spec_ignored)}",
+            )
 
     # ------------------------------------------------------------------
     # Per-file processing
     # ------------------------------------------------------------------
 
-    def _file_state_key(self, file_path: pathlib.Path) -> str:
-        """Stable key for storing per-file state (absolute path, str-form)."""
-        try:
-            return str(file_path.resolve())
-        except OSError:
-            return str(file_path)
+    def _physical_urn_exists(self, urn: str) -> bool:
+        """Best-effort existence check for a derived physical dataset URN.
 
-    def _record_state(
-        self,
-        file_path: pathlib.Path,
-        dataset_urns: List[str],
-        assertion_urns: List[str],
-    ) -> None:
-        key = self._file_state_key(file_path)
-        self._current_state[key] = {
-            "datasets": list(dataset_urns),
-            "assertions": list(assertion_urns),
-        }
+        No graph (file sink) and lookup errors both fail OPEN (return True) so
+        a missing or flaky GMS never silently unbinds contracts. Results are
+        cached per run — one lookup per unique URN.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return True
+        cached = self._physical_exists_cache.get(urn)
+        if cached is not None:
+            return cached
+        try:
+            exists = bool(graph.exists(urn))
+            if exists:
+                self.report.physical_urns_verified += 1
+        except Exception as e:
+            self.report.warning(
+                title="Could not verify physical dataset existence",
+                message=(
+                    "Graph lookup failed; assuming the dataset exists (fail-open)."
+                ),
+                context=urn,
+                exc=e,
+            )
+            exists = True
+        self._physical_exists_cache[urn] = exists
+        return exists
 
     def _process_file(self, file_path: pathlib.Path) -> Iterable[MetadataWorkUnit]:
         self.report.contracts_scanned += 1
@@ -554,33 +547,29 @@ class ODCSSource(Source):
             self.report.contracts_skipped += 1
             return
 
+        overrides = self.config.physical_urn_overrides.get(contract.id)
+        if overrides:
+            schema_names = {entry.name for entry in contract.schema_ or []}
+            unmatched = sorted(set(overrides) - schema_names)
+            if unmatched:
+                self.report.warning(
+                    title="physical_urn_overrides keys match no schema entry",
+                    message=(
+                        "These override keys do not name any schema[] entry in "
+                        "the contract — check for typos or renamed entries."
+                    ),
+                    context=f"file={file_path} contract={contract.id} keys={unmatched}",
+                )
+
         bindings = odcs_to_physical_bindings(contract, self.config)
         if not bindings:
-            # No schema[] entries — nothing to emit. Record empty state so a
-            # prior-run state file with this key gets soft-deleted.
-            self._record_state(file_path, [], [])
+            # No schema[] entries — nothing to emit.
             self.report.contracts_skipped += 1
             return
 
         self.report.contracts_parsed += 1
         source_file = file_path.name
-        emitted_dataset_urns: List[str] = []
-        emitted_assertion_urns: List[str] = []
-
-        # Record state in a finally so that an exception part-way through the
-        # binding loop does not leave _current_state without this file's URNs —
-        # which would make the next run soft-delete everything from the prior run.
-        try:
-            yield from self._emit_bindings(
-                contract,
-                bindings,
-                file_path,
-                source_file,
-                emitted_dataset_urns,
-                emitted_assertion_urns,
-            )
-        finally:
-            self._record_state(file_path, emitted_dataset_urns, emitted_assertion_urns)
+        yield from self._emit_bindings(contract, bindings, file_path, source_file)
 
     def _emit_bindings(
         self,
@@ -588,14 +577,11 @@ class ODCSSource(Source):
         bindings: list,
         file_path: pathlib.Path,
         source_file: str,
-        emitted_dataset_urns: List[str],
-        emitted_assertion_urns: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         for binding in bindings:
             schema_entry = binding.schema_entry
             logical_urn = binding.logical_urn
             self.report.logical_datasets_emitted += 1
-            emitted_dataset_urns.append(logical_urn)
 
             if logical_urn in self._seen_logical_urns:
                 self.report.warning(
@@ -625,41 +611,29 @@ class ODCSSource(Source):
                     f"{contract.id}/{schema_entry.name}: {unmapped}"
                 )
 
-            if binding.physical_urn is None:
-                # Strict gating: no binding means no logicalParent link and no
-                # assertions. The unmapped reason is informational, not an error.
-                if binding.unmapped_reason:
-                    self.report.unmappable_servers += 1
-                    self.report.info(
-                        title="ODCS schema entry has no physical binding",
-                        message=(
-                            f"{binding.unmapped_reason}. Emitted the logical "
-                            "dataset only; no logicalParent link or assertions."
-                        ),
-                        context=(
-                            f"file={file_path} schema_index={binding.index} "
-                            f"schema_name={schema_entry.name}"
-                        ),
-                    )
-                continue
-
-            self.report.physical_bindings_resolved += 1
-            physical_urn = binding.physical_urn
-
-            if self.config.emit_logical_parent:
-                yield odcs_to_logical_parent_mcp(
-                    physical_urn, logical_urn
-                ).as_workunit()
-                self.report.logical_parents_emitted += 1
-
+            # Assertions target the LOGICAL dataset and are emitted whether or
+            # not a physical binding resolved. Propagation of these
+            # expectations onto bound physical datasets is handled by a
+            # separate DataHub mechanism via the PhysicalInstanceOf link.
             if self.config.emit_assertions:
                 assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
                     contract=contract,
                     schema_entry=schema_entry,
-                    physical_urn=physical_urn,
                     logical_urn=logical_urn,
                 )
                 self.report.rules_routed_to_custom.extend(trace.routed_to_custom)
+                if trace.deprecated_rule_key:
+                    self.report.info(
+                        title="ODCS quality rules use the deprecated `rule` key",
+                        message=(
+                            "This v3.1 contract names library rules via the "
+                            "deprecated `rule` key; use `metric` instead."
+                        ),
+                        context=(
+                            f"file={file_path} schema={schema_entry.name} "
+                            f"rules={', '.join(trace.deprecated_rule_key)}"
+                        ),
+                    )
                 for skipped in trace.skipped_no_body:
                     self.report.rules_skipped_no_threshold.append(skipped)
                     self.report.warning(
@@ -674,20 +648,100 @@ class ODCSSource(Source):
                             f"rule={skipped}"
                         ),
                     )
-                # Record state BEFORE yielding (mirrors the logical-dataset URN
-                # above): if a downstream yield raises mid-loop, the finally in
-                # _process_file must still see these URNs, or the next run would
-                # soft-delete assertions that were already emitted.
-                emitted_assertion_urns.extend(assertion_urns)
+                self.report.assertions_emitted += len(assertion_urns)
                 for mcp in assertion_mcps:
-                    self.report.assertions_emitted += 1
                     yield mcp.as_workunit()
+
+            if self.config.emit_schema_assertion:
+                schema_assertion_urn, schema_assertion_mcps = (
+                    odcs_to_schema_assertion_mcps(
+                        contract=contract,
+                        schema_entry=schema_entry,
+                        logical_urn=logical_urn,
+                        compatibility=self.config.schema_assertion_compatibility,
+                    )
+                )
+                if schema_assertion_urn is not None:
+                    self.report.schema_assertions_emitted += 1
+                    for mcp in schema_assertion_mcps:
+                        yield mcp.as_workunit()
+
+            if binding.physical_urn is None:
+                # No binding costs only the logicalParent link — never the
+                # assertions. The unmapped reason is informational.
+                if binding.unmapped_reason:
+                    self.report.unmappable_servers += 1
+                    self.report.info(
+                        title="ODCS schema entry has no physical binding",
+                        message=(
+                            f"{binding.unmapped_reason}. Emitted the logical "
+                            "dataset and its assertions; no logicalParent link."
+                        ),
+                        context=(
+                            f"file={file_path} schema_index={binding.index} "
+                            f"schema_name={schema_entry.name}"
+                        ),
+                    )
+                continue
+
+            physical_urn = binding.physical_urn
+            if binding.name_passthrough:
+                self.report.physical_names_passthrough += 1
+
+            if self.config.verify_physical_urns_exist and not self._physical_urn_exists(
+                physical_urn
+            ):
+                self.report.physical_urns_unverified += 1
+                self.report.warning(
+                    title="Derived physical dataset not found in DataHub",
+                    message=(
+                        "The physical URN derived from the contract's servers[] "
+                        "does not exist in DataHub, so no logicalParent link was "
+                        "emitted (this avoids creating a stub dataset). Ingest "
+                        "the physical platform first, fix the derived name via "
+                        "physical_urn_overrides, or set "
+                        "verify_physical_urns_exist=false to emit optimistically."
+                    ),
+                    context=(
+                        f"file={file_path} schema_name={schema_entry.name} "
+                        f"urn={physical_urn}"
+                    ),
+                )
+                continue
+
+            self.report.physical_bindings_resolved += 1
+
+            prior_claim = self._seen_physical_urns.get(physical_urn)
+            if prior_claim is not None:
+                self.report.warning(
+                    title="Physical dataset bound by multiple ODCS schema entries",
+                    message=(
+                        "logicalParent is single-valued; the last writer wins "
+                        f"(already bound by {prior_claim})."
+                    ),
+                    context=f"file={file_path} urn={physical_urn}",
+                )
+            self._seen_physical_urns[physical_urn] = (
+                f"{contract.id}/{schema_entry.name}"
+            )
+
+            if self.config.emit_logical_parent:
+                # is_primary_source=False: the physical dataset belongs to its
+                # platform-of-record source. This keeps the URN out of ODCS's
+                # stateful-ingestion checkpoint so stale-entity removal can
+                # never soft-delete a physical dataset.
+                yield odcs_to_logical_parent_mcp(physical_urn, logical_urn).as_workunit(
+                    is_primary_source=False
+                )
+                self.report.logical_parents_emitted += 1
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Emit the odcs platform aspect once per run. Also registered at GMS
         # boot (PR #17332); this is the version-independent fallback, and its
         # fields must stay in sync with that entry -- see odcs_platform_info_mcp().
-        yield odcs_platform_info_mcp().as_workunit()
+        # is_primary_source=False keeps the platform entity out of the
+        # stateful-ingestion checkpoint.
+        yield odcs_platform_info_mcp().as_workunit(is_primary_source=False)
 
         for file_path in self._resolve_paths():
             try:
@@ -704,29 +758,28 @@ class ODCSSource(Source):
                 self.report.contracts_skipped += 1
 
         # Surface the silent-by-default case: logical datasets were emitted but
-        # nothing bound to a physical dataset. With no binding there are no
-        # assertions, and the logical `odcs` datasets only render once the
+        # nothing bound to a physical dataset. Assertions are unaffected (they
+        # target the logical dataset), but no logicalParent links were produced,
+        # and the logical `odcs` datasets only render once the
         # LOGICAL_MODELS_ENABLED feature flag is enabled (off by default in OSS),
         # so the run can otherwise look like it did nothing.
         if (
             self.report.logical_datasets_emitted > 0
             and self.report.physical_bindings_resolved == 0
         ):
-            self.report.warning(
-                title="ODCS emitted logical datasets but resolved no physical bindings",
+            self.report.info(
+                title="ODCS resolved no physical bindings",
                 message=(
                     f"{self.report.logical_datasets_emitted} logical `odcs` dataset(s) "
-                    "were emitted with no physical binding, so no assertions were "
-                    "produced. Logical Models also require the LOGICAL_MODELS_ENABLED "
-                    "feature flag (off by default) to render in the UI. Configure "
-                    "`servers_to_platform` or `physical_urn_overrides` to bind physical "
-                    "datasets and emit assertions."
+                    "were emitted (with their assertions), but none bound to a "
+                    "physical dataset, so no logicalParent links were produced. "
+                    "Logical Models also require the LOGICAL_MODELS_ENABLED feature "
+                    "flag (off by default) to render in the UI. Declare typed "
+                    "`servers[]` entries in the contract, or configure "
+                    "`server_overrides` / `physical_urn_overrides`, to link physical "
+                    "datasets."
                 ),
             )
-
-        # End-of-run: diff prior vs. current state and emit Status(removed=true).
-        yield from self._emit_soft_deletes()
-        self._persist_state()
 
     def get_report(self) -> ODCSSourceReport:
         return self.report

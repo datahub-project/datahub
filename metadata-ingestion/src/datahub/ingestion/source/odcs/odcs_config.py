@@ -6,6 +6,12 @@ from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
 
 # Display name and platform id for the logical-model platform ODCS contracts are
 # materialized under. ODCS v3 describes a producer-published dataset spec, so it
@@ -13,22 +19,46 @@ from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
 # bilateral `dataContract`.
 ODCS_PLATFORM = "odcs"
 
+# ODCS `servers[].type` (required by the spec) -> DataHub data platform id.
+# Physical binding is derived from the contract itself via this map;
+# `server_overrides` refines env / platform_instance / platform per server.
+# Server types without an entry (kafka, s3, api, ...) leave the schema entry
+# unbound — the logical dataset and its assertions are unaffected.
+SERVER_TYPE_TO_PLATFORM: Dict[str, str] = {
+    "postgres": "postgres",
+    "postgresql": "postgres",
+    "mysql": "mysql",
+    "snowflake": "snowflake",
+    "bigquery": "bigquery",
+    "redshift": "redshift",
+    "databricks": "databricks",
+    "sqlserver": "mssql",
+    "trino": "trino",
+    "oracle": "oracle",
+}
+
+# Platforms whose DataHub connectors lowercase dataset names by default; the
+# composed physical name follows suit when `convert_urns_to_lowercase` is on.
+LOWERCASE_BY_DEFAULT_PLATFORMS = frozenset(("snowflake",))
+
 
 class ServerMapping(ConfigModel):
-    """Maps an ODCS `servers[].server` identifier to a DataHub data platform.
+    """Per-server overrides for physical dataset binding.
 
-    ODCS allows any free-form string in the `server` field of a server entry.
-    To bind a logical ODCS dataset to a *physical* dataset (so quality rules can
-    target real tables and the physical asset gets a `logicalParent` link), the
-    source needs an explicit DataPlatform URN, which this mapping supplies.
+    The physical platform is normally derived from the spec-required
+    `servers[].type`; an override entry refines that derivation for a named
+    `servers[].server` — most commonly to set `env` or `platform_instance`,
+    or to force a different platform id.
     """
 
     server: str = Field(
         description="The value of `servers[].server` in the ODCS contract. "
         "If `match_any` is True, this is treated as a wildcard match for any server."
     )
-    platform: str = Field(
-        description="The DataHub data platform identifier (e.g. `postgres`, `snowflake`, `bigquery`)."
+    platform: Optional[str] = Field(
+        default=None,
+        description="Optional DataHub data platform identifier (e.g. `postgres`, `snowflake`). "
+        "When unset, the platform is derived from the server's `type`.",
     )
     env: str = Field(
         default=DEFAULT_ENV,
@@ -42,7 +72,7 @@ class ServerMapping(ConfigModel):
     match_any: bool = Field(
         default=False,
         description="If True, this mapping matches any `servers[].server` not matched by a more specific mapping. "
-        "Use a single catch-all mapping to apply one platform to all contracts.",
+        "Use a single catch-all mapping to apply one override to all contracts.",
     )
 
     @field_validator("env")
@@ -53,28 +83,48 @@ class ServerMapping(ConfigModel):
         return v.upper()
 
 
-class ODCSSourceConfig(EnvConfigMixin):
+_SCHEMA_ASSERTION_COMPATIBILITY_MODES = ("EXACT_MATCH", "SUPERSET", "SUBSET")
+
+
+class ODCSSourceConfig(
+    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], EnvConfigMixin
+):
     """Config for the ODCS ingestion source.
 
     Reads Open Data Contract Standard (ODCS) v3.x YAML files from a path (file,
     directory, or glob) and materializes each `schema[]` entry as a **logical
     dataset** on the `odcs` platform: dataset properties, canonical schema
-    metadata, ownership, tags, and a link to the source document. When a
-    physical dataset can be resolved (via `servers_to_platform` or
-    `physical_urn_overrides`), the source also emits a `logicalParent` link from
-    the physical dataset and quality assertions against it.
+    metadata, ownership, tags, quality + schema-compliance assertions, and a
+    link to the source document. When a physical dataset can be resolved from
+    the contract's typed `servers[]` (refined via `server_overrides` or
+    `physical_urn_overrides`), the source also emits a `logicalParent` link
+    from the physical dataset to the logical one.
     """
 
     path: Union[str, List[str]] = Field(
         description="Path to an ODCS YAML file, a directory containing ODCS YAML files, "
         "or a glob pattern. May also be a list of any of the above.",
     )
-    servers_to_platform: List[ServerMapping] = Field(
+    server_overrides: List[ServerMapping] = Field(
         default_factory=list,
-        description="List of mappings from ODCS `servers[].server` values to DataHub platforms. "
-        "Used to resolve the *physical* dataset a logical ODCS dataset binds to. Optional: "
-        "without a binding, the logical dataset and its schema are still emitted, but no "
-        "physical `logicalParent` link or quality assertions are produced.",
+        description="Optional per-server overrides for physical binding. The physical platform "
+        "is derived from the contract's spec-required `servers[].type`; an override refines "
+        "env / platform_instance / platform for a named `servers[].server` value. Binding only "
+        "affects the `logicalParent` link — assertions always attach to the logical dataset.",
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description="Lowercase composed physical dataset names for platforms whose DataHub "
+        "connectors lowercase URNs by default (currently snowflake). Set False if your "
+        "snowflake ingestion runs with convert_urns_to_lowercase disabled.",
+    )
+    verify_physical_urns_exist: bool = Field(
+        default=True,
+        description="When a DataHub graph is available (datahub-rest sink), verify each derived "
+        "physical dataset URN exists before emitting its `logicalParent` link; URNs not found "
+        "are left unbound with a warning instead of creating stub datasets. With no graph "
+        "(file sink), emission proceeds without verification. Set False to emit links "
+        "optimistically for tables that do not exist yet.",
     )
     tag_prefix: Optional[str] = Field(
         default=None,
@@ -99,16 +149,6 @@ class ODCSSourceConfig(EnvConfigMixin):
             "contract is then a one-time enricher rather than a source of truth)."
         ),
     )
-    state_file_path: Optional[str] = Field(
-        default=None,
-        description=(
-            "Optional path to a JSON file used to track the logical `odcs` Dataset and Assertion "
-            "URNs ODCS emitted on the previous run. On the next run, URNs ODCS no longer emits are "
-            "soft-deleted (Status.removed=true). Physical datasets and their `logicalParent` links "
-            "are NEVER soft-deleted by ODCS. If unset, no cross-run state is persisted; soft-delete "
-            "falls back to a per-invocation diff (within-run consistency only)."
-        ),
-    )
     odcs_versions: List[str] = Field(
         default_factory=lambda: ["3.0.0", "3.0.1", "3.0.2", "3.1.0"],
         description="List of supported ODCS `apiVersion` values. Contracts with `apiVersion` "
@@ -117,22 +157,46 @@ class ODCSSourceConfig(EnvConfigMixin):
     emit_assertions: bool = Field(
         default=True,
         description="Whether to emit Assertion entities derived from the ODCS `quality[]` rules. "
-        "Assertions are only emitted for schema entries that resolve to a physical dataset "
-        "(strict binding); without a binding no assertions are produced regardless of this flag.",
+        "Assertions target the logical `odcs` dataset and are emitted whether or not a "
+        "physical binding resolves.",
     )
+    emit_schema_assertion: bool = Field(
+        default=True,
+        description="Whether to emit one DATA_SCHEMA assertion per `schema[]` entry, pinning the "
+        "contract's declared schema on the logical dataset so schema drift is evaluable as a "
+        "contract violation.",
+    )
+    schema_assertion_compatibility: str = Field(
+        default="SUPERSET",
+        description="Compatibility mode for the DATA_SCHEMA assertion: `SUPERSET` (an instance "
+        "must contain at least the contract's fields; extras allowed), `EXACT_MATCH`, or "
+        "`SUBSET`.",
+    )
+
+    @field_validator("schema_assertion_compatibility")
+    @classmethod
+    def compatibility_must_be_valid(cls, v: str) -> str:
+        upper = v.upper()
+        if upper not in _SCHEMA_ASSERTION_COMPATIBILITY_MODES:
+            raise ValueError(
+                "schema_assertion_compatibility must be one of "
+                f"{_SCHEMA_ASSERTION_COMPATIBILITY_MODES}, found {v}"
+            )
+        return upper
+
     emit_logical_parent: bool = Field(
         default=True,
         description="Whether to emit a `logicalParent` link from each resolved physical dataset to "
         "its logical ODCS dataset (the `PhysicalInstanceOf` relationship). Disable to keep ODCS "
         "from writing any aspect onto physical datasets.",
     )
-    physical_urn_overrides: Dict[str, List[str]] = Field(
+    physical_urn_overrides: Dict[str, Dict[str, str]] = Field(
         default_factory=dict,
-        description="Map of ODCS contract `id` to a list of explicit physical DataHub Dataset URNs, "
-        "one per `schema[]` entry in order. Bypasses the `servers_to_platform` lookup for the named "
-        "contracts. Use an empty string to leave a given schema entry unbound. When supplied, the "
-        "list is authoritative: any entry left empty — or omitted by a list shorter than `schema[]` — "
-        "is treated as deliberately unbound and does NOT fall back to `servers_to_platform`.",
+        description="Map of ODCS contract `id` to a map of `schema[]` entry NAME to an explicit "
+        "physical DataHub Dataset URN, bypassing server-based derivation for those entries. An "
+        "empty-string URN deliberately leaves the named entry unbound; schema entries absent "
+        "from the map fall back to server-based derivation. Keys that match no schema entry "
+        "produce a warning (typo guard).",
     )
     logical_dataset_name_template: str = Field(
         default="{contract_id}.{schema_name}",
