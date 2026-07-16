@@ -55,6 +55,9 @@ query getSemanticModelsBrowse($input: GetRootEntitiesInput!) {
                     time
                 }
             }
+            metrics(input: { count: 0, query: "*" }) {
+                total
+            }
             subTypes {
                 typeNames
             }
@@ -92,6 +95,40 @@ query getSemanticModelMetrics($urn: String!, $input: ScrollAcrossEntitiesInput!)
                         subTypes {
                             typeNames
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+# Direct children of a metric (used to lazily expand a metric row in the sidebar tree).
+query getMetricChildren($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Metric {
+                    id
+                    path
+                    platform {
+                        ...platformFields
+                    }
+                    info {
+                        name
+                        description
+                        lastModified {
+                            time
+                        }
+                    }
+                    childMetrics(input: { count: 0, query: "*" }) {
+                        total
+                    }
+                    subTypes {
+                        typeNames
                     }
                 }
             }

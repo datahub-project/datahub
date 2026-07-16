@@ -1,34 +1,35 @@
-import { Button, EmptyState, SearchBar, Tooltip } from '@components';
+import { Button, EmptyState, SearchBar } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
+import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
 import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { SimpleSelect } from '@components/components/Select/SimpleSelect';
+
 import { MetricsTreeItem } from '@app/metrics/MetricsTreeItem';
+import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
+
+import {
+    GetSemanticModelMetricsQuery,
+    GetSemanticModelsBrowseQuery,
+    useGetMetricChildrenLazyQuery,
+    useGetSemanticModelMetricsLazyQuery,
+    useGetSemanticModelsBrowseQuery,
+} from '@graphql/metricsBrowse.generated';
+import { EntityType } from '@types';
 
 const SIDEBAR_TRANSITION_MS = 300;
 export const SIDEBAR_COLLAPSED_WIDTH = 63;
 
-// Visual chrome (SidebarContainer / HeaderControls / SidebarTitle /
-// HeaderButtons / CircleIconButton / Separator / SearchInputWrapper /
-// SearchIconButton) intentionally mirrors `app/context/ContextSidebar.tsx`
-// (jjoyce0510) field-for-field so the Metrics sidebar reads as the same
-// kind of "browse tree" surface as Documents. The copy is deliberate
-// rather than abstracted into a shared shell because (a) the two
-// sidebars will diverge as Metrics gets metric-specific filters /
-// search, and (b) lifting a shared primitive out of Documents would
-// be a separate refactor touching `homeV2/layout/sidebar/documents/*`.
-// If the chrome stabilises across both, that's the right follow-up.
-// No outer margin — gaps between the three columns are owned by the
-// parent `ContentWrapper` in `MetricsPage.tsx`.
+// Visual chrome mirrors `app/context/ContextSidebar.tsx`.
 const SidebarContainer = styled.div<{
     $width: number;
     $isCollapsed: boolean;
@@ -68,23 +69,6 @@ const HeaderButtons = styled.div`
     gap: 4px;
 `;
 
-// Tightens the filled circle button so it visually matches the text
-// collapse button beside it. Without this, `size="lg"` filled buttons
-// render with a noticeably larger footprint than `size="lg"` text
-// buttons because the gradient + shadow chrome adds visual weight.
-// Mirrors `StyledButton` in `app/context/ContextSidebar.tsx` (jjoyce0510).
-const CircleIconButton = styled(Button)`
-    padding: 2px;
-    svg {
-        width: 20px;
-        height: 20px;
-    }
-`;
-
-// 1px separator. Renders the same line antd's `<Divider />` would,
-// without the antd dependency, using the standard theme border token
-// (`theme.colors.border`) that other thin separators in this codebase
-// use (e.g. `AdvancedSearchFilterOverallUnionTypeSelect`, `SchemaTable`).
 const Separator = styled.div`
     height: 1px;
     background: ${(props) => props.theme.colors.border};
@@ -92,6 +76,14 @@ const Separator = styled.div`
 
 const SearchInputWrapper = styled.div`
     padding: 12px;
+    flex-shrink: 0;
+`;
+
+const FiltersWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 12px 12px;
     flex-shrink: 0;
 `;
 
@@ -141,43 +133,34 @@ const EmptyStateWrapper = styled.div`
     padding: 24px 12px;
 `;
 
+const ALL_OPTION = '__all__';
+
+type SemanticModel = NonNullable<
+    NonNullable<GetSemanticModelsBrowseQuery['getSemanticModels']>['semanticModels'][number]
+>;
+
+type SearchResultEntity = NonNullable<
+    NonNullable<
+        NonNullable<GetSemanticModelMetricsQuery['semanticModel']>['metrics']
+    >['searchResults'][number]['entity']
+>;
+type MetricEntity = Extract<SearchResultEntity, { __typename?: 'Metric' }>;
+
 type Props = {
     width: number;
     isCollapsed: boolean;
+    isEntityProfile?: boolean;
     onToggleCollapsed: () => void;
     onExpandSidebar: () => void;
 };
 
-/**
- * MetricsSidebar - Left navigation sidebar for the Metrics page.
- *
- * Shape mirrors `app/context/ContextSidebar.tsx`: header with title +
- * "+ New Metric" circle button + collapse toggle, search bar (no-op
- * until a metric index exists), and a browse tree with an Overview row
- * + empty state until metrics exist.
- *
- * The parent does a single top-level branch on `isCollapsed` and renders
- * one of two purpose-built children (`CollapsedMetricsSidebar` or
- * `ExpandedMetricsSidebar`). Each child knows exactly what it renders,
- * so neither has internal `isCollapsed` checks. Per PR #18047 review
- * (ani-malgari) — keeps the conditional rendering at one site instead
- * of sprinkled across the body.
- *
- * Tree rows render through `MetricsTreeItem`, which mirrors
- * `DocumentTreeItem` exactly — same row chrome (38px height, 4px vertical
- * padding, `bgSelectedSubtle` + `shadowFocusBrand` selection, `bgHover` +
- * `shadowFocus` hover) AND same icon-vs-caret-on-hover behaviour for rows
- * with children. The Overview row is the only consumer today; when
- * semantic-model rows arrive they'll pass `hasChildren` and get the caret
- * swap for free.
- *
- * Selection is purely route-driven — same model as Documents. Today
- * only `/metrics` exists, so Overview lights when it matches. Once
- * `/metric/:urn` and `/semantic-model/:urn` exist, add `matchPath`
- * checks alongside the Overview one (and at that point it's worth
- * lifting the derivation into a `useMetricsSidebarSelection` hook).
- */
-export default function MetricsSidebar({ width, isCollapsed, onToggleCollapsed, onExpandSidebar }: Props) {
+export default function MetricsSidebar({
+    width,
+    isCollapsed,
+    isEntityProfile: _isEntityProfile,
+    onToggleCollapsed,
+    onExpandSidebar,
+}: Props) {
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
@@ -196,11 +179,6 @@ export default function MetricsSidebar({ width, isCollapsed, onToggleCollapsed, 
     );
 }
 
-/**
- * Compact icon-only variant shown when the sidebar is collapsed.
- * Two affordances: a magnifier that re-expands the sidebar (back into
- * the search input) and a right-arrow collapse toggle.
- */
 function CollapsedMetricsSidebar({
     onToggleCollapsed,
     onExpandSidebar,
@@ -235,39 +213,93 @@ function CollapsedMetricsSidebar({
     );
 }
 
-/**
- * Full sidebar contents shown when expanded: title + create button +
- * collapse toggle in the header, a real search input, and the browse
- * tree (Overview row + empty state).
- *
- * All expanded-only state (search input, route match for selection)
- * lives here so collapsed renders don't pay for it.
- */
 function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () => void }) {
     const { t } = useTranslation('misc');
     const history = useHistory();
     const location = useLocation();
     const [searchInput, setSearchInput] = useState('');
+    const [platformFilter, setPlatformFilter] = useState(ALL_OPTION);
+
+    const {
+        expandedSemanticModelUrns,
+        expandedMetricUrns,
+        selectedUrn,
+        childMetricsByModelUrn,
+        childMetricsByParentUrn,
+        toggleSemanticModel,
+        toggleMetric,
+        setChildMetricsForModel,
+        setChildMetricsForParent,
+        refetchKey,
+    } = useMetricsEntityContext();
 
     const isOverviewSelected = !!matchPath(location.pathname, { path: PageRoutes.METRICS, exact: true });
+
+    // Fetch root semantic models.
+    const { data: modelsData, refetch: refetchModels } = useGetSemanticModelsBrowseQuery({
+        variables: { input: { count: 100, start: 0 } },
+    });
+
+    // Re-fetch root when refetchKey changes.
+    useEffect(() => {
+        if (refetchKey > 0) {
+            refetchModels();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refetchKey]);
+
+    const allModels = useMemo(() => modelsData?.getSemanticModels?.semanticModels ?? [], [modelsData]);
+
+    // Derive unique platforms for the Platform filter.
+    const platformOptions = useMemo(() => {
+        const seen = new Map<string, string>();
+        allModels.forEach((m) => {
+            const urn = m.platform?.urn;
+            const label = m.platform?.properties?.displayName ?? m.platform?.info?.displayName ?? m.platform?.name;
+            if (urn && label && !seen.has(urn)) seen.set(urn, label);
+        });
+        return Array.from(seen.entries()).map(([urn, label]) => ({ value: urn, label }));
+    }, [allModels]);
+
+    // Filter semantic models by platform + search.
+    const visibleModels = useMemo(() => {
+        return allModels.filter((m) => {
+            if (platformFilter !== ALL_OPTION && m.platform?.urn !== platformFilter) return false;
+            if (searchInput) {
+                const q = searchInput.toLowerCase();
+                const nameMatch = (m.info?.name ?? '').toLowerCase().includes(q);
+                if (!nameMatch) {
+                    // Keep the model visible if any of its cached child metrics match.
+                    const childMetrics = childMetricsByModelUrn[m.urn] ?? [];
+                    const childMatch = childMetrics.some((metric) =>
+                        (metric.info?.name ?? '').toLowerCase().includes(q),
+                    );
+                    if (!childMatch) return false;
+                }
+            }
+            return true;
+        });
+    }, [allModels, platformFilter, searchInput, childMetricsByModelUrn]);
+
+    // Auto-expand the semantic model that directly contains the selected metric.
+    // Deeper metric-in-metric ancestors are handled properly in subsequent PR.
+    useEffect(() => {
+        if (!selectedUrn) return;
+        allModels.forEach((m) => {
+            const topLevelMetrics = childMetricsByModelUrn[m.urn] ?? [];
+            const isDirectChild = topLevelMetrics.some((metric) => metric.urn === selectedUrn);
+            if (isDirectChild && !expandedSemanticModelUrns.has(m.urn)) {
+                toggleSemanticModel(m.urn);
+            }
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedUrn, allModels, childMetricsByModelUrn]);
 
     return (
         <>
             <HeaderControls $isCollapsed={false}>
                 <SidebarTitle>{t('metrics.sidebarTitle')}</SidebarTitle>
                 <HeaderButtons>
-                    <Tooltip title={t('metrics.newMetric')} placement="bottom" showArrow={false}>
-                        <CircleIconButton
-                            variant="filled"
-                            color="primary"
-                            isCircle
-                            icon={{ icon: Plus }}
-                            onClick={() => {
-                                /* stub: wired up once the create-metric mutation exists */
-                            }}
-                            data-testid="metrics-sidebar-new-metric"
-                        />
-                    </Tooltip>
                     <Button
                         variant="text"
                         color="gray"
@@ -291,6 +323,21 @@ function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () =
                 />
             </SearchInputWrapper>
 
+            {platformOptions.length > 1 && (
+                <FiltersWrapper>
+                    <SimpleSelect
+                        size="sm"
+                        width="full"
+                        showClear={false}
+                        selectLabelProps={{ variant: 'labeled', label: t('metrics.filterPlatform') }}
+                        options={[{ value: ALL_OPTION, label: t('metrics.filterAll') }, ...platformOptions]}
+                        values={[platformFilter]}
+                        onUpdate={(vals) => setPlatformFilter(vals[0] ?? ALL_OPTION)}
+                        dataTestId="metrics-sidebar-platform-filter"
+                    />
+                </FiltersWrapper>
+            )}
+
             <Separator />
             <TreeContainer data-testid="metrics-sidebar-tree">
                 <MetricsTreeItem
@@ -302,15 +349,230 @@ function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () =
                     testId="metrics-sidebar-overview"
                 />
 
-                <EmptyStateWrapper>
-                    <EmptyState
-                        icon={Sigma}
-                        title={t('metrics.emptyTreeTitle')}
-                        description={t('metrics.emptyTreeDescription')}
-                        size="sm"
+                {modelsData && visibleModels.length === 0 && (
+                    <EmptyStateWrapper>
+                        <EmptyState
+                            icon={Sigma}
+                            title={t('metrics.emptyTreeTitle')}
+                            description={t('metrics.emptyTreeDescription')}
+                            size="sm"
+                        />
+                    </EmptyStateWrapper>
+                )}
+                {visibleModels.map((model) => (
+                    <SemanticModelRow
+                        key={model.urn}
+                        model={model}
+                        searchInput={searchInput}
+                        isExpanded={expandedSemanticModelUrns.has(model.urn)}
+                        isSelected={selectedUrn === model.urn}
+                        cachedMetrics={childMetricsByModelUrn[model.urn]}
+                        expandedMetricUrns={expandedMetricUrns}
+                        childMetricsByParentUrn={childMetricsByParentUrn}
+                        selectedUrn={selectedUrn}
+                        onToggle={() => toggleSemanticModel(model.urn)}
+                        onMetricsFetched={setChildMetricsForModel}
+                        onToggleMetric={toggleMetric}
+                        onChildMetricsFetched={setChildMetricsForParent}
                     />
-                </EmptyStateWrapper>
+                ))}
             </TreeContainer>
+        </>
+    );
+}
+
+type SemanticModelRowProps = {
+    model: SemanticModel;
+    searchInput: string;
+    isExpanded: boolean;
+    isSelected: boolean;
+    cachedMetrics: MetricEntity[] | undefined;
+    expandedMetricUrns: Set<string>;
+    childMetricsByParentUrn: Record<string, MetricEntity[]>;
+    selectedUrn: string | null;
+    onToggle: () => void;
+    onMetricsFetched: (modelUrn: string, metrics: MetricEntity[]) => void;
+    onToggleMetric: (urn: string) => void;
+    onChildMetricsFetched: (parentUrn: string, metrics: MetricEntity[]) => void;
+};
+
+function SemanticModelRow({
+    model,
+    searchInput,
+    isExpanded,
+    isSelected,
+    cachedMetrics,
+    expandedMetricUrns,
+    childMetricsByParentUrn,
+    selectedUrn,
+    onToggle,
+    onMetricsFetched,
+    onToggleMetric,
+    onChildMetricsFetched,
+}: SemanticModelRowProps) {
+    const history = useHistory();
+    const hasChildren = (model.metrics?.total ?? 0) > 0;
+
+    const [fetchMetrics, { data: metricsData }] = useGetSemanticModelMetricsLazyQuery();
+
+    // Fetch metrics for this model when it's first expanded.
+    useEffect(() => {
+        if (isExpanded && !cachedMetrics && hasChildren) {
+            fetchMetrics({ variables: { urn: model.urn, input: { count: 100, query: '*' } } });
+        }
+    }, [isExpanded, cachedMetrics, hasChildren, fetchMetrics, model.urn]);
+
+    // When fresh data arrives, populate the cache.
+    useEffect(() => {
+        if (!metricsData?.semanticModel?.metrics) return;
+        const fetched = metricsData.semanticModel.metrics.searchResults
+            .map((r) => r.entity)
+            .filter((e): e is MetricEntity => e?.__typename === 'Metric');
+        onMetricsFetched(model.urn, fetched);
+    }, [metricsData, model.urn, onMetricsFetched]);
+
+    const filteredMetrics = useMemo(() => {
+        const metrics = cachedMetrics ?? [];
+        if (!searchInput) return metrics;
+        const q = searchInput.toLowerCase();
+        return metrics.filter((m) => (m.info?.name ?? '').toLowerCase().includes(q));
+    }, [cachedMetrics, searchInput]);
+
+    const modelTitle = model.info?.name ?? model.urn;
+
+    return (
+        <>
+            <MetricsTreeItem
+                level={0}
+                icon={Cube}
+                platform={model.platform}
+                title={modelTitle}
+                isSelected={isSelected}
+                hasChildren={hasChildren}
+                isExpanded={isExpanded}
+                onClick={() => history.push(`${PageRoutes.SEMANTIC_MODEL_ENTITY}/${encodeURIComponent(model.urn)}`)}
+                onToggleExpand={hasChildren ? onToggle : undefined}
+                testId={`metrics-sidebar-model-${model.urn}`}
+            />
+            {isExpanded &&
+                filteredMetrics.map((metric) => (
+                    <MetricRow
+                        key={metric.urn}
+                        level={1}
+                        metric={metric}
+                        searchInput={searchInput}
+                        isExpanded={expandedMetricUrns.has(metric.urn)}
+                        isSelected={selectedUrn === metric.urn}
+                        cachedChildren={childMetricsByParentUrn[metric.urn]}
+                        expandedMetricUrns={expandedMetricUrns}
+                        childMetricsByParentUrn={childMetricsByParentUrn}
+                        selectedUrn={selectedUrn}
+                        onToggle={() => onToggleMetric(metric.urn)}
+                        onChildMetricsFetched={onChildMetricsFetched}
+                        onToggleMetric={onToggleMetric}
+                    />
+                ))}
+        </>
+    );
+}
+
+type MetricRowProps = {
+    level: number;
+    metric: MetricEntity;
+    searchInput: string;
+    isExpanded: boolean;
+    isSelected: boolean;
+    cachedChildren: MetricEntity[] | undefined;
+    expandedMetricUrns: Set<string>;
+    childMetricsByParentUrn: Record<string, MetricEntity[]>;
+    selectedUrn: string | null;
+    onToggle: () => void;
+    onChildMetricsFetched: (parentUrn: string, metrics: MetricEntity[]) => void;
+    onToggleMetric: (urn: string) => void;
+};
+
+function MetricRow({
+    level,
+    metric,
+    searchInput,
+    isExpanded,
+    isSelected,
+    cachedChildren,
+    expandedMetricUrns,
+    childMetricsByParentUrn,
+    selectedUrn,
+    onToggle,
+    onChildMetricsFetched,
+    onToggleMetric,
+}: MetricRowProps) {
+    const history = useHistory();
+    const hasChildren = (metric.childMetrics?.total ?? 0) > 0;
+
+    const [fetchChildren, { data: childData }] = useGetMetricChildrenLazyQuery();
+
+    useEffect(() => {
+        if (isExpanded && !cachedChildren && hasChildren) {
+            fetchChildren({
+                variables: {
+                    input: {
+                        types: [EntityType.Metric],
+                        query: '*',
+                        count: 100,
+                        orFilters: [{ and: [{ field: 'parentMetric', values: [metric.urn] }] }],
+                    },
+                },
+            });
+        }
+    }, [isExpanded, cachedChildren, hasChildren, metric.urn, fetchChildren]);
+
+    useEffect(() => {
+        if (!childData?.searchAcrossEntities) return;
+        const directChildren = childData.searchAcrossEntities.searchResults
+            .map((r) => r.entity)
+            .filter((e): e is MetricEntity => e?.__typename === 'Metric');
+        onChildMetricsFetched(metric.urn, directChildren);
+    }, [childData, metric.urn, onChildMetricsFetched]);
+
+    const filteredChildren = useMemo(() => {
+        const children = cachedChildren ?? [];
+        if (!searchInput) return children;
+        const q = searchInput.toLowerCase();
+        return children.filter((m) => (m.info?.name ?? '').toLowerCase().includes(q));
+    }, [cachedChildren, searchInput]);
+
+    const metricTitle = metric.info?.name ?? metric.urn;
+
+    return (
+        <>
+            <MetricsTreeItem
+                level={level}
+                icon={Sigma}
+                title={metricTitle}
+                isSelected={isSelected}
+                hasChildren={hasChildren}
+                isExpanded={isExpanded}
+                onClick={() => history.push(`${PageRoutes.METRIC_ENTITY}/${encodeURIComponent(metric.urn)}`)}
+                onToggleExpand={hasChildren ? onToggle : undefined}
+                testId={`metrics-sidebar-metric-${metric.urn}`}
+            />
+            {isExpanded &&
+                filteredChildren.map((child) => (
+                    <MetricRow
+                        key={child.urn}
+                        level={level + 1}
+                        metric={child}
+                        searchInput={searchInput}
+                        isExpanded={expandedMetricUrns.has(child.urn)}
+                        isSelected={selectedUrn === child.urn}
+                        cachedChildren={childMetricsByParentUrn[child.urn]}
+                        expandedMetricUrns={expandedMetricUrns}
+                        childMetricsByParentUrn={childMetricsByParentUrn}
+                        selectedUrn={selectedUrn}
+                        onToggle={() => onToggleMetric(child.urn)}
+                        onChildMetricsFetched={onChildMetricsFetched}
+                        onToggleMetric={onToggleMetric}
+                    />
+                ))}
         </>
     );
 }
