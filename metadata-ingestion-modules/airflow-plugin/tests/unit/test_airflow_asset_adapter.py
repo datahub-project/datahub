@@ -1,5 +1,6 @@
 """Unit tests for the Airflow Asset adapter module."""
 
+import warnings
 from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
@@ -940,7 +941,12 @@ def _create_airflow_dataset(uri: str) -> Optional[Any]:
     catches those errors and returns None.
     """
     try:
-        from airflow.datasets import Dataset
+        # Deliberately uses the deprecated `airflow.datasets.Dataset` alias to check
+        # the adapter still recognizes the legacy "Dataset" class name; the Airflow
+        # 3.2 DeprecationWarning is therefore expected and suppressed.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            from airflow.datasets import Dataset
 
         return Dataset(uri)
     except Exception:
