@@ -463,9 +463,9 @@
     "volumeDescription.changeAtLeastRows": "Tabellen skal vokse med minst {{parameter}} rader",
     "volumeDescription.changeAtMostPercent": "Tabellen skal vokse med høyst {{parameter}} %",
     "volumeDescription.changeAtMostRows": "Tabellen skal vokse med høyst {{parameter}} rader",
-    "volumeDescription.changeBetweenPercent": "Tabellen skal vokse med mellom {{parameter}} %",
-    "volumeDescription.changeBetweenRows": "Tabellen skal vokse med mellom {{parameter}} rader",
+    "volumeDescription.changeBetweenPercent": "Tabellen skal vokse med mellom {{min}} og {{max}} %",
+    "volumeDescription.changeBetweenRows": "Tabellen skal vokse med mellom {{min}} og {{max}} rader",
     "volumeDescription.totalAtLeast": "Tabellen har minst {{parameter}} rader",
     "volumeDescription.totalAtMost": "Tabellen har høyst {{parameter}} rader",
-    "volumeDescription.totalBetween": "Tabellen har mellom {{parameter}} rader"
+    "volumeDescription.totalBetween": "Tabellen har mellom {{min}} og {{max}} rader"
 }

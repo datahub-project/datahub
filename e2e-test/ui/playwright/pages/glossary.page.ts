@@ -10,7 +10,6 @@ import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { GraphQLHelper } from '../helpers/graphql-helper';
 import { ModalComponent } from './common/modal-component';
-import { ToastComponent } from './common/toast-component';
 
 export class GlossaryPage extends BasePage {
   readonly modalComponent: ModalComponent;
@@ -69,12 +68,10 @@ export class GlossaryPage extends BasePage {
   readonly propertiesTab: Locator;
 
   private readonly graphqlHelper: GraphQLHelper;
-  private readonly toast: ToastComponent;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
     this.graphqlHelper = new GraphQLHelper(page);
-    this.toast = new ToastComponent(page);
 
     this.modalComponent = new ModalComponent(page);
 

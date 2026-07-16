@@ -219,7 +219,10 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
         const ownerTypeUrn = getParameter(changeEvent.parameters, PARAM_OWNER_TYPE_URN);
         let ownerTypeSuffix = '';
         if (ownerTypeUrn) {
-            ownerTypeSuffix = ` (${formatOwnerTypeUrn(ownerTypeUrn)})`;
+            // Prefer the ownership type's resolved display name — custom types have opaque URN slugs
+            // (a UUID), so humanizing the slug would show the UUID instead of the type's real name.
+            // Fall back to slug humanization when the type can't be resolved (e.g. it was deleted).
+            ownerTypeSuffix = ` (${nameMap?.get(ownerTypeUrn) ?? formatOwnerTypeUrn(ownerTypeUrn)})`;
         } else if (rawOwnerType && !UNINFORMATIVE_OWNER_TYPES.has(rawOwnerType)) {
             ownerTypeSuffix = ` (${formatOwnerType(rawOwnerType)})`;
         }
