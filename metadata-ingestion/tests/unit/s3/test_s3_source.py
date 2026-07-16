@@ -59,6 +59,7 @@ def _get_s3_source(path_spec_: PathSpec) -> S3Source:
             "path_spec": {
                 "include": path_spec_.include,
                 "table_name": path_spec_.table_name,
+                "emit_folders_only": path_spec_.emit_folders_only,
             },
             "aws_config": {
                 "aws_access_key_id": "test",
@@ -463,6 +464,44 @@ def test_get_folder_info_returns_expected_folder(s3_resource):
         size=150,
         sample_file="s3://my-bucket/my-folder/dir1/0002.csv",
     )
+
+
+def test_s3_emit_folders_only_emits_containers_no_datasets(s3_resource, s3_client):
+    bucket = "media-bucket"
+    s3_client.create_bucket(Bucket=bucket)
+    # Two-level media tree. 'audio' has no second level -> not emitted at depth 2.
+    for key in [
+        "media/videos/2023/clip.mp4",
+        "media/videos/2024/clip.mp4",
+        "media/audio/podcast.mp3",
+    ]:
+        s3_client.put_object(Bucket=bucket, Key=key, Body=b"x")
+
+    source = _get_s3_source(
+        PathSpec(
+            include=f"s3://{bucket}/media/*/*/",
+            emit_folders_only=True,
+        )
+    )
+
+    wus = list(source.get_workunits_internal())
+    urns = {wu.get_urn() for wu in wus}
+
+    # Every workunit is a container; no dataset URNs.
+    assert all(urn.startswith("urn:li:container:") for urn in urns)
+    assert not any(urn.startswith("urn:li:dataset:") for urn in urns)
+
+    # Depth-2 folders present: media/videos/2023 and media/videos/2024 (via their chain),
+    # plus parents bucket, media, videos. 'audio' (depth-1 leaf) is absent by design.
+    aspect_dumps = [
+        wu.metadata.aspect
+        for wu in wus
+        if getattr(wu.metadata, "aspectName", None) == "containerProperties"
+    ]
+    names = {a.name for a in aspect_dumps}
+    assert {"media-bucket", "media", "videos", "2023", "2024"} <= names
+    assert "audio" not in names
+    assert source.report.folders_scanned == 2
 
 
 def test_s3_region_in_external_url():

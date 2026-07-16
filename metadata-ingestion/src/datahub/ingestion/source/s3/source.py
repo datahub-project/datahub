@@ -678,6 +678,16 @@ class S3Source(StatefulIngestionSourceBase):
                 f"{folder.path}/{remaining_pattern}"
             )
 
+    def _process_folders(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
+        """Emit folder Containers for a folders-only path spec, to the depth defined by
+        the wildcards in `include`. Lists only folders (CommonPrefixes) — never objects."""
+        logger.info(f"Processing folders-only path spec: {path_spec.include}")
+        for folder_uri in self.resolve_templated_folders(path_spec.glob_include):
+            self.report.report_folder_scanned()
+            yield from self.container_WU_creator.create_folder_containers(
+                folder_uri.rstrip("/")
+            )
+
     def get_dir_to_process(
         self,
         uri: str,
@@ -1156,6 +1166,10 @@ class S3Source(StatefulIngestionSourceBase):
         with PerfTimer() as timer:
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
+                if path_spec.emit_folders_only:
+                    yield from self._process_folders(path_spec)
+                    continue
+
                 file_browser = (
                     self.s3_browser(
                         path_spec, self.source_config.number_of_files_to_sample
