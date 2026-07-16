@@ -444,7 +444,7 @@ def odcs_to_physical_bindings(
             platform=resolved.platform,
             server=resolved.server,
             table=table,
-            convert_to_lowercase=config.convert_urns_to_lowercase,
+            convert_to_lowercase=config.lowercase_physical_urns,
         )
         if physical_name is None:
             bindings.append(

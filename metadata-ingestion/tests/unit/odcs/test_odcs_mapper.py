@@ -259,7 +259,7 @@ def test_binding_snowflake_lowercase_can_be_disabled() -> None:
         schema=[{"name": "t1", "physicalName": "TBL"}],
     )
     bindings = odcs_to_physical_bindings(
-        contract, _config(convert_urns_to_lowercase=False)
+        contract, _config(lowercase_physical_urns=False)
     )
     assert bindings[0].physical_urn is not None
     assert "ANALYTICS.PUBLIC.TBL" in bindings[0].physical_urn

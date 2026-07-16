@@ -38,7 +38,7 @@ SERVER_TYPE_TO_PLATFORM: Dict[str, str] = {
 }
 
 # Platforms whose DataHub connectors lowercase dataset names by default; the
-# composed physical name follows suit when `convert_urns_to_lowercase` is on.
+# composed physical name follows suit when `lowercase_physical_urns` is on.
 LOWERCASE_BY_DEFAULT_PLATFORMS = frozenset(("snowflake",))
 
 
@@ -112,11 +112,17 @@ class ODCSSourceConfig(
         "env / platform_instance / platform for a named `servers[].server` value. Binding only "
         "affects the `logicalParent` link — assertions always attach to the logical dataset.",
     )
-    convert_urns_to_lowercase: bool = Field(
+    # Deliberately NOT named `convert_urns_to_lowercase`: the pipeline-level
+    # AutoLowercaseUrnsProcessor duck-types on that attribute name and would
+    # blanket-lowercase every dataset URN in the stream — including logical
+    # `odcs` URNs (losing the contract's casing) and logicalParent targets
+    # AFTER they were existence-verified with their original casing.
+    lowercase_physical_urns: bool = Field(
         default=True,
         description="Lowercase composed physical dataset names for platforms whose DataHub "
         "connectors lowercase URNs by default (currently snowflake). Set False if your "
-        "snowflake ingestion runs with convert_urns_to_lowercase disabled.",
+        "snowflake ingestion runs with convert_urns_to_lowercase disabled. Logical `odcs` "
+        "dataset URNs always preserve the contract's casing.",
     )
     verify_physical_urns_exist: bool = Field(
         default=True,

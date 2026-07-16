@@ -496,6 +496,30 @@ def test_stale_removal_processor_wiring(tmp_path: pathlib.Path) -> None:
     assert manual[0].args == (src.stale_entity_removal_handler,)
 
 
+def test_pipeline_blanket_urn_lowercasing_stays_disabled(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The pipeline-level AutoLowercaseUrnsProcessor duck-types on a source
+    config attribute named `convert_urns_to_lowercase`. ODCS must never expose
+    that name: blanket lowercasing would rewrite logical URNs (losing the
+    contract's casing) and logicalParent targets AFTER existence verification
+    ran against the original casing. Physical-name lowercasing is the
+    targeted `lowercase_physical_urns` knob instead."""
+    from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+    from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+        AutoLowercaseUrnsProcessor,
+    )
+
+    src = _make_source(tmp_path)
+    ctx = WorkunitProcessorContext(
+        source_report=src.report,
+        pipeline_context=src.ctx,
+        source_config=src.config,
+        platform="odcs",
+    )
+    assert not AutoLowercaseUrnsProcessor.should_enable(ctx)
+
+
 def test_owned_workunits_are_primary_but_links_are_not(
     tmp_path: pathlib.Path,
 ) -> None:

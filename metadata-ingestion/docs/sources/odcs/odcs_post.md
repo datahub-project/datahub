@@ -74,18 +74,18 @@ on it. Resolution per `schema[]` entry, in priority order:
    name (`physicalName`, falling back to `name`) is qualified with the server's own fields
    per the platform's URN convention:
 
-| Server `type` | DataHub platform | Physical name                                                                                |
-| ------------- | ---------------- | -------------------------------------------------------------------------------------------- |
-| `postgres`    | `postgres`       | `database.schema.table`                                                                      |
-| `redshift`    | `redshift`       | `database.schema.table`                                                                      |
-| `sqlserver`   | `mssql`          | `database.schema.table`                                                                      |
-| `snowflake`   | `snowflake`      | `database.schema.table` (lowercased by default; `convert_urns_to_lowercase: false` opts out) |
-| `bigquery`    | `bigquery`       | `project.dataset.table`                                                                      |
-| `databricks`  | `databricks`     | `catalog.schema.table`                                                                       |
-| `trino`       | `trino`          | `catalog.schema.table`                                                                       |
-| `mysql`       | `mysql`          | `database.table`                                                                             |
-| `oracle`      | `oracle`         | not composable — supply a dotted `physicalName` or an explicit override                      |
-| anything else | —                | unbound (logical dataset and assertions unaffected)                                          |
+| Server `type` | DataHub platform | Physical name                                                                              |
+| ------------- | ---------------- | ------------------------------------------------------------------------------------------ |
+| `postgres`    | `postgres`       | `database.schema.table`                                                                    |
+| `redshift`    | `redshift`       | `database.schema.table`                                                                    |
+| `sqlserver`   | `mssql`          | `database.schema.table`                                                                    |
+| `snowflake`   | `snowflake`      | `database.schema.table` (lowercased by default; `lowercase_physical_urns: false` opts out) |
+| `bigquery`    | `bigquery`       | `project.dataset.table`                                                                    |
+| `databricks`  | `databricks`     | `catalog.schema.table`                                                                     |
+| `trino`       | `trino`          | `catalog.schema.table`                                                                     |
+| `mysql`       | `mysql`          | `database.table`                                                                           |
+| `oracle`      | `oracle`         | not composable — supply a dotted `physicalName` or an explicit override                    |
+| anything else | —                | unbound (logical dataset and assertions unaffected)                                        |
 
 A `physicalName` that already contains a dot is used verbatim (assumed pre-qualified) and
 counted in `report.physical_names_passthrough`. Missing server fields leave the entry
