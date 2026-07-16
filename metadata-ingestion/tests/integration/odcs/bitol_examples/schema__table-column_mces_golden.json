@@ -1,0 +1,242 @@
+[
+{
+    "entityType": "dataPlatform",
+    "entityUrn": "urn:li:dataPlatform:odcs",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInfo",
+    "aspect": {
+        "json": {
+            "name": "odcs",
+            "displayName": "Open Data Contract Standard",
+            "type": "OTHERS",
+            "datasetNameDelimiter": ".",
+            "logoUrl": "assets/platforms/odcslogo.png"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-column",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553b.tbl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "53581432-6c55-4ba2-a65f-72344a91553b",
+                "odcs.schemaName": "tbl",
+                "odcs.qualityRuleCount": "0",
+                "odcs.version": "1.0.0",
+                "odcs.apiVersion": "v3.0.2",
+                "odcs.status": "active",
+                "odcs.sourceFile": "schema__table-column.odcs.yaml",
+                "odcs.dataProduct": "my_quantum"
+            },
+            "name": "my_table \u2014 tbl",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-column",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553b.tbl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "tbl",
+            "platform": "urn:li:dataPlatform:odcs",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "rcvr_cntry_code",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-column",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553b.tbl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "json": {
+            "elements": [
+                {
+                    "url": "https://collibra.com/asset/748f-71a5-4ab1-bda4-8c25",
+                    "description": "Business definition",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:datahub"
+                    }
+                },
+                {
+                    "url": "https://github.com/myorg/myrepo",
+                    "description": "Reference implementation",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:datahub"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-column",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:cb5b2e40b77a2c61cd98aeb93988623f",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "53581432-6c55-4ba2-a65f-72344a91553b",
+                "odcs.scope": "schema",
+                "odcs.assertion": "schema-compliance"
+            },
+            "type": "DATA_SCHEMA",
+            "schemaAssertion": {
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553b.tbl,PROD)",
+                "schema": {
+                    "schemaName": "tbl",
+                    "platform": "urn:li:dataPlatform:odcs",
+                    "version": 0,
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "hash": "",
+                    "platformSchema": {
+                        "com.linkedin.schema.OtherSchema": {
+                            "rawSchema": ""
+                        }
+                    },
+                    "fields": [
+                        {
+                            "fieldPath": "rcvr_cntry_code",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "varchar(2)",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        }
+                    ]
+                },
+                "compatibility": "SUPERSET"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Schema compliance with ODCS contract '53581432-6c55-4ba2-a65f-72344a91553b' schema 'tbl'"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-column",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:cb5b2e40b77a2c61cd98aeb93988623f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-column",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:cb5b2e40b77a2c61cd98aeb93988623f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-column",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553b.tbl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-column",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

@@ -35,7 +35,7 @@ source:
     # Optional knobs — uncomment to override defaults.
     #
     # verify_physical_urns_exist: true   # with a DataHub graph: skip logicalParent links whose derived URN doesn't exist
-    # convert_urns_to_lowercase: true    # lowercase composed names for platforms that lowercase by default (snowflake)
+    # lowercase_physical_urns: true      # lowercase composed physical names for platforms that lowercase by default (snowflake)
     # emit_assertions: true              # assertions from quality[] rules, attached to the logical dataset
     # emit_schema_assertion: true        # one DATA_SCHEMA assertion per schema[] entry pinning the contract's schema
     # schema_assertion_compatibility: SUPERSET   # or EXACT_MATCH / SUBSET
