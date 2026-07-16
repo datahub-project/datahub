@@ -75,7 +75,7 @@ public class MCLItemImpl implements MCLItem {
     public MCLItemImpl build(AspectRetriever aspectRetriever) {
       EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
 
-      log.debug("entity type = {}", this.metadataChangeLog.getEntityType());
+      log.debug("entity typ = {}", this.metadataChangeLog.getEntityType());
       entitySpec(
           aspectRetriever
               .getEntityRegistry()
