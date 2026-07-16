@@ -1,26 +1,16 @@
-"""
-Thin Collibra client skeleton for the DataHub `collibra` ingestion source.
-
-Belongs at: metadata-ingestion/src/datahub/ingestion/source/collibra/client.py
-Design: RFC "Collibra -> DataHub Governance Migrator", Page 4 (Engineering Design)
-        + Page 6 (Extraction). Tracked in ING-3045.
-
-Stack (no new deps): requests + urllib3.Retry + concurrent.futures + pydantic.
-
-This skeleton keeps `requests` imports lazy and uses stdlib dataclasses for the
-stub models so the __main__ self-check runs with plain `python3`, no network,
-no third-party deps. In the connector:
-  - swap the `Cfg` dataclass for CollibraSourceConfig (pydantic) in config.py
-  - swap the stub dataclass models for pydantic BaseModel in models.py
-  - secrets are SecretStr, injected programmatically (never os.environ)
-"""
+# Thin Collibra client for the `collibra` ingestion source.
+# See RFC "Collibra -> DataHub Governance Migrator" (Page 4 Engineering Design,
+# Page 6 Extraction). WIP: `Cfg` and the dataclass models are temporary stubs to
+# be swapped for CollibraSourceConfig (config.py) and pydantic models (models.py);
+# secrets become SecretStr, injected programmatically. `requests` is imported
+# lazily since the connector controls its own deps.
 
 from __future__ import annotations
 
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Iterator, List, Optional, Tuple
 
 PAGE_SIZE = 1000  # DGC "Enable maximum paging limit" cap: 1000 elements / call
 
@@ -181,71 +171,3 @@ class CollibraClient:
             }
             for f in as_completed(futs):
                 yield from f.result()
-
-
-# --- self-check (no network, no third-party deps) ----------------------------
-class _Resp:
-    def __init__(self, payload=None, content=b""):
-        self._p, self.content = payload, content
-
-    def json(self):
-        return self._p
-
-    def raise_for_status(self):
-        pass
-
-
-class _FakeSession:
-    """Stateless page routes keyed by (path, cursor) + a tiny job state machine."""
-
-    def __init__(self, base: str):
-        self.base = base
-        self.pages: Dict[str, Dict[Optional[str], dict]] = {
-            "/rest/2.0/assetTypes": {
-                None: {"results": [{"id": "1"}, {"id": "2"}], "nextCursor": "c1"},
-                "c1": {"results": [{"id": "3"}, {"id": "4"}], "nextCursor": "c2"},
-                "c2": {"results": [{"id": "5"}, {"id": "6"}], "nextCursor": None},
-            },
-            "/a": {None: {"results": [{"id": "a1"}], "nextCursor": None}},
-            "/b": {None: {"results": [{"id": "b1"}, {"id": "b2"}], "nextCursor": None}},
-        }
-        self._job_polls = 0
-
-    def get(self, url, params=None):
-        path = url[len(self.base) :]
-        if path.startswith("/rest/2.0/jobs/"):
-            self._job_polls += 1
-            state = "COMPLETED" if self._job_polls >= 2 else "RUNNING"
-            return _Resp({"state": state, "result": {"message": {"id": "file9"}}})
-        if path.startswith("/rest/2.0/outputModule/files/"):
-            return _Resp(content=b"BULK")
-        cursor = (params or {}).get("cursor")
-        return _Resp(self.pages[path][cursor])
-
-    def post(self, url, **kw):
-        path = url[len(self.base) :]
-        if path.endswith("/json-job"):
-            return _Resp({"id": "job1"})
-        raise AssertionError(f"unexpected POST {path}")
-
-
-def _selfcheck() -> None:
-    base = "http://x"
-    c = CollibraClient(Cfg(url=base, poll_interval_s=0), session=_FakeSession(base))
-
-    # cursor pagination walks 3 pages and stops on a null cursor
-    ids = [x["id"] for x in c.paginate("/rest/2.0/assetTypes")]
-    assert ids == ["1", "2", "3", "4", "5", "6"], ids
-
-    # parallel fan-out collects every partition (order-independent)
-    got = sorted(x["id"] for x in c.extract_parallel([("/a", {}), ("/b", {})]))
-    assert got == ["a1", "b1", "b2"], got
-
-    # Output Module poll loop: RUNNING -> COMPLETED -> download bytes
-    assert c.output_export({"any": "viewconfig"}) == b"BULK"
-
-    print("client.py self-check: OK")
-
-
-if __name__ == "__main__":
-    _selfcheck()
