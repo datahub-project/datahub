@@ -11,13 +11,13 @@ import {
 export const DATAPLEX_PROJECT_IDS: RecipeField = {
     name: 'project_ids',
     label: 'Project IDs',
-    tooltip: 'Explicit list of GCP project IDs to ingest. Skips Resource Manager API calls for project discovery.',
+    tooltip:
+        'Explicit list of GCP project IDs to ingest. Leave empty to auto-discover projects via project_id_pattern or project_labels (configure in YAML editor).',
     type: FieldType.LIST,
     buttonLabel: 'Add Project ID',
     fieldPath: 'source.config.project_ids',
     placeholder: 'my-gcp-project',
     rules: null,
-    required: true,
 };
 
 export const DATAPLEX_PRIVATE_KEY_ID: RecipeField = {
