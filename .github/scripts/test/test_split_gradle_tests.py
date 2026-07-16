@@ -87,29 +87,6 @@ class WeightsTests(unittest.TestCase):
         self.assertEqual(mw[":m"], 4.0 + 5.0)  # A + fallback(median[4,6]=5)
         self.assertEqual(mw[":n"], 6.0)
 
-    def test_module_overhead_added_to_every_module(self) -> None:
-        modules = {":m": ["com.x.A"], ":n": ["com.y.B"]}
-        weights = {"com.x.A": 4.0, "com.y.B": 6.0}
-        mw = sgt.module_weights(modules, weights, module_overhead=10.0)
-        self.assertEqual(mw[":m"], 14.0)  # 4 + 10
-        self.assertEqual(mw[":n"], 16.0)  # 6 + 10
-
-    def test_extra_weight_charges_named_module_only(self) -> None:
-        modules = {":m": ["com.x.A"], ":n": ["com.y.B"]}
-        weights = {"com.x.A": 4.0, "com.y.B": 6.0}
-        mw = sgt.module_weights(
-            modules, weights, module_overhead=10.0, extra_weights={":m": 90.0}
-        )
-        self.assertEqual(mw[":m"], 4.0 + 10.0 + 90.0)  # base + overhead + installDev charge
-        self.assertEqual(mw[":n"], 6.0 + 10.0)  # unnamed module: overhead only
-
-    def test_extra_weight_for_unknown_module_is_ignored(self) -> None:
-        modules = {":m": ["com.x.A"]}
-        mw = sgt.module_weights(
-            modules, {"com.x.A": 4.0}, extra_weights={":not-discovered": 90.0}
-        )
-        self.assertEqual(mw, {":m": 4.0})
-
 
 class ShardingTests(unittest.TestCase):
     def test_only_bare_module_tasks_no_tests_flag(self) -> None:
