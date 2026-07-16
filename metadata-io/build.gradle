@@ -345,6 +345,62 @@ task testOther(type: Test) {
   description = 'Runs only other test suite to debug the failing tests'
 }
 
+task testEs8(type: Test) {
+  doFirst {
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng-es8.xml'
+  }
+  testLogging {
+    events "failed", "skipped", "passed"
+    exceptionFormat "full"
+    showStandardStreams = true
+  }
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+
+  group = 'verification'
+  description = 'Runs only the testng-es8.xml test suite'
+}
+
+task testSqlOpt(type: Test) {
+  doFirst {
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng-sql-opt.xml'
+  }
+  testLogging {
+    events "failed", "skipped", "passed"
+    exceptionFormat "full"
+    showStandardStreams = true
+  }
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+
+  group = 'verification'
+  description = 'Runs only the testng-sql-opt.xml test suite'
+}
+
+// Per-suite coverage: a matrix leg (metadata-io.yml) runs ONE suite task, so each must emit its
+// own jacoco XML from its `.exec`. Mirrors jacocoSqlSetupCoverageReport (testPostgresql); legs
+// share the Codecov `metadata-io` flag, which merges the partials — no separate merge job.
+['testOpenSearch', 'testEs8', 'testEs7CassandraNeo4j', 'testOther', 'testSqlOpt'].each { suiteTask ->
+  def reportTask = tasks.register("jacoco${suiteTask.capitalize()}Report", JacocoReport) {
+    dependsOn suiteTask
+    executionData.setFrom(fileTree(layout.buildDirectory.dir('jacoco')).include("${suiteTask}.exec"))
+    sourceSets sourceSets.main
+    reports {
+      xml.required = true
+      xml.outputLocation = rootProject.layout.buildDirectory.file(
+          "coverage-reports/${rootProject.relativePath(project.projectDir)}/jacoco-${suiteTask}.xml")
+      html.required = false
+    }
+  }
+  tasks.named(suiteTask) { finalizedBy reportTask }
+}
+
 ebean {
   debugLevel = 1 // 0 - 9
 }

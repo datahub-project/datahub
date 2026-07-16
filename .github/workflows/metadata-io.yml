@@ -50,34 +50,50 @@ jobs:
         id: ci-optimize
   build-metadata-io:
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
-    timeout-minutes: 60
+    timeout-minutes: 40
     needs: setup
+    strategy:
+      # One runner per TestNG sub-suite (aggregated by testng.xml), replacing the single ~17m
+      # serial `:metadata-io:test`. One suite per leg = one fork = one testcontainer stack, which
+      # is why maxParallelForks stays 1 (ES/OpenSearch/Cassandra/Neo4j/Postgres — parallel forks OOM).
+      fail-fast: false
+      matrix:
+        suite:
+          - { name: other, task: testOther }
+          - { name: opensearch, task: testOpenSearch }
+          - { name: es8, task: testEs8 }
+          - { name: es7-cassandra-neo4j, task: testEs7CassandraNeo4j }
+          - { name: postgresql, task: testPostgresql }
+          - { name: sql-opt, task: testSqlOpt }
     steps:
       - name: Disk Check
         run: df -h . && docker images
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
+        with:
+          # Runs Java tests only (no Docker image builds). Skip the slow apt/docker-prune path.
+          aggressive: "false"
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
           java-version: 21
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
-      - name: Gradle build (and test)
+      - name: Gradle test (${{ matrix.suite.name }} suite)
         run: |
-          ./gradlew :metadata-io:test
+          ./gradlew :metadata-io:${{ matrix.suite.task }}
       - name: Report test results
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
         with:
-          artifact-name: Test Results (metadata-io)
+          artifact-name: Test Results (metadata-io ${{ matrix.suite.name }})
           test-results-paths: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
+            **/build/reports/tests/${{ matrix.suite.task }}/**
+            **/build/test-results/${{ matrix.suite.task }}/**
             !**/binary/**
           junit-file-globs: |
-            **/build/test-results/test/**/*.xml
+            **/build/test-results/${{ matrix.suite.task }}/**/*.xml
       - name: Send failed test metrics to PostHog
         if: failure()
         continue-on-error: true
@@ -104,20 +120,21 @@ jobs:
             --workflow-name "${{ github.workflow }}" \
             --branch "${GH_HEAD_REF}" \
             --run-id "${{ github.run_id }}" \
-            --run-attempt "${{ github.run_attempt }}"
+            --run-attempt "${{ github.run_attempt }}" \
+            --command "metadata-io-${{ matrix.suite.name }}"
 
           rm -rf "$TEMP_DIR"
-      - name: Ensure codegen is updated
-        uses: ./.github/actions/ensure-codegen-updated
       - name: Upload coverage to Codecov
         if: ${{ always()}}
         uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          # Each leg emits jacoco-<task>.xml here; all legs share the metadata-io flag, which
+          # Codecov merges into one report (same pattern as the backend test shards).
           directory: ./build/coverage-reports/metadata-io/
           fail_ci_if_error: false
           flags: metadata-io
-          name: metadata-io-test
+          name: metadata-io-${{ matrix.suite.name }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
@@ -127,6 +144,27 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
+
+  # Codegen freshness is a whole-module property — run it once, not per test-suite shard.
+  codegen-check:
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    needs: setup
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+        with:
+          # Runs Java tests only (no Docker image builds). Skip the slow apt/docker-prune path.
+          aggressive: "false"
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - name: Ensure codegen is updated
+        uses: ./.github/actions/ensure-codegen-updated
 
   event-file:
     runs-on: ubuntu-latest
