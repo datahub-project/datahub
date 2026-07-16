@@ -5,6 +5,9 @@ from functools import partial
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock
 
+import pytest
+from pydantic import ValidationError
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
@@ -20,6 +23,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInfoClass,
     DatasetPropertiesClass,
     LogicalParentClass,
+    OwnershipClass,
 )
 
 
@@ -460,7 +464,7 @@ def test_verification_fails_open_on_graph_error(tmp_path: pathlib.Path) -> None:
     # Fail-open: the link is still emitted, with a warning.
     assert _aspects_of(workunits, LogicalParentClass)
     assert any(
-        "Could not verify physical dataset existence" in str(getattr(w, "title", ""))
+        "Could not verify URN existence" in str(getattr(w, "title", ""))
         for w in src.report.warnings
     )
 
@@ -528,8 +532,6 @@ schema:
     src = _make_source(tmp_path, path=str(contract_file))
     workunits = list(src.get_workunits_internal())
 
-    from datahub.metadata.schema_classes import OwnershipClass
-
     ownerships = _aspects_of(workunits, OwnershipClass)
     assert ownerships and ownerships[0].owners[0].owner == "urn:li:corpuser:alice"
     # The typo'd member field is still caught through the object form.
@@ -537,3 +539,89 @@ schema:
         "Unknown ODCS field" in str(getattr(w, "title", ""))
         for w in src.report.warnings
     )
+
+
+# ---------------------------------------------------------------------------
+# Owner identity normalization + report-only resolution check
+# ---------------------------------------------------------------------------
+
+_CONTRACT_WITH_TEAM = _VALID_CONTRACT_BODY.replace(
+    "\nschema:\n",
+    """
+team:
+  - username: alice
+    role: owner
+schema:
+""",
+)
+
+
+def _owner_resolution_warnings(src: ODCSSource) -> List:
+    return [
+        w
+        for w in src.report.warnings
+        if "Contract owner not found" in str(getattr(w, "title", ""))
+    ]
+
+
+def test_owner_missing_in_graph_warns_but_still_emits(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_CONTRACT_WITH_TEAM, encoding="utf-8")
+    graph = MagicMock()
+    # Physical dataset resolves; the corpuser does not.
+    graph.exists.side_effect = lambda urn: not urn.startswith("urn:li:corpuser:")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    ownerships = _aspects_of(workunits, OwnershipClass)
+    assert ownerships and ownerships[0].owners[0].owner == "urn:li:corpuser:alice"
+    assert src.report.owners_unresolved == 1
+    assert len(_owner_resolution_warnings(src)) == 1
+
+
+def test_owner_exists_in_graph_no_warning(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_CONTRACT_WITH_TEAM, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.return_value = True
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    assert _aspects_of(workunits, OwnershipClass)
+    assert src.report.owners_unresolved == 0
+    assert not _owner_resolution_warnings(src)
+
+
+def test_owner_check_skipped_without_graph(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_CONTRACT_WITH_TEAM, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    assert _aspects_of(workunits, OwnershipClass)
+    assert src.report.owners_unresolved == 0
+    assert not _owner_resolution_warnings(src)
+
+
+def test_owner_normalization_knobs_reach_emitted_ownership(
+    tmp_path: pathlib.Path,
+) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_CONTRACT_WITH_TEAM, encoding="utf-8")
+    src = _make_source(
+        tmp_path, path=str(contract_file), owner_email_domain="@acme.example"
+    )
+    workunits = list(src.get_workunits_internal())
+    ownerships = _aspects_of(workunits, OwnershipClass)
+    assert ownerships[0].owners[0].owner == "urn:li:corpuser:alice@acme.example"
+
+
+def test_owner_normalization_knobs_are_mutually_exclusive() -> None:
+    with pytest.raises(ValidationError, match="mutually"):
+        ODCSSourceConfig.model_validate(
+            {
+                "path": "/tmp/contracts",
+                "strip_owner_email_domain": True,
+                "owner_email_domain": "acme.example",
+            }
+        )

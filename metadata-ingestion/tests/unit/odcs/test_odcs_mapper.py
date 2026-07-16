@@ -613,6 +613,53 @@ def test_owners_roles_dedup_and_dateout() -> None:
     assert len(owners) == 3
 
 
+def test_owner_strip_email_domain() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        team=[
+            {"username": "alice@acme.example", "role": "owner"},
+            {"username": "bob", "role": "owner"},
+            {"username": "urn:li:corpGroup:data-eng", "role": "owner"},
+        ],
+    )
+    owners = _make_owners(contract, strip_owner_email_domain=True)
+    urns = {o.owner for o in owners}
+    # Email loses its domain, bare username and explicit URN pass through.
+    assert urns == {
+        "urn:li:corpuser:alice",
+        "urn:li:corpuser:bob",
+        "urn:li:corpGroup:data-eng",
+    }
+
+
+def test_owner_append_email_domain() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        team=[
+            {"username": "alice", "role": "owner"},
+            {"username": "bob@other.example", "role": "owner"},
+            {"username": "urn:li:corpuser:carol", "role": "owner"},
+        ],
+    )
+    owners = _make_owners(contract, owner_email_domain="acme.example")
+    urns = {o.owner for o in owners}
+    # Bare username gains the domain; existing email and explicit URN untouched.
+    assert urns == {
+        "urn:li:corpuser:alice@acme.example",
+        "urn:li:corpuser:bob@other.example",
+        "urn:li:corpuser:carol",
+    }
+
+
+def test_owner_no_normalization_passthrough() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        team=[{"username": "alice@acme.example", "role": "owner"}],
+    )
+    owners = _make_owners(contract)
+    assert owners[0].owner == "urn:li:corpuser:alice@acme.example"
+
+
 def test_logical_parent_links_physical_to_logical() -> None:
     physical = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.t,PROD)"
     mcp = odcs_to_logical_parent_mcp(physical, LOGICAL_URN)

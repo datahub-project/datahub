@@ -42,6 +42,13 @@ source:
     # emit_logical_parent: true          # the physical->logical PhysicalInstanceOf link
     # tag_prefix: "odcs."                # prepend to every emitted tag
     # strict_validation: false           # set true to reject contracts that fail JSON Schema validation
+    #
+    # Owner identity normalization: ODCS `team[].username` is a username OR an
+    # email. Pick at most one of these to match how your identity source keys
+    # users. Unresolved owners are reported (report.owners_unresolved) but
+    # still emitted — they resolve once the user is provisioned.
+    # strip_owner_email_domain: false    # alice@acme.com -> corpuser alice
+    # owner_email_domain: acme.com       # alice -> corpuser alice@acme.com
     # odcs_versions: ["3.0.0", "3.0.1", "3.0.2", "3.1.0"]
     # logical_dataset_name_template: "{contract_id}.{schema_name}"  # logical odcs dataset URN name
     # follow_symlinks: false             # follow symlinks when scanning a directory

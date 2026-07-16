@@ -11,6 +11,7 @@ import jsonschema
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -63,6 +64,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
+from datahub.metadata.schema_classes import OwnershipClass
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +138,7 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     physical_urns_verified: int = 0
     physical_urns_unverified: int = 0
     physical_names_passthrough: int = 0
+    owners_unresolved: int = 0
     files_skipped: List[str] = field(default_factory=list)
     rules_skipped_no_threshold: List[str] = field(default_factory=list)
     rules_routed_to_custom: List[str] = field(default_factory=list)
@@ -201,7 +204,9 @@ class ODCSSource(StatefulIngestionSourceBase):
         # physical dataset silently overwrites the first (last-writer-wins).
         self._seen_physical_urns: Dict[str, str] = {}
         # Per-run cache for graph existence checks (one lookup per unique URN).
-        self._physical_exists_cache: Dict[str, bool] = {}
+        self._urn_exists_cache: Dict[str, bool] = {}
+        # Owner URNs already warned about (report-only resolution check).
+        self._owners_warned: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ODCSSource":
@@ -508,35 +513,69 @@ class ODCSSource(StatefulIngestionSourceBase):
     # Per-file processing
     # ------------------------------------------------------------------
 
-    def _physical_urn_exists(self, urn: str) -> bool:
-        """Best-effort existence check for a derived physical dataset URN.
+    def _urn_exists_in_graph(self, urn: str) -> Optional[bool]:
+        """Best-effort, cached existence check for any URN.
 
-        No graph (file sink) and lookup errors both fail OPEN (return True) so
-        a missing or flaky GMS never silently unbinds contracts. Results are
-        cached per run — one lookup per unique URN.
+        Returns None when no graph is attached (file sink). Lookup errors fail
+        OPEN (return True) so a flaky GMS never changes emission behavior.
+        One lookup per unique URN per run.
         """
         graph = self.ctx.graph
         if graph is None:
-            return True
-        cached = self._physical_exists_cache.get(urn)
+            return None
+        cached = self._urn_exists_cache.get(urn)
         if cached is not None:
             return cached
         try:
             exists = bool(graph.exists(urn))
-            if exists:
-                self.report.physical_urns_verified += 1
         except Exception as e:
             self.report.warning(
-                title="Could not verify physical dataset existence",
-                message=(
-                    "Graph lookup failed; assuming the dataset exists (fail-open)."
-                ),
+                title="Could not verify URN existence",
+                message="Graph lookup failed; assuming the entity exists (fail-open).",
                 context=urn,
                 exc=e,
             )
             exists = True
-        self._physical_exists_cache[urn] = exists
+        self._urn_exists_cache[urn] = exists
         return exists
+
+    def _physical_urn_exists(self, urn: str) -> bool:
+        exists = self._urn_exists_in_graph(urn)
+        if exists is None:
+            # No graph: emit without verification.
+            return True
+        if exists:
+            self.report.physical_urns_verified += 1
+        return exists
+
+    def _check_owner_resolution(
+        self, mcps: List[MetadataChangeProposalWrapper], file_path: pathlib.Path
+    ) -> None:
+        """Report-only: warn once per owner URN that does not resolve to an
+        existing DataHub user/group. Owners are never dropped — contracts are
+        routinely ingested before identity sync, and the reference becomes
+        functional as soon as the user is provisioned.
+        """
+        for mcp in mcps:
+            aspect = mcp.aspect
+            if not isinstance(aspect, OwnershipClass):
+                continue
+            for owner in aspect.owners:
+                if owner.owner in self._owners_warned:
+                    continue
+                if self._urn_exists_in_graph(owner.owner) is False:
+                    self._owners_warned.add(owner.owner)
+                    self.report.owners_unresolved += 1
+                    self.report.warning(
+                        title="Contract owner not found in DataHub",
+                        message=(
+                            "The ownership reference was emitted anyway and will "
+                            "resolve once the user is provisioned. If your "
+                            "identity source keys users differently, see "
+                            "strip_owner_email_domain / owner_email_domain."
+                        ),
+                        context=f"file={file_path} owner={owner.owner}",
+                    )
 
     def _process_file(self, file_path: pathlib.Path) -> Iterable[MetadataWorkUnit]:
         self.report.contracts_scanned += 1
@@ -618,7 +657,10 @@ class ODCSSource(StatefulIngestionSourceBase):
                 source_file=source_file,
                 tag_prefix=self.config.tag_prefix,
                 replicate_contract_metadata=self.config.replicate_contract_metadata,
+                strip_owner_email_domain=self.config.strip_owner_email_domain,
+                owner_email_domain=self.config.owner_email_domain,
             )
+            self._check_owner_resolution(logical_mcps, file_path)
             for mcp in logical_mcps:
                 yield mcp.as_workunit()
             for unmapped in unmapped_types:

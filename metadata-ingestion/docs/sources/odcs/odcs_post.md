@@ -166,6 +166,19 @@ the `logicalParent` link is a non-destructive enrichment. With `stateful_ingesti
 enabled, removing the `schema[]` entry marks the logical dataset and its assertions
 removed on the next ODCS ingest — never the physical dataset.
 
+#### My contract owner shows up as an unresolved user
+
+ODCS `team[].username` is a username **or** an email, and DataHub resolves the owner
+against whatever identifier your identity source (Okta / Azure AD / SCIM / …) ingests
+users under. If the two disagree — the contract says `alice@acme.com` but DataHub knows
+the user as `alice`, or vice versa — the ownership reference dangles. Set exactly one of
+`strip_owner_email_domain: true` (emails → local part) or `owner_email_domain: acme.com`
+(bare usernames → emails) to normalize contract identifiers to your convention; explicit
+`urn:li:corpuser:` / `urn:li:corpGroup:` values pass through untouched. When ingesting
+through a DataHub graph, owners that don't resolve are flagged in the run report
+(`report.owners_unresolved`, one warning per unique owner) — the reference is still
+emitted and becomes functional as soon as the user is provisioned.
+
 #### I edited owners on a logical dataset and the next ingest reverted them
 
 By default, contract-level ownership replicates on every ingest, so any UI edits are
