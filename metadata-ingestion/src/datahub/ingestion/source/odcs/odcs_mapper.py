@@ -8,7 +8,6 @@ from datahub.emitter.mce_builder import (
     make_assertion_urn,
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
-    make_group_urn,
     make_tag_urn,
     make_user_urn,
 )
@@ -37,6 +36,7 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     CustomAssertionInfoClass,
     DataPlatformInfoClass,
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     DateTypeClass,
     EdgeClass,
@@ -62,6 +62,8 @@ from datahub.metadata.schema_classes import (
     PlatformTypeClass,
     RecordTypeClass,
     RowCountTotalClass,
+    SchemaAssertionCompatibilityClass,
+    SchemaAssertionInfoClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaFieldSpecClass,
@@ -90,14 +92,26 @@ _OWNER_ROLE_MAP: Dict[str, str] = {
     "dataSteward": OwnershipTypeClass.DATA_STEWARD,
 }
 
-# Rule-kind vocabularies recognized by `_route_and_build`. Named here so the
-# membership checks read intentionally and the accepted spellings (camelCase
-# and snake_case, both of which appear in real ODCS documents) live in one
-# place. notNull -> a NOT_NULL FieldValuesAssertion; unique -> a UNIQUE_PERCENTAGE
-# FieldMetricAssertion (uniqueness is a column metric, not a per-row value check).
-_NOT_NULL_RULE_KINDS = frozenset(("notNull", "not_null"))
-_UNIQUE_RULE_KINDS = frozenset(("unique",))
-_VOLUME_RULE_KINDS = frozenset(("rowCount", "row_count"))
+# ODCS library metric vocabulary, spec-exact. v3.1 names the library key
+# `metric` (with `rule` as a deprecated alias); v3.0.x used `rule`. The names
+# below are the only library rules either spec version defines — anything else
+# falls through to a CustomAssertion so intent is preserved, never guessed.
+_METRIC_NULL_VALUES = "nullValues"  # v3.1, property-level
+_METRIC_MISSING_VALUES = "missingValues"  # v3.1, property-level
+_METRIC_INVALID_VALUES = "invalidValues"  # v3.1, property-level
+_METRIC_DUPLICATE_VALUES = "duplicateValues"  # v3.1, property- or schema-level
+_METRIC_ROW_COUNT = "rowCount"  # v3.0 + v3.1, schema-level
+_METRIC_DUPLICATE_COUNT = "duplicateCount"  # v3.0 name for duplicateValues
+_METRIC_VALID_VALUES = "validValues"  # v3.0 name for invalidValues
+
+_UNIT_ROWS = "rows"
+_UNIT_PERCENT = "percent"
+
+# ODCS rule types.
+_RULE_TYPE_LIBRARY = "library"
+_RULE_TYPE_TEXT = "text"
+_RULE_TYPE_SQL = "sql"
+_RULE_TYPE_CUSTOM = "custom"
 
 # ODCS `logicalType` (and a few common `physicalType` spellings) -> the DataHub
 # SchemaFieldDataType union member. ODCS logical/physical types are free-form
@@ -406,11 +420,6 @@ def _make_owners(contract: ODCSContract) -> List[OwnerClass]:
         )
         if username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
             owner_urn = username
-        elif username.startswith("group:"):
-            # `group:` is a DataHub-side extension — ODCS has no group principal
-            # (team[].username is "username or email"). Lets a contract author
-            # target a corpGroup rather than a corpUser.
-            owner_urn = make_group_urn(username[len("group:") :])
         else:
             owner_urn = make_user_urn(username)
         key = (owner_urn, ownership_type)
@@ -517,11 +526,10 @@ def build_schema_metadata(
 # ----------------------------------------------------------------------------
 
 
-def _count_quality_rules(schema_entry: ODCSSchemaObject, contract: ODCSContract) -> int:
+def _count_quality_rules(schema_entry: ODCSSchemaObject) -> int:
     count = len(schema_entry.quality or [])
     for _, prop in _walk_properties(schema_entry.properties):
         count += len(prop.quality or [])
-    count += len(contract.quality or [])
     return count
 
 
@@ -536,7 +544,8 @@ def _institutional_memory_mcp(
     """
     seen: set = set()
     elements: List[InstitutionalMemoryMetadataClass] = []
-    defs = list(schema_entry.authoritativeDefinitions or [])
+    defs = list(contract.authoritativeDefinitions or [])
+    defs.extend(schema_entry.authoritativeDefinitions or [])
     for _, prop in _walk_properties(schema_entry.properties):
         defs.extend(prop.authoritativeDefinitions or [])
     for d in defs:
@@ -579,11 +588,15 @@ def odcs_to_logical_dataset_mcps(
     """
     mcps: List[MetadataChangeProposalWrapper] = []
 
-    description = _description_to_str(contract.description)
+    # Per-table description wins; the contract description is the fallback so a
+    # multi-table contract doesn't smear one description across every table.
+    description = _description_to_str(schema_entry.description) or _description_to_str(
+        contract.description
+    )
     custom_props: Dict[str, str] = {
         "odcs.id": contract.id,
         "odcs.schemaName": schema_entry.name,
-        "odcs.qualityRuleCount": str(_count_quality_rules(schema_entry, contract)),
+        "odcs.qualityRuleCount": str(_count_quality_rules(schema_entry)),
     }
     if contract.version:
         custom_props["odcs.version"] = contract.version
@@ -673,8 +686,31 @@ def odcs_to_logical_parent_mcp(
 
 
 # ----------------------------------------------------------------------------
-# Assertions (target-agnostic builders, carried over from the prior model)
+# Assertions — emitted against the LOGICAL dataset
+#
+# ODCS quality rules are the producer's published expectations for the dataset
+# the contract describes, so the Assertion entities target the logical `odcs`
+# dataset (the assertion's `entity` is the logical URN). Propagation of those
+# expectations onto bound physical datasets is handled by a separate DataHub
+# mechanism via the PhysicalInstanceOf relationship — this source never writes
+# assertions against physical URNs.
 # ----------------------------------------------------------------------------
+
+
+@dataclass
+class _RuleContext:
+    """Everything a builder needs to emit one rule's assertion."""
+
+    rule: ODCSQualityRule
+    column: Optional[str]
+    scope: str
+    entity_urn: str  # the logical `odcs` dataset URN
+    contract_id: str
+    index: int
+
+    @property
+    def label(self) -> str:
+        return self.rule.name or self.rule.id or f"<unnamed:{self.scope}:{self.index}>"
 
 
 def _num(v: object) -> AssertionStdParameterClass:
@@ -686,6 +722,32 @@ def _num(v: object) -> AssertionStdParameterClass:
         value=f"{float(v):g}",  # type: ignore[arg-type]
         type=AssertionStdParameterTypeClass.NUMBER,
     )
+
+
+def _is_plain_number(value: object) -> bool:
+    """True for int/float but NOT bool (bool is an int subclass in Python)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _must_be_zero(rule: ODCSQualityRule) -> bool:
+    """True when the rule's threshold is exactly `mustBe: 0`."""
+    return _is_plain_number(rule.mustBe) and float(rule.mustBe) == 0.0
+
+
+_THRESHOLD_FIELD_NAMES = (
+    "mustBe",
+    "mustNotBe",
+    "mustBeGreaterThan",
+    "mustBeGreaterOrEqualTo",
+    "mustBeLessThan",
+    "mustBeLessOrEqualTo",
+    "mustBeBetween",
+    "mustNotBeBetween",
+)
+
+
+def _has_any_threshold(rule: ODCSQualityRule) -> bool:
+    return any(getattr(rule, name) is not None for name in _THRESHOLD_FIELD_NAMES)
 
 
 def _operator_and_params_from_threshold(
@@ -722,39 +784,118 @@ def _operator_and_params_from_threshold(
             AssertionStdOperatorClass.LESS_THAN_OR_EQUAL_TO,
             AssertionStdParametersClass(value=_num(rule.mustBeLessOrEqualTo)),
         )
-    if rule.mustBe is not None and isinstance(rule.mustBe, (int, float)):
+    if _is_plain_number(rule.mustBe):
         return AssertionStdOperatorClass.EQUAL_TO, AssertionStdParametersClass(
             value=_num(rule.mustBe)
         )
-    if rule.mustNotBe is not None and isinstance(rule.mustNotBe, (int, float)):
+    if _is_plain_number(rule.mustNotBe):
         return AssertionStdOperatorClass.NOT_EQUAL_TO, AssertionStdParametersClass(
             value=_num(rule.mustNotBe)
         )
     return None, None
 
 
-def _stable_assertion_urn(
-    logical_urn: str,
-    dataset_urn: str,
-    rule_name: Optional[str],
-    rule_kind: str,
-    column: Optional[str],
-    fallback_index: int,
-) -> str:
-    guid_dict = {
-        "logical": logical_urn,
-        "dataset": dataset_urn,
-        "rule_name": rule_name or f"{rule_kind}_{fallback_index}",
-        "rule_kind": rule_kind,
-        "field": column or "",
-    }
+def _fail_threshold_from_rule(
+    rule: ODCSQualityRule, unit: str
+) -> Optional[FieldValuesFailThresholdClass]:
+    """Map an ODCS tolerance onto a FieldValues failThreshold, exactly or not at all.
+
+    `failThreshold.value` is a long, so only exactly-representable tolerances
+    map: no threshold at all (the v3.0 `validValues` form) and `mustBe: 0`
+    both mean "no failing rows tolerated"; an integral `mustBeLessOrEqualTo`
+    maps to COUNT (rows) or PERCENTAGE (percent). Anything else — strict
+    less-than, non-integral values, other operators — returns None and the
+    rule is preserved as a custom assertion instead of being approximated.
+    """
+    if not _has_any_threshold(rule) or _must_be_zero(rule):
+        return FieldValuesFailThresholdClass(
+            type=FieldValuesFailThresholdTypeClass.COUNT, value=0
+        )
+    tolerance = rule.mustBeLessOrEqualTo
+    if (
+        tolerance is not None
+        and float(tolerance).is_integer()
+        and not any(
+            getattr(rule, name) is not None
+            for name in _THRESHOLD_FIELD_NAMES
+            if name != "mustBeLessOrEqualTo"
+        )
+    ):
+        threshold_type = (
+            FieldValuesFailThresholdTypeClass.PERCENTAGE
+            if unit == _UNIT_PERCENT
+            else FieldValuesFailThresholdTypeClass.COUNT
+        )
+        return FieldValuesFailThresholdClass(type=threshold_type, value=int(tolerance))
+    return None
+
+
+def _stable_assertion_urn(ctx: _RuleContext, rule_kind: str) -> str:
+    """Stable assertion URN; the spec's `quality.id` wins when present.
+
+    v3.1's `quality.id` is documented as "a unique identifier ... used to
+    create stable, refactor-safe references", so it survives rule renames and
+    reordering. The contract id is included so two contracts reusing the same
+    rule id do not collide.
+    """
+    if ctx.rule.id:
+        guid_dict = {
+            "contract": ctx.contract_id,
+            "odcs_rule_id": ctx.rule.id,
+            "dataset": ctx.entity_urn,
+        }
+    else:
+        guid_dict = {
+            "contract": ctx.contract_id,
+            "dataset": ctx.entity_urn,
+            "rule_name": ctx.rule.name or f"{rule_kind}_{ctx.index}",
+            "rule_kind": rule_kind,
+            "field": ctx.column or "",
+        }
     return make_assertion_urn(datahub_guid(guid_dict))
+
+
+def _render_thresholds(rule: ODCSQualityRule) -> List[str]:
+    parts: List[str] = []
+    for name in _THRESHOLD_FIELD_NAMES:
+        value = getattr(rule, name)
+        if value is not None:
+            parts.append(f"{name} {json.dumps(value)}")
+    return parts
+
+
+def _library_rule_logic(rule: ODCSQualityRule) -> Optional[str]:
+    """Stable, human-readable rendition of a library rule for custom `logic`.
+
+    Used when a library metric cannot be represented natively (e.g. a
+    duplicate tolerance, a percent-unit rowCount, missingValues) so the
+    original intent round-trips into the custom assertion body.
+    """
+    metric = rule.effective_metric
+    if not metric:
+        return None
+    parts = [metric]
+    if rule.arguments:
+        try:
+            parts.append(f"arguments={json.dumps(rule.arguments, sort_keys=True)}")
+        except (TypeError, ValueError):
+            pass
+    if rule.validValues is not None:
+        try:
+            parts.append(f"validValues={json.dumps(rule.validValues)}")
+        except (TypeError, ValueError):
+            pass
+    parts.extend(_render_thresholds(rule))
+    if rule.unit:
+        parts.append(f"unit {rule.unit}")
+    return " ".join(parts)
 
 
 def _custom_logic_for_rule(rule: ODCSQualityRule, scope: str) -> Optional[str]:
     """Resolve the `logic` body for a CustomAssertionInfo.
 
-    Order: query > serialized implementation > description > "name:scope".
+    Order: query > serialized implementation > library-rule rendition >
+    description > "name:scope".
     """
     if rule.query:
         return rule.query
@@ -768,6 +909,9 @@ def _custom_logic_for_rule(rule: ODCSQualityRule, scope: str) -> Optional[str]:
                 return json.dumps(rule.implementation, sort_keys=True)
             except (TypeError, ValueError):
                 pass
+    library_logic = _library_rule_logic(rule)
+    if library_logic:
+        return library_logic
     desc = _description_to_str(rule.description)
     if desc:
         return desc
@@ -776,16 +920,33 @@ def _custom_logic_for_rule(rule: ODCSQualityRule, scope: str) -> Optional[str]:
     return None
 
 
-def _custom_props_for_rule(rule: ODCSQualityRule, scope: str) -> Dict[str, str]:
-    """Per-assertion customProperties, including the contract scope tag.
+def _custom_props_for_rule(ctx: _RuleContext) -> Dict[str, str]:
+    """Per-assertion customProperties, carrying ODCS provenance.
 
-    `scope` is one of "contract", "schema", or "property" — emitted as
-    `odcs.scope` so downstream consumers can distinguish where in the contract
-    a rule came from.
+    `odcs.scope` is one of "schema" or "property" — where in the contract the
+    rule came from. `odcs.id` is the contract id so an assertion can always be
+    traced back to its source contract.
     """
-    props: Dict[str, str] = {"odcs.rule": "true", "odcs.scope": scope}
+    rule = ctx.rule
+    props: Dict[str, str] = {
+        "odcs.rule": "true",
+        "odcs.scope": ctx.scope,
+        "odcs.id": ctx.contract_id,
+    }
+    if rule.id:
+        props["odcs.rule.id"] = rule.id
     if rule.name:
         props["odcs.rule.name"] = rule.name
+    metric = rule.effective_metric
+    if metric:
+        props["odcs.rule.metric"] = metric
+    if rule.unit:
+        props["odcs.rule.unit"] = rule.unit
+    if rule.arguments:
+        try:
+            props["odcs.rule.arguments"] = json.dumps(rule.arguments, sort_keys=True)
+        except (TypeError, ValueError):
+            pass
     if rule.dimension:
         props["odcs.rule.dimension"] = rule.dimension
     if rule.severity:
@@ -794,56 +955,66 @@ def _custom_props_for_rule(rule: ODCSQualityRule, scope: str) -> Dict[str, str]:
         props["odcs.rule.businessImpact"] = rule.businessImpact
     if rule.type:
         props["odcs.rule.type"] = rule.type
-    if rule.rule:
-        props["odcs.rule.library"] = rule.rule
     return props
 
 
-def _assertion_info_template(
-    rule: ODCSQualityRule,
-    scope: str,
-    assertion_type: str,
-) -> AssertionInfoClass:
+def _rule_external_url(rule: ODCSQualityRule) -> Optional[str]:
+    for definition in rule.authoritativeDefinitions or []:
+        if definition.url:
+            return definition.url
+    return None
+
+
+def _assertion_info_template(ctx: _RuleContext, assertion_type: str) -> AssertionInfoClass:
     """Shared header for an AssertionInfoClass; caller sets the sub-aspect."""
     return AssertionInfoClass(
         type=assertion_type,
         source=mce_builder.make_assertion_source(),
-        description=_description_to_str(rule.description),
-        customProperties=_custom_props_for_rule(rule, scope),
+        description=_description_to_str(ctx.rule.description),
+        customProperties=_custom_props_for_rule(ctx),
+        externalUrl=_rule_external_url(ctx.rule),
+    )
+
+
+def assertion_platform_instance_mcp(assertion_urn: str) -> MetadataChangeProposalWrapper:
+    """Attach the `odcs` platform to an assertion entity.
+
+    AssertionInfo's contract: an EXTERNAL-source assertion is expected to have
+    a corresponding dataPlatformInstance aspect naming the platform it was
+    ingested from (same pattern as the Snowflake DMF assertions).
+    """
+    return MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn,
+        aspect=DataPlatformInstanceClass(
+            platform=make_data_platform_urn(ODCS_PLATFORM)
+        ),
     )
 
 
 def _build_field_values_assertion(
-    rule: ODCSQualityRule,
+    ctx: _RuleContext,
     operator: str,
-    dataset_urn: str,
-    column: str,
-    logical_urn: str,
-    scope: str,
-    fallback_index: int,
+    parameters: Optional[AssertionStdParametersClass] = None,
+    fail_threshold: Optional[FieldValuesFailThresholdClass] = None,
+    exclude_nulls: bool = True,
 ) -> Tuple[str, MetadataChangeProposalWrapper]:
-    assertion_urn = _stable_assertion_urn(
-        logical_urn=logical_urn,
-        dataset_urn=dataset_urn,
-        rule_name=rule.name,
-        rule_kind="field_values",
-        column=column,
-        fallback_index=fallback_index,
-    )
-    field_spec = SchemaFieldSpecClass(path=column, type="", nativeType="")
+    assertion_urn = _stable_assertion_urn(ctx, rule_kind="field_values")
+    assert ctx.column is not None
+    field_spec = SchemaFieldSpecClass(path=ctx.column, type="", nativeType="")
     field_values = FieldValuesAssertionClass(
         field=field_spec,
         operator=operator,
-        failThreshold=FieldValuesFailThresholdClass(
-            type=FieldValuesFailThresholdTypeClass.COUNT,
-            value=0,
+        parameters=parameters,
+        failThreshold=fail_threshold
+        or FieldValuesFailThresholdClass(
+            type=FieldValuesFailThresholdTypeClass.COUNT, value=0
         ),
-        excludeNulls=operator != AssertionStdOperatorClass.NOT_NULL,
+        excludeNulls=exclude_nulls,
     )
-    info = _assertion_info_template(rule, scope, AssertionTypeClass.FIELD)
+    info = _assertion_info_template(ctx, AssertionTypeClass.FIELD)
     info.fieldAssertion = FieldAssertionInfoClass(
         type=FieldAssertionTypeClass.FIELD_VALUES,
-        entity=dataset_urn,
+        entity=ctx.entity_urn,
         fieldValuesAssertion=field_values,
     )
     return assertion_urn, MetadataChangeProposalWrapper(
@@ -852,40 +1023,23 @@ def _build_field_values_assertion(
 
 
 def _build_field_metric_assertion(
-    rule: ODCSQualityRule,
+    ctx: _RuleContext,
     metric: str,
     operator: str,
-    value: float,
-    dataset_urn: str,
-    column: str,
-    logical_urn: str,
-    scope: str,
-    fallback_index: int,
+    params: AssertionStdParametersClass,
 ) -> Tuple[str, MetadataChangeProposalWrapper]:
-    """Build a FieldMetricAssertion (e.g. uniqueness) against a column.
-
-    Used for ODCS `unique` rules: uniqueness is a column-level metric
-    (UNIQUE_PERCENTAGE == 100), not a per-row value comparison, so it cannot be
-    modeled as a FieldValuesAssertion.
-    """
-    assertion_urn = _stable_assertion_urn(
-        logical_urn=logical_urn,
-        dataset_urn=dataset_urn,
-        rule_name=rule.name,
-        rule_kind="field_metric",
-        column=column,
-        fallback_index=fallback_index,
-    )
-    field_spec = SchemaFieldSpecClass(path=column, type="", nativeType="")
-    info = _assertion_info_template(rule, scope, AssertionTypeClass.FIELD)
+    assertion_urn = _stable_assertion_urn(ctx, rule_kind="field_metric")
+    assert ctx.column is not None
+    field_spec = SchemaFieldSpecClass(path=ctx.column, type="", nativeType="")
+    info = _assertion_info_template(ctx, AssertionTypeClass.FIELD)
     info.fieldAssertion = FieldAssertionInfoClass(
         type=FieldAssertionTypeClass.FIELD_METRIC,
-        entity=dataset_urn,
+        entity=ctx.entity_urn,
         fieldMetricAssertion=FieldMetricAssertionClass(
             field=field_spec,
             metric=metric,
             operator=operator,
-            parameters=AssertionStdParametersClass(value=_num(value)),
+            parameters=params,
         ),
     )
     return assertion_urn, MetadataChangeProposalWrapper(
@@ -894,26 +1048,15 @@ def _build_field_metric_assertion(
 
 
 def _build_volume_assertion(
-    rule: ODCSQualityRule,
-    dataset_urn: str,
-    logical_urn: str,
-    scope: str,
-    fallback_index: int,
+    ctx: _RuleContext,
     operator: str,
     params: AssertionStdParametersClass,
 ) -> Tuple[str, MetadataChangeProposalWrapper]:
-    assertion_urn = _stable_assertion_urn(
-        logical_urn=logical_urn,
-        dataset_urn=dataset_urn,
-        rule_name=rule.name,
-        rule_kind="volume",
-        column=None,
-        fallback_index=fallback_index,
-    )
-    info = _assertion_info_template(rule, scope, AssertionTypeClass.VOLUME)
+    assertion_urn = _stable_assertion_urn(ctx, rule_kind="volume")
+    info = _assertion_info_template(ctx, AssertionTypeClass.VOLUME)
     info.volumeAssertion = VolumeAssertionInfoClass(
         type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
-        entity=dataset_urn,
+        entity=ctx.entity_urn,
         rowCountTotal=RowCountTotalClass(operator=operator, parameters=params),
     )
     return assertion_urn, MetadataChangeProposalWrapper(
@@ -922,27 +1065,16 @@ def _build_volume_assertion(
 
 
 def _build_sql_assertion(
-    rule: ODCSQualityRule,
-    dataset_urn: str,
-    logical_urn: str,
-    scope: str,
-    fallback_index: int,
+    ctx: _RuleContext,
     operator: str,
     params: AssertionStdParametersClass,
 ) -> Tuple[str, MetadataChangeProposalWrapper]:
-    assertion_urn = _stable_assertion_urn(
-        logical_urn=logical_urn,
-        dataset_urn=dataset_urn,
-        rule_name=rule.name,
-        rule_kind="sql",
-        column=None,
-        fallback_index=fallback_index,
-    )
-    info = _assertion_info_template(rule, scope, AssertionTypeClass.SQL)
+    assertion_urn = _stable_assertion_urn(ctx, rule_kind="sql")
+    info = _assertion_info_template(ctx, AssertionTypeClass.SQL)
     info.sqlAssertion = SqlAssertionInfoClass(
         type=SqlAssertionTypeClass.METRIC,
-        entity=dataset_urn,
-        statement=rule.query or "",
+        entity=ctx.entity_urn,
+        statement=ctx.rule.query or "",
         operator=operator,
         parameters=params,
     )
@@ -952,43 +1084,31 @@ def _build_sql_assertion(
 
 
 def _build_custom_assertion(
-    rule: ODCSQualityRule,
-    dataset_urn: str,
-    logical_urn: str,
-    scope: str,
-    fallback_index: int,
-    column: Optional[str] = None,
-    logic_override: Optional[str] = None,
+    ctx: _RuleContext,
+    custom_type: Optional[str] = None,
 ) -> Optional[Tuple[str, MetadataChangeProposalWrapper]]:
     """Build a CustomAssertionInfo for a rule, or None to signal a skip.
 
     A custom assertion must have a non-None `logic` body. If the rule has no
-    query / implementation / description / name, the caller skips with a warning
-    rather than emit a content-less custom assertion.
+    query / implementation / library rendition / description / name, the
+    caller skips with a warning rather than emit a content-less assertion.
     """
-    logic = (
-        logic_override
-        if logic_override is not None
-        else _custom_logic_for_rule(rule, scope)
-    )
+    logic = _custom_logic_for_rule(ctx.rule, ctx.scope)
     if logic is None:
         return None
-    assertion_urn = _stable_assertion_urn(
-        logical_urn=logical_urn,
-        dataset_urn=dataset_urn,
-        rule_name=rule.name,
-        rule_kind="custom",
-        column=column,
-        fallback_index=fallback_index,
+    assertion_urn = _stable_assertion_urn(ctx, rule_kind="custom")
+    resolved_type = (
+        custom_type or ctx.rule.effective_metric or ctx.rule.type or "odcs"
     )
-    custom_type = rule.rule or rule.type or "odcs"
     field_urn = (
-        mce_builder.make_schema_field_urn(dataset_urn, column) if column else None
+        mce_builder.make_schema_field_urn(ctx.entity_urn, ctx.column)
+        if ctx.column
+        else None
     )
-    info = _assertion_info_template(rule, scope, AssertionTypeClass.CUSTOM)
+    info = _assertion_info_template(ctx, AssertionTypeClass.CUSTOM)
     info.customAssertion = CustomAssertionInfoClass(
-        type=custom_type,
-        entity=dataset_urn,
+        type=resolved_type,
+        entity=ctx.entity_urn,
         field=field_urn,
         logic=logic,
     )
@@ -1000,20 +1120,17 @@ def _build_custom_assertion(
 def _iter_schema_rules(
     schema_entry: ODCSSchemaObject,
 ) -> Iterable[Tuple[ODCSQualityRule, Optional[str], str]]:
-    """Yield (rule, column, scope) for rules attached to one schema entry."""
+    """Yield (rule, column, scope) for rules attached to one schema entry.
+
+    Per spec, quality rules live at the schema-object level (scope="schema",
+    no column) or the property level (scope="property", column = the dotted
+    field path).
+    """
     for rule in schema_entry.quality or []:
-        yield rule, rule.column, "schema"
+        yield rule, None, "schema"
     for field_path, prop in _walk_properties(schema_entry.properties):
         for rule in prop.quality or []:
             yield rule, field_path, "property"
-
-
-def _iter_contract_rules(
-    contract: ODCSContract,
-) -> Iterable[Tuple[ODCSQualityRule, Optional[str], str]]:
-    """Yield (rule, column, scope) for the deprecated top-level `quality[]`."""
-    for rule in contract.quality or []:
-        yield rule, rule.column, "contract"
 
 
 @dataclass
@@ -1022,194 +1139,255 @@ class AssertionRoutingTrace:
 
     skipped_no_body: List[str] = field(default_factory=list)
     routed_to_custom: List[str] = field(default_factory=list)
+    deprecated_rule_key: List[str] = field(default_factory=list)
+
+
+def _custom_or_skip(
+    ctx: _RuleContext,
+    trace: AssertionRoutingTrace,
+    custom_type: Optional[str] = None,
+) -> Optional[Tuple[str, MetadataChangeProposalWrapper]]:
+    built = _build_custom_assertion(ctx, custom_type=custom_type)
+    if built is None:
+        trace.skipped_no_body.append(ctx.label)
+        return None
+    trace.routed_to_custom.append(ctx.label)
+    return built
+
+
+def _route_library_rule(
+    ctx: _RuleContext,
+    trace: AssertionRoutingTrace,
+) -> Optional[Tuple[str, MetadataChangeProposalWrapper]]:
+    rule = ctx.rule
+    metric = rule.effective_metric
+    unit = (rule.unit or _UNIT_ROWS).strip().lower()
+    args = rule.arguments or {}
+
+    if metric == _METRIC_NULL_VALUES:
+        if ctx.column is None:
+            return _custom_or_skip(ctx, trace)
+        if _must_be_zero(rule):
+            # "no null values at all" — a per-row NOT_NULL check with zero
+            # tolerated failures. excludeNulls must be False or the check
+            # would never see the very rows it is asserting about.
+            return _build_field_values_assertion(
+                ctx,
+                operator=AssertionStdOperatorClass.NOT_NULL,
+                fail_threshold=FieldValuesFailThresholdClass(
+                    type=FieldValuesFailThresholdTypeClass.COUNT, value=0
+                ),
+                exclude_nulls=False,
+            )
+        op_opt, params_opt = _operator_and_params_from_threshold(rule)
+        if op_opt is None or params_opt is None:
+            return _custom_or_skip(ctx, trace)
+        metric_type = (
+            FieldMetricTypeClass.NULL_PERCENTAGE
+            if unit == _UNIT_PERCENT
+            else FieldMetricTypeClass.NULL_COUNT
+        )
+        return _build_field_metric_assertion(
+            ctx, metric=metric_type, operator=op_opt, params=params_opt
+        )
+
+    if metric in (_METRIC_DUPLICATE_VALUES, _METRIC_DUPLICATE_COUNT):
+        if args.get("properties"):
+            # Multi-column uniqueness (schema-level duplicateValues) has no
+            # native DataHub metric; preserve as custom.
+            return _custom_or_skip(ctx, trace)
+        if ctx.column is not None and _must_be_zero(rule):
+            # Zero duplicates <=> the column is fully unique.
+            return _build_field_metric_assertion(
+                ctx,
+                metric=FieldMetricTypeClass.UNIQUE_PERCENTAGE,
+                operator=AssertionStdOperatorClass.EQUAL_TO,
+                params=AssertionStdParametersClass(value=_num(100)),
+            )
+        # "at most N duplicates" has no native duplicate-count metric, and
+        # inverting it into a unique-percentage bound would change semantics.
+        return _custom_or_skip(ctx, trace)
+
+    if metric in (_METRIC_INVALID_VALUES, _METRIC_VALID_VALUES):
+        valid_values = args.get("validValues") or rule.validValues
+        pattern = args.get("pattern")
+        if ctx.column is None or (valid_values and pattern):
+            return _custom_or_skip(ctx, trace)
+        fail_threshold = _fail_threshold_from_rule(rule, unit)
+        if fail_threshold is None:
+            return _custom_or_skip(ctx, trace)
+        if valid_values:
+            try:
+                serialized = json.dumps(valid_values)
+            except (TypeError, ValueError):
+                return _custom_or_skip(ctx, trace)
+            return _build_field_values_assertion(
+                ctx,
+                operator=AssertionStdOperatorClass.IN,
+                parameters=AssertionStdParametersClass(
+                    value=AssertionStdParameterClass(
+                        value=serialized,
+                        type=AssertionStdParameterTypeClass.SET,
+                    )
+                ),
+                fail_threshold=fail_threshold,
+            )
+        if pattern and isinstance(pattern, str):
+            return _build_field_values_assertion(
+                ctx,
+                operator=AssertionStdOperatorClass.REGEX_MATCH,
+                parameters=AssertionStdParametersClass(
+                    value=AssertionStdParameterClass(
+                        value=pattern,
+                        type=AssertionStdParameterTypeClass.STRING,
+                    )
+                ),
+                fail_threshold=fail_threshold,
+            )
+        return _custom_or_skip(ctx, trace)
+
+    if metric == _METRIC_MISSING_VALUES:
+        # "value is in an author-defined missing list (possibly including
+        # null)" has no native metric; NOT_IN plus null handling would change
+        # semantics, so the rule is preserved as custom.
+        return _custom_or_skip(ctx, trace)
+
+    if metric == _METRIC_ROW_COUNT:
+        if unit == _UNIT_PERCENT:
+            # A relative row count only makes sense against some baseline the
+            # contract does not define; preserve as custom.
+            return _custom_or_skip(ctx, trace)
+        op_opt, params_opt = _operator_and_params_from_threshold(rule)
+        if op_opt is None or params_opt is None:
+            return _custom_or_skip(ctx, trace)
+        return _build_volume_assertion(ctx, operator=op_opt, params=params_opt)
+
+    # Unknown library metric (ODCS does not constrain engines from extending).
+    return _custom_or_skip(ctx, trace)
 
 
 def _route_and_build(
-    rule: ODCSQualityRule,
-    column: Optional[str],
-    scope: str,
-    dataset_urn: str,
-    logical_urn: str,
-    index: int,
+    ctx: _RuleContext,
     trace: AssertionRoutingTrace,
+    api_version: str,
 ) -> Optional[Tuple[str, MetadataChangeProposalWrapper]]:
     """Route a single rule to the appropriate assertion builder.
 
     Returns None when the rule produces no assertion. The trace is updated
     in-place so the source can report aggregate counters.
     """
-    rule_kind = (rule.rule or "").strip()
-    rule_type = (rule.type or "").strip().lower()
-    rule_label = rule.name or f"<unnamed:{scope}:{index}>"
+    rule = ctx.rule
+    rule_type = (rule.type or _RULE_TYPE_LIBRARY).strip().lower()
 
-    # Library `notNull` on a column -> FieldValuesAssertion(NOT_NULL).
-    if column and rule_kind in _NOT_NULL_RULE_KINDS:
-        return _build_field_values_assertion(
-            rule=rule,
-            operator=AssertionStdOperatorClass.NOT_NULL,
-            dataset_urn=dataset_urn,
-            column=column,
-            logical_urn=logical_urn,
-            scope=scope,
-            fallback_index=index,
-        )
+    if rule_type == _RULE_TYPE_SQL:
+        if rule.query:
+            op_opt, params_opt = _operator_and_params_from_threshold(rule)
+            if op_opt is not None and params_opt is not None:
+                return _build_sql_assertion(ctx, operator=op_opt, params=params_opt)
+        return _custom_or_skip(ctx, trace)
 
-    # Library `unique` on a column -> FieldMetricAssertion(UNIQUE_PERCENTAGE == 100).
-    if column and rule_kind in _UNIQUE_RULE_KINDS:
-        return _build_field_metric_assertion(
-            rule=rule,
-            metric=FieldMetricTypeClass.UNIQUE_PERCENTAGE,
-            operator=AssertionStdOperatorClass.EQUAL_TO,
-            value=100,
-            dataset_urn=dataset_urn,
-            column=column,
-            logical_urn=logical_urn,
-            scope=scope,
-            fallback_index=index,
-        )
+    if rule_type == _RULE_TYPE_CUSTOM:
+        return _custom_or_skip(ctx, trace, custom_type=rule.engine)
 
-    # `mustNotBeBetween` has no native operator; render a stable, human-readable
-    # logic string so the bounds round-trip into the custom assertion body.
-    logic_override: Optional[str] = None
-    if rule.mustNotBeBetween and len(rule.mustNotBeBetween) == 2:
-        low = f"{float(rule.mustNotBeBetween[0]):g}"
-        high = f"{float(rule.mustNotBeBetween[1]):g}"
-        logic_override = f"value not between {low} and {high}"
+    if rule_type == _RULE_TYPE_TEXT:
+        return _custom_or_skip(ctx, trace, custom_type=_RULE_TYPE_TEXT)
 
-    if rule_kind in _VOLUME_RULE_KINDS:
-        op_opt, params_opt = _operator_and_params_from_threshold(rule)
-        if op_opt is None or params_opt is None:
-            built = _build_custom_assertion(
-                rule=rule,
-                dataset_urn=dataset_urn,
-                logical_urn=logical_urn,
-                scope=scope,
-                fallback_index=index,
-                column=column,
-                logic_override=logic_override,
-            )
-            if built is None:
-                trace.skipped_no_body.append(rule_label)
-                return None
-            trace.routed_to_custom.append(rule_label)
-            return built
-        return _build_volume_assertion(
-            rule=rule,
-            dataset_urn=dataset_urn,
-            logical_urn=logical_urn,
-            scope=scope,
-            fallback_index=index,
-            operator=op_opt,
-            params=params_opt,
-        )
-
-    if rule_type == "sql":
-        if not rule.query:
-            built = _build_custom_assertion(
-                rule=rule,
-                dataset_urn=dataset_urn,
-                logical_urn=logical_urn,
-                scope=scope,
-                fallback_index=index,
-                column=column,
-                logic_override=logic_override,
-            )
-            if built is None:
-                trace.skipped_no_body.append(rule_label)
-                return None
-            trace.routed_to_custom.append(rule_label)
-            return built
-        op_opt, params_opt = _operator_and_params_from_threshold(rule)
-        if op_opt is None or params_opt is None:
-            built = _build_custom_assertion(
-                rule=rule,
-                dataset_urn=dataset_urn,
-                logical_urn=logical_urn,
-                scope=scope,
-                fallback_index=index,
-                column=column,
-                logic_override=logic_override,
-            )
-            if built is None:
-                trace.skipped_no_body.append(rule_label)
-                return None
-            trace.routed_to_custom.append(rule_label)
-            return built
-        return _build_sql_assertion(
-            rule=rule,
-            dataset_urn=dataset_urn,
-            logical_urn=logical_urn,
-            scope=scope,
-            fallback_index=index,
-            operator=op_opt,
-            params=params_opt,
-        )
-
-    built = _build_custom_assertion(
-        rule=rule,
-        dataset_urn=dataset_urn,
-        logical_urn=logical_urn,
-        scope=scope,
-        fallback_index=index,
-        column=column,
-        logic_override=logic_override,
-    )
-    if built is None:
-        trace.skipped_no_body.append(rule_label)
-        return None
-    trace.routed_to_custom.append(rule_label)
-    return built
+    # library (the default)
+    if rule.used_deprecated_rule_key and api_version.startswith("3.1"):
+        trace.deprecated_rule_key.append(ctx.label)
+    return _route_library_rule(ctx, trace)
 
 
 def odcs_to_assertion_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
-    physical_urn: str,
     logical_urn: str,
 ) -> Tuple[List[str], List[MetadataChangeProposalWrapper], AssertionRoutingTrace]:
-    """Emit Assertion entities for every rule that applies, targeting the physical dataset.
+    """Emit Assertion entities for every rule on one schema entry.
 
-    Only called when a physical binding resolved (strict gating). Includes
-    schema-entry rules (scope=schema/property) and contract-level rules
-    (scope=contract). Returns the assertion URNs, the MCPs, and a routing trace.
+    Assertions target the logical dataset and are emitted whether or not a
+    physical binding resolved. Each assertion also gets a dataPlatformInstance
+    aspect attributing it to the `odcs` platform. Returns the assertion URNs,
+    the MCPs, and a routing trace.
     """
     assertion_urns: List[str] = []
     mcps: List[MetadataChangeProposalWrapper] = []
     trace = AssertionRoutingTrace()
-    index = 0
+    api_version = (contract.apiVersion or "").lstrip("v")
 
-    for rule, column, scope in _iter_schema_rules(schema_entry):
-        built = _route_and_build(
+    for index, (rule, column, scope) in enumerate(_iter_schema_rules(schema_entry)):
+        ctx = _RuleContext(
             rule=rule,
             column=column,
             scope=scope,
-            dataset_urn=physical_urn,
-            logical_urn=logical_urn,
+            entity_urn=logical_urn,
+            contract_id=contract.id,
             index=index,
-            trace=trace,
         )
-        index += 1
+        built = _route_and_build(ctx, trace, api_version)
         if built is None:
             continue
         assertion_urn, mcp = built
         assertion_urns.append(assertion_urn)
         mcps.append(mcp)
-
-    for rule, column, scope in _iter_contract_rules(contract):
-        built = _route_and_build(
-            rule=rule,
-            column=column,
-            scope=scope,
-            dataset_urn=physical_urn,
-            logical_urn=logical_urn,
-            index=index,
-            trace=trace,
-        )
-        index += 1
-        if built is None:
-            continue
-        assertion_urn, mcp = built
-        assertion_urns.append(assertion_urn)
-        mcps.append(mcp)
+        mcps.append(assertion_platform_instance_mcp(assertion_urn))
 
     return assertion_urns, mcps, trace
+
+
+_SCHEMA_ASSERTION_COMPATIBILITY = {
+    "EXACT_MATCH": SchemaAssertionCompatibilityClass.EXACT_MATCH,
+    "SUPERSET": SchemaAssertionCompatibilityClass.SUPERSET,
+    "SUBSET": SchemaAssertionCompatibilityClass.SUBSET,
+}
+
+
+def odcs_to_schema_assertion_mcps(
+    contract: ODCSContract,
+    schema_entry: ODCSSchemaObject,
+    logical_urn: str,
+    compatibility: str,
+) -> Tuple[Optional[str], List[MetadataChangeProposalWrapper]]:
+    """Emit one DATA_SCHEMA assertion pinning the contract's schema.
+
+    The assertion carries the ODCS-derived SchemaMetadata and targets the
+    logical dataset: "an instance of this model must present (at least) this
+    schema". This is what makes schema drift an evaluable contract violation
+    rather than an implied one. Returns (None, []) when the entry declares no
+    properties — there is no schema to assert.
+    """
+    schema_result = build_schema_metadata(schema_entry)
+    if schema_result.schema_metadata is None:
+        return None, []
+    assertion_urn = make_assertion_urn(
+        datahub_guid(
+            {
+                "contract": contract.id,
+                "dataset": logical_urn,
+                "kind": "schema_compliance",
+                "schema": schema_entry.name,
+            }
+        )
+    )
+    info = AssertionInfoClass(
+        type=AssertionTypeClass.DATA_SCHEMA,
+        source=mce_builder.make_assertion_source(),
+        description=(
+            f"Schema compliance with ODCS contract '{contract.id}' "
+            f"schema '{schema_entry.name}'"
+        ),
+        customProperties={
+            "odcs.id": contract.id,
+            "odcs.scope": "schema",
+            "odcs.assertion": "schema-compliance",
+        },
+        schemaAssertion=SchemaAssertionInfoClass(
+            entity=logical_urn,
+            schema=schema_result.schema_metadata,
+            compatibility=_SCHEMA_ASSERTION_COMPATIBILITY[compatibility],
+        ),
+    )
+    return assertion_urn, [
+        MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=info),
+        assertion_platform_instance_mcp(assertion_urn),
+    ]
