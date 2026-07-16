@@ -3024,7 +3024,7 @@
       "classname": "datahub.ingestion.source.odcs.odcs_source.ODCSSource",
       "platform_id": "odcs",
       "platform_name": "Open Data Contract Standard",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "okta": {
       "capabilities": [
