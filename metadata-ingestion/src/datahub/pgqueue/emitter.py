@@ -79,7 +79,7 @@ class DatahubPgQueueEmitter(Closeable, Emitter):
             MetadataChangeProposalWrapper,
         ],
     ) -> Tuple[str, str, bytes]:
-        """Return logical queu topic name, routing key, Avro payload bytes."""
+        """Return logical queue topic name, routing key, Avro payload bytes."""
         payload_obj: Union[
             MetadataChangeEvent,
             MetadataChangeProposal,
