@@ -506,3 +506,34 @@ def test_owned_workunits_are_primary_but_links_are_not(
             assert not wu.is_primary_source
         elif isinstance(aspect, (AssertionInfoClass, DatasetPropertiesClass)):
             assert wu.is_primary_source
+
+
+def test_team_object_form_walker_and_owners(tmp_path: pathlib.Path) -> None:
+    """The v3.1 canonical team OBJECT form: members recursed by the
+    unknown-field walker, and unknown keys inside it still warn."""
+    body = _VALID_CONTRACT_BODY.replace(
+        "\nschema:\n",
+        """
+team:
+  name: my-team
+  members:
+    - username: alice
+      role: owner
+      frobozz: 1
+schema:
+""",
+    )
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    from datahub.metadata.schema_classes import OwnershipClass
+
+    ownerships = _aspects_of(workunits, OwnershipClass)
+    assert ownerships and ownerships[0].owners[0].owner == "urn:li:corpuser:alice"
+    # The typo'd member field is still caught through the object form.
+    assert any(
+        "Unknown ODCS field" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )

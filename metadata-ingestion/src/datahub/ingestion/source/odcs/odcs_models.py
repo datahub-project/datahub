@@ -71,7 +71,15 @@ KNOWN_UNMAPPED_TEAM_FIELDS = frozenset(
         "authoritativeDefinitions",
         "customProperties",
         "id",
-        "members",
+        "tags",
+    )
+)
+
+KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS = frozenset(
+    (
+        "authoritativeDefinitions",
+        "customProperties",
+        "id",
         "tags",
     )
 )
@@ -213,6 +221,18 @@ class ODCSTeamMember(ODCSBaseModel):
     replacedByUsername: Optional[str] = None
 
 
+class ODCSTeam(ODCSBaseModel):
+    """The v3.1 canonical `team` object (`{name, description, members: [...]}`).
+
+    v3.0.x — and, as a deprecated compatibility form, v3.1 — instead use a bare
+    list of members; `ODCSContract.team` accepts both shapes.
+    """
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+    members: Optional[List[ODCSTeamMember]] = None
+
+
 class ODCSServer(ODCSBaseModel):
     server: str
     type: Optional[str] = None
@@ -253,11 +273,20 @@ class ODCSContract(ODCSBaseModel):
     tags: Optional[List[str]] = None
     schema_: Optional[List[ODCSSchemaObject]] = Field(default=None, alias="schema")
     servers: Optional[List[ODCSServer]] = None
-    team: Optional[List[ODCSTeamMember]] = None
+    team: Optional[Union[ODCSTeam, List[ODCSTeamMember]]] = None
     roles: Optional[List[Dict[str, Any]]] = None
     customProperties: Optional[List[ODCSCustomProperty]] = None
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     contractCreatedTs: Optional[str] = None
+
+    @property
+    def team_members(self) -> List[ODCSTeamMember]:
+        """Team members regardless of which spec shape `team` used."""
+        if self.team is None:
+            return []
+        if isinstance(self.team, ODCSTeam):
+            return self.team.members or []
+        return self.team
 
 
 ODCSProperty.model_rebuild()
