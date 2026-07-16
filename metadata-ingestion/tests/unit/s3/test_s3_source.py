@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import List, Tuple
+from typing import List, Set, Tuple
 from unittest.mock import MagicMock, Mock, call, patch
 
 import boto3
@@ -26,6 +26,7 @@ from datahub.ingestion.source.s3.source import (
     TableData,
     partitioned_folder_comparator,
 )
+from datahub.metadata.schema_classes import ContainerPropertiesClass
 
 logging.getLogger("boto3").setLevel(logging.INFO)
 logging.getLogger("botocore").setLevel(logging.INFO)
@@ -493,12 +494,14 @@ def test_s3_emit_folders_only_emits_containers_no_datasets(s3_resource, s3_clien
 
     # Depth-2 folders present: media/videos/2023 and media/videos/2024 (via their chain),
     # plus parents bucket, media, videos. 'audio' (depth-1 leaf) is absent by design.
-    aspect_dumps = [
-        wu.metadata.aspect
-        for wu in wus
-        if getattr(wu.metadata, "aspectName", None) == "containerProperties"
-    ]
-    names = {a.name for a in aspect_dumps}
+    names: Set[str] = set()
+    for wu in wus:
+        if getattr(wu.metadata, "aspectName", None) != "containerProperties":
+            continue
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        aspect = wu.metadata.aspect
+        assert isinstance(aspect, ContainerPropertiesClass)
+        names.add(aspect.name)
     assert {"media-bucket", "media", "videos", "2023", "2024"} <= names
     assert "audio" not in names
     assert source.report.folders_scanned == 2

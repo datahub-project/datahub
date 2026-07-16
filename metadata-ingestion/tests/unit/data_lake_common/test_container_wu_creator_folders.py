@@ -1,7 +1,9 @@
 from typing import List, Optional
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
+from datahub.metadata.schema_classes import SubTypesClass
 
 
 def _aspect_names(wus: List[MetadataWorkUnit]) -> List[Optional[str]]:
@@ -39,12 +41,14 @@ def test_create_folder_containers_emits_bucket_and_folder_chain() -> None:
     assert len(container_props) == 4
 
     # Subtypes present: exactly one bucket subtype + three FOLDER subtypes
-    subtype_payloads = [
-        wu.metadata.aspect
-        for wu in wus
-        if getattr(wu.metadata, "aspectName", None) == "subTypes"
-    ]
-    flat = [t for a in subtype_payloads for t in a.typeNames]
+    flat: List[str] = []
+    for wu in wus:
+        if getattr(wu.metadata, "aspectName", None) != "subTypes":
+            continue
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        aspect = wu.metadata.aspect
+        assert isinstance(aspect, SubTypesClass)
+        flat.extend(aspect.typeNames)
     assert flat.count("Folder") == 3
     assert flat.count("S3 bucket") == 1
 
