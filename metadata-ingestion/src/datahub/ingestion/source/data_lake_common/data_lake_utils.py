@@ -230,3 +230,50 @@ class ContainerWUCreator:
 
         assert parent_key is not None
         yield from add_dataset_to_container(parent_key, dataset_urn)
+
+    def create_folder_containers(self, folder_path: str) -> Iterable[MetadataWorkUnit]:
+        """
+        Emit the bucket and every folder component of ``folder_path`` as Containers,
+        WITHOUT creating or linking any dataset.
+
+        Used by folders-only path specs to catalog storage paths (e.g. unstructured
+        media) without reading file content. Unlike create_container_hierarchy, the
+        final path component is itself a folder (not a dataset leaf), and no
+        add_dataset_to_container link is emitted.
+        """
+        parent_key: Optional[ContainerKey] = None
+        base_full_path = folder_path
+
+        if self.platform in (PLATFORM_S3, PLATFORM_GCS, PLATFORM_ABS):
+            bucket_name = self.get_bucket_name(folder_path)
+            bucket_key = self.gen_bucket_key(bucket_name)
+            yield from self.create_emit_containers(
+                container_key=bucket_key,
+                name=bucket_name,
+                sub_types=[self.get_sub_types()],
+                parent_container_key=None,
+            )
+            parent_key = bucket_key
+            base_full_path = self.get_base_full_path(folder_path)
+
+        base_full_path = base_full_path.strip("/")
+        if not base_full_path:
+            return
+
+        for folder in base_full_path.split("/"):
+            abs_path = folder
+            if parent_key:
+                prefix: str = ""
+                if isinstance(parent_key, BucketKey):
+                    prefix = parent_key.bucket_name
+                elif isinstance(parent_key, FolderKey):
+                    prefix = parent_key.folder_abs_path
+                abs_path = prefix + "/" + folder
+            folder_key = self.gen_folder_key(abs_path)
+            yield from self.create_emit_containers(
+                container_key=folder_key,
+                name=folder,
+                sub_types=[DatasetContainerSubTypes.FOLDER],
+                parent_container_key=parent_key,
+            )
+            parent_key = folder_key
