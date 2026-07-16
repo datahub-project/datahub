@@ -148,6 +148,15 @@ class PathSpec(ConfigModel):
         description="The tables_filter_pattern configuration field uses regular expressions to filter the tables part of the Pathspec for ingestion, allowing fine-grained control over which tables are included or excluded based on specified patterns. The default setting allows all tables.",
     )
 
+    emit_folders_only: bool = Field(
+        False,
+        description="If set, this path_spec emits folder Containers only, down to the "
+        "depth defined by the wildcards in `include`, and never scans or ingests files "
+        "as datasets. Use to catalog storage paths (e.g. unstructured media) without "
+        "reading file content. `include` must end at a folder and must not contain "
+        "`{table}` or `**`.",
+    )
+
     def is_path_hidden(self, path: str) -> bool:
         # Split the path into directories and filename
         dirs, filename = os.path.split(path)
@@ -277,6 +286,21 @@ class PathSpec(ConfigModel):
         By combining related validations, we ensure they execute in the correct sequence
         and have access to all field values after Pydantic has processed defaults.
         """
+        # Folders-only path specs catalog storage paths; they have no dataset/table
+        # concept, and depth must be explicit wildcard levels (not recursive **).
+        if self.emit_folders_only:
+            if "{table}" in self.include:
+                raise ValueError(
+                    "path_spec.include cannot contain '{table}' when "
+                    "emit_folders_only is set"
+                )
+            if "**" in self.include:
+                raise ValueError(
+                    "path_spec.include cannot contain '**' when "
+                    "emit_folders_only is set; use explicit '*' levels to set depth"
+                )
+            return self
+
         # Handle autodetect_partitions logic first
         if self.autodetect_partitions:
             include = self.include
