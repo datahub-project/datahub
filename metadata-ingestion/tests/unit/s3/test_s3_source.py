@@ -61,6 +61,8 @@ def _get_s3_source(path_spec_: PathSpec) -> S3Source:
                 "include": path_spec_.include,
                 "table_name": path_spec_.table_name,
                 "emit_folders_only": path_spec_.emit_folders_only,
+                "exclude": path_spec_.exclude,
+                "include_hidden_folders": path_spec_.include_hidden_folders,
             },
             "aws_config": {
                 "aws_access_key_id": "test",
@@ -510,6 +512,41 @@ def test_s3_emit_folders_only_emits_containers_no_datasets(s3_resource, s3_clien
     # exact-multiset check also fails on any duplicate container emission.
     assert sorted(names) == ["2023", "2024", "media", "media-bucket", "videos"]
     assert source.report.folders_scanned == 2
+
+
+def test_s3_emit_folders_only_applies_exclude_and_hidden(s3_resource, s3_client):
+    bucket = "media-bucket"
+    s3_client.create_bucket(Bucket=bucket)
+    for key in [
+        "media/keep/2024/clip.mp4",
+        "media/skip/2024/clip.mp4",  # excluded via exclude glob
+        "media/_staging/2024/clip.mp4",  # skipped as hidden (default)
+    ]:
+        s3_client.put_object(Bucket=bucket, Key=key, Body=b"x")
+
+    source = _get_s3_source(
+        PathSpec(
+            include=f"s3://{bucket}/media/*/*/",
+            emit_folders_only=True,
+            exclude=[f"s3://{bucket}/media/skip/**"],
+        )
+    )
+
+    wus = list(source.get_workunits_internal())
+    names: List[str] = []
+    for wu in wus:
+        if getattr(wu.metadata, "aspectName", None) != "containerProperties":
+            continue
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        aspect = wu.metadata.aspect
+        assert isinstance(aspect, ContainerPropertiesClass)
+        names.append(aspect.name)
+
+    # Only the 'keep' chain survives; 'skip' (exclude) and '_staging' (hidden) are gone.
+    assert set(names) == {"media-bucket", "media", "keep", "2024"}
+    assert "skip" not in names
+    assert "_staging" not in names
+    assert source.report.folders_scanned == 1
 
 
 def test_s3_region_in_external_url():

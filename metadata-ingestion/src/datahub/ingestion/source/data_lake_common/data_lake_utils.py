@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 from datahub.emitter.mcp_builder import (
     BucketKey,
@@ -177,24 +177,59 @@ class ContainerWUCreator:
             return get_container_relative_path(path)
         raise ValueError(f"Unable to get base full path from path: {path}")
 
+    def _emit_bucket(
+        self, path: str
+    ) -> Tuple[List[MetadataWorkUnit], Optional[ContainerKey], str]:
+        """Emit the bucket/container for ``path`` (object stores only). Returns the
+        emitted workunits, the bucket key (None for non-object-store platforms), and the
+        bucket-relative base path whose components should become folder containers."""
+        if self.platform in (PLATFORM_S3, PLATFORM_GCS, PLATFORM_ABS):
+            bucket_name = self.get_bucket_name(path)
+            bucket_key = self.gen_bucket_key(bucket_name)
+            wus = list(
+                self.create_emit_containers(
+                    container_key=bucket_key,
+                    name=bucket_name,
+                    sub_types=[self.get_sub_types()],
+                    parent_container_key=None,
+                )
+            )
+            return wus, bucket_key, self.get_base_full_path(path)
+        return [], None, path
+
+    def _emit_folder_chain(
+        self, parent_key: Optional[ContainerKey], folder_names: List[str]
+    ) -> Tuple[List[MetadataWorkUnit], Optional[ContainerKey]]:
+        """Emit a Container per name in ``folder_names``, chained under ``parent_key``.
+        Returns the emitted workunits and the leaf folder's key."""
+        wus: List[MetadataWorkUnit] = []
+        for folder in folder_names:
+            abs_path = folder
+            if parent_key:
+                prefix: str = ""
+                if isinstance(parent_key, BucketKey):
+                    prefix = parent_key.bucket_name
+                elif isinstance(parent_key, FolderKey):
+                    prefix = parent_key.folder_abs_path
+                abs_path = prefix + "/" + folder
+            folder_key = self.gen_folder_key(abs_path)
+            wus.extend(
+                self.create_emit_containers(
+                    container_key=folder_key,
+                    name=folder,
+                    sub_types=[DatasetContainerSubTypes.FOLDER],
+                    parent_container_key=parent_key,
+                )
+            )
+            parent_key = folder_key
+        return wus, parent_key
+
     def create_container_hierarchy(
         self, path: str, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"Creating containers for {dataset_urn}")
-        base_full_path = path
-        parent_key = None
-        if self.platform in (PLATFORM_S3, PLATFORM_GCS, PLATFORM_ABS):
-            bucket_name = self.get_bucket_name(path)
-            bucket_key = self.gen_bucket_key(bucket_name)
-
-            yield from self.create_emit_containers(
-                container_key=bucket_key,
-                name=bucket_name,
-                sub_types=[self.get_sub_types()],
-                parent_container_key=None,
-            )
-            parent_key = bucket_key
-            base_full_path = self.get_base_full_path(path)
+        bucket_wus, parent_key, base_full_path = self._emit_bucket(path)
+        yield from bucket_wus
 
         parent_folder_path = (
             base_full_path[: base_full_path.rfind("/")]
@@ -210,23 +245,10 @@ class ContainerWUCreator:
             return
 
         if parent_folder_path:
-            for folder in parent_folder_path.split("/"):
-                abs_path = folder
-                if parent_key:
-                    prefix: str = ""
-                    if isinstance(parent_key, BucketKey):
-                        prefix = parent_key.bucket_name
-                    elif isinstance(parent_key, FolderKey):
-                        prefix = parent_key.folder_abs_path
-                    abs_path = prefix + "/" + folder
-                folder_key = self.gen_folder_key(abs_path)
-                yield from self.create_emit_containers(
-                    container_key=folder_key,
-                    name=folder,
-                    sub_types=[DatasetContainerSubTypes.FOLDER],
-                    parent_container_key=parent_key,
-                )
-                parent_key = folder_key
+            chain_wus, parent_key = self._emit_folder_chain(
+                parent_key, parent_folder_path.split("/")
+            )
+            yield from chain_wus
 
         assert parent_key is not None
         yield from add_dataset_to_container(parent_key, dataset_urn)
@@ -241,39 +263,12 @@ class ContainerWUCreator:
         final path component is itself a folder (not a dataset leaf), and no
         add_dataset_to_container link is emitted.
         """
-        parent_key: Optional[ContainerKey] = None
-        base_full_path = folder_path
-
-        if self.platform in (PLATFORM_S3, PLATFORM_GCS, PLATFORM_ABS):
-            bucket_name = self.get_bucket_name(folder_path)
-            bucket_key = self.gen_bucket_key(bucket_name)
-            yield from self.create_emit_containers(
-                container_key=bucket_key,
-                name=bucket_name,
-                sub_types=[self.get_sub_types()],
-                parent_container_key=None,
-            )
-            parent_key = bucket_key
-            base_full_path = self.get_base_full_path(folder_path)
+        bucket_wus, parent_key, base_full_path = self._emit_bucket(folder_path)
+        yield from bucket_wus
 
         base_full_path = base_full_path.strip("/")
         if not base_full_path:
             return
 
-        for folder in base_full_path.split("/"):
-            abs_path = folder
-            if parent_key:
-                prefix: str = ""
-                if isinstance(parent_key, BucketKey):
-                    prefix = parent_key.bucket_name
-                elif isinstance(parent_key, FolderKey):
-                    prefix = parent_key.folder_abs_path
-                abs_path = prefix + "/" + folder
-            folder_key = self.gen_folder_key(abs_path)
-            yield from self.create_emit_containers(
-                container_key=folder_key,
-                name=folder,
-                sub_types=[DatasetContainerSubTypes.FOLDER],
-                parent_container_key=parent_key,
-            )
-            parent_key = folder_key
+        chain_wus, _ = self._emit_folder_chain(parent_key, base_full_path.split("/"))
+        yield from chain_wus

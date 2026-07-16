@@ -683,6 +683,11 @@ class S3Source(StatefulIngestionSourceBase):
         the wildcards in `include`. Lists only folders (CommonPrefixes) — never objects."""
         logger.info(f"Processing folders-only path spec: {path_spec.include}")
         for folder_uri in self.resolve_templated_folders(path_spec.glob_include):
+            if not path_spec.folder_allowed(
+                self._normalize_uri_for_pattern_matching(folder_uri)
+            ):
+                logger.debug(f"Skipping folder excluded by path_spec: {folder_uri}")
+                continue
             self.report.report_folder_scanned()
             yield from self.container_WU_creator.create_folder_containers(
                 folder_uri.rstrip("/")

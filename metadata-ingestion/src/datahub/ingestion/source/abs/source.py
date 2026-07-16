@@ -413,8 +413,11 @@ class ABSSource(StatefulIngestionSourceBase):
         relative_glob = get_container_relative_path(path_spec.glob_include)
         logger.info(f"Processing folders-only path spec: {path_spec.include}")
         for folder in self.resolve_templated_folders(container_name, relative_glob):
-            self.report.report_folder_scanned()
             abs_uri = self.create_abs_path(folder.rstrip("/"))
+            if not path_spec.folder_allowed(abs_uri):
+                logger.debug(f"Skipping folder excluded by path_spec: {abs_uri}")
+                continue
+            self.report.report_folder_scanned()
             yield from self.container_WU_creator.create_folder_containers(
                 abs_uri.rstrip("/")
             )
