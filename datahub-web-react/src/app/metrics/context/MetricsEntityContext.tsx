@@ -1,8 +1,9 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { matchPath, useLocation } from 'react-router-dom';
 
-import { GetSemanticModelMetricsQuery } from '@graphql/metricsBrowse.generated';
 import { PageRoutes } from '@conf/Global';
+
+import { GetSemanticModelMetricsQuery } from '@graphql/metricsBrowse.generated';
 
 type SearchResultEntity = NonNullable<
     NonNullable<

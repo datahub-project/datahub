@@ -3,9 +3,9 @@ import { Route, Switch, matchPath, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
-import { MetricsEntityContextProvider } from '@app/metrics/context/MetricsEntityContext';
 import MetricsPage from '@app/metrics/MetricsPage';
 import MetricsSidebar, { SIDEBAR_COLLAPSED_WIDTH } from '@app/metrics/MetricsSidebar';
+import { MetricsEntityContextProvider } from '@app/metrics/context/MetricsEntityContext';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';

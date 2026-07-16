@@ -8,6 +8,7 @@ import styled from 'styled-components';
 
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { PageRoutes } from '@conf/Global';
+
 import {
     GetRootMetricsBrowseQuery,
     GetSemanticModelsBrowseQuery,
@@ -248,16 +249,12 @@ export default function MetricsMainContent() {
 
     const recentModels: SemanticModel[] = useMemo(() => {
         const models = modelsData?.getSemanticModels?.semanticModels ?? [];
-        return [...models].sort(
-            (a, b) => (b.info?.lastModified?.time ?? 0) - (a.info?.lastModified?.time ?? 0),
-        );
+        return [...models].sort((a, b) => (b.info?.lastModified?.time ?? 0) - (a.info?.lastModified?.time ?? 0));
     }, [modelsData]);
 
     const recentMetrics: Metric[] = useMemo(() => {
         const metrics = metricsData?.getRootMetrics?.metrics ?? [];
-        return [...metrics].sort(
-            (a, b) => (b.info?.lastModified?.time ?? 0) - (a.info?.lastModified?.time ?? 0),
-        );
+        return [...metrics].sort((a, b) => (b.info?.lastModified?.time ?? 0) - (a.info?.lastModified?.time ?? 0));
     }, [metricsData]);
 
     const isEmpty = totalModels === 0 && totalMetrics === 0;
@@ -320,9 +317,7 @@ export default function MetricsMainContent() {
                                                 <Cube size={18} weight="regular" />
                                             </RecentItemIcon>
                                             <RecentItemText>
-                                                <RecentItemName>
-                                                    {model.info?.name ?? model.urn}
-                                                </RecentItemName>
+                                                <RecentItemName>{model.info?.name ?? model.urn}</RecentItemName>
                                                 <RecentItemMeta>
                                                     <ModelMeta
                                                         platform={
@@ -363,9 +358,7 @@ export default function MetricsMainContent() {
                                                 <Sigma size={18} weight="regular" />
                                             </RecentItemIcon>
                                             <RecentItemText>
-                                                <RecentItemName>
-                                                    {metric.info?.name ?? metric.urn}
-                                                </RecentItemName>
+                                                <RecentItemName>{metric.info?.name ?? metric.urn}</RecentItemName>
                                                 <RecentItemMeta>
                                                     <MetricMeta
                                                         semanticModelName={metric.semanticModel?.info?.name ?? null}
