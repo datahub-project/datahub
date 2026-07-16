@@ -144,20 +144,25 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             tag.structured_property_identifier()
         )
         urn = StructuredPropertyUrn(identifier).urn()
+        entity_types = [
+            EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn(),
+            EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
+            EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
+        ]
+        if self.config.semantic_views.emit_semantic_model_entities:
+            # Only declared when semantic-model emission is active, so tag-derived
+            # structured properties can be applied to semanticModel (view-level tags)
+            # and metric (metric-column tags) entities. Keeping this behind the flag
+            # preserves the flag-off entityTypes output unchanged.
+            entity_types.append(
+                EntityTypeUrn(f"datahub.{SemanticModelUrn.ENTITY_TYPE}").urn()
+            )
+            entity_types.append(EntityTypeUrn(f"datahub.{MetricUrn.ENTITY_TYPE}").urn())
         aspect = StructuredPropertyDefinition(
             qualifiedName=identifier,
             displayName=tag.name,
             valueType=DataTypeUrn("datahub.string").urn(),
-            entityTypes=[
-                EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn(),
-                EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
-                EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
-                # Needed so tag-derived structured properties can be applied to
-                # semanticModel (view-level tags) and metric (metric-column tags)
-                # entities in the semanticModel emission mode.
-                EntityTypeUrn(f"datahub.{SemanticModelUrn.ENTITY_TYPE}").urn(),
-                EntityTypeUrn(f"datahub.{MetricUrn.ENTITY_TYPE}").urn(),
-            ],
+            entityTypes=entity_types,
             lastModified=AuditStamp(
                 time=get_sys_time(), actor="urn:li:corpuser:datahub"
             ),
