@@ -41,12 +41,14 @@ from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_SCHEMA_FIELDS,
     KNOWN_UNMAPPED_SERVER_FIELDS,
     KNOWN_UNMAPPED_TEAM_FIELDS,
+    KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition,
     ODCSContract,
     ODCSProperty,
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
+    ODCSTeam,
     ODCSTeamMember,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -82,18 +84,22 @@ _KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSProperty: KNOWN_UNMAPPED_PROPERTY_FIELDS,
     ODCSQualityRule: KNOWN_UNMAPPED_QUALITY_FIELDS,
     ODCSServer: KNOWN_UNMAPPED_SERVER_FIELDS,
-    ODCSTeamMember: KNOWN_UNMAPPED_TEAM_FIELDS,
+    ODCSTeam: KNOWN_UNMAPPED_TEAM_FIELDS,
+    ODCSTeamMember: KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition: KNOWN_UNMAPPED_AUTHDEF_FIELDS,
 }
 
 # Which list-valued keys of each model recurse into which child model, for the
-# unknown-field walker. `authoritativeDefinitions` is handled generically.
+# unknown-field walker. `authoritativeDefinitions` is handled generically, and
+# a dict-valued `team` (the v3.1 canonical object form) is special-cased in the
+# walker itself.
 _CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
     ODCSContract: {
         "schema": ODCSSchemaObject,
         "servers": ODCSServer,
         "team": ODCSTeamMember,
     },
+    ODCSTeam: {"members": ODCSTeamMember},
     ODCSSchemaObject: {"properties": ODCSProperty, "quality": ODCSQualityRule},
     ODCSProperty: {"properties": ODCSProperty, "quality": ODCSQualityRule},
 }
@@ -466,6 +472,15 @@ class ODCSSource(StatefulIngestionSourceBase):
                         ),
                         context=f"{file_path}: {path_hint}.{key}",
                     )
+                    continue
+                if (
+                    model_cls is ODCSContract
+                    and key == "team"
+                    and isinstance(value, dict)
+                ):
+                    # v3.1 canonical team object; the list form is handled by
+                    # the generic recursion below.
+                    walk(value, ODCSTeam, f"{path_hint}.team")
                     continue
                 child_cls = (
                     ODCSAuthoritativeDefinition

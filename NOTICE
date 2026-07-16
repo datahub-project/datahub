@@ -73,6 +73,10 @@ License: Apache 2.0 - http://www.apache.org/licenses/LICENSE-2.0
 The JSON Schema files in
 metadata-ingestion/src/datahub/ingestion/source/odcs/odcs_schema/
 are unmodified copies pinned to upstream release tags v3.0.2 and v3.1.0.
+The test fixture
+metadata-ingestion/tests/integration/odcs/odcs_bitol_full_example.odcs.yaml
+is the upstream v3.1.0 full example (docs/examples/all/full-example.odcs.yaml)
+with a provenance header prepended.
 
 
 ========================================================================

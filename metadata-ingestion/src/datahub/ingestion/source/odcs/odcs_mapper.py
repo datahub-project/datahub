@@ -505,11 +505,9 @@ def _make_tag_associations(
 
 
 def _make_owners(contract: ODCSContract) -> List[OwnerClass]:
-    if not contract.team:
-        return []
     owners: List[OwnerClass] = []
     seen: set = set()
-    for member in contract.team:
+    for member in contract.team_members:
         if member.dateOut:
             continue
         username = member.username or member.name

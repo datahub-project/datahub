@@ -198,6 +198,46 @@ def test_odcs_v302(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     )
 
 
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_odcs_bitol_official_full_example(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """The upstream project's own v3.1 full example (vendored verbatim) must
+    ingest cleanly under strict validation. Unlike the hand-authored fixtures,
+    this file was NOT written against this source's implementation, so it
+    guards against vocabulary/shape drift between the source and real-world
+    ODCS documents (e.g. the v3.1 team object form)."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/odcs"
+    output_path = _run_pipeline(
+        tmp_path=tmp_path,
+        test_resources_dir=test_resources_dir,
+        fixture="odcs_bitol_full_example.odcs.yaml",
+        output_name="odcs_bitol_full_example_mces.json",
+        extra_config={"strict_validation": True},
+    )
+    mces = _read_mces(output_path)
+    # The example's postgres server carries database + schema: bindings must be
+    # fully qualified.
+    logical_parents = [m for m in mces if m.get("aspectName") == "logicalParent"]
+    assert logical_parents
+    for lp in logical_parents:
+        assert (
+            "urn:li:dataPlatform:postgres,pypl-edw.pp_access_views."
+            in (lp["entityUrn"])
+        )
+    # The v3.1 team OBJECT form must yield owners (dateOut members excluded).
+    ownerships = [m for m in mces if m.get("aspectName") == "ownership"]
+    assert ownerships
+    owner_urns = {o["owner"] for o in ownerships[0]["aspect"]["json"]["owners"]}
+    assert "urn:li:corpuser:daustin" in owner_urns
+    assert "urn:li:corpuser:ceastwood" not in owner_urns  # dateOut in the past
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "odcs_bitol_full_example_mces_golden.json",
+    )
+
+
 def _schema_field_paths_by_logical_dataset(
     mces: List[Dict[str, Any]],
 ) -> Dict[str, List[str]]:
