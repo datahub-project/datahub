@@ -1,6 +1,5 @@
 """Unit tests for the Airflow Asset adapter module."""
 
-import warnings
 from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
@@ -934,21 +933,17 @@ class TestExtractUrnsFromTaskInstanceOutletEvents:
 
 
 def _create_airflow_dataset(uri: str) -> Optional[Any]:
-    """Create an Airflow Dataset, or None if creation fails.
+    """Create a real Airflow Asset, or None if creation fails.
 
-    Airflow's Dataset class may fail to initialize in test environments
-    where the ProvidersManager cannot fully initialize. This helper
+    Uses the canonical airflow.sdk.Asset (the deprecated airflow.datasets.Dataset
+    is just an alias for it on Airflow 3). Asset may fail to initialize in test
+    environments where the ProvidersManager cannot fully initialize, so this helper
     catches those errors and returns None.
     """
     try:
-        # Deliberately uses the deprecated `airflow.datasets.Dataset` alias to check
-        # the adapter still recognizes the legacy "Dataset" class name; the Airflow
-        # 3.2 DeprecationWarning is therefore expected and suppressed.
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            from airflow.datasets import Dataset
+        from airflow.sdk import Asset
 
-        return Dataset(uri)
+        return Asset(uri)
     except Exception:
         return None
 
