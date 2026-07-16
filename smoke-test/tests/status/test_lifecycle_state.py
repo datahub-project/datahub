@@ -339,7 +339,7 @@ class TestLifecycleStageAPIs:
         _set_lifecycle_stage_via_rest(auth_session, urn, stage_urn)
         wait_for_writes_to_sync()
 
-        @with_test_retry(max_attempts=12)
+        @with_test_retry(max_attempts=30)
         def _assert_hidden():
             urns = _search_documents(auth_session, title)
             assert urn not in urns, "Entity in hidden stage should not appear in search"

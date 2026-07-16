@@ -100,7 +100,7 @@ public class RequestContext implements ContextInterface {
   private final boolean responseBodyMaterialized;
 
   /** Multiplier for per-proposal ingest cost profiling (batch size). Defaults to 1. */
-  @Builder.Default private final int usageQuantity = 1;
+  @Builder.Default private final long usageQuantity = 1L;
 
   public RequestContext(
       MetricUtils metricUtils,
@@ -175,7 +175,7 @@ public class RequestContext implements ContextInterface {
       @Nullable Long outputBytes,
       boolean requestBodyMaterialized,
       boolean responseBodyMaterialized,
-      int usageQuantity) {
+      long usageQuantity) {
     this.actorUrn = actorUrn;
     this.sourceIP = sourceIP;
     this.requestAPI = requestAPI;
@@ -224,7 +224,7 @@ public class RequestContext implements ContextInterface {
     this.outputBytes = outputBytes;
     this.requestBodyMaterialized = requestBodyMaterialized;
     this.responseBodyMaterialized = responseBodyMaterialized;
-    this.usageQuantity = Math.max(1, usageQuantity);
+    this.usageQuantity = Math.max(1L, usageQuantity);
 
     putUsageFieldsInMdc();
 
@@ -243,33 +243,33 @@ public class RequestContext implements ContextInterface {
   }
 
   /** Counts JSON array elements for ingest batch usage quantity; returns 1 when not an array. */
-  public static int resolveIngestUsageQuantity(
+  public static long resolveIngestUsageQuantity(
       @Nonnull String jsonBody, @Nonnull ObjectMapper objectMapper) {
     try {
       JsonNode node = objectMapper.readTree(jsonBody);
       if (node.isArray()) {
-        return Math.max(1, node.size());
+        return Math.max(1L, node.size());
       }
     } catch (JsonProcessingException e) {
       log.debug("Could not parse ingest body for usage quantity", e);
     }
-    return 1;
+    return 1L;
   }
 
   /** Sums array sizes under a JSON object keyed by entity type (generic multi-type ingest). */
-  public static int resolveIngestUsageQuantity(@Nonnull JsonNode rootObject) {
+  public static long resolveIngestUsageQuantity(@Nonnull JsonNode rootObject) {
     if (!rootObject.isObject()) {
-      return 1;
+      return 1L;
     }
-    int total = 0;
+    long total = 0L;
     for (JsonNode value : rootObject) {
       if (value.isArray()) {
         total += value.size();
       } else {
-        total += 1;
+        total += 1L;
       }
     }
-    return Math.max(1, total);
+    return Math.max(1L, total);
   }
 
   /** Resolves request wire bytes from servlet {@code Content-Length} when not streaming/chunked. */
@@ -344,10 +344,10 @@ public class RequestContext implements ContextInterface {
 
   public static class RequestContextBuilder {
 
-    private int usageQuantity = 1;
+    private long usageQuantity = 1L;
 
-    public RequestContextBuilder usageQuantity(int usageQuantity) {
-      this.usageQuantity = Math.max(1, usageQuantity);
+    public RequestContextBuilder usageQuantity(long usageQuantity) {
+      this.usageQuantity = Math.max(1L, usageQuantity);
       return this;
     }
 
@@ -541,8 +541,8 @@ public class RequestContext implements ContextInterface {
     }
 
     @Nonnull
-    public RequestContextBuilder withUsageQuantity(int quantity) {
-      return usageQuantity(Math.max(1, quantity));
+    public RequestContextBuilder withUsageQuantity(long quantity) {
+      return usageQuantity(Math.max(1L, quantity));
     }
 
     @Nonnull
@@ -693,8 +693,16 @@ public class RequestContext implements ContextInterface {
     RESTLI,
     OPENAPI,
     GRAPHQL,
-    /** Kafka / pgQueue MCP consumption (MCE consumer), not HTTP. */
-    MESSAGING;
+    /**
+     * MetadataChangeProposal queue consumption (Kafka / pgQueue on the MCE consumer). Distinct from
+     * {@link #MCP} (Model Context Protocol server traffic).
+     */
+    MESSAGING,
+    /**
+     * Model Context Protocol server traffic (report-driven metering). Distinct from {@link
+     * #MESSAGING} (MetadataChangeProposal ingest).
+     */
+    MCP;
 
     @Nonnull
     public String toMetricLabel() {

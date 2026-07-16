@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
 import com.linkedin.metadata.search.utils.SizeUtils;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -2554,6 +2555,7 @@ public class ESIndexBuilder {
       @Nonnull Set<String> excludePhysicalIndices) {
     List<String> orphanedIndices = new ArrayList<>();
     RequestOptions requestOptions = buildRequestOptionsLong(esConfig);
+    final IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     try {
       Date retentionDate =
           Date.from(
@@ -2570,6 +2572,23 @@ public class ESIndexBuilder {
       for (String index : response.getIndices()) {
         if (excludePhysicalIndices.contains(index)) {
           log.info("Skipping protected index {} referenced by incremental reindex state", index);
+          continue;
+        }
+
+        // The base entity clean pattern (e.g. "datasetindex_v2_*") also matches the semantic index
+        // "datasetindex_v2_semantic". That is the live semantic search index itself (where the
+        // embeddings live), addressed directly by its physical name - not an orphaned backing index
+        // of the base entity index. The original semantic index has no alias, so this orphan sweep
+        // (alias-less + past retention) would otherwise delete live data. The bare index is only
+        // meant to be removed when a reindex converts it to an alias - renameReindexedIndices
+        // deletes it and points the alias at the new "<base>_semantic_<ts>" backing; those backings
+        // are then cleaned normally (they don't match isSemanticEntityIndex). So never delete the
+        // bare name here.
+        if (indexConvention.isSemanticEntityIndex(index)) {
+          log.info(
+              "Skipping semantic index {} matched by base clean pattern {}",
+              index,
+              indexState.indexCleanPattern());
           continue;
         }
 
