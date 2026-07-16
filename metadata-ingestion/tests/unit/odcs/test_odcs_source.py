@@ -5,6 +5,7 @@ from functools import partial
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_source import ODCSSource
@@ -66,6 +67,11 @@ schema:
             metric: nullValues
             mustBe: 0
 """
+
+
+def _mcp(wu: Any) -> MetadataChangeProposalWrapper:
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    return wu.metadata
 
 
 def _aspects_of(workunits: List, aspect_cls: type) -> List:
@@ -282,7 +288,9 @@ def test_platform_info_emitted_once_and_not_primary(tmp_path: pathlib.Path) -> N
         if isinstance(getattr(wu.metadata, "aspect", None), DataPlatformInfoClass)
     ]
     assert len(platform_wus) == 1
-    assert platform_wus[0].metadata.aspect.name == "odcs"
+    platform_aspect = _mcp(platform_wus[0]).aspect
+    assert isinstance(platform_aspect, DataPlatformInfoClass)
+    assert platform_aspect.name == "odcs"
     assert not platform_wus[0].is_primary_source
 
 
@@ -301,9 +309,14 @@ def test_binding_derived_from_server_type(tmp_path: pathlib.Path) -> None:
     ]
     assert len(parent_wus) == 1
     wu = parent_wus[0]
+    mcp = _mcp(wu)
     # The link lives on the composed physical URN and points at the logical one.
-    assert "urn:li:dataPlatform:postgres,appdb.public.t," in wu.metadata.entityUrn
-    assert "urn:li:dataPlatform:odcs" in wu.metadata.aspect.parent.destinationUrn
+    assert mcp.entityUrn is not None
+    assert "urn:li:dataPlatform:postgres,appdb.public.t," in mcp.entityUrn
+    parent_aspect = mcp.aspect
+    assert isinstance(parent_aspect, LogicalParentClass)
+    assert parent_aspect.parent is not None
+    assert "urn:li:dataPlatform:odcs" in parent_aspect.parent.destinationUrn
     # Physical datasets are not owned by ODCS: never primary-source.
     assert not wu.is_primary_source
 

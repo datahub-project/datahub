@@ -1,8 +1,9 @@
 import json
 import pathlib
-from typing import Any, Dict, Set
+from typing import Any, Dict, Set, Type
 
 import pytest
+from pydantic import BaseModel
 
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
@@ -27,7 +28,7 @@ _SCHEMA_DIR = (
 _SCHEMA_FILES = ("odcs-v3.0.2.json", "odcs-v3.1.0.json")
 
 
-def _model_keys(model_cls: type) -> Set[str]:
+def _model_keys(model_cls: Type[BaseModel]) -> Set[str]:
     keys: Set[str] = set()
     for fname, finfo in model_cls.model_fields.items():
         keys.add(fname)
