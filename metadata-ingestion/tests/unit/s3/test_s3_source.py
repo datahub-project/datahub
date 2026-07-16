@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import List, Set, Tuple
+from typing import List, Tuple
 from unittest.mock import MagicMock, Mock, call, patch
 
 import boto3
@@ -470,9 +470,13 @@ def test_get_folder_info_returns_expected_folder(s3_resource):
 def test_s3_emit_folders_only_emits_containers_no_datasets(s3_resource, s3_client):
     bucket = "media-bucket"
     s3_client.create_bucket(Bucket=bucket)
-    # Two-level media tree. 'audio' has no second level -> not emitted at depth 2.
+    # Depth-2 glob (media/*/*/). The tree exercises all three depth edges:
+    #   - videos/2023, videos/2024 sit AT depth 2       -> emitted
+    #   - audio is a depth-1 leaf (no depth-2 child)     -> NOT emitted (too shallow)
+    #   - videos/2023/raw sits BELOW depth 2             -> NOT emitted (depth cap)
     for key in [
         "media/videos/2023/clip.mp4",
+        "media/videos/2023/raw/deep.mp4",
         "media/videos/2024/clip.mp4",
         "media/audio/podcast.mp3",
     ]:
@@ -492,18 +496,19 @@ def test_s3_emit_folders_only_emits_containers_no_datasets(s3_resource, s3_clien
     assert all(urn.startswith("urn:li:container:") for urn in urns)
     assert not any(urn.startswith("urn:li:dataset:") for urn in urns)
 
-    # Depth-2 folders present: media/videos/2023 and media/videos/2024 (via their chain),
-    # plus parents bucket, media, videos. 'audio' (depth-1 leaf) is absent by design.
-    names: Set[str] = set()
+    names: List[str] = []
     for wu in wus:
         if getattr(wu.metadata, "aspectName", None) != "containerProperties":
             continue
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
         aspect = wu.metadata.aspect
         assert isinstance(aspect, ContainerPropertiesClass)
-        names.add(aspect.name)
-    assert {"media-bucket", "media", "videos", "2023", "2024"} <= names
-    assert "audio" not in names
+        names.append(aspect.name)
+
+    # Exactly the bucket + the depth<=2 chain, each container emitted once.
+    # Excludes 'audio' (too shallow) and 'raw' (below the glob depth); the
+    # exact-multiset check also fails on any duplicate container emission.
+    assert sorted(names) == ["2023", "2024", "media", "media-bucket", "videos"]
     assert source.report.folders_scanned == 2
 
 
