@@ -148,7 +148,7 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Open Data Contract Standard", id="odcs")
 @config_class(ODCSSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.TESTING)
 @capability(
     SourceCapability.SCHEMA_METADATA,
     "Canonical schema (types, descriptions, keys) from `schema[].properties[]`.",
