@@ -12,12 +12,8 @@ def normalize_column_name(name: str) -> str:
 
 
 def reraise_if_programming_error(e: Exception, context: str) -> None:
-    """Re-raise ``e`` (after logging) if it looks like a programming bug.
-
-    Optional/best-effort code paths wrap their body in ``except Exception`` and
-    call this first, so genuine bugs fail fast with a stack trace while
-    operational failures fall through to the caller's degrade handling.
-    """
+    # Called first inside best-effort `except Exception` blocks so real bugs fail
+    # fast while operational failures fall through to the caller's degrade path.
     if isinstance(e, _PROGRAMMING_ERRORS):
         logger.error(
             f"Programming error {context}: {type(e).__name__}: {e}",

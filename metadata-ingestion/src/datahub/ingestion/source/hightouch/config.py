@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 class Constant:
-    # Threshold for warning about excessive sync run ingestion
     MAX_SYNC_RUNS_WARNING_THRESHOLD = 100
 
 
@@ -283,7 +282,6 @@ class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixi
         "match your source platform connector settings for proper sibling linking.",
     )
 
-    # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Hightouch Stateful Ingestion Config."
     )

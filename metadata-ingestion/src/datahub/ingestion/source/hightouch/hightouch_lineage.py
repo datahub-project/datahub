@@ -75,15 +75,9 @@ class HightouchLineageHandler:
         source: Optional[HightouchSourceConnection],
         sql_table_urns: Optional[List[str]] = None,
     ) -> Dict[str, str]:
-        """
-        For table models and SQL models with a single upstream table, fetch upstream table schema
-        and return a mapping from normalized field names to the actual upstream field names with correct casing.
-        This ensures Hightouch model schemas match upstream casing for proper sibling visualization.
-
-        Works for:
-        - table models: Uses model.name to build upstream URN
-        - SQL models (raw_sql, custom, dbt, etc.): Uses parsed SQL table URNs if exactly one table is referenced
-        """
+        # Map normalized field names to their upstream casing so model schemas line
+        # up with the source table for sibling visualization. Only resolvable for
+        # table models and single-table SQL models.
         if not source or not self.graph:
             return {}
 
@@ -279,11 +273,6 @@ class HightouchLineageHandler:
         model_schema: Optional[List[str]] = None,
         dest_schema: Optional[List[str]] = None,
     ) -> HightouchColumnPair:
-        """
-        Normalize and fuzzy match column names against provided schemas.
-
-        Returns a HightouchColumnPair with the validated field names.
-        """
         if not model_schema and not dest_schema:
             return HightouchColumnPair(
                 source_field=source_field, destination_field=destination_field
@@ -326,7 +315,6 @@ class HightouchLineageHandler:
         model_schema_fields = None
         dest_schema_fields = None
 
-        # Use provided schema fields if available (with normalized casing)
         if model_schema_fields_override:
             model_schema_fields = [f.fieldPath for f in model_schema_fields_override]
         elif self.graph:
@@ -431,7 +419,6 @@ class HightouchLineageHandler:
     def emit_sibling_aspects(
         self, model_urn: str, source_table_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        # Always emit sibling aspect on Hightouch model (primary)
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
             aspect=SiblingsClass(

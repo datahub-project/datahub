@@ -370,7 +370,6 @@ class HightouchModelHandler:
         model: HightouchModel,
         source: HightouchSourceConnection,
     ) -> List[str]:
-        """Extract table URNs from SQL query using SQL parser."""
         if not self.config.parse_model_sql:
             return []
 

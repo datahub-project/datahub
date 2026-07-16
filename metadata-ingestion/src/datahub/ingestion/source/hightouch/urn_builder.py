@@ -68,12 +68,8 @@ class HightouchUrnBuilder:
     def qualified_table_name(
         self, model: HightouchModel, source: HightouchSourceConnection
     ) -> str:
-        """Build the fully-qualified upstream table name for a table-type model.
-
-        Honors the source connection's database/schema and the resolved
-        ``include_schema_in_urn`` setting so that the resulting name lines up with
-        the URN produced by the upstream platform's own connector.
-        """
+        # Qualify with database/schema (honoring include_schema_in_urn) so the name
+        # matches the URN produced by the upstream platform's own connector.
         table_name = model.name
         configuration = source.configuration or {}
         schema = configuration.get(SOURCE_CONFIG_KEY_SCHEMA, "")
