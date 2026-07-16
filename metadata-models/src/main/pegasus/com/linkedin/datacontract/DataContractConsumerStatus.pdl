@@ -1,0 +1,15 @@
+namespace com.linkedin.datacontract
+
+/**
+ * Lifecycle status for a Data Contract Consumer agreement.
+ */
+@Aspect = {
+  "name": "dataContractConsumerStatus"
+}
+record DataContractConsumerStatus {
+  /**
+   * Current lifecycle state of this consumer agreement.
+   */
+  @Searchable = {}
+  state: DataContractConsumerState
+}

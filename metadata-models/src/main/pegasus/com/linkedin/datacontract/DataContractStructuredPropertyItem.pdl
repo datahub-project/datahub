@@ -1,0 +1,26 @@
+namespace com.linkedin.datacontract
+
+import com.linkedin.common.Urn
+import com.linkedin.structured.PrimitivePropertyValue
+
+/**
+ * A structured-property reference embedded within a contract section.
+ * Values live on the contract item (not on the generic structuredProperties
+ * aspect) so that the same SP can appear in multiple sections with
+ * independent values.
+ */
+record DataContractStructuredPropertyItem {
+  /**
+   * The structured property being referenced.
+   */
+  @Relationship = {
+    "name": "IncludesStructuredProperty",
+    "entityTypes": [ "structuredProperty" ]
+  }
+  propertyUrn: Urn
+
+  /**
+   * The value(s) for this SP, if populated.
+   */
+  values: optional array[PrimitivePropertyValue]
+}

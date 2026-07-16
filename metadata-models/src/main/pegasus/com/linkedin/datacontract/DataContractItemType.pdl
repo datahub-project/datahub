@@ -1,0 +1,15 @@
+namespace com.linkedin.datacontract
+
+/**
+ * Discriminator for a DataContractItem.
+ */
+enum DataContractItemType {
+  /**
+   * Item is a structured property reference with value(s).
+   */
+  STRUCTURED_PROPERTY
+  /**
+   * Item is a validation dimension aggregating one or more assertions.
+   */
+  VALIDATION
+}

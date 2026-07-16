@@ -1,0 +1,46 @@
+namespace com.linkedin.datacontract
+
+import com.linkedin.common.Urn
+import com.linkedin.common.AbsoluteTimeWindow
+
+/**
+ * Properties of a Data Contract Consumer agreement - one consumer's
+ * acceptance of a published dataContract under specific terms.
+ */
+@Aspect = {
+  "name": "dataContractConsumerProperties"
+}
+record DataContractConsumerProperties {
+  /**
+   * The dataContract being consumed under this agreement.
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "fieldName": "contract"
+  }
+  @Relationship = {
+    "name": "AcceptsContract",
+    "entityTypes": [ "dataContract" ]
+  }
+  contract: Urn
+
+  /**
+   * The party consuming under this agreement (user or group).
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "fieldName": "consumer"
+  }
+  @Relationship = {
+    "name": "ConsumedBy",
+    "entityTypes": [ "corpuser", "corpGroup" ]
+  }
+  consumer: Urn
+
+  /**
+   * Effective window for this consumer's agreement (epoch millis UTC).
+   * Use `startTimeMillis = 0` for "effective immediately" and
+   * `endTimeMillis = Long.MAX_VALUE` for "evergreen, no end date".
+   */
+  effectivePeriod: AbsoluteTimeWindow
+}

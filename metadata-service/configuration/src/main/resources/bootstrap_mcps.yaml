@@ -30,6 +30,12 @@ bootstrap:
       async: false
       mcps_location: "bootstrap_mcps/ownership-types.yaml"
 
+    - name: contract-ownership-types
+      version: v1
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/contract-ownership-types.yaml"
+
     - name: lifecycle-stages
       version: v2
       blocking: true
