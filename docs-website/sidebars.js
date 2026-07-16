@@ -134,6 +134,11 @@ module.exports = {
               id: "docs/dev-guides/agent-context/skills",
             },
             {
+              label: "Agent Memory",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/agent-memory",
+            },
+            {
               label: "Snowflake",
               type: "category",
               collapsible: true,
