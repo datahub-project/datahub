@@ -118,8 +118,12 @@ jobs:
           ./gradlew build --max-workers="$(nproc)" \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
+            -x :datahub-agent-context:build \
+            -x :datahub-agent-context:check \
+            -x :datahub-actions:build \
+            -x :datahub-actions:check \
             -x :docs-website:build \
-            -x :metadata-integration:java:acryl-spark-lineage:test \
+            -x :metadata-integration:java:acryl-spark-lineage:build \
             -x :metadata-io:test \
             -x :metadata-ingestion-modules:airflow-plugin:build \
             -x :metadata-ingestion-modules:airflow-plugin:check \
@@ -247,6 +251,16 @@ jobs:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+      # yarn's global download cache (safe to cache; node_modules itself is not — see
+      # datahub-web-react/build.gradle). frontend-build is the writer; frontend-test restores
+      # read-only. Turns yarnInstall from a cold ~100s download into a link-only step.
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Set up JDK 21
@@ -297,13 +311,21 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
+      # No python deps here: :datahub-web-react:yarnTest depends only on yarnInstall/yarnGenerate/
+      # generateLazyIconStubs (no :metadata-ingestion:connectorRegistry, which is frontend-build's
+      # concern). install_deps.sh + the ~/.cache/uv cache were dead weight — removed. setup-python
+      # stays for the PostHog failure-reporting step below.
+      # Restore yarn's download cache (written by frontend-build) so each matrix leg's yarnInstall
+      # links from cache instead of a cold ~100s download. Same key across legs (content-hashed on
+      # yarn.lock), so the redundant post-save from parallel legs is a no-op — matches the matrix
+      # build-cache restore in backend-test-shard.
       - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
-            ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
-      - name: Install dependencies
-        run: ./metadata-ingestion/scripts/install_deps.sh
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
@@ -479,10 +501,22 @@ jobs:
         # and that's fine: the generators RUN and produce their sources, so yarnBuild/vite and
         # graphqlUsageRegistryCheck succeed. Do NOT exclude the generators — that leaves yarnBuild
         # building against missing sources (vite exit 1). Proven-green command (run 29288221733).
+        # :datahub-agent-context and :datahub-actions are excluded (build+check): pure-python
+        # modules whose `check` pulls installDev + a full pytest suite (602 and 200 tests), none of
+        # which the Java shards need — each is fully covered by its own workflow (agent-context.yml,
+        # actions.yml). Same rationale as :metadata-ingestion and the ingestion plugins below.
+        # :acryl-spark-lineage:build is also excluded — its `test` is already skipped here (global
+        # -x test) and shard-side, so `build` only produced the Scala shadowJars (~58s), which no
+        # shard consumes; it's built + tested by spark-smoke-test.yml.
         run: |
           ./gradlew build testClasses -x test --build-cache --max-workers="$(nproc)" \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
+            -x :datahub-agent-context:build \
+            -x :datahub-agent-context:check \
+            -x :datahub-actions:build \
+            -x :datahub-actions:check \
+            -x :metadata-integration:java:acryl-spark-lineage:build \
             -x :docs-website:build \
             -x :metadata-ingestion-modules:airflow-plugin:build \
             -x :metadata-ingestion-modules:airflow-plugin:check \
