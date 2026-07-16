@@ -26,6 +26,7 @@ from datahub.metadata.schema_classes import (
     SiblingsClass,
     StringTypeClass,
     SubTypesClass,
+    UpstreamLineageClass,
     ViewPropertiesClass,
 )
 
@@ -833,6 +834,80 @@ def test_table_model_column_lineage_empty_without_graph(
     )
 
     assert lineages == []
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_table_model_column_lineage_emitted_end_to_end(
+    mock_api_client_class, pipeline_context
+):
+    """The full model-emission path emits an UpstreamLineage with fineGrainedLineages
+    for a table model when a graph resolves the upstream schema. The integration
+    harness has no graph, so this is the only place the e2e table CLL path runs."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        emit_models_as_datasets=True,
+        include_sibling_relationships=False,
+    )
+
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    mock_graph = Mock()
+    upstream_schema = Mock()
+    upstream_schema.fields = [
+        Mock(fieldPath="CUSTOMER_ID"),
+        Mock(fieldPath="EMAIL"),
+        Mock(fieldPath="UNMAPPED_COL"),
+    ]
+    mock_graph.get_schema_metadata.return_value = upstream_schema
+    source_instance.graph = mock_graph
+    source_instance._schema_handler.graph = mock_graph
+    source_instance._lineage_handler.graph = mock_graph
+
+    model = HightouchModel(
+        id="model_1",
+        name="customers",
+        slug="customers-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="table",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        query_schema=[
+            {"name": "customer_id", "type": "INTEGER"},
+            {"name": "email", "type": "STRING"},
+        ],
+    )
+
+    source_instance._sources_cache["source_1"] = HightouchSourceConnection(
+        id="source_1",
+        name="Snowflake",
+        slug="snowflake",
+        type="snowflake",
+        workspace_id="workspace_1",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+        configuration={"database": "analytics"},
+    )
+
+    workunits = list(source_instance._get_model_workunits(model))
+
+    upstream_lineages = [
+        wu.metadata.aspect
+        for wu in workunits
+        if hasattr(wu, "metadata")
+        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+    ]
+
+    assert len(upstream_lineages) == 1
+    fine_grained = upstream_lineages[0].fineGrainedLineages
+    assert fine_grained is not None
+    assert len(fine_grained) == 2
+    assert source_instance.report.column_lineage_emitted == 2
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
