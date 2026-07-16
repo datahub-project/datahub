@@ -1,6 +1,8 @@
 package com.linkedin.gms;
 
+import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
+import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
 import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
@@ -16,6 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.linkedin.metadata.config.GMSConfiguration;
+import com.linkedin.metadata.ratelimit.RateLimitFilter;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
@@ -97,6 +100,17 @@ public class ServletConfig implements WebMvcConfigurer {
   }
 
   @Bean
+  public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(
+      RateLimitFilter filter) {
+    FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
+    registration.setFilter(filter);
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
+    registration.setAsyncSupported(true);
+    registration.addUrlPatterns("/*");
+    return registration;
+  }
+
+  @Bean
   public ServletRegistrationBean<Config> configServlet() {
     ServletRegistrationBean<Config> registration = new ServletRegistrationBean<>(new Config());
     registration.setName("config");
@@ -170,9 +184,17 @@ public class ServletConfig implements WebMvcConfigurer {
         Integer.parseInt(
             System.getenv()
                 .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    int maxNameLength =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
     objectMapper
         .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+        .setStreamReadConstraints(
+            StreamReadConstraints.builder()
+                .maxStringLength(maxSize)
+                .maxNameLength(maxNameLength)
+                .build());
     objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     objectMapper.registerModule(new Jdk8Module());

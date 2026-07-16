@@ -40,7 +40,9 @@ export const CommandK = () => {
 
     return (
         <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
+            {/* eslint-disable-next-line i18next/no-literal-string */}
             <Letter $isShowNavBarRedesign={isShowNavBarRedesign}>⌘</Letter>
+            {/* eslint-disable-next-line i18next/no-literal-string */}
             <Letter $isShowNavBarRedesign={isShowNavBarRedesign}>K</Letter>
         </Container>
     );

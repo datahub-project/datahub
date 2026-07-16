@@ -4,10 +4,11 @@ import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import Loading from '@app/shared/Loading';
-import { Button, Tooltip } from '@src/alchemy-components';
+import { Button, Checkbox, Tooltip } from '@src/alchemy-components';
 
 import { Document } from '@types';
 
@@ -112,7 +113,7 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
         ${(props) =>
             props.$isSelected
                 ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
-                : `color: ${props.theme.colors.textTertiary};`}
+                : `color: ${props.theme.colors.icon};`}
     }
 `;
 
@@ -133,6 +134,13 @@ const ExpandButton = styled.button`
     &:hover {
         opacity: 0.7;
     }
+`;
+
+const CheckboxSlot = styled.div`
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+    flex-shrink: 0;
 `;
 
 interface SearchResultItemProps {
@@ -158,6 +166,12 @@ interface SearchResultItemProps {
     onToggleExpand: () => void;
     /** Optional callback for creating a child document */
     onCreateChild?: (parentUrn: string) => void;
+    /**
+     * When true, renders a leading checkbox driven by `isSelected`, and hides
+     * per-row actions (create-child) so the picker stays focused on selection.
+     * Clicks on the row and the checkbox both fire `onSelect`.
+     */
+    multiSelect?: boolean;
 }
 
 /**
@@ -183,7 +197,9 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
     onSelect,
     onToggleExpand,
     onCreateChild,
+    multiSelect = false,
 }) => {
+    const { t } = useTranslation('home.v2');
     const [isHovered, setIsHovered] = useState(false);
 
     // Determine document title and URN
@@ -252,12 +268,21 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
                         {level === 0 && breadcrumb && <SearchResultBreadcrumb>{breadcrumb}</SearchResultBreadcrumb>}
                     </SearchResultContent>
                 </LeftContent>
-                {onCreateChild && (
+                {!multiSelect && onCreateChild && (
                     <Actions className="search-result-actions">
-                        <Tooltip title="New document" placement="bottom" showArrow={false}>
+                        <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
                             <ActionButton icon={{ icon: Plus }} variant="text" onClick={handleAddChildClick} />
                         </Tooltip>
                     </Actions>
+                )}
+                {multiSelect && (
+                    <CheckboxSlot>
+                        <Checkbox
+                            isChecked={isSelected}
+                            setIsChecked={() => onSelect()}
+                            dataTestId={`search-result-checkbox-${docUrn}`}
+                        />
+                    </CheckboxSlot>
                 )}
             </SearchResultItemContainer>
             {isExpanded && children}

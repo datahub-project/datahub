@@ -12,6 +12,7 @@ import {
     omitExtraAttributes,
 } from '@remirror/core';
 import { NodeViewComponentProps } from '@remirror/react';
+import i18next from 'i18next';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import React, { ComponentType } from 'react';
@@ -160,7 +161,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                     validation.failureType || FileUploadFailureType.UNKNOWN,
                 );
                 notification.error({
-                    message: 'Upload Failed',
+                    message: i18next.t('alchemy:editor.upload.failedTitle'),
                     description: validation.displayError || validation.error,
                 });
                 return; // Skip invalid files
@@ -204,8 +205,8 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                     );
                     this.removeNode(view, placeholderAttrs.id);
                     notification.error({
-                        message: 'Upload Failed',
-                        description: 'Something went wrong',
+                        message: i18next.t('alchemy:editor.upload.failedTitle'),
+                        description: i18next.t('common.feedback:somethingWentWrong'),
                     });
                 }
             } else {
@@ -217,7 +218,7 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                 );
                 this.removeNode(view, placeholderAttrs.id);
                 notification.error({
-                    message: 'Uploading files in this context is not currently supported',
+                    message: i18next.t('alchemy:editor.upload.notSupported'),
                 });
             }
         } catch (error) {
@@ -230,8 +231,8 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                 `${error}`,
             );
             notification.error({
-                message: 'Upload Failed',
-                description: 'Something went wrong',
+                message: i18next.t('alchemy:editor.upload.failedTitle'),
+                description: i18next.t('common.feedback:somethingWentWrong'),
             });
         }
     }

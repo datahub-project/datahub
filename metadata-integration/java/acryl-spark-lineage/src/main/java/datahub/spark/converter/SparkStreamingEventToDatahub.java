@@ -8,7 +8,6 @@ import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
-import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datajob.DataFlowInfo;
@@ -223,9 +222,15 @@ public class SparkStreamingEventToDatahub {
           return Optional.empty();
         }
       }
+      // Stamp the configured platform_instance so streaming (e.g. Kafka) URNs match the
+      // batch-emitted URNs for the same dataset. Without it, the same topic resolves to two
+      // different URNs and cross-platform lineage dangles.
+      String platformInstance =
+          sparkLineageConf.getOpenLineageConf().getCommonDatasetPlatformInstance();
       return Optional.of(
-          new DatasetUrn(
-              new DataPlatformUrn(platform),
+          createDatasetUrn(
+              platform,
+              platformInstance,
               path,
               sparkLineageConf.getOpenLineageConf().getFabricType()));
     } else {

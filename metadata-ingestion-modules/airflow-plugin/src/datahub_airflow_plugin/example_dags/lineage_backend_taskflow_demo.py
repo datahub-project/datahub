@@ -3,10 +3,9 @@
 An example DAG demonstrating the usage of DataHub's Airflow lineage backend using the TaskFlow API.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
-from airflow.decorators import dag, task
-from airflow.utils.dates import days_ago
+from airflow.sdk import dag, task
 
 from datahub_airflow_plugin.entities import Dataset, Urn
 
@@ -22,8 +21,8 @@ default_args = {
 @dag(
     default_args=default_args,
     description="An example DAG demonstrating the usage of DataHub's Airflow lineage backend using the TaskFlow API.",
-    schedule_interval=timedelta(days=1),
-    start_date=days_ago(2),
+    start_date=datetime(2023, 1, 1),
+    schedule=timedelta(days=1),
     tags=["example_tag"],
     catchup=False,
 )

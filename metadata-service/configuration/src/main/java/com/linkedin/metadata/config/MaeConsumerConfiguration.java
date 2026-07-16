@@ -22,6 +22,18 @@ public class MaeConsumerConfiguration {
 
   private Elasticsearch elasticsearch;
 
+  private PgQueuePoll pgQueue;
+
+  /** pgQueue SQL poll worker settings for MAE consumer pipelines. */
+  @Data
+  public static class PgQueuePoll {
+    /** Max rows per poll for {@link com.linkedin.metadata.kafka.DataHubUsageEventsProcessor}. */
+    private Integer usageEventsMaxBatch;
+
+    /** Max rows per poll for MCL hook consumers. */
+    private Integer metadataChangeLogMaxBatch;
+  }
+
   @Data
   public static class Elasticsearch {
     /** RestClient socket timeout (ms); {@code -1} uses {@code elasticsearch.socketTimeout}. */

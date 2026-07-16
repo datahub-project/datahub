@@ -19,6 +19,8 @@ const SummaryWrapper = styled.div`
 
 interface Props {
     hideLinksButton?: boolean;
+    /** Optional content rendered between PropertiesHeader and AboutSection. */
+    preContent?: React.ReactNode;
 }
 
 export default function SummaryTab({ properties }: { properties?: Props }) {
@@ -28,6 +30,8 @@ export default function SummaryTab({ properties }: { properties?: Props }) {
         <PageTemplateProvider templateType={PageTemplateSurfaceType.AssetSummary}>
             <SummaryWrapper>
                 <PropertiesHeader />
+                {properties?.preContent}
+                {properties?.preContent && <StyledDivider />}
                 <AboutSection hideLinksButton={!!properties?.hideLinksButton} key={urn} />
                 <StyledDivider />
                 <Template />

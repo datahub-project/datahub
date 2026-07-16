@@ -209,11 +209,14 @@ class ConnectorRegistry:
             CLICKHOUSE_SINK_CONNECTOR_CLASS,
             CONFLUENT_JDBC_SINK_CONNECTOR_CLASS,
             DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
+            ICEBERG_SINK_CONNECTOR_CLASS,
             S3_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
+            SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS,
             BigQuerySinkConnector,
             ClickHouseSinkConnector,
             ConfluentS3SinkConnector,
+            IcebergSinkConnector,
             JdbcSinkConnector,
             SnowflakeSinkConnector,
         )
@@ -228,9 +231,10 @@ class ConnectorRegistry:
         # S3 sink connectors
         elif connector_class_value == S3_SINK_CONNECTOR_CLASS:
             return ConfluentS3SinkConnector(manifest, config, report)
-        # Snowflake sink connectors (both self-hosted and Cloud)
+        # Snowflake sink connectors (classic self-hosted, high-performance v4, and Cloud)
         elif connector_class_value in (
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
+            SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CLOUD,
         ):
             return SnowflakeSinkConnector(manifest, config, report)
@@ -242,6 +246,9 @@ class ConnectorRegistry:
         # ClickHouse sink connector
         elif connector_class_value == CLICKHOUSE_SINK_CONNECTOR_CLASS:
             return ClickHouseSinkConnector(manifest, config, report)
+        # Iceberg sink connector
+        elif connector_class_value == ICEBERG_SINK_CONNECTOR_CLASS:
+            return IcebergSinkConnector(manifest, config, report)
         # Self-hosted JDBC sink connectors — platform auto-detected from connection.url
         elif connector_class_value in (
             DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,

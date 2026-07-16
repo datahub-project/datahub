@@ -178,7 +178,8 @@ public class DailyReportTest {
   @Test
   public void testGetTotalUserCountHandlesSearchError() throws Exception {
     // Set up mock to throw exception
-    when(mockElasticClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenThrow(new RuntimeException("Search failed"));
 
     DailyReport dailyReport = createDailyReportForTesting();
@@ -197,7 +198,8 @@ public class DailyReportTest {
   @Test
   public void testGetServiceAccountCountHandlesSearchError() throws Exception {
     // Set up mock to throw exception
-    when(mockElasticClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenThrow(new RuntimeException("Search failed"));
 
     DailyReport dailyReport = createDailyReportForTesting();
@@ -225,7 +227,8 @@ public class DailyReportTest {
 
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
     when(mockSearchHits.getTotalHits()).thenReturn(mockTotalHits);
-    when(mockElasticClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockSearchResponse);
 
     DailyReport dailyReport = createDailyReportForTesting();
@@ -252,7 +255,8 @@ public class DailyReportTest {
 
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
     when(mockSearchHits.getTotalHits()).thenReturn(mockTotalHits);
-    when(mockElasticClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockSearchResponse);
 
     DailyReport dailyReport = createDailyReportForTesting();

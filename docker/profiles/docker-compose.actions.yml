@@ -6,7 +6,7 @@ x-search-datastore-elasticsearch-env: &search-datastore-env
 
 x-datahub-actions-service: &datahub-actions-service
   hostname: actions
-  image: ${DATAHUB_ACTIONS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-actions}:${DATAHUB_VERSION:-head}-slim
+  image: ${DATAHUB_ACTIONS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-actions}:${DATAHUB_VERSION:-quickstart}-slim
   env_file:
     - datahub-actions/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
@@ -45,6 +45,21 @@ x-datahub-actions-quickstart-service: &datahub-actions-quickstart-service
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     SCHEMA_REGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
 
+# Non-CDC Postgres profiles use pgQueue-backed system action configs (Python consumer in container).
+x-datahub-actions-postgres-pgqueue-env: &datahub-actions-postgres-pgqueue-env
+  <<: *search-datastore-env
+  ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
+  ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
+  KAFKA_BOOTSTRAP_SERVER: broker:29092
+  SCHEMA_REGISTRY_URL: http://datahub-gms:8080${DATAHUB_GMS_BASE_PATH:-}/schema-registry/api/
+  DATAHUB_ACTIONS_SYSTEM_CONFIGS_PATH: /etc/datahub/actions/system/conf-postgres-pgqueue
+  PGQUEUE_HOST_PORT: postgres:5432
+  PGQUEUE_DATABASE: datahub
+  PGQUEUE_USERNAME: ${DATAHUB_EBEAN_DATASOURCE_ROOT_USERNAME:-datahub}
+  PGQUEUE_PASSWORD: ${DATAHUB_EBEAN_DATASOURCE_ROOT_PASSWORD:-datahub}
+  DATAHUB_PGQUEUE_SCHEMA: ${DATAHUB_PGQUEUE_SCHEMA:-queue}
+  DATAHUB_PGQUEUE_TABLE_PREFIX: ${DATAHUB_PGQUEUE_TABLE_PREFIX:-metadata_queue}
+
 services:
   datahub-actions-quickstart:
     <<: *datahub-actions-quickstart-service
@@ -68,6 +83,21 @@ services:
     depends_on:
       datahub-gms-quickstart-postgres:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *datahub-actions-postgres-pgqueue-env
+  datahub-actions-quickstart-postgres-consumers:
+    <<: *datahub-actions-quickstart-service
+    profiles:
+      - quickstart-postgres-consumers
+    depends_on:
+      datahub-gms-quickstart-postgres-consumers:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *datahub-actions-postgres-pgqueue-env
   datahub-actions-quickstart-consumers:
     <<: *datahub-actions-quickstart-service
     profiles:
@@ -111,6 +141,21 @@ services:
     depends_on:
       datahub-gms-debug-postgres:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *datahub-actions-postgres-pgqueue-env
+  datahub-actions-debug-postgres-consumers:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-postgres-consumers
+    depends_on:
+      datahub-gms-debug-postgres-consumers:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *datahub-actions-postgres-pgqueue-env
   datahub-actions-debug-postgres-cdc:
     <<: *datahub-actions-service-dev
     profiles:

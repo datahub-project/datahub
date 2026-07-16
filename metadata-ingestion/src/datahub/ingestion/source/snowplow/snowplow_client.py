@@ -10,7 +10,7 @@ API Documentation: https://console.snowplowanalytics.com/api/msc/v1/docs/
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
 import requests
 from pydantic import ValidationError
@@ -992,7 +992,10 @@ class SnowplowBDPClient:
         """
         Get all enrichments for a pipeline.
 
-        API Reference: Discovered via testing - resources/v1 path
+        Uses the pipelines/v1 enrichments endpoint. The legacy
+        ``resources/v1/.../configuration/enrichments`` endpoint was deprecated by
+        Snowplow and is being retired; its ``EnrichmentResource`` payload
+        is adapted into the internal model via :meth:`Enrichment.from_resource`.
 
         Args:
             pipeline_id: Pipeline ID
@@ -1000,8 +1003,8 @@ class SnowplowBDPClient:
         Returns:
             List of enrichments
         """
-        # GET /organizations/{organizationId}/resources/v1/pipelines/{pipelineId}/configuration/enrichments
-        endpoint = f"organizations/{self.organization_id}/resources/v1/pipelines/{pipeline_id}/configuration/enrichments"
+        # GET /organizations/{organizationId}/pipelines/v1/{pipelineId}/enrichments
+        endpoint = f"organizations/{self.organization_id}/pipelines/v1/{pipeline_id}/enrichments"
 
         logger.debug(f"Fetching enrichments for pipeline {pipeline_id}")
 
@@ -1021,15 +1024,33 @@ class SnowplowBDPClient:
 
         # Parse enrichments individually so one bad item doesn't lose all
         enrichments: List[Enrichment] = []
+        # The enrichment name is now the DataJob URN key (the payload no longer
+        # carries a UUID), so two enrichments sharing a name would collapse into a
+        # single DataJob (last-write-wins). Names are unique-per-pipeline in
+        # practice, but surface a collision rather than dropping one silently.
+        seen_names: Set[str] = set()
         for enrichment_data in response_data:
             try:
-                enrichments.append(Enrichment.model_validate(enrichment_data))
-            except ValidationError as e:
+                enrichment = Enrichment.from_resource(enrichment_data)
+            except (ValidationError, KeyError, TypeError) as e:
                 error_msg = f"Failed to parse enrichment in pipeline {pipeline_id}: {e}"
                 logger.warning(error_msg)
                 if self.report:
                     self.report.report_warning("enrichment_parsing", error_msg)
                 continue
+
+            if enrichment.id in seen_names:
+                error_msg = (
+                    f"Duplicate enrichment name '{enrichment.id}' in pipeline "
+                    f"{pipeline_id}; only the first is kept (DataJob URNs are keyed "
+                    "by enrichment name)."
+                )
+                logger.warning(error_msg)
+                if self.report:
+                    self.report.report_warning("enrichment_duplicate_name", error_msg)
+                continue
+            seen_names.add(enrichment.id)
+            enrichments.append(enrichment)
 
         logger.info(f"Found {len(enrichments)} enrichments")
         return enrichments

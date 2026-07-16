@@ -5,6 +5,7 @@ import { EntityMenuActions } from '@app/entityV2/Entity';
 import EntityDropdown from '@app/entityV2/shared/EntityDropdown/EntityDropdown';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 
 import { EntityType } from '@types';
 
@@ -17,6 +18,7 @@ interface Props {
     size?: number;
     triggerType?: ('click' | 'contextMenu' | 'hover')[] | undefined;
     actions?: EntityMenuActions;
+    refetchDeprecation?: (formData?: DeprecationFormData) => void;
 }
 
 export default function MoreOptionsMenuAction({
@@ -28,6 +30,7 @@ export default function MoreOptionsMenuAction({
     size,
     triggerType,
     actions,
+    refetchDeprecation,
 }: Props) {
     return (
         <ActionMenuItem key="view-more" fontSize={size} data-testid="view-more-button">
@@ -40,6 +43,7 @@ export default function MoreOptionsMenuAction({
                 triggerType={triggerType}
                 onEditEntity={actions?.onEdit}
                 onDeleteEntity={actions?.onDelete}
+                refetchDeprecation={refetchDeprecation}
             />
         </ActionMenuItem>
     );

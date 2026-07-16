@@ -2,6 +2,7 @@ import { Button, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { message } from 'antd';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EntitySearchDropdown } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchDropdown';
@@ -58,12 +59,15 @@ export const AddRelatedEntityDropdown: React.FC<AddRelatedEntityDropdownProps> =
     existingUrns: _existingUrns,
     documentUrn,
     onConfirm,
-    placeholder = 'Add related entities...',
+    placeholder,
     defaultFilters,
     viewUrn,
     disabled = false,
     initialSelectedUrns = [],
 }) => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
+    const resolvedPlaceholder = placeholder ?? t('document.addRelatedEntitiesPlaceholder');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [selectedUrns, setSelectedUrns] = useState<string[]>(initialSelectedUrns);
 
@@ -79,10 +83,10 @@ export const AddRelatedEntityDropdown: React.FC<AddRelatedEntityDropdownProps> =
             // Reset to initial state when closing
             setSelectedUrns(initialSelectedUrns);
         } catch (error) {
-            message.error('Failed to update related entities. An unexpected error occurred!');
+            message.error(t('document.updateRelatedEntitiesError'));
             console.error('Failed to update related entities:', error);
         }
-    }, [selectedUrns, documentUrn, onConfirm, initialSelectedUrns]);
+    }, [selectedUrns, documentUrn, onConfirm, initialSelectedUrns, t]);
 
     const handleCancel = useCallback(() => {
         setIsDropdownOpen(false);
@@ -93,33 +97,33 @@ export const AddRelatedEntityDropdown: React.FC<AddRelatedEntityDropdownProps> =
     const actionButtons = (
         <ActionsContainer>
             <Button onClick={handleCancel} variant="secondary" size="sm">
-                Cancel
+                {tc('cancel')}
             </Button>
             <Button onClick={handleConfirmAdd} size="sm" disabled={selectedUrns.length === 0}>
-                Update
+                {tc('update')}
             </Button>
         </ActionsContainer>
     );
 
     const triggerButton = (
-        <Tooltip title="Link related assets or context docs" placement="bottom">
+        <Tooltip title={t('document.linkRelatedTooltip')} placement="bottom">
             <AddButton
                 variant="text"
                 isCircle
                 icon={{ icon: Plus }}
-                aria-label="Add related entity"
+                aria-label={t('document.addRelatedEntity')}
                 disabled={disabled}
             />
         </Tooltip>
     );
 
     return (
-        <Tooltip title="Add related entity" placement="bottom">
+        <Tooltip title={t('document.addRelatedEntity')} placement="bottom">
             <EntitySearchDropdown
                 entityTypes={entityTypes}
                 selectedUrns={selectedUrns}
                 onSelectionChange={setSelectedUrns}
-                placeholder={placeholder}
+                placeholder={resolvedPlaceholder}
                 defaultFilters={defaultFilters}
                 viewUrn={viewUrn}
                 trigger={triggerButton}

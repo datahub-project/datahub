@@ -55,14 +55,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -228,6 +227,13 @@ class ModeConfig(
         description="Regex patterns for mode spaces to filter in ingestion (Spaces named as 'Personal' are filtered by default.) Specify regex to only match the space name. e.g. to only ingest space named analytics, use the regex 'analytics'",
     )
 
+    report_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns for Mode reports to filter in ingestion. "
+        "Matched against the report name. "
+        "e.g. to exclude a report named 'slow_report', use deny=['slow_report'].",
+    )
+
     owner_username_instead_of_email: bool = Field(
         default=True, description="Use username for owner URN instead of Email"
     )
@@ -303,6 +309,7 @@ def _is_http_404(error: Exception) -> bool:
 @dataclass
 class ModeSourceReport(StaleEntityRemovalSourceReport):
     filtered_spaces: LossyList[str] = dataclasses.field(default_factory=LossyList)
+    filtered_reports: LossyList[str] = dataclasses.field(default_factory=LossyList)
     num_sql_parsed: int = 0
     num_sql_parser_failures: int = 0
     num_sql_parser_success: int = 0
@@ -344,6 +351,10 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     def report_dropped_space(self, ent_name: str) -> None:
         with self._lock:
             self.filtered_spaces.append(ent_name)
+
+    def report_dropped_report(self, ent_name: str) -> None:
+        with self._lock:
+            self.filtered_reports.append(ent_name)
 
     def report_warning(self, *args: Any, **kwargs: Any) -> None:
         with self._lock:
@@ -1159,6 +1170,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     "last_run_id",
                     "data_source_id",
                     "explorations_count",
+                    "chart_count",
                     "report_imports_count",
                     "dbt_metric_id",
                 ],
@@ -1400,10 +1412,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     and cll_info.downstream.column is not None
                     else []
                 )
-                upstreams = [
-                    builder.make_schema_field_urn(column_ref.table, column_ref.column)
-                    for column_ref in cll_info.upstreams
-                ]
+                upstreams = cll_info.upstream_schema_field_urns()
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
                         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
@@ -1460,12 +1469,22 @@ class ModeSource(StatefulIngestionSourceBase):
 
         input_fields = []
 
+        # Chart formulas may reference columns in a different casing than the query's
+        # schema (which preserves the original field-path casing). Match
+        # case-insensitively and emit the schema's actual field path, so the input-field
+        # URN resolves to a real schema field instead of a lowercased ghost.
+        chart_fields_by_lower = {
+            field_path.lower(): field_path for field_path in chart_fields
+        }
         for field in fields:
-            if field.lower() not in chart_fields:
+            actual_field_path = chart_fields_by_lower.get(field.lower())
+            if actual_field_path is None:
                 continue
             input_field = InputFieldClass(
-                schemaFieldUrn=builder.make_schema_field_urn(query_urn, field.lower()),
-                schemaField=chart_fields[field.lower()],
+                schemaFieldUrn=builder.make_schema_field_urn(
+                    query_urn, actual_field_path
+                ),
+                schemaField=chart_fields[actual_field_path],
             )
             input_fields.append(input_field)
 
@@ -1856,21 +1875,30 @@ class ModeSource(StatefulIngestionSourceBase):
             )
         except Exception as e:
             try:
+                is_timeout = isinstance(e, (TimeoutError, requests.exceptions.Timeout))
                 logger.warning(
-                    f"Failed to process report {report_name} ({report_token}) "
-                    f"in space {space_token}",
+                    f"{'Timed out' if is_timeout else 'Failed'} processing report "
+                    f"{report_name} ({report_token}) in space {space_token}",
                     exc_info=True,
                 )
-                self.report.report_failure(
-                    title="Failed to Process Report",
-                    message=f"Unexpected error processing report {report_name} ({report_token}).",
-                    context=f"Space Token: {space_token}, Error: {str(e)}",
-                    exc=e,
-                )
+                if is_timeout:
+                    self.report.report_warning(
+                        title="Report Processing Timeout",
+                        message=f"Timed out processing report {report_name} ({report_token}).",
+                        context=f"Space Token: {space_token}, Error: {str(e)}",
+                        exc=e,
+                    )
+                else:
+                    self.report.report_failure(
+                        title="Failed to Process Report",
+                        message=f"Unexpected error processing report {report_name} ({report_token}).",
+                        context=f"Space Token: {space_token}, Error: {str(e)}",
+                        exc=e,
+                    )
             except Exception:
                 # Guard against the error handler itself raising (e.g., a
-                # serialization issue in report_failure). If this propagated,
-                # ThreadedIteratorExecutor would abort all remaining workers.
+                # serialization issue in report_warning/report_failure). If this
+                # propagated, ThreadedIteratorExecutor would abort all remaining workers.
                 logger.error(
                     f"Failed to record error for report {report_token}",
                     exc_info=True,
@@ -1937,8 +1965,9 @@ class ModeSource(StatefulIngestionSourceBase):
                         chart_fields.setdefault(field.fieldPath, field)
                 yield wu
 
-            # Skip chart API call when the query has 0 explorations.
-            if query.get("explorations_count", None) == 0:
+            # Gate on chart_count (published charts), not explorations_count
+            # (private user analyses), to avoid silently dropping report charts.
+            if query.get("chart_count", 0) == 0:
                 charts: List[dict] = []
                 with self.report._lock:
                     self.report.chart_api_calls_skipped += 1
@@ -2024,6 +2053,11 @@ class ModeSource(StatefulIngestionSourceBase):
         report_args: List[Tuple[str, dict]] = []
         for report_page in self._get_reports(space_token):
             for report in report_page:
+                report_name = report.get("name") or report.get("token", "unknown")
+                if not self.config.report_pattern.allowed(report_name):
+                    self.report.report_dropped_report(report_name)
+                    logger.debug(f"Skipping report {report_name} due to report_pattern")
+                    continue
                 report_args.append((space_token, report))
 
         dataset_args: List[Tuple[str, dict]] = []
@@ -2037,14 +2071,6 @@ class ModeSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
         config: ModeConfig = ModeConfig.model_validate(config_dict)
         return cls(ctx, config)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Phase 1: Emit space containers and collect all work items

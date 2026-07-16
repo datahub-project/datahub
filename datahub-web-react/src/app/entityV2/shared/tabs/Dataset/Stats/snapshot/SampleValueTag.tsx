@@ -1,6 +1,7 @@
 import { Tooltip } from '@components';
 import { Tag } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const StyledTag = styled(Tag)`
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export default function SampleValueTag({ value }: Props) {
+    const { t: tf } = useTranslation('common.feedback');
     const [copied, setCopied] = useState(false);
 
     const onClick = () => {
@@ -29,7 +31,7 @@ export default function SampleValueTag({ value }: Props) {
     };
 
     return (
-        <Tooltip title={copied ? 'Copied' : 'Click to copy'}>
+        <Tooltip title={copied ? tf('copied') : tf('clickToCopy')}>
             <StyledTag onClick={onClick}>{value}</StyledTag>
         </Tooltip>
     );

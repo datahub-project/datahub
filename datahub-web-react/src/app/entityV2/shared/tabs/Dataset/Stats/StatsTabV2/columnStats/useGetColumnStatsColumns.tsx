@@ -1,6 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { percentStrToDecimal } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
@@ -24,10 +25,12 @@ interface Props {
 }
 
 export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDrawerFieldPath }: Props) => {
+    const { t } = useTranslation('entity.profile.stats');
+    const { t: tc } = useTranslation('common.actions');
     // Optional columns. Defines how to render a column given a value exists somewhere in the profile.
     const optionalColumns = [
         {
-            title: 'Null Percentage',
+            title: t('columnStatsTable.nullPercentageColumn'),
             key: 'nullPercentage',
             render: (record) => record.nullPercentage,
             alignment: 'right' as AlignmentOptions,
@@ -36,7 +39,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
             },
         },
         {
-            title: 'Unique Values',
+            title: t('columnStatsTable.uniqueValuesColumn'),
             key: 'uniqueValues',
             render: (record) => record.uniqueValues,
             alignment: 'right' as AlignmentOptions,
@@ -45,7 +48,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
             },
         },
         {
-            title: 'Min',
+            title: t('columnStatsTable.minColumn'),
             key: 'min',
             render: (record) => record.min,
             alignment: 'right' as AlignmentOptions,
@@ -54,7 +57,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
             },
         },
         {
-            title: 'Max',
+            title: t('columnStatsTable.maxColumn'),
             key: 'max',
             render: (record) => record.max,
             alignment: 'right' as AlignmentOptions,
@@ -67,7 +70,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
     // Column and type columns always required.
     const requiredColumns = [
         {
-            title: 'Column',
+            title: t('columnStatsTable.columnHeader'),
             key: 'column',
             render: (record) => (
                 <ColumnName ellipsis={{ tooltip: record.column }}>
@@ -81,7 +84,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
             },
         },
         {
-            title: 'Type',
+            title: t('columnStatsTable.typeColumn'),
             key: 'type',
             render: (record) => {
                 // Handle both object format { type: 'STRING' } and direct string format
@@ -116,7 +119,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
                         setExpandedDrawerFieldPath(record.originalFieldPath);
                     }}
                 >
-                    View
+                    {tc('view')}
                 </Button>
             </ViewButton>
         ),

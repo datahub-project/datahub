@@ -13,7 +13,7 @@ const Container = styled(Button)`
     border: 1px solid ${(props) => props.theme.colors.border};
     background-color: ${(props) => props.theme.colors.bg};
     &&:hover {
-        border: 1px solid ${(props) => props.theme.colors.borderBrand};
+        border: 1px solid ${(props) => props.theme.colors.borderHover};
         background-color: ${(props) => props.theme.colors.bg};
     }
     white-space: unset;

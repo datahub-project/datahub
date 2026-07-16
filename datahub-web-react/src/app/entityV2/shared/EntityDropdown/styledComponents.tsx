@@ -1,6 +1,9 @@
 import { Button } from 'antd';
 import styled from 'styled-components';
 
+export const ENTITY_HEADER_ACTION_ICON_SIZE = 16;
+export const ENTITY_HEADER_ACTION_ICON_WEIGHT = 'regular' as const;
+
 const MenuItem = styled.div`
     font-size: 12px;
     padding: 0 4px;

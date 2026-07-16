@@ -2,6 +2,7 @@ package com.linkedin.metadata.search;
 
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
@@ -55,13 +56,16 @@ public class SemanticSearchServiceIT {
 
     // Skip if OpenSearch is not available or semantic index does not exist
     try {
-      RawResponse resp = client.performLowLevelRequest(new Request("GET", "/_cluster/health"));
+      RawResponse resp =
+          client.performLowLevelRequest(
+              OperationFingerprint.EMPTY, new Request("GET", "/_cluster/health"));
       int status = resp.getStatusLine().getStatusCode();
       if (status < 200 || status >= 300) {
         throw new SkipException("OpenSearch not healthy: status=" + status);
       }
       RawResponse headIndex =
-          client.performLowLevelRequest(new Request("HEAD", "/datasetindex_v2_semantic"));
+          client.performLowLevelRequest(
+              OperationFingerprint.EMPTY, new Request("HEAD", "/datasetindex_v2_semantic"));
       int idxStatus = headIndex.getStatusLine().getStatusCode();
       if (idxStatus == 404) {
         throw new SkipException("Index datasetindex_v2_semantic not found; skipping semantic IT");
@@ -309,7 +313,7 @@ public class SemanticSearchServiceIT {
 
       Request request = new Request("POST", "/" + baseIndex + "/_search");
       request.setJsonEntity(requestBody);
-      RawResponse response = client.performLowLevelRequest(request);
+      RawResponse response = client.performLowLevelRequest(OperationFingerprint.EMPTY, request);
 
       assertEquals(
           200, response.getStatusLine().getStatusCode(), "Should find URN in base index: " + urn);
