@@ -214,6 +214,11 @@ class SnowflakeSemanticModelMapper:
             )
 
             fields: List[SemanticFieldClass] = []
+            # Guards against INFORMATION_SCHEMA returning a repeated row for the same
+            # column on this logical table, which would otherwise produce duplicate
+            # SemanticFields (the legacy dataset-mode path merges duplicates the same
+            # way).
+            seen_columns_upper: Set[str] = set()
             for (
                 col_name_upper,
                 occurrences,
@@ -226,10 +231,13 @@ class SnowflakeSemanticModelMapper:
                         occurrence.table_name
                         and occurrence.table_name.upper() == logical_name_upper
                     ):
+                        placed_columns.add(col_name_upper)
+                        if col_name_upper in seen_columns_upper:
+                            continue
+                        seen_columns_upper.add(col_name_upper)
                         fields.append(
                             self._build_semantic_field(occurrence, semantic_view)
                         )
-                        placed_columns.add(col_name_upper)
 
             datasets.append(
                 ModelDatasetClass(
@@ -637,28 +645,39 @@ class SnowflakeSemanticModelMapper:
         self, semantic_view: SnowflakeSemanticView
     ) -> Dict[str, SemanticViewColumnMetadata]:
         metrics: Dict[str, SemanticViewColumnMetadata] = {}
-        warned_conflicts: Set[str] = set()
         for col_name_upper, occurrences in semantic_view.column_occurrences.items():
-            for occurrence in occurrences:
-                if occurrence.subtype != SemanticViewColumnSubtype.METRIC:
-                    continue
-                existing = metrics.get(col_name_upper)
-                if existing is None:
-                    # A metric may be declared on multiple logical tables; the first
-                    # occurrence carries the expression used for the metric entity.
-                    metrics[col_name_upper] = occurrence
-                elif (
-                    occurrence.expression != existing.expression
-                    and col_name_upper not in warned_conflicts
-                ):
-                    warned_conflicts.add(col_name_upper)
-                    self.report.warning(
-                        title="Semantic view metric declared with conflicting expressions",
-                        message="A metric is declared on more than one logical table with "
-                        "different expressions. Only the first-encountered expression is "
-                        "used for the metric entity; the others are silently dropped.",
-                        context=f"{semantic_view.name}.{existing.name}",
-                    )
+            metric_occurrences = [
+                occurrence
+                for occurrence in occurrences
+                if occurrence.subtype == SemanticViewColumnSubtype.METRIC
+            ]
+            if not metric_occurrences:
+                continue
+
+            # A metric may be declared on multiple logical tables. Which row
+            # Snowflake returns "first" for a given name is an artifact of query
+            # result ordering and is not guaranteed stable across runs, so picking
+            # the first-encountered occurrence would make the metricInfo aspect
+            # flap on re-ingestion. Instead pick canonically and deterministically:
+            # the occurrence whose table_name sorts lexicographically smallest,
+            # tie-broken by expression, so the same input always yields the same
+            # selection regardless of row order.
+            canonical = min(
+                metric_occurrences,
+                key=lambda o: (o.table_name or "", o.expression or ""),
+            )
+            metrics[col_name_upper] = canonical
+
+            distinct_expressions = {o.expression for o in metric_occurrences}
+            if len(distinct_expressions) > 1:
+                self.report.warning(
+                    title="Semantic view metric declared with conflicting expressions",
+                    message="A metric is declared on more than one logical table with "
+                    "different expressions. The occurrence with the lexicographically "
+                    "smallest table name (expression as tiebreak) is used for the "
+                    "metric entity; the others are silently dropped.",
+                    context=f"{semantic_view.name}.{canonical.name}",
+                )
         return metrics
 
     def _split_lineages_by_metric(

@@ -715,7 +715,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     semantic_view, snowflake_schema, db_name
                 )
                 if self.config.semantic_views.emit_semantic_model_entities:
-                    self.report.num_table_to_view_edges_scanned += len(
+                    self.report.num_semantic_model_lineage_edges_scanned += len(
                         semantic_view.resolved_upstream_urns
                     )
 

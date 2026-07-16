@@ -64,6 +64,11 @@ class SnowflakeReport(SQLSourceReport, BaseTimeWindowReport):
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0
     num_external_table_edges_scanned: int = 0
+    # semanticModel lineage (semantic_views.emit_semantic_model_entities) is emitted
+    # directly as upstreamLineage/metricUpstreams rather than through the dataset-mode
+    # view lineage path, so it gets its own counter instead of sharing
+    # num_table_to_view_edges_scanned.
+    num_semantic_model_lineage_edges_scanned: int = 0
     ignore_start_time_lineage: Optional[bool] = None
     upstream_lineage_in_report: Optional[bool] = None
     upstream_lineage: LossyDict[str, List[str]] = field(default_factory=LossyDict)

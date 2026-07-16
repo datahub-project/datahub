@@ -1129,7 +1129,54 @@ def test_metric_conflicting_expressions_across_logical_tables_warns():
         "total_revenue", semantic_view.name, _SCHEMA, _DB
     )
 
-    # First-wins: the metric entity keeps the first-declared expression.
+    # Deterministic selection: the occurrence with the lexicographically smallest
+    # table_name ("ORDERS" < "RETURNS") wins, regardless of declaration order.
+    info = _aspects_for(workunits, metric_urn, MetricInfoClass)[0]
+    assert info.expression is not None
+    assert info.expression.dialects[0].expression == "SUM(orders.amount)"
+
+    messages = [w.title for w in mapper.report.warnings]
+    assert any("conflicting expressions" in (m or "") for m in messages)
+
+
+def test_metric_conflicting_expressions_selection_is_order_independent():
+    # Same conflict as above but with occurrences declared in the opposite order -
+    # the canonical selection must depend only on table_name, not on which
+    # occurrence Snowflake happened to return first.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "TOTAL_REVENUE": [
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="RETURNS",
+                    expression="SUM(returns.amount)",
+                ),
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="SUM(orders.amount)",
+                ),
+            ],
+        },
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue", semantic_view.name, _SCHEMA, _DB
+    )
+
     info = _aspects_for(workunits, metric_urn, MetricInfoClass)[0]
     assert info.expression is not None
     assert info.expression.dialects[0].expression == "SUM(orders.amount)"
@@ -1170,6 +1217,49 @@ def test_column_defined_on_multiple_logical_tables_warns_field_path_collision():
 
     messages = [w.title for w in mapper.report.warnings]
     assert any("multiple logical tables" in (m or "") for m in messages)
+
+
+def test_repeated_information_schema_row_does_not_duplicate_field():
+    # A repeated INFORMATION_SCHEMA row for the same column on the same logical
+    # table must not produce two SemanticFields with the same fieldPath (the
+    # legacy dataset-mode path merges duplicates the same way).
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_DATE": [
+                _col(
+                    "order_date",
+                    "DATE",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                ),
+                _col(
+                    "order_date",
+                    "DATE",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                ),
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+    )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    assert info.datasets is not None
+    orders_dataset = next(d for d in info.datasets if d.name == "ORDERS")
+    assert orders_dataset.fields is not None
+    assert len(orders_dataset.fields) == 1
 
 
 def test_metric_expression_omitted_when_declared_without_expression():

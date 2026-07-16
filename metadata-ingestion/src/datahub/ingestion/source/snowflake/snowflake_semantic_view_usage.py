@@ -189,6 +189,14 @@ class SemanticViewUsageExtractor:
         # maxsplit=2 protects the view name (matching existing codebase patterns);
         # this assumes db/schema names contain no dots themselves - a quoted
         # identifier with an embedded dot (e.g. "MY.DB") would misparse here.
+        # Also, `identifier` has already been lowercased by the caller's matching
+        # loop (see _normalize_semantic_view_name), so with
+        # convert_urns_to_lowercase=False this may fail to match the case-preserving
+        # semanticModel URN minted on the schema-generation side (which derives its
+        # db/schema/view segments from the original, non-lowercased Snowflake
+        # identifiers). The proper follow-up is a structural pass-through of the
+        # original db/schema/view components here instead of re-parsing a
+        # lowercased string.
         db_name, schema_name, view_name = identifier.split(".", 2)
         return self.identifiers.gen_semantic_model_urn(view_name, schema_name, db_name)
 
