@@ -5,8 +5,8 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 
-# ponytail: placeholder report so the client can surface skips/counters standalone.
-# In source.py this becomes CollibraSourceReport(StaleEntityRemovalSourceReport) and
+# Placeholder report so the client can surface skips/counters standalone. In
+# source.py this becomes CollibraSourceReport(StaleEntityRemovalSourceReport) and
 # `warning` delegates to the framework's structured reporting.
 @dataclass
 class CollibraSourceReport:

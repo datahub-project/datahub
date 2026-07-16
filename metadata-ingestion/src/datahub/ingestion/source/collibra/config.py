@@ -87,7 +87,7 @@ class CollibraSourceConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
     )
     type_mapping: Dict[str, str] = Field(
         default_factory=dict,
-        description="Collibra type UUID -> DataHub target (produced by Phase 0).",
+        description="Collibra type UUID -> DataHub target mapping.",
     )
 
     @model_validator(mode="after")

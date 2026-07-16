@@ -34,7 +34,7 @@ RELATION_TYPE_ID = "relationTypeId"
 
 # --- response envelope fields ------------------------------------------------
 # VERIFY these against the target env's schema — the public docs are thin on the
-# exact GraphQL/cursor shapes (see Page 6 of the RFC).
+# exact GraphQL/cursor shapes.
 RESULTS_FIELD = "results"
 CURSOR_FIELD = "nextCursor"
 TOTAL_FIELD = "total"
@@ -65,7 +65,7 @@ RETRY_STATUS = [429, 500, 502, 503, 504]
 HTTP_UNAUTHORIZED = 401
 
 # Knowledge Graph GraphQL and cursor paging require a recent DGC release.
-# VERIFY the exact thresholds in Phase 0 against the customer's version.
+# VERIFY the exact thresholds against the target Collibra version.
 GRAPHQL_MIN_VERSION = (2023, 5)
 CURSOR_MIN_VERSION = (2022, 8)
 

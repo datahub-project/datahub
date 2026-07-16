@@ -1,7 +1,6 @@
-# Thin Collibra client for the `collibra` ingestion source.
-# See RFC "Collibra -> DataHub Governance Migrator" (Page 4 Engineering Design,
-# Page 6 Extraction). Transport layer only: auth, paging, GraphQL, Output Module,
-# and parallel fan-out. Mapping/resolution/emission live in mapper/urn_resolver/source.
+# Thin Collibra client for the `collibra` ingestion source. Transport layer only:
+# auth, paging, GraphQL, Output Module, and parallel fan-out. Mapping, resolution,
+# and emission live in mapper/urn_resolver/source.
 
 from __future__ import annotations
 
