@@ -67,6 +67,7 @@ public class ElasticSearchSystemMetadataService
   public static final String INDEX_NAME = "system_metadata_service_v1";
   public static final String FIELD_URN = "urn";
   public static final String FIELD_ASPECT = "aspect";
+  public static final String FIELD_REMOVED = "removed";
   private static final String FIELD_RUNID = "runId";
   public static final String FIELD_LAST_UPDATED = "lastUpdated";
   private static final String FIELD_REGISTRY_NAME = "registryName";
@@ -125,27 +126,29 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
-  public void deleteAspect(String urn, String aspect) {
-    _esDAO.deleteByUrnAspect(urn, aspect);
+  public void deleteAspect(@Nonnull OperationContext opContext, String urn, String aspect) {
+    _esDAO.deleteByUrnAspect(opContext, urn, aspect);
   }
 
   @Override
-  public Optional<GetTaskResponse> getTaskStatus(@Nonnull String nodeId, long taskId) {
-    return _esDAO.getTaskStatus(nodeId, taskId);
+  public Optional<GetTaskResponse> getTaskStatus(
+      @Nonnull OperationContext opContext, @Nonnull String nodeId, long taskId) {
+    return _esDAO.getTaskStatus(opContext, nodeId, taskId);
   }
 
   @Override
-  public void deleteUrn(String urn) {
-    _esDAO.deleteByUrn(urn);
+  public void deleteUrn(@Nonnull OperationContext opContext, String urn) {
+    _esDAO.deleteByUrn(opContext, urn);
   }
 
   @Override
-  public void setDocStatus(String urn, boolean removed) {
+  public void setDocStatus(@Nonnull OperationContext opContext, String urn, boolean removed) {
     // searchBy findByParams
     // If status.removed -> false (from removed to not removed) --> get soft deleted entities.
     // If status.removed -> true (from not removed to removed) --> do not get soft deleted entities.
     final List<AspectRowSummary> aspectList =
         findByParams(
+            opContext,
             ImmutableMap.of("urn", urn),
             !removed,
             0,
@@ -156,12 +159,16 @@ public class ElasticSearchSystemMetadataService
           final String docId = toDocId(aspect.getUrn(), aspect.getAspectName());
           final ObjectNode document = JsonNodeFactory.instance.objectNode();
           document.put("removed", removed);
-          _esDAO.upsertDocument(docId, document.toString());
+          _esDAO.upsertDocument(opContext, docId, document.toString());
         });
   }
 
   @Override
-  public void insert(@Nullable SystemMetadata systemMetadata, String urn, String aspect) {
+  public void insert(
+      @Nonnull OperationContext opContext,
+      @Nullable SystemMetadata systemMetadata,
+      String urn,
+      String aspect) {
     if (systemMetadata == null) {
       return;
     }
@@ -169,46 +176,61 @@ public class ElasticSearchSystemMetadataService
     String docId = toDocId(urn, aspect);
 
     String document = toDocument(systemMetadata, urn, aspect);
-    _esDAO.upsertDocument(docId, document);
+    _esDAO.upsertDocument(opContext, docId, document);
   }
 
   @Override
   public List<AspectRowSummary> findByRunId(
-      String runId, boolean includeSoftDeleted, int from, @Nullable Integer size) {
+      @Nonnull OperationContext opContext,
+      String runId,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
     return findByParams(
-        Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted, from, size);
+        opContext, Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted, from, size);
   }
 
   @Override
   public List<AspectRowSummary> findByUrn(
-      String urn, boolean includeSoftDeleted, int from, @Nullable Integer size) {
-    return findByParams(Collections.singletonMap(FIELD_URN, urn), includeSoftDeleted, from, size);
+      @Nonnull OperationContext opContext,
+      String urn,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
+    return findByParams(
+        opContext, Collections.singletonMap(FIELD_URN, urn), includeSoftDeleted, from, size);
   }
 
   @Override
   public List<AspectRowSummary> findByParams(
+      @Nonnull OperationContext opContext,
       Map<String, String> systemMetaParams,
       boolean includeSoftDeleted,
       int from,
       @Nullable Integer size) {
     SearchResponse searchResponse =
-        _esDAO.findByParams(systemMetaParams, includeSoftDeleted, from, size);
+        _esDAO.findByParams(opContext, systemMetaParams, includeSoftDeleted, from, size);
     return toAspectRowSummary(searchResponse);
   }
 
   @Override
   public List<AspectRowSummary> findAspectsByUrn(
-      @Nonnull Urn urn, @Nonnull List<String> aspects, boolean includeSoftDeleted) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull List<String> aspects,
+      boolean includeSoftDeleted) {
     BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
     boolQueryBuilder.filter(QueryBuilders.termQuery(FIELD_URN, urn.toString()));
     boolQueryBuilder.filter(QueryBuilders.termsQuery(FIELD_ASPECT, aspects));
     SearchResponse searchResponse =
-        _esDAO.scroll(boolQueryBuilder, includeSoftDeleted, null, null, null, aspects.size());
+        _esDAO.scroll(
+            opContext, boolQueryBuilder, includeSoftDeleted, null, null, null, aspects.size());
     return toAspectRowSummary(searchResponse);
   }
 
   @Override
   public List<AspectRowSummary> findByRegistry(
+      @Nonnull OperationContext opContext,
       String registryName,
       String registryVersion,
       boolean includeSoftDeleted,
@@ -217,13 +239,16 @@ public class ElasticSearchSystemMetadataService
     Map<String, String> registryParams = new HashMap<>();
     registryParams.put(FIELD_REGISTRY_NAME, registryName);
     registryParams.put(FIELD_REGISTRY_VERSION, registryVersion);
-    return findByParams(registryParams, includeSoftDeleted, from, size);
+    return findByParams(opContext, registryParams, includeSoftDeleted, from, size);
   }
 
   @Override
   public List<IngestionRunSummary> listRuns(
-      Integer pageOffset, Integer pageSize, boolean includeSoftDeleted) {
-    SearchResponse response = _esDAO.findRuns(pageOffset, pageSize);
+      @Nonnull OperationContext opContext,
+      Integer pageOffset,
+      Integer pageSize,
+      boolean includeSoftDeleted) {
+    SearchResponse response = _esDAO.findRuns(opContext, pageOffset, pageSize);
     List<? extends Terms.Bucket> buckets =
         ((ParsedStringTerms) response.getAggregations().get("runId")).getBuckets();
 
@@ -258,7 +283,7 @@ public class ElasticSearchSystemMetadataService
     log.info("Setting up system metadata index");
     try {
       for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
-        _indexBuilder.buildIndex(config);
+        _indexBuilder.buildIndex(opContext, config);
       }
     } catch (IOException ie) {
       throw new RuntimeException("Could not configure system metadata index", ie);
@@ -272,23 +297,27 @@ public class ElasticSearchSystemMetadataService
       throws IOException {
     return List.of(
         _indexBuilder.buildReindexState(
+            opContext,
             _indexConvention.getIndexName(INDEX_NAME),
             SystemMetadataMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }
 
   @Override
-  public void clear() {
+  public void clear(@Nonnull OperationContext opContext) {
     // Instead of deleting all documents (inefficient), delete and recreate the index
     String indexName = _indexConvention.getIndexName(INDEX_NAME);
     try {
       // Build a config with the correct target mappings for recreation
       ReindexConfig config =
           _indexBuilder.buildReindexState(
-              indexName, SystemMetadataMappingsBuilder.getMappings(), Collections.emptyMap());
+              opContext,
+              indexName,
+              SystemMetadataMappingsBuilder.getMappings(),
+              Collections.emptyMap());
 
       // Use clearIndex which handles deletion and recreation
-      _indexBuilder.clearIndex(indexName, config);
+      _indexBuilder.clearIndex(opContext, indexName, config);
 
       log.info("Cleared index {} by deleting and recreating it", indexName);
     } catch (IOException e) {
@@ -331,6 +360,7 @@ public class ElasticSearchSystemMetadataService
     // Use scroll to retrieve all matching documents
     SearchResponse searchResponse =
         _esDAO.scroll(
+            opContext,
             query,
             true,
             null, // scrollId
@@ -396,5 +426,19 @@ public class ElasticSearchSystemMetadataService
     } else {
       return Collections.emptyList();
     }
+  }
+
+  @Nonnull
+  @Override
+  public KeyAspectCount countByKeyAspect(
+      @Nonnull OperationContext opContext, @Nonnull String keyAspectName) {
+    return _esDAO.countByKeyAspect(opContext, keyAspectName);
+  }
+
+  @Nonnull
+  @Override
+  public Map<String, KeyAspectCount> countByKeyAspects(
+      @Nonnull OperationContext opContext, @Nonnull List<String> keyAspectNames) {
+    return _esDAO.countByKeyAspects(opContext, keyAspectNames);
   }
 }

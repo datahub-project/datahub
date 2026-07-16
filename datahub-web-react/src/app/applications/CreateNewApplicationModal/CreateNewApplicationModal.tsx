@@ -107,14 +107,15 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
     const buttons: ModalButton[] = [
         {
             text: tc('cancel'),
-            color: 'violet',
+            color: 'primary',
             variant: 'text',
             onClick: onModalClose,
         },
         {
             text: tc('create'),
             id: 'createNewApplicationButton',
-            color: 'violet',
+            buttonDataTestId: 'create-button-modal',
+            color: 'primary',
             variant: 'filled',
             onClick: onOk,
             disabled: !applicationName || isLoading || !hasInitializedDefaultOwner,

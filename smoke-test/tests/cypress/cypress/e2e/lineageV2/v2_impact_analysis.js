@@ -20,7 +20,8 @@ const startAtDataSetLineage = () => {
   cy.get('[data-node-key="Lineage"]').first().should("be.visible").click();
 };
 
-describe("impact analysis", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("impact analysis", () => {
   beforeEach(() => {
     cy.on("uncaught:exception", (err, runnable) => false);
   });

@@ -195,6 +195,7 @@ entities:
       - forms
       - testResults
       - documentation
+      - access
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -262,6 +263,7 @@ entities:
       - domainProperties
       - institutionalMemory
       - ownership
+      - deprecation
       - structuredProperties
       - forms
       - testResults
@@ -322,6 +324,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - displayProperties
       - assetSettings
   - name: glossaryNode
     category: core
@@ -357,6 +360,7 @@ entities:
       - semanticContent
       - institutionalMemory
       - documentation
+      - documentUsageStatistics
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -662,6 +666,7 @@ entities:
       - applications
       - dataProductProperties
       - institutionalMemory
+      - deprecation
       - status
       - structuredProperties
       - forms
@@ -684,6 +689,47 @@ entities:
       - forms
       - testResults
       - subTypes
+  - name: semanticModel
+    category: core
+    keyAspect: semanticModelKey
+    searchGroup: primary
+    aspects:
+      - semanticModelInfo
+      - upstreamLineage
+      - ownership
+      - domains
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - structuredProperties
+      - status
+      - deprecation
+      - dataPlatformInstance
+      - subTypes
+      - documentation
+      - browsePathsV2
+      - applications
+  - name: metric
+    category: core
+    keyAspect: metricKey
+    searchGroup: primary
+    aspects:
+      - metricInfo
+      - metricRelationships
+      - metricUpstreams
+      - ownership
+      - domains
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - structuredProperties
+      - status
+      - deprecation
+      - dataPlatformInstance
+      - subTypes
+      - documentation
+      - browsePathsV2
+      - applications
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core

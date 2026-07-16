@@ -56,7 +56,8 @@ public class FileStreamMicroBatchStreamStrategy extends StreamStrategy {
       log.info("Creating input dataset with namespace: {}, name: {}", namespace, name);
 
       // Use the inherited datasetFactory to create the dataset
-      OpenLineage.InputDataset dataset = datasetFactory.getDataset(name, namespace, schema);
+      OpenLineage.InputDataset dataset =
+          datasetFactory.sparkDatasetBuilder().dataset(name, namespace).schema(schema).build();
 
       return Collections.singletonList(dataset);
 

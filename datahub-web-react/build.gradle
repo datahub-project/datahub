@@ -181,6 +181,25 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLaz
   }
 }
 
+// Verifies non-EN locale JSON files stay in sync with the `en` source of truth (stale keys,
+// placeholder drift). Only reads JSON, so it skips the expensive yarnGenerate codegen step.
+task yarnI18nParityCheck(type: YarnTask, dependsOn: [yarnInstall]) {
+  args = ['run', 'check-i18n-parity']
+  inputs.files(project.fileTree(dir: 'src/i18n/locales', include: ['**/*.json']))
+  inputs.file('scripts/check-i18n-parity.mjs')
+  def parity_sentinel = "${buildDir}/.yarn-i18n-parity-sentinel"
+  outputs.file(parity_sentinel)
+  doLast {
+    def file = file(parity_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
+}
+
 test.dependsOn([yarnInstall, yarnTest])
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
@@ -280,12 +299,12 @@ def externalPrettierConfigs = [
 externalPrettierConfigs.each { config ->
   tasks.register("${config.name}PrettierCheck", YarnTask) {
     dependsOn(tasks.named('yarnInstall'))
-    args = ['run', 'prettier', '--check', "../${config.pattern}"]
+    args = ['run', 'prettier', '--check', "${rootProject.projectDir}/${config.pattern}"]
   }
 
   tasks.register("${config.name}PrettierWrite", YarnTask) {
     dependsOn(tasks.named('yarnInstall'))
-    args = ['run', 'prettier', '--write', "../${config.pattern}"]
+    args = ['run', 'prettier', '--write', "${rootProject.projectDir}/${config.pattern}"]
   }
 
   tasks.register("${config.name}PrettierWriteChanged", YarnTask) {
@@ -305,7 +324,7 @@ externalPrettierConfigs.each { config ->
     }
 
     logger.lifecycle("Running Prettier on ${matchingFiles.size()} changed ${config.name} files")
-    args = ['run', 'prettier', '--write'] + matchingFiles.collect { "../${it}" }
+    args = ['run', 'prettier', '--write'] + matchingFiles.collect { "${rootProject.projectDir}/${it}" }
   }
 }
 

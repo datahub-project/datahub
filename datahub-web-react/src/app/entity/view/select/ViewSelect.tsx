@@ -26,7 +26,7 @@ type ViewBuilderDisplayState = {
 };
 
 const TriangleIcon = styled(VscTriangleDown)<{ isOpen: boolean }>`
-    color: ${(props) => (props.isOpen ? props.theme.styles['primary-color'] : props.theme.colors.text)};
+    color: ${(props) => (props.isOpen ? props.theme.colors.textBrand : props.theme.colors.text)};
 `;
 
 const DEFAULT_VIEW_BUILDER_DISPLAY_STATE = {
@@ -47,7 +47,7 @@ const ViewSelectContainer = styled.div`
             &.ant-select-open {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
-                    color: ${(props) => props.theme.styles['primary-color']};
+                    color: ${(props) => props.theme.colors.textBrand};
                 }
             }
             &:not(.ant-select-open) {
