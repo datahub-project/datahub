@@ -107,8 +107,9 @@ class SnowflakeSemanticModelMapper:
         )
         metric_occurrences = self._metric_occurrences(semantic_view)
         metric_names_upper = set(metric_occurrences.keys())
+        shadowed_metric_names = self._shadowed_metric_names(semantic_view)
         model_lineages, metric_lineages = self._split_lineages_by_metric(
-            fine_grained_lineages, metric_names_upper
+            fine_grained_lineages, metric_names_upper, shadowed_metric_names
         )
 
         yield MetadataChangeProposalWrapper(
@@ -117,7 +118,7 @@ class SnowflakeSemanticModelMapper:
 
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
-            aspect=self._build_semantic_model_info(semantic_view),
+            aspect=self._build_semantic_model_info(semantic_view, metric_occurrences),
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
@@ -171,7 +172,9 @@ class SnowflakeSemanticModelMapper:
             )
 
     def _build_semantic_model_info(
-        self, semantic_view: SnowflakeSemanticView
+        self,
+        semantic_view: SnowflakeSemanticView,
+        metric_occurrences: Dict[str, SemanticViewColumnMetadata],
     ) -> SemanticModelInfoClass:
         return SemanticModelInfoClass(
             name=semantic_view.name,
@@ -183,18 +186,21 @@ class SnowflakeSemanticModelMapper:
                 if self.config.include_view_definitions
                 else None
             ),
-            datasets=self._build_model_datasets(semantic_view),
+            datasets=self._build_model_datasets(semantic_view, metric_occurrences),
         )
 
     def _build_model_datasets(
-        self, semantic_view: SnowflakeSemanticView
+        self,
+        semantic_view: SnowflakeSemanticView,
+        metric_occurrences: Dict[str, SemanticViewColumnMetadata],
     ) -> List[ModelDatasetClass]:
         datasets: List[ModelDatasetClass] = []
+        self._warn_field_path_collisions(semantic_view)
         # Metrics are never placed on a logical table (they become metric entities,
         # not fields), so they must not count as "unplaced" below - seed them up
         # front rather than relying on the per-logical-table loop below, which does
         # not run at all when logical_to_physical_table is empty.
-        placed_columns: Set[str] = set(self._metric_occurrences(semantic_view).keys())
+        placed_columns: Set[str] = set(metric_occurrences.keys())
 
         for (
             logical_name_upper,
@@ -243,6 +249,32 @@ class SnowflakeSemanticModelMapper:
             )
 
         return datasets
+
+    def _warn_field_path_collisions(self, semantic_view: SnowflakeSemanticView) -> None:
+        # _build_semantic_field anchors fieldPath on the bare uppercased column
+        # name (see its docstring for why). If a non-metric column with the same
+        # name is defined on more than one logical table, the two ModelDatasets
+        # each get a SemanticField with that same fieldPath, and both collide on
+        # a single schemaField URN - ambiguous for lineage anchoring and
+        # structured-property tags. We don't change the URN scheme here (a
+        # separate design decision); just surface it so operators know.
+        for col_name_upper, occurrences in semantic_view.column_occurrences.items():
+            table_names = {
+                occurrence.table_name
+                for occurrence in occurrences
+                if occurrence.subtype != SemanticViewColumnSubtype.METRIC
+                and occurrence.table_name
+            }
+            if len(table_names) > 1:
+                self.report.warning(
+                    title="Semantic view column defined on multiple logical tables",
+                    message="A dimension/fact column with this name is defined on more "
+                    "than one logical table. Both produce a SemanticField with the same "
+                    "fieldPath, which collide on a single schemaField URN - this is "
+                    "ambiguous for column-level lineage anchoring and structured-property "
+                    "tags.",
+                    context=f"{semantic_view.name}.{col_name_upper}: tables={sorted(table_names)}",
+                )
 
     def _build_semantic_field(
         self,
@@ -317,7 +349,7 @@ class SnowflakeSemanticModelMapper:
             aspect=MetricInfoClass(
                 name=occurrence.name,
                 description=occurrence.comment,
-                expression=self._expression(occurrence),
+                expression=self._metric_expression(occurrence),
                 semanticModel=model_urn,
                 aiContext=(
                     AiContextClass(synonyms=occurrence.synonyms)
@@ -408,11 +440,7 @@ class SnowflakeSemanticModelMapper:
             for column in parsed.find_all(sqlglot.expressions.Column)
             if not column.table
         }
-        shadowed = {
-            col_upper
-            for col_upper, occs in semantic_view.column_occurrences.items()
-            if any(o.subtype != SemanticViewColumnSubtype.METRIC for o in occs)
-        }
+        shadowed = self._shadowed_metric_names(semantic_view)
         derived: List[DerivedMetricInputClass] = []
         for name_upper in sorted(
             (referenced & metric_occurrences.keys())
@@ -577,6 +605,9 @@ class SnowflakeSemanticModelMapper:
     def _expression(
         self, occurrence: SemanticViewColumnMetadata
     ) -> MetricExpressionClass:
+        # SemanticField.expression is a required PDL field, so a fabricated
+        # fallback to the column's own name is the least-bad option when
+        # Snowflake reports no expression for a dimension/fact column.
         return MetricExpressionClass(
             dialects=[
                 DialectExpressionClass(
@@ -586,22 +617,55 @@ class SnowflakeSemanticModelMapper:
             ]
         )
 
+    def _metric_expression(
+        self, occurrence: SemanticViewColumnMetadata
+    ) -> Optional[MetricExpressionClass]:
+        # Unlike SemanticField.expression, MetricInfo.expression is optional -
+        # omit it rather than fabricating the metric's own name as its expression.
+        if not occurrence.expression:
+            return None
+        return MetricExpressionClass(
+            dialects=[
+                DialectExpressionClass(
+                    dialect=DialectClass.SNOWFLAKE,
+                    expression=occurrence.expression,
+                )
+            ]
+        )
+
     def _metric_occurrences(
         self, semantic_view: SnowflakeSemanticView
     ) -> Dict[str, SemanticViewColumnMetadata]:
         metrics: Dict[str, SemanticViewColumnMetadata] = {}
+        warned_conflicts: Set[str] = set()
         for col_name_upper, occurrences in semantic_view.column_occurrences.items():
             for occurrence in occurrences:
-                if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
+                if occurrence.subtype != SemanticViewColumnSubtype.METRIC:
+                    continue
+                existing = metrics.get(col_name_upper)
+                if existing is None:
                     # A metric may be declared on multiple logical tables; the first
                     # occurrence carries the expression used for the metric entity.
-                    metrics.setdefault(col_name_upper, occurrence)
+                    metrics[col_name_upper] = occurrence
+                elif (
+                    occurrence.expression != existing.expression
+                    and col_name_upper not in warned_conflicts
+                ):
+                    warned_conflicts.add(col_name_upper)
+                    self.report.warning(
+                        title="Semantic view metric declared with conflicting expressions",
+                        message="A metric is declared on more than one logical table with "
+                        "different expressions. Only the first-encountered expression is "
+                        "used for the metric entity; the others are silently dropped.",
+                        context=f"{semantic_view.name}.{existing.name}",
+                    )
         return metrics
 
     def _split_lineages_by_metric(
         self,
         fine_grained_lineages: List[FineGrainedLineageClass],
         metric_names_upper: Set[str],
+        shadowed_metric_names: Set[str],
     ) -> (
         "tuple[List[FineGrainedLineageClass], Dict[str, List[FineGrainedLineageClass]]]"
     ):
@@ -609,11 +673,32 @@ class SnowflakeSemanticModelMapper:
         metric_lineages: Dict[str, List[FineGrainedLineageClass]] = {}
         for lineage in fine_grained_lineages:
             downstream_field = self._downstream_field_name(lineage)
-            if downstream_field and downstream_field.upper() in metric_names_upper:
-                metric_lineages.setdefault(downstream_field.upper(), []).append(lineage)
+            downstream_upper = downstream_field.upper() if downstream_field else None
+            # A downstream name that is a metric name but is *also* used by a
+            # non-metric (DIMENSION/FACT) column is shadowed: routing it to the
+            # metric would silently drop the column's own lineage from the
+            # model's upstreamLineage. Keep shadowed FGLs on the model instead.
+            if (
+                downstream_upper
+                and downstream_upper in metric_names_upper
+                and downstream_upper not in shadowed_metric_names
+            ):
+                metric_lineages.setdefault(downstream_upper, []).append(lineage)
             else:
                 model_lineages.append(lineage)
         return model_lineages, metric_lineages
+
+    @staticmethod
+    def _shadowed_metric_names(semantic_view: SnowflakeSemanticView) -> Set[str]:
+        # A column name that is both a metric and a dimension/fact column of the
+        # same view is ambiguous; shared by _derived_from_metrics (to avoid a
+        # wrong derivedFrom edge) and _split_lineages_by_metric (to avoid
+        # misrouting the column's own fine-grained lineage into the metric).
+        return {
+            col_upper
+            for col_upper, occs in semantic_view.column_occurrences.items()
+            if any(o.subtype != SemanticViewColumnSubtype.METRIC for o in occs)
+        }
 
     @staticmethod
     def _downstream_field_name(

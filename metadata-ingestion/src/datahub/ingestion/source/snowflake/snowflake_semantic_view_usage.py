@@ -186,6 +186,9 @@ class SemanticViewUsageExtractor:
 
     def _semantic_model_urn_from_identifier(self, identifier: str) -> str:
         """Build the semanticModel URN from a db.schema.view identifier."""
+        # maxsplit=2 protects the view name (matching existing codebase patterns);
+        # this assumes db/schema names contain no dots themselves - a quoted
+        # identifier with an embedded dot (e.g. "MY.DB") would misparse here.
         db_name, schema_name, view_name = identifier.split(".", 2)
         return self.identifiers.gen_semantic_model_urn(view_name, schema_name, db_name)
 

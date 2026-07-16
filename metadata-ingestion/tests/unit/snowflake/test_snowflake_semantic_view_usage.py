@@ -69,6 +69,42 @@ class TestSemanticViewsConfig:
             SemanticViewsConfig(max_queries_per_view=10001)
 
 
+class TestSemanticModelEntitiesRequiresTechnicalSchema:
+    """emit_semantic_model_entities lives on the nested SemanticViewsConfig, while
+    include_technical_schema is top-level; the validator must live on
+    SnowflakeV2Config, where both are visible."""
+
+    def test_warns_when_technical_schema_disabled(self):
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_config.logger"
+        ) as mock_logger:
+            SnowflakeV2Config.model_validate(
+                {
+                    "account_id": "test_account",
+                    "username": "user",
+                    "password": "pass",
+                    "include_technical_schema": False,
+                    "semantic_views": {"emit_semantic_model_entities": True},
+                }
+            )
+            mock_logger.warning.assert_called()
+
+    def test_no_warning_when_technical_schema_enabled(self):
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_config.logger"
+        ) as mock_logger:
+            SnowflakeV2Config.model_validate(
+                {
+                    "account_id": "test_account",
+                    "username": "user",
+                    "password": "pass",
+                    "include_technical_schema": True,
+                    "semantic_views": {"emit_semantic_model_entities": True},
+                }
+            )
+            mock_logger.warning.assert_not_called()
+
+
 class TestSnowflakeQuerySemanticViewUsage:
     """Tests for SQL query generation."""
 

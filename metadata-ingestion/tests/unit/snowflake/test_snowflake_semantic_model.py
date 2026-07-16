@@ -1032,3 +1032,209 @@ def test_derived_from_omits_metric_name_shadowed_by_a_column():
     # REVENUE is shadowed by the fact column and omitted; ORDER_COUNT remains.
     assert count_urn in derived_urns
     assert revenue_urn not in derived_urns
+
+
+def test_shadowed_metric_name_fine_grained_lineage_stays_on_model():
+    # REVENUE is both a FACT column and a METRIC of the same view. The FGL for
+    # the FACT column's own downstream field must not be misrouted into the
+    # metric's metricUpstreams just because the (shadowed) name also happens to
+    # be a metric - it must stay on the model's upstreamLineage.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "REVENUE": [
+                _col(
+                    "revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.FACT,
+                    table_name="ORDERS",
+                ),
+                _col(
+                    "revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="SUM(orders.amount)",
+                ),
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+        resolved_upstream_urns=[
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.orders,PROD)"
+        ],
+    )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+    orders_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.orders,PROD)"
+    )
+    revenue_source_urn = make_schema_field_urn(orders_dataset_urn, "amount")
+    revenue_fgl = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        upstreams=[revenue_source_urn],
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        downstreams=[make_schema_field_urn(model_urn, "revenue")],
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[revenue_fgl],
+        )
+    )
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "revenue", semantic_view.name, _SCHEMA, _DB
+    )
+
+    upstream_lineage = _aspects_for(workunits, model_urn, UpstreamLineageClass)[0]
+    assert upstream_lineage.fineGrainedLineages == [revenue_fgl]
+
+    assert not _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
+
+
+def test_metric_conflicting_expressions_across_logical_tables_warns():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "TOTAL_REVENUE": [
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="SUM(orders.amount)",
+                ),
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="RETURNS",
+                    expression="SUM(returns.amount)",
+                ),
+            ],
+        },
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue", semantic_view.name, _SCHEMA, _DB
+    )
+
+    # First-wins: the metric entity keeps the first-declared expression.
+    info = _aspects_for(workunits, metric_urn, MetricInfoClass)[0]
+    assert info.expression is not None
+    assert info.expression.dialects[0].expression == "SUM(orders.amount)"
+
+    messages = [w.title for w in mapper.report.warnings]
+    assert any("conflicting expressions" in (m or "") for m in messages)
+
+
+def test_column_defined_on_multiple_logical_tables_warns_field_path_collision():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "STATUS": [
+                _col(
+                    "status",
+                    "VARCHAR",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                ),
+                _col(
+                    "status",
+                    "VARCHAR",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="CUSTOMERS",
+                ),
+            ],
+        },
+    )
+
+    list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    messages = [w.title for w in mapper.report.warnings]
+    assert any("multiple logical tables" in (m or "") for m in messages)
+
+
+def test_metric_expression_omitted_when_declared_without_expression():
+    # MetricInfo.expression is optional in the PDL - don't fabricate a value
+    # from the metric's own name when Snowflake reports no expression for it.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "MYSTERY_METRIC": [
+                _col(
+                    "mystery_metric",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression=None,
+                )
+            ],
+        },
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "mystery_metric", semantic_view.name, _SCHEMA, _DB
+    )
+
+    info = _aspects_for(workunits, metric_urn, MetricInfoClass)[0]
+    assert info.expression is None
+
+
+def test_semantic_field_expression_falls_back_to_column_name_when_missing():
+    # SemanticField.expression is a required PDL field, so the fabricated
+    # fallback to the column's own name must remain for this path only.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_DATE": [
+                _col(
+                    "order_date",
+                    "DATE",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                    expression=None,
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+    )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    field = _fields_by_path(info.datasets[0])["order_date"]
+    assert field.expression.dialects[0].expression == "order_date"

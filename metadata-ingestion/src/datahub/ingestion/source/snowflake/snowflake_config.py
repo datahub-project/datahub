@@ -868,6 +868,27 @@ class SnowflakeV2Config(
                 self.semantic_views.column_lineage = False
         return self
 
+    @model_validator(mode="after")
+    def validate_semantic_model_entities_requires_technical_schema(
+        self,
+    ) -> "SnowflakeV2Config":
+        # emit_semantic_model_entities lives on the nested SemanticViewsConfig, but
+        # include_technical_schema is top-level; semantic view processing itself is
+        # gated on include_technical_schema, so this combination is a silent no-op
+        # that must be validated here, where both fields are visible.
+        if (
+            self.semantic_views.emit_semantic_model_entities
+            and not self.include_technical_schema
+        ):
+            logger.warning(
+                "semantic_views.emit_semantic_model_entities is set to True but "
+                "include_technical_schema is False. No semanticModel or metric entities "
+                "will be emitted in this combination, since semantic view processing "
+                "requires include_technical_schema. Set include_technical_schema to True "
+                "to emit semanticModel/metric entities."
+            )
+        return self
+
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:
         """
         Returns mapping of

@@ -418,6 +418,7 @@ semantic_view_pattern:
 - Semantic views no longer have a container aspect, so they no longer appear inside their database/schema container pages. Find them via search, lineage, or the metrics experience instead.
 - **Known limitation:** a dataset or dashboard whose SQL selects `FROM SEMANTIC_VIEW(...)` cannot yet declare the semanticModel as an upstream, since dataset `upstreamLineage` only accepts dataset URNs. With `use_queries_v2` enabled, query-history parsing may still resolve that `FROM SEMANTIC_VIEW(...)` reference to the legacy (now soft-deleted) dataset URN for the semantic view, rather than the new semanticModel URN.
 - **Known limitation:** `emit_semantic_model_entities` has no effect when `include_technical_schema: false` — no semanticModel or metric entities are emitted in that case, since semantic view processing itself is skipped, so enabling the flag together with `include_technical_schema: false` is not useful.
+- **Server version requirement:** `emit_semantic_model_entities` emits `semanticModel`/`metric` entities and writes `datasetUsageStatistics` to the `semanticModel` URN. Both require a DataHub server (GMS) whose entity registry includes the `semanticModel`/`metric` entities and the `datasetUsageStatistics`-on-`semanticModel` registration. Running this connector version against an older server will cause the server to reject those aspects. Use a server on the same release as this connector change before enabling the flag.
 
 ##### Requirements
 
