@@ -332,7 +332,9 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
       ActiveWindow retired;
       windowLock.writeLock().lock();
       try {
-        retired = swapActiveWindowLocked(splitAtBoundary ? boundary : null);
+        // Mid-period and boundary: next window opens at batchEnd (process-relative or grid
+        // Instant).
+        retired = swapActiveWindowLocked(batchEnd);
       } finally {
         windowLock.writeLock().unlock();
       }
@@ -463,10 +465,9 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
 
   @Nonnull
   private ActiveWindow newActiveWindow(@Nullable Instant explicitStart) {
+    // Process-relative: never floor open time to the alignment grid. Alignment only splits
+    // closed windows at nextBoundary via flush / publishExtractedWindow.
     Instant windowStart = explicitStart != null ? explicitStart : clock.instant();
-    if (alignmentPeriod != null && explicitStart == null) {
-      windowStart = UsageFlushBoundaryUtils.alignDown(windowStart, alignmentPeriod, ALIGNMENT_ZONE);
-    }
     return new ActiveWindow(windowStart);
   }
 
