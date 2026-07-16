@@ -14,7 +14,10 @@ from datahub.ingestion.source.hightouch.constants import (
     QUERY_TYPE_TABLE,
 )
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
-from datahub.ingestion.source.hightouch.hightouch_utils import normalize_column_name
+from datahub.ingestion.source.hightouch.hightouch_utils import (
+    normalize_column_name,
+    reraise_if_programming_error,
+)
 from datahub.ingestion.source.hightouch.models import (
     HightouchColumnPair,
     HightouchDestinationLineageInfo,
@@ -114,13 +117,10 @@ class HightouchLineageHandler:
 
             return field_casing_map
 
-        except (AttributeError, TypeError) as e:
-            logger.error(
-                f"Programming error fetching field casing for model {model.slug}: {type(e).__name__}: {e}",
-                exc_info=True,
-            )
-            raise
         except Exception as e:
+            reraise_if_programming_error(
+                e, f"fetching field casing for model {model.slug}"
+            )
             logger.debug(
                 f"Could not fetch upstream field casing for model {model.slug} from {upstream_urn} (optional feature): {e}"
             )
@@ -180,15 +180,19 @@ class HightouchLineageHandler:
                         )
                     )
 
-        except (AttributeError, TypeError, KeyError) as e:
-            logger.error(
-                f"Programming error generating column lineage for {model.slug}: {type(e).__name__}: {e}",
-                exc_info=True,
-            )
-            raise
         except Exception as e:
-            logger.debug(
-                f"Failed to generate column lineage for table model {model.slug} (optional feature): {e}"
+            reraise_if_programming_error(
+                e, f"generating column lineage for {model.slug}"
+            )
+            self.report.report_lineage_resolution_failure(
+                f"table_model_cll model_slug: {model.slug}"
+            )
+            self.report.warning(
+                title="Could not generate column-level lineage for table model",
+                message="Column-level lineage for this table model could not be "
+                "resolved from the upstream schema and will be missing.",
+                context=f"model_slug: {model.slug}",
+                exc=e,
             )
 
         return fine_grained_lineages
@@ -223,15 +227,17 @@ class HightouchLineageHandler:
                     lineage_type=DatasetLineageTypeClass.COPY,
                 )
 
-            except (AttributeError, TypeError) as e:
-                logger.error(
-                    f"Programming error registering lineage for {model.id}: {type(e).__name__}: {e}",
-                    exc_info=True,
-                )
-                raise
             except Exception as e:
-                logger.debug(
-                    f"Failed to register known lineage for model {model.id} (optional SQL parsing feature): {e}"
+                reraise_if_programming_error(e, f"registering lineage for {model.id}")
+                self.report.report_lineage_resolution_failure(
+                    f"table_model_lineage model_id: {model.id}"
+                )
+                self.report.warning(
+                    title="Could not register table-level lineage",
+                    message="Table-level lineage from the upstream table to this "
+                    "model could not be registered and will be missing.",
+                    context=f"model_id: {model.id}",
+                    exc=e,
                 )
 
         # For raw_sql models, register view definition for SQL parsing (skipped when
@@ -252,13 +258,10 @@ class HightouchLineageHandler:
                     default_schema=None,
                 )
                 self.report.sql_parsing_successes += 1
-            except (AttributeError, TypeError) as e:
-                logger.error(
-                    f"Programming error registering view definition for {model.id}: {type(e).__name__}: {e}",
-                    exc_info=True,
-                )
-                raise
             except Exception as e:
+                reraise_if_programming_error(
+                    e, f"registering view definition for {model.id}"
+                )
                 self.report.sql_parsing_failures += 1
                 self.report.warning(
                     title="View definition registration error",
@@ -333,13 +336,8 @@ class HightouchLineageHandler:
                     model_schema_fields = [
                         f.fieldPath for f in model_schema_metadata.fields
                     ]
-            except (AttributeError, TypeError) as e:
-                logger.error(
-                    f"Programming error fetching model schema: {type(e).__name__}: {e}",
-                    exc_info=True,
-                )
-                raise
             except Exception as e:
+                reraise_if_programming_error(e, "fetching model schema")
                 logger.debug(
                     f"Could not fetch model schema for column matching (optional): {e}"
                 )
@@ -350,13 +348,8 @@ class HightouchLineageHandler:
                     dest_schema_fields = [
                         f.fieldPath for f in dest_schema_metadata.fields
                     ]
-            except (AttributeError, TypeError) as e:
-                logger.error(
-                    f"Programming error fetching destination schema: {type(e).__name__}: {e}",
-                    exc_info=True,
-                )
-                raise
             except Exception as e:
+                reraise_if_programming_error(e, "fetching destination schema")
                 logger.debug(
                     f"Could not fetch destination schema for column matching (optional): {e}"
                 )

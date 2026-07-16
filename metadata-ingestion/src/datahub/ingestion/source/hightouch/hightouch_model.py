@@ -20,7 +20,10 @@ from datahub.ingestion.source.hightouch.hightouch_lineage import (
 from datahub.ingestion.source.hightouch.hightouch_schema import (
     HightouchSchemaHandler,
 )
-from datahub.ingestion.source.hightouch.hightouch_utils import normalize_column_name
+from datahub.ingestion.source.hightouch.hightouch_utils import (
+    normalize_column_name,
+    reraise_if_programming_error,
+)
 from datahub.ingestion.source.hightouch.models import (
     HightouchModel,
     HightouchModelDatasetResult,
@@ -176,13 +179,8 @@ class HightouchModelHandler:
                     fields=schema_field_classes,
                 ),
             )
-        except (AttributeError, TypeError) as e:
-            logger.error(
-                f"Programming error registering schema for {model.slug}: {type(e).__name__}: {e}",
-                exc_info=True,
-            )
-            raise
         except Exception as e:
+            reraise_if_programming_error(e, f"registering schema for {model.slug}")
             logger.debug(
                 f"Failed to register model schema for {model.slug} with aggregator (optional SQL parsing feature): {e}"
             )
@@ -396,13 +394,10 @@ class HightouchModelHandler:
 
             if sql_result.in_tables:
                 return [str(urn) for urn in sql_result.in_tables]
-        except (AttributeError, TypeError, KeyError) as e:
-            logger.error(
-                f"Programming error extracting tables from SQL for model {model.id}: {type(e).__name__}: {e}",
-                exc_info=True,
-            )
-            raise
         except Exception as e:
+            reraise_if_programming_error(
+                e, f"extracting tables from SQL for model {model.id}"
+            )
             logger.debug(
                 f"SQL parsing failed for model {model.id} (continuing without extracted lineage): {e}"
             )

@@ -7,7 +7,6 @@ from pydantic import ConfigDict, Field, SecretStr, field_validator
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import DEFAULT_ENV
-from datahub.ingestion.source.hightouch.constants import HIGHTOUCH_PLATFORM
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -21,9 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 class Constant:
-    # The DataHub platform/orchestrator identifier for Hightouch entities. Kept as a
-    # single source of truth shared with the rest of the connector.
-    ORCHESTRATOR = HIGHTOUCH_PLATFORM
     # Threshold for warning about excessive sync run ingestion
     MAX_SYNC_RUNS_WARNING_THRESHOLD = 100
 
@@ -131,6 +127,9 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
         default_factory=LossyDict
     )
     field_mappings_dropped: int = 0
+    lineage_resolution_failures: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
 
     def report_syncs_scanned(self, count: int = 1) -> None:
         self.syncs_scanned += count
@@ -210,6 +209,9 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
 
     def report_field_mappings_dropped(self, count: int = 1) -> None:
         self.field_mappings_dropped += count
+
+    def report_lineage_resolution_failure(self, context: str) -> None:
+        self.lineage_resolution_failures.append(context)
 
 
 class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):

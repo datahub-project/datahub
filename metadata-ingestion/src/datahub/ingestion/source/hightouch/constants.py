@@ -18,9 +18,9 @@ HTTP_RETRY_ALLOWED_METHODS = [HTTP_METHOD_GET]
 # API pagination configuration
 API_PAGINATION_DEFAULT_LIMIT = 100
 API_PAGINATION_INITIAL_OFFSET = 0
-# Safety cap on paginated requests. ponytail: a fixed page ceiling guards against
-# an API that never returns hasMore=false; raise it if a workspace legitimately
-# exceeds this many pages.
+# Safety cap on paginated requests: a fixed page ceiling guards against an API that
+# never returns hasMore=false; raise it if a workspace legitimately exceeds this many
+# pages.
 API_PAGINATION_MAX_PAGES = 10_000
 
 # Model query types (Hightouch "queryType" field values)
@@ -30,6 +30,24 @@ QUERY_TYPE_RAW_SQL = "raw_sql"
 # Keys read from a source connection's `configuration` blob
 SOURCE_CONFIG_KEY_DATABASE = "database"
 SOURCE_CONFIG_KEY_SCHEMA = "schema"
+
+# Keys read from a sync's `configuration` blob when resolving the destination object
+SYNC_CONFIG_KEY_TYPE = "type"
+SYNC_CONFIG_TYPE_EVENT = "event"
+SYNC_CONFIG_KEY_EVENT_NAME = "eventName"
+# Candidate keys that may hold the destination object/table name, in priority order
+SYNC_CONFIG_DEST_TABLE_KEYS = [
+    "object",
+    "tableName",
+    "table",
+    "destinationTable",
+    "objectName",
+]
+# Nested keys used when a destination-table value is itself an object
+SYNC_CONFIG_VALUE_KEY_FROM = "from"
+SYNC_CONFIG_VALUE_KEY_NAME = "name"
+# Suffix for the synthesized fallback destination name when none can be resolved
+DESTINATION_FALLBACK_SUFFIX = "_destination"
 
 # API response field names
 API_RESPONSE_FIELD_DATA = "data"

@@ -202,13 +202,16 @@ def test_extract_field_mappings_skips_incomplete_mappings():
     )
 
     config = HightouchAPIConfig(api_key="test")
-    client = HightouchAPIClient(config)
+    report = HightouchSourceReport()
+    client = HightouchAPIClient(config, report)
 
     mappings = client.extract_field_mappings(sync)
 
     assert len(mappings) == 2
     assert mappings[0].source_field == "user_id"
     assert mappings[1].source_field == "valid"
+    # The two mappings missing a 'from'/'to' are counted, not silently dropped.
+    assert report.field_mappings_dropped == 2
 
 
 @patch("requests.Session.request")
@@ -228,6 +231,21 @@ def test_get_contracts_404_handling(mock_request):
     contracts = client.get_contracts()
 
     assert contracts == []
+
+
+@patch("requests.Session.request")
+def test_get_contracts_connection_error_does_not_abort(mock_request):
+    """A ConnectionError (not an HTTPError) on the optional contracts endpoint must
+    be downgraded to a warning + empty list, not propagated to abort the run."""
+    mock_request.side_effect = requests.exceptions.ConnectionError("connection refused")
+
+    report = HightouchSourceReport()
+    client = HightouchAPIClient(HightouchAPIConfig(api_key="test"), report)
+
+    contracts = client.get_contracts()
+
+    assert contracts == []
+    assert len(report.warnings) >= 1
 
 
 def test_session_retry_adapter_configured():

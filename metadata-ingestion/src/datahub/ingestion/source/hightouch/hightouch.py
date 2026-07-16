@@ -41,6 +41,9 @@ from datahub.ingestion.source.hightouch.hightouch_lineage import (
 from datahub.ingestion.source.hightouch.hightouch_model import HightouchModelHandler
 from datahub.ingestion.source.hightouch.hightouch_schema import HightouchSchemaHandler
 from datahub.ingestion.source.hightouch.hightouch_sync import HightouchSyncHandler
+from datahub.ingestion.source.hightouch.hightouch_utils import (
+    reraise_if_programming_error,
+)
 from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
     HightouchDestinationLineageInfo,
@@ -175,17 +178,17 @@ class HightouchSource(StatefulIngestionSourceBase):
                     generate_usage_statistics=False,
                     generate_operations=False,
                 )
-            except (AttributeError, TypeError, ValueError) as e:
-                logger.error(
-                    f"Programming error creating SQL aggregator for platform {platform}: {type(e).__name__}: {e}",
-                    exc_info=True,
-                )
-                raise
             except Exception as e:
-                logger.warning(
-                    f"Failed to create SQL aggregator for platform {platform}. "
-                    f"SQL parsing will be disabled for this platform, but basic lineage will still be emitted. "
-                    f"Error: {e}"
+                reraise_if_programming_error(
+                    e, f"creating SQL aggregator for platform {platform}"
+                )
+                self.report.report_lineage_resolution_failure(f"platform: {platform}")
+                self.report.warning(
+                    title="Could not create SQL parsing aggregator",
+                    message="SQL parsing will be disabled for this platform, so "
+                    "SQL-derived lineage will be missing; basic lineage is unaffected.",
+                    context=f"platform: {platform}",
+                    exc=e,
                 )
                 self._sql_aggregators[platform] = None
                 return None
@@ -403,9 +406,13 @@ class HightouchSource(StatefulIngestionSourceBase):
                 for mcp in aggregator.gen_metadata():
                     yield mcp.as_workunit()
             except Exception as e:
-                logger.warning(
-                    f"Failed to generate metadata from {platform} aggregator: {e}",
-                    exc_info=True,
+                self.report.report_lineage_resolution_failure(f"platform: {platform}")
+                self.report.warning(
+                    title="Could not generate SQL-parsed lineage",
+                    message="The SQL parsing aggregator failed to emit metadata for "
+                    "this platform, so SQL-derived lineage will be missing.",
+                    context=f"platform: {platform}",
+                    exc=e,
                 )
             finally:
                 aggregator.close()

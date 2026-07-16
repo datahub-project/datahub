@@ -53,6 +53,18 @@ class HightouchUrnBuilder:
             )
         return self._platform_detail_cache[cache_key]
 
+    def _resolve_source_database(
+        self, source: HightouchSourceConnection, source_details: PlatformDetail
+    ) -> str:
+        # Single source of truth for a source's database: prefer the operator-
+        # configured PlatformDetail.database, falling back to the raw connection
+        # blob. This keeps qualified_table_name and make_upstream_table_urn from
+        # disagreeing on which database to use.
+        if source_details.database:
+            return source_details.database
+        configuration = source.configuration or {}
+        return configuration.get(SOURCE_CONFIG_KEY_DATABASE, "")
+
     def qualified_table_name(
         self, model: HightouchModel, source: HightouchSourceConnection
     ) -> str:
@@ -64,12 +76,14 @@ class HightouchUrnBuilder:
         """
         table_name = model.name
         configuration = source.configuration or {}
-        database = configuration.get(SOURCE_CONFIG_KEY_DATABASE, "")
         schema = configuration.get(SOURCE_CONFIG_KEY_SCHEMA, "")
 
         source_details = self._get_cached_source_details(source)
+        database = self._resolve_source_database(source, source_details)
+
         if source_details.include_schema_in_urn and schema:
-            return f"{database}.{schema}.{table_name}"
+            parts = [part for part in (database, schema, table_name) if part]
+            return ".".join(parts)
         if database and "." not in table_name:
             return f"{database}.{table_name}"
         return table_name
@@ -90,9 +104,10 @@ class HightouchUrnBuilder:
         self, table_name: str, source: HightouchSourceConnection
     ) -> Union[str, DatasetUrn]:
         source_details = self._get_cached_source_details(source)
+        database = self._resolve_source_database(source, source_details)
 
-        if source_details.database and "." not in table_name:
-            table_name = f"{source_details.database}.{table_name}"
+        if database and "." not in table_name:
+            table_name = f"{database}.{table_name}"
 
         return DatasetUrn.create_from_ids(
             platform_id=source_details.platform or source.type.lower(),

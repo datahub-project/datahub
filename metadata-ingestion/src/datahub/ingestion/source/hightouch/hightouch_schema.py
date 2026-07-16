@@ -8,6 +8,9 @@ from datahub.ingestion.source.hightouch.constants import (
     QUERY_TYPE_RAW_SQL,
     QUERY_TYPE_TABLE,
 )
+from datahub.ingestion.source.hightouch.hightouch_utils import (
+    reraise_if_programming_error,
+)
 from datahub.ingestion.source.hightouch.models import (
     HightouchModel,
     HightouchSchemaField,
@@ -155,13 +158,8 @@ class HightouchSchemaHandler:
                 self.report.report_model_schemas_skipped("no_valid_fields")
                 return None
 
-        except (AttributeError, TypeError, KeyError) as e:
-            logger.error(
-                f"Model {model.id}: Programming error parsing schema: {type(e).__name__}: {e}",
-                exc_info=True,
-            )
-            raise
         except Exception as e:
+            reraise_if_programming_error(e, f"Model {model.id}: parsing schema")
             logger.warning(
                 f"Model {model.id}: Could not parse schema from query_schema (malformed data): {e}",
                 exc_info=True,
@@ -278,13 +276,8 @@ class HightouchSchemaHandler:
                 aggregator.register_schema(urn, schema_metadata)
                 registered_urns.add(urn)
                 return True
-        except (AttributeError, TypeError) as e:
-            logger.error(
-                f"Programming error preloading schema for {urn}: {type(e).__name__}: {e}",
-                exc_info=True,
-            )
-            raise
         except Exception as e:
+            reraise_if_programming_error(e, f"preloading schema for {urn}")
             logger.debug(
                 f"Could not preload schema for {urn} (optional optimization): {e}"
             )
@@ -345,9 +338,9 @@ class HightouchSchemaHandler:
         if not destination:
             return
 
-        outlet_urn = str(get_outlet_urn_for_sync(sync, destination))
+        outlet_urn = get_outlet_urn_for_sync(sync, destination)
         if outlet_urn:
-            self.fetch_and_register_schema(outlet_urn, aggregator, registered_urns)
+            self.fetch_and_register_schema(str(outlet_urn), aggregator, registered_urns)
 
     def preload_schemas_for_sql_parsing(
         self,

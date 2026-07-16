@@ -8,11 +8,20 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.hightouch.config import (
-    Constant,
     HightouchSourceConfig,
     HightouchSourceReport,
 )
-from datahub.ingestion.source.hightouch.constants import QUERY_TYPE_TABLE
+from datahub.ingestion.source.hightouch.constants import (
+    DESTINATION_FALLBACK_SUFFIX,
+    HIGHTOUCH_PLATFORM,
+    QUERY_TYPE_TABLE,
+    SYNC_CONFIG_DEST_TABLE_KEYS,
+    SYNC_CONFIG_KEY_EVENT_NAME,
+    SYNC_CONFIG_KEY_TYPE,
+    SYNC_CONFIG_TYPE_EVENT,
+    SYNC_CONFIG_VALUE_KEY_FROM,
+    SYNC_CONFIG_VALUE_KEY_NAME,
+)
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 from datahub.ingestion.source.hightouch.hightouch_container import (
     HightouchContainerHandler,
@@ -82,7 +91,7 @@ class HightouchSyncHandler:
 
     def generate_dataflow_from_sync(self, sync: HightouchSync) -> DataFlow:
         return DataFlow(
-            platform=Constant.ORCHESTRATOR,
+            platform=HIGHTOUCH_PLATFORM,
             name=sync.id,
             env=self.config.env,
             display_name=sync.slug,
@@ -106,8 +115,15 @@ class HightouchSyncHandler:
                 table_name = self.urn_builder.qualified_table_name(model, source)
                 return self.urn_builder.make_upstream_table_urn(table_name, source)
             else:
-                logger.warning(
-                    f"Sync {sync.slug}: emit_models_as_datasets=False but model {model.slug} is not a table type"
+                self.report.report_lineage_resolution_failure(
+                    f"sync_slug: {sync.slug} (model_slug: {model.slug})"
+                )
+                self.report.warning(
+                    title="No upstream lineage for non-table model",
+                    message="emit_models_as_datasets=False but the model is not a "
+                    "table-type model, so no upstream table URN can be resolved; "
+                    "lineage for this sync will be missing.",
+                    context=f"sync_slug: {sync.slug} (query_type: {model.query_type})",
                 )
                 return None
 
@@ -119,34 +135,30 @@ class HightouchSyncHandler:
         dest_table = None
 
         if sync.configuration:
-            sync_type = sync.configuration.get("type")
+            sync_type = sync.configuration.get(SYNC_CONFIG_KEY_TYPE)
 
-            if sync_type == "event":
-                event_name_value = sync.configuration.get("eventName")
+            if sync_type == SYNC_CONFIG_TYPE_EVENT:
+                event_name_value = sync.configuration.get(SYNC_CONFIG_KEY_EVENT_NAME)
                 if isinstance(event_name_value, dict):
-                    dest_table = event_name_value.get("from")
+                    dest_table = event_name_value.get(SYNC_CONFIG_VALUE_KEY_FROM)
                 elif isinstance(event_name_value, str):
                     dest_table = event_name_value
             else:
-                for key in [
-                    "object",
-                    "tableName",
-                    "table",
-                    "destinationTable",
-                    "objectName",
-                ]:
+                for key in SYNC_CONFIG_DEST_TABLE_KEYS:
                     value = sync.configuration.get(key)
                     if value:
                         if isinstance(value, str):
                             dest_table = value
                         elif isinstance(value, dict):
-                            dest_table = value.get("from") or value.get("name")
+                            dest_table = value.get(
+                                SYNC_CONFIG_VALUE_KEY_FROM
+                            ) or value.get(SYNC_CONFIG_VALUE_KEY_NAME)
 
                         if dest_table:
                             break
 
         if not dest_table:
-            dest_table = f"{sync.slug}_destination"
+            dest_table = f"{sync.slug}{DESTINATION_FALLBACK_SUFFIX}"
             logger.warning(
                 f"Could not determine destination table for sync {sync.slug}, using fallback: {dest_table}"
             )
@@ -155,7 +167,7 @@ class HightouchSyncHandler:
 
     def generate_datajob_from_sync(self, sync: HightouchSync) -> DataJob:
         dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=Constant.ORCHESTRATOR,
+            orchestrator=HIGHTOUCH_PLATFORM,
             flow_id=sync.id,
             env=self.config.env,
             platform_instance=self.config.platform_instance,
@@ -251,46 +263,17 @@ class HightouchSyncHandler:
             "sync_id": sync_id,
             "status": sync_run.status,
         }
-        if sync_run.planned_rows:
-            custom_props["planned_rows_added"] = str(
-                sync_run.planned_rows.get("added", 0)
-            )
-            custom_props["planned_rows_changed"] = str(
-                sync_run.planned_rows.get("changed", 0)
-            )
-            custom_props["planned_rows_removed"] = str(
-                sync_run.planned_rows.get("removed", 0)
-            )
-            custom_props["planned_rows_total"] = str(
-                sum(sync_run.planned_rows.values())
-            )
-
-        if sync_run.successful_rows:
-            custom_props["successful_rows_added"] = str(
-                sync_run.successful_rows.get("added", 0)
-            )
-            custom_props["successful_rows_changed"] = str(
-                sync_run.successful_rows.get("changed", 0)
-            )
-            custom_props["successful_rows_removed"] = str(
-                sync_run.successful_rows.get("removed", 0)
-            )
-            custom_props["successful_rows_total"] = str(
-                sum(sync_run.successful_rows.values())
-            )
-
-        if sync_run.failed_rows:
-            failed_total = sum(sync_run.failed_rows.values())
-            custom_props["failed_rows_total"] = str(failed_total)
-            custom_props["failed_rows_added"] = str(
-                sync_run.failed_rows.get("added", 0)
-            )
-            custom_props["failed_rows_changed"] = str(
-                sync_run.failed_rows.get("changed", 0)
-            )
-            custom_props["failed_rows_removed"] = str(
-                sync_run.failed_rows.get("removed", 0)
-            )
+        for prefix, rows in (
+            ("planned_rows", sync_run.planned_rows),
+            ("successful_rows", sync_run.successful_rows),
+            ("failed_rows", sync_run.failed_rows),
+        ):
+            if not rows:
+                continue
+            custom_props[f"{prefix}_added"] = str(rows.get("added", 0))
+            custom_props[f"{prefix}_changed"] = str(rows.get("changed", 0))
+            custom_props[f"{prefix}_removed"] = str(rows.get("removed", 0))
+            custom_props[f"{prefix}_total"] = str(sum(rows.values()))
 
         if sync_run.query_size:
             custom_props["query_size_bytes"] = str(sync_run.query_size)
@@ -347,7 +330,7 @@ class HightouchSyncHandler:
         for mcp in dpi.end_event_mcp(
             end_timestamp_millis=end_timestamp_millis,
             result=status,
-            result_type=Constant.ORCHESTRATOR,
+            result_type=HIGHTOUCH_PLATFORM,
         ):
             yield mcp.as_workunit()
 

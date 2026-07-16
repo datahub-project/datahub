@@ -329,13 +329,15 @@ class HightouchAPIClient:
 
     def get_contracts(self) -> List[HightouchContract]:
         # Contracts are optional (plan-gated) and a failure here must never abort the
-        # rest of the run, so all HTTP errors are downgraded to a warning + empty list.
+        # rest of the run, so every request error (HTTP status, connection, timeout)
+        # is downgraded to a warning + empty list.
         try:
             return self._fetch_entities(
                 API_ENDPOINT_CONTRACTS, HightouchContract, ENTITY_NAME_CONTRACT
             )
-        except requests.exceptions.HTTPError as e:
-            status_code = e.response.status_code if e.response is not None else None
+        except requests.exceptions.RequestException as e:
+            response = getattr(e, "response", None)
+            status_code = response.status_code if response is not None else None
             if status_code == HTTP_STATUS_NOT_FOUND:
                 message = (
                     "Contracts endpoint not found (404). Event Contracts may not be "
@@ -343,9 +345,10 @@ class HightouchAPIClient:
                     "ingestion."
                 )
             else:
+                detail = f"HTTP {status_code}" if status_code else type(e).__name__
                 message = (
-                    f"Failed to fetch Event Contracts (HTTP {status_code}). Skipping "
-                    "contract ingestion; the rest of the run is unaffected."
+                    f"Failed to fetch Event Contracts ({detail}). Skipping contract "
+                    "ingestion; the rest of the run is unaffected."
                 )
             if self.report is not None:
                 self.report.warning(
@@ -386,6 +389,11 @@ class HightouchAPIClient:
             dest = mapping.get("to")
 
             if not source or not dest:
+                self._report_field_mappings_dropped(
+                    f"Sync {sync.id}: mapping at index {i} is missing a source "
+                    "('from') or destination ('to') field; column-level lineage for "
+                    "this column will be missing."
+                )
                 continue
 
             if not isinstance(source, str) or not isinstance(dest, str):

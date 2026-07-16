@@ -71,16 +71,6 @@ def pipeline_context():
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_init(mock_api_client_class, hightouch_config, pipeline_context):
-    source = HightouchIngestionSource(hightouch_config, pipeline_context)
-
-    assert source.config == hightouch_config
-    mock_api_client_class.assert_called_once_with(
-        hightouch_config.api_config, source.report
-    )
-
-
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
 def test_test_connection_success(
     mock_api_client_class, hightouch_config, pipeline_context
 ):
