@@ -1,0 +1,183 @@
+fragment metricInfoFields on MetricInfo {
+    name
+    description
+    created {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    expression {
+        dialects {
+            dialect
+            expression
+        }
+    }
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
+}
+
+fragment metricRelationshipsFields on MetricRelationships {
+    derivedFrom {
+        destination {
+            urn
+            type
+            ... on Metric {
+                info {
+                    name
+                }
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+    }
+    relatedMetrics {
+        destination {
+            urn
+            type
+            ... on Metric {
+                info {
+                    name
+                }
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+    }
+}
+
+fragment metricUpstreamsFields on MetricUpstreams {
+    datasetUpstreams {
+        destination {
+            urn
+            type
+            ... on Dataset {
+                name
+                platform {
+                    ...platformFields
+                }
+                editableProperties {
+                    description
+                }
+                properties {
+                    name
+                    description
+                }
+            }
+        }
+    }
+    fieldUpstreams {
+        destination {
+            urn
+            type
+        }
+    }
+}
+
+fragment metricFields on Metric {
+    urn
+    type
+    id
+    path
+    platform {
+        ...platformFields
+    }
+    info {
+        ...metricInfoFields
+    }
+    semanticModel {
+        urn
+        type
+        info {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+    }
+    parentMetric {
+        urn
+        type
+        info {
+            name
+        }
+        parentMetric {
+            urn
+            type
+            info {
+                name
+            }
+            parentMetric {
+                urn
+                type
+                info {
+                    name
+                }
+                parentMetric {
+                    urn
+                    type
+                    info {
+                        name
+                    }
+                    parentMetric {
+                        urn
+                        type
+                        info {
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    subTypes {
+        typeNames
+    }
+    exists
+    privileges {
+        ...entityPrivileges
+    }
+}
+
+query getMetric($urn: String!) {
+    metric(urn: $urn) {
+        ...metricFields
+    }
+}
