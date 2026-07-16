@@ -22,6 +22,10 @@ type MetricsEntityContextType = {
     childMetricsByParentUrn: Record<string, MetricSearchResult[]>;
     toggleSemanticModel: (urn: string) => void;
     toggleMetric: (urn: string) => void;
+    /** Expand every semantic model in `urns` (union with current). */
+    expandAllSemanticModels: (urns: string[]) => void;
+    /** Collapse every expanded semantic model and metric. */
+    collapseAllExpanded: () => void;
     setChildMetricsForModel: (modelUrn: string, metrics: MetricSearchResult[]) => void;
     setChildMetricsForParent: (parentUrn: string, metrics: MetricSearchResult[]) => void;
     /** Signal the sidebar to refetch root + all expanded children. */
@@ -38,6 +42,8 @@ const MetricsEntityContext = createContext<MetricsEntityContextType>({
     childMetricsByParentUrn: {},
     toggleSemanticModel: () => {},
     toggleMetric: () => {},
+    expandAllSemanticModels: () => {},
+    collapseAllExpanded: () => {},
     setChildMetricsForModel: () => {},
     setChildMetricsForParent: () => {},
     refetchTree: () => {},
@@ -89,6 +95,19 @@ export function MetricsEntityContextProvider({ children }: Props) {
         setExpandedMetricUrns((prev) => toggleInSet(prev, urn));
     }, []);
 
+    const expandAllSemanticModels = useCallback((urns: string[]) => {
+        setExpandedSemanticModelUrns((prev) => {
+            const next = new Set(prev);
+            urns.forEach((urn) => next.add(urn));
+            return next;
+        });
+    }, []);
+
+    const collapseAllExpanded = useCallback(() => {
+        setExpandedSemanticModelUrns(new Set());
+        setExpandedMetricUrns(new Set());
+    }, []);
+
     const setChildMetricsForModel = useCallback((modelUrn: string, metrics: MetricSearchResult[]) => {
         setChildMetricsByModelUrn((prev) => ({ ...prev, [modelUrn]: metrics }));
     }, []);
@@ -115,6 +134,8 @@ export function MetricsEntityContextProvider({ children }: Props) {
             childMetricsByParentUrn,
             toggleSemanticModel,
             toggleMetric,
+            expandAllSemanticModels,
+            collapseAllExpanded,
             setChildMetricsForModel,
             setChildMetricsForParent,
             refetchTree,
@@ -128,6 +149,8 @@ export function MetricsEntityContextProvider({ children }: Props) {
             childMetricsByParentUrn,
             toggleSemanticModel,
             toggleMetric,
+            expandAllSemanticModels,
+            collapseAllExpanded,
             setChildMetricsForModel,
             setChildMetricsForParent,
             refetchTree,

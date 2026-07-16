@@ -16,8 +16,8 @@ const ContentWrapper = styled.div<{ $isShowNavBarRedesign: boolean; $isEntityPro
     display: flex;
     flex: 1;
     overflow: hidden;
-    gap: ${(props) => (props.$isShowNavBarRedesign ? '12px' : '0')};
-    ${(props) => !props.$isEntityProfile && props.$isShowNavBarRedesign && 'padding: 5px;'}
+    gap: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '0')};
+    ${(props) => props.$isShowNavBarRedesign && 'padding: 5px;'}
 `;
 
 const MainContent = styled.div`
