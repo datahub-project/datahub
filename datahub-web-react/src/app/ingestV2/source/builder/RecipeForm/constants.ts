@@ -568,8 +568,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             DATAPLEX_GLOSSARY_LOCATIONS,
             STATEFUL_INGESTION_ENABLED,
         ],
-        filterSectionTooltip:
-            'Include or exclude specific Projects, Entries, and Entry Groups from ingestion.',
+        filterSectionTooltip: 'Include or exclude specific Projects, Entries, and Entry Groups from ingestion.',
     },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
