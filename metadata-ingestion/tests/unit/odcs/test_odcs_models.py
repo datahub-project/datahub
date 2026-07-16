@@ -22,8 +22,7 @@ from datahub.ingestion.source.odcs.odcs_models import (
 )
 
 _SCHEMA_DIR = (
-    pathlib.Path(__file__).parents[3]
-    / "src/datahub/ingestion/source/odcs/odcs_schema"
+    pathlib.Path(__file__).parents[3] / "src/datahub/ingestion/source/odcs/odcs_schema"
 )
 _SCHEMA_FILES = ("odcs-v3.0.2.json", "odcs-v3.1.0.json")
 
@@ -123,5 +122,7 @@ def test_effective_metric_prefers_canonical_key() -> None:
 def test_used_deprecated_rule_key() -> None:
     assert ODCSQualityRule(rule="rowCount").used_deprecated_rule_key
     assert not ODCSQualityRule(metric="rowCount").used_deprecated_rule_key
-    assert not ODCSQualityRule(metric="rowCount", rule="rowCount").used_deprecated_rule_key
+    assert not ODCSQualityRule(
+        metric="rowCount", rule="rowCount"
+    ).used_deprecated_rule_key
     assert not ODCSQualityRule().used_deprecated_rule_key
