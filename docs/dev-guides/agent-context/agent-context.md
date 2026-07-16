@@ -33,6 +33,16 @@ An agent that applies descriptions and compliance-related glossary terms to tabl
 
 _"Tag all columns containing email addresses with the PII glossary term across our Snowflake datasets, then show me a coverage report."_
 
+### Agents That Remember
+
+An agent that carries institutional memory across runs, so it improves instead of repeating itself.
+
+1. **Recall prior state** — Persist schema fingerprints and past decisions to an external memory server, then recall them at the start of each run.
+2. **Detect drift & regressions** — Diff live schemas against remembered ones to catch breaking changes; re-alert only when a resolved issue returns.
+3. **Honor human decisions** — Remember owner corrections (e.g. "this column is a hash, not PII") and stop re-flagging what a human already resolved.
+
+_"Run the governance agent again and it's smarter, not repetitive."_ See the [Agent Memory guide](./agent-memory.md).
+
 ## Where Do Your Agents Run?
 
 ### AI Coding Assistants
