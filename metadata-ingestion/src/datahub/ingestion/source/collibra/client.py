@@ -2,15 +2,18 @@
 # See RFC "Collibra -> DataHub Governance Migrator" (Page 4 Engineering Design,
 # Page 6 Extraction). WIP: `Cfg` and the dataclass models are temporary stubs to
 # be swapped for CollibraSourceConfig (config.py) and pydantic models (models.py);
-# secrets become SecretStr, injected programmatically. `requests` is imported
-# lazily since the connector controls its own deps.
+# secrets become SecretStr, injected programmatically.
 
 from __future__ import annotations
 
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Iterator, List, Optional, Tuple
+from typing import Any, Iterator, List, Optional, Tuple
+
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 PAGE_SIZE = 1000  # DGC "Enable maximum paging limit" cap: 1000 elements / call
 
@@ -31,21 +34,23 @@ class Cfg:
 
 
 # --- Step 1: auth + session + retry ------------------------------------------
-def build_session(cfg: Cfg):
+def build_session(cfg: Cfg) -> requests.Session:
     """OAuth2 bearer + TLS + rate-aware retry/backoff, all on one Session."""
-    import requests
-    from requests.adapters import HTTPAdapter
-    from urllib3.util.retry import Retry
 
     class TokenAuth(requests.auth.AuthBase):
         def __init__(self, cfg: Cfg):
             self.cfg, self._tok = cfg, None
 
         def _fetch(self) -> None:
+            client_id = self.cfg.client_id
+            client_secret = self.cfg.client_secret
+            assert client_id and client_secret, (
+                "OAuth requires client_id and client_secret"
+            )
             r = requests.post(
                 f"{self.cfg.url}/rest/oauth/v2/token",
                 data={"grant_type": "client_credentials"},
-                auth=(self.cfg.client_id, self.cfg.client_secret),
+                auth=(client_id, client_secret),
                 verify=self.cfg.ca_cert_path or self.cfg.verify_ssl,
                 timeout=30,
             )
@@ -87,18 +92,18 @@ class Asset:
 
 # --- client ------------------------------------------------------------------
 class CollibraClient:
-    def __init__(self, cfg: Cfg, session=None):
+    def __init__(self, cfg: Cfg, session: Optional[requests.Session] = None):
         self.cfg = cfg
         self.session = session if session is not None else build_session(cfg)
         self._info: Optional[dict] = None
 
     # low-level
-    def _get(self, path: str, params: Optional[dict] = None):
+    def _get(self, path: str, params: Optional[dict] = None) -> requests.Response:
         r = self.session.get(self.cfg.url + path, params=params or {})
         r.raise_for_status()
         return r
 
-    def _post(self, path: str, **kw):
+    def _post(self, path: str, **kw: Any) -> requests.Response:
         r = self.session.post(self.cfg.url + path, **kw)
         r.raise_for_status()
         return r
