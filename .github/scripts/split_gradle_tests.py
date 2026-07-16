@@ -111,12 +111,30 @@ def load_weights(weights_path: str | None) -> dict[str, float]:
     return weights
 
 
-def module_weights(modules: dict[str, list[str]], weights: dict[str, float]) -> dict[str, float]:
+def module_weights(
+    modules: dict[str, list[str]],
+    weights: dict[str, float],
+    module_overhead: float = 0.0,
+    extra_weights: dict[str, float] | None = None,
+) -> dict[str, float]:
+    """gradle-project -> estimated shard-seconds.
+
+    Base is the sum of per-class test durations. Per-class JUnit times don't capture non-test
+    shard cost (gradle task graph, jacocoTestReport, testFixtures jars) — approximated with a
+    flat `module_overhead` per module — nor tasks a module's `test` drags in beyond its own
+    tests, e.g. the ~90s `:metadata-ingestion:installDev` venv build that the Java<->Python
+    compat modules depend on — passed explicitly via `extra_weights` so LPT stops stacking them.
+    """
+    extra_weights = extra_weights or {}
     all_classes = [c for classes in modules.values() for c in classes]
     known = [weights[c] for c in all_classes if c in weights]
     fallback = statistics.median(known) if known else 1.0
     return {
-        project: sum(weights.get(c, fallback) for c in classes)
+        project: (
+            sum(weights.get(c, fallback) for c in classes)
+            + module_overhead
+            + extra_weights.get(project, 0.0)
+        )
         for project, classes in modules.items()
     }
 
@@ -155,6 +173,21 @@ def main() -> int:
     parser.add_argument("--glob", "-g", action="append", required=True)
     parser.add_argument("--exclude-glob", "-e", action="append", default=[])
     parser.add_argument("--weights", help="Path to committed backend_test_weights.json.")
+    parser.add_argument(
+        "--module-overhead",
+        type=float,
+        default=0.0,
+        help="Fixed seconds added to every module's weight for non-test shard cost the "
+        "per-class times miss (gradle task graph, jacocoTestReport, testFixtures jars).",
+    )
+    parser.add_argument(
+        "--extra-weight",
+        action="append",
+        default=[],
+        metavar="PROJECT=SECONDS",
+        help="Add fixed seconds to a specific gradle project's weight — e.g. modules whose "
+        "`test` also builds the python venv (:metadata-ingestion:installDev). Repeatable.",
+    )
     parser.add_argument("--repo-root", default=".")
     parser.add_argument("--output-args", help="Write gradle args one-per-line to this file.")
     args = parser.parse_args()
@@ -163,6 +196,17 @@ def main() -> int:
         parser.error("--split-total must be >= 1")
     if not (0 <= args.split_index < args.split_total):
         parser.error("--split-index must be in [0, --split-total)")
+    if args.module_overhead < 0:
+        parser.error("--module-overhead must be >= 0")
+    extra_weights: dict[str, float] = {}
+    for item in args.extra_weight:
+        key, sep, value = item.partition("=")
+        if not sep or not key:
+            parser.error(f"--extra-weight must be PROJECT=SECONDS, got {item!r}")
+        try:
+            extra_weights[key] = float(value)
+        except ValueError:
+            parser.error(f"--extra-weight seconds not a number in {item!r}")
     repo_root = os.path.abspath(args.repo_root)
 
     modules = discover_modules(args.glob, args.exclude_glob, repo_root)
@@ -170,7 +214,7 @@ def main() -> int:
         print("split_gradle_tests: no test modules matched", file=sys.stderr)
 
     weights = load_weights(args.weights)
-    weighted = module_weights(modules, weights)
+    weighted = module_weights(modules, weights, args.module_overhead, extra_weights)
     buckets = bin_pack(weighted, args.split_total)
     plan = plan_for_shard(buckets[args.split_index], weighted)
 

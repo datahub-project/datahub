@@ -297,13 +297,10 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
-      - name: Install dependencies
-        run: ./metadata-ingestion/scripts/install_deps.sh
+      # No python deps here: :datahub-web-react:yarnTest depends only on yarnInstall/yarnGenerate/
+      # generateLazyIconStubs (no :metadata-ingestion:connectorRegistry, which is frontend-build's
+      # concern). install_deps.sh + the ~/.cache/uv cache were dead weight — removed. setup-python
+      # stays for the PostHog failure-reporting step below.
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
@@ -548,6 +545,11 @@ jobs:
         #   - metadata-io: runs in its own workflow (metadata-io.yml → `./gradlew :metadata-io:test`)
         #   - datahub-frontend: built/tested in the frontend jobs
         #   - acryl-spark-lineage / schematron:cli: excluded by build-except today
+        # Balance knobs: per-class JUnit times miss non-test shard cost, so LPT under-counts and
+        # over-stacks one shard. --module-overhead adds a flat per-module cost (task graph +
+        # jacocoTestReport + testFixtures); --extra-weight charges datahub-client the ~90s
+        # :metadata-ingestion:installDev venv build its `test` depends on, so it stops landing on
+        # an already-heavy shard.
         run: |
           python3 .github/scripts/split_gradle_tests.py \
             --split-index "${{ strategy.job-index }}" --split-total "${{ strategy.job-total }}" \
@@ -560,6 +562,8 @@ jobs:
             --exclude-glob 'datahub-frontend/src/test/**' \
             --exclude-glob 'metadata-integration/java/acryl-spark-lineage/src/test/**' \
             --exclude-glob 'metadata-integration/java/datahub-schematron/cli/src/test/**' \
+            --module-overhead 10 \
+            --extra-weight ':metadata-integration:java:datahub-client=90' \
             --output-args shard-args.txt
       - name: Run shard tests
         # Args array avoids shell word-splitting; empty shard skips cleanly.
