@@ -504,7 +504,16 @@ def _make_tag_associations(
     return out
 
 
-def _make_owners(contract: ODCSContract) -> List[OwnerClass]:
+def _make_owners(
+    contract: ODCSContract,
+    strip_owner_email_domain: bool = False,
+    owner_email_domain: Optional[str] = None,
+) -> List[OwnerClass]:
+    """Owners from `team`, with identifier normalization to match the org's
+    identity source: ODCS usernames are "username or email", so
+    `strip_owner_email_domain` maps emails to their local part and
+    `owner_email_domain` maps bare usernames to emails. Explicit corpuser /
+    corpGroup URNs pass through untouched."""
     owners: List[OwnerClass] = []
     seen: set = set()
     for member in contract.team_members:
@@ -520,7 +529,12 @@ def _make_owners(contract: ODCSContract) -> List[OwnerClass]:
         if username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
             owner_urn = username
         else:
-            owner_urn = make_user_urn(username)
+            identifier = username
+            if strip_owner_email_domain and "@" in identifier:
+                identifier = identifier.split("@", 1)[0]
+            elif owner_email_domain and "@" not in identifier:
+                identifier = f"{identifier}@{owner_email_domain}"
+            owner_urn = make_user_urn(identifier)
         key = (owner_urn, ownership_type)
         if key in seen:
             continue
@@ -679,6 +693,8 @@ def odcs_to_logical_dataset_mcps(
     source_file: Optional[str] = None,
     tag_prefix: Optional[str] = None,
     replicate_contract_metadata: bool = True,
+    strip_owner_email_domain: bool = False,
+    owner_email_domain: Optional[str] = None,
 ) -> Tuple[List[MetadataChangeProposalWrapper], List[str]]:
     """Emit the aspects ODCS owns on the logical `odcs` dataset.
 
@@ -754,7 +770,11 @@ def odcs_to_logical_dataset_mcps(
         )
 
     if replicate_contract_metadata:
-        owners = _make_owners(contract)
+        owners = _make_owners(
+            contract,
+            strip_owner_email_domain=strip_owner_email_domain,
+            owner_email_domain=owner_email_domain,
+        )
         if owners:
             mcps.append(
                 MetadataChangeProposalWrapper(

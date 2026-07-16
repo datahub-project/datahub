@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Union
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
@@ -131,6 +131,19 @@ class ODCSSourceConfig(
         description="Optional prefix prepended to every tag emitted from ODCS `tags` and "
         "property-level `tags` (e.g. `odcs.`). Useful for distinguishing ODCS-sourced tags.",
     )
+    strip_owner_email_domain: bool = Field(
+        default=False,
+        description="ODCS team usernames may be emails. When true, the domain is stripped "
+        "so `alice@acme.com` maps to corpuser `alice` — use this when your identity source "
+        "(Okta / Azure AD / …) ingests users by bare username. Mutually exclusive with "
+        "`owner_email_domain`.",
+    )
+    owner_email_domain: Optional[str] = Field(
+        default=None,
+        description="When set, bare (non-email) team usernames get `@<domain>` appended, so "
+        "`alice` maps to corpuser `alice@acme.com` — use this when your identity source "
+        "ingests users by email. Mutually exclusive with `strip_owner_email_domain`.",
+    )
     strict_validation: bool = Field(
         default=False,
         description=(
@@ -172,6 +185,24 @@ class ODCSSourceConfig(
         "must contain at least the contract's fields; extras allowed), `EXACT_MATCH`, or "
         "`SUBSET`.",
     )
+
+    @field_validator("owner_email_domain")
+    @classmethod
+    def owner_email_domain_without_at(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip().lstrip("@")
+        return v or None
+
+    @model_validator(mode="after")
+    def owner_normalization_knobs_are_exclusive(self) -> "ODCSSourceConfig":
+        if self.strip_owner_email_domain and self.owner_email_domain:
+            raise ValueError(
+                "strip_owner_email_domain and owner_email_domain are mutually "
+                "exclusive: one strips domains from emails, the other appends a "
+                "domain to bare usernames."
+            )
+        return self
 
     @field_validator("schema_assertion_compatibility")
     @classmethod
