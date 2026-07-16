@@ -123,7 +123,6 @@ jobs:
             -x :datahub-actions:build \
             -x :datahub-actions:check \
             -x :docs-website:build \
-            -x :metadata-integration:java:acryl-spark-lineage:test \
             -x :metadata-integration:java:acryl-spark-lineage:build \
             -x :metadata-io:test \
             -x :metadata-ingestion-modules:airflow-plugin:build \
@@ -316,9 +315,11 @@ jobs:
       # generateLazyIconStubs (no :metadata-ingestion:connectorRegistry, which is frontend-build's
       # concern). install_deps.sh + the ~/.cache/uv cache were dead weight — removed. setup-python
       # stays for the PostHog failure-reporting step below.
-      # Restore yarn's download cache (written by frontend-build) read-only, so each matrix leg's
-      # yarnInstall links from cache instead of a cold ~100s download.
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      # Restore yarn's download cache (written by frontend-build) so each matrix leg's yarnInstall
+      # links from cache instead of a cold ~100s download. Same key across legs (content-hashed on
+      # yarn.lock), so the redundant post-save from parallel legs is a no-op — matches the matrix
+      # build-cache restore in backend-test-shard.
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/yarn
