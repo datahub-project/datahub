@@ -81,6 +81,30 @@ When you target a policy by domain, the policy applies recursively to any asset 
 
 **Example**: A policy targeting the "Marketing" domain will apply to all datasets, dashboards, and other assets assigned to that domain, as well as assets in child domains like "Marketing Analytics" or "Marketing Campaigns".
 
+##### Creating Assets with Domain-Scoped Access
+
+A new asset does not have persisted domain metadata when DataHub performs its initial authorization
+check. As a result, a domain-scoped policy cannot grant the **Create Entity** privilege for that
+asset. This commonly affects ingestion users that need to create datasets and then manage only the
+datasets assigned to their domain.
+
+Configure two metadata policies for this use case:
+
+1. **Creation policy**: Target all assets of the required type, such as all datasets, and grant
+   **Create Entity** to the ingestion user or group.
+2. **Domain policy**: Target the asset type and domain, then grant the privileges that the actor
+   needs after creation, such as **View Entity Page**, **Edit Domain**, or other aspect privileges.
+
+Create the asset and its domain aspect in the same creation batch using the `CREATE_ENTITY` change
+type. The creation policy authorizes the initial write. After the domain aspect is persisted, the
+domain policy applies to subsequent requests.
+
+:::caution
+The creation policy authorizes all aspects included in the initial entity creation, not only the
+domain aspect. Limit this policy to the necessary actors and entity types, and grant ongoing edit
+privileges through the domain-scoped policy.
+:::
+
 :::caution View-based access control performance
 When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, domain filters can be expensive: DataHub walks the domain hierarchy for each authorization check. Prefer [ownership-based policies](#ownership-based-access) for entity access, and use domain filters mainly for domain-entity visibility or Cloud discovery boundaries. Keep domain hierarchies shallow.
 :::
