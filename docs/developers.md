@@ -117,6 +117,16 @@ We suggest partially compiling DataHub according to your needs:
   ./gradlew :docs-website:serve
   ```
 
+- Run Java tests without coverage instrumentation (faster local iteration):
+
+  ```
+  ./gradlew :module:test -PskipCoverage
+  ```
+
+  By default, JaCoCo is attached to every test run and generates XML reports under
+  `build/coverage-reports/`. Pass `-PskipCoverage` to disable the agent and skip report
+  generation entirely. This has no effect on CI — coverage is always collected there.
+
 ## Dependency Management
 
 ### Dependency Locking

@@ -1720,10 +1720,16 @@ public class ESUtilsTest {
         new OpenSearchStatusException("Too many requests", RestStatus.TOO_MANY_REQUESTS);
 
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    when(mockClient.createPit(any(CreatePitRequest.class), any())).thenThrow(throttleException);
+    when(mockClient.createPit(any(OperationContext.class), any(CreatePitRequest.class), any()))
+        .thenThrow(throttleException);
 
     // Should throw APIThrottleException with appropriate retry duration
-    ESUtils.computePointInTime(null, "5m", mockClient, "test-index");
+    ESUtils.computePointInTime(
+        TestOperationContexts.systemContextNoSearchAuthorization(),
+        null,
+        "5m",
+        mockClient,
+        "test-index");
   }
 
   @Test
@@ -1734,10 +1740,16 @@ public class ESUtilsTest {
         new OpenSearchStatusException("Too many requests", RestStatus.TOO_MANY_REQUESTS);
 
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    when(mockClient.createPit(any(CreatePitRequest.class), any())).thenThrow(throttleException);
+    when(mockClient.createPit(any(OperationContext.class), any(CreatePitRequest.class), any()))
+        .thenThrow(throttleException);
 
     try {
-      ESUtils.computePointInTime(null, "5m", mockClient, "test-index");
+      ESUtils.computePointInTime(
+          TestOperationContexts.systemContextNoSearchAuthorization(),
+          null,
+          "5m",
+          mockClient,
+          "test-index");
       fail("Should have thrown APIThrottleException");
     } catch (APIThrottleException e) {
       // Verify the cause is set correctly

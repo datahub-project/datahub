@@ -107,7 +107,7 @@ class RestServiceConfig:
         if version_str is None:
             version_str = self.service_version
 
-        if not version_str:
+        if not version_str or version_str.lower() == "null":
             return (0, 0, 0, 0)
 
         # Remove 'v' prefix if present
@@ -222,18 +222,15 @@ class RestServiceConfig:
         # Special handling for features that rely on config flags
         config_based_features = {
             ServiceFeature.NO_CODE: lambda: self.is_no_code_enabled,
-            ServiceFeature.STATEFUL_INGESTION: lambda: self.raw_config.get(
-                "statefulIngestionCapable", False
-            )
-            is True,
-            ServiceFeature.IMPACT_ANALYSIS: lambda: self.raw_config.get(
-                "supportsImpactAnalysis", False
-            )
-            is True,
-            ServiceFeature.PATCH_CAPABLE: lambda: self.raw_config.get(
-                "patchCapable", False
-            )
-            is True,
+            ServiceFeature.STATEFUL_INGESTION: lambda: (
+                self.raw_config.get("statefulIngestionCapable", False) is True
+            ),
+            ServiceFeature.IMPACT_ANALYSIS: lambda: (
+                self.raw_config.get("supportsImpactAnalysis", False) is True
+            ),
+            ServiceFeature.PATCH_CAPABLE: lambda: (
+                self.raw_config.get("patchCapable", False) is True
+            ),
             ServiceFeature.CLI_TELEMETRY: lambda: (
                 self.raw_config.get("telemetry") or {}
             ).get("enabledCli", None),

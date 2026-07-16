@@ -3,9 +3,11 @@ package com.linkedin.datahub.graphql.resolvers.search;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossEntitiesInput;
@@ -108,10 +110,16 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
 
-            // Add default entity filters that should be applied to all queries
-            combinedFilter =
-                DefaultEntityFiltersUtil.addDefaultEntityFilters(
-                    combinedFilter, finalEntities, true);
+            boolean canBypassDocumentDefaults =
+                searchFlags != null
+                    && Boolean.TRUE.equals(searchFlags.isIncludeHiddenLifecycleStages())
+                    && finalEntities.contains(DOCUMENT_ENTITY_NAME)
+                    && AuthorizationUtils.canManageDocuments(context);
+            if (!canBypassDocumentDefaults) {
+              combinedFilter =
+                  DefaultEntityFiltersUtil.addDefaultEntityFilters(
+                      combinedFilter, finalEntities, true);
+            }
 
             // Execute scroll and remove default filter fields from aggregations
             com.linkedin.metadata.search.ScrollResult scrollResult =

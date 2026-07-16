@@ -1,8 +1,11 @@
 package com.datahub.authorization;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.ResourceSpecCachingAuthorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.policy.DataHubPolicyInfo;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextAuthorizer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -26,7 +29,8 @@ import lombok.extern.slf4j.Slf4j;
  * #authorize(AuthorizationRequest)}.
  */
 @Slf4j
-public class AuthorizerChain implements Authorizer {
+public class AuthorizerChain
+    implements Authorizer, ResourceSpecCachingAuthorizer, OperationContextAuthorizer {
 
   private final List<Authorizer> authorizers;
 
@@ -49,6 +53,14 @@ public class AuthorizerChain implements Authorizer {
    */
   @Nullable
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
+    return authorize(request, null);
+  }
+
+  @Override
+  @Nullable
+  public AuthorizationResult authorize(
+      @Nonnull final AuthorizationRequest request,
+      @Nullable final Map<EntitySpec, ResolvedEntitySpec> resourceSpecCache) {
     Objects.requireNonNull(request);
     // Save contextClassLoader
     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
@@ -64,14 +76,79 @@ public class AuthorizerChain implements Authorizer {
         // loading request from plugin's home directory,
         // otherwise plugin's internal library wouldn't be able to find their dependent classes
         Thread.currentThread().setContextClassLoader(authorizer.getClass().getClassLoader());
-        AuthorizationResult result = authorizer.authorize(request);
+        // Forward the request-scoped resolved-spec cache to delegates that support it so the same
+        // resource is resolved at most once per request; others resolve per call as before.
+        AuthorizationResult result =
+            (authorizer instanceof ResourceSpecCachingAuthorizer)
+                ? ((ResourceSpecCachingAuthorizer) authorizer).authorize(request, resourceSpecCache)
+                : authorizer.authorize(request);
         // reset
         Thread.currentThread().setContextClassLoader(contextClassLoader);
 
         if (AuthorizationResult.Type.ALLOW.equals(result.type)) {
           // Authorization was successful - Short circuit
           log.debug("Authorization is successful");
+          return result;
+        } else {
+          log.debug(
+              "Received DENY result from Authorizer with class name {}. message: {}",
+              authorizer.getClass().getCanonicalName(),
+              result.getMessage());
+        }
+      } catch (Exception e) {
+        log.error(
+            "Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
+            authorizer.getClass().getCanonicalName(),
+            e);
+      } finally {
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
+      }
+    }
+    // Return failed Authorization result.
+    return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
+  }
 
+  @Override
+  @Nonnull
+  public AuthorizationResult authorize(
+      @Nonnull final AuthorizationRequest request,
+      @Nullable final Map<EntitySpec, ResolvedEntitySpec> resourceSpecCache,
+      @Nonnull final OperationContext opContext) {
+    Objects.requireNonNull(request);
+    Objects.requireNonNull(opContext);
+    // Save contextClassLoader
+    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+
+    for (final Authorizer authorizer : this.authorizers) {
+      try {
+        log.debug(
+            "Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
+        log.debug("Authorization Request: {}", request.toString());
+        // The library came with plugin can use the contextClassLoader to load the classes. For
+        // example apache-ranger library does this.
+        // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class
+        // loading request from plugin's home directory,
+        // otherwise plugin's internal library wouldn't be able to find their dependent classes
+        Thread.currentThread().setContextClassLoader(authorizer.getClass().getClassLoader());
+        // Forward the request-scoped resolved-spec cache and session OperationContext to delegates
+        // that support them; others resolve per call as before.
+        AuthorizationResult result;
+        if (authorizer instanceof OperationContextAuthorizer) {
+          result =
+              ((OperationContextAuthorizer) authorizer)
+                  .authorize(request, resourceSpecCache, opContext);
+        } else if (authorizer instanceof ResourceSpecCachingAuthorizer) {
+          result =
+              ((ResourceSpecCachingAuthorizer) authorizer).authorize(request, resourceSpecCache);
+        } else {
+          result = authorizer.authorize(request);
+        }
+        // reset
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
+
+        if (AuthorizationResult.Type.ALLOW.equals(result.type)) {
+          // Authorization was successful - Short circuit
+          log.debug("Authorization is successful");
           return result;
         } else {
           log.debug(
@@ -166,9 +243,89 @@ public class AuthorizerChain implements Authorizer {
   }
 
   @Override
+  public Set<DataHubPolicyInfo> getActorPolicies(
+      @Nonnull Urn actorUrn, @Nullable Collection<Urn> preloadedGroups) {
+    return authorizers.stream()
+        .flatMap(authorizer -> authorizer.getActorPolicies(actorUrn, preloadedGroups).stream())
+        .collect(Collectors.toSet());
+  }
+
+  @Override
+  public Set<DataHubPolicyInfo> getActorPolicies(
+      @Nonnull Urn actorUrn,
+      @Nullable Collection<Urn> preloadedGroups,
+      @Nullable Set<Urn> preloadedDirectRoles) {
+    return authorizers.stream()
+        .flatMap(
+            authorizer ->
+                authorizer
+                    .getActorPolicies(actorUrn, preloadedGroups, preloadedDirectRoles)
+                    .stream())
+        .collect(Collectors.toSet());
+  }
+
+  @Override
+  public Optional<SessionActorIdentity> resolveSessionActorIdentity(@Nonnull Urn actorUrn) {
+    return authorizers.stream()
+        .map(authorizer -> authorizer.resolveSessionActorIdentity(actorUrn))
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .findFirst();
+  }
+
+  @Override
+  public Optional<SessionActorIdentity> resolveSessionActorIdentity(
+      @Nonnull Urn actorUrn, @Nonnull OperationContext opContext) {
+    return authorizers.stream()
+        .filter(authorizer -> authorizer instanceof OperationContextAuthorizer)
+        .map(
+            authorizer ->
+                ((OperationContextAuthorizer) authorizer)
+                    .resolveSessionActorIdentity(actorUrn, opContext))
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .findFirst();
+  }
+
+  @Override
+  public Set<DataHubPolicyInfo> getActorPolicies(
+      @Nonnull Urn actorUrn,
+      @Nullable SessionActorIdentity sessionActorIdentity,
+      @Nullable Collection<Urn> preloadedGroups,
+      @Nullable Set<Urn> preloadedDirectRoles,
+      @Nonnull OperationContext opContext) {
+    return authorizers.stream()
+        .filter(authorizer -> authorizer instanceof OperationContextAuthorizer)
+        .flatMap(
+            authorizer ->
+                ((OperationContextAuthorizer) authorizer)
+                        .getActorPolicies(
+                            actorUrn,
+                            sessionActorIdentity,
+                            preloadedGroups,
+                            preloadedDirectRoles,
+                            opContext)
+                        .stream())
+        .collect(Collectors.toSet());
+  }
+
+  @Override
   public Collection<Urn> getActorGroups(@Nonnull Urn actorUrn) {
     return authorizers.stream()
         .flatMap(authorizer -> authorizer.getActorGroups(actorUrn).stream())
+        .collect(Collectors.toList());
+  }
+
+  public Collection<Urn> getActorGroups(
+      @Nonnull Urn actorUrn, @Nonnull OperationContext opContext) {
+    return authorizers.stream()
+        .flatMap(
+            authorizer -> {
+              if (authorizer instanceof DataHubAuthorizer dataHubAuthorizer) {
+                return dataHubAuthorizer.getActorGroups(actorUrn, opContext).stream();
+              }
+              return authorizer.getActorGroups(actorUrn).stream();
+            })
         .collect(Collectors.toList());
   }
 

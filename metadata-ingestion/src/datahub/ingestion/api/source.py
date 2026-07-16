@@ -76,7 +76,6 @@ class SourceCapability(Enum):
     TAGS = "Extract Tags"
     SCHEMA_METADATA = "Schema Metadata"
     CONTAINERS = "Asset Containers"
-    CLASSIFICATION = "Classification"
     TEST_CONNECTION = "Test Connection"
     GLOSSARY_TERMS = "Glossary Terms"
 
@@ -603,6 +602,7 @@ class Source(Closeable, metaclass=ABCMeta):
             AutoLowercaseUrnsProcessor,
             AutoMaterializeReferencedTagsTermsProcessor,
             AutoPatchLastModifiedProcessor,
+            AutoResolveLineageUrnsProcessor,
             AutoStaleEntityRemovalProcessor,
             AutoStatusAspectProcessor,
             AutoWorkunitsReporterProcessor,
@@ -648,6 +648,7 @@ class Source(Closeable, metaclass=ABCMeta):
             ValidateDuplicateSchemaFieldPathsProcessor,
             ValidateEmptySchemaFieldPathsProcessor,
             AutoBrowsePathV2Processor,
+            AutoResolveLineageUrnsProcessor,
             AutoIncrementalLineageProcessor,
             AutoIncrementalPropertiesProcessor,
             AutoIncrementalOwnershipProcessor,

@@ -30,9 +30,11 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
     DataPlatformTable,
+    IdentifierAccessor,
     Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
+    OdbcLineage,
     OracleLineage,
     _remap_column_lineage_to_pbi_fields,
 )
@@ -614,6 +616,118 @@ def test_remap_column_lineage_empty_inputs():
     assert remapped == matching_cll
 
 
+# ---------------------------------------------------------------------------
+# OdbcLineage.expression_lineage — two-tier vs three-tier URN arity
+# ---------------------------------------------------------------------------
+
+
+def _build_odbc_lineage() -> OdbcLineage:
+    """OdbcLineage with a column-less table (so create_table_column_lineage is a
+    no-op) and a resolver that returns a plain PlatformDetail (no instance)."""
+    table = Table(columns=None, measures=[], expression="", name="t", full_name="ds.t")
+    resolver = MagicMock(spec=AbstractDataPlatformInstanceResolver)
+    resolver.get_platform_instance.return_value = PlatformDetail()
+    return OdbcLineage(
+        ctx=MagicMock(spec=PipelineContext),
+        table=table,
+        config=_build_config(),
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=resolver,
+    )
+
+
+def _nav_accessor(*levels: tuple) -> IdentifierAccessor:
+    """Build a Database->Schema->Table IdentifierAccessor chain from
+    (Kind, Name) tuples, returning the head (first level)."""
+    head: Optional[IdentifierAccessor] = None
+    for kind, name in reversed(levels):
+        head = IdentifierAccessor(
+            identifier=name, items={"Kind": kind, "Name": name}, next=head
+        )
+    assert head is not None
+    return head
+
+
+def test_odbc_two_tier_platform_drops_pseudo_catalog():
+    """Hive's ODBC navigation exposes a constant "HIVE" pseudo-catalog above the
+    real schema. For two-tier platforms it must be dropped so the upstream URN is
+    ``schema.table`` — matching HiveSource (a TwoTierSQLAlchemySource)."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "HIVE"),
+            ("Schema", "product_analytics"),
+            ("Table", "vg_a1_user_profile"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
+    ]
+
+
+def test_odbc_three_tier_platform_keeps_database():
+    """A genuine three-tier platform (BigQuery: project.dataset.table) must keep
+    all three navigation levels — the two-tier handling must not regress it."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "myproject"),
+            ("Schema", "mydataset"),
+            ("Table", "mytable"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="GoogleBigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.mydataset.mytable,PROD)"
+    ]
+
+
+def test_odbc_two_tier_platform_with_no_schema():
+    """A two-tier platform navigated as Database (pseudo-catalog) + Table with no
+    Schema level must NOT fall through to ``database.table`` — that pseudo-catalog
+    (e.g. "HIVE") is not a real schema and would yield a dangling URN. The lineage
+    must be skipped with a warning instead."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "HIVE"),
+            ("Table", "vg_a1_user_profile"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Cannot build two-tier ODBC table name"
+        for w in instance.reporter.warnings
+    )
+
+
 def test_remap_column_lineage_multi_table_shared_column_name():
     """Two upstream tables sharing a column name (e.g. SETID from both
     PS_COR_CNTRCT_PROJ and PS_COR_CNTRCT_PRIM) must each get the PowerBI
@@ -682,3 +796,51 @@ def test_remap_column_lineage_multi_table_shared_column_name():
             "setid",
         ),
     ]
+
+
+# ---------------------------------------------------------------------------
+# OdbcLineage — view leaves and dialect-aware SQL detection
+# (reuses the _build_odbc_lineage / _nav_accessor helpers defined above)
+# ---------------------------------------------------------------------------
+
+
+def test_odbc_view_leaf_resolves_like_table():
+    # A view leaf uses Kind="View"; without handling it the upstream is dropped.
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "my_project"),
+            ("Schema", "my_dataset"),
+            ("View", "my_view"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="GoogleBigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_view,PROD)"
+    ]
+
+
+def test_is_sql_query_uses_platform_dialect():
+    # BigQuery backtick-quoted, hyphenated project ids only parse under the
+    # bigquery dialect; the default dialect rejects them.
+    query = "SELECT t.* FROM `my-proj-1.my_dataset.my_table` t WHERE col_a IN (1, 2)"
+    assert OdbcLineage.is_sql_query(query) is False
+    assert OdbcLineage.is_sql_query(query, "bigquery") is True
+
+
+def test_is_sql_query_handles_other_platforms_without_raising():
+    # Plain SQL is recognised regardless of platform, and a platform sqlglot has
+    # no dialect for (e.g. db2) must fall back to the default dialect, not raise.
+    query = "SELECT a, b FROM my_schema.my_table"
+    assert OdbcLineage.is_sql_query(query, "databricks") is True
+    assert OdbcLineage.is_sql_query(query, "db2") is True
+    assert OdbcLineage.is_sql_query("not a query at all", "db2") is False

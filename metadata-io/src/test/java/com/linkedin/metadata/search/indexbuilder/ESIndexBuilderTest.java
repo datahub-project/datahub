@@ -12,6 +12,7 @@ import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -20,10 +21,13 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.version.GitVersion;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
@@ -34,6 +38,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.HttpEntity;
 import org.mockito.ArgumentCaptor;
@@ -46,6 +51,7 @@ import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.opensearch.action.admin.indices.refresh.RefreshRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
@@ -84,6 +90,7 @@ public class ESIndexBuilderTest {
   @Mock private HttpEntity httpEntity;
 
   private ESIndexBuilder indexBuilder;
+  private OperationContext opContext;
   private static final String TEST_INDEX_NAME = "test_index";
   private static final int NUM_SHARDS = 1;
   private static final int NUM_REPLICAS = 1;
@@ -93,6 +100,7 @@ public class ESIndexBuilderTest {
   @BeforeMethod
   void setUp() {
     MockitoAnnotations.openMocks(this);
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     // Mock the JVM info response
     try {
@@ -106,6 +114,7 @@ public class ESIndexBuilderTest {
 
       // Only mock nodes stats endpoint
       when(searchClient.performLowLevelRequest(
+              any(OperationFingerprint.class),
               argThat(req -> req != null && req.getEndpoint().contains("_nodes/stats"))))
           .thenReturn(jvmResponse);
     } catch (IOException e) {
@@ -208,10 +217,11 @@ public class ESIndexBuilderTest {
 
     // Override the mock specifically for the root endpoint
     when(searchClient.performLowLevelRequest(
+            any(OperationFingerprint.class),
             argThat(req -> req != null && req.getEndpoint().equals("/"))))
         .thenReturn(opensearchResponse);
 
-    boolean result = indexBuilder.isOpenSearch29OrHigher();
+    boolean result = indexBuilder.isOpenSearch29OrHigher(opContext);
     assertTrue(result);
   }
 
@@ -230,11 +240,12 @@ public class ESIndexBuilderTest {
             + "\"tagline\": \"You Know, for Search\""
             + "}";
 
-    when(searchClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(response);
     when(response.getEntity()).thenReturn(httpEntity);
     when(httpEntity.getContent()).thenReturn(new ByteArrayInputStream(responseJson.getBytes()));
 
-    boolean result = indexBuilder.isOpenSearch29OrHigher();
+    boolean result = indexBuilder.isOpenSearch29OrHigher(opContext);
     Assert.assertFalse(result);
   }
 
@@ -253,20 +264,21 @@ public class ESIndexBuilderTest {
             + "\"tagline\": \"The OpenSearch Project\""
             + "}";
 
-    when(searchClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(response);
     when(response.getEntity()).thenReturn(httpEntity);
     when(httpEntity.getContent()).thenReturn(new ByteArrayInputStream(responseJson.getBytes()));
 
-    boolean result = indexBuilder.isOpenSearch29OrHigher();
+    boolean result = indexBuilder.isOpenSearch29OrHigher(opContext);
     Assert.assertFalse(result);
   }
 
   @Test
   void testIsOpenSearch29OrHigher_Exception() throws IOException {
-    when(searchClient.performLowLevelRequest(any(Request.class)))
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
         .thenThrow(new IOException("Network error"));
 
-    boolean result = indexBuilder.isOpenSearch29OrHigher();
+    boolean result = indexBuilder.isOpenSearch29OrHigher(opContext);
     Assert.assertFalse(result); // Should return false defensively
   }
 
@@ -275,10 +287,12 @@ public class ESIndexBuilderTest {
     Map<String, Object> mappings = createTestMappings();
     Map<String, Object> settings = createTestSettings();
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
 
-    ReindexConfig result = indexBuilder.buildReindexState(TEST_INDEX_NAME, mappings, settings);
+    ReindexConfig result =
+        indexBuilder.buildReindexState(opContext, TEST_INDEX_NAME, mappings, settings);
 
     assertEquals(result.name(), TEST_INDEX_NAME);
     Assert.assertFalse(result.exists());
@@ -296,13 +310,20 @@ public class ESIndexBuilderTest {
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(createResponse);
 
-    ReindexResult result = indexBuilder.buildIndex(indexState);
+    ReindexResult result = indexBuilder.buildIndex(opContext, indexState);
 
     assertEquals(result, ReindexResult.CREATED_NEW);
-    verify(searchClient).createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
+    verify(searchClient)
+        .createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class));
   }
 
   @Test
@@ -315,7 +336,7 @@ public class ESIndexBuilderTest {
     when(indexState.currentMappings()).thenReturn(createTestMappings());
     when(indexState.targetMappings()).thenReturn(createTestMappings());
 
-    ReindexResult result = indexBuilder.buildIndex(indexState);
+    ReindexResult result = indexBuilder.buildIndex(opContext, indexState);
 
     assertEquals(result, ReindexResult.NOT_REINDEXED_NOTHING_APPLIED);
   }
@@ -330,29 +351,34 @@ public class ESIndexBuilderTest {
     when(indexState.targetMappings()).thenReturn(createTestMappings());
 
     // Should not throw exception when suppressError is true
-    indexBuilder.applyMappings(indexState, true);
+    indexBuilder.applyMappings(opContext, indexState, true);
 
     // Should not attempt to put mapping
     verify(searchClient, never())
-        .putIndexMapping(any(PutMappingRequest.class), any(RequestOptions.class));
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
   }
 
   @Test
   void testGetCount() throws IOException {
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(100L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     // Mock refreshIndex response
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
     when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
             any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
             any(RequestOptions.class)))
         .thenReturn(refreshResponse);
 
-    long result = indexBuilder.getCount(TEST_INDEX_NAME);
+    long result = indexBuilder.getCount(opContext, TEST_INDEX_NAME);
 
     assertEquals(result, 100L);
   }
@@ -401,7 +427,8 @@ public class ESIndexBuilderTest {
 
     // This should not throw an exception
     try {
-      ESIndexBuilder.cleanOrphanedIndices(searchClient, elasticSearchConfiguration, indexState);
+      ESIndexBuilder.cleanOrphanedIndices(
+          searchClient, opContext, elasticSearchConfiguration, indexState);
       // If we get here without exception, test passes
       assertTrue(true);
     } catch (Exception e) {
@@ -432,7 +459,8 @@ public class ESIndexBuilderTest {
     Map<String, Object> currentMappings = createTestMappings();
     Map<String, Object> targetSettings = createTestSettings();
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
 
     // Mock current settings with 1 shard
@@ -445,14 +473,20 @@ public class ESIndexBuilderTest {
     GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
     when(settingsResponse.getIndexToSettings())
         .thenReturn(Map.of(TEST_INDEX_NAME, currentSettings));
-    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(settingsResponse);
 
     GetMappingsResponse mappingsResponse = mock(GetMappingsResponse.class);
     MappingMetadata mappingMetadata = mock(MappingMetadata.class);
     when(mappingMetadata.getSourceAsMap()).thenReturn(currentMappings);
     when(mappingsResponse.mappings()).thenReturn(Map.of(TEST_INDEX_NAME, mappingMetadata));
-    when(searchClient.getIndexMapping(any(GetMappingsRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexMapping(
+            any(OperationFingerprint.class),
+            any(GetMappingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(mappingsResponse);
 
     // Execute with 6 shards configured
@@ -472,7 +506,8 @@ public class ESIndexBuilderTest {
             searchClient, configWith6Shards, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
 
     ReindexConfig result =
-        builderWith6Shards.buildReindexState(TEST_INDEX_NAME, currentMappings, targetSettings);
+        builderWith6Shards.buildReindexState(
+            opContext, TEST_INDEX_NAME, currentMappings, targetSettings);
 
     // Verify
     assertTrue(result.exists());
@@ -496,17 +531,21 @@ public class ESIndexBuilderTest {
     // Mock index creation
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     // Mock document counts
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(100L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     // Test the failure case
-    assertThrows(RuntimeException.class, () -> indexBuilder.buildIndex(indexState));
+    assertThrows(RuntimeException.class, () -> indexBuilder.buildIndex(opContext, indexState));
   }
 
   @Test
@@ -517,31 +556,39 @@ public class ESIndexBuilderTest {
 
     Settings settings = Settings.builder().put("index.number_of_replicas", "0").build();
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndex(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(getIndexResponse);
     when(getIndexResponse.getSettings()).thenReturn(Map.of(TEST_INDEX_NAME, settings));
 
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(100L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     AcknowledgedResponse updateResponse = mock(AcknowledgedResponse.class);
     when(updateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(updateResponse);
 
     // Execute
     ReindexConfig indexState = mock(ReindexConfig.class);
     when(indexState.name()).thenReturn(TEST_INDEX_NAME);
-    indexBuilder.tweakReplicas(indexState, false);
+    indexBuilder.tweakReplicas(opContext, indexState, false);
 
     // Verify replica increase was called
     verify(searchClient)
-        .updateIndexSettings(any(UpdateSettingsRequest.class), any(RequestOptions.class));
+        .updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class));
   }
 
   @Test
@@ -550,31 +597,39 @@ public class ESIndexBuilderTest {
     Settings settings = Settings.builder().put("index.number_of_replicas", "2").build();
 
     GetIndexResponse getIndexResponse = mock(GetIndexResponse.class);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndex(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(getIndexResponse);
     when(getIndexResponse.getSettings()).thenReturn(Map.of(TEST_INDEX_NAME, settings));
 
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(0L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     AcknowledgedResponse updateResponse = mock(AcknowledgedResponse.class);
     when(updateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(updateResponse);
 
     // Execute
     ReindexConfig indexState = mock(ReindexConfig.class);
     when(indexState.name()).thenReturn(TEST_INDEX_NAME);
-    indexBuilder.tweakReplicas(indexState, false);
+    indexBuilder.tweakReplicas(opContext, indexState, false);
 
     // Verify replica decrease was called
     verify(searchClient)
-        .updateIndexSettings(any(UpdateSettingsRequest.class), any(RequestOptions.class));
+        .updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class));
   }
 
   @Test
@@ -583,39 +638,55 @@ public class ESIndexBuilderTest {
     String indexAlias = "test_alias";
     GetAliasesResponse aliasesResponse = mock(GetAliasesResponse.class);
     when(aliasesResponse.getAliases()).thenReturn(Map.of("test_index_old", new HashSet<>()));
-    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexAliases(
+            any(OperationFingerprint.class),
+            any(GetAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(aliasesResponse);
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
     when(aliasResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexAliases(
-            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(IndicesAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(aliasResponse);
 
     // Mock refreshIndex
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
-    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class), any(RefreshRequest.class), any(RequestOptions.class)))
+        .thenReturn(refreshResponse);
 
     // Mock settings operations for reindex optimization
     GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
     when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
         .thenReturn("512mb");
-    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(getSettingsResponse);
 
     AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
     when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(settingsUpdateResponse);
 
-    when(searchClient.submitReindexTask(any(), any())).thenReturn("task123");
+    when(searchClient.submitReindexTask(any(OperationContext.class), any(), any()))
+        .thenReturn("task123");
 
     ReindexConfig config = mock(ReindexConfig.class);
 
@@ -629,6 +700,7 @@ public class ESIndexBuilderTest {
     // Execute
     String taskId =
         indexBuilder.reindexInPlaceAsync(
+            opContext,
             indexAlias,
             null,
             new com.linkedin.metadata.timeseries.BatchWriteOperationsOptions(1000, 300),
@@ -636,13 +708,16 @@ public class ESIndexBuilderTest {
 
     // Verify
     assertEquals(taskId, "task123");
-    verify(searchClient).createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
-    verify(searchClient).submitReindexTask(any(), any());
+    verify(searchClient)
+        .createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class));
+    verify(searchClient).submitReindexTask(any(OperationContext.class), any(), any());
   }
 
   @Test
   void testCleanIndex_DeletesOrphanedIndices() throws Exception {
-    // Setup
     ReindexConfig indexState = mock(ReindexConfig.class);
     when(indexState.indexPattern()).thenReturn("test_index*");
     when(indexState.indexCleanPattern()).thenReturn("test_index_*");
@@ -655,28 +730,154 @@ public class ESIndexBuilderTest {
             String.valueOf(System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000)); // 10 days old
     when(getIndexResponse.getAliases()).thenReturn(Map.of(orphanIndex, List.of()));
 
-    when(searchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndex(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(getIndexResponse);
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
 
     AcknowledgedResponse deleteResponse = mock(AcknowledgedResponse.class);
     when(deleteResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.deleteIndex(any(DeleteIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.deleteIndex(
+            any(OperationFingerprint.class),
+            any(DeleteIndexRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(deleteResponse);
 
     // Execute
-    ESIndexBuilder.cleanOrphanedIndices(searchClient, elasticSearchConfiguration, indexState);
+    ESIndexBuilder.cleanOrphanedIndices(
+        searchClient, opContext, elasticSearchConfiguration, indexState);
 
     // Verify deletion was attempted
     verify(searchClient, atLeastOnce())
-        .deleteIndex(any(DeleteIndexRequest.class), any(RequestOptions.class));
+        .deleteIndex(
+            any(OperationFingerprint.class),
+            any(DeleteIndexRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
+  void testCleanIndex_SkipsExcludedOrphanedIndices() throws Exception {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.indexPattern()).thenReturn("test_index*");
+    when(indexState.indexCleanPattern()).thenReturn("test_index_*");
+
+    GetIndexResponse getIndexResponse = mock(GetIndexResponse.class);
+    String excludedOrphan = "test_index_excluded";
+    String deletableOrphan = "test_index_deletable";
+    when(getIndexResponse.getIndices()).thenReturn(new String[] {excludedOrphan, deletableOrphan});
+    when(getIndexResponse.getSetting(excludedOrphan, "index.creation_date"))
+        .thenReturn(String.valueOf(System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000));
+    when(getIndexResponse.getSetting(deletableOrphan, "index.creation_date"))
+        .thenReturn(String.valueOf(System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000));
+    when(getIndexResponse.getAliases())
+        .thenReturn(Map.of(excludedOrphan, List.of(), deletableOrphan, List.of()));
+
+    when(searchClient.getIndex(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(getIndexResponse);
+
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+
+    AcknowledgedResponse deleteResponse = mock(AcknowledgedResponse.class);
+    when(deleteResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.deleteIndex(
+            any(OperationFingerprint.class),
+            any(DeleteIndexRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(deleteResponse);
+
+    ESIndexBuilder.cleanOrphanedIndices(
+        searchClient, opContext, elasticSearchConfiguration, indexState, Set.of(excludedOrphan));
+
+    ArgumentCaptor<DeleteIndexRequest> deleteCaptor =
+        ArgumentCaptor.forClass(DeleteIndexRequest.class);
+    verify(searchClient)
+        .deleteIndex(
+            any(OperationContext.class), deleteCaptor.capture(), any(RequestOptions.class));
+    assertEquals(deleteCaptor.getAllValues().size(), 1);
+    assertEquals(deleteCaptor.getValue().indices()[0], deletableOrphan);
+  }
+
+  @Test
+  void testCleanIndex_DoesNotDeleteSemanticSiblingIndex() throws Exception {
+    // The base entity config's clean pattern (e.g. datasetindex_v2_*) also matches the live
+    // semantic index (datasetindex_v2_semantic). The bare semantic index is alias-less and old, so
+    // it otherwise satisfies the orphan condition, but it must NOT be deleted as an orphan of the
+    // base entity config. Its own backing indices (datasetindex_v2_semantic_<ts>) are NOT semantic
+    // per isSemanticEntityIndex (they end in a timestamp), so a stale, alias-less one must still be
+    // deleted - the guard protects only the bare name, not the semantic index's backing churn.
+    // Names are derived from the context's IndexConvention so the semantic suffix (and any
+    // configured prefix) match what isSemanticEntityIndex expects.
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    String baseName = indexConvention.getEntityIndexName("dataset");
+    String semanticSibling = indexConvention.getEntityIndexNameSemantic("dataset");
+    String baseBackingOrphan = baseName + "_1700000000000";
+    String semanticBackingOrphan = semanticSibling + "_1700000000000";
+
+    ReindexConfig baseConfig = mock(ReindexConfig.class);
+    when(baseConfig.name()).thenReturn(baseName);
+    when(baseConfig.indexPattern()).thenReturn(baseName + "*");
+    when(baseConfig.indexCleanPattern()).thenReturn(baseName + "_*");
+
+    long tenDaysAgo = System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000;
+
+    GetIndexResponse getIndexResponse = mock(GetIndexResponse.class);
+    when(getIndexResponse.getIndices())
+        .thenReturn(new String[] {baseBackingOrphan, semanticSibling, semanticBackingOrphan});
+    when(getIndexResponse.getSetting(anyString(), eq("index.creation_date")))
+        .thenReturn(String.valueOf(tenDaysAgo));
+    // All alias-less: the two backing indices are genuine orphans; the bare semantic index is live
+    // but addressed by physical name (no alias).
+    when(getIndexResponse.getAliases())
+        .thenReturn(
+            Map.of(
+                baseBackingOrphan,
+                List.of(),
+                semanticSibling,
+                List.of(),
+                semanticBackingOrphan,
+                List.of()));
+
+    when(searchClient.getIndex(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(getIndexResponse);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+
+    AcknowledgedResponse deleteResponse = mock(AcknowledgedResponse.class);
+    when(deleteResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.deleteIndex(
+            any(OperationFingerprint.class),
+            any(DeleteIndexRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(deleteResponse);
+
+    ESIndexBuilder.cleanOrphanedIndices(
+        searchClient, opContext, elasticSearchConfiguration, baseConfig, Set.of());
+
+    ArgumentCaptor<DeleteIndexRequest> deleteCaptor =
+        ArgumentCaptor.forClass(DeleteIndexRequest.class);
+    verify(searchClient, times(2))
+        .deleteIndex(
+            any(OperationContext.class), deleteCaptor.capture(), any(RequestOptions.class));
+    Set<String> deleted = new HashSet<>();
+    for (DeleteIndexRequest request : deleteCaptor.getAllValues()) {
+      deleted.add(request.indices()[0]);
+    }
+    assertTrue(deleted.contains(baseBackingOrphan), "Base backing orphan should be deleted");
+    assertTrue(
+        deleted.contains(semanticBackingOrphan), "Stale semantic backing orphan should be deleted");
+    assertFalse(deleted.contains(semanticSibling), "Live bare semantic index must not be deleted");
   }
 
   @Test
   void testApplyMappings_WithStructuredProperties() throws IOException {
-    // Setup
     Map<String, Object> currentMappings = createTestMappings();
     Map<String, Object> targetMappings =
         createTestMappingsWithStructuredProperties(Collections.emptyMap());
@@ -690,14 +891,21 @@ public class ESIndexBuilderTest {
 
     AcknowledgedResponse putMappingResponse = mock(AcknowledgedResponse.class);
     when(putMappingResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.putIndexMapping(any(PutMappingRequest.class), any(RequestOptions.class)))
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(putMappingResponse);
 
     // Execute
-    indexBuilder.applyMappings(indexState, false);
+    indexBuilder.applyMappings(opContext, indexState, false);
 
     // Verify
-    verify(searchClient).putIndexMapping(any(PutMappingRequest.class), any(RequestOptions.class));
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
   }
 
   @Test
@@ -710,11 +918,15 @@ public class ESIndexBuilderTest {
     when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
 
     // Simulate OpenSearchStatusException
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenThrow(new OpenSearchStatusException("Index is read-only", RestStatus.FORBIDDEN));
 
     // Execute and verify exception
-    assertThrows(OpenSearchStatusException.class, () -> indexBuilder.buildIndex(indexState));
+    assertThrows(
+        OpenSearchStatusException.class, () -> indexBuilder.buildIndex(opContext, indexState));
   }
 
   @Test
@@ -725,16 +937,25 @@ public class ESIndexBuilderTest {
     when(indexState.targetMappings()).thenReturn(createTestMappings());
     when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
 
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenThrow(new IOException("Connection timed out"));
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
 
-    indexBuilder.buildIndex(indexState);
+    indexBuilder.buildIndex(opContext, indexState);
 
     verify(searchClient, times(1))
-        .createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
-    verify(searchClient).indexExists(any(GetIndexRequest.class), any(RequestOptions.class));
+        .createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class));
+    verify(searchClient)
+        .indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -749,17 +970,24 @@ public class ESIndexBuilderTest {
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenThrow(new IOException("Connection reset"))
         .thenReturn(createResponse);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
 
-    ReindexResult result = indexBuilder.buildIndex(indexState);
+    ReindexResult result = indexBuilder.buildIndex(opContext, indexState);
 
     assertEquals(result, ReindexResult.CREATED_NEW);
     verify(searchClient, times(2))
-        .createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
+        .createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class));
   }
 
   @Test
@@ -772,14 +1000,21 @@ public class ESIndexBuilderTest {
     when(indexState.targetMappings()).thenReturn(createTestMappings());
     when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
 
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenThrow(new IOException("Connection reset"));
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
 
-    assertThrows(Exception.class, () -> indexBuilder.buildIndex(indexState));
+    assertThrows(Exception.class, () -> indexBuilder.buildIndex(opContext, indexState));
     verify(searchClient, times(2))
-        .createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
+        .createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class));
   }
 
   @Test
@@ -787,19 +1022,24 @@ public class ESIndexBuilderTest {
     // Setup
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
-    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class), any(RefreshRequest.class), any(RequestOptions.class)))
+        .thenReturn(refreshResponse);
 
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(42L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     // Execute
-    long count = indexBuilder.getCount(TEST_INDEX_NAME);
+    long count = indexBuilder.getCount(opContext, TEST_INDEX_NAME);
 
     // Verify
     assertEquals(count, 42L);
-    verify(searchClient).refreshIndex(any(), any(RequestOptions.class));
+    verify(searchClient)
+        .refreshIndex(
+            any(OperationFingerprint.class), any(RefreshRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -851,13 +1091,14 @@ public class ESIndexBuilderTest {
             indexOverrides,
             gitVersion);
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
 
     // Execute
     ReindexConfig result =
         builderWithOverrides.buildReindexState(
-            indexName, createTestMappings(), createTestSettings());
+            opContext, indexName, createTestMappings(), createTestSettings());
 
     // Verify
     Map<String, Object> targetSettings = result.targetSettings();
@@ -899,15 +1140,18 @@ public class ESIndexBuilderTest {
 
     // Override the mock to return OpenSearch 2.9 for root endpoint
     when(searchClient.performLowLevelRequest(
+            any(OperationFingerprint.class),
             argThat(req -> req != null && req.getEndpoint().equals("/"))))
         .thenReturn(rootResponse);
 
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
 
     // Execute
     ReindexConfig result =
-        indexBuilder.buildReindexState(TEST_INDEX_NAME, createTestMappings(), createTestSettings());
+        indexBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, createTestMappings(), createTestSettings());
 
     // Verify codec is set for OpenSearch 2.9+
     Map<String, Object> indexSettings = (Map<String, Object>) result.targetSettings().get("index");
@@ -949,13 +1193,17 @@ public class ESIndexBuilderTest {
     // Mock index creation
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     // Mock document count to be 0 to trigger REINDEXED_SKIPPED_0DOCS path
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(0L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     // Mock task list response - return empty list (no previous tasks)
@@ -969,35 +1217,47 @@ public class ESIndexBuilderTest {
     // Mock refreshIndex response
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
-    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class), any(RefreshRequest.class), any(RequestOptions.class)))
+        .thenReturn(refreshResponse);
 
     // Mock settings operations for reindex optimization
     GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
     when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
         .thenReturn("512mb");
-    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(getSettingsResponse);
 
     AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
     when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(settingsUpdateResponse);
 
     // Mock alias operations for final rename
     GetAliasesResponse getAliasesResponse = mock(GetAliasesResponse.class);
     when(getAliasesResponse.getAliases()).thenReturn(Map.of());
-    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexAliases(
+            any(OperationFingerprint.class),
+            any(GetAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
 
     AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
     when(aliasResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexAliases(
-            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(IndicesAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(aliasResponse);
 
     // Execute the reindex
-    ReindexResult result = optimizationDisabledIndexBuilder.buildIndex(indexState);
+    ReindexResult result = optimizationDisabledIndexBuilder.buildIndex(opContext, indexState);
 
     // Verify the result
     assertEquals(result, ReindexResult.REINDEXED_SKIPPED_0DOCS);
@@ -1006,6 +1266,7 @@ public class ESIndexBuilderTest {
     // When zone awareness is enabled, the number of replicas should not be set to 0
     verify(searchClient, never())
         .updateIndexSettings(
+            any(OperationFingerprint.class),
             argThat(
                 request ->
                     request.indices().length == 1
@@ -1047,14 +1308,18 @@ public class ESIndexBuilderTest {
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     // Non-zero doc count drives execution through submitReindex -> setReindexOptimalSettings,
     // which is the code path guarded by the flag.
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(100L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse taskListResponse =
@@ -1066,42 +1331,56 @@ public class ESIndexBuilderTest {
 
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
-    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class), any(RefreshRequest.class), any(RequestOptions.class)))
+        .thenReturn(refreshResponse);
 
     AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
     when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(settingsUpdateResponse);
 
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any())).thenReturn("task1");
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any()))
+        .thenReturn("task1");
 
     GetAliasesResponse getAliasesResponse = mock(GetAliasesResponse.class);
     when(getAliasesResponse.getAliases()).thenReturn(Map.of());
-    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexAliases(
+            any(OperationFingerprint.class),
+            any(GetAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
 
     AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
     when(aliasResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexAliases(
-            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(IndicesAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(aliasResponse);
 
-    ReindexResult result = optimizationDisabledIndexBuilder.buildIndex(indexState);
+    ReindexResult result = optimizationDisabledIndexBuilder.buildIndex(opContext, indexState);
 
     // Reindex is still submitted - only the pre-reindex optimizations are skipped.
     assertEquals(result, ReindexResult.REINDEXING);
-    verify(searchClient).submitReindexTask(any(ReindexRequest.class), any());
+    verify(searchClient)
+        .submitReindexTask(any(OperationContext.class), any(ReindexRequest.class), any());
 
     // Critical: the cluster-level /_nodes/stats heap query must not be issued. This is the
     // call that fails in reduced-permission deployments and was previously uncaught.
     verify(searchClient, never())
         .performLowLevelRequest(
+            any(OperationFingerprint.class),
             argThat(req -> req != null && req.getEndpoint().contains("_nodes/stats")));
 
     // None of the optimization settings should be written to the temp index.
     verify(searchClient, never())
         .updateIndexSettings(
+            any(OperationFingerprint.class),
             argThat(
                 request ->
                     request != null
@@ -1111,6 +1390,7 @@ public class ESIndexBuilderTest {
             any(RequestOptions.class));
     verify(searchClient, never())
         .updateIndexSettings(
+            any(OperationFingerprint.class),
             argThat(
                 request ->
                     request != null
@@ -1120,6 +1400,7 @@ public class ESIndexBuilderTest {
             any(RequestOptions.class));
     verify(searchClient, never())
         .updateIndexSettings(
+            any(OperationFingerprint.class),
             argThat(
                 request ->
                     request != null
@@ -1139,6 +1420,7 @@ public class ESIndexBuilderTest {
   void testReindexContinuesWhenNodeStatsFails() throws Exception {
     // Override the @BeforeMethod stub: /_nodes/stats now fails.
     when(searchClient.performLowLevelRequest(
+            any(OperationFingerprint.class),
             argThat(req -> req != null && req.getEndpoint().contains("_nodes/stats"))))
         .thenThrow(new IOException("permission denied on cluster:monitor/nodes/stats"));
 
@@ -1154,12 +1436,16 @@ public class ESIndexBuilderTest {
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(100L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse taskListResponse =
@@ -1171,42 +1457,58 @@ public class ESIndexBuilderTest {
 
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
-    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class), any(RefreshRequest.class), any(RequestOptions.class)))
+        .thenReturn(refreshResponse);
 
     GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
     when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
         .thenReturn("512mb");
-    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(getSettingsResponse);
 
     AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
     when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(settingsUpdateResponse);
 
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any())).thenReturn("task1");
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any()))
+        .thenReturn("task1");
 
     GetAliasesResponse getAliasesResponse = mock(GetAliasesResponse.class);
     when(getAliasesResponse.getAliases()).thenReturn(Map.of());
-    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexAliases(
+            any(OperationFingerprint.class),
+            any(GetAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
 
     AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
     when(aliasResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexAliases(
-            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(IndicesAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(aliasResponse);
 
-    ReindexResult result = indexBuilder.buildIndex(indexState);
+    ReindexResult result = indexBuilder.buildIndex(opContext, indexState);
 
     // Reindex is still submitted - the node-stats failure is swallowed.
     assertEquals(result, ReindexResult.REINDEXING);
-    verify(searchClient).submitReindexTask(any(ReindexRequest.class), any());
+    verify(searchClient)
+        .submitReindexTask(any(OperationContext.class), any(ReindexRequest.class), any());
 
     // Replica/refresh_interval tuning is still applied (they don't depend on heap stats).
     verify(searchClient)
         .updateIndexSettings(
+            any(OperationFingerprint.class),
             argThat(
                 request ->
                     request != null
@@ -1216,6 +1518,7 @@ public class ESIndexBuilderTest {
             any(RequestOptions.class));
     verify(searchClient)
         .updateIndexSettings(
+            any(OperationFingerprint.class),
             argThat(
                 request ->
                     request != null
@@ -1227,6 +1530,7 @@ public class ESIndexBuilderTest {
     // Flush threshold optimization should be skipped because the heap query failed.
     verify(searchClient, never())
         .updateIndexSettings(
+            any(OperationFingerprint.class),
             argThat(
                 request ->
                     request != null
@@ -1253,7 +1557,10 @@ public class ESIndexBuilderTest {
 
     CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
     when(createResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(createResponse);
 
     org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse taskListResponse =
@@ -1265,42 +1572,58 @@ public class ESIndexBuilderTest {
 
     org.opensearch.action.admin.indices.refresh.RefreshResponse refreshResponse =
         mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class);
-    when(searchClient.refreshIndex(any(), any(RequestOptions.class))).thenReturn(refreshResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class), any(RefreshRequest.class), any(RequestOptions.class)))
+        .thenReturn(refreshResponse);
 
     GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
     when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
         .thenReturn("512mb");
-    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(getSettingsResponse);
 
     AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
     when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(settingsUpdateResponse);
 
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any())).thenReturn("task1");
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any()))
+        .thenReturn("task1");
 
     GetAliasesResponse getAliasesResponse = mock(GetAliasesResponse.class);
     when(getAliasesResponse.getAliases()).thenReturn(Map.of());
-    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexAliases(
+            any(OperationFingerprint.class),
+            any(GetAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
 
     AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
     when(aliasResponse.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexAliases(
-            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(IndicesAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(aliasResponse);
 
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(100L, 100L, 100L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
-    ReindexResult result = indexBuilder.buildIndex(indexState);
+    ReindexResult result = indexBuilder.buildIndex(opContext, indexState);
 
     assertEquals(result, ReindexResult.REINDEXING);
-    verify(searchClient).submitReindexTask(any(ReindexRequest.class), any());
+    verify(searchClient)
+        .submitReindexTask(any(OperationContext.class), any(ReindexRequest.class), any());
     verify(buildIndicesConfig).getReindexBatchSize();
     verify(buildIndicesConfig).getReindexMaxSlices();
   }
@@ -1339,7 +1662,9 @@ public class ESIndexBuilderTest {
 
     AtomicInteger count = new AtomicInteger();
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT)))
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             (e) -> {
               if (count.get() == 1) {
@@ -1349,11 +1674,14 @@ public class ESIndexBuilderTest {
               throw new OpenSearchException("Circuit breaker");
             });
     // Should succeed on retry
-    indexBuilder.updateIndexSettings("test_index", settings);
+    indexBuilder.updateIndexSettings(opContext, "test_index", settings);
 
     // Verify retry happened (called twice: first failed, second succeeded)
     verify(searchClient, times(2))
-        .updateIndexSettings(any(UpdateSettingsRequest.class), eq(RequestOptions.DEFAULT));
+        .updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1371,7 +1699,10 @@ public class ESIndexBuilderTest {
     when(healthResponse.getIndices()).thenReturn(healthMap);
 
     AtomicInteger count = new AtomicInteger();
-    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(
+            any(OperationFingerprint.class),
+            any(ClusterHealthRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             inv -> {
               // Throw IOException on second call (index health check), not first (data node count)
@@ -1381,10 +1712,13 @@ public class ESIndexBuilderTest {
               return healthResponse;
             });
 
-    indexBuilder.waitForIndexGreenHealth(indexName, 30);
+    indexBuilder.waitForIndexGreenHealth(opContext, indexName, 30);
 
     verify(searchClient, atLeast(1))
-        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+        .clusterHealth(
+            any(OperationFingerprint.class),
+            any(ClusterHealthRequest.class),
+            eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1403,16 +1737,22 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.YELLOW);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(
+            any(OperationFingerprint.class),
+            any(ClusterHealthRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should NOT throw - YELLOW with all primaries active is acceptable
     // Replicas will sync asynchronously in background
-    indexBuilder.waitForIndexGreenHealth(indexName, 30);
+    indexBuilder.waitForIndexGreenHealth(opContext, indexName, 30);
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+        .clusterHealth(
+            any(OperationFingerprint.class),
+            any(ClusterHealthRequest.class),
+            eq(RequestOptions.DEFAULT));
   }
 
   private Map<String, Object> createTestTargetSettings() {
@@ -1435,15 +1775,21 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.GREEN);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(
+            any(OperationFingerprint.class),
+            any(ClusterHealthRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should not throw
-    indexBuilder.waitForIndexGreenHealth(indexName, 30);
+    indexBuilder.waitForIndexGreenHealth(opContext, indexName, 30);
 
     // Verify clusterHealth was called exactly once
     verify(searchClient, times(1))
-        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+        .clusterHealth(
+            any(OperationFingerprint.class),
+            any(ClusterHealthRequest.class),
+            eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1457,12 +1803,16 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(3);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(any(), eq(RequestOptions.DEFAULT))).thenReturn(healthResponse);
+    when(searchClient.clusterHealth(
+            any(OperationFingerprint.class),
+            any(ClusterHealthRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(healthResponse);
 
     // Should throw IOException
     Exception exception = null;
     try {
-      indexBuilder.waitForIndexGreenHealth(indexName, 30);
+      indexBuilder.waitForIndexGreenHealth(opContext, indexName, 30);
       fail("Expected RuntimeException to be thrown for RED status");
     } catch (ReplicaHealthException e) {
       exception = e;
@@ -1476,7 +1826,10 @@ public class ESIndexBuilderTest {
     // Verify clusterHealth was called at least once (retry logic may try multiple times)
     // But the first response already indicates RED, so we expect few retries
     verify(searchClient, atLeastOnce())
-        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+        .clusterHealth(
+            any(OperationFingerprint.class),
+            any(ClusterHealthRequest.class),
+            eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1491,13 +1844,16 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(2);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(
+            any(OperationFingerprint.class),
+            any(ClusterHealthRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw RuntimeException
     Exception exception = null;
     try {
-      indexBuilder.waitForIndexGreenHealth(indexName, 30);
+      indexBuilder.waitForIndexGreenHealth(opContext, indexName, 30);
       fail("Expected RuntimeException to be thrown for initializing shards");
     } catch (ReplicaHealthException e) {
       exception = e;
@@ -1511,7 +1867,10 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
+        .clusterHealth(
+            any(OperationFingerprint.class),
+            any(ClusterHealthRequest.class),
+            eq(RequestOptions.DEFAULT));
   }
 
   private ClusterHealthResponse createMockClusterHealthResponse(
@@ -1550,7 +1909,7 @@ public class ESIndexBuilderTest {
             });
     // Execute: Get status for all three tasks
     ESIndexBuilder.TaskStatusResult result =
-        indexBuilder.getTaskStatusMultiple(List.of("node1:1", "node2:2", "node3:3"));
+        indexBuilder.getTaskStatusMultiple(opContext, List.of("node1:1", "node2:2", "node3:3"));
 
     assertEquals(
         result.getResponses().size(), 1, "Should have exactly 1 successful response (node1:1)");
@@ -1598,6 +1957,30 @@ public class ESIndexBuilderTest {
     ESIndexBuilder.extractTargetShards(config);
   }
 
+  @Test(dataProvider = "estimateMinutesRemainingData")
+  void testEstimateMinutesRemaining(
+      long docsIndexedSinceStart,
+      long elapsedMillisSinceStart,
+      long remainingDocs,
+      long expectedMinutes) {
+    assertEquals(
+        ESIndexBuilder.estimateMinutesRemaining(
+            docsIndexedSinceStart, elapsedMillisSinceStart, remainingDocs),
+        expectedMinutes);
+  }
+
+  @DataProvider(name = "estimateMinutesRemainingData")
+  public Object[][] provideEstimateMinutesRemainingData() {
+    return new Object[][] {
+      // docsIndexedSinceStart, elapsedMillisSinceStart, remainingDocs, expectedMinutes
+      {1000L, 60_000L, 9000L, 9L}, // steady cumulative rate
+      {100L, 0L, 500L, 0L}, // zero elapsed time guards divide-by-zero
+      {0L, 30_000L, 1000L, 0L}, // no progress yet
+      {1000L, 60_000L, 0L, 0L}, // already complete
+      {10_000L, 60_000L, 100L, 0L}, // sub-minute ETA truncates to 0
+    };
+  }
+
   @Test
   void testGetIncrementalNextIndexNameSanitizesVersion() {
     String result = ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v2", "1.2.3-4", 1000L);
@@ -1621,28 +2004,38 @@ public class ESIndexBuilderTest {
     when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
 
     // Mock createIndex (the next index doesn't exist yet)
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(new CreateIndexResponse(true, true, "test_index_next_123"));
 
     // Mock getCount returning 0 (empty source index)
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(0L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     ESIndexBuilder.IncrementalReindexResult result =
-        indexBuilder.buildIndexIncremental(indexState, "0.13.1-0");
+        indexBuilder.buildIndexIncremental(opContext, indexState, "0.13.1-0");
 
     assertTrue(result.nextIndexName().startsWith(TEST_INDEX_NAME + "_0_13_1-0_"));
     assertTrue(result.reindexStartTime() > 0);
     assertTrue(result.skippedEmpty());
     // Should have created the index
-    verify(searchClient).createIndex(any(CreateIndexRequest.class), any(RequestOptions.class));
+    verify(searchClient)
+        .createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class));
     // Should NOT have submitted a reindex (0 docs)
     verify(searchClient, never())
-        .submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class));
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
   }
 
   /**
@@ -1659,21 +2052,28 @@ public class ESIndexBuilderTest {
     // Empty aliases response → originalName is a concrete index, not an alias
     GetAliasesResponse emptyAliases = mock(GetAliasesResponse.class);
     when(emptyAliases.getAliases()).thenReturn(Map.of());
-    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexAliases(
+            any(OperationFingerprint.class),
+            any(GetAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(emptyAliases);
 
     AcknowledgedResponse ack = mock(AcknowledgedResponse.class);
     when(ack.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexAliases(
-            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(IndicesAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(ack);
 
     ESIndexBuilder.renameReindexedIndices(
-        searchClient, originalName, null, newName, false, RequestOptions.DEFAULT);
+        searchClient, opContext, originalName, null, newName, false, RequestOptions.DEFAULT);
 
     ArgumentCaptor<IndicesAliasesRequest> captor =
         ArgumentCaptor.forClass(IndicesAliasesRequest.class);
-    verify(searchClient).updateIndexAliases(captor.capture(), any(RequestOptions.class));
+    verify(searchClient)
+        .updateIndexAliases(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
 
     List<org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions> actions =
         captor.getValue().getAliasActions();
@@ -1699,21 +2099,28 @@ public class ESIndexBuilderTest {
     // Non-empty aliases response → aliasName already points to a backing index
     GetAliasesResponse existingAlias = mock(GetAliasesResponse.class);
     when(existingAlias.getAliases()).thenReturn(Map.of(oldBacking, new HashSet<>()));
-    when(searchClient.getIndexAliases(any(GetAliasesRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexAliases(
+            any(OperationFingerprint.class),
+            any(GetAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(existingAlias);
 
     AcknowledgedResponse ack = mock(AcknowledgedResponse.class);
     when(ack.isAcknowledged()).thenReturn(true);
     when(searchClient.updateIndexAliases(
-            any(IndicesAliasesRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(IndicesAliasesRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(ack);
 
     ESIndexBuilder.renameReindexedIndices(
-        searchClient, aliasName, null, newBacking, false, RequestOptions.DEFAULT);
+        searchClient, opContext, aliasName, null, newBacking, false, RequestOptions.DEFAULT);
 
     ArgumentCaptor<IndicesAliasesRequest> captor =
         ArgumentCaptor.forClass(IndicesAliasesRequest.class);
-    verify(searchClient).updateIndexAliases(captor.capture(), any(RequestOptions.class));
+    verify(searchClient)
+        .updateIndexAliases(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
 
     List<org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions> actions =
         captor.getValue().getAliasActions();
@@ -1739,37 +2146,48 @@ public class ESIndexBuilderTest {
     when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
 
     // Mock createIndex
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
-    when(searchClient.createIndex(any(CreateIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(new CreateIndexResponse(true, true, "test_index_next_123"));
 
     // Mock getCount returning non-zero (has docs to reindex)
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(1000L);
-    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
 
     // Mock refresh
-    when(searchClient.refreshIndex(any(), any())).thenReturn(null);
+    when(searchClient.refreshIndex(any(OperationFingerprint.class), any(), any())).thenReturn(null);
 
     // Mock settings for reindex optimization
     GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
     when(settingsResponse.getSetting(anyString(), anyString())).thenReturn("512mb");
-    when(searchClient.getIndexSettings(any(GetSettingsRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(settingsResponse);
 
     // Mock settings update
     when(searchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
         .thenReturn(mock(AcknowledgedResponse.class));
 
     // Mock submit reindex task
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn("node1:12345");
 
     ESIndexBuilder.IncrementalReindexResult result =
-        indexBuilder.buildIndexIncremental(indexState, "0.13.1-0");
+        indexBuilder.buildIndexIncremental(opContext, indexState, "0.13.1-0");
 
     assertTrue(result.nextIndexName().startsWith(TEST_INDEX_NAME + "_0_13_1-0_"));
     assertTrue(result.reindexStartTime() > 0);

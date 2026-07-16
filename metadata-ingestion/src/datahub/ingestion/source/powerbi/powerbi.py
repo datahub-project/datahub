@@ -42,6 +42,10 @@ from datahub.ingestion.source.common.subtypes import (
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
+from datahub.ingestion.source.identity.corp_user_status import (
+    CORP_USER_STATUS_ACTIVE,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.powerbi.config import (
     POWERBI_TYPE_TO_DATA_PLATFORM_PAIR,
     Constant,
@@ -194,19 +198,22 @@ class Mapper:
         for cll_info in cll:
             downstream = (
                 [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
-                if cll_info.downstream is not None
-                and cll_info.downstream.column is not None
+                if cll_info.downstream is not None and cll_info.downstream.column
                 else []
             )
 
             upstreams = [
                 builder.make_schema_field_urn(
+                    # convert_lineage_urns_to_lowercase lowercases only the dataset
+                    # portion of the upstream schemaField URN — matching sources'
+                    # lowercase_dataset_urns, which never touches the field path.
+                    # Lowercasing the column too would drop the column-level edge
+                    # against warehouses that store columns in their original casing.
                     self.lineage_urn_to_lowercase(column_ref.table),
-                    column_ref.column.lower()
-                    if self.__config.convert_lineage_urns_to_lowercase
-                    else column_ref.column,
+                    column_ref.column,
                 )
                 for column_ref in cll_info.upstreams
+                if column_ref.column
             ]
 
             fine_grained_lineages.append(
@@ -1131,15 +1138,19 @@ class Mapper:
         user_key = CorpUserKeyClass(username=user_id)
 
         user_info = CorpUserInfoClass(
+            active=True,
             displayName=user.displayName or user_id,  # Fallback to user_id if null
             email=user.emailAddress
             or None,  # PowerBI API may return "" for missing email
-            active=True,
         )
 
         return [
             MetadataChangeProposalWrapper(entityUrn=user_urn, aspect=user_key),
             MetadataChangeProposalWrapper(entityUrn=user_urn, aspect=user_info),
+            MetadataChangeProposalWrapper(
+                entityUrn=user_urn,
+                aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
+            ),
         ]
 
     def _get_qualified_owners(

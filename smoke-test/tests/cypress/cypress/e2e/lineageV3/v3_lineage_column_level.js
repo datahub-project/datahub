@@ -10,7 +10,8 @@ const expandContractColumns = (asset) => {
     .click({ force: true });
 };
 
-describe("column-level lineage graph test", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("column-level lineage graph test", () => {
   beforeEach(() => {
     setLineageV3FeatureFlags();
   });

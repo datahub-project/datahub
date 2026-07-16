@@ -24,11 +24,22 @@ export const PARAM_PROPERTY_VALUES = 'propertyValues';
 // These are the formal type names the backend uses ("Is A", "Has A", etc.),
 // distinct from the UI tab labels ("Contains", "Inherits").
 // ──────────────────────────────────────────────────────────────────────────────
+// Getters, not plain values: the map keys ('Is A', 'Has A', ...) are the backend's own technical
+// relationship-type strings and stay untranslated, but the values are real English words — re-evaluate
+// i18next.t() on every read rather than baking in one language at module-init time.
 export const GLOSSARY_RELATIONSHIP_TYPE_LABELS: Record<string, string> = {
-    'Is A': 'inherited',
-    'Has A': 'contained',
-    'Has Value': 'value',
-    'Is Related To': 'related',
+    get 'Is A'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.inherited');
+    },
+    get 'Has A'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.contained');
+    },
+    get 'Has Value'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.value');
+    },
+    get 'Is Related To'() {
+        return i18next.t('entity.profile.schema:changeEventString.defaultRelationship');
+    },
 };
 
 // Owner types that don't add useful context in change event display

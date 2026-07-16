@@ -430,6 +430,7 @@ This is a mandatory security guardrail - never disable or skip this test.
 
 - Follow Conventional Commits format for commit messages
 - Breaking Changes: Always update `docs/how/updating-datahub.md` for breaking changes. Write entries for non-technical audiences, reference the PR number, and focus on what users need to change rather than internal implementation details
+- **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ### Pull Requests
 
@@ -452,6 +453,22 @@ Example: `feat(parser): add ability to parse arrays`
 - [ ] Tests added/updated (if applicable)
 - [ ] Docs added/updated (if applicable)
 - [ ] Breaking changes documented in `docs/how/updating-datahub.md`
+
+### Confidentiality in Committed Code
+
+DataHub is a **public repository**. Never put customer-identifiable or
+environment-specific details into committed code, tests, docs, comments, commit
+messages, or PRs:
+
+- No real database / schema / table / view / column names, and no usernames,
+  customer names, host names, account IDs, or URLs from customer environments.
+- No Linear/Jira ticket IDs or links.
+- When reproducing a customer issue in a test, use generic placeholder names
+  (e.g. `my_db.my_schema.events`, `col_a`) that preserve the structural pattern
+  being tested, not the customer's actual identifiers.
+- Vendor/system built-ins (e.g. a platform's standard system tables) are fine,
+  but prefer generic names when in doubt.
+- **Never bypass git hook failures with `--no-verify`** (or any equivalent skip flag) on commit or push. A failing hook is a signal that something needs attention — stop, report the failure to the user, and confirm how to proceed. Only use `--no-verify` if the user explicitly tells you to for that specific action.
 
 ## Starting / Operating DataHub
 
@@ -704,6 +721,49 @@ datahub graphql --agent-context
 - https://docs.datahub.com/docs/developers - Official developer guide
 - https://demo.datahub.com/ - Live demo environment
 
+## Cypress Tests (Deprecated)
+
+Cypress UI tests in `smoke-test/tests/cypress/` are **deprecated as of 2026-06-30**.
+
+- **Do not write new Cypress tests.** All new UI automation must use Playwright (see below).
+- **Do not fix failing Cypress tests.** Migrate them to Playwright instead.
+- The Cypress test code is retained temporarily for reference; all CI jobs running Cypress have been removed.
+
+## Playwright UI E2E Tests
+
+Full reference: [`e2e-test/ui/playwright/README.md`](e2e-test/ui/playwright/README.md).
+
+### Seeding
+
+`test.use({ featureName: 'my-feature' })` at the `describe` level auto-loads
+`tests/my-feature/fixtures/data.json` via `seeding.fixture.ts` — once per worker per
+feature per run. Do **not** set `featureName` for suites that create their own data
+via `apiMock` or direct API calls.
+
+## Frontend CI Checklist
+
+This checklist is for **commit- or PR-ready** frontend work — i.e. when you're about to
+commit, push, or hand off changes that are going into a PR. It is **not** required for
+every intermediate edit: work that is part of a larger task, a work-in-progress branch,
+or scratch experimentation that won't be committed yet can skip it. Run the relevant
+commands when the change is ready to ship:
+
+```bash
+# Full lint (eslint + prettier src + type-check) for datahub-web-react
+./gradlew :datahub-web-react:yarnLint
+
+# Targeted lint-fix on a single file
+./gradlew -x yarnInstall -x yarnGenerate yarnLintFix -Pfile=src/path/to/file.tsx
+
+# Vitest unit tests (requires icon stubs — run once per clone)
+node datahub-web-react/scripts/generate-lazy-icon-stubs.js
+cd datahub-web-react && yarn test src/path/to/file.test.ts --run
+```
+
+`yarn type-check` in CI runs repo-wide and will surface pre-existing errors in
+unrelated files. Focus on errors in files **you touched** — in particular, optional
+prop calls (`prop?.(arg)`) and import aliases.
+
 ## Python Virtual Environments
 
 Gradle tasks manage all venvs automatically. Never create, activate, or pip-install into them manually. When running smoke tests outside Gradle: `smoke-test/venv/bin/python -m pytest ...`
@@ -713,3 +773,25 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)
 - All metadata changes flow through the event streaming system
 - GraphQL schema is generated from backend GMS APIs
+
+## Learned User Preferences
+
+- In `metadata-ingestion` connector code, avoid double-quoted string literals: hoist magic strings into module-level constants, and keep all regex in the constants file pre-compiled.
+- Use Pydantic models for structured/internal data; never pass data around as tuples (hard to track).
+- Split connector files by duty (`constants.py`, `models.py`, `config.py`, `client.py`, `source.py`, plus `lineage.py`/`mapper.py`/`usage.py` as needed) and match the quality/patterns of existing connectors (Power BI, Airbyte, Redshift, BigID, Grafana).
+- No "AI slop": no top-of-file docstrings, and keep docstrings/comments only where strictly needed.
+- Never use `TYPE_CHECKING` in connector code since the connector controls its own deps (lazy imports are fine only for opt-in features), and don't use the walrus operator.
+- Prefer `self.report.warning(...)` and report counters over bare `logger` for skips and edge cases — the report also writes to the log and surfaces to operators (e.g. warn when `verify_ssl=False`, or when a referenced object is inaccessible).
+- For SQL lineage, use the central `SqlParsingAggregator` (`create_lineage_from_sql_statements`) with a platform map instead of setting sqlglot dialects per-connector; mirror existing connectors for cross-platform known-URN and platform_instance/env/casing mapping, two- vs three-part names, and temp-table handling.
+- For column-level lineage, don't leave edges coarse: resolve upstream/downstream schemas from the DataHub graph when available (as airbyte/bigid/matillion/informatica do), load known URNs from the platform/platform_instance/env mapping, and match columns case-insensitively. Best-effort is fine, but try everything.
+- In connector code, use explicit type annotations rather than `from typing import Any` (Unions are fine when a value genuinely has multiple types), and prefer `Dict`/`List` from `typing` over the builtin `dict`/`list`.
+- Connectors should surface progress during ingestion and use explicit ingestion stages (as in the dremio and snowflake connectors).
+- Before committing a new connector, run its ingestion locally in debug mode to a local file to capture full logs and catch bugs; when testing against a customer environment, push secrets only to a tmp path (e.g. `/tmp/*.env`).
+- When drafting prose or review comments on the user's behalf (e.g. Notion), write in his own direct, human voice — avoid AI tells like "confirmed these are real gaps".
+
+## Learned Workspace Facts
+
+- The user is a contributor to the public `datahub-project/datahub` repo and can create and push branches directly on `datahub-public-repo`.
+- A new ingestion connector needs more than Python code: a source logo plus an integrations-page logo, UI form pieces, a `datahub.json` update, entry-point registration (`setup.py`/`pyproject.toml`), a refreshed `uv.lock`, and subtypes added to the shared subtypes module rather than defined locally.
+- Avoid Python's stdlib `xml` parser due to a known vulnerability; use a safe XML library (as the HANA-related code does).
+- Keep each connector in its own PR and split shared/framework changes (e.g. sqlglot helpers) into a separate PR; a connector PR's title and description must reference only that connector, not any other connector worked on in the same session.

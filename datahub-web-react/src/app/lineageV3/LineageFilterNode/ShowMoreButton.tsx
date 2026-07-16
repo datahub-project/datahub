@@ -4,8 +4,6 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { LINEAGE_FILTER_PAGINATION, LineageFilter, LineageNodesContext } from '@app/lineageV3/common';
-import { applyOpacity } from '@app/sharedV2/colors/colorUtils';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 const MAX_INCREASE = 100;
 const LINE_HEIGHT = '1.5em';
@@ -41,7 +39,7 @@ const Button = styled.div`
     align-items: center;
     border-radius: 20px;
     background-color: ${(props) => props.theme.colors.bg};
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme.colors.textBrand};
     cursor: pointer;
     display: flex;
     font-size: 10px;
@@ -49,13 +47,8 @@ const Button = styled.div`
     width: fit-content;
 
     :hover {
-        background-color: ${(props) =>
-            applyOpacity(
-                props.theme.styles['primary-color'] || getColor('primary', 500, props.theme),
-                props.theme.colors.bg,
-                10,
-            )};
-        color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

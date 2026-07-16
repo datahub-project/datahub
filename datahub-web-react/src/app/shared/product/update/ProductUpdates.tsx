@@ -251,7 +251,7 @@ export default function ProductUpdates() {
                         {primaryText && primaryLink && (
                             <Button
                                 variant="filled"
-                                color="violet"
+                                color="primary"
                                 onClick={() => {
                                     trackClick(primaryLink);
                                     handleDismiss();
