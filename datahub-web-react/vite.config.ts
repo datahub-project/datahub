@@ -255,9 +255,37 @@ export default defineConfig(async ({ mode }) => {
         },
         test: {
             globals: true,
-            environment: 'jsdom',
+            // happy-dom is 2–4× faster than jsdom. It has DOM-spec gaps (SVG, ranges,
+            // layout, some events) — Monaco / chart / syntax-highlighter tests are the
+            // likely breakers. Override per-file with `// @vitest-environment jsdom` at
+            // the top of any file that needs full jsdom (jsdom stays a devDependency).
+            environment: 'happy-dom',
+            // threads pool + no per-file isolation: test files share a worker (module
+            // registry, globals, DOM, vi.mock state). Big speedup, but leaked state
+            // bleeds across files — requires clean afterEach/teardown in every suite.
+            pool: 'threads',
+            isolate: false,
             setupFiles: './src/setupTests.ts',
-            css: true,
+            // Skip CSS processing in tests. Re-enable (or use `// @vitest-environment`
+            // tricks) only if a suite asserts computed styles / styled-components output.
+            css: false,
+            // Pre-bundle heavy dependencies once instead of transforming their many small
+            // modules on every test file. If a lib mis-bundles (import/interop error),
+            // drop it from this list — surfaces on the first CI run.
+            deps: {
+                optimizer: {
+                    web: {
+                        include: [
+                            'antd',
+                            '@ant-design/icons',
+                            'monaco-editor',
+                            '@monaco-editor/react',
+                            'react-syntax-highlighter',
+                            '@react-spring/web',
+                        ],
+                    },
+                },
+            },
             // reporters: ['verbose'],
             onConsoleLog(log) {
                 // Suppress noisy Apollo Client / GraphQL mock warnings that produce
