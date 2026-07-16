@@ -1,21 +1,24 @@
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import React, { useContext, useState } from 'react';
-
+import { useTranslation } from 'react-i18next';
 import { matchPath, useLocation } from 'react-router';
-import { BookOpen } from '@phosphor-icons/react';
 import styled from 'styled-components';
 
-import { PageRoutes } from '../../../conf/Global';
-import EntitySidebarContext from '../../sharedV2/EntitySidebarContext';
-import TagStyleEntity from '../../shared/TagStyleEntity';
-import { StyledEntitySidebarContainer, StyledSidebar } from '../shared/containers/profile/sidebar/EntityProfileSidebar';
-import { EntitySidebarTab } from '../shared/types';
-import EntitySidebarSectionsTab from '../shared/containers/profile/sidebar/EntitySidebarSectionsTab';
-import { EntitySidebarTabs } from '../shared/containers/profile/sidebar/EntitySidebarTabs';
-import { defaultTabDisplayConfig } from '../shared/containers/profile/utils';
+import {
+    StyledEntitySidebarContainer,
+    StyledSidebar,
+} from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
+import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
+import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
+import { defaultTabDisplayConfig } from '@app/entityV2/shared/containers/profile/utils';
+import { EntitySidebarTab } from '@app/entityV2/shared/types';
+import TagStyleEntity from '@app/shared/TagStyleEntity';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { PageRoutes } from '@conf/Global';
 
 const CompactEntityWrapper = styled.div<{ $isClosed: boolean }>`
     ${(props) => !props.$isClosed && 'padding: 16px;'}
-    border-right: 1px solid #e8e8e8;
+    border-right: 1px solid ${(props) => props.theme.colors.border};
     flex: 1;
     overflow: inherit;
 `;
@@ -30,13 +33,14 @@ interface Props {
  * Responsible for displaying metadata about a tag
  */
 export default function CompactTagProfile({ urn }: Props) {
+    const { t } = useTranslation('entity.types');
     const location = useLocation();
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
     const { isClosed, width } = useContext(EntitySidebarContext);
 
     const tabs: EntitySidebarTab[] = [
         {
-            name: 'About',
+            name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: defaultTabDisplayConfig,

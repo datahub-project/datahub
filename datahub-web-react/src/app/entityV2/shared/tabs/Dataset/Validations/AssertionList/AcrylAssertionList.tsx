@@ -1,24 +1,40 @@
-import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
-import React, { useEffect, useState } from 'react';
 import { Empty } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { TableLoadingSkeleton } from '@app/entityV2/shared/TableLoadingSkeleton';
+import { AcrylAssertionListFilters } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListFilters';
+import { AcrylAssertionListTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListTable';
+import { AssertionListTitleContainer } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionListTitleContainer';
+import {
+    ASSERTION_DEFAULT_FILTERS,
+    ASSERTION_DEFAULT_RAW_DATA,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import { AssertionListFilter, AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { getFilteredTransformedAssertionData } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
-import { Assertion, DataContract } from '@src/types.generated';
 import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '../../../../useIsSeparateSiblingsMode';
-import { tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '../acrylUtils';
-import { combineEntityDataWithSiblings } from '../../../../../../entity/shared/siblingUtils';
-import { getFilteredTransformedAssertionData } from './utils';
-import { AssertionTable, AssertionListFilter } from './types';
-import { AssertionListTitleContainer } from './AssertionListTitleContainer';
-import { AcrylAssertionListFilters } from './AcrylAssertionListFilters';
-import { AcrylAssertionListTable } from './AcrylAssertionListTable';
-import { ASSERTION_DEFAULT_FILTERS, ASSERTION_DEFAULT_RAW_DATA } from './constant';
+import { Assertion, DataContract } from '@src/types.generated';
+
+const AssertionListContainer = styled.div`
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    margin: 0px 20px;
+    flex: 1;
+    overflow: hidden;
+`;
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */
 export const AcrylAssertionList = () => {
+    const { t } = useTranslation('entity.profile.validations');
     const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -77,7 +93,6 @@ export const AcrylAssertionList = () => {
                 <AcrylAssertionListTable
                     contract={contract}
                     assertionData={visibleAssertions}
-                    filter={selectedFilters}
                     refetch={() => {
                         refetch();
                         contractRefetch();
@@ -85,11 +100,11 @@ export const AcrylAssertionList = () => {
                 />
             );
         }
-        return <Empty description="No assertions have run" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <Empty description={t('assertionList.noAssertionsRun')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
     return (
-        <>
+        <AssertionListContainer>
             <AssertionListTitleContainer />
             {assertionMonitorData?.length > 0 && (
                 <AcrylAssertionListFilters
@@ -102,6 +117,6 @@ export const AcrylAssertionList = () => {
                 />
             )}
             {renderListTable()}
-        </>
+        </AssertionListContainer>
     );
 };

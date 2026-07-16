@@ -3,13 +3,16 @@ namespace com.linkedin.schemafield
 import com.linkedin.common.Urn
 
 @Aspect = {
-   "name": "schemafieldInfo"
+   "name": "schemafieldInfo",
+   "schemaVersion": 2
 }
 
 record SchemaFieldInfo {
     @Searchable = {
         "fieldType": "KEYWORD",
-        "fieldNameAliases": [ "_entityName" ]
+        "fieldNameAliases": [ "_entityName" ],
+        "searchTier": 1,
+        "searchLabel": "entityName"
     }
     name: optional string
 

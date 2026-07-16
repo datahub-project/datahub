@@ -18,6 +18,10 @@ class Package:
 
 packages = [
     Package(directory="metadata-ingestion", main_module_name="datahub"),
+    Package(directory="datahub-actions", main_module_name="datahub_actions"),
+    Package(
+        directory="datahub-agent-context", main_module_name="datahub_agent_context"
+    ),
     Package(
         directory="metadata-ingestion-modules/airflow-plugin",
         main_module_name="datahub_airflow_plugin",

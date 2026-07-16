@@ -1,32 +1,27 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { EntityType, Tag } from '../../../types.generated';
-import { StyledTag } from '../../entityV2/shared/components/styled/StyledTag';
-import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { TagProfileDrawer } from '../../shared/tags/TagProfileDrawer';
+
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
+import TagPill from '@app/sharedV2/tags/TagPill';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, Tag } from '@types';
 
 const Container = styled.span`
     display: block;
     max-width: fit-content;
 `;
 
-const Name = styled.div`
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: block;
-`;
-
-const tagStyle = { cursor: 'pointer' };
-
 interface Props {
     tag: Tag;
     fontSize?: number;
+    enableTooltip?: boolean;
+    enableDrawer?: boolean;
 }
 
-export default function TagLink({ tag, fontSize }: Props) {
+export default function TagLink({ tag, fontSize, enableTooltip = true, enableDrawer = true }: Props) {
     const entityRegistry = useEntityRegistry();
-
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
     const [addTagUrn, setAddTagUrn] = useState('');
 
@@ -43,21 +38,18 @@ export default function TagLink({ tag, fontSize }: Props) {
 
     return (
         <>
-            <HoverEntityTooltip entity={tag}>
-                <Container data-testid={`tag-${displayName}`}>
-                    <StyledTag
-                        style={tagStyle}
-                        onClick={() => showTagProfileDrawer(tag.urn)}
-                        $colorHash={tag.urn}
-                        $color={tag.properties?.colorHex}
-                        closable={false}
-                        fontSize={fontSize}
-                    >
-                        <Name>{displayName}</Name>
-                    </StyledTag>
+            <HoverEntityTooltip entity={tag} canOpen={enableTooltip}>
+                <Container data-testid={`tag-${displayName}`} onClick={() => showTagProfileDrawer(tag.urn)}>
+                    <TagPill
+                        name={displayName}
+                        color={tag.properties?.colorHex}
+                        colorHash={tag.urn}
+                        size={fontSize && fontSize <= 10 ? 'sm' : 'md'}
+                        clickable
+                    />
                 </Container>
             </HoverEntityTooltip>
-            {tagProfileDrawerVisible && (
+            {tagProfileDrawerVisible && enableDrawer && (
                 <TagProfileDrawer
                     closeTagProfileDrawer={closeTagProfileDrawer}
                     tagProfileDrawerVisible={tagProfileDrawerVisible}

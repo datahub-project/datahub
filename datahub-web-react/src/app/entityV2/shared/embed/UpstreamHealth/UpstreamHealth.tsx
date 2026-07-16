@@ -1,27 +1,25 @@
-import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
-import { Divider } from 'antd';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
-import { ErrorRounded } from '@mui/icons-material';
-import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
-import { FilterOperator, LineageDirection } from '../../../../../types.generated';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { CTAWrapper, StyledArrow } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
+import UpstreamEntitiesList from '@app/entityV2/shared/embed/UpstreamHealth/UpstreamEntitiesList';
+import { DATASET_COUNT } from '@app/entityV2/shared/embed/UpstreamHealth/utils';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
     HAS_FAILING_ASSERTIONS_FILTER_NAME,
     IS_DEPRECATED_FILTER_NAME,
-} from '../../../../search/utils/constants';
-import { useAppConfig } from '../../../../useAppConfig';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import { DATASET_COUNT } from './utils';
-import UpstreamEntitiesList from './UpstreamEntitiesList';
-import { CTAWrapper, StyledArrow } from '../../containers/profile/sidebar/FormInfo/components';
+} from '@app/search/utils/constants';
+import { useAppConfig } from '@app/useAppConfig';
+import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { isDeprecated, isUnhealthy } from '@src/app/shared/health/healthUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
-export const StyledDivider = styled(Divider)`
-    margin: 16px 0;
-`;
+import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
+import { FilterOperator, LineageDirection } from '@types';
 
 const Title = styled.div`
     font-size: 14px;
@@ -51,6 +49,8 @@ const Container = styled.div`
 `;
 
 export default function UpstreamHealth() {
+    const { t } = useTranslation('entity.shared.stats');
+    const themeConfig = useTheme();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
 
@@ -229,11 +229,15 @@ export default function UpstreamHealth() {
 
     return (
         <Container>
-            <CTAWrapper backgroundColor="#FBF3EF" borderColor="#FBF3EF" padding="10px 0 0 0">
+            <CTAWrapper
+                backgroundColor={themeConfig.colors.bgSurfaceError}
+                borderColor={themeConfig.colors.bgSurfaceError}
+                padding="10px 0 0 0"
+            >
                 <TitleWrapper isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>
                     <Header>
-                        <ErrorRounded style={{ color: '#E54D1F', fontSize: '18' }} />
-                        <Title>Some upstreams are unhealthy</Title>
+                        <WarningCircle color={themeConfig.colors.textError} size={18} />
+                        <Title>{t('upstream.unhealthy')}</Title>
                     </Header>
                     <StyledArrow isOpen={isOpen} />
                 </TitleWrapper>

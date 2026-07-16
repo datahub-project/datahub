@@ -1,44 +1,48 @@
-import theme, { colors } from '@components/theme';
+import ColorTheme from '@conf/theme/colorThemes/types';
 import { SizeOptions } from '@src/alchemy-components/theme/config';
 
-const checkboxBackgroundDefault = {
-    default: colors.white,
-    checked: theme.semanticTokens.colors.primary,
-    error: theme.semanticTokens.colors.error,
-    disabled: colors.gray[300],
-};
-
-const checkboxHoverColors = {
-    default: colors.gray[100],
-    error: colors.red[100],
-    checked: colors.violet[100],
-};
-
-export function getCheckboxColor(checked: boolean, error: string, disabled: boolean, mode: 'background' | undefined) {
-    if (disabled) return checkboxBackgroundDefault.disabled;
-    if (error) return checkboxBackgroundDefault.error;
-    if (checked) return checkboxBackgroundDefault.checked;
-    return mode === 'background' ? checkboxBackgroundDefault.default : colors.gray[500];
-}
-
-export function getCheckboxHoverBackgroundColor(checked: boolean, error: string) {
-    if (error) return checkboxHoverColors.error;
-    if (checked) return checkboxHoverColors.checked;
-    return checkboxHoverColors.default;
+export function getCheckboxBorder(checked: boolean, error: boolean, disabled: boolean, colors?: ColorTheme) {
+    if (checked) return 'none';
+    if (error) return `1px solid ${colors?.borderError}`;
+    if (disabled) return `1px solid ${colors?.borderDisabled}`;
+    return `1px solid ${colors?.borderCheckbox}`;
 }
 
 const sizeMap: Record<SizeOptions, string> = {
     xs: '16px',
-    sm: '18px',
-    md: '20px',
-    lg: '22px',
-    xl: '24px',
-    inherit: '',
+    sm: '16px',
+    md: '18px',
+    lg: '20px',
+    xl: '22px',
+    inherit: 'inherit',
 };
 
 export function getCheckboxSize(size: SizeOptions) {
-    return {
-        height: sizeMap[size],
-        width: sizeMap[size],
-    };
+    return sizeMap[size];
+}
+
+const touchTargetMap: Record<SizeOptions, string> = {
+    xs: '20px',
+    sm: '20px',
+    md: '22px',
+    lg: '24px',
+    xl: '24px',
+    inherit: '22px',
+};
+
+export function getCheckboxTouchTarget(size: SizeOptions) {
+    return touchTargetMap[size];
+}
+
+const iconSizeMap: Record<SizeOptions, number> = {
+    xs: 12,
+    sm: 12,
+    md: 14,
+    lg: 16,
+    xl: 18,
+    inherit: 14,
+};
+
+export function getCheckIconSize(size: SizeOptions) {
+    return iconSizeMap[size];
 }

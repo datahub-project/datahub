@@ -1,54 +1,54 @@
 import React, { useState } from 'react';
-import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
-import { GroupsSection } from '../SidebarStyledComponents';
-import { EntityLink } from '../../../homeV2/reference/sections/EntityLink';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../constants';
-import { EntityRelationship } from '../../../../types.generated';
-import { ShowMoreSection } from './ShowMoreSection';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
+
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { CorpGroup, EntityRelationship } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 4;
 
-const groupLinkStyle = {
-    backgroundColor: ANTD_GRAY_V2[13],
-    '& svg': {
-        color: ANTD_GRAY[1],
-    },
-};
-
-const entityLinkTextStyle = {
-    overflow: 'hidden',
-    'white-space': 'nowrap',
-    'text-overflow': 'ellipsis',
-};
+const GroupsContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+`;
 
 type Props = {
     groupsDetails: EntityRelationship[];
 };
 
 export const UserGroupSideBarSection = ({ groupsDetails }: Props) => {
+    const { t } = useTranslation('entity.shared.profile');
+    const entityRegistry = useEntityRegistryV2();
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
-    const groupsDetailsCount = groupsDetails.length || 0;
+
+    const groupsDetailsCount = groupsDetails.length;
     return (
         <SidebarSection
-            title="Groups"
+            title={t('sidebar.groupsTitle')}
             content={
                 <>
-                    <GroupsSection>
+                    <GroupsContainer>
                         {groupsDetails.map((groupDetail, index) => {
-                            const { entity } = groupDetail;
+                            const group = groupDetail.entity as CorpGroup;
                             return (
-                                entity &&
+                                group &&
                                 index < entityCount && (
-                                    <EntityLink
-                                        key={entity?.urn}
-                                        entity={entity}
-                                        styles={groupLinkStyle}
-                                        displayTextStyle={entityLinkTextStyle}
+                                    <AvatarPillWithLinkAndHover
+                                        key={group.urn}
+                                        user={group}
+                                        size="sm"
+                                        entityRegistry={entityRegistry}
                                     />
                                 )
                             );
                         })}
-                    </GroupsSection>
+                    </GroupsContainer>
                     {groupsDetailsCount > entityCount && (
                         <ShowMoreSection
                             totalCount={groupsDetailsCount}

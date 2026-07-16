@@ -15,7 +15,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryTermInfo;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.config.PreProcessHooks;
@@ -96,7 +95,7 @@ public class DataGenerator {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     AuditStamp auditStamp =
         new AuditStamp()
-            .setActor(UrnUtils.getUrn(Constants.DATAHUB_ACTOR))
+            .setActor(UrnUtils.getUrn("urn:li:corpuser:datahub"))
             .setTime(System.currentTimeMillis());
 
     // Prevent duplicate tags and terms generated as secondary entities
@@ -172,7 +171,7 @@ public class DataGenerator {
                                 opContext,
                                 AspectsBatchImpl.builder()
                                     .mcps(List.of(mcp), auditStamp, opContext.getRetrieverContext())
-                                    .build()
+                                    .build(opContext)
                                     .getMCPItems(),
                                 entityService,
                                 true)
@@ -330,7 +329,7 @@ public class DataGenerator {
                 try {
                   AuditStamp auditStamp =
                       new AuditStamp()
-                          .setActor(Urn.createFromString(Constants.DATAHUB_ACTOR))
+                          .setActor(Urn.createFromString("urn:li:corpuser:datahub"))
                           .setTime(System.currentTimeMillis());
                   auditStampMethod.invoke(aspect, auditStamp);
                 } catch (URISyntaxException

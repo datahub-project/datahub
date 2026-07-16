@@ -4,7 +4,8 @@ namespace com.linkedin.ml.metadata
  * Properties associated with a MLFeature editable from the UI
  */
 @Aspect = {
-  "name": "editableMlFeatureProperties"
+  "name": "editableMlFeatureProperties",
+  "schemaVersion": 2
 }
 record EditableMLFeatureProperties {
 
@@ -14,6 +15,7 @@ record EditableMLFeatureProperties {
   @Searchable = {
     "fieldType": "TEXT",
     "fieldName": "editedDescription",
+    "searchTier": 2
   }
   description: optional string
 }

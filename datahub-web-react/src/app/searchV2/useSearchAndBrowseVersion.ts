@@ -1,4 +1,4 @@
-import { useAppConfig } from '../useAppConfig';
+import { useAppConfig } from '@app/useAppConfig';
 
 const useSearchAndBrowseVersion = () => {
     const appConfig = useAppConfig();
@@ -12,7 +12,7 @@ export const useSearchVersion = () => {
     return useSearchAndBrowseVersion().searchVersion;
 };
 
-export const useBrowseVersion = () => {
+const useBrowseVersion = () => {
     return useSearchAndBrowseVersion().browseVersion;
 };
 

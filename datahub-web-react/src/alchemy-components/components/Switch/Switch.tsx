@@ -1,12 +1,22 @@
 import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
-import { IconContainer, Label, Required, Slider, StyledIcon, StyledInput, SwitchContainer } from './components';
-import { SwitchProps } from './types';
+import { useTranslation } from 'react-i18next';
+
+import {
+    IconContainer,
+    Label,
+    Required,
+    Slider,
+    StyledIcon,
+    StyledInput,
+    SwitchContainer,
+} from '@components/components/Switch/components';
+import { SwitchProps } from '@components/components/Switch/types';
 
 export const switchDefaults: SwitchProps = {
     label: 'Label',
     labelPosition: 'left',
-    colorScheme: 'violet',
+    colorScheme: 'primary',
     size: 'md',
     isSquare: false,
     isChecked: false,
@@ -15,7 +25,7 @@ export const switchDefaults: SwitchProps = {
 };
 
 export const Switch = ({
-    label = switchDefaults.label,
+    label: labelProp,
     labelPosition = switchDefaults.labelPosition,
     icon, // undefined by default
     colorScheme = switchDefaults.colorScheme,
@@ -29,6 +39,8 @@ export const Switch = ({
     labelStyle,
     ...props
 }: SwitchProps) => {
+    const { t } = useTranslation('alchemy');
+    const label = labelProp ?? t('switch.label');
     const [checked, setChecked] = useState(isChecked);
 
     useEffect(() => {
@@ -50,7 +62,7 @@ export const Switch = ({
                 onChange={() => setChecked(!checked)}
                 customSize={size}
                 disabled={isDisabled}
-                colorScheme={colorScheme || 'violet'}
+                colorScheme={colorScheme || 'primary'}
                 aria-labelledby={id}
                 aria-checked={checked}
                 {...props}
@@ -61,7 +73,7 @@ export const Switch = ({
                         {icon && (
                             <StyledIcon
                                 icon={icon}
-                                color={checked ? colorScheme || 'violet' : 'inherit'}
+                                color={checked ? colorScheme || 'primary' : 'inherit'}
                                 size={size || 'md'}
                                 checked={checked}
                             />

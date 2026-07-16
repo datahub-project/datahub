@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for adding, updating, and removing custom properties on DataHub Datasets via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -22,7 +26,7 @@ This guide will show you how to add, remove or replace custom properties on a da
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 :::note
 Before adding custom properties, you need to ensure the target dataset is already present in your DataHub instance.
@@ -34,11 +38,9 @@ In this example, we will add some custom properties `cluster_name` and `retentio
 
 After you have ingested sample data, the dataset `fct_users_deleted` should have a custom properties section with `encoding` set to `utf-8`.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-properties-before.png"/>
 </p>
-
 
 ```shell
 datahub get --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)" --aspect datasetProperties
@@ -84,11 +86,9 @@ The following code adds custom properties `cluster_name` and `retention_time` to
 
 You can now see the two new properties are added to `fct_users_deleted` and the previous property `encoding` is unchanged.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-properties-added.png"/>
 </p>
-
 
 We can also verify this operation by programmatically checking the `datasetProperties` aspect after running this code using the `datahub` cli.
 
@@ -138,11 +138,9 @@ The following code shows you how can add and remove custom properties in the sam
 
 You can now see the `cluster_name` property is added to `fct_users_deleted` and the `retention_time` property is removed.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-properties-added-removed.png"/>
 </p>
-
 
 We can also verify this operation programmatically by checking the `datasetProperties` aspect using the `datahub` cli.
 
@@ -191,11 +189,9 @@ The following code replaces the current custom properties with a new properties 
 
 You can now see the `cluster_name` and `retention_time` properties are added to `fct_users_deleted` but the previous `encoding` property is no longer present.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-properties-replaced.png"/>
 </p>
-
 
 We can also verify this operation programmatically by checking the `datasetProperties` aspect using the `datahub` cli.
 

@@ -64,7 +64,12 @@ public class StatefulTokenServiceTest {
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
         tokenService.generateAccessToken(
-            TokenType.PERSONAL, datahub, "some token", "A token description", datahub.toUrnStr());
+            opContext,
+            TokenType.PERSONAL,
+            datahub,
+            "some token",
+            "A token description",
+            datahub.toUrnStr());
     assertNotNull(token);
 
     // Verify token claims
@@ -91,6 +96,7 @@ public class StatefulTokenServiceTest {
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
         tokenService.generateAccessToken(
+            opContext,
             TokenType.PERSONAL,
             datahub,
             null,
@@ -124,7 +130,12 @@ public class StatefulTokenServiceTest {
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
         tokenService.generateAccessToken(
-            TokenType.SESSION, datahub, "some token", "A token description", datahub.toUrnStr());
+            opContext,
+            TokenType.SESSION,
+            datahub,
+            "some token",
+            "A token description",
+            datahub.toUrnStr());
 
     assertNotNull(token);
 
@@ -155,6 +166,7 @@ public class StatefulTokenServiceTest {
     long createdAtInMs = date.getTime();
     String token =
         tokenService.generateAccessToken(
+            opContext,
             TokenType.PERSONAL,
             new Actor(ActorType.USER, "datahub"),
             0L,
@@ -177,7 +189,12 @@ public class StatefulTokenServiceTest {
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
         tokenService.generateAccessToken(
-            TokenType.PERSONAL, datahub, "some token", "A token description", datahub.toUrnStr());
+            opContext,
+            TokenType.PERSONAL,
+            datahub,
+            "some token",
+            "A token description",
+            datahub.toUrnStr());
     assertNotNull(token);
 
     // Change single character
@@ -214,10 +231,15 @@ public class StatefulTokenServiceTest {
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token =
         tokenService.generateAccessToken(
-            TokenType.PERSONAL, datahub, "some token", "A token description", datahub.toUrnStr());
+            opContext,
+            TokenType.PERSONAL,
+            datahub,
+            "some token",
+            "A token description",
+            datahub.toUrnStr());
 
     // Revoke token
-    tokenService.revokeAccessToken(tokenService.hash(token));
+    tokenService.revokeAccessToken(opContext, tokenService.hash(token));
 
     // Validation should fail.
     assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));

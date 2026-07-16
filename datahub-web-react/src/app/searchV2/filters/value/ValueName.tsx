@@ -1,12 +1,17 @@
-import moment from 'moment';
+import { Text } from '@components';
 import React from 'react';
-import { Typography } from 'antd';
-import { FilterField, FilterValue, FieldType } from '../types';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getEntityTypeFilterValueDisplayName } from './utils';
-import { UNIT_SEPARATOR } from '../../utils/constants';
-import { getV1FieldPathFromSchemaFieldUrn } from '../../../lineageV2/lineageUtils';
-import { getStructuredPropFilterDisplayName } from '../utils';
+import { useTranslation } from 'react-i18next';
+
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { FieldType, FilterField, FilterValue } from '@app/searchV2/filters/types';
+import { getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
+import { getEntityTypeFilterValueDisplayName } from '@app/searchV2/filters/value/utils';
+import { UNIT_SEPARATOR } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
+
+const PATH_SEPARATOR = ' / ';
+const DATE_FORMAT = 'YYYY-MM-DD';
 
 function getTextFieldName(field: FilterField, value: FilterValue) {
     let textFieldName = value.displayName || value.value;
@@ -22,6 +27,7 @@ interface Props {
 }
 
 export default function ValueName({ field, value }: Props) {
+    const { t: tc } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
 
     switch (field.type) {
@@ -45,7 +51,9 @@ export default function ValueName({ field, value }: Props) {
                         <>
                             {part}
                             {(index < pathParts.length - 1 && (
-                                <Typography.Text type="secondary"> / </Typography.Text>
+                                <Text type="span" color="textSecondary">
+                                    {PATH_SEPARATOR}
+                                </Text>
                             )) ||
                                 undefined}
                         </>
@@ -55,9 +63,9 @@ export default function ValueName({ field, value }: Props) {
         }
         case FieldType.BUCKETED_TIMESTAMP:
             // Note: Currently unused, as SelectedFilter.tsx renders DatePicker instead
-            return <>{moment(value.value).format('YYYY-MM-DD')}</>;
+            return <>{dayjs(value.value).format(DATE_FORMAT)}</>;
         default:
             console.error(`Unknown field type: ${field}`);
-            return <>n/a</>;
+            return <>{tc('na')}</>;
     }
 }

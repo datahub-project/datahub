@@ -1,6 +1,7 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-describe("search", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("search", () => {
   beforeEach(() => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");
@@ -10,7 +11,8 @@ describe("search", () => {
   const setBrowseFeatureFlag = (isOn) => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       if (hasOperationName(req, "appConfig")) {
-        req.reply((res) => {
+        req.alias = "gqlappConfigQuery";
+        req.on("response", (res) => {
           // Modify the response body directly
           res.body.data.appConfig.featureFlags.showBrowseV2 = isOn;
           // search and browse both need to be on for browse to show

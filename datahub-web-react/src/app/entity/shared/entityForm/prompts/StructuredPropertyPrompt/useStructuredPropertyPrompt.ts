@@ -1,12 +1,14 @@
 import { useEffect, useMemo } from 'react';
-import { useEntityContext } from '../../../EntityContext';
-import { FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
-import { getInitialValues } from './utils';
-import usePrevious from '../../../../../shared/usePrevious';
-import { useGetEntityWithSchema } from '../../../tabs/Dataset/Schema/useGetEntitySchema';
-import { FormView, useEntityFormContext } from '../../EntityFormContext';
-import { SCHEMA_FIELD_PROMPT_TYPES } from '../../constants';
-import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
+
+import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
+import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entity/shared/entityForm/constants';
+import { getInitialValues } from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/utils';
+import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import usePrevious from '@app/shared/usePrevious';
+
+import { FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '@types';
 
 interface Props {
     prompt: FormPrompt;
@@ -16,7 +18,7 @@ interface Props {
 
 export default function useStructuredPropertyPrompt({ prompt, submitResponse, field }: Props) {
     const { refetch: refetchSchema } = useGetEntityWithSchema(!SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type));
-    const { refetch, entityData } = useEntityContext();
+    const { entityData } = useEntityContext();
     const { selectedPromptId, formView } = useEntityFormContext();
     const initialValues = useMemo(
         () => (formView === FormView.BY_ENTITY ? getInitialValues(prompt, entityData, field) : []),
@@ -68,7 +70,6 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
                 },
             },
             () => {
-                refetch();
                 setHasEdited(false);
                 if (field) {
                     refetchSchema();

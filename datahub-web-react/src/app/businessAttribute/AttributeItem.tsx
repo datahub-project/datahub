@@ -1,29 +1,30 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { useEntityRegistry } from '../useEntityRegistry';
+
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const AttributeWrapper = styled.div`
     font-weight: normal;
     margin-bottom: 4px;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const nameStyles = `
-    color: #262626;
+    color: inherit;
     display: inline-block;
     height: 100%;
     padding: 3px 4px;
     width: 100%;
 `;
 
-export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
+const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
     ${nameStyles}
 
     &:hover {
         ${(props) =>
             props.showSelectStyles &&
             `
-                background-color: ${ANTD_GRAY[3]};
+                background-color: ${props.theme.colors.bgSurface};
                 cursor: pointer;
         `}
     }

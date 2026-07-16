@@ -19,13 +19,13 @@ const featureCardContent =  [
 {
     title: "Data Governance",
     description: "Define ownership and track PII.",
-    to: "https://www.acryldata.io/blog/the-3-must-haves-of-metadata-management-part-2?utm_source=datahub&utm_medium=referral&utm_content=blog",
+    to: "https://medium.com/datahub-project/the-3-must-haves-of-metadata-management-part-2-35a649f2e2fb?utm_source=datahub&utm_medium=referral&utm_content=blog",
     icon: <CompassTwoTone />
   },
 {
-    title: "Data Quality Control",
-    description: "Improve data quality through metadata tests, assertions, data freshness checks, and data contracts.",
-    to: "https://www.acryldata.io/blog/data-contracts-in-datahub-combining-verifiability-with-holistic-data-management?utm_source=datahub&utm_medium=referral&utm_content=blog",
+    title: "Data Quality & Observability",
+    description: "Detect and resolve quality issues before they impact production. Automated anomaly detection, assertions, and data contracts keep data reliable.",
+    to: "docs/features/feature-guides/observe",
     icon: <AlertTwoTone />
   },
 {

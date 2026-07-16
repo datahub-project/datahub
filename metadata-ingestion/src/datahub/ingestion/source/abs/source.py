@@ -29,7 +29,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.abs.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.abs.report import DataLakeSourceReport
@@ -44,19 +43,17 @@ from datahub.ingestion.source.azure.abs_utils import (
     get_key_prefix,
     strip_abs_prefix,
 )
-from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
-from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.data_lake_common.data_lake_utils import (
+    ContainerWUCreator,
+    add_partition_columns_to_schema,
 )
+from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaField,
-    SchemaFieldDataType,
     SchemaMetadata,
-    StringTypeClass,
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
@@ -127,7 +124,19 @@ class TableData:
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default as UPDATE operations from blob timestamps",
+)
 @capability(SourceCapability.TAGS, "Can extract ABS object/container tags if enabled")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Extract ABS containers and folders",
+    subtype_modifier=[
+        SourceCapabilityModifier.FOLDER,
+        SourceCapabilityModifier.ABS_CONTAINER,
+    ],
+)
 class ABSSource(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
@@ -140,7 +149,7 @@ class ABSSource(StatefulIngestionSourceBase):
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
         config_report = {
-            config_option: config.dict().get(config_option)
+            config_option: config.model_dump().get(config_option)
             for config_option in config_options_to_report
         }
         config_report = {
@@ -155,7 +164,7 @@ class ABSSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DataLakeSourceConfig.parse_obj(config_dict)
+        config = DataLakeSourceConfig.model_validate(config_dict)
 
         return cls(config, ctx)
 
@@ -223,35 +232,11 @@ class ABSSource(StatefulIngestionSourceBase):
         fields = sorted(fields, key=lambda f: f.fieldPath)
 
         if self.source_config.add_partition_columns_to_schema:
-            self.add_partition_columns_to_schema(
+            add_partition_columns_to_schema(
                 fields=fields, path_spec=path_spec, full_path=table_data.full_path
             )
 
         return fields
-
-    def add_partition_columns_to_schema(
-        self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
-    ) -> None:
-        vars = path_spec.get_named_vars(full_path)
-        if vars is not None and "partition" in vars:
-            for partition in vars["partition"].values():
-                partition_arr = partition.split("=")
-                if len(partition_arr) != 2:
-                    logger.debug(
-                        f"Could not derive partition key from partition field {partition}"
-                    )
-                    continue
-                partition_key = partition_arr[0]
-                fields.append(
-                    SchemaField(
-                        fieldPath=f"{partition_key}",
-                        nativeDataType="string",
-                        type=SchemaFieldDataType(StringTypeClass()),
-                        isPartitioningKey=True,
-                        nullable=True,
-                        recursive=False,
-                    )
-                )
 
     def _create_table_operation_aspect(self, table_data: TableData) -> OperationClass:
         reported_time = int(time.time() * 1000)
@@ -533,7 +518,7 @@ class ABSSource(StatefulIngestionSourceBase):
             )
             path_spec.sample_files = False
             for obj in container_client.list_blobs(
-                prefix=f"{prefix}", results_per_page=PAGE_SIZE
+                name_starts_with=f"{prefix}", results_per_page=PAGE_SIZE
             ):
                 abs_path = self.create_abs_path(obj.name)
                 logger.debug(f"Path: {abs_path}")
@@ -626,14 +611,6 @@ class ABSSource(StatefulIngestionSourceBase):
 
                 for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def is_abs_platform(self):
         return self.source_config.platform == "abs"

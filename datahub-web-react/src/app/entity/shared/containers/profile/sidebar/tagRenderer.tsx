@@ -1,5 +1,5 @@
-import React from 'react';
 import { Tag } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
 const StyleTag = styled(Tag)`

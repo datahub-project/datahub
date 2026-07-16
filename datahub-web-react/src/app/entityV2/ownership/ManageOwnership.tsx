@@ -1,49 +1,54 @@
-import React from 'react';
+import { Button, PageTitle } from '@components';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { Typography } from 'antd';
-import { OwnershipList } from './OwnershipList';
+
+import { OwnershipList } from '@app/entityV2/ownership/OwnershipList';
 
 const PageContainer = styled.div`
-    padding-top: 20px;
+    padding: 16px 20px;
     width: 100%;
     display: flex;
     flex-direction: column;
     overflow: auto;
+    gap: 16px;
 `;
 
 const PageHeaderContainer = styled.div`
-    && {
-        padding-left: 24px;
-    }
-`;
-
-const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
-    }
-`;
-
-const ListContainer = styled.div`
     display: flex;
-    flex-direction: column;
-    overflow: auto;
+    justify-content: space-between;
+`;
+
+const HeaderRight = styled.div`
+    display: flex;
+    align-items: center;
 `;
 
 /**
  * Component used for displaying the 'Manage Ownership' experience.
  */
 export const ManageOwnership = () => {
+    const { t } = useTranslation('entity.ownership');
+    const [showOwnershipBuilder, setShowOwnershipBuilder] = useState(false);
+
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Ownership</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    Create, edit, and remove custom Ownership Types.
-                </Typography.Paragraph>
+                <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
+                <HeaderRight>
+                    <Button
+                        variant="filled"
+                        onClick={() => setShowOwnershipBuilder(true)}
+                        data-testid="create-owner-type-v2"
+                    >
+                        {t('createOwnershipType')}
+                    </Button>
+                </HeaderRight>
             </PageHeaderContainer>
-            <ListContainer>
-                <OwnershipList />
-            </ListContainer>
+            <OwnershipList
+                showOwnershipBuilder={showOwnershipBuilder}
+                setShowOwnershipBuilder={setShowOwnershipBuilder}
+            />
         </PageContainer>
     );
 };

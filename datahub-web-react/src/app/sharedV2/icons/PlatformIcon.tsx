@@ -1,11 +1,14 @@
-import React, { useCallback, useRef, useState } from 'react';
-import styled, { css, CSSObject } from 'styled-components/macro';
 import ColorThief from 'colorthief';
-import { DataPlatform, EntityType } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { IconStyleType } from '../../entityV2/Entity';
-import { getLighterRGBColor } from './colorUtils';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+import i18next from 'i18next';
+import React, { useCallback, useRef, useState } from 'react';
+import styled, { CSSObject, css, useTheme } from 'styled-components/macro';
+
+import { IconStyleType } from '@app/entityV2/Entity';
+import { PLATFORM_URN_TO_LOGO } from '@app/ingestV2/source/builder/constants';
+import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DataPlatform, EntityType } from '@types';
 
 type PlatformIconProps = {
     platform: DataPlatform | null | undefined;
@@ -18,6 +21,7 @@ type PlatformIconProps = {
     imageStyles?: CSSObject | undefined;
     className?: string;
     onError?: () => void;
+    dataTestId?: string;
 };
 
 const IconContainer = styled.div<{ background?: string; styles: CSSObject | undefined }>`
@@ -43,7 +47,7 @@ const PreviewImage = styled.img<{ size: number; imageStyles?: CSSObject | undefi
 const PlatformIcon: React.FC<PlatformIconProps> = ({
     platform,
     size = 17,
-    alt = 'Platform Logo',
+    alt = i18next.t('shared.misc:platformIcon.alt'),
     entityType = EntityType.DataPlatform,
     color,
     title,
@@ -51,23 +55,36 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     imageStyles,
     className,
     onError,
+    dataTestId,
 }) => {
     const [background, setBackground] = useState<string | undefined>(undefined);
     const imgRef = useRef<HTMLImageElement>(null);
     const entityRegistry = useEntityRegistry();
-    const logoUrl = platform?.properties?.logoUrl;
+    const theme = useTheme();
+    // Prefer the platform's own logo URL when present, otherwise fall back
+    // to the static asset registered under the platform URN in
+    // PLATFORM_URN_TO_LOGO. This covers known platforms whose backend
+    // metadata doesn't include a `logoUrl` (e.g. ingested-document source
+    // platforms surfaced in the Context Documents sidebar).
+    const logoUrl = platform?.properties?.logoUrl || (platform?.urn ? PLATFORM_URN_TO_LOGO[platform.urn] : undefined);
 
     const handleError = useCallback(() => {
         const img = imgRef.current;
         if (img) {
             img.removeAttribute('crossOrigin');
-            setBackground(REDESIGN_COLORS.BACKGROUND_GREY);
+            setBackground(theme.colors.bgSurface);
         }
         onError?.();
-    }, [onError, setBackground]);
+    }, [onError, setBackground, theme.colors.bgSurface]);
 
     return (
-        <IconContainer background={background} styles={styles} title={title} className={className}>
+        <IconContainer
+            background={background}
+            styles={styles}
+            title={title}
+            className={className}
+            data-testid={dataTestId}
+        >
             {logoUrl ? (
                 <PreviewImage
                     crossOrigin="anonymous"
@@ -81,6 +98,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
                         if (img && img.width > 0 && img.height > 0) {
                             const colorThief = new ColorThief();
                             const [r, g, b] = colorThief.getColor(img, 25);
+                            // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) numeric rgb join separator
                             setBackground(`rgb(${getLighterRGBColor(r, g, b).join(', ')})`);
                         }
                     }}

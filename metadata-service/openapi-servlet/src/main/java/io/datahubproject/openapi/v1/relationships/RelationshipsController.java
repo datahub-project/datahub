@@ -14,9 +14,9 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,6 +29,8 @@ import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -72,7 +74,7 @@ public class RelationshipsController {
   private RelatedEntitiesResult getRelatedEntities(
       @Nonnull final OperationContext opContext,
       String rawUrn,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection direction,
       @Nullable Integer start,
       @Nullable Integer count) {
@@ -110,7 +112,9 @@ public class RelationshipsController {
         count);
   }
 
-  @GetMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
+  @GetMapping(
+      value = {"", "/"},
+      produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       responses = {
         @ApiResponse(
@@ -168,7 +172,8 @@ public class RelationshipsController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getRelationships", entityUrn.getEntityType()),
+                .buildOpenapi(actorUrnStr, request, "getRelationships", entityUrn.getEntityType())
+                .withUsageOperation(UsageOperation.METADATA_READ),
             _authorizerChain,
             authentication,
             true);
@@ -183,7 +188,7 @@ public class RelationshipsController {
           getRelatedEntities(
               opContext,
               entityUrn.toString(),
-              Arrays.asList(relationshipTypes),
+              Arrays.stream(relationshipTypes).collect(Collectors.toSet()),
               direction,
               start,
               count));
@@ -196,9 +201,17 @@ public class RelationshipsController {
           e);
     } finally {
       if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("getRelationships", "failed")).inc();
+        opContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils ->
+                    metricUtils.increment(MetricRegistry.name("getRelationships", "failed"), 1));
       } else {
-        MetricUtils.counter(MetricRegistry.name("getRelationships", "success")).inc();
+        opContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils ->
+                    metricUtils.increment(MetricRegistry.name("getRelationships", "success"), 1));
       }
     }
   }

@@ -93,8 +93,14 @@ public class ERModelRelationshipUpdateInputMapper
       if (inputProperties.getRelationshipFieldmappings().size() > 0) {
         com.linkedin.ermodelrelation.RelationshipFieldMappingArray relationshipFieldMappingsArray =
             ermodelrelationFieldMappingSettings(inputProperties.getRelationshipFieldmappings());
+        ERModelRelationshipCardinality inputCardinality =
+            inputProperties.getErModelRelationshipCardinality() == null
+                ? null
+                : ERModelRelationshipCardinality.valueOf(
+                    inputProperties.getErModelRelationshipCardinality().name());
         ermodelrelationProperties.setCardinality(
-            ermodelrelationCardinalitySettings(inputProperties.getRelationshipFieldmappings()));
+            ermodelrelationCardinalitySettings(
+                inputProperties.getRelationshipFieldmappings(), inputCardinality));
         ermodelrelationProperties.setRelationshipFieldMappings(relationshipFieldMappingsArray);
       }
 
@@ -119,7 +125,13 @@ public class ERModelRelationshipUpdateInputMapper
 
   private com.linkedin.ermodelrelation.ERModelRelationshipCardinality
       ermodelrelationCardinalitySettings(
-          List<RelationshipFieldMappingInput> ermodelrelationFieldMapping) {
+          List<RelationshipFieldMappingInput> ermodelrelationFieldMapping,
+          ERModelRelationshipCardinality cardinality) {
+
+    // If the cardinality is provided, use it
+    if (cardinality != null) {
+      return cardinality;
+    }
 
     Set<String> sourceFields = new HashSet<>();
     Set<String> destFields = new HashSet<>();

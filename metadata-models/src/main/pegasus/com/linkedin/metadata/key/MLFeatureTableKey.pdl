@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Key for an MLFeatureTable
  */
 @Aspect = {
-  "name": "mlFeatureTableKey"
+  "name": "mlFeatureTableKey",
+  "schemaVersion": 2
 }
 record MLFeatureTableKey {
   /**
@@ -25,7 +26,9 @@ record MLFeatureTableKey {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 8.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   name: string
 }

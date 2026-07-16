@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
+
+import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 
 export default function useKeyboardControls(
     rows: ExtendedSchemaFields[],
@@ -59,6 +60,21 @@ export default function useKeyboardControls(
     }, [index, rows, expandedRows, setExpandedRows, selectedRow]);
 
     function handleArrowKeys(event: KeyboardEvent) {
+        // Skip if user is in any editable element (input, textarea, editor, etc.)
+        // This prevents the schema navigation keyboard shortcuts from blocking
+        // normal cursor movement in text inputs, chat inputs, document editors,
+        // and other interactive elements on the page.
+        const target = event.target as HTMLElement;
+        if (
+            target.closest('.ProseMirror') ||
+            target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.tagName === 'SELECT' ||
+            target.isContentEditable
+        ) {
+            return;
+        }
+
         if (event.code === 'ArrowUp') {
             event.preventDefault();
             selectPreviousField();

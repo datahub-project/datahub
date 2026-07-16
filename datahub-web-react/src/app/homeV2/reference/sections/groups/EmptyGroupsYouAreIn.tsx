@@ -1,12 +1,13 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 const Text = styled.div`
     font-size: 14px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export const EmptyGroupsYouAreIn = () => {
-    return <Text>You are not part of any groups yet.</Text>;
+    const { t } = useTranslation('home.v2');
+    return <Text>{t('yourGroups.empty')}</Text>;
 };

@@ -1,19 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
-import { useLocation } from 'react-router';
-import { Button, message, Pagination } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-import * as QueryString from 'query-string';
-import { useListMyViewsQuery } from '../../../graphql/view.generated';
-import { SearchBar } from '../../search/SearchBar';
-import TabToolbar from '../shared/components/styled/TabToolbar';
-import { Message } from '../../shared/Message';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { scrollToTop } from '../../shared/searchUtils';
-import { ViewsTable } from './ViewsTable';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE, searchViews } from './utils';
-import { ViewBuilder } from './builder/ViewBuilder';
-import { ViewBuilderMode } from './builder/types';
+import { SearchBar, Text } from '@components';
+import { Pagination, message } from 'antd';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
+
+import { ViewsTable } from '@app/entityV2/view/ViewsTable';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE, searchViews } from '@app/entityV2/view/utils';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+
+import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
+import { DataHubViewType } from '@types';
 
 const PaginationContainer = styled.div`
     display: flex;
@@ -24,67 +21,122 @@ const StyledPagination = styled(Pagination)`
     margin: 40px;
 `;
 
-const searchBarStyle = {
-    maxWidth: 220,
-    padding: 0,
+type Props = {
+    viewType?: DataHubViewType;
 };
 
-const searchBarInputStyle = {
-    height: 32,
-    fontSize: 12,
-};
+const StyledTabToolbar = styled.div`
+    display: flex;
+    justify-content: space-between;
+    padding: 1px 0 16px 0; // 1px at the top to prevent Select's border outline from cutting-off
+    height: auto;
+    z-index: unset;
+    box-shadow: none;
+    flex-shrink: 0;
+`;
+
+export const EmptyContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    gap: 16px;
+
+    svg {
+        width: 160px;
+        height: 160px;
+    }
+`;
+
+const TableContainer = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+
+    /* Make table header sticky */
+    .ant-table-thead {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: ${(props) => props.theme.colors.bgSurface};
+    }
+
+    /* Ensure header cells have proper background */
+    .ant-table-thead > tr > th {
+        background: ${(props) => props.theme.colors.bgSurface} !important;
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    }
+`;
+
+const SearchContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+`;
+
+const ViewsContainer = styled.div`
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-top: 7px;
+`;
+
+const StyledSearchBar = styled(SearchBar)`
+    width: 300px;
+`;
 
 /**
  * This component renders a paginated, searchable list of Views.
  */
-export const ViewsList = () => {
-    /**
-     * Context
-     */
-    const location = useLocation();
-    const entityRegistry = useEntityRegistry();
-
-    /**
-     * Query Params
-     */
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const paramsQuery = (params?.query as string) || undefined;
+export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
+    const { t } = useTranslation('entity.views');
 
     /**
      * State
      */
     const [page, setPage] = useState(1);
-    const [selectedViewUrn, setSelectedViewUrn] = useState<undefined | string>(undefined);
-    const [showViewBuilder, setShowViewBuilder] = useState<boolean>(false);
     const [query, setQuery] = useState<undefined | string>(undefined);
-    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
     /**
      * Queries
      */
     const pageSize = DEFAULT_LIST_VIEWS_PAGE_SIZE;
     const start = (page - 1) * pageSize;
-    const { loading, error, data } = useListMyViewsQuery({
+
+    const isPersonal = viewType === DataHubViewType.Personal;
+
+    const {
+        loading: loadingPersonal,
+        error: errorPersonal,
+        data: dataPersonal,
+    } = useListMyViewsQuery({
         variables: {
             start,
             count: pageSize,
         },
         fetchPolicy: 'cache-first',
+        skip: !isPersonal,
     });
 
-    const onClickCreateView = () => {
-        setShowViewBuilder(true);
-    };
-
-    const onClickEditView = (urn: string) => {
-        setShowViewBuilder(true);
-        setSelectedViewUrn(urn);
-    };
-
-    const onCloseModal = () => {
-        setShowViewBuilder(false);
-        setSelectedViewUrn(undefined);
-    };
+    const {
+        loading: loadingGlobal,
+        error: errorGlobal,
+        data: dataGlobal,
+    } = useListGlobalViewsQuery({
+        variables: {
+            start,
+            count: pageSize,
+        },
+        fetchPolicy: 'cache-first',
+        skip: isPersonal,
+    });
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
@@ -94,51 +146,50 @@ export const ViewsList = () => {
     /**
      * Render variables.
      */
-    const totalViews = data?.listMyViews?.total || 0;
-    const views = searchViews(data?.listMyViews?.views || [], query);
-    const selectedView = (selectedViewUrn && views.find((view) => view.urn === selectedViewUrn)) || undefined;
+    const viewsData = isPersonal ? dataPersonal?.listMyViews : dataGlobal?.listGlobalViews;
+    const loading = loadingPersonal || loadingGlobal;
+    const error = errorPersonal || errorGlobal;
+    const totalViews = viewsData?.total || 0;
+    const views = searchViews(viewsData?.views || [], query);
+
+    const theme = useTheme();
+
+    if (!totalViews) {
+        return (
+            <EmptyContainer>
+                <Text size="md" weight="bold" style={{ color: theme.colors.textSecondary }}>
+                    {t('emptyTitle')}
+                </Text>
+            </EmptyContainer>
+        );
+    }
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading Views..." />}
-            {error && message.error({ content: `Failed to load Views! An unexpected error occurred.`, duration: 3 })}
-            <TabToolbar>
-                <Button type="text" onClick={onClickCreateView}>
-                    <PlusOutlined /> Create new View
-                </Button>
-                <SearchBar
-                    initialQuery=""
-                    placeholderText="Search Views..."
-                    suggestions={[]}
-                    style={searchBarStyle}
-                    inputStyle={searchBarInputStyle}
-                    onSearch={() => null}
-                    onQueryChange={(q) => setQuery(q.length > 0 ? q : undefined)}
-                    entityRegistry={entityRegistry}
-                />
-            </TabToolbar>
-            <ViewsTable views={views} onEditView={onClickEditView} />
-            {totalViews >= pageSize && (
-                <PaginationContainer>
-                    <StyledPagination
-                        current={page}
-                        pageSize={pageSize}
-                        total={totalViews}
-                        showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger={false}
-                    />
-                </PaginationContainer>
-            )}
-            {showViewBuilder && (
-                <ViewBuilder
-                    mode={ViewBuilderMode.EDITOR}
-                    urn={selectedViewUrn}
-                    initialState={selectedView}
-                    onSubmit={onCloseModal}
-                    onCancel={onCloseModal}
-                />
-            )}
+            {!viewsData && loading && <Message type="loading" content={t('loading')} />}
+            {error && message.error({ content: t('loadError'), duration: 3 })}
+            <ViewsContainer>
+                <StyledTabToolbar>
+                    <SearchContainer>
+                        <StyledSearchBar placeholder={t('searchPlaceholder')} onChange={setQuery} value={query || ''} />
+                    </SearchContainer>
+                </StyledTabToolbar>
+                <TableContainer>
+                    <ViewsTable views={views} />
+                </TableContainer>
+                {totalViews >= pageSize && (
+                    <PaginationContainer>
+                        <StyledPagination
+                            current={page}
+                            pageSize={pageSize}
+                            total={totalViews}
+                            showLessItems
+                            onChange={onChangePage}
+                            showSizeChanger={false}
+                        />
+                    </PaginationContainer>
+                )}
+            </ViewsContainer>
         </>
     );
 };

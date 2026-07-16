@@ -1,22 +1,31 @@
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
-import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
-import useIsLineageMode from '@src/app/lineage/utils/useIsLineageMode';
+import { useTranslation } from 'react-i18next';
+
+import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { EMPTY_MESSAGES, ENTITY_TYPES_WITH_NEW_SUMMARY_TAB } from '@app/entityV2/shared/constants';
+import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
+import LinksSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/LinksSection';
+import SourceRefSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SourceRefSection';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
+import useIsLineageMode from '@src/app/lineage/utils/useIsLineageMode';
+import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import DescriptionSection from './DescriptionSection';
-import LinksSection from './LinksSection';
-import SourceRefSection from './SourceRefSection';
-import { SidebarSection } from '../SidebarSection';
-import { EMPTY_MESSAGES } from '../../../../constants';
-import SectionActionButton from '../SectionActionButton';
-import EmptySectionText from '../EmptySectionText';
-import { useEntityData, useMutationUrn, useRouteToTab } from '../../../../../../entity/shared/EntityContext';
-import { getEntityPath } from '../../utils';
 
 const LINE_LIMIT = 5;
+
+/* eslint-disable i18next/no-literal-string -- route tab name identifiers, not UI text */
+const SUMMARY_TAB = 'Summary';
+const DOCUMENTATION_TAB = 'Documentation';
+/* eslint-enable i18next/no-literal-string */
 
 interface Properties {
     hideLinksButton?: boolean;
@@ -28,6 +37,7 @@ interface Props {
 }
 
 export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const isLineageMode = useIsLineageMode();
@@ -46,34 +56,46 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
 
     const hasContent = !!displayedDescription || links.length > 0;
 
-    const canEditDescription = !!entityData?.privileges?.canEditDescription;
+    const canEditDescription = useDocumentationPermission();
+
+    const showNewSummaryTab = useShowAssetSummaryPage();
 
     return (
         <>
             <SidebarSection
-                title="Documentation"
+                title={t('sidebar.about.documentationTitle')}
                 content={
                     <>
-                        {displayedDescription && [
+                        {displayedDescription && (
                             <DescriptionSection
                                 description={displayedDescription}
                                 isExpandable
                                 lineLimit={LINE_LIMIT}
-                            />,
-                        ]}
+                            />
+                        )}
                         {hasContent && <LinksSection hideLinksButton={hideLinksButton} readOnly />}
-                        {!hasContent && [<EmptySectionText message={EMPTY_MESSAGES.documentation.title} />]}
+                        {!hasContent && <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />}
                     </>
                 }
                 extra={
                     <>
                         {!readOnly && (
                             <SectionActionButton
-                                button={hasContent ? <EditOutlinedIcon /> : <AddRoundedIcon />}
+                                icon={hasContent ? PencilSimple : Plus}
                                 dataTestId="editDocumentation"
                                 onClick={(event) => {
                                     if (!isEmbeddedProfile) {
-                                        routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+                                        if (
+                                            ENTITY_TYPES_WITH_NEW_SUMMARY_TAB.includes(entityType) &&
+                                            showNewSummaryTab
+                                        ) {
+                                            routeToTab({
+                                                tabName: SUMMARY_TAB,
+                                                tabParams: { editingDescription: true },
+                                            });
+                                        } else {
+                                            routeToTab({ tabName: DOCUMENTATION_TAB, tabParams: { editing: true } });
+                                        }
                                     } else {
                                         const url = getEntityPath(
                                             entityType,
@@ -81,7 +103,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                             entityRegistry,
                                             isLineageMode,
                                             isHideSiblingMode,
-                                            'Documentation',
+                                            DOCUMENTATION_TAB,
                                             {
                                                 editing: true,
                                             },
@@ -100,5 +122,3 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
         </>
     );
 };
-
-export default SidebarAboutSection;

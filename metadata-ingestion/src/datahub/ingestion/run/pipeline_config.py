@@ -1,13 +1,24 @@
+from __future__ import annotations
+
 import datetime
 import logging
 import random
 import string
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
-from pydantic import Field, validator
+from pydantic import Field, model_validator
 
-from datahub.configuration.common import ConfigModel, DynamicTypedConfig
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
+from datahub.configuration.env_vars import (
+    get_progress_report_max_failures,
+    get_progress_report_max_infos,
+    get_progress_report_max_warnings,
+    get_report_failure_sample_size,
+    get_report_info_sample_size,
+    get_report_warning_sample_size,
+)
+from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.recording.config import RecordingConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
@@ -63,6 +74,62 @@ class FlagsConfig(ConfigModel):
         ),
     )
 
+    progress_report_max_failures: int = Field(
+        ge=0,
+        default_factory=get_progress_report_max_failures,
+        description=(
+            "Maximum failure entries shown in interim progress reports (every 60 s). "
+            "Does not affect the final report. "
+            "Also settable via DATAHUB_PROGRESS_REPORT_MAX_FAILURES env var."
+        ),
+    )
+    progress_report_max_warnings: int = Field(
+        ge=0,
+        default_factory=get_progress_report_max_warnings,
+        description=(
+            "Maximum warning entries shown in interim progress reports. "
+            "Does not affect the final report. "
+            "Also settable via DATAHUB_PROGRESS_REPORT_MAX_WARNINGS env var."
+        ),
+    )
+    progress_report_max_infos: int = Field(
+        ge=0,
+        default_factory=get_progress_report_max_infos,
+        description=(
+            "Maximum info entries shown in interim progress reports. "
+            "Does not affect the final report. "
+            "Also settable via DATAHUB_PROGRESS_REPORT_MAX_INFOS env var."
+        ),
+    )
+
+    report_failure_sample_size: int = Field(
+        ge=0,
+        default_factory=get_report_failure_sample_size,
+        description=(
+            "How many failure entries to retain. Controls the final report size "
+            "and the pool that interim reports draw from. "
+            "Also settable via DATAHUB_REPORT_FAILURE_SAMPLE_SIZE env var."
+        ),
+    )
+    report_warning_sample_size: int = Field(
+        ge=0,
+        default_factory=get_report_warning_sample_size,
+        description=(
+            "How many warning entries to retain. Controls the final report size "
+            "and the pool that interim reports draw from. "
+            "Also settable via DATAHUB_REPORT_WARNING_SAMPLE_SIZE env var."
+        ),
+    )
+    report_info_sample_size: int = Field(
+        ge=0,
+        default_factory=get_report_info_sample_size,
+        description=(
+            "How many info entries to retain. Controls the final report size "
+            "and the pool that interim reports draw from. "
+            "Also settable via DATAHUB_REPORT_INFO_SAMPLE_SIZE env var."
+        ),
+    )
+
     set_system_metadata: bool = Field(
         True, description="Set system metadata on entities."
     )
@@ -85,41 +152,43 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: Optional[DynamicTypedConfig] = None
     transformers: Optional[List[DynamicTypedConfig]] = None
-    flags: FlagsConfig = Field(default=FlagsConfig(), hidden_from_docs=True)
+    flags: HiddenFromDocs[FlagsConfig] = FlagsConfig()
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID
     datahub_api: Optional[DatahubClientConfig] = None
     pipeline_name: Optional[str] = None
     failure_log: FailureLoggingConfig = FailureLoggingConfig()
+    recording: Optional[RecordingConfig] = Field(
+        default=None,
+        description="Recording configuration for debugging ingestion runs.",
+    )
 
     _raw_dict: Optional[dict] = (
         None  # the raw dict that was parsed to construct this config
     )
 
-    @validator("run_id", pre=True, always=True)
-    def run_id_should_be_semantic(
-        cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
-    ) -> str:
-        if v == DEFAULT_RUN_ID:
+    @model_validator(mode="after")
+    def run_id_should_be_semantic(self) -> "PipelineConfig":
+        if self.run_id == DEFAULT_RUN_ID:
             source_type = None
-            if "source" in values and hasattr(values["source"], "type"):
-                source_type = values["source"].type
+            if hasattr(self.source, "type"):
+                source_type = self.source.type
 
-            return _generate_run_id(source_type)
+            self.run_id = _generate_run_id(source_type)
         else:
-            assert v is not None
-            return v
+            assert self.run_id is not None
+        return self
 
     @classmethod
     def from_dict(
         cls, resolved_dict: dict, raw_dict: Optional[dict] = None
     ) -> "PipelineConfig":
-        config = cls.parse_obj(resolved_dict)
+        config = cls.model_validate(resolved_dict)
         config._raw_dict = raw_dict
         return config
 
     def get_raw_dict(self) -> Dict:
         result = self._raw_dict
         if result is None:
-            result = self.dict()
+            result = self.model_dump()
         return result

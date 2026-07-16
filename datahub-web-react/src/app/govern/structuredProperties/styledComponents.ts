@@ -1,6 +1,7 @@
-import { colors, Icon, typography } from '@src/alchemy-components';
-import { Checkbox, Collapse, Divider, Drawer, Form, Modal, Select, Spin, Typography } from 'antd';
+import { Collapse, Divider, Drawer, Form, Spin, Typography } from 'antd';
 import styled from 'styled-components';
+
+import { Icon, typography } from '@src/alchemy-components';
 
 export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: auto;
@@ -12,12 +13,12 @@ export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     flex-direction: column;
     gap: 20px;
-    background-color: ${colors.white};
+    background-color: ${(props) => props.theme.colors.bg};
     ${(props) => props.$isShowNavBarRedesign && 'max-height: calc(100vh - 88px);'};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
         margin: 5px;
     `}
 `;
@@ -52,7 +53,7 @@ export const DataContainer = styled.div`
 export const PropName = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     line-height: normal;
 
     :hover {
@@ -64,7 +65,7 @@ export const PropName = styled(Typography.Text)`
 export const PropDescription = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: normal;
 `;
 
@@ -82,7 +83,7 @@ export const IconContainer = styled.div`
     align-items: center;
     gap: 12px;
     border-radius: 200px;
-    background-color: ${colors.gray[1000]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
 `;
 
 export const PillsContainer = styled.div`
@@ -100,7 +101,7 @@ export const MenuItem = styled.div`
     padding: 5px 100px 5px 5px;
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-family: ${typography.fonts.body};
 `;
 
@@ -137,33 +138,22 @@ export const ViewFieldsContainer = styled.div`
     gap: 24px;
 `;
 
-export const CheckboxWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 10px 0;
-    color: #374066;
-    p {
-        color: #374066;
-        font-weight: 500;
-    }
-`;
-
-export const StyledCheckbox = styled(Checkbox)`
-    .ant-checkbox-checked .ant-checkbox-inner {
-        background-color: ${colors.violet[500]};
-        border-color: ${colors.violet[500]} !important;
-    },
-`;
-
-export const StyledText = styled.div`
-    display: inline-flex;
-    margin-left: -4px;
-`;
-
 export const StyledFormItem = styled(Form.Item)`
     margin: 0;
 `;
+
+export const StyledFormSubItem = styled(StyledFormItem)`
+    padding-top: 32px;
+    padding-left: 24px;
+
+    .ant-form-item-control-input {
+        min-height: 0px !important;
+    }
+`;
+
+export const CheckboxContainer = styled.div``;
+
+export const CompoundedItemWrapper = styled.div``;
 
 export const GridFormItem = styled(Form.Item)`
     display: grid;
@@ -172,14 +162,14 @@ export const GridFormItem = styled(Form.Item)`
 export const FieldLabel = styled.div`
     font-size: 14px;
     font-weight: 500;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     margin-bottom: 24px;
 `;
 
 export const InputLabel = styled.div`
     font-size: 14px;
     font-weight: 500;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     gap: 2px;
 `;
@@ -187,7 +177,7 @@ export const InputLabel = styled.div`
 export const StyledLabel = styled.div`
     font-size: 12px;
     font-weight: 700;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const DescriptionContainer = styled.div`
@@ -201,7 +191,17 @@ export const FlexContainer = styled.div`
     gap: 4px;
 `;
 
+// AntD's Drawer portals to document.body, escaping the `.themeV2 *` Mulish
+// override (src/AppV2.less). Without the font-family rule below the drawer
+// chrome falls through to AntD's base @font-family (Manrope) and mismatches
+// the rest of the app.
 export const StyledDrawer = styled(Drawer)`
+    .ant-drawer-content,
+    .ant-drawer-header,
+    .ant-drawer-body {
+        font-family: ${typography.fonts.body};
+    }
+
     .ant-drawer-body {
         padding: 16px;
     }
@@ -226,7 +226,7 @@ export const StyledCollapse = styled(Collapse)`
 `;
 
 export const CollapseHeader = styled.div`
-    border-top: 1px solid ${colors.gray[1400]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     padding: 16px 0;
     margin-left: -16px;
     width: calc(100% + 32px);
@@ -242,7 +242,7 @@ export const TogglesContainer = styled.div`
 
 export const StyledSpin = styled(Spin)`
     max-height: 100% !important;
-    color: ${colors.violet[500]};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 export const CreatedByContainer = styled.div`
@@ -251,7 +251,7 @@ export const CreatedByContainer = styled.div`
     gap: 4px;
     padding: 3px 6px 3px 4px;
     border-radius: 20px;
-    border: 1px solid ${colors.gray[1400]};
+    border: 1px solid ${(props) => props.theme.colors.border};
 
     :hover {
         cursor: pointer;
@@ -274,7 +274,7 @@ export const ValueListContainer = styled.div`
     align-items: center;
     gap: 4px;
     font-size: 14px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
 
     svg {
         :hover {
@@ -284,29 +284,9 @@ export const ValueListContainer = styled.div`
 `;
 
 export const ValueType = styled.div`
-    background-color: ${colors.gray[100]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 4px;
     padding: 2px 4px;
-`;
-
-export const StyledModal = styled(Modal)`
-    font-family: Mulish;
-
-    &&& .ant-modal-content {
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
-        border-radius: 12px;
-        width: 452px;
-    }
-
-    .ant-modal-header {
-        border-top-left-radius: 12px !important;
-        border-top-right-radius: 12px !important;
-        padding: 20px 20px 8px 20px;
-    }
-
-    .ant-modal-body {
-        padding: 0;
-    }
 `;
 
 export const FieldGroupContainer = styled.div`
@@ -332,7 +312,7 @@ export const ValuesContainer = styled.div<{ height: number }>`
 
 export const ValuesList = styled.div`
     font-size: 14px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     flex: 1;
     align-items: center;
@@ -368,73 +348,19 @@ export const FormContainer = styled.div`
     display: grid;
 `;
 
-export const ModalFooter = styled.div`
-    display: flex;
-    gap: 16px;
-    justify-content: end;
-`;
-
 export const VerticalDivider = styled(Divider)`
-    color: ${colors.gray[1400]};
+    color: ${(props) => props.theme.colors.border};
     height: 20px;
     width: 2px;
 `;
 
-export const StyledSelect = styled(Select)`
-    font-family: ${typography.fonts.body};
-
-    .ant-select-selector {
-        height: 50px !important;
-        border-radius: 8px !important;
-        outline: 2px solid transparent !important;
-
-        &:hover,
-        &:focus-within {
-            border: 1px solid ${colors.violet[200]} !important;
-            outline: 2px solid ${colors.violet[200]} !important;
-            box-shadow: none !important;
-        }
-    }
-
-    .ant-select-selection-item {
-        p {
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            overflow: hidden;
-        }
-    }
-
-    .ant-select-selection-placeholder {
-        display: flex;
-        align-items: center;
-        font-size: 14px;
-        color: ${colors.gray[400]};
-    }
-`;
-
-export const CustomDropdown = styled.div`
-    .ant-select-item-option-content {
-        white-space: normal;
-    }
-`;
-
-export const SelectOptionContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    padding: 4px 0;
-
-    p {
-        line-height: 20px;
-    }
-`;
-
 export const StyledDivider = styled(Divider)`
-    color: ${colors.gray[1400]};
+    color: ${(props) => props.theme.colors.border};
     margin: 16px 0;
 `;
 
 export const ViewDivider = styled(Divider)`
-    color: ${colors.gray[1400]};
+    color: ${(props) => props.theme.colors.border};
     margin: 16px 0 0 -16px;
     width: calc(100% + 32px);
 `;
@@ -460,12 +386,12 @@ export const CardIcons = styled.div`
     gap: 12px;
 
     div {
-        border: 1px solid $E9EAEE;
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 20px;
         width: 28px;
         height: 28px;
         padding: 4px;
-        color: #8088a3;
+        color: ${(props) => props.theme.colors.textTertiary};
         :hover {
             cursor: pointer;
         }

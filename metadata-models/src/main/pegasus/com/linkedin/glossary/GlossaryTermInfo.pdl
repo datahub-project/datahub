@@ -9,7 +9,8 @@ import com.linkedin.schema.PrimitiveValueDataType
  * Properties associated with a GlossaryTerm
  */
 @Aspect = {
-   "name": "glossaryTermInfo"
+   "name": "glossaryTermInfo",
+   "schemaVersion": 2
 }
 record GlossaryTermInfo includes CustomProperties {
   /**
@@ -27,14 +28,19 @@ record GlossaryTermInfo includes CustomProperties {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   name: optional string
 
   /**
    * Definition of business term.
    */
-  @Searchable = {}
+  @Searchable = {
+    "fieldType": "TEXT",
+    "searchTier": 2
+  }
   definition: string
 
   /**

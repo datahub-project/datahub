@@ -1,5 +1,3 @@
-import AvatarsGroupComp from './AvatarsGroup';
-import CustomAvatarComp from './CustomAvatar';
+import AvatarsGroupComp from '@app/shared/avatar/AvatarsGroup';
 
 export const AvatarsGroup = AvatarsGroupComp;
-export const CustomAvatar = CustomAvatarComp;

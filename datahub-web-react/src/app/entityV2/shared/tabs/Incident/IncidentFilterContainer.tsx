@@ -1,10 +1,18 @@
 import React, { useMemo } from 'react';
-import { IncidentTable } from './types';
-import { INCIDENT_DEFAULT_FILTERS, INCIDENT_GROUP_BY_FILTER_OPTIONS } from './constant';
-import { FiltersContainer, SearchFilterContainer, StyledFilterContainer } from './styledComponents';
-import { GroupBySelect } from '../../GroupBySelect';
-import { InlineListSearch } from '../../components/search/InlineListSearch';
-import { FilterSelect } from '../../FilterSelect';
+
+import { FilterSelect } from '@app/entityV2/shared/FilterSelect';
+import { GroupBySelect } from '@app/entityV2/shared/GroupBySelect';
+import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
+import {
+    INCIDENT_DEFAULT_FILTERS,
+    INCIDENT_GROUP_BY_FILTER_OPTIONS,
+} from '@app/entityV2/shared/tabs/Incident/constant';
+import {
+    FiltersContainer,
+    SearchFilterContainer,
+    StyledFilterContainer,
+} from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { IncidentTable } from '@app/entityV2/shared/tabs/Incident/types';
 
 interface FilterItem {
     name: string;
@@ -26,8 +34,7 @@ export const IncidentFilterContainer: React.FC<IncidentAssigneeAvatarStack> = ({
     handleFilterChange,
     selectedFilters,
 }) => {
-    const handleSearchTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const searchText = event.target.value;
+    const handleSearchTextChange = (searchText: string) => {
         handleFilterChange({
             ...selectedFilters,
             filterCriteria: { ...selectedFilters.filterCriteria, searchText },

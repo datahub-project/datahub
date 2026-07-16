@@ -1,7 +1,8 @@
 import * as QueryString from 'query-string';
 import { useHistory, useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
-import { SchemaFilterType } from './filterSchemaRows';
+
+import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
 
 export default function useUpdateSchemaFilterQueryString(
     filterText: string,

@@ -1,8 +1,10 @@
 import json
 import logging
+import os
 import time
 import typing
 from datetime import datetime
+from functools import wraps
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import click
@@ -40,6 +42,45 @@ def get_or_else(value: Optional[_T], default: _T) -> _T:
     # Normally we'd use `value or default`. However, that runs into issues
     # when value is falsey but not None.
     return value if value is not None else default
+
+
+def get_init_config_value(
+    arg_value: Optional[str],
+    env_var: str,
+    prompt_text: str,
+    default: Optional[str] = None,
+    hide_input: bool = False,
+) -> str:
+    """Get config value from CLI arg, env var, or interactive prompt.
+
+    Precedence: CLI arg > Environment variable > Interactive prompt
+
+    Args:
+        arg_value: Value from CLI argument (if provided)
+        env_var: Environment variable name to check
+        prompt_text: Text to show in interactive prompt
+        default: Default value for prompt
+        hide_input: Whether to hide input (for passwords)
+
+    Returns:
+        The resolved configuration value
+    """
+    # Priority 1: CLI argument
+    if arg_value is not None:
+        return arg_value
+
+    # Priority 2: Environment variable
+    env_value = os.environ.get(env_var)
+    if env_value:
+        return env_value
+
+    # Priority 3: Interactive prompt (fallback)
+    return click.prompt(
+        text=prompt_text,
+        type=str,
+        default=default or "",
+        hide_input=hide_input,
+    )
 
 
 def parse_run_restli_response(response: requests.Response) -> dict:
@@ -424,3 +465,65 @@ def ensure_has_system_metadata(
     props = metadata.properties
     props["clientId"] = datahub_version.__package_name__
     props["clientVersion"] = datahub_version.__version__
+
+
+def enable_auto_decorators(main_group: click.Group) -> None:
+    """
+    Enable automatic decorators for all click commands.
+    This wraps existing command callback functions to add upgrade and telemetry decorators.
+    """
+
+    def has_decorator(func: Any, module_pattern: str, function_pattern: str) -> bool:
+        """Check if function already has a specific decorator"""
+        if hasattr(func, "__wrapped__"):
+            current_func = func
+            while hasattr(current_func, "__wrapped__"):
+                # Check if this wrapper matches the module and function patterns
+                if (
+                    hasattr(current_func, "__module__")
+                    and module_pattern in current_func.__module__
+                    and hasattr(current_func, "__name__")
+                    and function_pattern in current_func.__name__
+                ):
+                    return True
+                current_func = current_func.__wrapped__
+        return False
+
+    def has_telemetry_decorator(func):
+        return has_decorator(func, "telemetry", "with_telemetry")
+
+    def wrap_command_callback(command_obj):
+        """Wrap a command's callback function to add decorators"""
+        if hasattr(command_obj, "callback") and command_obj.callback:
+            original_callback = command_obj.callback
+
+            # Import here to avoid circular imports
+            from datahub.telemetry import telemetry
+
+            decorated_callback = original_callback
+
+            if not has_telemetry_decorator(decorated_callback):
+                log.debug(
+                    f"Applying telemetry decorator to {original_callback.__module__}.{original_callback.__name__}"
+                )
+                decorated_callback = telemetry.with_telemetry()(decorated_callback)
+
+            # Preserve the original function's metadata
+            decorated_callback = wraps(original_callback)(decorated_callback)
+
+            command_obj.callback = decorated_callback
+
+    def wrap_group_commands(group_obj):
+        """Recursively wrap all commands in a group"""
+        if hasattr(group_obj, "commands"):
+            for _, command_obj in group_obj.commands.items():
+                if isinstance(command_obj, click.Group):
+                    # Recursively wrap sub-groups
+                    wrap_group_commands(command_obj)
+                else:
+                    # Wrap individual commands
+                    wrap_command_callback(command_obj)
+
+    wrap_group_commands(main_group)
+
+    log.debug("Auto-decorators enabled successfully")

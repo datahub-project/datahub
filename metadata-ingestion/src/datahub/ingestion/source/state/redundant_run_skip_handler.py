@@ -244,3 +244,24 @@ class RedundantUsageRunSkipHandler(RedundantRunSkipHandler):
             cur_state.begin_timestamp_millis = datetime_to_ts_millis(start_time)
             cur_state.end_timestamp_millis = datetime_to_ts_millis(end_time)
             cur_state.bucket_duration = bucket_duration
+
+
+class RedundantQueriesRunSkipHandler(RedundantRunSkipHandler):
+    """
+    Handler for stateful ingestion of queries v2 extraction.
+    Manages the time window for audit log extraction that combines
+    lineage, usage, operations, and queries.
+    """
+
+    def get_job_name_suffix(self):
+        return "_audit_window"
+
+    def update_state(
+        self, start_time: datetime, end_time: datetime, bucket_duration: BucketDuration
+    ) -> None:
+        cur_checkpoint = self.get_current_checkpoint()
+        if cur_checkpoint:
+            cur_state = cast(BaseTimeWindowCheckpointState, cur_checkpoint.state)
+            cur_state.begin_timestamp_millis = datetime_to_ts_millis(start_time)
+            cur_state.end_timestamp_millis = datetime_to_ts_millis(end_time)
+            cur_state.bucket_duration = bucket_duration

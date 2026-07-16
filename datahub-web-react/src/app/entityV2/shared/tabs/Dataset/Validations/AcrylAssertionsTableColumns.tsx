@@ -1,18 +1,11 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
-import { AuditOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
-import { Assertion, EntityType, DataContract, AssertionRunEvent } from '../../../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../constants';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { isAssertionPartOfContract } from './contract/utils';
-import { AssertionDescription } from './assertion/profile/summary/AssertionDescription';
-import { AssertionResultDot } from './assertion/profile/shared/AssertionResultDot';
-import { AssertionResultPopover } from './assertion/profile/shared/result/AssertionResultPopover';
-import { ResultStatusType } from './assertion/profile/summary/shared/resultMessageUtils';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { AssertionListItemActions } from './assertion/profile/actions/AssertionListItemActions';
+
+import { AssertionName } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionName';
+import { AssertionListItemActions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/AssertionListItemActions';
+
+import { Assertion, AssertionRunEvent, DataContract } from '@types';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -24,22 +17,10 @@ const DetailsContainer = styled.div`
     font-size: 14px;
 `;
 
-const Result = styled.div`
-    margin: 0px 40px 0px 48px;
-    display: flex;
-    align-items: center;
-`;
-
 const ActionButtonContainer = styled.div<{ removeRightPadding?: boolean }>`
     display: flex;
     align-items: center;
     margin-left: ${(props) => (props.removeRightPadding ? 'auto' : undefined)};
-`;
-
-const DataContractLogo = styled(AuditOutlined)`
-    margin-left: 8px;
-    font-size: 16px;
-    color: ${REDESIGN_COLORS.BLUE};
 `;
 
 interface DetailsColumnProps {
@@ -50,53 +31,21 @@ interface DetailsColumnProps {
 }
 
 export function DetailsColumn({ assertion, contract, lastEvaluation, onViewAssertionDetails }: DetailsColumnProps) {
-    const entityRegistry = useEntityRegistry();
-    const entityData = useEntityData();
-
+    const { t } = useTranslation('entity.profile.validations');
     if (!assertion.info) {
-        return <>No details found</>;
+        return <>{t('assertionList.noDetailsFound')}</>;
     }
-    const disabled = false;
-    const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
+
     return (
         <DetailsContainer>
-            <AssertionResultPopover
+            <AssertionName
                 assertion={assertion}
-                run={lastEvaluation}
-                showProfileButton
+                lastEvaluation={lastEvaluation}
+                lastEvaluationUrl={lastEvaluation?.result?.externalUrl}
+                platform={assertion.platform}
+                contract={contract}
                 onClickProfileButton={onViewAssertionDetails}
-                placement="right"
-                resultStatusType={ResultStatusType.LATEST}
-            >
-                <Result>
-                    <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
-                </Result>
-            </AssertionResultPopover>
-            <AssertionDescription assertion={assertion} options={{ hideSecondaryLabel: true, showColumnTag: true }} />
-            {(isPartOfContract && entityData?.urn && (
-                <Tooltip
-                    title={
-                        <>
-                            Part of Data Contract{' '}
-                            <Link
-                                to={`${entityRegistry.getEntityUrl(
-                                    EntityType.Dataset,
-                                    entityData.urn,
-                                )}/Quality/Data Contract`}
-                            >
-                                View
-                            </Link>
-                        </>
-                    }
-                >
-                    <Link
-                        to={`${entityRegistry.getEntityUrl(EntityType.Dataset, entityData.urn)}/Quality/Data Contract`}
-                    >
-                        <DataContractLogo />
-                    </Link>
-                </Tooltip>
-            )) ||
-                undefined}
+            />
         </DetailsContainer>
     );
 }

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
+
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
@@ -103,6 +105,15 @@ public class LineageRegistry {
                     sourceEntity, destEntity, annotation.getName(), annotation.isUpstream()));
   }
 
+  public Map<String, LineageSpec> getLineageSpecs() {
+    return _lineageSpecMap.entrySet().stream()
+        .filter(
+            e ->
+                !e.getValue().getDownstreamEdges().isEmpty()
+                    || !e.getValue().getUpstreamEdges().isEmpty())
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
   public LineageSpec getLineageSpec(String entityName) {
     return _lineageSpecMap.get(entityName.toLowerCase());
   }
@@ -141,7 +152,7 @@ public class LineageRegistry {
       return Collections.emptyList();
     }
 
-    if (entityName.equals("schemaField")) {
+    if (entityName.equals(SCHEMA_FIELD_ENTITY_NAME)) {
       return getSchemaFieldRelationships(direction);
     }
 
@@ -155,12 +166,16 @@ public class LineageRegistry {
     List<EdgeInfo> schemaFieldEdges = new ArrayList<>();
     if (direction == LineageDirection.UPSTREAM) {
       schemaFieldEdges.add(
-          new EdgeInfo("DownstreamOf", RelationshipDirection.OUTGOING, "schemafield"));
+          new EdgeInfo("DownstreamOf", RelationshipDirection.OUTGOING, SCHEMA_FIELD_ENTITY_NAME));
     } else {
       schemaFieldEdges.add(
-          new EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, "schemafield"));
+          new EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, SCHEMA_FIELD_ENTITY_NAME));
     }
     return schemaFieldEdges;
+  }
+
+  public EntityRegistry getEntityRegistry() {
+    return _entityRegistry;
   }
 
   @Value

@@ -7,7 +7,8 @@ import com.linkedin.common.FabricType
  * Key for a Dataset
  */
 @Aspect = {
-  "name": "datasetKey"
+  "name": "datasetKey",
+  "schemaVersion": 2
 }
 record DatasetKey {
   /**
@@ -32,13 +33,14 @@ record DatasetKey {
   name: string
 
   /**
-  * Fabric type where dataset belongs to or where it was generated.
-  */
+   * Fabric type where dataset belongs to or where it was generated.
+   */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "addToFilters": true,
     "filterNameOverride": "Environment",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "searchLabel": "origin"
   }
   origin: FabricType
 }

@@ -1,12 +1,13 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { ContainerIconBase } from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
-import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Container } from '@types';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { ContainerIconBase } from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
+import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Container } from '@types';
 
 const ContainerPathWrapper = styled.div`
     display: flex;
@@ -27,7 +28,7 @@ const EmptyContainer = styled.div`
 // TODO: Put ellipsis on last item correctly
 const ContainerEntry = styled(MatchTextSizeWrapper)<{ numItems?: number; isLast: boolean }>`
     align-items: center;
-    color: ${REDESIGN_COLORS.TEXT_GREY};
+    color: ${(props) => props.theme.colors.textTertiary};
     display: flex;
     flex-direction: row;
     max-width: ${({ numItems, isLast }) => (numItems && !isLast ? 100 / numItems : 100)}%;

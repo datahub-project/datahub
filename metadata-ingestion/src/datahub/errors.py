@@ -41,3 +41,7 @@ class ExperimentalWarning(Warning):
 
 class APITracingWarning(Warning):
     pass
+
+
+class DataHubDeprecationWarning(DeprecationWarning):
+    pass

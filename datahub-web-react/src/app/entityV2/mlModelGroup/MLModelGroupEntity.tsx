@@ -1,35 +1,40 @@
-import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
+import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
-import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
-import { EntityType, MlModelGroup, SearchResult } from '../../../types.generated';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { isOutputPort } from '../shared/utils';
-import { Preview } from './preview/Preview';
-import ModelGroupModels from './profile/ModelGroupModels';
-import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { Preview } from '@app/entityV2/mlModelGroup/preview/Preview';
+import ModelGroupModels from '@app/entityV2/mlModelGroup/profile/ModelGroupModels';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
+import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
+import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { SidebarTitleActionType, isOutputPort } from '@app/entityV2/shared/utils';
+
+import { useGetMlModelGroupQuery } from '@graphql/mlModelGroup.generated';
+import { EntityType, MlModelGroup, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
-    EntityMenuItems.EXTERNAL_URL,
 ]);
 
 /**
@@ -39,23 +44,12 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     type: EntityType = EntityType.MlmodelGroup;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <CodeSandboxOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <CodeSandboxOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#9633b9' }} />
-            );
-        }
-
         return (
-            <CodeSandboxOutlined
+            <Cube
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -72,9 +66,9 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     getPathName = () => 'mlModelGroup';
 
-    getEntityName = () => 'ML Group';
+    getEntityName = () => i18next.t('entity.types:mlModelGroup.name');
 
-    getCollectionName = () => 'ML Groups';
+    getCollectionName = () => i18next.t('entity.types:mlModelGroup.namePlural');
 
     getOverridePropertiesFromEntity = (mlModelGroup?: MlModelGroup | null): GenericEntityProperties => {
         return {
@@ -94,20 +88,21 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Models',
+                    name: i18next.t('entity.types:mlModelGroup.modelsTab'),
                     component: ModelGroupModels,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     icon: PartitionOutlined,
+                    supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                 },
             ]}
@@ -133,6 +128,9 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             component: SidebarDomainSection,
         },
         {
+            component: SidebarApplicationSection,
+        },
+        {
             component: DataProductSection,
         },
         {
@@ -151,9 +149,18 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.lineage'),
+            component: LineageTab,
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
+            icon: TreeStructure,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
+        },
+        {
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: UnorderedListOutlined,
         },
     ];
@@ -181,6 +188,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -219,6 +227,9 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

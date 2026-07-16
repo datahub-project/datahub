@@ -1,10 +1,11 @@
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { MatchedFieldName } from './constants';
-import { useAppConfig } from '../../useAppConfig';
-import { useMatchedFieldsByGroup } from '../../search/context/SearchResultContext';
-import { useSearchQuery } from '../../search/context/SearchContext';
+
+import { useSearchQuery } from '@app/search/context/SearchContext';
+import { useMatchedFieldsByGroup } from '@app/search/context/SearchResultContext';
+import { MatchedFieldName } from '@app/searchV2/matches/constants';
+import { useAppConfig } from '@app/useAppConfig';
 
 type Props = {
     field: MatchedFieldName;
@@ -15,7 +16,7 @@ type Props = {
 const HIGHLIGHT_ALL_PATTERN = /.*/;
 
 const StyledHighlight = styled(Highlight).attrs((props) => ({
-    matchStyle: { background: props.theme.styles['highlight-color'] },
+    matchStyle: { background: props.theme.colors.bgHighlight },
 }))``;
 
 const SearchTextHighlighter = ({ field, text, enableFullHighlight = false }: Props) => {

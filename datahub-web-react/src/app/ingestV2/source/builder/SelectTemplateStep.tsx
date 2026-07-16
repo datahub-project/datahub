@@ -1,0 +1,173 @@
+import { FormOutlined, SearchOutlined } from '@ant-design/icons';
+import { Input, InputRef } from 'antd';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
+
+import { DataPlatformCard } from '@app/ingestV2/source/builder/DataPlatformCard';
+import { CUSTOM } from '@app/ingestV2/source/builder/constants';
+import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
+import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingestV2/source/builder/types';
+import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
+
+const Container = styled.div`
+    max-height: 82vh;
+    display: flex;
+    flex-direction: column;
+`;
+
+const Section = styled.div`
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 12px;
+    overflow: hidden;
+`;
+
+const SearchBarContainer = styled.div`
+    display: flex;
+    justify-content: end;
+    width: auto;
+    padding-right: 12px;
+`;
+
+const StyledSearchBar = styled(Input)`
+    background-color: ${(props) => props.theme.colors.bg};
+    border-radius: 8px;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    margin: 0 0 15px 0px;
+    max-width: 300px;
+    font-size: 16px;
+`;
+
+const StyledSearchOutlined = styled(SearchOutlined)`
+    color: ${(props) => props.theme.colors.textTertiary};
+`;
+
+const PlatformListContainer = styled.div`
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 31%), 1fr));
+    gap: 10px;
+    height: 100%;
+    overflow-y: auto;
+    padding-right: 12px;
+`;
+
+const NoResultsMessage = styled.div`
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+    color: ${(props) => props.theme.colors.textSecondary};
+    font-size: 16px;
+    text-align: center;
+`;
+
+interface SourceOptionProps {
+    source: SourceConfig;
+    onClick: () => void;
+}
+
+function SourceOption({ source, onClick }: SourceOptionProps) {
+    const { name, displayName, description } = source;
+    const theme = useTheme();
+
+    const logoUrl = useGetSourceLogoUrl(name);
+    let logoComponent;
+    if (name === CUSTOM) {
+        logoComponent = <FormOutlined style={{ color: theme.colors.textSecondary, fontSize: 28 }} />;
+    }
+
+    return (
+        <DataPlatformCard
+            onClick={onClick}
+            name={displayName}
+            logoUrl={logoUrl}
+            description={description}
+            logoComponent={logoComponent}
+            dataTestId={`source-option-${name}`}
+        />
+    );
+}
+
+/**
+ * Component responsible for selecting the mechanism for constructing a new Ingestion Source
+ */
+export const SelectTemplateStep = ({
+    state,
+    updateState,
+    goTo,
+    ingestionSources,
+    setSelectedSourceType,
+}: StepProps) => {
+    const { t } = useTranslation('ingestion.sourceBuilder');
+    const [searchFilter, setSearchFilter] = useState('');
+
+    // Callback ref that focuses immediately when the element is attached
+    const searchInputCallbackRef = (node: InputRef | null) => {
+        if (node) {
+            node.focus();
+        }
+    };
+
+    const onSelectTemplate = (type: string) => {
+        const newState: SourceBuilderState = {
+            ...state,
+            config: undefined,
+            type,
+        };
+        updateState(newState);
+        goTo(IngestionSourceBuilderStep.DEFINE_RECIPE);
+        setSelectedSourceType?.(type);
+    };
+
+    const filteredSources = ingestionSources.filter(
+        (source) =>
+            source.displayName.toLocaleLowerCase().includes(searchFilter.toLocaleLowerCase()) ||
+            source.name.toLocaleLowerCase().includes(searchFilter.toLocaleLowerCase()),
+    );
+
+    filteredSources.sort((a, b) => {
+        if (a.name === 'custom') {
+            return 1;
+        }
+
+        if (b.name === 'custom') {
+            return -1;
+        }
+
+        return a.displayName.localeCompare(b.displayName);
+    });
+
+    return (
+        <Container>
+            <Section>
+                <SearchBarContainer>
+                    <StyledSearchBar
+                        ref={searchInputCallbackRef}
+                        data-testid="source-type-search-input"
+                        placeholder={t('selectTemplate.searchPlaceholder')}
+                        value={searchFilter}
+                        onChange={(e) => setSearchFilter(e.target.value)}
+                        allowClear
+                        prefix={<StyledSearchOutlined />}
+                    />
+                </SearchBarContainer>
+                <PlatformListContainer data-testid="data-source-options">
+                    {filteredSources.length > 0 ? (
+                        filteredSources.map((source) => (
+                            <SourceOption
+                                key={source.urn}
+                                source={source}
+                                onClick={() => onSelectTemplate(source.name)}
+                            />
+                        ))
+                    ) : (
+                        <NoResultsMessage>{t('selectTemplate.noResults', { searchFilter })}</NoResultsMessage>
+                    )}
+                </PlatformListContainer>
+            </Section>
+        </Container>
+    );
+};

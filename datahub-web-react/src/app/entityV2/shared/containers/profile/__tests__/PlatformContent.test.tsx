@@ -1,9 +1,14 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
+import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import PlatformContentView, { getParentContainerNames } from '../header/PlatformContent/PlatformContentView';
-import { EntityType } from '../../../../../../types.generated';
-import { container1, container2 } from '../../../../../../Mocks';
+
+import PlatformContentView, {
+    getParentContainerNames,
+} from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformContentView';
+import CustomThemeProvider from '@src/CustomThemeProvider';
+import { container1, container2 } from '@src/Mocks';
+
+import { EntityType } from '@types';
 
 vi.mock('../../../../../useEntityRegistry', () => ({
     useEntityRegistry: () => ({
@@ -11,6 +16,8 @@ vi.mock('../../../../../useEntityRegistry', () => ({
         getDisplayName: vi.fn(() => 'database1'),
     }),
 }));
+
+const renderWithTheme = (ui: React.ReactElement) => render(<CustomThemeProvider>{ui}</CustomThemeProvider>);
 
 describe('PlatformContent', () => {
     const defaultProps = {
@@ -24,14 +31,14 @@ describe('PlatformContent', () => {
     };
 
     it('should not render any containers if there are none in parentContainers', () => {
-        const { queryAllByTestId } = render(<PlatformContentView {...defaultProps} />);
+        const { queryAllByTestId } = renderWithTheme(<PlatformContentView {...defaultProps} />);
 
         expect(queryAllByTestId('container')).toHaveLength(0);
         expect(queryAllByTestId('divider')).toHaveLength(0);
     });
 
     it('should render a direct parent container correctly when there is only one container', () => {
-        const { queryAllByTestId, getByText } = render(
+        const { queryAllByTestId, getByText } = renderWithTheme(
             <BrowserRouter>
                 <PlatformContentView {...defaultProps} parentContainers={[container1]} />
             </BrowserRouter>,
@@ -43,7 +50,7 @@ describe('PlatformContent', () => {
     });
 
     it('should render all parent containers properly', () => {
-        const { queryAllByTestId } = render(
+        const { queryAllByTestId } = renderWithTheme(
             <BrowserRouter>
                 <PlatformContentView {...defaultProps} parentContainers={[container1, container2]} />
             </BrowserRouter>,
@@ -54,7 +61,7 @@ describe('PlatformContent', () => {
     });
 
     it('should render the correct number of right arrows with no containers and an instanceId', () => {
-        render(
+        renderWithTheme(
             <BrowserRouter>
                 <PlatformContentView {...defaultProps} instanceId="mysql1" />
             </BrowserRouter>,
@@ -63,7 +70,7 @@ describe('PlatformContent', () => {
     });
 
     it('should render the correct number of right arrows with multiple containers and an instanceId', () => {
-        render(
+        renderWithTheme(
             <BrowserRouter>
                 <PlatformContentView
                     {...defaultProps}
@@ -76,7 +83,7 @@ describe('PlatformContent', () => {
     });
 
     it('should render the correct number of right arrows with one containers and an instanceId', () => {
-        render(
+        renderWithTheme(
             <BrowserRouter>
                 <PlatformContentView {...defaultProps} instanceId="mysql1" parentContainers={[container2]} />
             </BrowserRouter>,
@@ -85,7 +92,7 @@ describe('PlatformContent', () => {
     });
 
     it('should render the correct number of right arrows with multiple containers and no instanceId', () => {
-        render(
+        renderWithTheme(
             <BrowserRouter>
                 <PlatformContentView {...defaultProps} parentContainers={[container1, container2]} />
             </BrowserRouter>,
@@ -94,7 +101,7 @@ describe('PlatformContent', () => {
     });
 
     it('should render the correct number of right arrows with one container and no instanceId', () => {
-        render(
+        renderWithTheme(
             <BrowserRouter>
                 <PlatformContentView {...defaultProps} parentContainers={[container1]} />
             </BrowserRouter>,
@@ -103,7 +110,7 @@ describe('PlatformContent', () => {
     });
 
     it('should render the correct number of right arrows with no containers and no instanceID', () => {
-        render(
+        renderWithTheme(
             <BrowserRouter>
                 <PlatformContentView {...defaultProps} parentContainers={[]} />
             </BrowserRouter>,

@@ -6,7 +6,8 @@ import com.linkedin.common.AuditStamp
  * Settings specific to a structured property entity
  */
 @Aspect = {
-   "name": "structuredPropertySettings"
+   "name": "structuredPropertySettings",
+   "schemaVersion": 2
 }
 record StructuredPropertySettings {
   /**
@@ -32,6 +33,15 @@ record StructuredPropertySettings {
     "fieldType": "BOOLEAN"
   }
   showInAssetSummary: boolean = false
+
+  /**
+  * Whether or not this asset should be hidden in the asset sidebar (showInAssetSummary should be enabled)
+  * when its value is empty
+  */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  hideInAssetSummaryWhenEmpty: boolean = false
 
   /**
    * Whether or not this asset should be displayed as an asset badge on other

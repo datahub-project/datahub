@@ -1,25 +1,37 @@
-import React from 'react';
 import { LockOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Typography } from 'antd';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../shared/constants';
-import { MemberCount } from './GroupSidebar';
-import { EntityRelationshipsResult } from '../../../types.generated';
+
+import { MemberCount } from '@app/entityV2/group/GroupSidebar';
+import { getExternalGroupMembershipTooltip } from '@app/entityV2/group/utils';
+
+import { EntityRelationshipsResult } from '@types';
 
 const GroupHeader = styled.div`
     position: relative;
     z-index: 2;
 `;
 
+const NameRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+`;
+
 const GroupName = styled(Typography.Title)`
     word-wrap: break-word;
     text-align: left;
+    flex: 1;
+    min-width: 0;
     &&& {
         margin-bottom: 0;
         word-break: break-all;
         font-size: 12px;
-        color: ${REDESIGN_COLORS.WHITE};
+        color: ${(props) => props.theme.colors.bg};
         text-overflow: ellipsis;
         overflow: hidden;
         white-space: nowrap;
@@ -30,8 +42,15 @@ const GroupName = styled(Typography.Title)`
     }
 `;
 
+const ExternalGroupLock = styled(LockOutlined)`
+    flex-shrink: 0;
+    color: ${(props) => props.theme.colors.bg};
+    font-size: 11px;
+    opacity: 0.85;
+`;
+
 type Props = {
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships?: EntityRelationshipsResult;
     isExternalGroup: boolean;
     externalGroupType: string | undefined;
     groupName: string | undefined;
@@ -43,19 +62,24 @@ export const GroupInfoHeaderSection = ({
     isExternalGroup,
     groupName,
 }: Props) => {
+    const { t } = useTranslation('entity.types');
     const groupMemberRelationshipsTotal = groupMemberRelationships?.total || 0;
     return (
         <GroupHeader>
-            <Tooltip title={groupName}>
-                <GroupName level={3}>{groupName}</GroupName>
-            </Tooltip>
-            {groupMemberRelationshipsTotal > 0 && <MemberCount>{groupMemberRelationshipsTotal} members</MemberCount>}
-            {isExternalGroup && (
-                <Tooltip
-                    title={`Membership for this group cannot be edited in DataHub as it originates from ${externalGroupType}.`}
-                >
-                    <LockOutlined />
+            <NameRow>
+                <Tooltip title={groupName}>
+                    <GroupName level={3} data-testid="group-profile-name">
+                        {groupName}
+                    </GroupName>
                 </Tooltip>
+                {isExternalGroup && (
+                    <Tooltip title={getExternalGroupMembershipTooltip(externalGroupType)}>
+                        <ExternalGroupLock />
+                    </Tooltip>
+                )}
+            </NameRow>
+            {groupMemberRelationshipsTotal > 0 && (
+                <MemberCount>{t('shared.membersCount', { count: groupMemberRelationshipsTotal })}</MemberCount>
             )}
         </GroupHeader>
     );

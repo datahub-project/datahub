@@ -2,14 +2,14 @@ import os
 import subprocess
 
 import boto3
-import freezegun
 import pytest
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_3
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 MINIO_PORT = 9000
@@ -74,7 +74,7 @@ def populate_minio(pytestconfig, s3_bkt):
     yield
 
 
-@freezegun.freeze_time("2023-01-01 00:00:00+00:00")
+@time_machine.travel("2023-01-01 00:00:00+00:00", tick=False)
 def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir):
     # Run the metadata ingestion pipeline.
     pipeline = Pipeline.create(

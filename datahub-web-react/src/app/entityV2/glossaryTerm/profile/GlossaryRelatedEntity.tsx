@@ -1,11 +1,13 @@
 import * as React from 'react';
-import { UnionType } from '../../../search/utils/constants';
-import { EmbeddedListSearchSection } from '../../shared/components/styled/search/EmbeddedListSearchSection';
+import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { SearchCardContext } from '../../shared/SearchCardContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
+import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '@app/search/utils/constants';
 
 export default function GlossaryRelatedEntity() {
+    const { t } = useTranslation('entity.types');
     const { entityData } = useEntityData();
 
     const entityUrn = entityData?.urn;
@@ -47,7 +49,7 @@ export default function GlossaryRelatedEntity() {
                     filters: fixedOrFilters,
                 }}
                 emptySearchQuery="*"
-                placeholderText="Filter assets..."
+                placeholderText={t('shared.filterAssetsPlaceholder')}
                 skipCache
                 applyView
             />

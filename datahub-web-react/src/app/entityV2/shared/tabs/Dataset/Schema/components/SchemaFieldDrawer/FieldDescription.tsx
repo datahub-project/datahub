@@ -1,49 +1,42 @@
-import { PlusOutlined } from '@ant-design/icons';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { message } from 'antd';
+import { Icon, Tooltip, toast } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { useUpdateDescriptionMutation } from '../../../../../../../../graphql/mutations.generated';
-import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '../../../../../../../../types.generated';
-import analytics, { EntityActionType, EventType } from '../../../../../../../analytics';
-import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
-import UpdateDescriptionModal from '../../../../../components/legacy/DescriptionModal';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import DescriptionSection from '../../../../../containers/profile/sidebar/AboutSection/DescriptionSection';
-import SectionActionButton from '../../../../../containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '../../../../../containers/profile/sidebar/SidebarSection';
-import { useSchemaRefetch } from '../../SchemaContext';
-import { StyledDivider } from './components';
-import { sanitizeRichText } from '../../../../Documentation/components/editor/utils';
-import { getFieldDescriptionDetails } from '../../utils/getFieldDescriptionDetails';
-import DocumentationPropagationDetails from '../../../../../../../sharedV2/propagation/DocumentationPropagationDetails';
+
+import { EditorProps } from '@components/components/Editor/types';
+import { sanitizeRichText } from '@components/components/Editor/utils';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
+import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
+import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import { getFieldDescriptionDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldDescriptionDetails';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '@types';
 
 const AddNewDescription = styled.div`
     margin: 0px;
     padding: 0px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     :hover {
         cursor: pointer;
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
-    }
-`;
-
-const StyledPlusOutlined = styled(PlusOutlined)`
-    && {
-        font-size: 10px;
-        margin-right: 8px;
+        color: ${(props) => props.theme.colors.textBrand};
     }
 `;
 
 const AddDescriptionText = styled.span`
-    color: ${REDESIGN_COLORS.DARK_GREY};
     font-size: 12px;
     font-weight: 500;
     line-height: 16px;
-    :hover {
-        color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
-    }
 `;
 
 const DescriptionWrapper = styled.div`
@@ -55,10 +48,12 @@ const DescriptionWrapper = styled.div`
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
-    isShowMoreEnabled?: boolean;
+    editorProps?: Partial<EditorProps>;
 }
 
-export default function FieldDescription({ expandedField, editableFieldInfo, isShowMoreEnabled }: Props) {
+export default function FieldDescription({ expandedField, editableFieldInfo, editorProps }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
+    const { t: tc } = useTranslation('common.feedback');
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -84,13 +79,14 @@ export default function FieldDescription({ expandedField, editableFieldInfo, isS
     const onSuccessfulMutation = () => {
         refresh();
         sendAnalytics();
-        message.destroy();
-        message.success({ content: 'Updated!', duration: 2 });
+        toast.destroy();
+        toast.success(tc('updated'), { duration: 2 });
     };
 
     const onFailMutation = (e) => {
-        message.destroy();
-        if (e instanceof Error) message.error({ content: `Proposal Failed! \n ${e.message || ''}`, duration: 2 });
+        toast.destroy();
+        if (e instanceof Error)
+            toast.error(t('fieldDescription.proposalFailed', { message: e.message || '' }), { duration: 2 });
     };
     const onClose = () => {
         setIsModalVisible(false);
@@ -110,7 +106,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, isS
     };
 
     const { schemaFieldEntity, description } = expandedField;
-    const { displayedDescription, isPropagated, sourceDetail, propagatedDescription } = getFieldDescriptionDetails({
+    const { displayedDescription, isPropagated, propagatedDescription, attribution } = getFieldDescriptionDetails({
         schemaFieldEntity,
         editableFieldInfo,
         defaultDescription: description,
@@ -119,16 +115,17 @@ export default function FieldDescription({ expandedField, editableFieldInfo, isS
     return (
         <>
             <SidebarSection
-                title="Description"
+                title={t('fieldDescription.sectionTitle')}
                 extra={
                     isSchemaEditable && (
                         <SectionActionButton
+                            dataTestId="edit-field-description"
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setIsModalVisible(true);
                             }}
-                            button={<EditOutlinedIcon />}
+                            icon={PencilSimple}
                         />
                     )
                 }
@@ -141,38 +138,44 @@ export default function FieldDescription({ expandedField, editableFieldInfo, isS
                                         setIsModalVisible(true);
                                     }}
                                 >
-                                    <StyledPlusOutlined />
-                                    <AddDescriptionText>Add Description</AddDescriptionText>
+                                    <Icon icon={Plus} size="sm" />
+                                    <AddDescriptionText>{t('fieldDescription.addDescription')}</AddDescriptionText>
                                 </AddNewDescription>,
                             ]}
-                        <DescriptionWrapper>
-                            {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
-                            {!!displayedDescription && (
-                                <DescriptionSection
-                                    description={displayedDescription}
-                                    isShowMoreEnabled={isShowMoreEnabled}
-                                    isExpandable
-                                />
-                            )}
-                        </DescriptionWrapper>
+                        {!!displayedDescription && (
+                            <Tooltip
+                                title={
+                                    isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />
+                                }
+                            >
+                                <DescriptionWrapper>
+                                    <DescriptionSection description={displayedDescription} isExpandable />
+                                </DescriptionWrapper>
+                            </Tooltip>
+                        )}
                     </>
                 }
             />
             {isModalVisible && (
                 <UpdateDescriptionModal
-                    title={displayedDescription ? 'Update description' : 'Add description'}
+                    title={
+                        displayedDescription
+                            ? t('fieldDescription.updateDescriptionTitle')
+                            : t('fieldDescription.addDescriptionTitle')
+                    }
                     description={displayedDescription || ''}
                     original={expandedField.description || ''}
                     propagatedDescription={propagatedDescription || ''}
                     onClose={onClose}
                     onSubmit={(updatedDescription: string) => {
-                        message.loading({ content: 'Updating...' });
+                        toast.loading(tc('updating'));
                         updateDescription(generateMutationVariables(updatedDescription))
                             .then(onSuccessfulMutation)
                             .catch(onFailMutation);
                         onClose();
                     }}
                     isAddDesc={!displayedDescription}
+                    editorProps={editorProps}
                 />
             )}
             <StyledDivider dashed />

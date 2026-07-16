@@ -1,5 +1,5 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { FullLineageResultsFragment } from '../../graphql/lineage.generated';
+
 import {
     Chart,
     Dashboard,
@@ -23,17 +23,11 @@ import {
     SiblingProperties,
     Status,
     StructuredProperties,
-} from '../../types.generated';
+} from '@types';
 
 export type EntitySelectParams = {
     type: EntityType;
     urn: string;
-};
-
-export type LineageExpandParams = {
-    type: EntityType;
-    urn: string;
-    direction: Direction;
 };
 
 export type FetchedEntity = {
@@ -128,11 +122,6 @@ export enum Direction {
     Downstream = 'Downstream',
 }
 
-export type LineageExplorerParams = {
-    type: string;
-    urn: string;
-};
-
 export type TreeProps = {
     margin?: { top: number; right: number; bottom: number; left: number };
     entityAndType?: EntityAndType | null;
@@ -182,12 +171,6 @@ export type EntityAndType =
           type: EntityType.MlprimaryKey;
           entity: MlPrimaryKey;
       };
-
-export interface LineageResult {
-    urn: string;
-    upstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
-    downstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
-}
 
 export interface UpdatedLineages {
     [urn: string]: UpdatedLineage;

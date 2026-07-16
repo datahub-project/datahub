@@ -11,7 +11,10 @@ import com.linkedin.datahub.graphql.generated.NamedLine;
 import com.linkedin.datahub.graphql.generated.NumericDataPoint;
 import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,7 +26,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -44,7 +46,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @RequiredArgsConstructor
 public class AnalyticsService {
 
-  private final RestHighLevelClient _elasticClient;
+  private final SearchClientShim<?> _elasticClient;
   private final IndexConvention _indexConvention;
 
   private static final String FILTERED = "filtered";
@@ -72,6 +74,7 @@ public class AnalyticsService {
   }
 
   public List<NamedLine> getTimeseriesChart(
+      @Nonnull OperationContext opContext,
       String indexName,
       DateRange dateRange,
       DateInterval granularity,
@@ -106,7 +109,7 @@ public class AnalyticsService {
     }
 
     SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
-    Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
+    Aggregations aggregationResult = executeAndExtract(opContext, searchRequest).getAggregations();
     try {
       if (dimension.isPresent()) {
         return aggregationResult.<Terms>get(DIMENSION).getBuckets().stream()
@@ -130,6 +133,7 @@ public class AnalyticsService {
   }
 
   public List<NamedLine> getTimeseriesChart(
+      @Nonnull OperationContext opContext,
       String indexName,
       DateRange dateRange,
       DateInterval granularity,
@@ -138,6 +142,7 @@ public class AnalyticsService {
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn) {
     return getTimeseriesChart(
+        opContext,
         indexName,
         dateRange,
         granularity,
@@ -164,6 +169,7 @@ public class AnalyticsService {
   }
 
   public List<NamedBar> getBarChart(
+      @Nonnull OperationContext opContext,
       String indexName,
       Optional<DateRange> dateRange,
       List<String> dimensions,
@@ -178,7 +184,9 @@ public class AnalyticsService {
                 indexName, dateRange, dimensions)
             + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
-    assert (dimensions.size() == 1 || dimensions.size() == 2);
+    if (!(dimensions.size() == 1 || dimensions.size() == 2)) {
+      throw new IllegalArgumentException("Dimensions must have 1 or 2 specified: " + dimensions);
+    }
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
     TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0));
@@ -200,7 +208,7 @@ public class AnalyticsService {
     filteredAgg.subAggregation(termAgg);
 
     SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
-    Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
+    Aggregations aggregationResult = executeAndExtract(opContext, searchRequest).getAggregations();
 
     try {
       if (dimensions.size() == 1) {
@@ -251,6 +259,7 @@ public class AnalyticsService {
   }
 
   public List<Row> getTopNTableChart(
+      @Nonnull OperationContext opContext,
       String indexName,
       Optional<DateRange> dateRange,
       String groupBy,
@@ -276,7 +285,7 @@ public class AnalyticsService {
     filteredAgg.subAggregation(termAgg);
 
     SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
-    Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
+    Aggregations aggregationResult = executeAndExtract(opContext, searchRequest).getAggregations();
 
     try {
       return aggregationResult.<Terms>get(DIMENSION).getBuckets().stream()
@@ -294,6 +303,7 @@ public class AnalyticsService {
   }
 
   public int getHighlights(
+      @Nonnull OperationContext opContext,
       String indexName,
       Optional<DateRange> dateRange,
       Map<String, List<String>> filters,
@@ -308,7 +318,7 @@ public class AnalyticsService {
     uniqueOn.ifPresent(s -> filteredAgg.subAggregation(getUniqueQuery(s)));
 
     SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
-    Filter aggregationResult = executeAndExtract(searchRequest);
+    Filter aggregationResult = executeAndExtract(opContext, searchRequest);
     try {
       if (uniqueOn.isPresent()) {
         return (int) aggregationResult.getAggregations().<Cardinality>get(UNIQUE).getValue();
@@ -331,10 +341,11 @@ public class AnalyticsService {
     return searchRequest;
   }
 
-  private Filter executeAndExtract(SearchRequest searchRequest) {
+  private Filter executeAndExtract(
+      @Nonnull OperationContext opContext, SearchRequest searchRequest) {
     try {
       final SearchResponse searchResponse =
-          _elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+          _elasticClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return searchResponse.getAggregations().<Filter>get(FILTERED);
     } catch (Exception e) {
@@ -350,6 +361,7 @@ public class AnalyticsService {
       Optional<DateRange> dateRange,
       String dateRangeField) {
     BoolQueryBuilder filteredQuery = QueryBuilders.boolQuery();
+    filteredQuery.filter(getDefaultFilters());
     mustFilters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
     mustNotFilters.forEach(
         (key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
@@ -363,6 +375,14 @@ public class AnalyticsService {
       Optional<DateRange> dateRange) {
     // Use timestamp as dateRangeField
     return getFilteredAggregation(mustFilters, mustNotFilters, dateRange, "timestamp");
+  }
+
+  private QueryBuilder getDefaultFilters() {
+    return QueryBuilders.boolQuery()
+        .mustNot(
+            QueryBuilders.termQuery(
+                DataHubUsageEventConstants.USAGE_SOURCE,
+                DataHubUsageEventConstants.BACKEND_SOURCE));
   }
 
   private QueryBuilder dateRangeQuery(DateRange dateRange) {

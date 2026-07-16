@@ -1,10 +1,13 @@
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
-import { Button } from '../Button';
-import { Text } from '../Text';
-import { StyledDrawer, TitleContainer, TitleLeftContainer } from './components';
-import { maskTransparentStyle } from './constants';
-import { DrawerProps } from './types';
-import { drawerDefault } from './defaults';
+
+import { Button } from '@components/components/Button';
+import { StyledDrawer, TitleContainer, TitleLeftContainer } from '@components/components/Drawer/components';
+import { maskTransparentStyle } from '@components/components/Drawer/constants';
+import { drawerDefault } from '@components/components/Drawer/defaults';
+import { DrawerProps } from '@components/components/Drawer/types';
+import { Text } from '@components/components/Text';
 
 export const Drawer = ({
     title,
@@ -15,18 +18,21 @@ export const Drawer = ({
     width = drawerDefault.width,
     closable = drawerDefault.closable,
     maskTransparent = drawerDefault.maskTransparent,
+    dataTestId,
 }: React.PropsWithChildren<DrawerProps>) => {
     return (
         <StyledDrawer
             onClose={onClose}
             destroyOnClose
             title={
-                <TitleContainer>
+                <TitleContainer
+                    data-testid={dataTestId ? `${dataTestId}-drawer-title-container` : 'drawer-title-container'}
+                >
                     <TitleLeftContainer>
                         {onBack && (
                             <Button
                                 color="gray"
-                                icon={{ icon: 'ArrowBack', source: 'material' }}
+                                icon={{ icon: ArrowLeft }}
                                 iconPosition="left"
                                 isCircle
                                 onClick={() => onBack?.()}
@@ -34,19 +40,20 @@ export const Drawer = ({
                                 variant="text"
                             />
                         )}
-                        <Text weight="bold" size="xl">
+                        <Text weight="bold" size="xl" data-testid="drawer-title">
                             {title}
                         </Text>
                     </TitleLeftContainer>
                     {closable && (
                         <Button
                             color="gray"
-                            icon={{ icon: 'Close', source: 'material' }}
+                            icon={{ icon: X }}
                             iconPosition="left"
                             isCircle
                             onClick={() => onClose?.()}
                             size="xl"
                             variant="text"
+                            data-testid="drawer-close-button"
                         />
                     )}
                 </TitleContainer>

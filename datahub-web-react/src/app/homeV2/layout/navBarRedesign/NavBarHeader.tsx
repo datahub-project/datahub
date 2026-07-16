@@ -1,9 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { colors } from '@src/alchemy-components';
-import NavBarToggler from './NavBarToggler';
-import { useNavBarContext } from './NavBarContext';
+
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import { useIsHomePage } from '@app/shared/useIsHomePage';
+import analytics, { EventType } from '@src/app/analytics';
+
+import DatahubCoreLogo from '@images/datahub_core.svg?react';
 
 const Container = styled.div`
     display: flex;
@@ -12,44 +17,36 @@ const Container = styled.div`
     min-height: 40px;
     align-items: center;
     gap: 8px;
-    padding-left: 4px;
-    transition: padding 250ms ease-in-out;
+    margin-left: -3px;
 `;
 
 const Logotype = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    min-height: 24px;
+    max-height: 24px;
+    max-width: 42px;
     border-radius: 4px;
-    background: ${colors.white};
-    padding: 4px;
     position: relative;
+    object-fit: contain;
 
-    & svg {
-        height: 20px;
-        width: 20px;
+    & svg,
+    img {
+        max-height: 24px;
+        max-width: 42px;
+        min-width: 42px;
+        object-fit: contain;
     }
-`;
-
-const Title = styled.div`
-    color: #374066;
-    font-style: normal;
-    font: 700 16px/40px Mulish;
-    text-wrap: nowrap;
-    white-space: nowrap;
-    overflow: hidden;
-    max-width: calc(100% - 30px);
-    text-overflow: ellipsis;
 `;
 
 const StyledLink = styled(Link)`
     display: flex;
     height: 40px;
     align-items: center;
-    gap: 8px;
     max-width: calc(100% - 40px);
+    width: 100%;
+    gap: 8px;
 `;
 
 type Props = {
@@ -57,13 +54,22 @@ type Props = {
 };
 
 export default function NavBarHeader({ logotype }: Props) {
-    const { isCollapsed } = useNavBarContext();
+    const { toggle, isCollapsed } = useNavBarContext();
+    const showHomepageRedesign = useShowHomePageRedesign();
+    const isHomePage = useIsHomePage();
+
+    function handleLogoClick() {
+        if (isHomePage && showHomepageRedesign) {
+            toggle();
+        }
+        analytics.event({ type: EventType.NavBarItemClick, label: 'Home' });
+    }
 
     return (
         <Container>
-            <StyledLink to="/">
-                <Logotype>{logotype}</Logotype>
-                {!isCollapsed ? <Title>DataHub</Title> : null}
+            <StyledLink to="/" onClick={handleLogoClick} data-testid="nav-bar-home-logo">
+                <Logotype data-testid="datahub-logo-svg">{logotype}</Logotype>
+                {!isCollapsed && <DatahubCoreLogo />}
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}
         </Container>

@@ -1,8 +1,10 @@
-import { CorpGroup, CorpUser, EntityType } from '../../../../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import { EntityRegistry } from '../../../../../../entityRegistryContext';
-import { GenericEntityProperties } from '../../../../../entity/shared/types';
-import { SearchResultInterface } from './types';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { SearchResultInterface } from '@app/entityV2/shared/components/styled/search/types';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { EntityRegistry } from '@src/entityRegistryContext';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
+import { CorpGroup, CorpUser, EntityType } from '@types';
 
 const searchCsvDownloadHeader = [
     'urn',
@@ -86,7 +88,7 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // container
         properties?.container?.properties?.name || '',
         // entity url
-        window.location.origin + entityUrl,
+        window.location.origin + resolveRuntimePath(entityUrl),
     ];
     if (typeof result.degree === 'number') {
         // optional level of dependency

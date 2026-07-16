@@ -69,6 +69,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO foo (\n  a,\n  b,\n  c\n)\nSELECT\n  a,\n  b,\n  c\nFROM bar",
                 "language": "SQL"
@@ -136,10 +137,11 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "INSERT",
-            "customProperties": {
-                "query_urn": "urn:li:query:02e2ec36678bea2a8c4c855fed5255d087cfeb2710d326e95fd9b48a9c4fc0ae"
-            },
-            "lastUpdatedTimestamp": 20000
+            "sourceType": "DATA_PLATFORM",
+            "lastUpdatedTimestamp": 20000,
+            "queries": [
+                "urn:li:query:02e2ec36678bea2a8c4c855fed5255d087cfeb2710d326e95fd9b48a9c4fc0ae"
+            ]
         }
     }
 }

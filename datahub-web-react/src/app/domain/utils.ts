@@ -1,18 +1,15 @@
 import { ApolloClient } from '@apollo/client';
-import { useEffect } from 'react';
-import { isEqual } from 'lodash';
-import { ListDomainsDocument, ListDomainsQuery } from '../../graphql/domain.generated';
-import { Entity, EntityType } from '../../types.generated';
-import { GenericEntityProperties } from '../entity/shared/types';
-import usePrevious from '../shared/usePrevious';
-import { useDomainsContext } from './DomainsContext';
-import { useEntityRegistry } from '../useEntityRegistry';
-import EntityRegistry from '../entity/EntityRegistry';
+
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { ListDomainsDocument, ListDomainsQuery } from '@graphql/domain.generated';
+import { Entity, EntityType } from '@types';
 
 /**
  * Add an entry to the list domains cache.
  */
-export const addToListDomainsCache = (client, newDomain, pageSize, parentDomain?: string) => {
+const addToListDomainsCache = (client, newDomain, pageSize, parentDomain?: string) => {
     // Read the data from our cache for this query.
     const currData: ListDomainsQuery | null = client.readQuery({
         query: ListDomainsDocument,
@@ -60,6 +57,7 @@ export const updateListDomainsCache = (
     addToListDomainsCache(
         client,
         {
+            __typename: 'Domain',
             urn,
             id: id || null,
             type: EntityType.Domain,
@@ -71,8 +69,11 @@ export const updateListDomainsCache = (
             entities: null,
             children: null,
             dataProducts: null,
+            applicationsInDomain: null,
             parentDomains: null,
             displayProperties: null,
+            institutionalMemory: null,
+            applications: null,
         },
         1000,
         parentDomain,
@@ -118,17 +119,6 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize, parentDo
         },
     });
 };
-
-export function useUpdateDomainEntityDataOnChange(entityData: GenericEntityProperties | null, entityType: EntityType) {
-    const { setEntityData } = useDomainsContext();
-    const previousEntityData = usePrevious(entityData);
-
-    useEffect(() => {
-        if (EntityType.Domain === entityType && !isEqual(entityData, previousEntityData)) {
-            setEntityData(entityData);
-        }
-    });
-}
 
 export function useSortedDomains<T extends Entity>(domains?: Array<T>, sortBy?: 'displayName') {
     const entityRegistry = useEntityRegistry();

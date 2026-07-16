@@ -1,6 +1,6 @@
 import { Divider, Row, Typography } from 'antd';
-import styled from 'styled-components';
 import React from 'react';
+import styled from 'styled-components';
 
 const Section = styled.div`
     padding-top: 24px;
@@ -14,7 +14,7 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 8px;
 `;
 
-export type Props = {
+type Props = {
     children: React.ReactNode;
     title: string;
     rightFloatView?: React.ReactNode;

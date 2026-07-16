@@ -1,8 +1,11 @@
-import React from 'react';
-import { CorpGroup, CorpUser, EntityType, Maybe, DataHubPolicy, DataHubRole } from '../../types.generated';
-import EntityRegistry from '../entity/EntityRegistry';
-import { CustomAvatar } from '../shared/avatar';
-import { SpacedAvatarGroup } from '../shared/avatar/SpaceAvatarGroup';
+import React, { useMemo } from 'react';
+
+import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
+import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
+
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+
+import { CorpGroup, CorpUser, DataHubPolicy, DataHubRole, EntityType, Maybe } from '@types';
 
 type Props = {
     users?: Maybe<Array<CorpUser>>;
@@ -11,60 +14,50 @@ type Props = {
     roles?: Maybe<Array<DataHubRole>>;
     entityRegistry: EntityRegistry;
     maxCount?: number;
-    size?: number;
+    title?: string;
 };
 
-/**
- * Component used for displaying the users and groups in policies table
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function AvatarsGroup({ users, groups, policies, roles, entityRegistry, maxCount = 6, size }: Props) {
+export default function AvatarsGroup({ users, groups, policies, roles, entityRegistry, maxCount = 6, title }: Props) {
+    const avatars: AvatarItemProps[] = useMemo(() => {
+        const result: AvatarItemProps[] = [];
+
+        users?.forEach((user) => {
+            result.push({
+                name: entityRegistry.getDisplayName(EntityType.CorpUser, user),
+                imageUrl: user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined,
+                urn: user?.urn,
+                type: AvatarType.user,
+            });
+        });
+
+        groups?.forEach((group) => {
+            result.push({
+                name: entityRegistry.getDisplayName(EntityType.CorpGroup, group),
+                urn: group.urn,
+                type: AvatarType.group,
+            });
+        });
+
+        roles?.forEach((role) => {
+            result.push({
+                name: role.name,
+                urn: role.urn,
+                type: AvatarType.role,
+            });
+        });
+
+        policies?.forEach((policy) => {
+            result.push({
+                name: policy.name,
+                urn: policy.urn,
+                type: AvatarType.user,
+            });
+        });
+
+        return result;
+    }, [users, groups, roles, policies, entityRegistry]);
+
     return (
-        <SpacedAvatarGroup maxCount={maxCount}>
-            {users &&
-                users?.length > 0 &&
-                users?.map((user, key) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <div data-testid={`avatar-tag-${user?.urn}`} key={`${user?.urn}-${key}`}>
-                        <CustomAvatar
-                            size={size}
-                            name={entityRegistry.getDisplayName(EntityType.CorpUser, user)}
-                            url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user?.urn}`}
-                            photoUrl={
-                                user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined
-                            }
-                        />
-                    </div>
-                ))}
-            {groups &&
-                groups.length > 0 &&
-                groups?.map((group, key) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <div data-testid={`avatar-tag-${group.urn}`} key={`${group.urn}-${key}`}>
-                        <CustomAvatar
-                            size={size}
-                            name={entityRegistry.getDisplayName(EntityType.CorpGroup, group)}
-                            url={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${group.urn}`}
-                            isGroup
-                        />
-                    </div>
-                ))}
-            {roles &&
-                roles.length > 0 &&
-                roles?.map((role, key) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <div data-testid={`avatar-tag-${role.urn}`} key={`${role.urn}-${key}`}>
-                        <CustomAvatar size={size} name={role.name} isRole />
-                    </div>
-                ))}
-            {policies &&
-                policies.length > 0 &&
-                policies?.map((policy, key) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <div data-testid={`avatar-tag-${policy.urn}`} key={`${policy.urn}-${key}`}>
-                        <CustomAvatar size={size} name={policy.name} isPolicy />
-                    </div>
-                ))}
-        </SpacedAvatarGroup>
+        <AvatarStackWithHover avatars={avatars} maxToShow={maxCount} entityRegistry={entityRegistry} title={title} />
     );
 }

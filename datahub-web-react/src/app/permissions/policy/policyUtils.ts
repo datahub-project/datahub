@@ -1,4 +1,6 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+
+import { ListPoliciesDocument, ListPoliciesQuery } from '@graphql/policy.generated';
 import {
     PolicyMatchCondition,
     PolicyMatchCriterion,
@@ -9,8 +11,7 @@ import {
     Privilege,
     ResourceFilter,
     ResourcePrivileges,
-} from '../../../types.generated';
-import { ListPoliciesDocument, ListPoliciesQuery } from '../../../graphql/policy.generated';
+} from '@types';
 
 export const DEFAULT_PAGE_SIZE = 10;
 
@@ -82,7 +83,7 @@ export const mapResourceTypeToPrivileges = (
     return [];
 };
 
-export const createCriterion = (
+const createCriterion = (
     resourceFieldType: string,
     fieldValues: Array<PolicyMatchCriterionValue>,
 ): PolicyMatchCriterion => ({

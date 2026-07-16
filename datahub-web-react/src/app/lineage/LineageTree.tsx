@@ -1,12 +1,19 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { TransformMatrix } from '@visx/zoom/lib/types';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 
-import { NodeData, EntitySelectParams, TreeProps, EntityAndType, FetchedEntity, UpdatedLineages } from './types';
-import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
-import layoutTree from './utils/layoutTree';
-import { LineageExplorerContext } from './utils/LineageExplorerContext';
-import useSortColumnsBySelectedField from './utils/useSortColumnsBySelectedField';
-import { populateColumnsByUrn } from './utils/columnLineageUtils';
+import LineageTreeNodeAndEdgeRenderer from '@app/lineage/LineageTreeNodeAndEdgeRenderer';
+import {
+    EntityAndType,
+    EntitySelectParams,
+    FetchedEntity,
+    NodeData,
+    TreeProps,
+    UpdatedLineages,
+} from '@app/lineage/types';
+import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
+import { populateColumnsByUrn } from '@app/lineage/utils/columnLineageUtils';
+import layoutTree from '@app/lineage/utils/layoutTree';
+import useSortColumnsBySelectedField from '@app/lineage/utils/useSortColumnsBySelectedField';
 
 type LineageTreeProps = {
     upstreamData: NodeData;

@@ -1,30 +1,38 @@
-import { ChartScatter, ListBullets, FileText, Database, Table } from '@phosphor-icons/react';
+import { ChartScatter } from '@phosphor-icons/react/dist/csr/ChartScatter';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import i18next from 'i18next';
 import * as React from 'react';
-import { useGetMlFeatureTableQuery } from '../../../graphql/mlFeatureTable.generated';
-import { EntityType, MlFeatureTable, SearchResult } from '../../../types.generated';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { getDataProduct, isOutputPort } from '../shared/utils';
-import { Preview } from './preview/Preview';
-import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
-import Sources from './profile/Sources';
-import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { Preview } from '@app/entityV2/mlFeatureTable/preview/Preview';
+import Sources from '@app/entityV2/mlFeatureTable/profile/Sources';
+import MlFeatureTableFeatures from '@app/entityV2/mlFeatureTable/profile/features/MlFeatureTableFeatures';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
+import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
+import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+
+import { useGetMlFeatureTableQuery } from '@graphql/mlFeatureTable.generated';
+import { EntityType, MlFeatureTable, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.ANNOUNCE]);
 
@@ -35,28 +43,12 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
     type: EntityType = EntityType.MlfeatureTable;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ChartScatter className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} weight="regular" />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <ChartScatter
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#9633b9' }}
-                    weight="regular"
-                />
-            );
-        }
-
         return (
             <ChartScatter
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
-                weight="regular"
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -73,9 +65,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getPathName = () => 'featureTables';
 
-    getEntityName = () => 'Feature Table';
+    getEntityName = () => i18next.t('entity.types:mlFeatureTable.name');
 
-    getCollectionName = () => 'Feature Tables';
+    getCollectionName = () => i18next.t('entity.types:mlFeatureTable.namePlural');
 
     getOverridePropertiesFromEntity = (_?: MlFeatureTable | null): GenericEntityProperties => {
         return {};
@@ -93,22 +85,22 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Features',
+                    name: i18next.t('entity.types:mlFeature.namePlural'),
                     component: MlFeatureTableFeatures,
                     icon: Table,
                 },
                 {
-                    name: 'Sources',
+                    name: i18next.t('entity.types:mlFeatureTable.sourcesTab'),
                     component: Sources,
                     icon: Database,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
@@ -135,6 +127,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             component: SidebarDomainSection,
         },
         {
+            component: SidebarApplicationSection,
+        },
+        {
             component: DataProductSection,
         },
         {
@@ -153,9 +148,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -196,6 +191,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -233,6 +229,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

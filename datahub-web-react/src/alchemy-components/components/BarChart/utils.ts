@@ -1,5 +1,6 @@
-import dayjs from 'dayjs';
-import { COLOR_SCHEMES } from './constants';
+import { COLOR_SCHEMES } from '@components/components/BarChart/constants';
+
+import dayjs from '@utils/dayjs';
 
 export function generateMockData(length = 30, maxValue = 50_000, minValue = 0) {
     return Array(length)
@@ -10,7 +11,8 @@ export function generateMockData(length = 30, maxValue = 50_000, minValue = 0) {
                 .add(index - length, 'days')
                 .toDate()
                 .getTime();
-            const value = Math.max(Math.random() * maxValue, minValue);
+
+            const value = Math.max(Math.random() * (maxValue - minValue)) + minValue;
 
             return {
                 x: date,

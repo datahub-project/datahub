@@ -22,7 +22,9 @@
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "location": "s3a://warehouse/wh/nyc"
+            },
             "name": "nyc",
             "qualifiedName": "nyc",
             "env": "PROD"
@@ -199,8 +201,7 @@
                     },
                     "nativeDataType": "long",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=long].trip_date",
@@ -213,7 +214,7 @@
                     "nativeDataType": "timestamptz",
                     "recursive": false,
                     "isPartOfKey": false,
-                    "jsonProps": "{\"logicalType\": \"timestamp-micros\", \"native_data_type\": \"timestamptz\", \"_nullable\": true}"
+                    "jsonProps": "{\"logicalType\": \"timestamp-micros\"}"
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=long].trip_id",
@@ -225,8 +226,7 @@
                     },
                     "nativeDataType": "long",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=float].trip_distance",
@@ -238,8 +238,7 @@
                     },
                     "nativeDataType": "float",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"float\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=double].fare_amount",
@@ -251,8 +250,7 @@
                     },
                     "nativeDataType": "double",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=string].store_and_fwd_flag",
@@ -264,8 +262,7 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                    "isPartOfKey": false
                 }
             ]
         }

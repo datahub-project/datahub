@@ -1,16 +1,20 @@
+import { useApolloClient } from '@apollo/client';
+import { Form, message } from 'antd';
+import _ from 'lodash';
 import { useState } from 'react';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useTranslation } from 'react-i18next';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
-import analytics, { EntityActionType, EventType } from '@src/app/analytics';
-import _ from 'lodash';
-import { Form, message } from 'antd';
-import { useApolloClient } from '@apollo/client';
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-import { IncidentAction } from '../../constant';
-import { PAGE_SIZE, updateActiveIncidentInCache } from '../../incidentUtils';
 
-export const getCacheIncident = ({
+import { IncidentResultFieldsFragment } from '@graphql/incident.generated';
+
+const getCacheIncident = ({
     values,
     responseData,
     user,
@@ -20,8 +24,10 @@ export const getCacheIncident = ({
     responseData?: any;
     user?: any;
     incidentUrn?: string;
-}) => {
-    const newIncident = {
+}): IncidentResultFieldsFragment['incidents'][number] => {
+    const firstLinkedAsset = values.linkedAssets?.[0] || {};
+    const newIncident: IncidentResultFieldsFragment['incidents'][number] = {
+        __typename: 'Incident',
         urn: incidentUrn ?? responseData?.data?.raiseIncident,
         type: EntityType.Incident,
         incidentType: values.type,
@@ -31,6 +37,18 @@ export const getCacheIncident = ({
         startedAt: null,
         tags: null,
         status: {
+            __typename: 'IncidentStatus',
+            state: values?.state,
+            stage: values?.stage,
+            message: values?.message || null,
+            lastUpdated: {
+                __typename: 'AuditStamp',
+                time: Date.now(),
+                actor: user?.urn,
+            },
+        },
+        incidentStatus: {
+            __typename: 'IncidentStatus',
             state: values?.state,
             stage: values?.stage,
             message: values?.message || null,
@@ -41,18 +59,12 @@ export const getCacheIncident = ({
             },
         },
         source: {
+            __typename: 'IncidentSource',
             type: IncidentSourceType.Manual,
-            source: {
-                urn: '',
-                type: 'Assertion',
-                platform: {
-                    urn: '',
-                    name: '',
-                    properties: { displayName: '', logoUrl: '' },
-                },
-            },
+            source: null,
         },
         linkedAssets: {
+            __typename: 'EntityRelationshipsResult',
             relationships: values.linkedAssets?.map((linkedAsset) => ({
                 entity: {
                     ...linkedAsset,
@@ -62,28 +74,27 @@ export const getCacheIncident = ({
 
         priority: values.priority,
         created: {
-            time: values.created || new Date(),
+            __typename: 'AuditStamp',
+            time: values.created || Date.now(),
             actor: user?.urn,
         },
         assignees: values.assignees,
+        entity: {
+            __typename: firstLinkedAsset.type,
+            ...firstLinkedAsset,
+        },
     };
     return newIncident;
 };
 
-export const useIncidentHandler = ({
-    mode,
-    onSubmit,
-    incidentUrn,
-    user,
-    assignees,
-    linkedAssets,
-    entity,
-    currentIncident,
-}) => {
+export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignees, linkedAssets, entity }) => {
+    const { t } = useTranslation('entity.profile.incident');
+    // Important: Here we are trying to fetch the URN of the sibling whose "profile" we are currently viewing.
+    // We then insert any new incidents into this cache as well so that it immediately updates the page for the asset.
+    const { urn: maybeCacheEntityUrn } = useEntityData();
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
     const [updateIncidentMutation] = useUpdateIncidentMutation();
     const [form] = Form.useForm();
-    const { urn, entityType } = useEntityData();
     const client = useApolloClient();
     const isAddIncidentMode = mode === IncidentAction.CREATE;
 
@@ -130,11 +141,10 @@ export const useIncidentHandler = ({
     };
 
     const handleSubmissionError = (error: any) => {
-        const action = isAddIncidentMode ? 'raise' : 'update';
         handleGraphQLError({
             error,
-            defaultMessage: `Failed to ${action} incident!`,
-            permissionMessage: `Unauthorized to ${action} incident.`,
+            defaultMessage: isAddIncidentMode ? t('toast.raiseFailed') : t('toast.updateFailed'),
+            permissionMessage: isAddIncidentMode ? t('toast.raiseUnauthorized') : t('toast.updateUnauthorized'),
         });
     };
 
@@ -146,7 +156,6 @@ export const useIncidentHandler = ({
             const values = form.getFieldsValue();
             const baseInput = {
                 ...values,
-                resourceUrn: entity?.urn || urn,
                 status: {
                     stage: values.status,
                     state: values.state || IncidentState.Active,
@@ -160,47 +169,38 @@ export const useIncidentHandler = ({
             if (isAddIncidentMode) {
                 const responseData: any = await handleAddIncident(input);
                 if (responseData) {
-                    showMessage('Incident Added');
+                    showMessage(t('toast.incidentAdded'));
                 }
                 const newIncident = getCacheIncident({
                     values: {
                         ...values,
                         state: baseInput.status.state,
-                        stage: baseInput.status.stage,
+                        stage: baseInput.status.stage || '',
                         message: baseInput.status.message,
+                        priority: values.priority || null,
                         assignees,
                         linkedAssets,
                     },
                     incidentUrn: responseData?.data?.raiseIncident,
                     user,
                 });
-                updateActiveIncidentInCache(client, urn, newIncident, PAGE_SIZE);
+                // Add new incident to core entity's cache.
+                if (!entity) return;
+                updateActiveIncidentInCache(client, entity.urn, newIncident, PAGE_SIZE);
+
+                if (maybeCacheEntityUrn) {
+                    // Optional: Also add into the cache of the sibling whose page we are viewing.
+                    updateActiveIncidentInCache(client, maybeCacheEntityUrn, newIncident, PAGE_SIZE);
+                }
                 analytics.event({
                     type: EventType.EntityActionEvent,
-                    entityType,
-                    entityUrn: urn,
+                    entityType: entity?.entityType,
+                    entityUrn: entity.urn,
                     actionType: EntityActionType.AddIncident,
                 });
             } else if (incidentUrn) {
-                const updatedIncidentResponse: any = await handleUpdateIncident(input, incidentUrn);
-                if (updatedIncidentResponse?.data?.updateIncident) {
-                    const updatedIncident = getCacheIncident({
-                        values: {
-                            ...values,
-                            state: baseInput.status.state,
-                            stage: baseInput.status.stage || '',
-                            message: baseInput.status.message,
-                            priority: values.priority || null,
-                            assignees,
-                            linkedAssets,
-                            created: currentIncident.created,
-                        },
-                        user,
-                        incidentUrn,
-                    });
-                    updateActiveIncidentInCache(client, urn, updatedIncident, PAGE_SIZE);
-                }
-                showMessage('Incident Updated');
+                await handleUpdateIncident(input, incidentUrn);
+                showMessage(t('toast.incidentUpdated'));
             }
 
             finalizeSubmission();

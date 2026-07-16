@@ -1,22 +1,24 @@
+import { AppstoreOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import { AppstoreOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { useListDataProductAssetsQuery } from '../../../graphql/search.generated';
-import { pluralize } from '../../shared/textUtil';
-import { EntityCountCard } from '../../sharedV2/cards/EntityCountCard';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import ContentSectionLoading from '../domain/summary/ContentSectionLoading';
-import { useEntityData } from '../../entity/shared/EntityContext';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import ContentSectionLoading from '@app/entityV2/domain/summary/ContentSectionLoading';
 import {
     getContentsSummary,
     getDomainEntitiesFilterUrl,
     navigateToDomainEntities,
-} from '../shared/containers/profile/sidebar/Domain/utils';
-import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../shared/summary/HeaderComponents';
-import { HorizontalList } from '../shared/summary/ListComponents';
-import { getContentTypeIcon } from '../shared/summary/IconComponents';
+} from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
+import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
+import { getContentTypeIcon } from '@app/entityV2/shared/summary/IconComponents';
+import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
+import { EntityCountCard } from '@app/sharedV2/cards/EntityCountCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListDataProductAssetsQuery } from '@graphql/search.generated';
 
 const AssetsSectionWrapper = styled.div`
     flex: 1;
@@ -28,6 +30,8 @@ export const StyledHeaderWrapper = styled(SummaryTabHeaderWrapper)`
 `;
 
 export const AssetsSection = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { urn, entityType } = useEntityData();
@@ -54,9 +58,12 @@ export const AssetsSection = () => {
     return (
         <AssetsSectionWrapper>
             <StyledHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<AppstoreOutlined />} title={`Assets (${contentsCount})`} />
+                <SummaryTabHeaderTitle
+                    icon={<AppstoreOutlined />}
+                    title={t('shared.assetsCountTitle', { count: contentsCount })}
+                />
                 <Button type="link" onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
-                    View all
+                    {tc('viewAll')}
                 </Button>
             </StyledHeaderWrapper>
             {loading && <ContentSectionLoading />}
@@ -84,7 +91,7 @@ export const AssetsSection = () => {
                                 name={typeName}
                                 count={summary.count}
                                 icon={getContentTypeIcon(entityRegistry, summary.entityType, summary.type)}
-                                tooltipDescriptor={pluralize(count, typeName)}
+                                tooltipDescriptor={t('shared.assetTypeNameCount', { count, type: typeName })}
                                 link={link}
                             />
                         );

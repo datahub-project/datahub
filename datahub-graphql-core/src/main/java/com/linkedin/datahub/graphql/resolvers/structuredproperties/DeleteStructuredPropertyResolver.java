@@ -35,7 +35,7 @@ public class DeleteStructuredPropertyResolver implements DataFetcher<Completable
         bindArgument(environment.getArgument("input"), DeleteStructuredPropertyInput.class);
     final Urn propertyUrn = UrnUtils.getUrn(input.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (!AuthorizationUtils.canManageStructuredProperties(context)) {
@@ -65,6 +65,8 @@ public class DeleteStructuredPropertyResolver implements DataFetcher<Completable
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

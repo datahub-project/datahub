@@ -1,10 +1,9 @@
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
-import type { Meta, StoryObj } from '@storybook/react';
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
-
-import MatchText from './MatchText';
-import { matchTextDefaults } from './defaults';
+import MatchText from '@components/components/MatchText/MatchText';
+import { matchTextDefaults } from '@components/components/MatchText/defaults';
 
 // Auto Docs
 const meta = {

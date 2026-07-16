@@ -1,5 +1,7 @@
-import { CalendarData } from '../types';
-import { getColorAccessor } from '../utils';
+// Disabling hardcoded colors rule in test file
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { CalendarData } from '@components/components/CalendarChart/types';
+import { getColorAccessor } from '@components/components/CalendarChart/utils';
 
 type Datum = {
     value1: number;

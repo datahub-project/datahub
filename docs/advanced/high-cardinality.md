@@ -1,8 +1,12 @@
+---
+description: "Best practices for modeling high-cardinality relationships in DataHub aspects to avoid large messages and document store size limits."
+---
+
 # High Cardinality Relationships
 
 As explained in [What is a Relationship](../what/relationship.md), the raw metadata for forming relationships is captured directly inside of a [Metadata Aspect](../what/aspect.md). The most natural way to model this is using an array, e.g. a group membership aspect contains an array of user [URNs](../what/urn.md). However, this poses some challenges when the cardinality of the relationship is expected to be large (say, greater than 10,000). The aspect becomes large in size, which leads to slow update and retrieval. It may even exceed the underlying limit of the document store, which is often in the range of a few MBs. Furthermore, sending large messages (> 1MB) over Kafka requires special tuning and is generally discouraged.
 
-Depending on the type of relationships, there are different strategies for dealing with high cardinality. 
+Depending on the type of relationships, there are different strategies for dealing with high cardinality.
 
 ### 1:N Relationships
 
@@ -43,4 +47,4 @@ record UserGroupMap {
 }
 ```
 
-This means that the relationship now can only be created & updated at a single source-destination pair granularity.  
+This means that the relationship now can only be created & updated at a single source-destination pair granularity.

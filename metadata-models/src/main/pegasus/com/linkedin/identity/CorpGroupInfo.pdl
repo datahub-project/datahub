@@ -9,7 +9,8 @@ import com.linkedin.common.AuditStamp
  * Information about a Corp Group ingested from a third party source
  */
 @Aspect = {
-  "name": "corpGroupInfo"
+  "name": "corpGroupInfo",
+  "schemaVersion": 2
 }
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpGroupUrn" ]
 record CorpGroupInfo {
@@ -18,11 +19,13 @@ record CorpGroupInfo {
    * The name of the group.
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   displayName: optional string
 
@@ -74,7 +77,8 @@ record CorpGroupInfo {
    * A description of the group.
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
+    "searchTier": 2
   }
   description: optional string
 
@@ -89,7 +93,8 @@ record CorpGroupInfo {
    @Searchable = {
      "/time": {
       "fieldName": "createdTime",
-      "fieldType": "DATETIME"
+      "fieldType": "DATETIME",
+      "searchLabel": "createdAt"
      }
    }
    created: optional AuditStamp

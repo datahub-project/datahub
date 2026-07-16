@@ -1,19 +1,35 @@
 <configuration debug="false" scan="true">
-
     <appender name="STDOUT" target="System.out" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} urn=%X{entityUrn:-none} aspect=%X{aspectName:-none} entityType=%X{entityType:-none} changeType=%X{changeType:-none} - %msg%n</pattern>
         </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>WARN</level>
         </filter>
+        <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
+            <excluded>scanned from multiple locations</excluded>
+            <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
+        </filter>
     </appender>
 
-    <logger name="com.datastax.oss" level="ERROR" />
-    <logger name="com.datastax.driver" level="FATAL" />
+    <!-- Silence noisy third-party libraries -->
+    <logger name="com.datastax.oss" level="ERROR"/>
+    <logger name="com.datastax.driver" level="FATAL"/>
+    <logger name="org.apache.kafka" level="ERROR"/>
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.eclipse.jetty" level="WARN"/>
+    <logger name="com.linkedin.restli" level="WARN"/>
+    <logger name="org.apache.http" level="WARN"/>
+    <logger name="io.confluent" level="WARN"/>
+    <logger name="nl.basjes.parse" level="WARN"/>
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="com.linkedin.parseq" level="WARN"/>
+
+    <!-- Your application packages can stay at INFO level -->
+    <logger name="com.linkedin.metadata" level="INFO"/>
+    <logger name="io.datahubproject" level="INFO"/>
 
     <root level="WARN">
-        <appender-ref ref="STDOUT" />
+        <appender-ref ref="STDOUT"/>
     </root>
-
 </configuration>

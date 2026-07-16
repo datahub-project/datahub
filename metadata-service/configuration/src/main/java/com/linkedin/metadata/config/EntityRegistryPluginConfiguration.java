@@ -6,4 +6,5 @@ import lombok.Data;
 public class EntityRegistryPluginConfiguration {
   String path;
   int loadDelaySeconds;
+  boolean ignoreFailureWhenLoadingRegistry = true;
 }

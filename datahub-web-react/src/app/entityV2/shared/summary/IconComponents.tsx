@@ -1,15 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
-import { EntityType } from '../../../../types.generated';
-import { TYPE_ICON_CLASS_NAME } from '../components/subtypes';
-import getTypeIcon from '../../../sharedV2/icons/getTypeIcon';
-import { LINEAGE_COLORS } from '../constants';
-import { EntityRegistry } from '../../../../entityRegistryContext';
+
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { EntityType } from '@types';
 
 const IconWrapper = styled.span`
     line-height: 0;
     .${TYPE_ICON_CLASS_NAME} {
-        color: ${LINEAGE_COLORS.PURPLE_2};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 

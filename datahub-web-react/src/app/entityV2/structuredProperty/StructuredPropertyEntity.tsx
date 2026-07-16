@@ -1,16 +1,14 @@
-import TableIcon from '@src/images/table-icon.svg?react';
+import { ListDashes } from '@phosphor-icons/react/dist/csr/ListDashes';
+import i18next from 'i18next';
 import * as React from 'react';
-import styled from 'styled-components';
-import { EntityType, SearchResult, StructuredPropertyEntity as StructuredProperty } from '../../../types.generated';
-import DefaultPreviewCard from '../../previewV2/DefaultPreviewCard';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { urlEncodeUrn } from '../shared/utils';
 
-const PreviewPropIcon = styled(TableIcon)`
-    font-size: 20px;
-`;
+import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { urlEncodeUrn } from '@app/entityV2/shared/utils';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+
+import { EntityType, SearchResult, StructuredPropertyEntity as StructuredProperty } from '@types';
 
 /**
  * Definition of the DataHub Structured Property entity.
@@ -19,21 +17,12 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
     type: EntityType = EntityType.StructuredProperty;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <TableIcon className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TableIcon className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         return (
-            <TableIcon
+            <ListDashes
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -50,9 +39,9 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
 
     getPathName: () => string = () => this.getGraphName();
 
-    getCollectionName: () => string = () => 'Structured Properties';
+    getCollectionName: () => string = () => i18next.t('entity.types:structuredProperty.namePlural');
 
-    getEntityName: () => string = () => 'Structured Property';
+    getEntityName: () => string = () => i18next.t('entity.types:structuredProperty.name');
 
     renderProfile: (urn: string) => JSX.Element = (_urn) => <div />; // not used right now
 
@@ -65,7 +54,7 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
                 name={this.displayName(data)}
                 urn={data.urn}
                 url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
-                logoComponent={<PreviewPropIcon />}
+                logoComponent={<ListDashes size={20} color="currentColor" />}
                 entityType={EntityType.StructuredProperty}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}
                 previewType={previewType}

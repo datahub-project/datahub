@@ -1,4 +1,4 @@
-import { formatBytes } from '../formatNumber';
+import { formatBytes } from '@app/shared/formatNumber';
 
 describe('formatBytes', () => {
     it('should property format bytes counts', () => {

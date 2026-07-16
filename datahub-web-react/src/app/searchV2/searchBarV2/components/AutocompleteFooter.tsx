@@ -1,0 +1,63 @@
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowElbowDownLeft } from '@phosphor-icons/react/dist/csr/ArrowElbowDownLeft';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import KeyIcon from '@app/searchV2/searchBarV2/components/KeyIcon';
+import { Text } from '@src/alchemy-components';
+
+const Container = styled.div`
+    position: sticky;
+    bottom: 0;
+
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 0 0 12px 12px;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 16px;
+
+    background-color: ${(props) => props.theme.colors.bg};
+    height: 36px;
+    width: 100%;
+
+    padding: 8px 16px;
+`;
+
+const KeySuggestion = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+`;
+
+interface Props {
+    isSomethingSelected?: boolean;
+}
+
+export default function AutocompleteFooter({ isSomethingSelected }: Props) {
+    const { t } = useTranslation('search');
+
+    return (
+        <Container>
+            <KeySuggestion>
+                <KeyIcon icon={ArrowUp} />
+                <KeyIcon icon={ArrowDown} />
+                <Text color="gray" size="sm" weight="semiBold">
+                    {t('searchBar.footer.navigate')}
+                </Text>
+            </KeySuggestion>
+
+            <KeySuggestion>
+                <KeyIcon icon={ArrowElbowDownLeft} />
+                <Text color="gray" size="sm" weight="semiBold">
+                    {isSomethingSelected ? t('searchBar.footer.select') : t('searchBar.footer.searchAll')}
+                </Text>
+            </KeySuggestion>
+        </Container>
+    );
+}

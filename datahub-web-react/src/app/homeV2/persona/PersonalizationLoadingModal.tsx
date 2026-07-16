@@ -1,13 +1,14 @@
-import React, { useCallback, useContext, useEffect } from 'react';
 import { Modal, Progress } from 'antd';
+import React, { useCallback, useContext, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import OnboardingContext from '../../onboarding/OnboardingContext';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+
+import OnboardingContext from '@app/onboarding/OnboardingContext';
 
 const ModalStyle = styled(Modal)`
     .ant-modal-content {
         border-radius: 8px;
-        border: 1px solid #c1c4d0;
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-bottom: unset;
     }
 
@@ -24,7 +25,7 @@ const ProgressStyle = styled(Progress)`
 
     .ant-progress-bg {
         border-radius: 12px;
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
         height: 4px !important;
     }
 `;
@@ -33,16 +34,17 @@ const ModalContent = styled.span`
     font-weight: 700;
     display: flex;
     justify-content: center;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     padding: 25px 0 0;
     font-size: 16px;
 `;
 
 const modalMaskStyle = {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: 'var(--theme-overlayLight)',
 };
 
 export default function PersonalizationLoadingModal() {
+    const { t } = useTranslation('home.v2');
     const { isUserInitializing, setIsUserInitializing } = useContext(OnboardingContext);
     const [percent, setPercent] = React.useState(0);
 
@@ -73,7 +75,7 @@ export default function PersonalizationLoadingModal() {
             closable={false}
             maskStyle={modalMaskStyle}
         >
-            <ModalContent>{`Hang tight! We're getting everything ready for you.`}</ModalContent>
+            <ModalContent>{t('personalizationModal.loadingText')}</ModalContent>
             <ProgressStyle percent={percent} showInfo={false} />
         </ModalStyle>
     );

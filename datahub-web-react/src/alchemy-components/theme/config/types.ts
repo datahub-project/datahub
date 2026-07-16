@@ -1,3 +1,5 @@
+import ColorTheme from '@conf/theme/colorThemes/types';
+
 // General types
 export enum SizeValues {
     xs = 'xs',
@@ -27,6 +29,7 @@ export function getSizeName(size: SizeOptions): string {
 
 // Color types
 export interface Color {
+    0: string;
     100: string;
     200: string;
     300: string;
@@ -38,14 +41,14 @@ export interface Color {
     900: string;
     1000: string;
     1100: string;
-    1200: string;
-    1300: string;
-    1400: string;
-    1500: string;
-    1600: string;
-    1700: string;
-    1800: string;
-    1900: string;
+    1200?: string;
+    1300?: string;
+    1400?: string;
+    1500?: string;
+    1600?: string;
+    1700?: string;
+    1800?: string;
+    1900?: string;
 }
 
 export enum ColorValues {
@@ -57,6 +60,7 @@ export enum ColorValues {
     blue = 'blue',
     yellow = 'yellow',
     gray = 'gray',
+    primary = 'primary',
 }
 
 export type ColorOptions = keyof typeof ColorValues;
@@ -78,13 +82,14 @@ export enum FontSizeValues {
 }
 export type FontSizeOptions = keyof typeof SizeValues | keyof typeof FontSizeValues;
 export type FontWeightOptions = 'normal' | 'medium' | 'semiBold' | 'bold';
-export type FontColorOptions = MiscColorOptions | ColorOptions;
+export type FontColorOptions = MiscColorOptions | ColorOptions | keyof ColorTheme;
+export type FontColorLevelOptions = keyof Color;
 
 export type BorderRadiusOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
 export type BoxShadowOptions = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'inner' | 'outline' | 'dropdown' | 'none';
 
-export type SpacingOptions = 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
+export type SpacingOptions = 'none' | 'normal' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
 
 export type RotationOptions = '0' | '90' | '180' | '270';
 
@@ -98,6 +103,6 @@ export type PillVariantOptions = keyof typeof PillVariantValues;
 
 export type AlignmentOptions = 'left' | 'right' | 'center' | 'justify';
 
-export type AvatarSizeOptions = 'sm' | 'md' | 'lg' | 'xl' | 'default';
+export type AvatarSizeOptions = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'default';
 
 export type IconAlignmentOptions = 'horizontal' | 'vertical';

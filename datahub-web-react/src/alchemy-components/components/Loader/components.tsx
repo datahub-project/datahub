@@ -1,34 +1,29 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { colors } from '@src/alchemy-components/theme';
-import styled from 'styled-components';
-import { AlignItemsOptions, JustifyContentOptions } from './types';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+import styled, { keyframes } from 'styled-components';
+
+import { AlignItemsOptions, JustifyContentOptions } from '@components/components/Loader/types';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
 
 export const LoaderWrapper = styled.div<{
-    $marginTop?: number;
     $justifyContent: JustifyContentOptions;
     $alignItems: AlignItemsOptions;
+    $padding?: number;
 }>`
     display: flex;
     justify-content: ${(props) => props.$justifyContent};
     align-items: ${(props) => props.$alignItems};
-    margin: auto;
     width: 100%;
-    position: relative;
+
+    ${(props) => props.$padding !== undefined && `padding: ${props.$padding}px;`}
 `;
 
-export const StyledLoadingOutlined = styled(LoadingOutlined)<{ $height: number }>`
-    font-size: ${(props) => props.$height}px;
-    height: ${(props) => props.$height}px;
-    position: absolute;
-
-    svg {
-        fill: ${colors.violet[500]};
-    }
-`;
-
-export const LoaderBackRing = styled.span<{ $height: number; $ringWidth: number }>`
+export const StyledSpinner = styled(CircleNotch)<{ $height: number }>`
     width: ${(props) => props.$height}px;
     height: ${(props) => props.$height}px;
-    border: ${(props) => props.$ringWidth}px solid ${colors.gray[100]};
-    border-radius: 50%;
+    animation: ${spin} 1s linear infinite;
+    color: ${({ theme }) => theme?.colors?.iconBrand};
 `;

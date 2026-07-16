@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
-import { EditOwnersModal, OperationType } from '../../../../containers/profile/sidebar/Ownership/EditOwnersModal';
-import ActionDropdown from './ActionDropdown';
+import { useTranslation } from 'react-i18next';
+
+import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
+import {
+    EditOwnersModal,
+    OperationType,
+} from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
 
 type Props = {
     urns: Array<string>;
@@ -10,23 +15,25 @@ type Props = {
 
 // eslint-disable-next-line
 export default function OwnersDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
+    const { t: tl } = useTranslation('common.labels');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [operationType, setOperationType] = useState(OperationType.ADD);
 
     return (
         <>
             <ActionDropdown
-                name="Owners"
+                name={tl('owners')}
                 actions={[
                     {
-                        title: 'Add owners',
+                        title: t('action.owners.add'),
                         onClick: () => {
                             setOperationType(OperationType.ADD);
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Remove owners',
+                        title: t('action.owners.remove'),
                         onClick: () => {
                             setOperationType(OperationType.REMOVE);
                             setIsEditModalVisible(true);

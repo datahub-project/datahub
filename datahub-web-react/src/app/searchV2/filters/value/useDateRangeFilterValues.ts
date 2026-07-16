@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from 'react';
-import { FilterOperator } from '@src/types.generated';
-import moment from 'moment';
+
+import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import { Datetime } from '@src/app/lineageV2/LineageTimeSelector';
-import useGetSearchQueryInputs from '../../useGetSearchQueryInputs';
+import { FilterOperator } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 interface Props {
     filterField: string;
@@ -27,9 +28,7 @@ export default function useDateRangeFilterValues({ filterField, setStartDate, se
 
     useEffect(() => {
         if (startDateFromFilter) {
-            setStartDate(
-                moment(parseInt(startDateFromFilter, 10)).set({ hour: 0, minute: 0, second: 0, millisecond: 0 }),
-            );
+            setStartDate(dayjs(parseInt(startDateFromFilter, 10)).startOf('day'));
         } else {
             setStartDate(null);
         }
@@ -37,9 +36,7 @@ export default function useDateRangeFilterValues({ filterField, setStartDate, se
 
     useEffect(() => {
         if (endDateFromFilter) {
-            setEndDate(
-                moment(parseInt(endDateFromFilter, 10)).set({ hour: 23, minute: 59, second: 59, millisecond: 999 }),
-            );
+            setEndDate(dayjs(parseInt(endDateFromFilter, 10)).endOf('day'));
         } else {
             setEndDate(null);
         }

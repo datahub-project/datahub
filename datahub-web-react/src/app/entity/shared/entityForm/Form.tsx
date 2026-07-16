@@ -1,24 +1,32 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { useEntityData } from '../EntityContext';
-import { FormPrompt } from '../../../../types.generated';
-import Prompt, { PromptWrapper } from './prompts/Prompt';
-import { ANTD_GRAY_V2 } from '../constants';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { PromptSubTitle } from './prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
-import SchemaFieldPrompts from './schemaFieldPrompts/SchemaFieldPrompts';
-import useGetPromptInfo from '../containers/profile/sidebar/FormInfo/useGetPromptInfo';
-import VerificationPrompt from './prompts/VerificationPrompt';
-import useShouldShowVerificationPrompt from './useShouldShowVerificationPrompt';
-import { getFormAssociation } from '../containers/profile/sidebar/FormInfo/utils';
-import FormRequestedBy from './FormSelectionModal/FormRequestedBy';
-import useHasComponentRendered from '../../../shared/useHasComponentRendered';
-import Loading from '../../../shared/Loading';
-import { DeferredRenderComponent } from '../../../shared/DeferredRenderComponent';
-import { Editor } from '../tabs/Documentation/components/editor/Editor';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
+import { getFormAssociation } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import FormRequestedBy from '@app/entity/shared/entityForm/FormSelectionModal/FormRequestedBy';
+import Prompt, { PromptWrapper } from '@app/entity/shared/entityForm/prompts/Prompt';
+import { PromptSubTitle } from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
+import VerificationPrompt from '@app/entity/shared/entityForm/prompts/VerificationPrompt';
+import SchemaFieldPrompts from '@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldPrompts';
+import useShouldShowVerificationPrompt from '@app/entity/shared/entityForm/useShouldShowVerificationPrompt';
+import { DeferredRenderComponent } from '@app/shared/DeferredRenderComponent';
+import Loading from '@app/shared/Loading';
+import useHasComponentRendered from '@app/shared/useHasComponentRendered';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
+
+import { FormPrompt } from '@types';
+
+const PaddinglessEditor = styled(Editor)`
+    .remirror-editor.ProseMirror {
+        padding: 0;
+    }
+`;
 
 const TabWrapper = styled.div`
-    background-color: ${ANTD_GRAY_V2[1]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     overflow: auto;
     padding: 24px;
     flex: 1;
@@ -37,7 +45,7 @@ const SubTitle = styled(PromptSubTitle)`
 `;
 
 const RequestedByWrapper = styled(PromptSubTitle)`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {
@@ -45,6 +53,7 @@ interface Props {
 }
 
 function Form({ formUrn }: Props) {
+    const { t } = useTranslation('entity.form');
     const entityRegistry = useEntityRegistry();
     const { entityType, entityData } = useEntityData();
     const { entityPrompts, fieldPrompts } = useGetPromptInfo(formUrn);
@@ -63,7 +72,11 @@ function Form({ formUrn }: Props) {
         <TabWrapper>
             <HeaderWrapper>
                 <IntroTitle>
-                    {title ? <>{title}</> : <>{entityRegistry.getEntityName(entityType)} Requirements</>}
+                    {title ? (
+                        <>{title}</>
+                    ) : (
+                        <>{t('requirementsTitle', { entityName: entityRegistry.getEntityName(entityType) })}</>
+                    )}
                 </IntroTitle>
                 {owners && owners.length > 0 && (
                     <RequestedByWrapper>
@@ -72,12 +85,11 @@ function Form({ formUrn }: Props) {
                 )}
                 {description ? (
                     <SubTitle>
-                        <Editor content={description} readOnly editorStyle="padding: 0;" />
+                        <PaddinglessEditor content={description} readOnly />
                     </SubTitle>
                 ) : (
                     <SubTitle>
-                        Please fill out the following information for this {entityRegistry.getEntityName(entityType)} so
-                        that we can keep track of the status of the asset
+                        {t('introDescription', { entityName: entityRegistry.getEntityName(entityType) })}
                     </SubTitle>
                 )}
             </HeaderWrapper>

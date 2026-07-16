@@ -195,6 +195,9 @@ fragment entityPreview on Entity {
         health {
             ...entityHealth
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataJob {
         urn
@@ -353,5 +356,8 @@ fragment entityPreview on Entity {
         versionProperties {
             ...versionProperties
         }
+    }
+    ... on DataProduct {
+        ...dataProductFields
     }
 }

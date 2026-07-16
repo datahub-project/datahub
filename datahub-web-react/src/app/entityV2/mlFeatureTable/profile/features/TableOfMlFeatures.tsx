@@ -1,34 +1,23 @@
-import React, { useState } from 'react';
-import { Table, Typography } from 'antd';
 import { CheckSquareOutlined } from '@ant-design/icons';
+import { Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
-import styled from 'styled-components';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 
-import MlFeatureDataTypeIcon from './MlFeatureDataTypeIcon';
-import { MlFeatureDataType, MlPrimaryKey, MlFeature } from '../../../../../types.generated';
-import { useRefetch } from '../../../../entity/shared/EntityContext';
-import TagTermGroup from '../../../../sharedV2/tags/TagTermGroup';
-import SchemaDescriptionField from '../../../dataset/profile/schema/components/SchemaDescriptionField';
-import { useUpdateDescriptionMutation } from '../../../../../graphql/mutations.generated';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { useRefetch } from '@app/entity/shared/EntityContext';
+import SchemaDescriptionField from '@app/entityV2/dataset/profile/schema/components/SchemaDescriptionField';
+import MlFeatureDataTypeIcon from '@app/entityV2/mlFeatureTable/profile/features/MlFeatureDataTypeIcon';
+import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { MlFeature, MlFeatureDataType, MlPrimaryKey } from '@types';
 
 const FeaturesContainer = styled.div`
     margin-bottom: 100px;
 `;
-
-const defaultColumns = [
-    {
-        title: 'Type',
-        dataIndex: 'dataType',
-        key: 'dataType',
-        width: 100,
-        align: 'left' as AlignType,
-        render: (dataType: MlFeatureDataType) => {
-            return <MlFeatureDataTypeIcon dataType={dataType} />;
-        },
-    },
-];
 
 type Props = {
     features: Array<MlFeature | MlPrimaryKey>;
@@ -38,6 +27,21 @@ export default function TableOfMlFeatures({ features }: Props) {
     const refetch = useRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.types');
+    const { t: tl } = useTranslation('common.labels');
+
+    const defaultColumns = [
+        {
+            title: tl('type'),
+            dataIndex: 'dataType',
+            key: 'dataType',
+            width: 100,
+            align: 'left' as AlignType,
+            render: (dataType: MlFeatureDataType) => {
+                return <MlFeatureDataTypeIcon dataType={dataType} />;
+            },
+        },
+    ];
 
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const [expandedRows, setExpandedRows] = useState({});
@@ -52,7 +56,7 @@ export default function TableOfMlFeatures({ features }: Props) {
     });
 
     const nameColumn = {
-        title: 'Name',
+        title: tl('name'),
         dataIndex: 'name',
         key: 'name',
         width: 100,
@@ -64,7 +68,7 @@ export default function TableOfMlFeatures({ features }: Props) {
     };
 
     const descriptionColumn = {
-        title: 'Description',
+        title: tl('description'),
         dataIndex: 'description',
         key: 'description',
         render: (_, feature: MlFeature | MlPrimaryKey, index: number) => (
@@ -93,7 +97,7 @@ export default function TableOfMlFeatures({ features }: Props) {
 
     const tagColumn = {
         width: 125,
-        title: 'Tags',
+        title: tl('tags'),
         dataIndex: 'tags',
         key: 'tags',
         render: (_, feature: MlFeature | MlPrimaryKey, rowIndex: number) => (
@@ -113,7 +117,7 @@ export default function TableOfMlFeatures({ features }: Props) {
 
     const termColumn = {
         width: 125,
-        title: 'Terms',
+        title: t('shared.termsColumn'),
         dataIndex: 'glossaryTerms',
         key: 'glossaryTerms',
         render: (_, feature: MlFeature | MlPrimaryKey, rowIndex: number) => (
@@ -132,7 +136,7 @@ export default function TableOfMlFeatures({ features }: Props) {
     };
 
     const primaryKeyColumn = {
-        title: 'Primary Key',
+        title: t('mlFeatureTable.primaryKeyColumn'),
         dataIndex: 'primaryKey',
         key: 'primaryKey',
         render: (_: any, record: MlFeature | MlPrimaryKey) =>
@@ -146,6 +150,7 @@ export default function TableOfMlFeatures({ features }: Props) {
         <FeaturesContainer>
             {features && features.length > 0 && (
                 <Table
+                    data-testid="mlmodel-features-table"
                     columns={allColumns}
                     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                     // @ts-ignore

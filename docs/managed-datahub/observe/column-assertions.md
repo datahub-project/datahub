@@ -1,15 +1,15 @@
 ---
 description: This page provides an overview of working with DataHub Column Assertions
 ---
-import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Column Assertions
 
 <FeatureAvailability saasOnly />
 
-> The **Column Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
-> If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
+> The **Column Assertions** feature is available as part of the **DataHub Cloud Observe** module of DataHub Cloud.
+> If you are interested in learning more about **DataHub Cloud Observe** or trying it out, please [visit our website](https://datahub.com/products/data-observability/).
 
 ## Introduction
 
@@ -17,9 +17,9 @@ Can you remember a time when an important warehouse table column changed dramati
 
 There are many reasons why important columns in your Snowflake, Redshift, BigQuery, or Databricks tables may change - application code bugs, new feature rollouts, etc. Oftentimes, these changes break important assumptions made about the data used in building key downstream data products like reporting dashboards or data-driven product features.
 
-What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data issues before anyone else? With DataHub Cloud Column  Assertions, you can.
+What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data issues before anyone else? With DataHub Cloud Column Assertions, you can.
 
-With DataHub Cloud, you can define **Column Value** assertions to ensure each value in a column matches specific constraints, and **Column Metric** assertions to ensure that computed metrics from columns align with your expectations. As soon as things go wrong, your team will be the first to know, before the data issue becomes a larger data incident. 
+With DataHub Cloud, you can define **Column Value** assertions to ensure each value in a column matches specific constraints, and **Column Metric** assertions to ensure that computed metrics from columns align with your expectations. As soon as things go wrong, your team will be the first to know, before the data issue becomes a larger data incident.
 
 In this guide, we'll cover the basics of Column Assertions - what they are, how to configure them, and more - so that you and your team can start building trust in your most important data assets.
 
@@ -27,30 +27,28 @@ Let's dive in!
 
 ## Support
 
-Column Assertions are currently supported for:
+Column Assertions come in two flavors with different platform availability:
 
-1. Snowflake
-2. Redshift
-3. BigQuery
-4. Databricks
-5. DataHub Dataset Profile Metrics (collected via ingestion)
+- **Column Value Assertions** (constraint-per-row checks like regex match, in set, range) require an **active warehouse connection** to Snowflake, Redshift, BigQuery, or Databricks. They have no ingestion-driven fallback — DataHub needs to scan actual row values.
+- **Column Metric Assertions** (aggregate checks like null count, unique count, min, mean) support both modes:
+  - **Active query** on Snowflake, Redshift, BigQuery, or Databricks.
+  - **Ingestion-driven** via `DatasetProfile` / `SchemaFieldProfile` reported during ingestion on **any** ingested platform (Postgres, MySQL, Athena, Synapse, …). Evaluation cadence is bounded by your ingestion cadence.
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in
-DataHub Cloud's **Ingestion** tab.
+See the [capabilities matrix](./assertions.md) for the full comparison across all assertion types.
 
 > Note that Column Assertions are not yet supported if you are connecting to your warehouse
 > using the DataHub CLI.
 
 ## What is a Column Assertion?
 
-A **Column Assertion** is a highly configurable Data Quality rule used to monitor specific columns of a Data Warehouse table for unexpected changes. 
+A **Column Assertion** is a highly configurable Data Quality rule used to monitor specific columns of a Data Warehouse table for unexpected changes.
 
-Column Assertions are defined to validate a specific column, and can be used to 
+Column Assertions are defined to validate a specific column, and can be used to
 
 1. Validate that the values of the column match some constraints (regex, allowed values, max, min, etc) across rows OR
 2. Validate that specific column aggregation metrics match some expectations across rows.
 
-Column Assertions can be particularly useful for documenting and enforcing column-level "contracts", i.e. formal specifications about the expected contents of a particular column that can be used for coordinating among producers and consumers of the data.  
+Column Assertions can be particularly useful for documenting and enforcing column-level "contracts", i.e. formal specifications about the expected contents of a particular column that can be used for coordinating among producers and consumers of the data.
 
 ### Anatomy of Column Assertion
 
@@ -91,7 +89,7 @@ value. The options presented will vary based on the data type of the selected co
 can verify that the column value is greater than a particular value. For string types, you can check that the column value
 matches a particular regex pattern. Additionally, you are able to control the behavior of the check in the presence of NULL values. If the
 **Allow Nulls** option is _disabled_, then any null values encountered will be reported as a failure when evaluating the
-assertion. If **Allow Nulls** is enabled, then nulls will be ignored; the condition will be evaluated for rows where the column value is non-null.  
+assertion. If **Allow Nulls** is enabled, then nulls will be ignored; the condition will be evaluated for rows where the column value is non-null.
 
 For **Column Metric Assertions**, you will be able to choose from a list of common column metrics - MAX, MIN, MEAN, NULL COUNT, etc - and then compare these metric values to an expected value. The list of metrics will vary based on the type of the selected column. For example
 if you've selected a numeric column, you can choose to compute the MEAN value of the column, and then assert that it is greater than a
@@ -104,12 +102,12 @@ The **Row Selection Set**: This defines which rows in the table the Column Asser
 from the following options:
 
 - **All Table Rows**: Evaluate the Column Assertion across all rows in the table. This is the default option. Note that
-this may not be desirable for large tables.
+  this may not be desirable for large tables.
 
 - **Only Rows That Have Changed**: Evaluate the Column Assertion only against rows that have changed since the last
-evaluation of the assertion. If you choose this option, you will need to specify a **High Watermark Column** to help determine which rows
-have changed. A **High Watermark Column** is a column that contains a constantly incrementing value - a date, a time, or
-another always-increasing number - that can be used to find the "new rows" that were added since previous evaluation. When selected, a query will be issued to the table to find only the rows that have changed since the previous assertion evaluation. 
+  evaluation of the assertion. If you choose this option, you will need to specify a **High Watermark Column** to help determine which rows
+  have changed. A **High Watermark Column** is a column that contains a constantly incrementing value - a date, a time, or
+  another always-increasing number - that can be used to find the "new rows" that were added since previous evaluation. When selected, a query will be issued to the table to find only the rows that have changed since the previous assertion evaluation.
 
 ## Creating a Column Assertion
 
@@ -119,93 +117,128 @@ another always-increasing number - that can be used to find the "new rows" that 
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
    by default.
 
-2. (Optional) **Data Platform Connection**: In order to create a Column Assertion that queries the data source directly (instead of DataHub metadata), you'll need to have an **Ingestion Source** 
-   configured to your Data Platform: Snowflake, BigQuery, or Redshift under the **Ingestion** tab.
+2. (Recommended) **Data Platform Connection**: To evaluate a Column Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Ingestion** tab. **Column Value assertions always require an active warehouse connection.** **Column Metric assertions** can alternatively evaluate against the DataHub Dataset Profile (ingestion-driven mode), in which case no warehouse connection is required.
 
 Once these are in place, you're ready to create your Column Assertions!
 
 ### Steps
 
-1. Navigate to the Table that you want to monitor
-2. Click the **Validations** tab
+#### 1. Navigate to the Table that you want to monitor
+
+#### 2. Click the **Quality** tab
 
 <p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
-3. Click **+ Create Assertion**
+#### 3. Click **+ Create Assertion**
+
+#### 4. Choose **'Column'**
 
 <p align="left">
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-choose-type.png"/>
 </p>
 
-4. Choose **Column**
+#### 5. Configure the evaluation **schedule**.
 
-5. Configure the evaluation **schedule**. This is the frequency at which the assertion will be evaluated to produce a
-   pass or fail result, and the times when the column values will be checked.
+This is the frequency at which the assertion will be evaluated to produce a
+pass or fail result, and the times when the column values will be checked.
 
-6. Configure the **column assertion type**. You can choose from **Column Value** or **Column Metric**.
-   **Column Value** assertions are used to monitor the value of a specific column in a table, and ensure that every row
-   adheres to a specific condition. **Column Metric** assertions are used to compute a metric for that column, and then compare the value of that metric to your expectations.
+#### 6. Configure the **column assertion type**.
+
+You can choose from **Column Value** or **Column Metric**.
+**Column Value** assertions are used to monitor the value of a specific column in a table, and ensure that every row
+adheres to a specific condition. **Column Metric** assertions are used to compute a metric for that column, and then compare the value of that metric to your expectations.
 
 <p align="left">
   <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-assertion-type.png"/>
 </p>
 
-7. Configure the **column selection**. This defines the column that should be monitored by the Column Assertion. 
-   You can choose from any of the columns from the table listed in the dropdown.
+#### 7. Configure the **column selection**.
+
+This defines the column that should be monitored by the Column Assertion.
+You can choose from any of the columns from the table listed in the dropdown.
 
 <p align="left">
   <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-field-selection.png"/>
 </p>
 
-8. Configure the **evaluation criteria**. This step varies based on the type of assertion you chose in the previous step.
+#### 8. Configure the **evaluation criteria**. This step varies based on the type of assertion you chose in the previous step.
 
-   - **Column Value Assertions**: You will be able to choose from a set of operators that can be applied to the column
-     value. The options presented will vary based on the data type of the selected column. For example with numeric types, you
-     can check that the column value is greater than a specific value. For string types, you can check that the column value
-     matches a particular regex pattern. You will also be able to control the behavior of null values in the column. If the
-     **Allow Nulls** option is _disabled_, any null values encountered will be reported as a failure when evaluating the
-     assertion.
+- **Column Value Assertions**: You will be able to choose from a set of operators that can be applied to the column
+  value. The options presented will vary based on the data type of the selected column. For example with numeric types, you
+  can check that the column value is greater than a specific value. For string types, you can check that the column value
+  matches a particular regex pattern. You will also be able to control the behavior of null values in the column. If the
+  **Allow Nulls** option is _disabled_, any null values encountered will be reported as a failure when evaluating the
+  assertion. Note, [Anomaly Detection](./anomaly-detection.md) is not supported for Column Value Assertions — these checks are deterministic rather than statistical.
 
-   - **Column Metric Assertions**: You will be able to choose from a list of common metrics and then specify the operator
-     and value to compare against. The list of metrics will vary based on the data type of the selected column. For example
-     with numeric types, you can choose to compute the average value of the column, and then assert that it is greater than a
-     specific number. For string types, you can choose to compute the max length of all column values, and then assert that it
-     is less than a specific number.
+  In addition, for the In Set and Not In Set operators, you can now choose how to provide the set of allowed values:
 
-9. Configure the **row evaluation type**. This defines which rows in the table the Column Assertion should evaluate. You can choose
-   from the following options:
+  - Static List: Manually enter a list of values (e.g., city names like "chicago", "new york").
+  - Custom SQL: Provide a SQL query that returns a single column of possible values for the set. At evaluation time, DataHub executes this query using your configured data platform connection and compares each row’s column value against the returned set.
 
-   - **All Table Rows**: Evaluate the Column Assertion against all rows in the table. This is the default option. Note that
-     this may not be desirable for large tables.
+  Notes when using Custom SQL for sets:
 
-   - **Only Rows That Have Changed**: Evaluate the Column Assertion only against rows that have changed since the last
-     evaluation. If you choose this option, you will need to specify a **High Watermark Column** to help determine which rows
-     have changed. A **High Watermark Column** is a column that contains a constantly-incrementing value - a date, a time, or
-     another always-increasing number. When selected, a query will be issued to the table find only the rows which have changed since the last assertion run. 
+  - The query must return exactly one column. Use `SELECT DISTINCT` to avoid duplicates if desired.
+  - The values returned should be comparable to the selected column’s data type (e.g., strings for VARCHAR/STRING columns, numbers for numeric columns).
+  - The query runs in the same warehouse connection you configured for the dataset. Ensure the account has read access to referenced objects and use fully qualified table names.
+  - Large or complex queries may impact evaluation latency and cost on your warehouse.
+
+  Example (allowed city values sourced from a reference table):
+
+  ```sql
+  SELECT DISTINCT city
+  FROM reference_data.geo.cities
+  WHERE active = TRUE
+  ```
+
+- **Column Metric Assertions**: You will be able to choose from a list of common metrics and then specify the operator
+  and value to compare against. The list of metrics will vary based on the data type of the selected column. For example
+  with numeric types, you can choose to compute the average value of the column, and then assert that it is greater than a
+  specific number. For string types, you can choose to compute the max length of all column values, and then assert that it
+  is less than a specific number.
+
+  :::note Anomaly Detection — supported metrics (Public Beta)
+  [Anomaly Detection](./anomaly-detection.md) is currently in **Public Beta** for Column Metric assertions and is available only for these metrics: **`null_count`**, **`unique_count`**, **`empty_count`**, **`zero_count`**, and **`negative_count`**. Enable it by selecting the **Detect with AI** option. For other metrics (e.g. min, max, mean, median, stddev), use a fixed threshold instead.
+  :::
+
+#### 9. Configure the **row evaluation type**. This defines which rows in the table the Column Assertion should evaluate.
+
+- **All Table Rows**: Evaluate the Column Assertion against all rows in the table. This is the default option. Note that
+  this may not be desirable for large tables.
+
+- **Only Rows That Have Changed**: Evaluate the Column Assertion only against rows that have changed since the last
+  evaluation. If you choose this option, you will need to specify a **High Watermark Column** to help determine which rows
+  have changed. A **High Watermark Column** is a column that contains a constantly-incrementing value - a date, a time, or
+  another always-increasing number. When selected, a query will be issued to the table find only the rows which have changed since the last assertion run.
 
 <p align="left">
   <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-row-evaluation-type.png"/>
 </p>
 
-10. (Optional) Click **Advanced** to further customize the Column Assertion. The options listed here will vary based on the
-    type of assertion you chose in the previous step.
+#### 10. (Optional) Click **Advanced** to further customize the Column Assertion.
 
-    - **Invalid Values Threshold**: For **Column Value** assertions, you can configure the number of invalid values
-      (i.e. rows) that are allowed to fail before the assertion is marked as failing. This is useful if you want to allow a limited number
-      of invalid values in the column. By default this is 0, meaning the assertion will fail if any rows have an invalid column value.
+The options listed here will vary based on the type of assertion you chose in the previous step.
 
-    - **Source**: For **Column Metric** assertions, you can choose the mechanism that will be used to obtain the column
-      metric. **Query** will issue a query to the dataset to compute the metric. **DataHub Dataset Profile** will use the
-      DataHub Dataset Profile metadata to compute the metric. Note that this option requires that dataset profiling
-      statistics are up-to-date as of the assertion run time.
+- **Invalid Values Threshold**: For **Column Value** assertions, you can configure the number of invalid values
+  (i.e. rows) that are allowed to fail before the assertion is marked as failing. This is useful if you want to allow a limited number
+  of invalid values in the column. By default this is 0, meaning the assertion will fail if any rows have an invalid column value.
 
-    - **Additional Filters**: You can choose to add additional filters to the query that will be used to evaluate the
-      assertion. This is useful if you want to limit the assertion to a subset of rows in the table. Note this option will not
-      be available if you choose **DataHub Dataset Profile** as the **source**.
+- **Source**: For **Column Metric** assertions, you can choose the mechanism that will be used to obtain the column
+  metric. **Query** will issue a query to the dataset to compute the metric. This issues a query to the table, which can be more expensive than Information Schema.
+  **DataHub Dataset Profile** will use the DataHub Dataset Profile metadata to compute the metric. This is the cheapest option, but requires that Dataset Profiles are reported to DataHub. By default, Ingestion will report Dataset Profiles to DataHub, which can be and infrequent. You can report Dataset Profiles via the DataHub APIs for more frequent and reliable data.
+  **Table Statistics** (Databricks Only) computes the metric from platform-native column statistics via
+  [`ANALYZE TABLE ... COMPUTE STATISTICS FOR COLUMNS`](https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-analyze-table.html) and
+  `DESCRIBE TABLE EXTENDED`, avoiding a full column scan. On Delta tables the cost is proportional to the number of files rather than rows.
+  This source requires `MODIFY` privilege (or ownership) on the table, applies only to Tables (not Views), and only supports the
+  following metrics: **null_count**, **null_percentage**, **unique_count**, **unique_percentage**, **min**, and **max**. Other metrics
+  (e.g. mean, stddev, median, empty_count) require **Query**.
 
-11. Configure actions that should be taken when the Column Assertion passes or fails
+- **Additional Filters**: You can choose to add additional filters to the query that will be used to evaluate the
+  assertion. This is useful if you want to limit the assertion to a subset of rows in the table. Note this option will not
+  be available if you choose **DataHub Dataset Profile** as the **source**.
+
+#### 11. Configure actions that should be taken when the Column Assertion passes or fails
 
 <p align="left">
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
@@ -217,7 +250,7 @@ Once these are in place, you're ready to create your Column Assertions!
 - **Resolve incident**: Automatically resolved any incidents that were raised due to failures in this Column Assertion. Note that
   any other incidents will not be impacted.
 
-12. Click **Next** and then **Save**.
+#### 12. Click **Next** and then **Save**.
 
 And that's it! DataHub will now begin to monitor your Column Assertion for the table.
 
@@ -227,11 +260,127 @@ Once your assertion has run, you will begin to see Success or Failure status for
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/profile-passing-column-assertions-expanded.png"/>
 </p>
 
+## Anomaly Detection ⚡
+
+:::info
+Anomaly Detection on Column Metric assertions is currently in **Public Beta** — available to all DataHub Cloud customers; we welcome feedback as we continue to iterate.
+:::
+
+Column Metric Assertions support [Anomaly Detection](./anomaly-detection.md) — an AI-powered alternative to a fixed threshold that learns the normal distribution of a column metric on a given table, including seasonality, and flags statistical outliers.
+
+Anomaly Detection for Column Metrics is currently supported for the following metrics: **`null_count`**, **`unique_count`**, **`empty_count`**, **`zero_count`**, and **`negative_count`**. Other column metrics (e.g. min, max, mean, median, stddev) are available for standard Column Metric Assertions with fixed thresholds, but cannot be used with the **Detect with AI** option at this time. Any existing Anomaly Detection monitors using other metrics will continue to operate normally.
+
+Anomaly Detection for Column Metrics works with both active-query and ingestion-driven sources — it is **not** limited to the four warehouses. When using the DataHub Dataset Profile source, Anomaly Detection works on any ingested platform (evaluation cadence is bounded by ingestion cadence).
+
+You can enable Anomaly Detection by selecting the column and the metric you wish to monitor, and then clicking the `Detect with AI` option in the UI:
+
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/column-smart-assertion.png"/>
+</p>
+
+**Bulk Creating Anomaly Monitors for Multiple Columns**
+
+To select several columns on a table to monitor at once, you can use the **Bulk-Create Anomaly Monitors** button below the column selector in the Column Metric Assertion authoring UI.
+
+<iframe width="560" height="343" src="https://www.loom.com/embed/e71598c4394c4d8dba0770b8fc67ff06?sid=25326338-8a72-4382-98b5-026486233ef9" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+
+## Time-Series Bucketing for Column Metric Assertions
+
+:::info
+Time-series bucketing for Column Metric Assertions is currently in **Public Beta** — available to all DataHub Cloud customers; we welcome feedback as we continue to iterate.
+:::
+
+Bucketing always requires an active warehouse query and is therefore only available on Snowflake, Redshift, BigQuery, and Databricks. It is also restricted to Column Metric (`FIELD_METRIC`) assertions — Column Value assertions do not support bucketing.
+
+By default, column metric assertions evaluate a metric (e.g., null count, min, max) across all rows or changed rows in your table. With **time-series bucketing**, you can partition your data into time-based buckets (e.g., daily or weekly) and evaluate column metrics within each bucket.
+
+This is useful when:
+
+- You want to monitor column quality at a day or week granularity
+- You want to detect issues like "null count spiked for today's data" rather than checking the entire table
+- Your column metrics have seasonal patterns that vary by day of week or time of year
+
+### Bucketing Configuration
+
+A time-series bucketing strategy for column assertions consists of:
+
+- **Timestamp column**: The date/time column used to partition rows into buckets (e.g., `created_at`, `updated_at`).
+- **Bucket interval**: **Daily** (1 DAY) or **Weekly** (1 WEEK).
+- **Timezone**: The IANA timezone for bucket boundaries. Defaults to UTC.
+- **Late arrival grace period** (optional): A buffer after the bucket end time before evaluation.
+
+:::note
+When time-series bucketing is enabled, the evaluation schedule is automatically computed from the bucket configuration. Column Value assertions (`FIELD_VALUES` type) do not support time-series bucketing — only Column Metric assertions (`FIELD_METRIC` type) do.
+:::
+
+### Configuring Bucketing in the UI
+
+When creating a column metric assertion, you will see a **Row Evaluation Type** section with three options:
+
+<p align="left">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/bucketing/column-metric-timeseries-bucketing.png"/>
+</p>
+
+- **All Table Rows**: Evaluate the assertion across all rows in the table (default).
+- **Only Rows That Have Changed**: Use a high watermark column to evaluate only new rows.
+- **Rows Within a Time Bucket**: Partition data into daily or weekly time buckets and evaluate each bucket independently.
+
+When selecting **Rows Within a Time Bucket**, you will configure the timestamp column, bucket size, timezone, and optional grace period.
+
+### Configuring Bucketing via the Python SDK
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+dataset_urn = DatasetUrn.from_string(
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
+)
+
+# Column metric assertion with daily bucketing
+column_assertion = client.assertions.sync_column_metric_assertion(
+    dataset_urn=dataset_urn,
+    column_name="price",
+    metric_type="min",
+    operator="greater_than_or_equal_to",
+    criteria_parameters=0,
+    display_name="Daily Price Min Check",
+    time_bucketing_strategy={
+        "timestamp_field_path": "order_date",
+        "bucket_interval": {"unit": "DAY", "multiple": 1},
+        "timezone": "America/Los_Angeles",
+    },
+    tags=["automated", "column_quality"],
+    enabled=True,
+)
+
+# Column metric assertion with Anomaly Detection, weekly bucketing, and backfill
+smart_column = client.assertions.sync_smart_column_metric_assertion(
+    dataset_urn=dataset_urn,
+    column_name="user_id",
+    metric_type="null_count",
+    display_name="Weekly Null Count Monitor",
+    detection_mechanism="all_rows_query_datahub_dataset_profile",
+    sensitivity="medium",
+    time_bucketing_strategy={
+        "timestamp_field_path": "created_at",
+        "bucket_interval": {"unit": "WEEK", "multiple": 1},
+    },
+    backfill_config={"backfill_start_date_ms": 1704067200000},
+    enabled=True,
+)
+```
+
+:::info
+For Column Metric Assertions with Anomaly Detection and bucketing enabled, you can configure **historical backfill** (Private Beta) to populate metrics history. See [Backfill Assertion History](./assertion-backfill.md) for details.
+:::
+
 ## Stopping a Column Assertion
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Column** to open the Column Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -244,7 +393,6 @@ To resume the assertion, simply click **Start**.
 <p align="left">
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
-
 
 ## Creating Column Assertions via API
 
@@ -261,7 +409,7 @@ Note that to create or delete Assertions and Monitors for a specific entity on D
 
 In order to create or update a Column Assertion, you can the `upsertDatasetColumnAssertionMonitor` mutation.
 
-##### Examples
+#### Examples
 
 Creating a Field Values Column Assertion that runs every 8 hours:
 
@@ -270,33 +418,61 @@ mutation upsertDatasetFieldAssertionMonitor {
   upsertDatasetFieldAssertionMonitor(
     input: {
       entityUrn: "<urn of entity being monitored>"
-      type: FIELD_VALUES,
+      type: FIELD_VALUES
       fieldValuesAssertion: {
         field: {
-          path: "<name of the column to be monitored>",
-          type: "NUMBER",
+          path: "<name of the column to be monitored>"
+          type: "NUMBER"
           nativeType: "NUMBER(38,0)"
-        },
-        operator: GREATER_THAN,
-        parameters: {
-          value: {
-            type: NUMBER,
-            value: "10"
-          }
-        },
-        failThreshold: {
-          type: COUNT,
-          value: 0
-        },
+        }
+        operator: GREATER_THAN
+        parameters: { value: { type: NUMBER, value: "10" } }
+        failThreshold: { type: COUNT, value: 0 }
         excludeNulls: true
       }
       evaluationSchedule: {
         timezone: "America/Los_Angeles"
         cron: "0 */8 * * *"
       }
-      evaluationParameters: {
-        sourceType: ALL_ROWS_QUERY
+      evaluationParameters: { sourceType: ALL_ROWS_QUERY }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+To create a Column Nullness Metric Assertion with Anomaly Detection:
+
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: FIELD_METRIC
+      inferWithAI: true
+      fieldMetricAssertion: {
+        field: {
+          path: "<name of the column to be monitored>"
+          type: "NUMBER"
+          nativeType: "NUMBER(38,0)"
+        }
+        metric: NULL_PERCENTAGE
+        operator: BETWEEN
+        # you can provide any value for this as it will be overwritten continuously by the AI engine
+        parameters: {
+          minValue: { value: "0", type: NUMBER }
+          maxValue: { value: "0", type: NUMBER }
+        }
+        failThreshold: { type: COUNT, value: 0 }
+        excludeNulls: true
       }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: { sourceType: ALL_ROWS_QUERY }
       mode: ACTIVE
     }
   ) {
@@ -313,33 +489,23 @@ mutation upsertDatasetFieldAssertionMonitor {
     assertionUrn: "<urn of assertion created in earlier query>"
     input: {
       entityUrn: "<urn of entity being monitored>"
-      type: FIELD_VALUES,
+      type: FIELD_VALUES
       fieldValuesAssertion: {
         field: {
-          path: "<name of the column to be monitored>",
-          type: "NUMBER",
+          path: "<name of the column to be monitored>"
+          type: "NUMBER"
           nativeType: "NUMBER(38,0)"
-        },
-        operator: GREATER_THAN_OR_EQUAL_TO,
-        parameters: {
-          value: {
-            type: NUMBER,
-            value: "10"
-          }
-        },
-        failThreshold: {
-          type: COUNT,
-          value: 0
-        },
+        }
+        operator: GREATER_THAN_OR_EQUAL_TO
+        parameters: { value: { type: NUMBER, value: "10" } }
+        failThreshold: { type: COUNT, value: 0 }
         excludeNulls: true
       }
       evaluationSchedule: {
         timezone: "America/Los_Angeles"
         cron: "0 */8 * * *"
       }
-      evaluationParameters: {
-        sourceType: ALL_ROWS_QUERY
-      }
+      evaluationParameters: { sourceType: ALL_ROWS_QUERY }
       mode: ACTIVE
     }
   ) {
@@ -363,5 +529,5 @@ Authorization: Bearer <personal-access-token>
 
 **Exploring GraphQL API**
 
-Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
+Also, remember that you can play with an interactive version of the DataHub Cloud GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
 :::

@@ -1,8 +1,10 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Image } from 'antd';
-import dataHubIcon from '../../../images/datahublogo.png';
-import datahubPlatforms from '../../../images/datahub-platforms.svg';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import datahubPlatforms from '@images/datahub-platforms.svg';
+import dataHubIcon from '@images/datahublogo.png';
 
 const Container = styled.div`
     display: flex;
@@ -10,19 +12,19 @@ const Container = styled.div`
     justify-content: space-between;
     max-width: 470px;
     padding: 52px 65px 65px 52px;
-    background: #191d2e url(${datahubPlatforms}) no-repeat bottom left;
+    background: ${(props) => props.theme.colors.bgSurfaceDarker} url(${datahubPlatforms}) no-repeat bottom left;
 `;
 
 const Title = styled.div`
     max-width: 240px;
     margin-bottom: 30px;
-    color: #374066;
+    color: ${(props) => props.theme.colors.text};
     font: 700 35px/44px Mulish;
 `;
 
 const Subtitle = styled.div`
     width: 371px;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
     font: 400 16px/24px Mulish;
 `;
 
@@ -31,22 +33,20 @@ const AcrylTitle = styled.div`
     align-items: center;
     justify-content: start;
     font: 700 14px Mulish;
-    color: #fff;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     letter-spacing: 1px;
 `;
 
 export const IntroduceYourselfLeftSidebar = () => {
+    const { t } = useTranslation('home.v2');
     return (
         <Container>
             <AcrylTitle>
                 <Image src={dataHubIcon} preview={false} style={{ width: 36 }} />
             </AcrylTitle>
             <div>
-                <Title>Start your data journey</Title>
-                <Subtitle>
-                    Thousands of data professionals use Acryl to discover trusted data, ensure data quality and
-                    collaborate with their colleagues
-                </Subtitle>
+                <Title>{t('introduceYourself.leftSidebar.title')}</Title>
+                <Subtitle>{t('introduceYourself.leftSidebar.subTitle')}</Subtitle>
             </div>
         </Container>
     );

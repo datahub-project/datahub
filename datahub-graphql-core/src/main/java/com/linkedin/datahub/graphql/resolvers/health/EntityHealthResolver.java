@@ -4,17 +4,22 @@ import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_STATUS_COMPLET
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationships;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.generated.ActiveIncidentHealthDetails;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
 import com.linkedin.datahub.graphql.generated.HealthStatusType;
 import com.linkedin.datahub.graphql.generated.IncidentState;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.Condition;
@@ -24,10 +29,13 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.test.TestResults;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.GenericTable;
@@ -36,6 +44,7 @@ import com.linkedin.timeseries.GroupingBucketType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -72,7 +81,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final TimeseriesAspectService timeseriesAspectService) {
-    this(entityClient, graphClient, timeseriesAspectService, new Config(true, true));
+    this(entityClient, graphClient, timeseriesAspectService, new Config(true, true, true));
   }
 
   public EntityHealthResolver(
@@ -128,6 +137,13 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       }
     }
 
+    if (_config.getTestsEnabled()) {
+      final Health testsHealth = computeTestsHealthForAsset(entityUrn, context);
+      if (testsHealth != null) {
+        healthStatuses.add(testsHealth);
+      }
+    }
+
     return new HealthStatuses(healthStatuses);
   }
 
@@ -145,23 +161,70 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       final Filter filter = buildIncidentsEntityFilter(entityUrn, IncidentState.ACTIVE.toString());
       final SearchResult searchResult =
           _entityClient.filter(
-              context.getOperationContext(), Constants.INCIDENT_ENTITY_NAME, filter, null, 0, 1);
+              context.getOperationContext(),
+              Constants.INCIDENT_ENTITY_NAME,
+              filter,
+              buildIncidentsSort(),
+              0,
+              1);
       final Integer activeIncidentCount = searchResult.getNumEntities();
       if (activeIncidentCount > 0) {
         // There are active incidents.
+        final Urn latestIncidentUrn = searchResult.getEntities().get(0).getEntity();
+        final IncidentInfo latestIncidentInfo = getIncidentInfo(context, latestIncidentUrn);
+        final Long latestIncidentTimestamp =
+            latestIncidentInfo != null
+                ? latestIncidentInfo.getStatus().getLastUpdated().getTime()
+                : null;
         return new Health(
             HealthStatusType.INCIDENTS,
+            latestIncidentTimestamp != null ? latestIncidentTimestamp : 0,
             HealthStatus.FAIL,
             String.format(
                 "%s active incident%s", activeIncidentCount, activeIncidentCount > 1 ? "s" : ""),
+            new ActiveIncidentHealthDetails(
+                latestIncidentUrn.toString(),
+                latestIncidentInfo != null ? latestIncidentInfo.getTitle() : null,
+                latestIncidentTimestamp,
+                activeIncidentCount),
+            null,
             ImmutableList.of("ACTIVE_INCIDENTS"));
       }
       // Report pass if there are no active incidents.
-      return new Health(HealthStatusType.INCIDENTS, HealthStatus.PASS, null, null);
+      return new Health(
+          HealthStatusType.INCIDENTS, null, HealthStatus.PASS, null, null, null, null);
     } catch (RemoteInvocationException e) {
       log.error("Failed to compute incident health status!", e);
       return null;
+    } catch (URISyntaxException e) {
+      log.error("Failed to parse incident URN!", e);
+      return null;
     }
+  }
+
+  @Nullable
+  private IncidentInfo getIncidentInfo(final QueryContext context, final Urn incidentUrn)
+      throws URISyntaxException, RemoteInvocationException {
+    final EntityResponse entityResponse =
+        _entityClient.getV2(
+            context.getOperationContext(),
+            Constants.INCIDENT_ENTITY_NAME,
+            incidentUrn,
+            Set.of(Constants.INCIDENT_INFO_ASPECT_NAME),
+            false);
+
+    if (entityResponse == null) {
+      return null;
+    }
+    if (!entityResponse.getAspects().containsKey(Constants.INCIDENT_INFO_ASPECT_NAME)) {
+      return null;
+    }
+    return new IncidentInfo(
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME).getValue().data());
+  }
+
+  private List<SortCriterion> buildIncidentsSort() {
+    return List.of(new SortCriterion().setOrder(SortOrder.DESCENDING).setField("lastUpdated"));
   }
 
   private Filter buildIncidentsEntityFilter(final String entityUrn, final String state) {
@@ -188,7 +251,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
     final EntityRelationships relationships =
         _graphClient.getRelatedEntities(
             entityUrn,
-            ImmutableList.of(ASSERTS_RELATIONSHIP_NAME),
+            ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
             RelationshipDirection.INCOMING,
             0,
             500,
@@ -241,6 +304,65 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
         createAssertionAggregationSpecs(),
         createAssertionsFilter(asserteeUrn),
         createAssertionGroupingBuckets());
+  }
+
+  /**
+   * Returns the resolved "tests health", which is a static function of whether there are any
+   * failing governance tests on the asset.
+   *
+   * @param entityUrn the asset to compute health for
+   * @param context the query context
+   * @return an instance of {@link Health} for the entity, null if one cannot be computed.
+   */
+  @Nullable
+  private Health computeTestsHealthForAsset(final String entityUrn, final QueryContext context) {
+    try {
+      final Urn urn = Urn.createFromString(entityUrn);
+      final EntityResponse entityResponse =
+          _entityClient.getV2(
+              context.getOperationContext(),
+              urn.getEntityType(),
+              urn,
+              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME));
+
+      if (entityResponse == null
+          || !entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
+        return null;
+      }
+
+      final TestResults testResults =
+          new TestResults(
+              entityResponse
+                  .getAspects()
+                  .get(Constants.TEST_RESULTS_ASPECT_NAME)
+                  .getValue()
+                  .data());
+
+      final int passingCount = testResults.getPassing().size();
+      final int failingCount = testResults.getFailing().size();
+      final int totalCount = passingCount + failingCount;
+
+      if (totalCount == 0) {
+        return null;
+      }
+
+      final Health health = new Health();
+      health.setType(HealthStatusType.TESTS);
+      if (failingCount > 0) {
+        health.setStatus(HealthStatus.FAIL);
+        health.setMessage(String.format("%s of %s tests failing", failingCount, totalCount));
+      } else {
+        health.setStatus(HealthStatus.PASS);
+        health.setMessage("All tests are passing");
+      }
+      return health;
+    } catch (RemoteInvocationException e) {
+      log.error("Failed to compute test health status!", e);
+      return null;
+    } catch (URISyntaxException e) {
+      log.error("Failed to parse incident URN!", e);
+      return null;
+    }
   }
 
   private List<String> getFailingAssertionUrns(
@@ -316,6 +438,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
   public static class Config {
     private Boolean assertionsEnabled;
     private Boolean incidentsEnabled;
+    private Boolean testsEnabled;
   }
 
   @AllArgsConstructor

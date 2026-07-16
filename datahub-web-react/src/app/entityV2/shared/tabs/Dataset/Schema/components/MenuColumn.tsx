@@ -1,19 +1,24 @@
-import React from 'react';
-import { VscGraphLeft } from 'react-icons/vsc';
 import { CopyOutlined } from '@ant-design/icons';
-import styled from 'styled-components/macro';
 import { Dropdown, Menu } from 'antd';
-import { MenuIcon } from '../../../../EntityDropdown/EntityMenuActions';
-import { useEntityData, useRouteToTab } from '../../../../../../entity/shared/EntityContext';
-import { SchemaField } from '../../../../../../../types.generated';
-import { generateSchemaFieldUrn } from '../../../Lineage/utils';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { VscGraphLeft } from 'react-icons/vsc';
+import styled from 'styled-components/macro';
+
+import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { MenuIcon } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
+
+import { SchemaField } from '@types';
+
+const LINEAGE_TAB = 'Lineage';
 
 export const ImpactAnalysisIcon = styled(VscGraphLeft)`
     transform: scaleX(-1);
     font-size: 18px;
 `;
 
-export const CopyOutlinedIcon = styled(CopyOutlined)`
+const CopyOutlinedIcon = styled(CopyOutlined)`
     transform: scaleX(-1);
     font-size: 16px;
 `;
@@ -23,7 +28,7 @@ const MenuItem = styled.div`
     display: flex;
     font-size: 12px;
     padding: 0 4px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 interface Props {
@@ -31,6 +36,7 @@ interface Props {
 }
 
 export default function MenuColumn({ field }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const routeToTab = useRouteToTab();
     const { urn } = useEntityData();
     const selectedColumnUrn = generateSchemaFieldUrn(field.fieldPath, urn);
@@ -41,9 +47,9 @@ export default function MenuColumn({ field }: Props) {
                 <Menu>
                     <Menu.Item key="0" onClick={(e) => e.domEvent.stopPropagation()}>
                         <MenuItem
-                            onClick={() => routeToTab({ tabName: 'Lineage', tabParams: { column: field.fieldPath } })}
+                            onClick={() => routeToTab({ tabName: LINEAGE_TAB, tabParams: { column: field.fieldPath } })}
                         >
-                            <ImpactAnalysisIcon /> &nbsp; See Column Lineage
+                            <ImpactAnalysisIcon /> &nbsp; {t('menuColumn.seeColumnLineage')}
                         </MenuItem>
                     </Menu.Item>
                     {navigator.clipboard && (
@@ -53,7 +59,7 @@ export default function MenuColumn({ field }: Props) {
                                     navigator.clipboard.writeText(field.fieldPath);
                                 }}
                             >
-                                <CopyOutlinedIcon /> &nbsp; Copy Column Field Path
+                                <CopyOutlinedIcon /> &nbsp; {t('menuColumn.copyColumnFieldPath')}
                             </MenuItem>
                         </Menu.Item>
                     )}
@@ -64,7 +70,7 @@ export default function MenuColumn({ field }: Props) {
                                     navigator.clipboard.writeText(selectedColumnUrn || '');
                                 }}
                             >
-                                <CopyOutlinedIcon /> &nbsp; Copy Column Urn
+                                <CopyOutlinedIcon /> &nbsp; {t('menuColumn.copyColumnUrn')}
                             </MenuItem>
                         </Menu.Item>
                     )}

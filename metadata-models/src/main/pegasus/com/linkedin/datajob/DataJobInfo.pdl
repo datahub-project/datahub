@@ -11,7 +11,8 @@ import com.linkedin.common.FabricType
  * Information about a Data processing job
  */
 @Aspect = {
-  "name": "dataJobInfo"
+  "name": "dataJobInfo",
+  "schemaVersion": 2
 }
 record DataJobInfo includes CustomProperties, ExternalReference {
 
@@ -22,7 +23,9 @@ record DataJobInfo includes CustomProperties, ExternalReference {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   name: string
 
@@ -31,7 +34,9 @@ record DataJobInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2,
+    "sanitizeRichText": true
   }
   description: optional string
 
@@ -52,7 +57,8 @@ record DataJobInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "/time": {
       "fieldName": "createdAt",
-      "fieldType": "DATETIME"
+      "fieldType": "DATETIME",
+      "searchLabel": "createdAt"
     }
   }
   created: optional TimeStamp
@@ -63,7 +69,8 @@ record DataJobInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "/time": {
       "fieldName": "lastModifiedAt",
-      "fieldType": "DATETIME"
+      "fieldType": "DATETIME",
+      "searchLabel": "lastModifiedAt"
     }
   }
   lastModified: optional TimeStamp

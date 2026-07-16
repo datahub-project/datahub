@@ -1,18 +1,28 @@
 import { useMemo } from 'react';
-import { ENTITY_FILTER_NAME } from '@src/app/search/utils/constants';
+
+import { getStructuredPropertyValue } from '@app/entity/shared/utils';
+import {
+    EntityFilterField,
+    FieldType,
+    FilterField,
+    FilterOperatorType,
+    FilterValueOption,
+} from '@app/searchV2/filters/types';
+import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
+import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import { combineOrFilters } from '@app/searchV2/utils/filterUtils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
-import { EntityRegistry } from '../../../../entityRegistryContext';
+import { ENTITY_FILTER_NAME } from '@src/app/search/utils/constants';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
 import {
     useAggregateAcrossEntitiesQuery,
     useGetAutoCompleteMultipleResultsQuery,
     useGetSearchResultsForMultipleQuery,
-} from '../../../../graphql/search.generated';
-import { EntityType } from '../../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { FILTER_DELIMITER } from '../../utils/constants';
-import { EntityFilterField, FieldType, FilterField, FilterOperatorType, FilterValueOption } from '../types';
-import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '../utils';
+} from '@graphql/search.generated';
+import { AllowedValue, AndFilterInput, EntityType, StructuredPropertyEntity } from '@types';
 
 const MAX_AGGREGATION_COUNT = 40;
 
@@ -23,6 +33,34 @@ const MAX_AGGREGATION_COUNT = 40;
 export const deduplicateOptions = (baseOptions: FilterValueOption[], moreOptions: FilterValueOption[]) => {
     const baseValues = baseOptions.map((op) => op.value);
     return moreOptions.filter((op) => !baseValues.includes(op.value));
+};
+
+const getAllowedValueFilterKey = (allowedValue: AllowedValue): string | null => {
+    const raw = getStructuredPropertyValue(allowedValue.value);
+    if (raw === null || raw === undefined) {
+        return null;
+    }
+    return String(raw);
+};
+
+export const mergeFilterOptionsInAllowedValuesOrder = (
+    aggregationOptions: FilterValueOption[],
+    allowedValuesFromDefinition: AllowedValue[],
+    buildMissingOption: (rawValue: string) => FilterValueOption,
+): FilterValueOption[] => {
+    const aggByValue = new Map(aggregationOptions.map((option) => [option.value, option]));
+
+    const definitionValues = allowedValuesFromDefinition
+        .map(getAllowedValueFilterKey)
+        .filter((rawValue): rawValue is string => rawValue !== null);
+
+    const orderedFromDefinition = definitionValues.map(
+        (rawValue) => aggByValue.get(rawValue) ?? buildMissingOption(rawValue),
+    );
+
+    const remainingOptions = aggregationOptions.filter((option) => !definitionValues.includes(option.value));
+
+    return [...orderedFromDefinition, ...remainingOptions];
 };
 
 export const mapFilterCountsToZero = (options: FilterValueOption[]) => {
@@ -40,7 +78,21 @@ export const mapFilterCountsToZero = (options: FilterValueOption[]) => {
  *
  * TODO: Determine if we need to provide an option context that would help with filtering.
  */
-export const useLoadAggregationOptions = (field: FilterField, visible: boolean, includeCounts: boolean) => {
+export const useLoadAggregationOptions = ({
+    field,
+    visible,
+    includeCounts,
+    aggregationsEntityTypes,
+    extraOrFilters,
+    removeOptionsWithNoCount = false,
+}: {
+    field: FilterField;
+    visible: boolean;
+    includeCounts: boolean;
+    aggregationsEntityTypes?: Array<EntityType>;
+    extraOrFilters?: AndFilterInput[];
+    removeOptionsWithNoCount?: boolean;
+}) => {
     const { entityFilters, query, orFilters, viewUrn } = useGetSearchQueryInputs(
         useMemo(() => [field.field], [field.field]),
     );
@@ -53,8 +105,8 @@ export const useLoadAggregationOptions = (field: FilterField, visible: boolean, 
                 searchFlags: {
                     maxAggValues: MAX_AGGREGATION_COUNT,
                 },
-                types: field.field === ENTITY_FILTER_NAME ? null : entityFilters,
-                orFilters,
+                types: aggregationsEntityTypes || (field.field === ENTITY_FILTER_NAME ? null : entityFilters),
+                orFilters: extraOrFilters ? combineOrFilters(orFilters, extraOrFilters) : orFilters,
                 viewUrn,
             },
         },
@@ -66,7 +118,11 @@ export const useLoadAggregationOptions = (field: FilterField, visible: boolean, 
     }
 
     const requestedAgg = data?.aggregateAcrossEntities?.facets?.find((facet: any) => facet.field === field.field);
-    const options = requestedAgg?.aggregations?.map((aggregation): FilterValueOption => {
+    // Filter out options with no count only if removeOptionsWithNoCount otherwise do not filter
+    const filteredOptions = requestedAgg?.aggregations?.filter((agg) =>
+        removeOptionsWithNoCount ? !!agg.count : true,
+    );
+    const options = filteredOptions?.map((aggregation): FilterValueOption => {
         return {
             value: aggregation.value,
             entity: aggregation.entity,
@@ -75,6 +131,25 @@ export const useLoadAggregationOptions = (field: FilterField, visible: boolean, 
             displayName: getStructuredPropFilterDisplayName(field.field, aggregation.value, field.entity),
         };
     });
+    // For structured property fields with allowedValues, surface every allowed value even if it
+    // has no indexed documents yet — so the full set of filterable choices is always visible.
+    const structuredPropEntity =
+        requestedAgg?.entity?.__typename === 'StructuredPropertyEntity'
+            ? (requestedAgg.entity as StructuredPropertyEntity)
+            : undefined;
+    const allowedValuesFromDefinition = structuredPropEntity?.definition?.allowedValues;
+    if (allowedValuesFromDefinition?.length) {
+        return {
+            options: mergeFilterOptionsInAllowedValuesOrder(options || [], allowedValuesFromDefinition, (rawValue) => ({
+                value: rawValue,
+                icon: field.icon,
+                count: includeCounts ? 0 : undefined,
+                displayName: getStructuredPropFilterDisplayName(field.field, rawValue, field.entity),
+            })),
+            loading,
+        };
+    }
+
     return { options: options || [], loading };
 };
 
@@ -121,7 +196,7 @@ export const useLoadSearchOptions = (field: EntityFilterField, query?: string, s
                 icon: field.icon,
             };
         });
-    const searchOptions = searchData?.searchAcrossEntities?.searchResults.map((result) => ({
+    const searchOptions = searchData?.searchAcrossEntities?.searchResults?.map((result) => ({
         value: result.entity.urn,
         entity: result.entity,
         icon: field.icon,

@@ -1,15 +1,17 @@
 import { CheckCircleOutlined } from '@ant-design/icons';
 import { message } from 'antd';
-import { Button } from '@src/alchemy-components';
 import React, { useEffect, useState } from 'react';
+
+import TestConnectionModal from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionModal';
+import { TestConnectionResult } from '@app/ingest/source/builder/RecipeForm/TestConnection/types';
+import { SourceConfig } from '@app/ingest/source/builder/types';
+import { FAILURE, RUNNING, yamlToJson } from '@app/ingest/source/utils';
+import { Button } from '@src/alchemy-components';
+
 import {
     useCreateTestConnectionRequestMutation,
     useGetIngestionExecutionRequestLazyQuery,
-} from '../../../../../../graphql/ingestion.generated';
-import { FAILURE, RUNNING, yamlToJson } from '../../../utils';
-import { TestConnectionResult } from './types';
-import TestConnectionModal from './TestConnectionModal';
-import { SourceConfig } from '../../types';
+} from '@graphql/ingestion.generated';
 
 export function getRecipeJson(recipeYaml: string) {
     // Convert the recipe into it's json representation, and catch + report exceptions while we do it.

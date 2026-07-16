@@ -1,6 +1,26 @@
 source:
   type: fivetran
   config:
+    # Optional - Choose how to read Fivetran log data. Leave unset to let the
+    # connector infer this from which credential blocks you provide:
+    #   only fivetran_log_config             → log_database
+    #   only api_config                      → rest_api
+    #   both (no explicit log_source)        → log_database (DB-primary;
+    #                                          REST still fills in destination
+    #                                          routing + Google Sheets details)
+    # Set explicitly to override — e.g. `rest_api` with both blocks present
+    # runs REST-primary and uses the DB log only for per-run sync history.
+    # log_source: rest_api
+
+    # NOTE: Whenever `api_config` is set, the connector automatically fetches
+    # each destination's `service` (snowflake / bigquery / databricks /
+    # managed_data_lake / ...) via the Fivetran REST API and routes URN
+    # construction accordingly. This is required for hybrid deployments where
+    # the Fivetran log lives in one destination but data is spread across
+    # multiple destinations of different types. Pin `platform` on a per-
+    # destination entry under `destination_to_platform_instance` to skip the
+    # REST round-trip for that destination.
+
     # Fivetran log connector destination server configurations
     fivetran_log_config:
       destination_platform: snowflake
@@ -26,6 +46,19 @@ source:
           client_id: "client_id"
           private_key: "private_key"
         dataset: "fivetran_log_dataset"
+      # Optional - If destination platform is 'databricks', provide databricks configuration.
+      databricks_destination_config:
+        # Credentials
+        token: "token"
+        workspace_url: "workspace_url"
+        warehouse_id: "warehouse_id"
+
+        # Coordinates
+        catalog: "fivetran_catalog"
+        log_schema: "fivetran_log"
+
+      # NOTE: For Managed Data Lake destinations (Iceberg / Polaris / Glue),
+      # use `log_source: rest_api` (see below) instead of fivetran_log_config.
 
     # Optional - filter for certain connector names instead of ingesting everything.
     # connector_patterns:
@@ -36,6 +69,12 @@ source:
     # sources_to_database:
     #   connector_id: source_db
 
+    # Optional - Fivetran REST API configuration (required for Google Sheets connectors)
+    # api_config:
+    #   api_key: "your_api_key"
+    #   api_secret: "your_api_secret"
+    #   base_url: "https://api.fivetran.com"  # Optional
+    #   request_timeout_sec: 30  # Optional
     # Optional -- This mapping is optional and only required to configure platform-instance for source
     # A mapping of Fivetran connector id to data platform instance
     # sources_to_platform_instance:
@@ -44,9 +83,15 @@ source:
     #     env: DEV
 
     # Optional -- This mapping is optional and only required to configure platform-instance for destination.
-    # A mapping of Fivetran destination id to data platform instance
+    # A mapping of Fivetran destination id to data platform instance.
+    # For Managed Data Lake destinations, set this to match the platform_instance
+    # used by your Iceberg / Glue source recipe so emitted URNs align with the
+    # ones that source connector emits and lineage renders end-to-end. Use
+    # `platform: glue` (or another platform) here to override the default
+    # `iceberg` URN routing for MDL destinations.
     # destination_to_platform_instance:
     #   destination_id:
+    #     platform: iceberg
     #     platform_instance: cloud_instance
     #     env: DEV
 

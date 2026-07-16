@@ -1,24 +1,21 @@
 import React from 'react';
-import { Owner } from '../../../../../types.generated';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { useTranslation } from 'react-i18next';
+
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Owner } from '@types';
 
 interface Props {
     owners: Owner[];
 }
 
 export default function FormRequestedBy({ owners }: Props) {
+    const { t } = useTranslation('entity.form');
     const entityRegistry = useEntityRegistry();
 
-    return (
-        <>
-            Requested by:{' '}
-            {owners.map((ownerAssoc, index) => (
-                <>
-                    {owners.length > 1 && index === owners.length - 1 && 'and '}
-                    {entityRegistry.getDisplayName(ownerAssoc.owner.type, ownerAssoc.owner)}
-                    {owners.length > 1 && index !== owners.length - 1 && ', '}
-                </>
-            ))}
-        </>
+    const ownerNames = owners.map((ownerAssoc) =>
+        entityRegistry.getDisplayName(ownerAssoc.owner.type, ownerAssoc.owner),
     );
+
+    return <>{t('requestedBy', { owners: ownerNames })}</>;
 }

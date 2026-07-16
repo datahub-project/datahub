@@ -1,14 +1,14 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Popover } from '@components';
-import { CampaignOutlined } from '@mui/icons-material';
-import { Post } from '../../types.generated';
-import { pluralize } from '../shared/textUtil';
-import { COLORS } from '../sharedV2/colors';
+import { Megaphone } from '@phosphor-icons/react/dist/csr/Megaphone';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { Post } from '@types';
 
 const IconWrapper = styled.div<{ count: number }>`
     display: flex;
-    color: ${COLORS.blue_6};
+    color: ${(props) => props.theme.colors.iconBrand};
     font-size: 20px;
     line-height: 1;
 `;
@@ -25,10 +25,11 @@ interface Props {
 }
 
 export default function NotesIcon({ notes, className }: Props) {
+    const { t } = useTranslation('entity.preview');
     return (
-        <Popover content={() => <div>{`${notes.length} ${pluralize(notes.length, 'note')}`}</div>} placement="bottom">
+        <Popover content={() => <div>{t('notesCount', { count: notes.length })}</div>} placement="bottom">
             <IconWrapper count={notes.length} className={className}>
-                <CampaignOutlined fontSize="inherit" />
+                <Megaphone size="1em" />
                 <Count>{notes.length}</Count>
             </IconWrapper>
         </Popover>

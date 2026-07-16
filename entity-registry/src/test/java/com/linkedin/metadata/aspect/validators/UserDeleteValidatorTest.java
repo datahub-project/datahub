@@ -1,9 +1,12 @@
 package com.linkedin.metadata.aspect.validators;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -65,12 +68,14 @@ public class UserDeleteValidatorTest {
   public void testAllowed() {
     final CorpUserInfo corpUserInfo = new CorpUserInfo();
 
-    when(mockAspectRetriever.getLatestAspectObject(TEST_USER_URN, CORP_USER_INFO_ASPECT_NAME))
+    when(mockAspectRetriever.getLatestAspectObject(
+            any(), eq(TEST_USER_URN), eq(CORP_USER_INFO_ASPECT_NAME)))
         .thenReturn(new Aspect(corpUserInfo.data()));
 
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -82,19 +87,22 @@ public class UserDeleteValidatorTest {
                                 .getAspectSpec(CORP_USER_INFO_ASPECT_NAME))
                         .recordTemplate(corpUserInfo)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         0,
         "Expected deletes on a corpUser that are implicitly non-system to be allowed");
 
     corpUserInfo.setSystem(false);
 
-    when(mockAspectRetriever.getLatestAspectObject(TEST_USER_URN, CORP_USER_INFO_ASPECT_NAME))
+    when(mockAspectRetriever.getLatestAspectObject(
+            any(), eq(TEST_USER_URN), eq(CORP_USER_INFO_ASPECT_NAME)))
         .thenReturn(new Aspect(corpUserInfo.data()));
 
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -106,7 +114,8 @@ public class UserDeleteValidatorTest {
                                 .getAspectSpec(CORP_USER_INFO_ASPECT_NAME))
                         .recordTemplate(corpUserInfo)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         0,
         "Expected deletes on a corpUser that are explicitly non-system to be allowed");
@@ -118,12 +127,14 @@ public class UserDeleteValidatorTest {
 
     corpUserInfo.setSystem(true);
 
-    when(mockAspectRetriever.getLatestAspectObject(TEST_USER_URN, CORP_USER_INFO_ASPECT_NAME))
+    when(mockAspectRetriever.getLatestAspectObject(
+            any(), eq(TEST_USER_URN), eq(CORP_USER_INFO_ASPECT_NAME)))
         .thenReturn(new Aspect(corpUserInfo.data()));
 
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
@@ -135,7 +146,8 @@ public class UserDeleteValidatorTest {
                                 .getAspectSpec(CORP_USER_INFO_ASPECT_NAME))
                         .recordTemplate(corpUserInfo)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         1,
         "Expected deletes on a system corpUser to be rejected");

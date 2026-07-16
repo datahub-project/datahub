@@ -16,6 +16,7 @@ import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,10 +48,11 @@ public class BuildIndicesPostStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
+      OperationContext opContext = context.opContext();
       try {
 
         List<ReindexConfig> indexConfigs =
-            getAllReindexConfigs(services, structuredProperties).stream()
+            getAllReindexConfigs(opContext, services, structuredProperties).stream()
                 .filter(ReindexConfig::requiresReindex)
                 .collect(Collectors.toList());
 
@@ -63,8 +65,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
           boolean ack =
               esComponents
                   .getSearchClient()
-                  .indices()
-                  .putSettings(request, RequestOptions.DEFAULT)
+                  .updateIndexSettings(opContext, request, RequestOptions.DEFAULT)
                   .isAcknowledged();
           log.info(
               "Updated index {} with new settings. Settings: {}, Acknowledged: {}",
@@ -75,7 +76,7 @@ public class BuildIndicesPostStep implements UpgradeStep {
           if (ack) {
             ack =
                 IndexUtils.validateWriteBlock(
-                    esComponents.getSearchClient(), indexConfig.name(), false);
+                    opContext, esComponents.getSearchClient(), indexConfig.name(), false);
             log.info(
                 "Validated index {} with new settings. Settings: {}, Acknowledged: {}",
                 indexConfig.name(),

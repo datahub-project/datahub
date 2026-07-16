@@ -1,9 +1,10 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Divider } from 'antd';
-import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { ANTD_GRAY } from '../../constants';
+import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
 
 type Props = {
     directEntities: GenericEntityProperties[];
@@ -18,7 +19,7 @@ type Props = {
 
 const Container = styled.div`
     padding: 10px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const StyledDivider = styled(Divider)`
@@ -38,7 +39,7 @@ const ShowMoreWrapper = styled.div`
     display: flex;
     justify-content: end;
     font-weight: 600;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
 `;
 
@@ -52,12 +53,14 @@ const UpstreamEntitiesList = ({
     showHealthIcon,
     showDeprecatedIcon,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.stats');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <Container>
             <Content>
                 {!!directEntities.length && (
                     <>
-                        <SubHeader>Direct Upstreams</SubHeader>
+                        <SubHeader>{t('upstream.directUpstreams')}</SubHeader>
                         <EntityLinkList
                             entities={directEntities}
                             loading={false}
@@ -65,7 +68,9 @@ const UpstreamEntitiesList = ({
                             showMoreCount={remainingDirectEntities}
                             onClickMore={loadMoreDirectEntities}
                             showMoreComponent={
-                                <ShowMoreWrapper>{`Show ${remainingDirectEntities} more`}</ShowMoreWrapper>
+                                <ShowMoreWrapper>
+                                    {tc('showCountMoreCapitalized', { count: remainingDirectEntities })}
+                                </ShowMoreWrapper>
                             }
                             showHealthIcon={showHealthIcon}
                             showDeprecatedIcon={showDeprecatedIcon}
@@ -76,7 +81,7 @@ const UpstreamEntitiesList = ({
                 {!!indirectEntities.length && (
                     <>
                         {!!directEntities.length && <StyledDivider />}
-                        <SubHeader>Indirect Upstreams</SubHeader>
+                        <SubHeader>{t('upstream.indirectUpstreams')}</SubHeader>
                         <EntityLinkList
                             entities={indirectEntities}
                             loading={false}
@@ -84,7 +89,9 @@ const UpstreamEntitiesList = ({
                             showMoreCount={remainingIndirectEntities}
                             onClickMore={loadMoreIndirectEntities}
                             showMoreComponent={
-                                <ShowMoreWrapper>{`Show ${remainingIndirectEntities} more`}</ShowMoreWrapper>
+                                <ShowMoreWrapper>
+                                    {tc('showCountMoreCapitalized', { count: remainingIndirectEntities })}
+                                </ShowMoreWrapper>
                             }
                             showHealthIcon
                         />

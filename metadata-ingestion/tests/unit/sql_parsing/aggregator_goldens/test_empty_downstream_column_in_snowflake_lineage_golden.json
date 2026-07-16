@@ -1,0 +1,27 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.target_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1707182625000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 20000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.source_table,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:7bfef29f2b8442ffa6e240bfeb06b78bbf971b25dff80a9d2ba31cf5aef55e2e"
+                }
+            ]
+        }
+    }
+}
+]

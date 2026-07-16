@@ -1,6 +1,10 @@
-### Prerequisities
+### Overview
 
-In order to execute this source, you will need to create a policy with below permissions and attach it to the the aws role or credentials used in ingestion recipe.
+The `athena` module ingests metadata from Athena into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+### Prerequisites
+
+Create a policy with the following permissions and attach it to the AWS role or credentials used in your ingestion recipe.
 
 ```json
 {
@@ -10,29 +14,28 @@ In order to execute this source, you will need to create a policy with below per
       "Sid": "VisualEditor0",
       "Effect": "Allow",
       "Action": [
-        "athena:GetTableMetadata", 
-        "athena:StartQueryExecution", 
-        "athena:GetQueryResults", 
-        "athena:GetDatabase", 
-        "athena:ListDataCatalogs",
-        "athena:GetDataCatalog", 
-        "athena:ListQueryExecutions", 
-        "athena:GetWorkGroup", 
-        "athena:StopQueryExecution", 
-        "athena:GetQueryResultsStream", 
-        "athena:ListDatabases", 
-        "athena:GetQueryExecution", 
-        "athena:ListTableMetadata", 
-        "athena:BatchGetQueryExecution", 
-        "glue:GetTables", 
-        "glue:GetDatabases", 
+        "athena:GetTableMetadata",
+        "athena:StartQueryExecution",
+        "athena:GetQueryResults",
+        "athena:GetDatabase",
+        "athena:GetDataCatalog",
+        "athena:ListQueryExecutions",
+        "athena:GetWorkGroup",
+        "athena:StopQueryExecution",
+        "athena:GetQueryResultsStream",
+        "athena:ListDatabases",
+        "athena:GetQueryExecution",
+        "athena:ListTableMetadata",
+        "athena:BatchGetQueryExecution",
+        "glue:GetTables",
+        "glue:GetDatabases",
         "glue:GetTable",
         "glue:GetDatabase",
         "glue:SearchTables",
         "glue:GetTableVersions",
         "glue:GetTableVersion",
-        "glue:GetPartition", 
-        "glue:GetPartitions", 
+        "glue:GetPartition",
+        "glue:GetPartitions",
         "s3:GetObject",
         "s3:ListBucket",
         "s3:GetBucketLocation"
@@ -41,9 +44,9 @@ In order to execute this source, you will need to create a policy with below per
         "arn:aws:athena:${region-id}:${account-id}:datacatalog/*",
         "arn:aws:athena:${region-id}:${account-id}:workgroup/*",
         "arn:aws:glue:${region-id}:${account-id}:tableVersion/*/*/*",
-        "arn:aws:glue:${region-id}:${account-id}:table/*/*", 
-        "arn:aws:glue:${region-id}:${account-id}:catalog", 
-        "arn:aws:glue:${region-id}:${account-id}:database/*", 
+        "arn:aws:glue:${region-id}:${account-id}:table/*/*",
+        "arn:aws:glue:${region-id}:${account-id}:catalog",
+        "arn:aws:glue:${region-id}:${account-id}:database/*",
         "arn:aws:s3:::${datasets-bucket}",
         "arn:aws:s3:::${datasets-bucket}/*"
       ]
@@ -64,9 +67,15 @@ In order to execute this source, you will need to create a policy with below per
         "arn:aws:s3:::${athena-query-result-bucket}/*",
         "arn:aws:s3:::${athena-query-result-bucket}"
       ]
+    },
+    {
+      "Sid": "VisualEditor2",
+      "Effect": "Allow",
+      "Action": ["athena:ListDataCatalogs"],
+      "Resource": ["*"]
     }
   ]
 }
 ```
 
-Replace `${var}` with appropriate values as per your athena setup.
+Replace `${var}` with values appropriate for your Athena setup.

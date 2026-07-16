@@ -2,7 +2,7 @@ import collections
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 from dateutil import parser
 from pydantic.fields import Field
@@ -74,33 +74,34 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
     options: dict = Field(default={}, description="")
     query_log_table: str = Field(default="system.query_log", exclude=True)
 
-    def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url()
+    def get_sql_alchemy_url(
+        self,
+        uri_opts: Optional[Dict[str, Any]] = None,
+        current_db: Optional[str] = None,
+    ) -> str:
+        return super().get_sql_alchemy_url(uri_opts=uri_opts, current_db=current_db)
 
 
-@platform_name("ClickHouse")
+@platform_name("ClickHouse", id="clickhouse")
 @config_class(ClickHouseUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 @dataclasses.dataclass
 class ClickHouseUsageSource(Source):
     """
-    This plugin has the below functionalities -
-    1. For a specific dataset this plugin ingests the following statistics -
-       1. top n queries.
-       2. top users.
-       3. usage of each column in the dataset.
-    2. Aggregation of these statistics into buckets, by day or hour granularity.
+    Source that extracts usage statistics from ClickHouse by analyzing system.query_log.
 
-    Usage information is computed by querying the system.query_log table. In case you have a cluster or need to apply additional transformation/filters you can create a view and put to the `query_log_table` setting.
-
-    :::note
-
-    This source only does usage statistics. To get the tables, views, and schemas in your ClickHouse warehouse, ingest using the `clickhouse` source described above.
-
-    :::
-
+    Implementation notes:
+    - Queries system.query_log (or custom view via query_log_table config) for SELECT queries
+    - Filters out system tables, table functions, and internal queries
+    - Uses SQLAlchemy to connect to ClickHouse
+    - Parses tables and columns arrays from query log
+    - Aggregates usage by time bucket using BaseUsageConfig
+    - Only processes QueryFinish events with Select query_kind
     """
 
     config: ClickHouseUsageConfig
@@ -108,7 +109,7 @@ class ClickHouseUsageSource(Source):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = ClickHouseUsageConfig.parse_obj(config_dict)
+        config = ClickHouseUsageConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

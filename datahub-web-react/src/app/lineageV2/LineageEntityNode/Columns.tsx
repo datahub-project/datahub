@@ -1,26 +1,29 @@
-import { LineageAssetType } from '@app/lineageV2/types';
+import { PartitionOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Pagination } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import { useUpdateNodeInternals } from 'reactflow';
-import { Pagination } from 'antd';
-import { Tooltip } from '@components';
-import { PartitionOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { EventType } from '../../analytics';
-import analytics from '../../analytics/analytics';
-import { NUM_COLUMNS_PER_PAGE } from '../constants';
-import Column from './Column';
-import ColumnSearch from './ColumnSearch';
-import { FetchedEntity } from '../../lineage/types';
-import { LineageDisplayColumn } from './useDisplayedColumns';
-import { LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { LineageNodesContext, onClickPreventSelect, TRANSITION_DURATION_MS } from '../common';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { FetchedEntity } from '@app/lineage/types';
+import Column from '@app/lineageV2/LineageEntityNode/Column';
+import ColumnSearch from '@app/lineageV2/LineageEntityNode/ColumnSearch';
+import { LineageDisplayColumn } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
+import { LineageNodesContext, TRANSITION_DURATION_MS, onClickPreventSelect } from '@app/lineageV2/common';
+import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV2/constants';
+import { LineageAssetType } from '@app/lineageV2/types';
 
 const MainColumnsWrapper = styled.div<{ isGhost: boolean }>`
     align-items: center;
     display: flex;
     flex-direction: column;
-    font: 12px 'Roboto Mono', monospace;
+    font:
+        12px 'Roboto Mono',
+        monospace;
     width: 100%;
     padding: 8px 11px;
     opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
@@ -35,11 +38,11 @@ const SearchBarWrapper = styled.div`
 `;
 
 const FilterLineageIcon = styled(PartitionOutlined)<{ count: number; selected: boolean }>`
-    ${({ selected }) => (selected ? `color: ${LINEAGE_COLORS.BLUE_1};` : '')};
+    ${(props) => (props.selected ? `color: ${props.theme.colors.textBrand};` : '')};
     padding-right: 4px;
 
     :hover {
-        color: ${REDESIGN_COLORS.BLUE};
+        color: ${(props) => props.theme.colors.textInformation};
     }
 
     ::after {
@@ -125,6 +128,7 @@ function Columns(props: Props) {
         setOnlyWithLineage,
     } = props;
 
+    const { t } = useTranslation('lineage');
     const updateNodeInternals = useUpdateNodeInternals();
     useEffect(() => {
         updateNodeInternals(entity.urn); // Register new column handle positions with React Flow
@@ -174,7 +178,7 @@ function Columns(props: Props) {
             {showAllColumns && (
                 <SearchBarWrapper>
                     <ColumnSearch searchText={filterText} setSearchText={setFilterText} />
-                    <Tooltip title="Only show columns with lineage" placement="right" mouseEnterDelay={0.5}>
+                    <Tooltip title={t('node.onlyWithLineageTooltip')} placement="right" mouseEnterDelay={0.5}>
                         <FilterLineageIcon
                             count={numColumnsWithLineage}
                             selected={onlyWithLineage}

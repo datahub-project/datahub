@@ -11,6 +11,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertySettingsInput;
@@ -54,7 +55,7 @@ public class UpdateStructuredPropertyResolver
     final UpdateStructuredPropertyInput input =
         bindArgument(environment.getArgument("input"), UpdateStructuredPropertyInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (!AuthorizationUtils.canManageStructuredProperties(context)) {
@@ -92,7 +93,9 @@ public class UpdateStructuredPropertyResolver
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean hasSettingsChanged(
@@ -109,6 +112,12 @@ public class UpdateStructuredPropertyResolver
     }
     if (settingsInput.getShowInAssetSummary() != null
         && !existingSettings.isShowInAssetSummary().equals(settingsInput.getShowInAssetSummary())) {
+      return true;
+    }
+    if (settingsInput.getHideInAssetSummaryWhenEmpty() != null
+        && !existingSettings
+            .isHideInAssetSummaryWhenEmpty()
+            .equals(settingsInput.getHideInAssetSummaryWhenEmpty())) {
       return true;
     }
     if (settingsInput.getShowAsAssetBadge() != null
@@ -144,6 +153,14 @@ public class UpdateStructuredPropertyResolver
     }
     if (settingsInput.getShowInAssetSummary() != null) {
       existingSettings.setShowInAssetSummary(settingsInput.getShowInAssetSummary());
+    }
+    if (settingsInput.getShowInAssetSummary() != null && !settingsInput.getShowInAssetSummary()) {
+      // FYI: when `showInAssetSummary` is false, `hideInAssetSummaryWhenEmpty` should be false too
+      // as it is dependent property
+      existingSettings.setHideInAssetSummaryWhenEmpty(false);
+    } else if (settingsInput.getHideInAssetSummaryWhenEmpty() != null) {
+      existingSettings.setHideInAssetSummaryWhenEmpty(
+          settingsInput.getHideInAssetSummaryWhenEmpty());
     }
     if (settingsInput.getShowAsAssetBadge() != null) {
       existingSettings.setShowAsAssetBadge(settingsInput.getShowAsAssetBadge());
@@ -198,6 +215,10 @@ public class UpdateStructuredPropertyResolver
     }
     if (input.getNewEntityTypes() != null) {
       input.getNewEntityTypes().forEach(builder::addEntityType);
+      hasUpdatedDefinition = true;
+    }
+    if (input.getNewAllowedPlatforms() != null) {
+      input.getNewAllowedPlatforms().forEach(builder::addAllowedPlatform);
       hasUpdatedDefinition = true;
     }
 

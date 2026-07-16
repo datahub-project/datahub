@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +31,7 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -234,24 +236,13 @@ public class LabelUtils {
   }
 
   public static boolean isAuthorizedToUpdateTags(
-      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
-
-    Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
-    // Decide whether the current principal should be allowed to update the Dataset.
-    // If you either have all entity privileges, or have the specific privileges required, you are
-    // authorized.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(
-                        isTargetingSchema
-                            ? PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType()
-                            : PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType()))));
-
-    return AuthorizationUtils.isAuthorized(
-        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
+      @Nonnull QueryContext context, Urn targetUrn, String subResource, Collection<Urn> tagUrns) {
+    boolean fieldLevel = subResource != null && !subResource.isEmpty();
+    return AuthUtil.isAuthorizedForTagModification(
+        context.getOperationContext(),
+        targetUrn,
+        tagUrns,
+        AuthUtil.tagModificationPrivilege(targetUrn, fieldLevel));
   }
 
   public static boolean isAuthorizedToUpdateTerms(

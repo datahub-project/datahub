@@ -1,56 +1,31 @@
 # Defining environment
 ARG APP_ENV=prod
 
-# Defining custom repo urls for use in enterprise environments. Re-used between stages below.
-ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
+ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
+FROM ${BASE_IMAGE} AS base
+
+ARG APK_REPOSITORY_URL=https://apk.cgr.dev/chainguard
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM golang:1-alpine3.21 AS binary
+ENV JMX_VERSION=1.0.1
 
-# Re-declaring arg from above to make it available in this stage (will inherit default value)
-ARG ALPINE_REPO_URL
+RUN printf '%s\n' "${APK_REPOSITORY_URL}" > /etc/apk/repositories \
+    && apk update --no-cache \
+    && apk upgrade --no-cache
 
-ENV DOCKERIZE_VERSION=v0.9.1
-WORKDIR /go/src/github.com/jwilder
-
-# Optionally set corporate mirror for apk
-RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
-
-RUN apk --no-cache --update add openssl git tar curl
-
-WORKDIR /go/src/github.com/jwilder/dockerize
-
-RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
-
-FROM alpine:3.21 AS base
-
-# Re-declaring args from above to make them available in this stage (will inherit default values)
-ARG ALPINE_REPO_URL
-ARG GITHUB_REPO_URL
-ARG MAVEN_CENTRAL_REPO_URL
-
-# Optionally set corporate mirror for apk
-RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
-
-ENV JMX_VERSION=0.20.0
-
-# Upgrade Alpine and base packages
-# PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
-RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat snappy \
-    && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
+COPY docker/snippets/setup_java_runtime.sh /tmp/setup_java_runtime.sh
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    chmod +x /tmp/setup_java_runtime.sh \
     && mkdir -p /datahub/datahub-upgrade/lib \
-    && wget --no-verbose -P /datahub/datahub-upgrade/lib ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.11.0/opentelemetry-javaagent.jar \
-    && wget --no-verbose -P /datahub/datahub-upgrade/lib ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
-    && chmod -R a+r /datahub/datahub-upgrade/lib \
-    && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
-COPY --from=binary /go/bin/dockerize /usr/local/bin
+    && INSTALL_JATTACH=0 OTEL_JMX_DIR=/datahub/datahub-upgrade/lib /tmp/setup_java_runtime.sh \
+    && rm -f /tmp/setup_java_runtime.sh \
+    && chmod -R a+r /datahub/datahub-upgrade/lib
 
-ENV LD_LIBRARY_PATH="/lib:/lib64"
+COPY docker/snippets/wait_for_deps.sh /usr/local/lib/datahub/wait_for_deps.sh
 
 FROM base AS prod-install
-COPY datahub-upgrade.jar /datahub/datahub-upgrade/bin/
+COPY datahub-upgrade/build/libs/datahub-upgrade.jar /datahub/datahub-upgrade/bin/
 COPY docker/datahub-upgrade/start.sh /datahub/datahub-upgrade/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-upgrade/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-upgrade/scripts/start.sh
@@ -62,7 +37,7 @@ FROM base AS dev-install
 
 FROM ${APP_ENV}-install AS final
 
-RUN addgroup -S datahub && adduser -S datahub -G datahub
+RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 USER datahub
 
 ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \

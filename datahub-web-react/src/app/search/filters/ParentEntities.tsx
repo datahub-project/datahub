@@ -1,14 +1,19 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { Entity } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity } from '@types';
+
+const HIDDEN_COUNT_PREFIX = '+';
 
 const ParentNodesWrapper = styled.div`
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     align-items: center;
     margin-bottom: 3px;
@@ -17,11 +22,13 @@ const ParentNodesWrapper = styled.div`
 
 const ParentNode = styled(Typography.Text)<{ color?: string }>`
     margin-left: 4px;
-    color: ${(props) => (props.color ? props.color : ANTD_GRAY[7])};
+    color: ${(props) => (props.color ? props.color : props.theme.colors.textTertiary)};
 `;
 
-export const ArrowWrapper = styled.span`
+const ArrowWrapper = styled.span`
     margin: 0 3px;
+    display: flex;
+    align-items: center;
 `;
 
 const StyledTooltip = styled(Tooltip)`
@@ -30,14 +37,22 @@ const StyledTooltip = styled(Tooltip)`
     overflow: hidden;
 `;
 
+const TooltipWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+`;
+
 const DEFAULT_NUM_VISIBLE = 2;
 
 interface Props {
     parentEntities: Entity[];
     numVisible?: number;
+    hideIcon?: boolean;
 }
 
-export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE }: Props) {
+export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE, hideIcon = false }: Props) {
+    const { t } = useTranslation('search');
     const entityRegistry = useEntityRegistry();
 
     // parent nodes/domains are returned with direct parent first
@@ -53,36 +68,57 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
             overlayStyle={hasHiddenEntities ? { maxWidth: 450 } : { display: 'none' }}
             placement="top"
             title={
-                <>
+                <TooltipWrapper>
                     {orderedParentEntities.map((parentEntity, index) => (
                         <>
-                            <FolderOpenOutlined />
+                            {!hideIcon && <FolderOpenOutlined />}
                             <ParentNode color="white">
-                                {entityRegistry.getDisplayName(parentEntity.type, parentEntity)}
+                                {entityRegistry.getDisplayName(parentEntity.type, parentEntity) ||
+                                    t('filters.unknownEntity')}
                             </ParentNode>
-                            {index !== orderedParentEntities.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
+                            {index !== orderedParentEntities.length - 1 && (
+                                <ArrowWrapper>
+                                    <CaretRight />
+                                </ArrowWrapper>
+                            )}
                         </>
                     ))}
-                </>
+                </TooltipWrapper>
             }
         >
             <ParentNodesWrapper>
-                {hasHiddenEntities &&
-                    [...Array(numHiddenEntities)].map(() => (
-                        <>
-                            <FolderOpenOutlined />
-                            <ArrowWrapper>{'>'}</ArrowWrapper>
-                        </>
-                    ))}
+                {hasHiddenEntities && (
+                    <>
+                        {!hideIcon ? (
+                            [...Array(numHiddenEntities)].map(() => <FolderOpenOutlined />)
+                        ) : (
+                            <>
+                                {HIDDEN_COUNT_PREFIX}
+                                {numHiddenEntities}
+                            </>
+                        )}
+                        <ArrowWrapper>
+                            <CaretRight />
+                        </ArrowWrapper>
+                    </>
+                )}
                 {visibleNodes.map((parentEntity, index) => {
                     const displayName = entityRegistry.getDisplayName(parentEntity.type, parentEntity);
+                    const isLast = index === visibleNodes.length - 1;
                     return (
                         <>
-                            <FolderOpenOutlined />
-                            <ParentNode ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true}>
-                                {displayName}
+                            {!hideIcon && <FolderOpenOutlined style={{ marginRight: 4 }} />}
+                            <ParentNode
+                                style={isLast ? { flexShrink: 1 } : { flexShrink: 2 }}
+                                ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true}
+                            >
+                                {displayName || t('filters.unknownEntity')}
                             </ParentNode>
-                            {index !== visibleNodes.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
+                            {!isLast && (
+                                <ArrowWrapper>
+                                    <CaretRight />
+                                </ArrowWrapper>
+                            )}
                         </>
                     );
                 })}

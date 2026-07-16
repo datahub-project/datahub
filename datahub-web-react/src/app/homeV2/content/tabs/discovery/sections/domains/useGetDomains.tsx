@@ -1,12 +1,16 @@
-import { useListRecommendationsQuery } from '../../../../../../../graphql/recommendations.generated';
-import { CorpUser, Domain, ScenarioType } from '../../../../../../../types.generated';
-import { useUserContext } from '../../../../../../context/useUserContext';
+import { WatchQueryFetchPolicy } from '@apollo/client';
+
+import { useUserContext } from '@app/context/useUserContext';
+
+import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
+import { CorpUser, Domain, ScenarioType } from '@types';
 
 const DOMAINS_MODULE_ID = 'Domains';
 const MAX_DOMAINS = 5;
 
 export const useGetDomains = (
     user?: CorpUser | null,
+    fetchPolicy?: WatchQueryFetchPolicy,
 ): { domains: { entity: Domain; assetCount: number }[]; loading: boolean } => {
     const { localState } = useUserContext();
     const { selectedViewUrn } = localState;
@@ -21,7 +25,8 @@ export const useGetDomains = (
                 viewUrn: selectedViewUrn,
             },
         },
-        fetchPolicy: 'cache-first',
+        fetchPolicy: fetchPolicy ?? 'cache-first',
+        nextFetchPolicy: 'cache-first',
         skip: !user?.urn,
     });
 

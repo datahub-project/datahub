@@ -7,7 +7,8 @@ import com.linkedin.common.Urn
  * Linkedin corp user information that can be edited from UI
  */
 @Aspect = {
-  "name": "corpUserEditableInfo"
+  "name": "corpUserEditableInfo",
+  "schemaVersion": 2
 }
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
 record CorpUserEditableInfo {
@@ -40,7 +41,7 @@ record CorpUserEditableInfo {
   /**
    * A URL which points to a picture which user wants to set as a profile photo
    */
-  pictureLink: Url = "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"
+  pictureLink: Url = "assets/platforms/default_avatar.png"
 
   /**
    * DataHub-native display name

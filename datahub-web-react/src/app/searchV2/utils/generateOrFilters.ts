@@ -1,6 +1,7 @@
-import { FacetFilterInput, AndFilterInput, FilterOperator } from '../../../types.generated';
-import { FrontendFacetFilterInput, FrontendFilterOperator } from '../filters/types';
-import { FILTER_DELIMITER, UnionType } from './constants';
+import { FrontendFacetFilterInput, FrontendFilterOperator } from '@app/searchV2/filters/types';
+import { FILTER_DELIMITER, UnionType } from '@app/searchV2/utils/constants';
+
+import { AndFilterInput, FacetFilterInput, FilterOperator } from '@types';
 
 // Generates a list of AND filter inputs to be combined in orFilters. This is used when unionType is OR or AND.
 // When unionType = OR, pass in empty `filters` so the nested filters live alone in their AND statement.
@@ -49,7 +50,12 @@ export function generateOrFilters(
     const finalFilters: FacetFilterInput[] = filterOutAllEqualsFilters(filters);
     filters.filter(isAllEqualsFilter).forEach((filterToSplit) => {
         filterToSplit.values?.forEach((value) => {
-            finalFilters.push({ ...filterToSplit, value, values: [value], condition: FilterOperator.Equal });
+            finalFilters.push({
+                field: filterToSplit.field,
+                values: [value],
+                condition: FilterOperator.Equal,
+                negated: filterToSplit.negated,
+            });
         });
     });
 

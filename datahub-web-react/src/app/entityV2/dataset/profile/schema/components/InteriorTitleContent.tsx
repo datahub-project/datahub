@@ -2,16 +2,17 @@ import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
-import { SchemaMetadata, SubResourceType } from '../../../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../../shared/constants';
+
+import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import NullableLabel, {
     ForeignKeyLabel,
     PartitioningKeyLabel,
     PrimaryKeyLabel,
-} from '../../../../shared/tabs/Dataset/Schema/components/ConstraintLabels';
-import translateFieldPath from '../utils/translateFieldPath';
-import { ExtendedSchemaFields } from '../utils/types';
+} from '@app/entityV2/shared/tabs/Dataset/Schema/components/ConstraintLabels';
+import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
+
+import { SchemaMetadata, SubResourceType } from '@types';
 
 const MAX_COMPACT_FIELD_PATH_LENGTH = 15;
 
@@ -34,14 +35,14 @@ const FieldPathContainer = styled.div`
 `;
 
 const DeprecatedContainer = styled.div`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
     font-size: 12px;
     line-height: ${(props) => (props.$isCompact ? '14px' : '24px')};
     font-weight: 600;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 
     display: flex;
     align-items: center;
@@ -122,9 +123,7 @@ export const InteriorTitleContent = ({
                                     (sourceField) => sourceField?.fieldPath?.trim() === fieldPath.trim(),
                                 ).length || 0) > 0,
                         )
-                        .map((constraint) => (
-                            <ForeignKeyLabel key={constraint?.name} />
-                        ))}
+                        .map((constraint) => <ForeignKeyLabel key={constraint?.name} />)}
                 </>
             )}
         </FieldTitleWrapper>

@@ -1,9 +1,12 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { Meta, StoryObj } from '@storybook/react';
 import React, { useState } from 'react';
+
+import { SortingState } from '@components/components/Table/types';
+
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+
 import { Table, tableDefaults } from '.';
-import { SortingState } from './types';
 
 // Auto Docs
 const meta = {
@@ -90,6 +93,14 @@ const meta = {
         headerRef: {
             description: 'Ref for table header.',
             control: false,
+        },
+        footer: {
+            description: 'Optional footer for the table.',
+            table: {
+                type: {
+                    summary: 'React.ReactNode',
+                },
+            },
         },
     },
 

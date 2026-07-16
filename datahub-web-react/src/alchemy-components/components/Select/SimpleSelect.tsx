@@ -1,9 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { Loader } from '@components/components/Loader/Loader';
 import {
     ActionButtonsContainer,
     Container,
+    DescriptionContainer,
     DropdownContainer,
     LabelContainer,
     OptionContainer,
@@ -13,38 +17,18 @@ import {
     SelectLabel,
     SelectLabelContainer,
     StyledCheckbox,
-    StyledClearButton,
     StyledIcon,
-} from './components';
-import { ActionButtonsProps, SelectOption, SelectProps } from './types';
-import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
-import DropdownSearchBar from './private/DropdownSearchBar';
-import DropdownSelectAllOption from './private/DropdownSelectAllOption';
+} from '@components/components/Select/components';
+import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
+import DropdownSelectAllOption from '@components/components/Select/private/DropdownSelectAllOption';
+import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
+import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
+import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
+import { SelectOption, SelectProps } from '@components/components/Select/types';
 
-const SelectActionButtons = ({
-    selectedValues,
-    isOpen,
-    isDisabled,
-    isReadOnly,
-    showClear,
-    handleClearSelection,
-}: ActionButtonsProps) => {
-    return (
-        <ActionButtonsContainer>
-            {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
-                <StyledClearButton
-                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
-                    isCircle
-                    onClick={handleClearSelection}
-                />
-            )}
-            <StyledIcon icon="CaretDown" source="phosphor" rotate={isOpen ? '180' : '0'} size="md" color="gray" />
-        </ActionButtonsContainer>
-    );
-};
+import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
 
-export const selectDefaults: SelectProps = {
-    options: [],
+export const selectDefaults: Partial<SelectProps> = {
     label: '',
     size: 'md',
     showSearch: false,
@@ -54,20 +38,19 @@ export const selectDefaults: SelectProps = {
     showClear: true,
     width: 255,
     isMultiSelect: false,
-    placeholder: 'Select an option ',
     showSelectAll: false,
-    selectAllLabel: 'Select All',
     showDescriptions: false,
     filterResultsByQuery: true,
     ignoreMaxHeight: false,
 };
 
-export const SimpleSelect = ({
-    options = selectDefaults.options,
+export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
+    options = [],
     label = selectDefaults.label,
-    values = [],
+    values,
     initialValues,
     onUpdate,
+    onClear,
     showSearch = selectDefaults.showSearch,
     isDisabled = selectDefaults.isDisabled,
     isReadOnly = selectDefaults.isReadOnly,
@@ -76,10 +59,10 @@ export const SimpleSelect = ({
     size = selectDefaults.size,
     icon,
     isMultiSelect = selectDefaults.isMultiSelect,
-    placeholder = selectDefaults.placeholder,
+    placeholder,
     disabledValues = [],
     showSelectAll = selectDefaults.showSelectAll,
-    selectAllLabel = selectDefaults.selectAllLabel,
+    selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
     optionListTestId,
     renderCustomOptionText,
@@ -90,20 +73,37 @@ export const SimpleSelect = ({
     optionListStyle,
     optionSwitchable,
     selectLabelProps,
+    selectedOptionListStyle,
     position,
     applyHoverWidth,
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
+    isLoading = false,
+    dataTestId,
+    visibilityDeps,
+    placement = 'bottomLeft',
+    renderSelectBase,
+    renderOptionsFooter,
+    emptyState,
     ...props
-}: SelectProps) => {
+}: SelectProps<OptionType>) => {
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.actions');
+    const resolvedSelectAllLabel = selectAllLabel ?? tc('selectAll');
     const [searchQuery, setSearchQuery] = useState('');
-    const [isOpen, setIsOpen] = useState(false);
-    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values);
+    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const {
+        isOpen,
+        isVisible,
+        close: closeDropdown,
+        toggle: toggleDropdown,
+    } = useSelectDropdown(false, selectRef, dropdownRef, visibilityDeps);
     const [areAllSelected, setAreAllSelected] = useState(false);
+    const [openSelectedValues, setOpenSelectedValues] = useState<string[]>([]);
 
     useEffect(() => {
-        if (values?.length > 0 && !isEqual(selectedValues, values)) {
+        if (values !== undefined && !isEqual(selectedValues, values)) {
             setSelectedValues(values);
         }
     }, [values, selectedValues]);
@@ -112,35 +112,32 @@ export const SimpleSelect = ({
         setAreAllSelected(selectedValues.length === options.length);
     }, [options, selectedValues]);
 
-    const filteredOptions = useMemo(
-        () =>
-            filterResultsByQuery
-                ? options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()))
-                : options,
-        [options, searchQuery, filterResultsByQuery],
-    );
-
-    const handleDocumentClick = useCallback((e: MouseEvent) => {
-        const clickedOutsideOfSelect = selectRef.current && !selectRef.current.contains(e.target as Node);
-        const clickedOutsideOfDropdown = dropdownRef.current && !dropdownRef.current.contains(e.target as Node);
-
-        if (clickedOutsideOfSelect && clickedOutsideOfDropdown) {
-            setIsOpen(false);
-        }
-    }, []);
-
     useEffect(() => {
-        document.addEventListener('click', handleDocumentClick);
-        return () => {
-            document.removeEventListener('click', handleDocumentClick);
-        };
-    }, [handleDocumentClick]);
+        if (isOpen) {
+            setOpenSelectedValues(selectedValues);
+        }
+    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const filteredOptions = useMemo(() => {
+        const filtered = filterResultsByQuery
+            ? options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()))
+            : options;
+
+        if (!isMultiSelect || openSelectedValues.length === 0) return filtered;
+
+        const selectedSet = new Set(openSelectedValues);
+        return [...filtered].sort((a, b) => {
+            const aSelected = selectedSet.has(a.value) ? 0 : 1;
+            const bSelected = selectedSet.has(b.value) ? 0 : 1;
+            return aSelected - bSelected;
+        });
+    }, [options, searchQuery, filterResultsByQuery, isMultiSelect, openSelectedValues]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {
-            setIsOpen((prev) => !prev);
+            toggleDropdown();
         }
-    }, [isDisabled, isReadOnly]);
+    }, [toggleDropdown, isDisabled, isReadOnly]);
 
     const handleOptionChange = useCallback(
         (option: SelectOption) => {
@@ -152,19 +149,22 @@ export const SimpleSelect = ({
             if (onUpdate) {
                 onUpdate(isMultiSelect ? updatedValues : [option.value]);
             }
-            if (!isMultiSelect) setIsOpen(false);
+            if (!isMultiSelect) closeDropdown();
         },
-        [onUpdate, isMultiSelect, selectedValues],
+        [closeDropdown, onUpdate, isMultiSelect, selectedValues],
     );
 
     const handleClearSelection = useCallback(() => {
         setSelectedValues([]);
         setAreAllSelected(false);
-        setIsOpen(false);
+        closeDropdown();
         if (onUpdate) {
             onUpdate([]);
         }
-    }, [onUpdate]);
+        if (onClear) {
+            onClear();
+        }
+    }, [closeDropdown, onUpdate, onClear]);
 
     const handleSelectAll = () => {
         if (areAllSelected) {
@@ -190,129 +190,152 @@ export const SimpleSelect = ({
             ref={selectRef}
             size={size || 'md'}
             width={props.width || 255}
+            $minWidth={props.minWidth}
             $selectLabelVariant={selectLabelProps?.variant}
             isSelected={selectedValues.length > 0}
+            data-testid={dataTestId}
         >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
-            <Dropdown
-                open={isOpen}
-                disabled={isDisabled}
-                placement="bottomRight"
-                dropdownRender={() => (
-                    <DropdownContainer ref={dropdownRef} ignoreMaxHeight={ignoreMaxHeight}>
-                        {showSearch && (
-                            <DropdownSearchBar
-                                placeholder="Search…"
-                                value={searchQuery}
-                                onChange={(value) => handleSearchChange(value)}
-                                size={size}
-                            />
-                        )}
-                        <OptionList style={optionListStyle} data-testid={optionListTestId}>
-                            {showSelectAll && isMultiSelect && (
-                                <DropdownSelectAllOption
-                                    label={selectAllLabel}
-                                    selected={areAllSelected}
-                                    disabled={disabledValues.length === options.length}
-                                    onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
+            {isVisible && (
+                <Dropdown
+                    open={isOpen}
+                    disabled={isDisabled}
+                    placement={placement}
+                    dropdownRender={() => (
+                        <DropdownContainer
+                            ref={dropdownRef}
+                            ignoreMaxHeight={ignoreMaxHeight}
+                            data-testid={dataTestId ? `${dataTestId}-dropdown` : undefined}
+                        >
+                            {showSearch && (
+                                <DropdownSearchBar
+                                    placeholder={t('search.placeholder')}
+                                    value={searchQuery}
+                                    onChange={(value) => handleSearchChange(value)}
+                                    size={size}
                                 />
                             )}
-                            {filteredOptions.map((option) => (
-                                <OptionLabel
-                                    key={option.value}
-                                    onClick={() => {
-                                        if (!isMultiSelect) {
-                                            if (optionSwitchable && selectedValues.includes(option.value)) {
-                                                handleClearSelection();
-                                            } else {
-                                                handleOptionChange(option);
+                            <OptionList style={optionListStyle} data-testid={optionListTestId}>
+                                {showSelectAll && isMultiSelect && (
+                                    <DropdownSelectAllOption
+                                        label={resolvedSelectAllLabel}
+                                        selected={areAllSelected}
+                                        disabled={disabledValues.length === options.length}
+                                        onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
+                                    />
+                                )}
+                                {isLoading ? (
+                                    <Loader size="sm" />
+                                ) : (
+                                    !filteredOptions.length && (emptyState ?? <NoResultsFoundPlaceholder />)
+                                )}
+                                {filteredOptions.map((option) => (
+                                    <OptionLabel
+                                        key={option.value}
+                                        data-testid={`option-${option.value}`}
+                                        onClick={() => {
+                                            const isOptionDisabled = !!disabledValues?.includes(option.value);
+                                            if (!isOptionDisabled && !isMultiSelect) {
+                                                if (optionSwitchable && selectedValues.includes(option.value)) {
+                                                    handleClearSelection();
+                                                } else {
+                                                    handleOptionChange(option);
+                                                }
                                             }
-                                        }
-                                    }}
-                                    isSelected={selectedValues.includes(option.value)}
-                                    isMultiSelect={isMultiSelect}
-                                    isDisabled={disabledValues?.includes(option.value)}
-                                    applyHoverWidth={applyHoverWidth}
-                                >
-                                    {isMultiSelect ? (
-                                        <LabelContainer>
-                                            {renderCustomOptionText ? (
-                                                renderCustomOptionText(option)
-                                            ) : (
-                                                <span>{option.label}</span>
-                                            )}
-                                            <StyledCheckbox
-                                                onClick={() => handleOptionChange(option)}
-                                                checked={selectedValues.includes(option.value)}
-                                                disabled={disabledValues?.includes(option.value)}
-                                            />
-                                        </LabelContainer>
-                                    ) : (
-                                        <OptionContainer>
-                                            {renderCustomOptionText ? (
-                                                renderCustomOptionText(option)
-                                            ) : (
-                                                <ActionButtonsContainer>
-                                                    {option.icon}
-                                                    <Text
-                                                        weight="semiBold"
-                                                        size="md"
-                                                        color={
-                                                            selectedValues.includes(option.value) ? 'violet' : 'gray'
-                                                        }
-                                                    >
-                                                        {option.label}
-                                                    </Text>
-                                                </ActionButtonsContainer>
-                                            )}
+                                        }}
+                                        isSelected={selectedValues.includes(option.value)}
+                                        isMultiSelect={isMultiSelect}
+                                        isDisabled={disabledValues?.includes(option.value)}
+                                        applyHoverWidth={applyHoverWidth}
+                                    >
+                                        {isMultiSelect ? (
+                                            <LabelContainer>
+                                                {renderCustomOptionText ? (
+                                                    renderCustomOptionText(option)
+                                                ) : (
+                                                    <span>{option.label}</span>
+                                                )}
+                                                <StyledCheckbox
+                                                    onCheckboxChange={() => handleOptionChange(option)}
+                                                    isChecked={selectedValues.includes(option.value)}
+                                                    isDisabled={disabledValues?.includes(option.value)}
+                                                    size="sm"
+                                                />
+                                            </LabelContainer>
+                                        ) : (
+                                            <OptionContainer>
+                                                {renderCustomOptionText ? (
+                                                    renderCustomOptionText(option)
+                                                ) : (
+                                                    <ActionButtonsContainer>
+                                                        {option.icon}
+                                                        <Text weight="semiBold" size="md">
+                                                            {option.label}
+                                                        </Text>
+                                                    </ActionButtonsContainer>
+                                                )}
 
-                                            {!!option.description && (
-                                                <Text color="gray" weight="normal" size="sm">
-                                                    {option.description}
-                                                </Text>
-                                            )}
-                                        </OptionContainer>
-                                    )}
-                                </OptionLabel>
-                            ))}
-                        </OptionList>
-                    </DropdownContainer>
-                )}
-            >
-                <SelectBase
-                    isDisabled={isDisabled}
-                    isReadOnly={isReadOnly}
-                    isRequired={isRequired}
-                    isOpen={isOpen}
-                    onClick={handleSelectClick}
-                    fontSize={size}
-                    {...props}
-                    position={position}
+                                                {!!option.description && (
+                                                    <DescriptionContainer
+                                                        style={{ maxWidth: props.descriptionMaxWidth }}
+                                                    >
+                                                        {option.description}
+                                                    </DescriptionContainer>
+                                                )}
+                                            </OptionContainer>
+                                        )}
+                                    </OptionLabel>
+                                ))}
+                                {renderOptionsFooter?.()}
+                            </OptionList>
+                        </DropdownContainer>
+                    )}
                 >
-                    <SelectLabelContainer>
-                        {icon && <StyledIcon icon={icon} size="lg" />}
-                        <SelectLabelRenderer
-                            selectedValues={selectedValues}
-                            options={finalOptions}
-                            placeholder={placeholder || 'Select an option'}
-                            isMultiSelect={isMultiSelect}
-                            removeOption={handleOptionChange}
-                            disabledValues={disabledValues}
-                            showDescriptions={showDescriptions}
-                            renderCustomSelectedValue={renderCustomSelectedValue}
-                            {...(selectLabelProps || {})}
-                        />
-                    </SelectLabelContainer>
-                    <SelectActionButtons
-                        selectedValues={selectedValues}
-                        isOpen={isOpen}
-                        isDisabled={!!isDisabled}
-                        isReadOnly={!!isReadOnly}
-                        handleClearSelection={handleClearSelection}
-                        showClear={!!showClear}
-                    />
-                </SelectBase>
-            </Dropdown>
+                    {renderSelectBase ? (
+                        renderSelectBase({
+                            isOpened: isOpen,
+                            onClick: handleSelectClick,
+                        })
+                    ) : (
+                        <SelectBase
+                            isDisabled={isDisabled}
+                            isReadOnly={isReadOnly}
+                            isRequired={isRequired}
+                            isOpen={isOpen}
+                            onClick={handleSelectClick}
+                            fontSize={size}
+                            data-testid={dataTestId ? `${dataTestId}-base` : undefined}
+                            {...props}
+                            position={position}
+                        >
+                            <SelectLabelContainer>
+                                {icon && <StyledIcon icon={icon} size="lg" />}
+                                <SelectLabelRenderer
+                                    selectedValues={selectedValues}
+                                    options={finalOptions}
+                                    placeholder={placeholder || t('select.placeholder')}
+                                    isMultiSelect={isMultiSelect}
+                                    removeOption={handleOptionChange}
+                                    disabledValues={disabledValues}
+                                    showDescriptions={showDescriptions}
+                                    renderCustomSelectedValue={renderCustomSelectedValue}
+                                    selectedOptionListStyle={selectedOptionListStyle}
+                                    {...(selectLabelProps || {})}
+                                />
+                            </SelectLabelContainer>
+                            <SelectActionButtons
+                                hasSelectedValues={selectedValues.length > 0}
+                                isOpen={isOpen}
+                                isDisabled={!!isDisabled}
+                                isReadOnly={!!isReadOnly}
+                                handleClearSelection={handleClearSelection}
+                                fontSize={size}
+                                showClear={!!showClear}
+                            />
+                        </SelectBase>
+                    )}
+                </Dropdown>
+            )}
         </Container>
     );
 };

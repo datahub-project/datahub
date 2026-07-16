@@ -3,16 +3,26 @@ package com.linkedin.datahub.graphql.resolvers;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.assertFalse;
+import static org.testng.AssertJUnit.assertNotNull;
+import static org.testng.AssertJUnit.assertNull;
+import static org.testng.AssertJUnit.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
+import com.linkedin.datahub.graphql.exception.ValidationException;
+import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.query.filter.Condition;
@@ -21,8 +31,12 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import graphql.GraphQLContext;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
@@ -41,7 +55,6 @@ public class ResolverUtilsTest {
         criterionFromFilter(
             new FacetFilterInput(
                 "tags",
-                null,
                 ImmutableList.of("urn:li:tag:abc", "urn:li:tag:def"),
                 false,
                 FilterOperator.EQUAL));
@@ -50,16 +63,16 @@ public class ResolverUtilsTest {
         buildCriterion(
             "tags", Condition.EQUAL, ImmutableList.of("urn:li:tag:abc", "urn:li:tag:def")));
 
-    // this is the legacy pathway
-    Criterion valueCriterion =
+    Criterion singleValueCriterion =
         criterionFromFilter(
-            new FacetFilterInput("tags", "urn:li:tag:abc", null, true, FilterOperator.EQUAL));
-    assertEquals(valueCriterion, buildCriterion("tags", Condition.EQUAL, true, "urn:li:tag:abc"));
+            new FacetFilterInput(
+                "tags", ImmutableList.of("urn:li:tag:abc"), true, FilterOperator.EQUAL));
+    assertEquals(
+        singleValueCriterion, buildCriterion("tags", Condition.EQUAL, true, "urn:li:tag:abc"));
 
-    // check that both being null doesn't cause a NPE. this should never happen except via API
-    // interaction
+    // check that null values doesn't cause a NPE
     Criterion doubleNullCriterion =
-        criterionFromFilter(new FacetFilterInput("tags", null, null, true, FilterOperator.EQUAL));
+        criterionFromFilter(new FacetFilterInput("tags", null, true, FilterOperator.EQUAL));
     assertEquals(
         doubleNullCriterion, buildCriterion("tags", Condition.EQUAL, true, ImmutableList.of()));
   }
@@ -103,5 +116,184 @@ public class ResolverUtilsTest {
       assertEquals(conjunctiveCriterion.getAnd().contains(ownersCriterion), true);
       assertEquals(conjunctiveCriterion.getAnd().contains(urnsCriterion), true);
     }
+  }
+
+  @Test
+  public void testFilterEntitiesForExistence_checkForExistenceTrue_entityExists() throws Exception {
+    final OperationContext mockOpContext = mock(OperationContext.class);
+    final EntityClient mockEntityClient = mock(EntityClient.class);
+    final Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+    when(mockEntityClient.exists(mockOpContext, testUrn)).thenReturn(true);
+
+    boolean result =
+        filterEntitiesForExistence(mockOpContext, testUrn, mockEntityClient, Boolean.TRUE);
+
+    assertTrue(result);
+    verify(mockEntityClient).exists(mockOpContext, testUrn);
+  }
+
+  @Test
+  public void testFilterEntitiesForExistence_checkForExistenceTrue_entityDoesNotExist()
+      throws Exception {
+    final OperationContext mockOpContext = mock(OperationContext.class);
+    final EntityClient mockEntityClient = mock(EntityClient.class);
+    final Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+    when(mockEntityClient.exists(mockOpContext, testUrn)).thenReturn(false);
+
+    boolean result =
+        filterEntitiesForExistence(mockOpContext, testUrn, mockEntityClient, Boolean.TRUE);
+
+    assertFalse(result);
+    verify(mockEntityClient).exists(mockOpContext, testUrn);
+  }
+
+  @Test
+  public void testFilterEntitiesForExistence_checkForExistenceFalse() throws Exception {
+    final OperationContext mockOpContext = mock(OperationContext.class);
+    final EntityClient mockEntityClient = mock(EntityClient.class);
+    final Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+    boolean result =
+        filterEntitiesForExistence(mockOpContext, testUrn, mockEntityClient, Boolean.FALSE);
+
+    assertTrue(result);
+    // Should not call exists() when checkForExistence is false
+    verify(mockEntityClient, Mockito.never()).exists(mockOpContext, testUrn);
+  }
+
+  @Test
+  public void testFilterEntitiesForExistence_checkForExistenceNull() throws Exception {
+    final OperationContext mockOpContext = mock(OperationContext.class);
+    final EntityClient mockEntityClient = mock(EntityClient.class);
+    final Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+    boolean result = filterEntitiesForExistence(mockOpContext, testUrn, mockEntityClient, null);
+
+    assertTrue(result);
+    // Should not call exists() when checkForExistence is null
+    verify(mockEntityClient, Mockito.never()).exists(mockOpContext, testUrn);
+  }
+
+  @Test
+  public void testFilterEntitiesForExistence_exceptionThrown() throws Exception {
+    final OperationContext mockOpContext = mock(OperationContext.class);
+    final EntityClient mockEntityClient = mock(EntityClient.class);
+    final Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+    doThrow(new RuntimeException("Test exception"))
+        .when(mockEntityClient)
+        .exists(mockOpContext, testUrn);
+
+    boolean result =
+        filterEntitiesForExistence(mockOpContext, testUrn, mockEntityClient, Boolean.TRUE);
+
+    assertFalse(result);
+    verify(mockEntityClient).exists(mockOpContext, testUrn);
+  }
+
+  @Test
+  public void testGetQueryContext_fromGetContext() {
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    QueryContext ctx = TestUtils.getMockAllowContext();
+    when(env.getContext()).thenReturn(ctx);
+    assertEquals(getQueryContext(env), ctx);
+  }
+
+  @Test
+  public void testGetQueryContext_fromGraphQLContext() {
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    QueryContext ctx = TestUtils.getMockAllowContext();
+    GraphQLContext graphqlContext = GraphQLContext.newContext().of(QueryContext.class, ctx).build();
+    when(env.getContext()).thenReturn(null);
+    when(env.getGraphQlContext()).thenReturn(graphqlContext);
+    assertEquals(getQueryContext(env), ctx);
+  }
+
+  @Test
+  public void testGetQueryContext_nullWhenBothMissing() {
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    when(env.getContext()).thenReturn(null);
+    when(env.getGraphQlContext()).thenReturn(null);
+    assertNull(getQueryContext(env));
+  }
+
+  @Test
+  public void testEscapeForwardSlash_withSlash() {
+    assertEquals(escapeForwardSlash("foo/bar"), "foo\\/bar");
+  }
+
+  @Test
+  public void testEscapeForwardSlash_noSlash() {
+    assertEquals(escapeForwardSlash("foobar"), "foobar");
+  }
+
+  @Test
+  public void testBuildFacetFilters_null() {
+    Map<String, String> result = buildFacetFilters(null, Set.of("field.keyword"));
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  public void testBuildFacetFilters_valid() {
+    List<FacetFilterInput> inputs =
+        ImmutableList.of(
+            new FacetFilterInput(
+                "field.keyword", ImmutableList.of("v1"), false, FilterOperator.EQUAL));
+    Map<String, String> result = buildFacetFilters(inputs, Set.of("field.keyword"));
+    assertEquals(result.get("field.keyword"), "v1");
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void testBuildFacetFilters_invalidField() {
+    List<FacetFilterInput> inputs =
+        ImmutableList.of(
+            new FacetFilterInput("invalid", ImmutableList.of("v1"), false, FilterOperator.EQUAL));
+    buildFacetFilters(inputs, Set.of("field.keyword"));
+  }
+
+  @Test
+  public void testBuildFilter_bothNull() {
+    assertNull(buildFilter(null, null));
+  }
+
+  @Test
+  public void testBuildFilter_orFilters() {
+    AndFilterInput or = new AndFilterInput(ImmutableList.of());
+    Filter f = buildFilter(null, ImmutableList.of(or));
+    assertNotNull(f);
+    assertNotNull(f.getOr());
+  }
+
+  @Test
+  public void testBuildFilter_andFiltersOnly() {
+    FacetFilterInput and =
+        new FacetFilterInput("f.keyword", ImmutableList.of("v"), false, FilterOperator.EQUAL);
+    Filter f = buildFilter(ImmutableList.of(and), null);
+    assertNotNull(f);
+    assertNotNull(f.getOr());
+  }
+
+  @Test
+  public void testGetLineageEndTimeMillis_endProvided() {
+    assertEquals(getLineageEndTimeMillis(1000L, 2000L), Long.valueOf(2000L));
+  }
+
+  @Test
+  public void testGetLineageEndTimeMillis_startOnly() {
+    Long result = getLineageEndTimeMillis(1000L, null);
+    assertNotNull(result);
+    assertTrue(result >= 1000L);
+  }
+
+  @Test
+  public void testGetLineageEndTimeMillis_bothNull() {
+    assertNull(getLineageEndTimeMillis(null, null));
   }
 }

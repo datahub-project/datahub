@@ -1,11 +1,20 @@
 import Link from 'antd/lib/typography/Link';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import GreenVerificationLogo from '../../../../../../../images/verificationGreen.svg?react';
-import PurpleVerificationLogo from '../../../../../../../images/verificationPurple.svg?react';
-import { CTAWrapper, FlexWrapper, StyledIcon, StyledReadOutlined, Title } from './components';
-import OptionalPromptsRemaining from './OptionalPromptsRemaining';
-import VerificationAuditStamp from './VerificationAuditStamp';
+
+import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
+import VerificationAuditStamp from '@app/entity/shared/containers/profile/sidebar/FormInfo/VerificationAuditStamp';
+import {
+    CTAWrapper,
+    FlexWrapper,
+    StyledIcon,
+    StyledReadOutlined,
+    Title,
+} from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
+
+import GreenVerificationLogo from '@images/verificationGreen.svg?react';
+import PurpleVerificationLogo from '@images/verificationPurple.svg?react';
 
 const StyledLink = styled(Link)`
     margin-top: 8px;
@@ -30,6 +39,7 @@ export default function CompletedView({
     shouldDisplayBackground,
     openFormModal,
 }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     return (
         <CTAWrapper shouldDisplayBackground={shouldDisplayBackground}>
             <FlexWrapper>
@@ -42,13 +52,19 @@ export default function CompletedView({
                     <StyledReadOutlined addLineHeight />
                 )}
                 <div>
-                    <Title>{showVerificationStyles ? 'Verified' : 'Documented'}</Title>
+                    <Title>
+                        {showVerificationStyles
+                            ? t('sidebar.formInfo.verifiedTitle')
+                            : t('sidebar.formInfo.documentedTitle')}
+                    </Title>
                     <VerificationAuditStamp formUrn={formUrn} />
                     {isUserAssigned && (
                         <>
                             <OptionalPromptsRemaining numRemaining={numOptionalPromptsRemaining} />
                             {!!openFormModal && (
-                                <StyledLink onClick={openFormModal}>View and edit responses</StyledLink>
+                                <StyledLink onClick={openFormModal}>
+                                    {t('formInfo.completed.viewEditResponses')}
+                                </StyledLink>
                             )}
                         </>
                     )}

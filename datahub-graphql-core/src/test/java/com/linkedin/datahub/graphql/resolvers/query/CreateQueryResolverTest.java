@@ -243,7 +243,7 @@ public class CreateQueryResolverTest {
                     new EntitySpec(TEST_DATASET_URN.getEntityType(), TEST_DATASET_URN.toString())),
                 editAllResult);
 
-    when(mockContext.getOperationContext().authorize(any(), any()))
+    when(mockContext.getOperationContext().authorize(any(), any(), any()))
         .thenAnswer(
             args ->
                 responses.getOrDefault(

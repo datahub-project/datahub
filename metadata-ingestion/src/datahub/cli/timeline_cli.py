@@ -9,7 +9,7 @@ from requests import Response
 
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
-from datahub.telemetry import telemetry
+from datahub.ingestion.graph.config import ClientMode
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
 
@@ -63,7 +63,7 @@ def get_timeline(
     diff: bool,
     graph: Optional[DataHubGraph] = None,
 ) -> Any:
-    client = graph if graph else get_default_graph()
+    client = graph if graph else get_default_graph(ClientMode.CLI)
     session = client._session
     host = client.config.server
     if urn.startswith("urn%3A"):
@@ -109,7 +109,7 @@ def get_timeline(
     required=True,
     multiple=True,
     type=str,
-    help="One of tag, glossary_term, technical_schema, documentation, owner",
+    help="One of tag, glossary_term, technical_schema, documentation, ownership (or owner), domain, structured_property, application, asset_membership",
 )
 @click.option(
     "--start",
@@ -129,7 +129,6 @@ def get_timeline(
 @click.option("--raw", type=bool, is_flag=True, help="Show the raw diff")
 @click.pass_context
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def timeline(
     ctx: Any,
     urn: str,
@@ -143,16 +142,25 @@ def timeline(
 
     all_categories = [
         "TAG",
-        "OWNER",
+        "OWNERSHIP",
         "GLOSSARY_TERM",
         "TECHNICAL_SCHEMA",
         "DOCUMENTATION",
+        "DOMAIN",
+        "STRUCTURED_PROPERTY",
+        "APPLICATION",
+        "ASSET_MEMBERSHIP",
     ]
+    # Accept OWNER as a backward-compat alias for OWNERSHIP
+    category_aliases = {"OWNER": "OWNERSHIP"}
+    resolved_categories: List[str] = []
     for c in category:
-        if c.upper() not in all_categories:
-            raise click.UsageError(
-                f"category: {c.upper()} is not one of {all_categories}"
-            )
+        upper = c.upper()
+        resolved = category_aliases.get(upper, upper)
+        if resolved not in all_categories:
+            raise click.UsageError(f"category: {upper} is not one of {all_categories}")
+        resolved_categories.append(resolved)
+    category = resolved_categories
 
     if urn is None:
         if not ctx.args:

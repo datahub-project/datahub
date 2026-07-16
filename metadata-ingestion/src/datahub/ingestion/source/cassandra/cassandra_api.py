@@ -1,3 +1,4 @@
+import ssl
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -117,7 +118,7 @@ class CassandraAPI:
                 profile = ExecutionProfile(request_timeout=cloud_config.request_timeout)
                 auth_provider = PlainTextAuthProvider(
                     "token",
-                    cloud_config.token,
+                    cloud_config.token.get_secret_value(),
                 )
                 cluster = Cluster(
                     cloud=cluster_cloud_config,
@@ -128,20 +129,56 @@ class CassandraAPI:
 
                 self._cassandra_session = cluster.connect()
                 return True
+
+            ssl_context = None
+            if self.config.ssl_ca_certs:
+                # Map SSL version string to ssl module constant
+                ssl_version_map = {
+                    "TLS_CLIENT": ssl.PROTOCOL_TLS_CLIENT,
+                    "TLSv1": ssl.PROTOCOL_TLSv1,
+                    "TLSv1_1": ssl.PROTOCOL_TLSv1_1,
+                    "TLSv1_2": ssl.PROTOCOL_TLSv1_2,
+                    "TLSv1_3": ssl.PROTOCOL_TLSv1_2,  # Python's ssl module uses TLSv1_2 for TLS 1.3
+                }
+
+                ssl_protocol = (
+                    ssl_version_map.get(
+                        self.config.ssl_version, ssl.PROTOCOL_TLS_CLIENT
+                    )
+                    if self.config.ssl_version
+                    else ssl.PROTOCOL_TLS_CLIENT
+                )
+                ssl_context = ssl.SSLContext(ssl_protocol)
+                ssl_context.load_verify_locations(self.config.ssl_ca_certs)
+                if self.config.ssl_certfile and self.config.ssl_keyfile:
+                    ssl_context.load_cert_chain(
+                        certfile=self.config.ssl_certfile,
+                        keyfile=self.config.ssl_keyfile,
+                    )
+                elif self.config.ssl_certfile or self.config.ssl_keyfile:
+                    # If one is provided, the other must be too.
+                    # This is a simplification; real-world scenarios might allow one without the other depending on setup.
+                    raise ValueError(
+                        "Both ssl_certfile and ssl_keyfile must be provided if one is specified."
+                    )
+
             if self.config.username and self.config.password:
                 auth_provider = PlainTextAuthProvider(
-                    username=self.config.username, password=self.config.password
+                    username=self.config.username,
+                    password=self.config.password.get_secret_value(),
                 )
                 cluster = Cluster(
                     [self.config.contact_point],
                     port=self.config.port,
                     auth_provider=auth_provider,
+                    ssl_context=ssl_context,
                     load_balancing_policy=None,
                 )
             else:
                 cluster = Cluster(
                     [self.config.contact_point],
                     port=self.config.port,
+                    ssl_context=ssl_context,
                     load_balancing_policy=None,
                 )
 

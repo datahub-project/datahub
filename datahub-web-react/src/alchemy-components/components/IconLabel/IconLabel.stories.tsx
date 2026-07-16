@@ -1,9 +1,9 @@
-import React from 'react';
+import { Airplane } from '@phosphor-icons/react/dist/csr/Airplane';
 import { Meta, StoryObj } from '@storybook/react';
-import { Airplane } from '@phosphor-icons/react';
+import React from 'react';
 
-import { IconLabel } from './IconLabel';
-import { IconType } from './types';
+import { IconLabel } from '@components/components/IconLabel/IconLabel';
+import { IconType } from '@components/components/IconLabel/types';
 
 const meta: Meta<typeof IconLabel> = {
     title: 'Components / IconLabel',
@@ -64,9 +64,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Sandbox Story
-export const sandbox: Story = {
-    render: (props) => <IconLabel {...props} />,
-};
+export const sandbox: Story = {};
 
 // Example Stories
 export const withIcon: Story = {

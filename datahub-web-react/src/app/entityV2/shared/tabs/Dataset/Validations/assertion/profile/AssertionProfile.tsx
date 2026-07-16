@@ -1,12 +1,14 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
+import { AssertionProfileFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileFooter';
+import { AssertionProfileHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeader';
+import { AssertionProfileHeaderLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeaderLoading';
+import { AssertionTabs } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionTabs';
+import { AssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummaryTab';
 import { useGetAssertionWithRunEventsQuery } from '@src/graphql/assertion.generated';
-import { AssertionSummaryTab } from './summary/AssertionSummaryTab';
-import { Assertion, DataContract } from '../../../../../../../../types.generated';
-import { AssertionProfileHeader } from './AssertionProfileHeader';
-import { AssertionTabs } from './AssertionTabs';
-import { AssertionProfileFooter } from './AssertionProfileFooter';
-import { AssertionProfileHeaderLoading } from './AssertionProfileHeaderLoading';
+
+import { Assertion, DataContract } from '@types';
 
 enum TabType {
     Summary = 'Summary',
@@ -23,6 +25,7 @@ type Props = {
 // TODO: Handling Loading Errors.
 
 export const AssertionProfile = ({ urn, contract, close, refetch }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const {
         data,
         loading,
@@ -39,7 +42,7 @@ export const AssertionProfile = ({ urn, contract, close, refetch }: Props) => {
     const tabs = [
         {
             key: TabType.Summary,
-            label: 'Summary',
+            label: t('profile.summaryTab'),
             content: <AssertionSummaryTab loading={loading} assertion={assertion} />,
         },
     ];

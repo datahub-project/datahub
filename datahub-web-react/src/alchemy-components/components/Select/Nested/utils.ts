@@ -1,4 +1,4 @@
-import { NestedSelectOption } from './types';
+import { NestedSelectOption } from '@components/components/Select/Nested/types';
 
 export function getChainOfParents(option: NestedSelectOption | undefined, options: NestedSelectOption[]) {
     if (option === undefined) return [];

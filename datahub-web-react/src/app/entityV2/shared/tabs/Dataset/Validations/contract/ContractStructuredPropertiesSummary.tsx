@@ -1,0 +1,64 @@
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityContext } from '@src/app/entity/shared/EntityContext';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+
+import { DataContract, EntityType } from '@types';
+
+const TitleText = styled.div`
+    color: ${(props) => props.theme.colors.textTertiary};
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+`;
+const Container = styled.div`
+    padding: 28px;
+`;
+
+const PropertiesContainer = styled.div`
+    width: 100%;
+    border-radius: 8px;
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
+`;
+
+type Props = {
+    refetch: () => Promise<any>;
+    contract: DataContract;
+};
+
+export const ContractStructuredPropertiesSummary = ({ contract, refetch }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
+    // turn `contract` into a `GenericEntityProperties` object
+    const entityRegistry = useEntityRegistry();
+    const entityData = entityRegistry.getGenericEntityProperties(EntityType.DataContract, contract);
+    return (
+        <Container>
+            <TitleText>{t('contractSection.properties')}</TitleText>
+            <EntityContext.Provider
+                value={{
+                    urn: contract.urn,
+                    entityType: EntityType.DataContract,
+                    entityData,
+                    loading: false,
+                    baseEntity: contract,
+                    dataNotCombinedWithSiblings: contract,
+                    routeToTab: () => {},
+                    lineage: undefined,
+                    refetch,
+                }}
+            >
+                <PropertiesContainer>
+                    <PropertiesTab
+                        properties={{
+                            refetch,
+                            disableEdit: true,
+                            disableSearch: true,
+                        }}
+                    />
+                </PropertiesContainer>
+            </EntityContext.Provider>
+        </Container>
+    );
+};

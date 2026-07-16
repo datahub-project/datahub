@@ -1,8 +1,9 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
+import i18next from 'i18next';
 
-import { Entity, EntityType, EntityRelationshipsResult, DataProduct, PropertyValue } from '../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { GenericEntityProperties } from './types';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+
+import { Entity, EntityType, PropertyValue } from '@types';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
     return Object.keys(params)
@@ -31,12 +32,6 @@ export function decodeUrn(encodedUrn: string) {
     return decodeURIComponent(encodedUrn).replace(/{{encoded_percent}}/g, '%');
 }
 
-export function getNumberWithOrdinal(n) {
-    const suffixes = ['th', 'st', 'nd', 'rd'];
-    const v = n % 100;
-    return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
-}
-
 export const encodeComma = (str: string) => {
     return str.replace(/,/g, '%2C');
 };
@@ -44,10 +39,6 @@ export const encodeComma = (str: string) => {
 export const decodeComma = (str: string) => {
     return str.replace(/%2C/g, ',');
 };
-
-export function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
-    return value !== null && value !== undefined;
-}
 
 export const truncate = (length: number, input?: string | null) => {
     if (!input) return '';
@@ -74,8 +65,6 @@ export function getPlatformName(entityData: GenericEntityProperties | null) {
     return entityData?.platform?.properties?.displayName || capitalizeFirstLetterOnly(entityData?.platform?.name);
 }
 
-export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
-
 export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
 
 /**
@@ -98,8 +87,7 @@ function getGraphqlErrorCode(e) {
 export const handleBatchError = (urns, e, defaultMessage) => {
     if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
         return {
-            content:
-                'Your bulk edit selection included entities that you are unauthorized to update. The bulk edit being performed will not be saved.',
+            content: i18next.t('shared.error:bulkEditUnauthorized'),
             duration: 3,
         };
     }
@@ -124,12 +112,6 @@ export function getFineGrainedLineageWithSiblings(
     });
     return fineGrainedLineages;
 }
-export function getDataProduct(dataProductResult: Maybe<EntityRelationshipsResult> | undefined) {
-    if (dataProductResult?.relationships && dataProductResult.relationships.length > 0) {
-        return dataProductResult.relationships[0].entity as DataProduct;
-    }
-    return null;
-}
 
 export function getStructuredPropertyValue(value: PropertyValue) {
     if (value.__typename === 'StringValue') {
@@ -142,7 +124,7 @@ export function getStructuredPropertyValue(value: PropertyValue) {
 }
 
 // Utility for formatting any casing of type to the expected casing for the API
-export function formatEntityType(type: string): string {
+function formatEntityType(type: string): string {
     if (!type) return '';
 
     switch (type.toLowerCase()) {
@@ -192,7 +174,8 @@ export function formatEntityType(type: string): string {
             return EntityType.Test;
         case 'schemafield':
             return EntityType.SchemaField;
-
+        case 'document':
+            return EntityType.Document;
         // these are const in the java app
         case 'dataprocessinstance': // Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME
             return EntityType.DataProcessInstance;

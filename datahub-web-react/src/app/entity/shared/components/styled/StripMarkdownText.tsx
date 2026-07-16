@@ -1,5 +1,5 @@
-import React from 'react';
 import removeMd from '@tommoor/remove-markdown';
+import React from 'react';
 import styled from 'styled-components';
 
 const RemoveMarkdownContainer = styled.div<{ shouldWrap: boolean }>`
@@ -11,7 +11,7 @@ const RemoveMarkdownContainer = styled.div<{ shouldWrap: boolean }>`
     text-overflow: ellipsis;
 `;
 
-export type Props = {
+type Props = {
     children: string | undefined | null;
     readMore?: JSX.Element;
     suffix?: JSX.Element;

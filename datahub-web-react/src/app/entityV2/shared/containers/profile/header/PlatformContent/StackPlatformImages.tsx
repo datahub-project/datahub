@@ -1,7 +1,9 @@
 import React from 'react';
 import styled, { CSSObject } from 'styled-components';
-import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
-import { DataPlatform } from '../../../../../../../types.generated';
+
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+
+import { DataPlatform } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -13,14 +15,14 @@ const secondIconStyles = (isSmall: boolean) => ({
     marginLeft: isSmall ? '-10px' : '-16px',
     zIndex: 0,
     borderRadius: isSmall ? '8px' : '16px',
-    border: '1px solid #FFF',
+    border: '1px solid transparent',
     padding: isSmall ? '4px' : '10px',
 });
 
 const firstIconStyles = (isSmall: boolean) => ({
     zIndex: 1,
     borderRadius: isSmall ? '8px' : '16px',
-    border: '1px solid #FFF',
+    border: '1px solid transparent',
     padding: isSmall ? '4px' : '10px',
 });
 
@@ -43,13 +45,14 @@ const StackImages = ({ platforms, size = 28, styles }: Props) => {
     const areIconsSmall = size < SMALL_ICON_SIZE;
 
     return (
-        <Container>
+        <Container data-testid="platform-icons-container">
             {uniquePlatforms.slice(0, 2).map((platform, index) => (
                 <>
                     {index === 1 ? (
                         <PlatformIcon
                             platform={platform}
                             size={size}
+                            dataTestId={`platform-icon-${platform.name?.toLowerCase()}`}
                             styles={
                                 styles
                                     ? { ...secondIconStyles(areIconsSmall), ...styles }
@@ -60,6 +63,7 @@ const StackImages = ({ platforms, size = 28, styles }: Props) => {
                         <PlatformIcon
                             platform={platform}
                             size={size}
+                            dataTestId={`platform-icon-${platform.name?.toLowerCase()}`}
                             styles={
                                 styles
                                     ? { ...firstIconStyles(areIconsSmall), ...styles }

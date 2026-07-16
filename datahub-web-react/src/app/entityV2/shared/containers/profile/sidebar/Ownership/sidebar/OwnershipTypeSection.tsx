@@ -1,32 +1,34 @@
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Typography } from 'antd';
-import { Owner, OwnershipTypeEntity } from '../../../../../../../../types.generated';
-import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
-import { useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
-import { getOwnershipTypeName } from '../ownershipUtils';
-import { REDESIGN_COLORS } from '../../../../../constants';
+
+import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { getOwnershipTypeDescription } from '@app/entityV2/shared/components/styled/ExpandedOwner/OwnerUtils';
+import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+
+import { Owner, OwnershipTypeEntity } from '@types';
 
 const OwnershipTypeContainer = styled.div`
     display: flex;
     flex-direction: column;
-    margin-right 12px;
+    gap: 4px;
     max-width: inherit;
 `;
 
-const OwnershipTypeNameText = styled(Typography.Text)`
+const OwnershipTypeNameText = styled.span`
     font-family: 'Mulish', sans-serif;
     font-weight: 500;
-    font-size: 10px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const OwnersContainer = styled.div`
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    margin-top: 8px;
     max-width: inherit;
+    gap: 4px;
 `;
 
 interface Props {
@@ -39,9 +41,13 @@ export const OwnershipTypeSection = ({ ownershipType, owners, readOnly }: Props)
     const mutationUrn = useMutationUrn();
     const refetch = useRefetch();
     const ownershipTypeName = getOwnershipTypeName(ownershipType);
+    const ownershipTypeDescription = getOwnershipTypeDescription(ownershipType);
+
     return (
         <OwnershipTypeContainer>
-            <OwnershipTypeNameText>{ownershipTypeName}</OwnershipTypeNameText>
+            <Tooltip title={ownershipTypeDescription}>
+                <OwnershipTypeNameText>{ownershipTypeName}</OwnershipTypeNameText>
+            </Tooltip>
             <OwnersContainer>
                 {owners.map((owner) => (
                     <ExpandedOwner

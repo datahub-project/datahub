@@ -53,8 +53,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].foo",
@@ -66,8 +65,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].zip",
@@ -79,8 +77,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -186,6 +183,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -258,10 +271,15 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+            "path": [
+                {
+                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
+                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -272,17 +290,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
+    "entityUrn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                }
-            ]
+            "container": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
         }
     },
     "systemMetadata": {
@@ -367,22 +380,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "single_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -396,6 +393,22 @@
                     "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
         }
     },
     "systemMetadata": {
@@ -480,22 +493,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "single_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -513,6 +510,22 @@
                     "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "single_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
         }
     },
     "systemMetadata": {
@@ -585,22 +598,6 @@
             "typeNames": [
                 "Folder"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "single_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
         }
     },
     "systemMetadata": {

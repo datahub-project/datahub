@@ -1,14 +1,13 @@
-import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { colors } from '@components';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { EntitySidebarTab } from '../../../types';
-import { TitleAction } from './TitleAction';
-import MoreOptionsMenuAction from '../../../EntityDropdown/MoreOptionsMenuAction';
-import { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
-import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+import { TitleAction } from '@app/entityV2/shared/containers/profile/sidebar/TitleAction';
+import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import { EntitySidebarTab } from '@app/entityV2/shared/types';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
@@ -16,7 +15,7 @@ const Controls = styled.div<{ isCollapsed: boolean }>`
     justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
     height: 56px;
     padding: 8px 20px 5px 20px;
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const Title = styled.div`
@@ -27,30 +26,31 @@ const Title = styled.div`
     width: 100%;
 `;
 
-const TabTitle = styled(Typography.Text)`
+const TabTitle = styled.span`
     font-size: 14px;
     font-weight: 800;
     line-height: 20px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const _TitleDescription = styled(Typography.Text)`
+const _TitleDescription = styled.span`
     font-size: 12px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Top = styled.div`
     display: flex;
     justify-content: space-between;
     width: 100%;
+    align-items: center;
 `;
 
 const RightActions = styled.div`
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 8px;
 `;
 
 interface Props {
@@ -63,7 +63,6 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
 
     const currentTabName = currentTab?.name;
     const actionType = currentTab?.properties?.actionType;
-    const icon = currentTab?.icon;
 
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
@@ -75,7 +74,7 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                     <Top>
                         <TabTitle>{currentTabName}</TabTitle>
                         <RightActions>
-                            {actionType && <TitleAction actionType={actionType} icon={icon} />}
+                            {actionType && <TitleAction actionType={actionType} />}
                             {forLineage && (
                                 <ViewInPlatform hideSiblingActions={separateSiblings} urn={urn} data={entityData} />
                             )}

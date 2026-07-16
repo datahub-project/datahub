@@ -1,9 +1,9 @@
 import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import TypeLabel from '../../../../shared/tabs/Dataset/Schema/components/TypeLabel';
-import { ExtendedSchemaFields } from './types';
-import { REDESIGN_COLORS } from '../../../../shared/constants';
+
+import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import TypeLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/TypeLabel';
 
 const FieldTypeWrapper = styled.div`
     display: inline-flex;
@@ -13,7 +13,7 @@ const FieldTypeWrapper = styled.div`
 const FieldTypeContainer = styled.div`
     vertical-align: top;
     display: flex;
-    color: ${REDESIGN_COLORS.GREY_500};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type InteriorTypeProps = {

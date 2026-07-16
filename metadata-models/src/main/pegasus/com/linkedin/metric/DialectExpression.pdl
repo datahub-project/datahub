@@ -1,0 +1,17 @@
+namespace com.linkedin.metric
+
+/**
+ * A metric expression in a specific SQL dialect or semantic layer language.
+ */
+record DialectExpression {
+
+  /**
+   * The dialect in which this expression is written.
+   */
+  dialect: Dialect
+
+  /**
+   * The raw expression string.
+   */
+  expression: string
+}

@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -25,8 +26,8 @@ import lombok.experimental.Accessors;
  * 1. Validates the Schema Field Path specification, specifically that all field IDs must be unique
  * across all fields within a schema. 2. Validates that the field path id is not empty.
  *
- * @see <a href="https://datahubproject.io/docs/advanced/field-path-spec-v2/#requirements">Field
- *     Path V2 docs</a>
+ * @see <a href="https://docs.datahub.com/docs/advanced/field-path-spec-v2/#requirements">Field Path
+ *     V2 docs</a>
  */
 @Setter
 @Getter
@@ -37,6 +38,7 @@ public class FieldPathValidator extends AspectPayloadValidator {
   /** Prevent any MCP for SchemaMetadata where field ids are duplicated. */
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
 
@@ -56,7 +58,9 @@ public class FieldPathValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.of();
   }
 

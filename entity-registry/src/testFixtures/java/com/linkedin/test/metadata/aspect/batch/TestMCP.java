@@ -65,6 +65,7 @@ public class TestMCP implements ChangeMCP {
     return Set.of(
         TestMCP.builder()
             .urn(urn)
+            .changeType(ChangeType.UPSERT)
             .entitySpec(entityRegistry.getEntitySpec(urn.getEntityType()))
             .aspectSpec(
                 entityRegistry.getAspectSpecs().get(TestEntityRegistry.getAspectName(aspect)))

@@ -1,7 +1,14 @@
-import { CaretUp, CaretDown } from 'phosphor-react';
-import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { keyframes } from 'styled-components';
+
+import { StructuredPopover } from '@components/components/StructuredPopover';
 import {
     BaseTable,
     HeaderContainer,
@@ -13,11 +20,32 @@ import {
     TableHeader,
     TableHeaderCell,
     TableRow,
-} from './components';
-import { SortingState, TableProps } from './types';
-import { getSortedData, handleActiveSort, renderCell } from './utils';
-import { Tooltip2 } from '../Tooltip2';
-import { useGetSelectionColumn } from './useGetSelectionColumn';
+} from '@components/components/Table/components';
+import { SortingState, TableProps } from '@components/components/Table/types';
+import { useGetSelectionColumn } from '@components/components/Table/useGetSelectionColumn';
+import { getSortedData, handleActiveSort, renderCell } from '@components/components/Table/utils';
+
+// Placeholder token for the unsorted state inside React row keys (programmatic, not user-facing).
+const NO_SORT_KEY = 'none';
+
+export const CellHoverWrapper = styled.div`
+    width: 100%;
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    margin: -16px;
+    padding: 16px;
+`;
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const LoadingSpinner = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+    color: ${({ theme }) => theme.colors.iconBrand};
+`;
 
 export const tableDefaults: TableProps<any> = {
     columns: [],
@@ -47,8 +75,11 @@ export const Table = <T,>({
     rowRefs,
     headerRef,
     rowDataTestId,
+    footer,
+    renderScrollObserver,
     ...props
 }: TableProps<T>) => {
+    const { t } = useTranslation('alchemy');
     const [sortColumn, setSortColumn] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<SortingState>(SortingState.ORIGINAL);
     const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
@@ -73,8 +104,8 @@ export const Table = <T,>({
     if (isLoading) {
         return (
             <LoadingContainer>
-                <LoadingOutlined />
-                <Text color="gray">Loading data...</Text>
+                <LoadingSpinner />
+                <Text>{t('table.loading')}</Text>
             </LoadingContainer>
         );
     }
@@ -91,11 +122,12 @@ export const Table = <T,>({
                                 <TableHeaderCell
                                     key={column.key} // Unique key for each header cell
                                     width={column.width}
+                                    minWidth={column.minWidth}
                                     maxWidth={column.maxWidth}
-                                    shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
+                                    shouldAddRightBorder={index !== finalColumns.length - 1} // Add border unless last column
                                 >
                                     {column?.tooltipTitle ? (
-                                        <Tooltip2 title={column.tooltipTitle}>
+                                        <StructuredPopover title={column.tooltipTitle}>
                                             <HeaderContainer alignment={column.alignment}>
                                                 {column.title}
                                                 {column.sorter && ( // Render sort icons if the column is sortable
@@ -111,7 +143,7 @@ export const Table = <T,>({
                                                     >
                                                         {/* Sort icons for ascending and descending */}
                                                         <SortIcon
-                                                            icon="ChevronLeft"
+                                                            icon={CaretLeft}
                                                             size="md"
                                                             rotate="90"
                                                             isActive={
@@ -120,7 +152,7 @@ export const Table = <T,>({
                                                             }
                                                         />
                                                         <SortIcon
-                                                            icon="ChevronRight"
+                                                            icon={CaretRight}
                                                             size="md"
                                                             rotate="90"
                                                             isActive={
@@ -131,7 +163,7 @@ export const Table = <T,>({
                                                     </SortIconsContainer>
                                                 )}
                                             </HeaderContainer>
-                                        </Tooltip2>
+                                        </StructuredPopover>
                                     ) : (
                                         <HeaderContainer alignment={column.alignment}>
                                             {column.title}
@@ -148,7 +180,7 @@ export const Table = <T,>({
                                                 >
                                                     {/* Sort icons for ascending and descending */}
                                                     <SortIcon
-                                                        icon="ChevronLeft"
+                                                        icon={CaretLeft}
                                                         size="md"
                                                         rotate="90"
                                                         isActive={
@@ -157,7 +189,7 @@ export const Table = <T,>({
                                                         }
                                                     />
                                                     <SortIcon
-                                                        icon="ChevronRight"
+                                                        icon={CaretRight}
                                                         size="md"
                                                         rotate="90"
                                                         isActive={
@@ -180,18 +212,23 @@ export const Table = <T,>({
                     {sortedData.map((row: any, index) => {
                         const isExpanded = expandable?.expandedGroupIds?.includes(row?.name); // Check if row is expanded
                         const canExpand = expandable?.rowExpandable?.(row); // Check if row is expandable
-                        const key = `row-${index}-${sortColumn ?? 'none'}-${sortOrder ?? 'none'}`;
+                        const key = `row-${index}-${sortColumn ?? NO_SORT_KEY}-${sortOrder ?? NO_SORT_KEY}`;
                         return (
-                            <>
+                            <React.Fragment key={key}>
                                 {/* Render the main row */}
                                 <TableRow
-                                    key={key}
                                     canExpand={canExpand}
-                                    onClick={() => {
-                                        setFocusedRowIndex(index);
+                                    onClick={(e) => {
+                                        if (focusedRowIndex === index) {
+                                            setFocusedRowIndex(null);
+                                        } else {
+                                            setFocusedRowIndex(index);
+                                        }
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
+                                        e.stopPropagation();
                                     }}
+                                    isFocused={focusedRowIndex === index}
                                     className={rowClassName?.(row)} // Add row-specific class
                                     ref={(el) => {
                                         if (rowRefs && el) {
@@ -199,26 +236,17 @@ export const Table = <T,>({
                                             currentRefs[index] = el;
                                         }
                                     }}
-                                    isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
-                                    data-testId={rowDataTestId?.(row)}
+                                    data-testid={rowDataTestId?.(row)}
                                     canHover
                                 >
                                     {/* Render each cell in the row */}
 
                                     {finalColumns.map((column, i) => {
-                                        return (
-                                            <TableCell
-                                                key={column.key}
-                                                width={column.width}
-                                                alignment={
-                                                    columns.length - 1 === i && canExpand ? 'right' : column.alignment
-                                                }
-                                                isGroupHeader={canExpand}
-                                                isExpanded={isExpanded}
-                                            >
-                                                {/* Add expandable icon if applicable or render row */}
-                                                {columns.length - 1 === i && canExpand ? (
+                                        return (() => {
+                                            let content;
+                                            if (columns.length - 1 === i && canExpand) {
+                                                content = (
                                                     <div
                                                         style={{
                                                             cursor: 'pointer',
@@ -230,21 +258,53 @@ export const Table = <T,>({
                                                             <CaretDown
                                                                 size={16}
                                                                 weight="bold"
-                                                                data-testId="group-header-expanded-icon"
+                                                                data-testid="group-header-expanded-icon"
                                                             /> // Expanded icon
                                                         ) : (
                                                             <CaretUp
                                                                 size={16}
                                                                 weight="bold"
-                                                                data-testId="group-header-collapsed-icon"
+                                                                data-testid="group-header-collapsed-icon"
                                                             /> // Collapsed icon
                                                         )}
                                                     </div>
-                                                ) : (
-                                                    renderCell(column, row, index)
-                                                )}
-                                            </TableCell>
-                                        );
+                                                );
+                                            } else {
+                                                content = renderCell(column, row, index);
+                                            }
+
+                                            const cellContent = column.cellWrapper
+                                                ? column.cellWrapper(content, row)
+                                                : content;
+
+                                            const clickable = column.isCellClickable
+                                                ? column.isCellClickable(row)
+                                                : !!column.onCellClick;
+
+                                            return (
+                                                <TableCell
+                                                    key={column.key}
+                                                    width={column.width}
+                                                    alignment={
+                                                        columns.length - 1 === i && canExpand
+                                                            ? 'right'
+                                                            : column.alignment
+                                                    }
+                                                    isGroupHeader={canExpand}
+                                                    isExpanded={isExpanded}
+                                                    onClick={() => {
+                                                        if (clickable && column.onCellClick) {
+                                                            column.onCellClick(row);
+                                                        }
+                                                    }}
+                                                    style={{ cursor: clickable ? 'pointer' : 'default' }}
+                                                    className={column.cellWrapper ? 'hoverable-cell' : undefined}
+                                                    data-testid={column.key}
+                                                >
+                                                    {cellContent}
+                                                </TableCell>
+                                            );
+                                        })();
                                     })}
                                 </TableRow>
                                 {/* Render expanded content if row is expanded */}
@@ -260,9 +320,11 @@ export const Table = <T,>({
                                         </TableCell>
                                     </TableRow>
                                 )}
-                            </>
+                            </React.Fragment>
                         );
                     })}
+                    {renderScrollObserver?.()}
+                    {footer}
                 </tbody>
             </BaseTable>
         </TableContainer>

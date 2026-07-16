@@ -1,6 +1,7 @@
 package com.datahub.authentication.group;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -9,6 +10,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -20,19 +22,23 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
+import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.CorpGroupKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -56,7 +62,7 @@ public class GroupServiceTest {
   private static Map<Urn, EntityResponse> _entityResponseMap;
   private static EntityRelationships _entityRelationships;
 
-  private EntityClient _entityClient;
+  private SystemEntityClient _entityClient;
   private EntityService<?> _entityService;
   private GraphClient _graphClient;
   private GroupService _groupService;
@@ -102,7 +108,7 @@ public class GroupServiceTest {
                             .setEntity(USER_URN)
                             .setType(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME))));
 
-    _entityClient = mock(EntityClient.class);
+    _entityClient = mock(SystemEntityClient.class);
     _entityService = mock(EntityService.class);
     _graphClient = mock(GraphClient.class);
 
@@ -158,12 +164,86 @@ public class GroupServiceTest {
   public void testAddUserToNativeGroupPasses() throws Exception {
     when(_entityService.exists(any(OperationContext.class), eq(USER_URN), eq(true)))
         .thenReturn(true);
-    when(_entityClient.batchGetV2(
+    when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     _groupService.addUserToNativeGroup(opContext, USER_URN, _groupUrn);
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityClient).ingestProposal(any(OperationContext.class), proposalCaptor.capture());
+    assertEquals(
+        UI_SOURCE, proposalCaptor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
+    verify(_entityClient).batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any());
+  }
+
+  @Test
+  public void testAddUserToNativeGroupWhenAspectMissing() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), eq(USER_URN), eq(true)))
+        .thenReturn(true);
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(Map.of());
+
+    _groupService.addUserToNativeGroup(opContext, USER_URN, _groupUrn);
+
     verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+    verify(_entityClient).batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any());
+    verify(_entityClient, never()).batchGetV2(any(), eq(CORP_USER_ENTITY_NAME), any(), any());
+  }
+
+  @Test
+  public void testGetExistingNativeGroupMembershipUsesCachedRead() throws Exception {
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(_entityResponseMap);
+
+    NativeGroupMembership membership =
+        _groupService.getExistingNativeGroupMembership(opContext, USER_URN);
+
+    assertEquals(1, membership.getNativeGroups().size());
+    assertEquals(
+        Urn.createFromString(NATIVE_GROUP_URN_STRING), membership.getNativeGroups().get(0));
+    verify(_entityClient).batchGetV2(any(), eq(CORP_USER_ENTITY_NAME), any(), any());
+    verify(_entityClient, never()).batchGetV2NoCache(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testGetExistingGroupMembershipUsesCachedRead() throws Exception {
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(_entityResponseMap);
+
+    GroupMembership membership = _groupService.getExistingGroupMembership(opContext, USER_URN);
+
+    assertEquals(1, membership.getGroups().size());
+    assertEquals(Urn.createFromString(EXTERNAL_GROUP_URN_STRING), membership.getGroups().get(0));
+    verify(_entityClient).batchGetV2(any(), eq(CORP_USER_ENTITY_NAME), any(), any());
+    verify(_entityClient, never()).batchGetV2NoCache(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testRemoveExistingNativeGroupMembersNoOpWhenAspectMissing() throws Exception {
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(Map.of());
+
+    _groupService.removeExistingNativeGroupMembers(
+        opContext, Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST);
+
+    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testRemoveExistingGroupMembersNoOpWhenAspectMissing() throws Exception {
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(Map.of());
+
+    _groupService.removeExistingGroupMembers(
+        opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST);
+
+    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
   }
 
   @Test
@@ -203,7 +283,7 @@ public class GroupServiceTest {
   @Test
   public void testRemoveExistingNativeGroupMembersGroupNotInNativeGroupMembership()
       throws Exception {
-    when(_entityClient.batchGetV2(
+    when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
@@ -216,7 +296,7 @@ public class GroupServiceTest {
 
   @Test
   public void testRemoveExistingNativeGroupMembersPasses() throws Exception {
-    when(_entityClient.batchGetV2(
+    when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
@@ -237,13 +317,13 @@ public class GroupServiceTest {
   public void testMigrateGroupMembershipToNativeGroupMembershipPasses() throws Exception {
     when(_graphClient.getRelatedEntities(
             eq(EXTERNAL_GROUP_URN_STRING),
-            eq(ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
             eq(RelationshipDirection.INCOMING),
             anyInt(),
             anyInt(),
             any()))
         .thenReturn(_entityRelationships);
-    when(_entityClient.batchGetV2(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
+    when(_entityClient.batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
     when(_entityService.exists(any(), eq(USER_URN), eq(true))).thenReturn(true);
 
@@ -294,7 +374,7 @@ public class GroupServiceTest {
   public void testGetExistingGroupMembersPasses() {
     when(_graphClient.getRelatedEntities(
             eq(GROUP_URN_STRING),
-            eq(ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
             eq(RelationshipDirection.INCOMING),
             anyInt(),
             anyInt(),
@@ -319,7 +399,7 @@ public class GroupServiceTest {
 
   @Test
   public void testRemoveExistingGroupMembersGroupNotInGroupMembership() throws Exception {
-    when(_entityClient.batchGetV2(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
+    when(_entityClient.batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     _groupService.removeExistingGroupMembers(
@@ -329,12 +409,111 @@ public class GroupServiceTest {
 
   @Test
   public void testRemoveExistingGroupMembersPasses() throws Exception {
-    when(_entityClient.batchGetV2(
+    when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
     _groupService.removeExistingGroupMembers(
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST);
     verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testGetGroupsForUserUsesSessionCacheForSessionActor() throws Exception {
+    Urn externalGroup = Urn.createFromString(EXTERNAL_GROUP_URN_STRING);
+    Urn nativeGroup = Urn.createFromString(NATIVE_GROUP_URN_STRING);
+    OperationContext sessionOpContext = mock(OperationContext.class);
+    io.datahubproject.metadata.context.ActorContext actorContext =
+        mock(io.datahubproject.metadata.context.ActorContext.class);
+    when(sessionOpContext.getSessionActorContext()).thenReturn(actorContext);
+    when(actorContext.getActorUrn()).thenReturn(USER_URN);
+    when(actorContext.getGroupMembership())
+        .thenReturn(ImmutableList.of(externalGroup, nativeGroup));
+
+    List<Urn> groups = _groupService.getGroupsForUser(sessionOpContext, USER_URN);
+
+    assertEquals(groups, ImmutableList.of(externalGroup, nativeGroup));
+    verifyNoInteractions(_entityClient);
+  }
+
+  @Test
+  public void testGetGroupsForUserFetchesForNonSessionActor() throws Exception {
+    Urn otherUser = new CorpuserUrn("other@email.com");
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), eq(Set.of(otherUser)), any()))
+        .thenReturn(ImmutableMap.of(otherUser, _entityResponseMap.get(USER_URN)));
+
+    List<Urn> groups = _groupService.getGroupsForUser(opContext, otherUser);
+
+    assertEquals(
+        groups,
+        ImmutableList.of(
+            Urn.createFromString(EXTERNAL_GROUP_URN_STRING),
+            Urn.createFromString(NATIVE_GROUP_URN_STRING)));
+    verify(_entityClient)
+        .batchGetV2(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), eq(Set.of(otherUser)), any());
+  }
+
+  @Test
+  public void testFetchUserIdentityMergesAndDedupesGroups() throws Exception {
+    NativeGroupMembership nativeGroupMembership = new NativeGroupMembership();
+    nativeGroupMembership.setNativeGroups(
+        new UrnArray(
+            Urn.createFromString(NATIVE_GROUP_URN_STRING),
+            Urn.createFromString(EXTERNAL_GROUP_URN_STRING)));
+    GroupMembership groupMembership = new GroupMembership();
+    groupMembership.setGroups(new UrnArray(Urn.createFromString(EXTERNAL_GROUP_URN_STRING)));
+    RoleMembership roleMembership = new RoleMembership();
+    roleMembership.setRoles(new UrnArray(Urn.createFromString("urn:li:dataHubRole:Admin")));
+
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        GROUP_MEMBERSHIP_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(groupMembership.data())));
+    aspectMap.put(
+        NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(nativeGroupMembership.data())));
+    aspectMap.put(
+        ROLE_MEMBERSHIP_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(roleMembership.data())));
+
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(Set.of(USER_URN)),
+            eq(
+                ImmutableSet.of(
+                    GROUP_MEMBERSHIP_ASPECT_NAME,
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME,
+                    ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(Map.of(USER_URN, new EntityResponse().setAspects(aspectMap)));
+
+    var identity = _groupService.fetchUserIdentity(opContext, USER_URN);
+
+    assertEquals(identity.getGroups().size(), 2);
+    assertTrue(identity.getGroups().contains(Urn.createFromString(EXTERNAL_GROUP_URN_STRING)));
+    assertTrue(identity.getGroups().contains(Urn.createFromString(NATIVE_GROUP_URN_STRING)));
+    assertEquals(
+        identity.getDirectRoles(), Set.of(Urn.createFromString("urn:li:dataHubRole:Admin")));
+  }
+
+  @Test
+  public void testFetchUserIdentityEmptyWhenUserMissing() throws Exception {
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(Set.of(USER_URN)),
+            eq(
+                ImmutableSet.of(
+                    GROUP_MEMBERSHIP_ASPECT_NAME,
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME,
+                    ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(Map.of());
+
+    var identity = _groupService.fetchUserIdentity(opContext, USER_URN);
+
+    assertTrue(identity.getGroups().isEmpty());
+    assertTrue(identity.getDirectRoles().isEmpty());
   }
 }

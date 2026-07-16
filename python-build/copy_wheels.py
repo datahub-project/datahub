@@ -8,6 +8,7 @@ WHEEL_OUTPUT_DIR = PYTHON_BUILD_DIR / "wheels"
 # These should line up with the build.gradle file.
 wheel_dirs = [
     ROOT_DIR / "metadata-ingestion/dist",
+    ROOT_DIR / "datahub-actions/dist",
     ROOT_DIR / "metadata-ingestion-modules/airflow-plugin/dist",
     ROOT_DIR / "metadata-ingestion-modules/dagster-plugin/dist",
     ROOT_DIR / "metadata-ingestion-modules/prefect-plugin/dist",

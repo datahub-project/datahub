@@ -7,27 +7,30 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
-import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
+import io.datahubproject.openapi.v3.models.ScrollRelationshipsRequestBody;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
@@ -37,7 +40,7 @@ import org.springframework.web.bind.annotation.*;
 public abstract class GenericRelationshipController {
 
   @Autowired private EntityRegistry entityRegistry;
-  @Autowired private ElasticSearchGraphService graphService;
+  @Autowired private GraphService graphService;
   @Autowired private AuthorizerChain authorizationChain;
 
   @Qualifier("systemOperationContext")
@@ -60,7 +63,11 @@ public abstract class GenericRelationshipController {
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
-          Boolean includeSoftDelete) {
+          Boolean includeSoftDelete,
+      @RequestParam(value = "sliceId", required = false) Integer sliceId,
+      @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
+      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
+          String pitKeepAlive) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
@@ -71,11 +78,19 @@ public abstract class GenericRelationshipController {
                         authentication.getActor().toUrnStr(),
                         request,
                         "getRelationshipsByType",
-                        List.of()),
+                        List.of())
+                    .withUsageOperation(UsageOperation.METADATA_READ),
                 authorizationChain,
                 authentication,
                 true)
-            .withSearchFlags(f -> f.setIncludeSoftDeleted(includeSoftDelete));
+            .withSearchFlags(
+                f ->
+                    f.setIncludeSoftDeleted(includeSoftDelete)
+                        .setSliceOptions(
+                            sliceId != null && sliceMax != null
+                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                : null,
+                            SetMode.IGNORE_NULL));
 
     if (!AuthUtil.isAPIAuthorized(opContext, RELATIONSHIP, READ)) {
       throw new UnauthorizedException(
@@ -90,13 +105,15 @@ public abstract class GenericRelationshipController {
         graphService.scrollRelatedEntities(
             opContext,
             null,
+            QueryUtils.EMPTY_FILTER,
             null,
-            null,
-            null,
-            List.of(relationshipType),
-            new RelationshipFilter().setDirection(RelationshipDirection.UNDIRECTED),
+            QueryUtils.EMPTY_FILTER,
+            Set.of(relationshipType),
+            QueryUtils.newRelationshipFilter(
+                QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
             Edge.EDGE_SORT_CRITERION,
             scrollId,
+            pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count,
             null,
             null);
@@ -122,7 +139,7 @@ public abstract class GenericRelationshipController {
 
     return ResponseEntity.ok(
         GenericScrollResult.<GenericRelationship>builder()
-            .results(toGenericRelationships(result.getEntities()))
+            .results(ScrollUtils.toGenericRelationships(result.getEntities()))
             .scrollId(result.getScrollId())
             .build());
   }
@@ -148,7 +165,11 @@ public abstract class GenericRelationshipController {
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
-          Boolean includeSoftDelete) {
+          Boolean includeSoftDelete,
+      @RequestParam(value = "sliceId", required = false) Integer sliceId,
+      @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
+      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
+          String pitKeepAlive) {
 
     final RelatedEntitiesScrollResult result;
 
@@ -161,11 +182,19 @@ public abstract class GenericRelationshipController {
                         authentication.getActor().toUrnStr(),
                         request,
                         "getRelationshipsByEntity",
-                        List.of()),
+                        List.of())
+                    .withUsageOperation(UsageOperation.METADATA_READ),
                 authorizationChain,
                 authentication,
                 true)
-            .withSearchFlags(f -> f.setIncludeSoftDeleted(includeSoftDelete));
+            .withSearchFlags(
+                f ->
+                    f.setIncludeSoftDeleted(includeSoftDelete)
+                        .setSliceOptions(
+                            sliceId != null && sliceMax != null
+                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                : null,
+                            SetMode.IGNORE_NULL));
 
     if (!AuthUtil.isAPIAuthorizedUrns(
         opContext, RELATIONSHIP, READ, List.of(UrnUtils.getUrn(entityUrn)))) {
@@ -182,17 +211,17 @@ public abstract class GenericRelationshipController {
           graphService.scrollRelatedEntities(
               opContext,
               null,
+              QueryUtils.EMPTY_FILTER,
               null,
-              null,
-              null,
+              QueryUtils.newFilter("urn", entityUrn),
               relationshipTypes.length > 0 && !relationshipTypes[0].equals("*")
-                  ? Arrays.stream(relationshipTypes).toList()
-                  : List.of(),
-              new RelationshipFilter()
-                  .setDirection(RelationshipDirection.UNDIRECTED)
-                  .setOr(QueryUtils.newFilter("destination.urn", entityUrn).getOr()),
+                  ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
+                  : Set.of(),
+              QueryUtils.newRelationshipFilter(
+                  QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
               Edge.EDGE_SORT_CRITERION,
               scrollId,
+              pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
               count,
               null,
               null);
@@ -200,17 +229,17 @@ public abstract class GenericRelationshipController {
           graphService.scrollRelatedEntities(
               opContext,
               null,
+              QueryUtils.newFilter("urn", entityUrn),
               null,
-              null,
-              null,
+              QueryUtils.EMPTY_FILTER,
               relationshipTypes.length > 0 && !relationshipTypes[0].equals("*")
-                  ? Arrays.stream(relationshipTypes).toList()
-                  : List.of(),
-              new RelationshipFilter()
-                  .setDirection(RelationshipDirection.UNDIRECTED)
-                  .setOr(QueryUtils.newFilter("source.urn", entityUrn).getOr()),
+                  ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
+                  : Set.of(),
+              QueryUtils.newRelationshipFilter(
+                  QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
               Edge.EDGE_SORT_CRITERION,
               scrollId,
+              pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
               count,
               null,
               null);
@@ -238,23 +267,57 @@ public abstract class GenericRelationshipController {
 
     return ResponseEntity.ok(
         GenericScrollResult.<GenericRelationship>builder()
-            .results(toGenericRelationships(result.getEntities()))
+            .results(ScrollUtils.toGenericRelationships(result.getEntities()))
             .scrollId(result.getScrollId())
             .build());
   }
 
-  private List<GenericRelationship> toGenericRelationships(List<RelatedEntities> relatedEntities) {
-    return relatedEntities.stream()
-        .map(
-            result -> {
-              Urn source = UrnUtils.getUrn(result.getSourceUrn());
-              Urn dest = UrnUtils.getUrn(result.getDestinationUrn());
-              return GenericRelationship.builder()
-                  .relationshipType(result.getRelationshipType())
-                  .source(GenericRelationship.GenericNode.fromUrn(source))
-                  .destination(GenericRelationship.GenericNode.fromUrn(dest))
-                  .build();
-            })
-        .collect(Collectors.toList());
+  /**
+   * Scrolls relationships with configurable filters on source/destination entity types and edges.
+   *
+   * @param relationshipTypes relationship types to filter on (default all)
+   * @param sourceTypes entity types to filter on for source
+   * @param destinationTypes entity types to filter on for destination
+   * @param count number of results
+   * @param scrollId scrolling id
+   * @param body request body containing sourceFilter, destinationFilter, and edgeFilter
+   * @return list of relation edges
+   */
+  @PostMapping(value = "/scroll", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(
+      summary =
+          "Scroll relationships with configurable filters on source/destination types and edges.")
+  public ResponseEntity<GenericScrollResult<GenericRelationship>> scrollRelationships(
+      HttpServletRequest request,
+      @RequestParam(value = "relationshipTypes", required = false) String[] relationshipTypes,
+      @RequestParam(value = "sourceTypes", required = false) String[] sourceTypes,
+      @RequestParam(value = "destinationTypes", required = false) String[] destinationTypes,
+      @RequestParam(value = "direction", defaultValue = "OUTGOING") String direction,
+      @RequestParam(value = "count", defaultValue = "10") Integer count,
+      @RequestParam(value = "scrollId", required = false) String scrollId,
+      @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
+          Boolean includeSoftDelete,
+      @RequestParam(value = "sliceId", required = false) Integer sliceId,
+      @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
+      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
+          String pitKeepAlive,
+      @RequestBody @Nonnull ScrollRelationshipsRequestBody body) {
+    return ScrollUtils.doScrollRelationships(
+        systemOperationContext,
+        authorizationChain,
+        graphService,
+        request,
+        "scrollRelationships",
+        relationshipTypes,
+        sourceTypes,
+        destinationTypes,
+        direction,
+        count,
+        scrollId,
+        includeSoftDelete,
+        sliceId,
+        sliceMax,
+        pitKeepAlive,
+        body);
   }
 }

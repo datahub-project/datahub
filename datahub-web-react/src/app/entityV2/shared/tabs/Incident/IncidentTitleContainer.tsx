@@ -1,10 +1,11 @@
-import React, { Dispatch, SetStateAction } from 'react';
 import { Typography } from 'antd';
+import React, { Dispatch, SetStateAction } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { CreateIncidentButton } from '@app/entityV2/shared/tabs/Incident/CreateIncidentButton';
+import { EntityStagedForIncident } from '@app/entityV2/shared/tabs/Incident/types';
 import { EntityPrivileges } from '@src/types.generated';
-import { colors } from '@src/alchemy-components';
-import { EntityStagedForIncident } from './types';
-import { CreateIncidentButton } from './CreateIncidentButton';
 
 const TitleContainer = styled.div`
     display: flex;
@@ -25,7 +26,7 @@ const IncidentListTitle = styled.div`
 
 const SubTitle = styled(Typography.Text)`
     font-size: 14px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const IncidentTitleContainer = ({
@@ -35,13 +36,14 @@ export const IncidentTitleContainer = ({
 }: {
     privileges: EntityPrivileges;
     setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
-    setEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident>>;
 }) => {
+    const { t } = useTranslation('entity.profile.incident');
     return (
         <TitleContainer>
             <div className="left-section">
-                <IncidentListTitle>Incidents</IncidentListTitle>
-                <SubTitle>View and manage ongoing data incidents for this asset</SubTitle>
+                <IncidentListTitle>{t('list.title')}</IncidentListTitle>
+                <SubTitle>{t('list.subtitle')}</SubTitle>
             </div>
             <CreateIncidentButton
                 privileges={privileges}

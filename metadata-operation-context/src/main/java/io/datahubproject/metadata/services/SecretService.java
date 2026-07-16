@@ -1,7 +1,19 @@
 package io.datahubproject.metadata.services;
 
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+
+import com.linkedin.common.urn.Urn;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.aspect.SystemAspect;
+import io.datahubproject.metadata.context.ActorContext;
+import io.datahubproject.metadata.context.AgentClass;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -10,33 +22,372 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.crypto.Cipher;
+import javax.crypto.Mac;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class SecretService {
   private static final int LOWERCASE_ASCII_START = 97;
   private static final int LOWERCASE_ASCII_END = 122;
   public static final String HASHING_ALGORITHM = "SHA-256";
+
+  // GCM constants - matching AWS encryption standards
+  private static final String AES_GCM_ALGORITHM = "AES/GCM/NoPadding";
+  private static final String AES_ALGORITHM = "AES";
+  private static final int GCM_IV_LENGTH = 12; // 96 bits (AWS standard)
+  private static final int GCM_TAG_LENGTH = 128; // 128 bits (AWS standard)
+  private static final int AES_KEY_SIZE = 256; // 256 bits (AWS-256 standard)
+
+  // Key derivation constants
+  private static final String HMAC_ALGORITHM = "HmacSHA256";
+  private static final String KEY_DERIVATION_INFO = "DataHub-AES-GCM-Key";
+
+  // Version prefix to identify new encryption format
+  private static final String VERSION_PREFIX = "v2:";
 
   private final String _secret;
   private final SecureRandom _secureRandom;
   private final Base64.Encoder _encoder;
   private final Base64.Decoder _decoder;
   private final MessageDigest _messageDigest;
+  private final SecretKeySpec _derivedKey;
+  private final boolean v1AlgorithmEnabled;
+  private final CallerGuardMode callerGuardMode;
 
-  public SecretService(final String secret) {
+  public enum CallerGuardMode {
+    ENFORCE,
+    AUDIT,
+    DISABLED
+  }
+
+  public SecretService(final String secret, final boolean v1AlgorithmEnabled) {
+    this(secret, v1AlgorithmEnabled, CallerGuardMode.ENFORCE);
+  }
+
+  public SecretService(
+      final String secret,
+      final boolean v1AlgorithmEnabled,
+      final CallerGuardMode callerGuardMode) {
     _secret = secret;
     _secureRandom = new SecureRandom();
     _encoder = Base64.getEncoder();
     _decoder = Base64.getDecoder();
+    this.v1AlgorithmEnabled = v1AlgorithmEnabled;
+    this.callerGuardMode = callerGuardMode;
+
     try {
       _messageDigest = MessageDigest.getInstance(HASHING_ALGORITHM);
     } catch (NoSuchAlgorithmException e) {
       throw new RuntimeException("Unable to create MessageDigest", e);
     }
+
+    // Derive key using HMAC-based key derivation (deterministic, no salt needed)
+    _derivedKey = deriveKey(_secret);
   }
 
-  public String encrypt(String value) {
+  /**
+   * Encrypts a value using AES-GCM encryption. The output format is: "v2:base64(iv || ciphertext ||
+   * tag)"
+   *
+   * <p>When a human browser/mobile agent originates the request, the guard logs a warning (even in
+   * ENFORCE mode) rather than throwing — browsers legitimately trigger encrypt on write paths such
+   * as password reset and OIDC config updates.
+   */
+  public String encrypt(@Nullable OperationContext opContext, String value) {
+    enforceCallerPolicy(opContext, "encrypt", false);
+    if (value == null) {
+      throw new IllegalArgumentException("Value to encrypt cannot be null");
+    }
+
+    try {
+      // Generate random IV
+      byte[] iv = new byte[GCM_IV_LENGTH];
+      _secureRandom.nextBytes(iv);
+
+      // Initialize cipher
+      Cipher cipher = Cipher.getInstance(AES_GCM_ALGORITHM);
+      GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+      cipher.init(Cipher.ENCRYPT_MODE, _derivedKey, gcmSpec);
+
+      // Encrypt
+      byte[] ciphertext = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
+
+      // Combine IV and ciphertext
+      ByteBuffer buffer = ByteBuffer.allocate(iv.length + ciphertext.length);
+      buffer.put(iv);
+      buffer.put(ciphertext);
+
+      // Return versioned and encoded result
+      return VERSION_PREFIX + _encoder.encodeToString(buffer.array());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to encrypt value using AES-GCM!", e);
+    }
+  }
+
+  /**
+   * Decrypts a value, supporting both new AES-GCM and legacy AES encryption.
+   *
+   * <p>Throws {@link SecurityException} (in ENFORCE mode) when the caller is a human browser or
+   * mobile agent — decryption should never happen on a user-facing read path.
+   */
+  public String decrypt(@Nullable OperationContext opContext, String encryptedValue) {
+    enforceCallerPolicy(opContext, "decrypt", true);
+    if (encryptedValue == null) {
+      throw new IllegalArgumentException("Encrypted value cannot be null");
+    }
+
+    // Check if this is new format
+    if (!isLegacyFormat(encryptedValue)) {
+      return decryptV2(encryptedValue.substring(VERSION_PREFIX.length()));
+    } else {
+      // Legacy format - use legacy decryption
+      return decryptLegacy(encryptedValue);
+    }
+  }
+
+  /** Decrypts using the new AES-GCM method. */
+  private String decryptV2(String encryptedValue) {
+    try {
+      byte[] combined;
+      try {
+        combined = _decoder.decode(encryptedValue);
+      } catch (IllegalArgumentException e) {
+        throw new RuntimeException("Invalid Base64 encoding in encrypted value", e);
+      }
+
+      // Validate minimum length
+      if (combined.length < GCM_IV_LENGTH + 16) { // IV + min ciphertext + tag
+        throw new RuntimeException("Encrypted value too short for AES-GCM format");
+      }
+
+      // Extract IV and ciphertext
+      ByteBuffer buffer = ByteBuffer.wrap(combined);
+
+      byte[] iv = new byte[GCM_IV_LENGTH];
+      buffer.get(iv);
+
+      byte[] ciphertext = new byte[buffer.remaining()];
+      buffer.get(ciphertext);
+
+      // Initialize cipher
+      Cipher cipher = Cipher.getInstance(AES_GCM_ALGORITHM);
+      GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+      cipher.init(Cipher.DECRYPT_MODE, _derivedKey, gcmSpec);
+
+      // Decrypt
+      byte[] plaintext = cipher.doFinal(ciphertext);
+      return new String(plaintext, StandardCharsets.UTF_8);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to decrypt value using AES-GCM!", e);
+    }
+  }
+
+  /** Legacy decryption method for backward compatibility. */
+  private String decryptLegacy(String encryptedValue) {
+    if (!v1AlgorithmEnabled) {
+      throw new IllegalArgumentException(
+          "Legacy v1 decryption is disabled. Set SECRET_SERVICE_V1_ALGORITHM_ENABLED=true to enable.");
+    }
+
+    try {
+      SecretKeySpec secretKey = null;
+      byte[] key;
+      MessageDigest sha = null;
+      try {
+        key = _secret.getBytes(StandardCharsets.UTF_8);
+        sha = MessageDigest.getInstance("SHA-1");
+        key = sha.digest(key);
+        key = Arrays.copyOf(key, 16);
+        secretKey = new SecretKeySpec(key, "AES");
+      } catch (NoSuchAlgorithmException e) {
+        throw new RuntimeException("Failed to create legacy key", e);
+      }
+      Cipher cipher = Cipher.getInstance("AES");
+      cipher.init(Cipher.DECRYPT_MODE, secretKey);
+      return new String(cipher.doFinal(_decoder.decode(encryptedValue)));
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to decrypt value using legacy method!", e);
+    }
+  }
+
+  /**
+   * Derives a 256-bit key using HMAC-based key derivation. This is deterministic and doesn't
+   * require storing a salt.
+   */
+  private SecretKeySpec deriveKey(String secret) {
+    try {
+      // Use HMAC-SHA256 for key derivation
+      Mac mac = Mac.getInstance(HMAC_ALGORITHM);
+
+      // First, create an initial key from the secret
+      byte[] initialKey = _messageDigest.digest(secret.getBytes(StandardCharsets.UTF_8));
+      SecretKeySpec macKey = new SecretKeySpec(initialKey, HMAC_ALGORITHM);
+      mac.init(macKey);
+
+      // Derive the final key using HMAC with a fixed info string
+      byte[] derivedKey = mac.doFinal(KEY_DERIVATION_INFO.getBytes(StandardCharsets.UTF_8));
+
+      // Use first 32 bytes (256 bits) for AES-256
+      return new SecretKeySpec(derivedKey, 0, AES_KEY_SIZE / 8, AES_ALGORITHM);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to derive key!", e);
+    }
+  }
+
+  /**
+   * Enforces the caller guard policy using two complementary checks.
+   *
+   * <p>Check 1 (user-agent): denies/warns when the HTTP agent looks like a human browser or mobile
+   * app. Encrypt paths only warn even in ENFORCE mode because browsers legitimately write secrets.
+   *
+   * <p>Check 2 (identity, decrypt only): denies/warns when the session actor is not a trusted
+   * system principal. This is the stronger of the two — it cannot be bypassed by spoofing the
+   * User-Agent header.
+   *
+   * @param opContext the current operation context; null means a background/system path (allowed)
+   * @param op the name of the calling method, used in the log/exception message
+   * @param hardDeny when true, ENFORCE mode throws; when false, ENFORCE mode only logs (encrypt)
+   */
+  private void enforceCallerPolicy(
+      @Nullable OperationContext opContext, String op, boolean hardDeny) {
+    if (callerGuardMode == CallerGuardMode.DISABLED) {
+      return;
+    }
+    if (opContext == null) {
+      return;
+    }
+
+    // Check 1: user-agent based — deny/warn if the request originated from a human browser/mobile
+    RequestContext rc = opContext.getRequestContext();
+    if (rc != null) {
+      AgentClass agentClass = rc.getAgentClass();
+      if (agentClass.isHuman()) {
+        String msg =
+            String.format(
+                "SecretService.%s denied for human agent (api=%s, actor=%s, agent=%s, requestId=%s)",
+                op, rc.getRequestAPI(), rc.getActorUrn(), agentClass, rc.getRequestID());
+        if (callerGuardMode == CallerGuardMode.AUDIT || !hardDeny) {
+          log.warn(msg);
+        } else {
+          throw new SecurityException(msg);
+        }
+      }
+    }
+
+    // Check 2: identity based — for decrypt only, deny/warn if the actor is not a trusted system
+    // principal. This catches spoofed User-Agent headers and programmatic non-system callers.
+    if (hardDeny && !isAllowedDecryptActor(opContext)) {
+      ActorContext sessionActor = opContext.getSessionActorContext();
+      String actorUrn = sessionActor != null ? sessionActor.getActorUrn().toString() : "unknown";
+      String msg =
+          String.format(
+              "SecretService.%s denied for non-system actor (actor=%s). "
+                  + "Decrypt is restricted to system principals only.",
+              op, actorUrn);
+      if (callerGuardMode == CallerGuardMode.AUDIT) {
+        log.warn(msg);
+      } else {
+        throw new SecurityException(msg);
+      }
+    }
+  }
+
+  private boolean isAllowedDecryptActor(@Nonnull OperationContext opContext) {
+    if (opContext.isSystemAuth()) {
+      return true;
+    }
+    ActorContext sessionActor = opContext.getSessionActorContext();
+    if (sessionActor == null) {
+      return false;
+    }
+    Urn actorUrn = sessionActor.getActorUrn();
+    if (actorUrn == null) {
+      return false;
+    }
+    String actorUrnStr = actorUrn.toString();
+    if (SYSTEM_ACTOR.equals(actorUrnStr)) {
+      return true;
+    }
+    return isSystemCorpUser(opContext, actorUrn);
+  }
+
+  private boolean isSystemCorpUser(@Nonnull OperationContext opContext, @Nonnull Urn corpUserUrn) {
+    if (!CORP_USER_ENTITY_NAME.equals(corpUserUrn.getEntityType())) {
+      return false;
+    }
+    try {
+      SystemAspect systemAspect =
+          opContext
+              .getAspectRetriever()
+              .getLatestSystemAspect(opContext, corpUserUrn, CORP_USER_INFO_ASPECT_NAME);
+      if (systemAspect == null) {
+        return false;
+      }
+      CorpUserInfo info = systemAspect.getAspect(CorpUserInfo.class);
+      return info != null && info.isSystem();
+    } catch (Exception e) {
+      log.debug("Failed to load CorpUserInfo for {} — deny decrypt", corpUserUrn, e);
+      return false;
+    }
+  }
+
+  /** Generates a URL-safe token. */
+  public String generateUrlSafeToken(int length) {
+    return _secureRandom
+        .ints(length, LOWERCASE_ASCII_START, LOWERCASE_ASCII_END + 1)
+        .mapToObj(i -> String.valueOf((char) i))
+        .collect(Collectors.joining());
+  }
+
+  /** Hashes a string using SHA-256. */
+  public String hashString(@Nonnull final String str) {
+    byte[] hashedBytes = _messageDigest.digest(str.getBytes(StandardCharsets.UTF_8));
+    return _encoder.encodeToString(hashedBytes);
+  }
+
+  /** Generates a cryptographically secure salt. */
+  public byte[] generateSalt(int length) {
+    byte[] randomBytes = new byte[length];
+    _secureRandom.nextBytes(randomBytes);
+    return randomBytes;
+  }
+
+  /**
+   * Creates a hashed password with salt. Note: This still uses salt for password hashing, which is
+   * different from encryption.
+   */
+  public String getHashedPassword(@Nonnull byte[] salt, @Nonnull String password)
+      throws IOException {
+    byte[] saltedPassword = saltPassword(salt, password);
+    byte[] hashedPassword = _messageDigest.digest(saltedPassword);
+    return _encoder.encodeToString(hashedPassword);
+  }
+
+  /** Combines salt and password bytes. */
+  byte[] saltPassword(@Nonnull byte[] salt, @Nonnull String password) throws IOException {
+    byte[] passwordBytes = password.getBytes(StandardCharsets.UTF_8);
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    byteArrayOutputStream.write(salt);
+    byteArrayOutputStream.write(passwordBytes);
+    return byteArrayOutputStream.toByteArray();
+  }
+
+  /** Checks if an encrypted value uses the legacy format. */
+  public boolean isLegacyFormat(String encryptedValue) {
+    return !encryptedValue.startsWith(VERSION_PREFIX);
+  }
+
+  /**
+   * Encrypts using legacy method - for testing/comparison only.
+   *
+   * @deprecated Use encrypt() instead
+   */
+  @Deprecated
+  String encryptLegacy(String value) {
     try {
       SecretKeySpec secretKey = null;
       byte[] key;
@@ -56,60 +407,5 @@ public class SecretService {
     } catch (Exception e) {
       throw new RuntimeException("Failed to encrypt value using provided secret!", e);
     }
-  }
-
-  public String decrypt(String encryptedValue) {
-    try {
-      SecretKeySpec secretKey = null;
-      byte[] key;
-      MessageDigest sha = null;
-      try {
-        key = _secret.getBytes(StandardCharsets.UTF_8);
-        sha = MessageDigest.getInstance("SHA-1");
-        key = sha.digest(key);
-        key = Arrays.copyOf(key, 16);
-        secretKey = new SecretKeySpec(key, "AES");
-      } catch (NoSuchAlgorithmException e) {
-        e.printStackTrace();
-      }
-      Cipher cipher = Cipher.getInstance("AES");
-      cipher.init(Cipher.DECRYPT_MODE, secretKey);
-      return new String(cipher.doFinal(_decoder.decode(encryptedValue)));
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to decrypt value using provided secret!", e);
-    }
-  }
-
-  public String generateUrlSafeToken(int length) {
-    return _secureRandom
-        .ints(length, LOWERCASE_ASCII_START, LOWERCASE_ASCII_END + 1)
-        .mapToObj(i -> String.valueOf((char) i))
-        .collect(Collectors.joining());
-  }
-
-  public String hashString(@Nonnull final String str) {
-    byte[] hashedBytes = _messageDigest.digest(str.getBytes());
-    return _encoder.encodeToString(hashedBytes);
-  }
-
-  public byte[] generateSalt(int length) {
-    byte[] randomBytes = new byte[length];
-    _secureRandom.nextBytes(randomBytes);
-    return randomBytes;
-  }
-
-  public String getHashedPassword(@Nonnull byte[] salt, @Nonnull String password)
-      throws IOException {
-    byte[] saltedPassword = saltPassword(salt, password);
-    byte[] hashedPassword = _messageDigest.digest(saltedPassword);
-    return _encoder.encodeToString(hashedPassword);
-  }
-
-  byte[] saltPassword(@Nonnull byte[] salt, @Nonnull String password) throws IOException {
-    byte[] passwordBytes = password.getBytes();
-    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-    byteArrayOutputStream.write(salt);
-    byteArrayOutputStream.write(passwordBytes);
-    return byteArrayOutputStream.toByteArray();
   }
 }

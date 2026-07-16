@@ -1,19 +1,21 @@
 import React from 'react';
 import styled from 'styled-components';
-import { colors } from '@src/alchemy-components';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : '#dcdcdc')};
-    background-color: ${(props) => (props.$isShowNavBarRedesign ? colors.white : '#171723')};
+    color: ${(props) => props.theme.colors.textSecondary};
+    background-color: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bgSurfaceDarker};
     opacity: 0.9;
-    border-color: black;
+    border-color: ${(props) => props.theme.colors.border};
     border-radius: 6px;
-    border: 1px solid ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : '#dcdcdc')};
+    border: 1px solid ${(props) => props.theme.colors.border};
     padding-right: 6px;
     padding-left: 6px;
     margin-right: 4px;
     margin-left: 4px;
+    height: 24px;
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
@@ -27,7 +29,7 @@ const Letter = styled.span<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        color: ${colors.gray[1700]};
+        color: ${props.theme.colors.textSecondary};
         text-align: center;
         line-height: 23px;
     `}
@@ -38,7 +40,9 @@ export const CommandK = () => {
 
     return (
         <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
+            {/* eslint-disable-next-line i18next/no-literal-string */}
             <Letter $isShowNavBarRedesign={isShowNavBarRedesign}>⌘</Letter>
+            {/* eslint-disable-next-line i18next/no-literal-string */}
             <Letter $isShowNavBarRedesign={isShowNavBarRedesign}>K</Letter>
         </Container>
     );

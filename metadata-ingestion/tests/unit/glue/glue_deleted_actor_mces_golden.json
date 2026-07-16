@@ -18,7 +18,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -35,7 +35,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -52,7 +52,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -71,7 +71,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -88,7 +88,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1622635619000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1622635619000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -128,6 +151,12 @@
                         },
                         "name": "test_jsons_markers",
                         "qualifiedName": "arn:aws:glue:eu-east-1:795586375822:table/test-database/test_jsons_markers",
+                        "created": {
+                            "time": 1622635619000
+                        },
+                        "lastModified": {
+                            "time": 1622635619000
+                        },
                         "tags": []
                     }
                 },
@@ -165,8 +194,7 @@
                                 },
                                 "nativeDataType": "array<struct<name:string,position:array<double>,location:array<double>>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name",
@@ -178,8 +206,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].position",
@@ -195,8 +222,7 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].location",
@@ -212,8 +238,7 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -243,7 +268,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -262,7 +287,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -279,7 +304,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -301,7 +326,30 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1622564093000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1622564093000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -341,6 +389,12 @@
                         },
                         "name": "test_parquet",
                         "qualifiedName": "arn:aws:glue:eu-east-1:795586375822:table/test-database/test_parquet",
+                        "created": {
+                            "time": 1622564093000
+                        },
+                        "lastModified": {
+                            "time": 1622564093000
+                        },
                         "tags": []
                     }
                 },
@@ -374,8 +428,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].quarter",
@@ -387,8 +440,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].month",
@@ -400,8 +452,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].dayofmonth",
@@ -413,8 +464,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
@@ -426,8 +476,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -457,7 +506,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -476,7 +525,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -493,7 +542,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -515,24 +564,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "statefulpipeline"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }
@@ -549,7 +581,241 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "glue-2020_04_14-07_00_00",
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_iceberg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1622564093000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1622564093000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_iceberg,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "previous_metadata_location": "s3://crawler-public-us-west-2/flight/iceberg/metadata/00006-1cbe9a83-a663-4494-a97d-925660cf7780.metadata.json",
+                            "target_table_region": "us-east-1",
+                            "metadata_location": "s3://crawler-public-us-west-2/flight/iceberg/metadata/00007-4041d9f9-51f7-4887-8801-26a5d003d3d5.metadata.json",
+                            "table_type": "ICEBERG",
+                            "Location": "s3://crawler-public-us-west-2/flight/iceberg/",
+                            "AdditionalLocations": "['s3://crawler-public-us-west-2/flight/iceberg/data']",
+                            "Compressed": "False",
+                            "NumberOfBuckets": "0",
+                            "SortColumns": "[]",
+                            "StoredAsSubDirectories": "False"
+                        },
+                        "name": "test_iceberg",
+                        "qualifiedName": "arn:aws:glue:eu-east-1:795586375822:table/test-database/test_iceberg",
+                        "created": {
+                            "time": 1622564093000
+                        },
+                        "lastModified": {
+                            "time": 1622564093000
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test-database.test_iceberg",
+                        "platform": "urn:li:dataPlatform:glue",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=int].yr",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].quarter",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].month",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].dayofmonth",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:glue"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:owner",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_iceberg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_iceberg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_iceberg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+                    "urn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "statefulpipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00-xds5dj",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "statefulpipeline"
     }

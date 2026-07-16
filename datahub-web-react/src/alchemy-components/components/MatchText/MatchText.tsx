@@ -1,15 +1,22 @@
-import React from 'react';
-import { Text } from '../Text';
-import { matchTextDefaults } from './defaults';
-import { MatchTextProps } from './types';
-import { annotateHighlightedText } from './utils';
+import React, { useMemo } from 'react';
+
+import { matchTextDefaults } from '@components/components/MatchText/defaults';
+import { MatchTextProps } from '@components/components/MatchText/types';
+import { annotateHighlightedText } from '@components/components/MatchText/utils';
+import { Text, textDefaults } from '@components/components/Text';
 
 export default function MatchText({
     text,
     highlight,
     highlightedTextProps = matchTextDefaults.highlightedTextProps,
+    type = textDefaults.type,
+    color = textDefaults.color,
+    size = textDefaults.size,
+    weight = textDefaults.weight,
     ...props
 }: MatchTextProps) {
+    const textProps = useMemo(() => ({ ...props, type, color, size, weight }), [type, color, size, weight, props]);
+
     const markedTextParts = annotateHighlightedText(text, highlight);
 
     const textPartsWithKeys = markedTextParts.map((part, index) => ({
@@ -18,11 +25,11 @@ export default function MatchText({
     }));
 
     return (
-        <Text {...props}>
+        <Text {...textProps}>
             {textPartsWithKeys.map((part) => {
                 if (part.highlighted)
                     return (
-                        <Text {...{ ...props, ...highlightedTextProps }} type="span" key={part.key}>
+                        <Text {...{ ...textProps, ...highlightedTextProps }} type="span" key={part.key}>
                             {part.text}
                         </Text>
                     );

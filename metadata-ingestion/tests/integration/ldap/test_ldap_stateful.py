@@ -3,10 +3,10 @@ import time
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -88,7 +88,7 @@ def ldap_ingest_common(
             return pipeline
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_ldap_stateful(
     docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph

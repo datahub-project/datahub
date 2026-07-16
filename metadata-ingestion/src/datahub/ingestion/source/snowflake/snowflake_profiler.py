@@ -1,12 +1,20 @@
 import logging
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Union
 
 from snowflake.sqlalchemy import snowdialect
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.sql import sqltypes
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+from datahub.ingestion.source.profiling.common import (
+    create_datahub_ge_profiler,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -132,15 +140,14 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> "DatahubGEProfiler":
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
         assert db_name
 
-        url = self.config.get_sql_alchemy_url(
-            database=db_name,
-            username=self.config.username,
-            password=self.config.password,
-            role=self.config.role,
-        )
+        url = self.config.get_sql_alchemy_url(database=db_name)
 
         logger.debug(f"sql_alchemy_url={url}")
 
@@ -152,12 +159,27 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         conn = engine.connect()
         inspector = inspect(conn)
 
-        return DatahubGEProfiler(
-            conn=inspector.bind,
-            report=self.report,
-            config=self.config.profiling,
-            platform=self.platform,
-        )
+        if self.config.profiling.method == "sqlalchemy":
+            logger.info(
+                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+            )
+            return SQLAlchemyProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        else:
+            logger.info(
+                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
+            )
+            return create_datahub_ge_profiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+            )
 
     def callable_for_db_connection(self, db_name: str) -> Callable:
         schema_name = self.database_default_schema.get(db_name)

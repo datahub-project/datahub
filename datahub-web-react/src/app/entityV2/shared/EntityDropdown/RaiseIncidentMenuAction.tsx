@@ -1,15 +1,25 @@
-import React, { useState } from 'react';
-import { WarningOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
-import { ActionMenuItem } from './styledComponents';
-import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
-import { getEntityPath } from '../containers/profile/utils';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import {
+    ActionMenuItem,
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { AddIncidentModal } from '@app/entityV2/shared/tabs/Incident/components/AddIncidentModal';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+// Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
+const INCIDENTS_TAB_NAME = 'Incidents';
 
 export default function RaiseIncidentMenuAction() {
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const { urn, entityType } = useEntityData();
     const refetchForEntity = useRefetch();
     const history = useHistory();
@@ -18,9 +28,9 @@ export default function RaiseIncidentMenuAction() {
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
     return (
-        <Tooltip placement="bottom" title="Raise an incident">
+        <Tooltip placement="bottom" title={t('menuAction.raiseIncidentTooltip')}>
             <ActionMenuItem key="incident" disabled={false} onClick={() => setIsRaiseIncidentModalVisible(true)}>
-                <WarningOutlined style={{ display: 'flex' }} />
+                <Warning size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </ActionMenuItem>
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal
@@ -38,7 +48,7 @@ export default function RaiseIncidentMenuAction() {
                                     entityRegistry,
                                     false,
                                     isHideSiblingMode,
-                                    'Incidents',
+                                    INCIDENTS_TAB_NAME,
                                 )}`,
                             );
                         }) as any

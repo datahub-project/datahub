@@ -1,7 +1,5 @@
 import React from 'react';
-
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../../../constants';
 
 const Title = styled.div`
     padding: 0;
@@ -9,7 +7,7 @@ const Title = styled.div`
     margin-bottom: 4px;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
     font-size: 16px;
     margin-bottom: 18px;

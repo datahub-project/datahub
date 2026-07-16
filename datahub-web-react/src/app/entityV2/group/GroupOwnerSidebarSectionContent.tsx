@@ -1,10 +1,13 @@
+import { Text } from '@components';
 import React, { useState } from 'react';
-import { Typography } from 'antd';
-import { EntityType, Ownership } from '../../../types.generated';
-import { ExpandedOwner } from '../shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { EditOwnersModal } from '../shared/containers/profile/sidebar/Ownership/EditOwnersModal';
-import { ShowMoreSection } from '../shared/sidebarSection/ShowMoreSection';
-import { TagsSection } from '../shared/SidebarStyledComponents';
+import { useTranslation } from 'react-i18next';
+
+import { TagsSection } from '@app/entityV2/shared/SidebarStyledComponents';
+import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { EditOwnersModal } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
+
+import { EntityType, Ownership } from '@types';
 
 type Props = {
     ownership: Ownership;
@@ -23,6 +26,7 @@ export default function GroupOwnerSidebarSectionContent({
     showAddOwnerModal,
     setShowAddOwnerModal,
 }: Props) {
+    const { t } = useTranslation('entity.types');
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
     const ownershipCount = ownership?.owners?.length || 0;
     const ownersEmpty = !ownership?.owners?.length;
@@ -30,9 +34,7 @@ export default function GroupOwnerSidebarSectionContent({
     return (
         <>
             <TagsSection>
-                {ownersEmpty && (
-                    <Typography.Paragraph type="secondary">No group owners added yet.</Typography.Paragraph>
-                )}
+                {ownersEmpty && <Text color="textSecondary">{t('group.noGroupOwnersEmpty')}</Text>}
                 {ownership &&
                     ownership?.owners?.map(
                         (owner, index) =>

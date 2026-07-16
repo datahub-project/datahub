@@ -1,42 +1,39 @@
-import { getContextPath } from '@app/entityV2/shared/containers/profile/header/getContextPath';
-import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
-import { Divider } from 'antd';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import {
-    Container,
-    DataPlatform,
-    DisplayProperties,
-    Domain,
-    EntityType,
-    Post,
-} from '../../../../../../types.generated';
-import { EntitySubHeaderSection, GenericEntityProperties } from '../../../../../entity/shared/types';
-import ContextPath from '../../../../../previewV2/ContextPath';
-import HealthIcon from '../../../../../previewV2/HealthIcon';
-import NotesIcon from '../../../../../previewV2/NotesIcon';
-import useContentTruncation from '../../../../../shared/useContentTruncation';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { IconStyleType } from '../../../../Entity';
-import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
-import { DeprecationIcon } from '../../../components/styled/DeprecationIcon';
-import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
-import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
-import { EntityBackButton } from '../sidebar/EntityBackButton';
-import EntityTitleLoadingSection from './EntityHeaderLoadingSection';
-import EntityName from './EntityName';
-import { GlossaryPreviewCardDecoration } from './GlossaryPreviewCardDecoration';
-import IconColorPicker from './IconPicker/IconColorPicker';
-import ContainerIcon from './PlatformContent/ContainerIcon';
-import PlatformHeaderIcons from './PlatformContent/PlatformHeaderIcons';
-import StructuredPropertyBadge from './StructuredPropertyBadge';
-import { getDisplayedEntityType, getEntityPlatforms } from './utils';
 
-export const TitleWrapper = styled.div`
+import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
+import EntityMenuActions, { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
+import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
+import IconColorPicker from '@app/entityV2/shared/containers/profile/header/IconPicker/IconColorPicker';
+import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
+import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
+import { getDisplayedEntityType, getEntityPlatforms } from '@app/entityV2/shared/containers/profile/header/utils';
+import { EntityBackButton } from '@app/entityV2/shared/containers/profile/sidebar/EntityBackButton';
+import EntityActions, { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
+import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
+import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import ContextPath from '@app/previewV2/ContextPath';
+import HealthIcon from '@app/previewV2/HealthIcon';
+import NotesIcon from '@app/previewV2/NotesIcon';
+import { useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DataPlatform, DisplayProperties, Domain, EntityType, Post } from '@types';
+
+const TitleWrapper = styled.div`
+    min-width: 0;
+
     display: flex;
-    justify-content: start;
     align-items: center;
-    padding: 0px 0px 0px 0px;
+    justify-content: start;
+    padding: 0;
 
     .ant-typography-edit-content {
         padding-top: 7px;
@@ -44,6 +41,8 @@ export const TitleWrapper = styled.div`
     }
 `;
 const EntityDetailsContainer = styled.div`
+    min-width: 0;
+
     display: flex;
     flex-direction: column;
     gap: 0px;
@@ -60,7 +59,7 @@ const TitleRow = styled(HeaderRow)`
     font-size: 16px;
 `;
 
-export const Row = styled.div`
+const Row = styled.div`
     padding: 18px;
     display: flex;
     flex-direction: row;
@@ -70,42 +69,52 @@ export const Row = styled.div`
     overflow: hidden;
 `;
 
-export const LeftColumn = styled.div`
-    flex: 1;
+const LeftColumn = styled.div`
+    min-width: 0;
+
     display: flex;
-    flex-direction: column;
     justify-content: center;
-    align-items: start;
-    flex-grow: 1;
-    flex-shrink: 1;
+    align-items: center;
 `;
 
-export const RightColumn = styled.div`
+const RightColumn = styled.div`
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: end;
     justify-content: center;
+    overflow: hidden;
+    padding-left: 8px;
 `;
 
-export const TopButtonsWrapper = styled.div`
+const TopButtonsWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
     gap: 8px;
     max-width: 100%;
-`;
-
-export const StyledDivider = styled(Divider)`
-    &&& {
-        margin: 0px;
-        padding: 0px;
-    }
+    width: 100%;
 `;
 
 const HeaderIconsWrapper = styled.span`
     margin-right: 8px;
 `;
 
-export type Props = {
+const IconWrapper = styled.div<{ $clickable: boolean }>`
+    margin-right: 12px;
+    border-radius: 10px;
+    ${(props) =>
+        props.$clickable &&
+        `
+        cursor: pointer;
+        transition: opacity 0.15s ease;
+
+        &:hover {
+            opacity: 0.85;
+        }
+    `}
+`;
+
+type Props = {
     urn: string;
     entityType: EntityType;
     entityUrl: string;
@@ -138,31 +147,44 @@ export const DefaultEntityHeader = ({
 }: Props) => {
     const [showIconPicker, setShowIconPicker] = useState(false);
     const entityRegistry = useEntityRegistry();
-
-    const { contentRef, isContentTruncated } = useContentTruncation(entityData);
-    const typeIcon =
-        entityType === EntityType.Container ? (
-            <ContainerIcon container={entityData as Container} />
-        ) : (
-            entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT)
-        );
+    const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
+    const generateDomainColor = useGenerateDomainColorFromPalette();
 
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
 
-    const contextPath = getContextPath(entityData);
+    const isGlossaryNode = entityType === EntityType.GlossaryNode;
+    const isGlossaryTerm = entityType === EntityType.GlossaryTerm;
+    const isGlossaryEntity = isGlossaryNode || isGlossaryTerm;
+    const isDomainEntity = entityType === EntityType.Domain;
+
+    // The color currently displayed in the UI: prefer the saved colorHex, otherwise the
+    // deterministic palette color we generate from the URN. We pass this into the picker so
+    // editing always starts from "the color you see" — not the gray default.
+    //
+    // For glossary terms and nodes we route through the canonical
+    // `resolveGlossaryEntityColor` so an entity with no explicitly-picked color inherits its
+    // root group's color (matching the sidebar, list cards, and the term-pill rendered on
+    // associated entities). Without this, the header would jump straight to a palette slot
+    // derived from the entity's own URN and look unrelated to the group on its own profile.
+    let resolvedCurrentColor: string | undefined;
+    if (isGlossaryTerm || isGlossaryNode) {
+        resolvedCurrentColor = resolveGlossaryEntityColor(
+            { urn, parentNodes: entityData?.parentNodes ?? null, displayProperties },
+            generateGlossaryColor,
+        );
+    } else if (isDomainEntity) {
+        resolvedCurrentColor = displayProperties?.colorHex || generateDomainColor(urn);
+    } else {
+        resolvedCurrentColor = displayProperties?.colorHex || undefined;
+    }
+
+    const contextPath = getParentEntities(entityData, entityType);
     return (
         <>
             <Row>
-                {!loading && (entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
-                    <GlossaryPreviewCardDecoration
-                        urn={urn}
-                        entityData={entityData}
-                        displayProperties={displayProperties}
-                    />
-                )}
-                <EntityBackButton />
                 <LeftColumn>
+                    <EntityBackButton />
                     {(loading && <EntityTitleLoadingSection />) || (
                         <>
                             <TitleWrapper>
@@ -172,26 +194,34 @@ export const DefaultEntityHeader = ({
                                         platforms={platforms as DataPlatform[]}
                                     />
                                 </HeaderIconsWrapper>
-                                {(isIconEditable || isColorEditable) && (
-                                    <div
-                                        style={{
-                                            cursor: 'pointer',
-                                            marginRight: 12,
-                                        }}
+                                {(isGlossaryEntity || isDomainEntity) && (
+                                    <IconWrapper
+                                        $clickable={!!(isIconEditable || isColorEditable)}
+                                        onClick={
+                                            isIconEditable || isColorEditable
+                                                ? () => setShowIconPicker(true)
+                                                : undefined
+                                        }
                                     >
-                                        <DomainColoredIcon
-                                            onClick={() => setShowIconPicker(true)}
-                                            domain={entityData as Domain}
-                                        />
-                                    </div>
+                                        {isGlossaryEntity ? (
+                                            <GlossaryColoredIcon
+                                                color={resolvedCurrentColor || ''}
+                                                icon={isGlossaryTerm ? BookmarkSimple : BookmarksSimple}
+                                                size={40}
+                                            />
+                                        ) : (
+                                            <DomainColoredIcon domain={entityData as Domain} />
+                                        )}
+                                    </IconWrapper>
                                 )}
                                 {showIconPicker && (
                                     <IconColorPicker
                                         name={entityRegistry.getDisplayName(entityType, entityData)}
                                         open={showIconPicker}
                                         onClose={() => setShowIconPicker(false)}
-                                        color={displayProperties?.colorHex}
+                                        color={resolvedCurrentColor}
                                         icon={displayProperties?.icon?.name}
+                                        showIcon={!!isIconEditable}
                                     />
                                 )}
                                 <EntityDetailsContainer>
@@ -216,6 +246,7 @@ export const DefaultEntityHeader = ({
                                         )}
                                         <StructuredPropertyBadge
                                             structuredProperties={entityData?.structuredProperties}
+                                            platformUrn={platform?.urn}
                                         />
                                         <VersioningBadge
                                             versionProperties={entityData?.versionProperties ?? undefined}
@@ -224,14 +255,10 @@ export const DefaultEntityHeader = ({
                                     </TitleRow>
                                     <HeaderRow>
                                         <ContextPath
-                                            instanceId={entityData?.dataPlatformInstance?.instanceId}
-                                            typeIcon={typeIcon}
-                                            type={displayedEntityType}
+                                            displayedEntityType={displayedEntityType}
                                             entityType={entityType}
                                             browsePaths={entityData?.browsePathV2}
                                             parentEntities={contextPath}
-                                            contentRef={contentRef}
-                                            isContentTruncated={isContentTruncated}
                                         />
                                     </HeaderRow>
                                 </EntityDetailsContainer>
@@ -244,7 +271,12 @@ export const DefaultEntityHeader = ({
                         {headerActionItems && (
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
-                        {headerDropdownItems && <EntityMenuActions menuItems={headerDropdownItems} />}
+                        {headerDropdownItems && (
+                            <EntityMenuActions
+                                menuItems={headerDropdownItems}
+                                shouldExternalLinksFillAllAvailableSpace={!headerActionItems}
+                            />
+                        )}
                     </TopButtonsWrapper>
                 </RightColumn>
             </Row>

@@ -1,18 +1,12 @@
 import {
-    DataHubViewType,
-    Entity,
-    EntityType,
-    FacetFilter,
-    FacetFilterInput,
-    LogicalOperator,
-} from '../../../../types.generated';
-import {
     ENTITY_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
-    UnionType,
     FILTER_DELIMITER,
     TYPE_NAMES_FILTER_NAME,
-} from '../../../search/utils/constants';
+    UnionType,
+} from '@app/search/utils/constants';
+
+import { DataHubViewType, Entity, EntityType, FacetFilter, FacetFilterInput, LogicalOperator } from '@types';
 
 /**
  * Extract the special "Entity Type" filter values from a list
@@ -63,7 +57,7 @@ export function convertNestedSubTypeFilter(filters: Array<FacetFilterInput>) {
  * @param filters a list of Facet Filter Inputs representing the view filters. This can include the entity type filter.
  * @param operatorType a logical operator to be used when joining the filters into the View definition.
  */
-export const buildViewDefinition = (filters: Array<FacetFilterInput>, operatorType: LogicalOperator) => {
+const buildViewDefinition = (filters: Array<FacetFilterInput>, operatorType: LogicalOperator) => {
     const convertedFilters = convertNestedSubTypeFilter(filters);
     const entityTypes = extractEntityTypesFilterValues(convertedFilters);
     const filteredFilters = convertedFilters.filter((filter) => filter.field !== ENTITY_FILTER_NAME);

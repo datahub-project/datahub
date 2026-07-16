@@ -3,13 +3,14 @@ import time
 
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import fs_helpers, mce_helpers
+from datahub.testing import mce_helpers
+from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_3
 
 FROZEN_TIME = "2021-12-03 12:00:00"
 
@@ -54,7 +55,7 @@ def loaded_nifi(docker_compose_runner, test_resources_dir):
     cleanup_image("apache/nifi")
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_nifi_ingest_standalone(
     loaded_nifi, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -109,11 +110,11 @@ def test_nifi_ingest_standalone(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources_dir):
-    # Wait for nifi cluster to execute all lineage processors, max wait time 120 seconds
+    # Wait for nifi cluster to execute all lineage processors, max wait time 180 seconds
     url = "http://localhost:9080/nifi-api/flow/process-groups/root"
-    for i in range(23):
+    for i in range(36):
         logging.info("waiting...")
         time.sleep(5)
         resp = requests.get(url)
@@ -125,6 +126,8 @@ def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources
             status = next(s for s in statuses if s["name"] == "Cluster_Site_S3_to_S3")
             if status["aggregateSnapshot"]["flowFilesSent"] >= 1:
                 logging.info(f"Waited for time {i * 5} seconds")
+                # Wait an additional 10 seconds to ensure all provenance events are captured
+                time.sleep(10)
                 break
     test_resources_dir = pytestconfig.rootpath / "tests/integration/nifi"
     # Run the metadata ingestion pipeline.

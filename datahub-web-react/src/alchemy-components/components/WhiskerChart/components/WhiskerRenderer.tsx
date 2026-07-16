@@ -1,9 +1,11 @@
 import { LinearGradient } from '@visx/gradient';
 import { BarRounded } from '@visx/shape';
 import React, { useState } from 'react';
-import { DEFAULT_COLOR_SHEME } from '../constants';
-import { WhiskerMetricType, WhiskerRenderProps } from '../types';
-import MetricPoint from './MetricPoint';
+import { useTheme } from 'styled-components';
+
+import MetricPoint from '@components/components/WhiskerChart/components/MetricPoint';
+import { getDefaultColorScheme } from '@components/components/WhiskerChart/constants';
+import { WhiskerMetricType, WhiskerRenderProps } from '@components/components/WhiskerChart/types';
 
 export default function WhiskerRenderer({
     datum,
@@ -15,6 +17,7 @@ export default function WhiskerRenderer({
     maxToThird,
     max,
 }: WhiskerRenderProps) {
+    const theme = useTheme();
     const [isMedianLineVisible, setIsMedianLineVisible] = useState<boolean>(true);
 
     const maxY = box.y1;
@@ -30,7 +33,7 @@ export default function WhiskerRenderer({
     const leftBarGradientId = `left-gradient-${datum.key}`;
     const rightBarGradientId = `right-gradient-${datum.key}`;
 
-    const colorSheme = datum?.colorShemeSettings ?? DEFAULT_COLOR_SHEME;
+    const colorSheme = datum?.colorShemeSettings ?? getDefaultColorScheme(theme);
 
     const handleMetricOver = (pointX: number, metricType: WhiskerMetricType) => {
         if (metricType === WhiskerMetricType.Median) setIsMedianLineVisible(false);

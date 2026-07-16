@@ -1,26 +1,17 @@
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
-import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
-import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
-import { Avatar } from '@src/alchemy-components';
+
+import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import { IncidentActivitySection } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentActivitySection';
 import {
-    Assertion,
-    AssertionInfo,
-    CorpUser,
-    EntityType,
-    IncidentSourceType,
-    IncidentState,
-    IncidentType,
-} from '@src/types.generated';
-import { Check, Warning } from '@phosphor-icons/react';
-import { IconLabel } from '@src/alchemy-components/components/IconLabel';
-import { IconType } from '@src/alchemy-components/components/IconLabel/types';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+    DEFAULT_MAX_ENTITIES_TO_SHOW,
+    INCIDENT_STATE_TO_ACTIVITY,
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/constant';
 import {
     CategoryText,
     Container,
@@ -32,14 +23,30 @@ import {
     ListContainer,
     ListItemContainer,
     Text,
-} from './styledComponents';
-import CompactMarkdownViewer from '../../Documentation/components/CompactMarkdownViewer';
-import { getAssigneeNamesWithAvatarUrl } from '../utils';
-import { IncidentTableRow } from '../types';
-import { getPlainTextDescriptionFromAssertion } from '../../Dataset/Validations/assertion/profile/summary/utils';
-import { INCIDENT_STATE_TO_ACTIVITY, DEFAULT_MAX_ENTITIES_TO_SHOW } from './constant';
-import { IncidentActivitySection } from './IncidentActivitySection';
-import { getOnOpenAssertionLink } from '../hooks';
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
+import { getOnOpenAssertionLink } from '@app/entityV2/shared/tabs/Incident/hooks';
+import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import { getAssigneeNamesWithAvatarUrl } from '@app/entityV2/shared/tabs/Incident/utils';
+import { Avatar } from '@src/alchemy-components';
+import { IconLabel } from '@src/alchemy-components/components/IconLabel';
+import { IconType } from '@src/alchemy-components/components/IconLabel/types';
+import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel';
+import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
+import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
+import colors from '@src/alchemy-components/theme/foundations/colors';
+import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
+import {
+    Assertion,
+    AssertionInfo,
+    CorpUser,
+    EntityType,
+    IncidentSourceType,
+    IncidentState,
+    IncidentType,
+} from '@src/types.generated';
 
 const ThinDivider = styled(Divider)`
     margin: 12px 0px;
@@ -58,6 +65,8 @@ const IncidentStates = {
 };
 
 export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const [getAssigneeEntities, { data: resolvedAssignees, loading }] = useGetEntitiesLazyQuery();
@@ -172,7 +181,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
         <Container>
             <DescriptionSection>
                 <Header onClick={() => setDescriptionOpen(!isDescriptionOpen)}>
-                    <DetailsLabel>Description</DetailsLabel>
+                    <DetailsLabel>{tl('description')}</DetailsLabel>
                     <CompactMarkdownViewer
                         content={incident?.description || ''}
                         lineLimit={2}
@@ -182,26 +191,26 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
                 </Header>
             </DescriptionSection>
             <DetailsSection>
-                <DetailsLabel>Category</DetailsLabel>
+                <DetailsLabel>{tl('category')}</DetailsLabel>
                 <CategoryText>{categoryName}</CategoryText>
             </DetailsSection>
             <DetailsSection>
-                <DetailsLabel>Priority</DetailsLabel>
+                <DetailsLabel>{t('field.priorityLabel')}</DetailsLabel>
                 <IncidentPriorityLabel
                     priority={incident?.priority}
                     title={incident?.priority ? getCapitalizeWord(incident?.priority) : incident?.priority}
                 />
             </DetailsSection>
             <DetailsSection>
-                <DetailsLabel>Stage</DetailsLabel>
+                <DetailsLabel>{t('field.stageLabel')}</DetailsLabel>
                 <IncidentStagePill stage={incident?.stage} />
             </DetailsSection>
             <DetailsSection>
-                <DetailsLabel>Assignees</DetailsLabel>
+                <DetailsLabel>{t('field.assigneesLabel')}</DetailsLabel>
                 <ListContainer>{renderAssignees(getAssigneeNamesWithAvatarUrl(incident?.assignees))}</ListContainer>
             </DetailsSection>
             <DetailsSection>
-                <DetailsLabel>Linked Assets</DetailsLabel>
+                <DetailsLabel>{t('field.linkedAssetsLabel')}</DetailsLabel>
                 <ListContainer style={{ maxWidth: '30vw' }}>
                     <EntityLinkList
                         entities={incident?.linkedAssets?.slice(0, entityCount)}
@@ -217,7 +226,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
                 </ListContainer>
             </DetailsSection>
             <DetailsSection>
-                <DetailsLabel>State</DetailsLabel>
+                <DetailsLabel>{tl('state')}</DetailsLabel>
                 <CategoryText>
                     <IconLabel
                         style={{ paddingLeft: 8 }}
@@ -230,7 +239,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
 
             {isAssertionFailureIncident ? (
                 <DetailsSection>
-                    <DetailsLabel>Raised By</DetailsLabel>
+                    <DetailsLabel>{t('details.raisedBy')}</DetailsLabel>
                     <Text onClick={() => onClickAssertion()}>{assertionDescription}</Text>
                 </DetailsSection>
             ) : null}

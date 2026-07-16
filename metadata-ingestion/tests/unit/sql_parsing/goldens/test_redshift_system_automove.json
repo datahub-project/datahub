@@ -22,7 +22,11 @@
                 },
                 "native_column_type": "BIGINT"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "COUNT(CAST(1 AS INTEGER)) AS \"aggvar_3\""
+            }
         },
         {
             "downstream": {
@@ -35,9 +39,14 @@
                 },
                 "native_column_type": "BIGINT"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "COUNT(CAST(1 AS INTEGER)) AS \"num_rec\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "CREATE TABLE \"pg_automv\".\"mv_tbl__auto_mv_12708107__0_recomputed\" BACKUP YES DISTSTYLE KEY DISTKEY(\"2\") AS (SELECT COUNT(CAST(? AS INTEGER)) AS \"aggvar_3\", COUNT(CAST(? AS INTEGER)) AS \"num_rec\" FROM \"public\".\"permanent_1\" AS \"permanent_1\" WHERE ((CAST(\"permanent_1\".\"insertxid\" AS BIGINT) <= ?) AND (CAST(\"permanent_1\".\"deletexid\" AS BIGINT) > ?)) OR (CAST(FALSE AS BOOLEAN) AND (CAST(\"permanent_1\".\"insertxid\" AS BIGINT) = ?) AND (CAST(\"permanent_1\".\"deletexid\" AS BIGINT) <> ?)))"

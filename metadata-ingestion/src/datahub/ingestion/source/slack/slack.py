@@ -1,6 +1,5 @@
 import json
 import logging
-import textwrap
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -20,12 +19,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -203,38 +201,31 @@ class SlackSourceConfig(
         description="Bot token for the Slack workspace. Needs `users:read`, `users:read.email`, `users.profile:read`, and `team:read` scopes.",
     )
     enrich_user_metadata: bool = Field(
-        type=bool,
-        default=True,
+        True,
         description="When enabled, will enrich provisioned DataHub users' metadata with information from Slack.",
     )
     ingest_users: bool = Field(
-        type=bool,
-        default=True,
+        True,
         description="Whether to ingest users. When set to true, will ingest all users in the Slack workspace (as platform resources) to simplify user enrichment after they are provisioned on DataHub.",
     )
     api_requests_per_min: int = Field(
-        type=int,
-        default=10,
+        10,
         description="Number of API requests per minute. Low-level config. Do not tweak unless you are facing any issues.",
     )
     ingest_public_channels: bool = Field(
-        type=bool,
-        default=False,
+        False,
         description="Whether to ingest public channels. If set to true needs `channels:read` scope.",
     )
     channels_iteration_limit: int = Field(
-        type=int,
-        default=200,
+        200,
         description="Limit the number of channels to be ingested in a iteration. Low-level config. Do not tweak unless you are facing any issues.",
     )
     channel_min_members: int = Field(
-        type=int,
-        default=2,
+        2,
         description="Ingest channels with at least this many members.",
     )
     should_ingest_archived_channels: bool = Field(
-        type=bool,
-        default=False,
+        False,
         description="Whether to ingest archived channels.",
     )
 
@@ -252,7 +243,7 @@ DATA_PLATFORM_SLACK_URN: str = builder.make_data_platform_urn(PLATFORM_NAME)
 
 @platform_name("Slack")
 @config_class(SlackSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.CERTIFIED)
 class SlackSource(StatefulIngestionSourceBase):
     def __init__(self, ctx: PipelineContext, config: SlackSourceConfig):
         super().__init__(config, ctx)
@@ -267,7 +258,7 @@ class SlackSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = SlackSourceConfig.parse_obj(config_dict)
+        config = SlackSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_slack_client(self) -> WebClient:
@@ -304,14 +295,6 @@ class SlackSource(StatefulIngestionSourceBase):
             lastUpdatedSeconds=user.get("updated"),
         )
         return SlackUserDetails(slack_user_info=user_info)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(
         self,
@@ -494,7 +477,7 @@ class SlackSource(StatefulIngestionSourceBase):
                     mcp=MetadataChangeProposalWrapper(
                         entityUrn=urn_channel,
                         aspect=SubTypesClass(
-                            typeNames=["Slack Channel"],
+                            typeNames=[DatasetSubTypes.SLACK_CHANNEL],
                         ),
                     ),
                 )
@@ -613,6 +596,10 @@ class SlackSource(StatefulIngestionSourceBase):
             ),
         )
 
+    @retry(
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        before_sleep=before_sleep_log(logger, logging.ERROR, True),
+    )
     def get_user_to_be_updated(
         self,
     ) -> Iterable[Tuple[CorpUser, Optional[CorpUserEditableInfoClass]]]:
@@ -633,57 +620,6 @@ class SlackSource(StatefulIngestionSourceBase):
                     user_obj.email = urn_id
             if user_obj.email is not None:
                 yield (user_obj, editable_properties)
-
-    @retry(
-        wait=wait_exponential(multiplier=2, min=4, max=60),
-        before_sleep=before_sleep_log(logger, logging.ERROR, True),
-    )
-    def get_user_to_be_updated_oss(self) -> Iterable[CorpUser]:
-        graphql_query = textwrap.dedent(
-            """
-            query listUsers($input: ListUsersInput!) {
-                listUsers(input: $input) {
-                    total
-                    users {
-                        urn
-                        editableProperties {
-                            email
-                            slack
-                        }
-                    }
-                }
-            }
-        """
-        )
-        start = 0
-        count = 10
-        total = count
-
-        assert self.ctx.graph is not None
-
-        while start < total:
-            variables = {"input": {"start": start, "count": count}}
-            response = self.ctx.graph.execute_graphql(
-                query=graphql_query, variables=variables
-            )
-            list_users = response.get("listUsers", {})
-            total = list_users.get("total", 0)
-            users = list_users.get("users", [])
-            for user in users:
-                user_obj = CorpUser()
-                editable_properties = user.get("editableProperties", {})
-                user_obj.urn = user.get("urn")
-                if user_obj.urn is None:
-                    continue
-                if editable_properties is not None:
-                    user_obj.email = editable_properties.get("email")
-                if user_obj.email is None:
-                    urn_id = Urn.from_string(user_obj.urn).get_entity_id_as_string()
-                    if "@" in urn_id:
-                        user_obj.email = urn_id
-                if user_obj.email is not None:
-                    yield user_obj
-            start += count
 
     def get_report(self) -> SourceReport:
         return self.report

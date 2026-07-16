@@ -1,8 +1,15 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import React from 'react';
-import styled from 'styled-components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Typography } from 'antd';
-import { ClockCircleOutlined } from '@ant-design/icons';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
     BrowsePathV2,
@@ -15,16 +22,10 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+} from '@types';
 
 const StatText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const Preview = ({
@@ -74,11 +75,12 @@ export const Preview = ({
     paths?: EntityPath[];
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
     browsePaths?: BrowsePathV2;
     parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.types');
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataJob, urn)}
@@ -104,8 +106,8 @@ export const Preview = ({
             subHeader={
                 (lastRunTimeMs && [
                     <StatText>
-                        <ClockCircleOutlined style={{ paddingRight: 8 }} />
-                        Last run {toRelativeTimeString(lastRunTimeMs)}
+                        <Clock size={14} color="currentColor" style={{ paddingRight: 8 }} />
+                        {t('dataJob.lastRun', { time: toRelativeTimeString(lastRunTimeMs) })}
                     </StatText>,
                 ]) ||
                 undefined

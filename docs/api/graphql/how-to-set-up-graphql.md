@@ -1,12 +1,16 @@
+---
+description: "Set up a local DataHub deployment for GraphQL development and use the GraphiQL explorer to test queries and mutations."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 # How To Set Up GraphQL
 
-## Preparing Local Datahub Deployment
+## Preparing Local DataHub Deployment
 
 The first thing you'll need to use the GraphQL API is a deployed instance of DataHub with some metadata ingested.
-For more information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For more information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 ## Querying the GraphQL API
 
@@ -31,7 +35,7 @@ For **Production**:
 DataHub provides a browser-based GraphQL Explorer Tool ([GraphiQL](https://github.com/graphql/graphiql)) for live interaction with the GraphQL API. This tool is available at the path `/api/graphiql` (e.g. `https://my-company.datahub.com/api/graphiql`)
 This interface allows you to easily craft queries and mutations against real metadata stored in your live DataHub deployment.
 
-To experiment with GraphiQL before deploying it in your live DataHub deployment, you can access a demo site provided by DataHub at https://demo.datahubproject.io/api/graphiql.
+To experiment with GraphiQL before deploying it in your live DataHub deployment, you can access a demo site provided by DataHub at https://demo.datahub.com/api/graphiql.
 
 For instance, you can create a tag by posting the following query:
 
@@ -89,11 +93,9 @@ Postman is a popular API client that provides a graphical user interface for sen
 Within Postman, you can create a `POST` request and set the request URL to the `/api/graphql` endpoint.
 In the request body, select the `GraphQL` option and enter your GraphQL query in the request body.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/postman-graphql.png"/>
 </p>
-
 
 Please refer to [Querying with GraphQL](https://learning.postman.com/docs/sending-requests/graphql/graphql-overview/) in the Postman documentation for more information.
 

@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
-
-import styled from 'styled-components';
-import { Divider } from 'antd';
 import { Tooltip } from '@components';
-
-import { ANTD_GRAY } from '../../../../../constants';
+import { Divider } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
 
 const Tabs = styled.div`
     margin: 12px 24px;
@@ -12,7 +9,7 @@ const Tabs = styled.div`
     display: flex;
     gap: 8px;
     border-radius: 4px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const TabButton = styled.div<{ selected: boolean; disabled?: boolean }>`
@@ -23,8 +20,9 @@ const TabButton = styled.div<{ selected: boolean; disabled?: boolean }>`
     justify-content: center;
     padding: 0px 24px;
     border: none;
-    background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : 'transparent')};
-    color: ${(props) => (props.selected ? '#fff' : ANTD_GRAY[9] || ANTD_GRAY[3])};
+    background-color: ${(props) => (props.selected ? props.theme.colors.buttonFillBrand : 'transparent')};
+    color: ${(props) =>
+        props.selected ? props.theme.colors.textOnFillBrand : props.theme.colors.text || props.theme.colors.bgSurface};
     font-size: 12px;
     cursor: pointer;
     ${(props) => props.disabled && 'opacity: 0.5;'}
@@ -56,21 +54,25 @@ export const AssertionTabs = ({ defaultSelectedTab, tabs }: Props) => {
     const [selectedTab, setSelectedTab] = useState<string>(defaultSelectedTab);
     return (
         <>
-            <Tabs>
-                {tabs.map((tab) => (
-                    <Tooltip title={tab.tooltip} placement="bottom" showArrow={false}>
-                        <TabButton
-                            selected={selectedTab === tab.key}
-                            disabled={tab.disabled}
-                            key={tab.key}
-                            onClick={() => (!tab.disabled ? setSelectedTab(tab.key) : null)}
-                        >
-                            {tab.label}
-                        </TabButton>
-                    </Tooltip>
-                ))}
-            </Tabs>
-            <StyledDivider />
+            {tabs.length > 1 && (
+                <>
+                    <Tabs>
+                        {tabs.map((tab) => (
+                            <Tooltip title={tab.tooltip} placement="bottom" showArrow={false}>
+                                <TabButton
+                                    selected={selectedTab === tab.key}
+                                    disabled={tab.disabled}
+                                    key={tab.key}
+                                    onClick={() => (!tab.disabled ? setSelectedTab(tab.key) : null)}
+                                >
+                                    {tab.label}
+                                </TabButton>
+                            </Tooltip>
+                        ))}
+                    </Tabs>
+                    <StyledDivider />
+                </>
+            )}
             <TabContent>{tabs.find((tab) => tab.key === selectedTab)?.content}</TabContent>
         </>
     );

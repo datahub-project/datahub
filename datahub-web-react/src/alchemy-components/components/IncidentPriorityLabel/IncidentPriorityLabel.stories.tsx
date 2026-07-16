@@ -1,6 +1,6 @@
-import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
-import { IncidentPriorityLabel } from './IncidentPriorityLabel';
+
+import { IncidentPriorityLabel } from '@components/components/IncidentPriorityLabel/IncidentPriorityLabel';
 
 const meta: Meta<typeof IncidentPriorityLabel> = {
     title: 'Components / IncidentPriorityLabel',
@@ -44,9 +44,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Sandbox Story
-export const sandbox: Story = {
-    render: (props) => <IncidentPriorityLabel {...props} />,
-};
+export const sandbox: Story = {};
 
 // Example Stories
 export const criticalPriority: Story = {

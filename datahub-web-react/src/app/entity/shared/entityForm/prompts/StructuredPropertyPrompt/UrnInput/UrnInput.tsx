@@ -1,10 +1,13 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { StructuredPropertyEntity } from '../../../../../../../types.generated';
-import SelectedEntity from './SelectedEntity';
-import useUrnInput from './useUrnInput';
+
+import SelectedEntity from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/SelectedEntity';
+import useUrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/useUrnInput';
+
+import { StructuredPropertyEntity } from '@types';
 
 const EntitySelect = styled(Select)`
     width: 75%;
@@ -34,6 +37,7 @@ interface Props {
 }
 
 export default function UrnInput({ structuredProperty, selectedValues, updateSelectedValues }: Props) {
+    const { t } = useTranslation('entity.form');
     const {
         onSelectValue,
         onDeselectValue,
@@ -45,7 +49,9 @@ export default function UrnInput({ structuredProperty, selectedValues, updateSel
         entityTypeNames,
     } = useUrnInput({ structuredProperty, selectedValues, updateSelectedValues });
 
-    const placeholder = `Search for ${entityTypeNames ? entityTypeNames.map((name) => ` ${name}`) : 'entities'}...`;
+    const placeholder = entityTypeNames
+        ? t('searchForPlaceholder', { entityTypes: entityTypeNames.join(', ') })
+        : t('searchForEntitiesPlaceholder');
 
     return (
         <EntitySelect

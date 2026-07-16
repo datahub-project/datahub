@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { ListBusinessAttributesQuery, useListBusinessAttributesQuery } from '../../graphql/businessAttribute.generated';
-import { sortBusinessAttributes } from './businessAttributeUtils';
-import AttributeItem from './AttributeItem';
+
+import AttributeItem from '@app/businessAttribute/AttributeItem';
+import { sortBusinessAttributes } from '@app/businessAttribute/businessAttributeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { ListBusinessAttributesQuery, useListBusinessAttributesQuery } from '@graphql/businessAttribute.generated';
 
 const BrowserWrapper = styled.div`
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     max-height: calc(100% - 47px);
     padding: 10px 20px 20px 20px;

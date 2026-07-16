@@ -1,0 +1,115 @@
+package com.linkedin.gms.factory.search;
+
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.ObjectMapperContext;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.Test;
+
+@SpringBootTest(classes = {ElasticSearchServiceFactory.class, MappingsBuilderFactory.class})
+@EnableConfigurationProperties(ConfigurationProvider.class)
+@TestPropertySource(
+    locations = "classpath:/application.yaml",
+    properties = {"ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED=false"})
+@Import(DisabledCustomSearchTest.TestConfig.class)
+public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
+
+  @TestConfiguration
+  static class TestConfig {
+    @MockitoBean public MetricUtils metricUtils;
+
+    @Bean(name = "settingsBuilder")
+    @Primary
+    public SettingsBuilder settingsBuilder() {
+      return Mockito.mock(SettingsBuilder.class);
+    }
+
+    @Bean(name = "baseElasticSearchComponents")
+    @Primary
+    public BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
+        baseElasticSearchComponents() {
+      return Mockito.mock(BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class);
+    }
+
+    @Bean
+    @Primary
+    public QueryFilterRewriteChain queryFilterRewriteChain() {
+      return Mockito.mock(QueryFilterRewriteChain.class);
+    }
+
+    @Bean(name = "systemOperationContext")
+    public OperationContext systemOperationContext() {
+      return TestOperationContexts.systemContextNoSearchAuthorization();
+    }
+
+    @Bean("entityRegistry")
+    public EntityRegistry entityRegistry(
+        @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
+      return systemOperationContext.getEntityRegistry();
+    }
+
+    @Bean(name = "searchClientShim")
+    @Primary
+    @SuppressWarnings("unchecked")
+    public SearchClientShim<?> searchClientShim() {
+      SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
+      Mockito.when(mock.getEngineType())
+          .thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+      Mockito.when(mock.partialNgramConfig())
+          .thenReturn(
+              com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim
+                  .PARTIAL_NGRAM_CONFIG);
+      return mock;
+    }
+  }
+
+  @Autowired
+  @Qualifier("elasticSearchService")
+  private ElasticSearchService elasticSearchService;
+
+  @Autowired private ConfigurationProvider configurationProvider;
+
+  @Test
+  public void testInit() {
+    assertNotNull(elasticSearchService);
+  }
+
+  @Test
+  public void testCustomSearchConfiguration() throws IOException {
+    assertNotNull(configurationProvider);
+
+    assertNotNull(configurationProvider.getElasticSearch());
+    assertNotNull(configurationProvider.getElasticSearch().getSearch());
+    assertNotNull(configurationProvider.getElasticSearch().getSearch().getCustom());
+    assertFalse(configurationProvider.getElasticSearch().getSearch().getCustom().isEnabled());
+    assertNull(
+        configurationProvider
+            .getElasticSearch()
+            .getSearch()
+            .getCustom()
+            .resolve(ObjectMapperContext.DEFAULT.getYamlMapper()));
+  }
+}

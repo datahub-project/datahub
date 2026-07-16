@@ -29,6 +29,7 @@ Command-line interface for converting schemas and emitting them to DataHub.
 Core translation logic and models for schema conversion. Features include:
 
 - Support for complex Avro schema structures:
+
   - Union types with multiple record options
   - Nested records and arrays
   - Optional fields with defaults

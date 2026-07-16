@@ -2,7 +2,6 @@ import json
 import logging
 import threading
 import uuid
-from functools import partial
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
@@ -12,11 +11,11 @@ from pyiceberg.exceptions import (
     NoSuchNamespaceError,
     NoSuchPropertyException,
     NoSuchTableError,
-    ServerError,
+    RESTError,
 )
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
-from pyiceberg.typedef import Identifier
+from pyiceberg.typedef import Identifier, Properties
 from pyiceberg.types import (
     BinaryType,
     BooleanType,
@@ -43,17 +42,12 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_domain_urn,
     make_group_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import NamespaceKey
-from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
-    auto_patch_last_modified,
-)
-from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
-    EnsureAspectSizeProcessor,
-)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -63,15 +57,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
-from datahub.ingestion.api.source_helpers import (
-    AutoSystemMetadata,
-    auto_fix_duplicate_schema_field_paths,
-    auto_fix_empty_field_paths,
-    auto_lowercase_urns,
-    auto_materialize_referenced_tags_terms,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source_helpers import AutoSystemMetadata
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.subtypes import (
@@ -83,11 +70,32 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceReport,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+    AutoLowercaseUrnsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_terms import (
+    AutoMaterializeReferencedTagsTermsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
+    AutoPatchLastModifiedProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
+from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+    EnsureAspectSizeProcessor,
+)
+from datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths import (
+    ValidateDuplicateSchemaFieldPathsProcessor,
+)
+from datahub.ingestion.workunit_processors.validate_empty_schema_field_paths import (
+    ValidateEmptySchemaFieldPathsProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
@@ -102,6 +110,7 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    DomainsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -118,13 +127,13 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 
 
 @platform_name("Iceberg")
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @config_class(IcebergSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
     "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored.",
 )
-@capability(SourceCapability.DOMAINS, "Currently not supported.", supported=False)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration.")
 @capability(
     SourceCapability.PARTITION_SUPPORT, "Currently not supported.", supported=False
@@ -134,15 +143,18 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     SourceCapability.OWNERSHIP,
     "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`",
 )
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 class IcebergSource(StatefulIngestionSourceBase):
     """
-    ## Integration Details
+    Source that extracts metadata from Iceberg tables via pyiceberg library.
 
-    The DataHub Iceberg source plugin extracts metadata from [Iceberg tables](https://iceberg.apache.org/spec/) stored in a distributed or local file system.
-    Typically, Iceberg tables are stored in a distributed file system like S3 or Azure Data Lake Storage (ADLS) and registered in a catalog.  There are various catalog
-    implementations like Filesystem-based, RDBMS-based or even REST-based catalogs.  This Iceberg source plugin relies on the
-    [pyiceberg library](https://py.iceberg.apache.org/).
+    Implementation notes:
+    - Uses pyiceberg for catalog access (Glue, REST, SQL, filesystem-based)
+    - Supports multiple blob storage backends (S3, ADLS, GCS, MinIO)
+    - Parallel processing of manifest files via processing_threads
+    - Extracts schema, partitioning, and table properties
     """
 
     platform: str = "iceberg"
@@ -152,57 +164,29 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.report: IcebergSourceReport = IcebergSourceReport()
         self.config: IcebergSourceConfig = config
         self.ctx: PipelineContext = ctx
+        self.stamping_processor = AutoSystemMetadata(
+            self.ctx
+        )  # single instance used only when processing namespaces
+        self.namespaces: List[Tuple[Identifier, str]] = []
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
-        config = IcebergSourceConfig.parse_obj(config_dict)
+        config = IcebergSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # This source needs to overwrite standard `get_workunit_processor`, because it is unique in terms of usage
-        # of parallelism. Because of this, 2 processors won't work as expected:
-        # 1. browse_path_processor - it needs aspects for a single entity to be continuous - which is not guaranteed
-        #    in this source
-        # 2. automatic stamping with systemMetadata - in current implementation of the Source class this processor
-        #    would have been applied in a thread (single) shared between the source, processors and transformers.
-        #    Since the metadata scraping happens in separate threads, this could lead to difference between
-        #    time used by systemMetadata and actual time at which metadata was read
-        auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
-        if (
-            self.ctx.pipeline_config
-            and self.ctx.pipeline_config.source
-            and self.ctx.pipeline_config.source.config
-            and (
-                (
-                    hasattr(
-                        self.ctx.pipeline_config.source.config,
-                        "convert_urns_to_lowercase",
-                    )
-                    and self.ctx.pipeline_config.source.config.convert_urns_to_lowercase
-                )
-                or (
-                    hasattr(self.ctx.pipeline_config.source.config, "get")
-                    and self.ctx.pipeline_config.source.config.get(
-                        "convert_urns_to_lowercase"
-                    )
-                )
-            )
-        ):
-            auto_lowercase_dataset_urns = auto_lowercase_urns
-
+    def get_allowed_workunit_processors(self):
+        # Explicit whitelist: this source uses parallel threads for metadata scraping,
+        # so processors that assume sequential, per-entity ordering (auto_status_aspect,
+        # auto_browse_path_v2) are unsafe. New processors must be explicitly opted in here.
         return [
-            auto_lowercase_dataset_urns,
-            auto_materialize_referenced_tags_terms,
-            partial(
-                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
-            ),
-            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
-            partial(auto_workunit_reporter, self.get_report()),
-            auto_patch_last_modified,
-            EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
+            AutoLowercaseUrnsProcessor,
+            AutoMaterializeReferencedTagsTermsProcessor,
+            ValidateDuplicateSchemaFieldPathsProcessor,
+            ValidateEmptySchemaFieldPathsProcessor,
+            AutoWorkunitsReporterProcessor,
+            AutoPatchLastModifiedProcessor,
+            EnsureAspectSizeProcessor,
+            AutoStaleEntityRemovalProcessor,
         ]
 
     def _get_namespaces(self, catalog: Catalog) -> Iterable[Identifier]:
@@ -241,6 +225,13 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="No such namespace",
                     message="Skipping the missing namespace.",
+                    context=str(namespace),
+                    exc=e,
+                )
+            except RESTError as e:
+                self.report.warning(
+                    title="Iceberg REST Server Error",
+                    message="Iceberg REST Server returned error status when trying to list tables for a namespace, skipping it.",
                     context=str(namespace),
                     exc=e,
                 )
@@ -320,10 +311,17 @@ class IcebergSource(StatefulIngestionSourceBase):
                     context=dataset_name,
                     exc=e,
                 )
-            except ServerError as e:
+            except RESTError as e:
                 self.report.warning(
                     title="Iceberg REST Server Error",
-                    message="Iceberg returned 500 HTTP status when trying to process a table, skipping it.",
+                    message="Iceberg REST Server returned error status when trying to process a table, skipping it.",
+                    context=dataset_name,
+                    exc=e,
+                )
+            except OSError as e:
+                self.report.warning(
+                    title="Can't read manifest",
+                    message="Provided manifest path appeared impossible to read",
                     context=dataset_name,
                     exc=e,
                 )
@@ -363,7 +361,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
 
         try:
-            catalog = self.config.get_catalog()
+            self.catalog = self.config.get_catalog()
         except Exception as e:
             self.report.report_failure(
                 title="Failed to initialize catalog object",
@@ -373,28 +371,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             return
 
         try:
-            stamping_processor = AutoSystemMetadata(self.ctx)
-            namespace_ids = self._get_namespaces(catalog)
-            namespaces: List[Tuple[Identifier, str]] = []
-            for namespace in namespace_ids:
-                namespace_repr = ".".join(namespace)
-                LOGGER.debug(f"Processing namespace {namespace_repr}")
-                namespace_urn = make_container_urn(
-                    NamespaceKey(
-                        namespace=namespace_repr,
-                        platform=self.platform,
-                        instance=self.config.platform_instance,
-                        env=self.config.env,
-                    )
-                )
-                namespaces.append((namespace, namespace_urn))
-                for aspect in self._create_iceberg_namespace_aspects(namespace):
-                    yield stamping_processor.stamp_wu(
-                        MetadataChangeProposalWrapper(
-                            entityUrn=namespace_urn, aspect=aspect
-                        ).as_workunit()
-                    )
-            LOGGER.debug("Namespaces ingestion completed")
+            yield from self._process_namespaces()
         except Exception as e:
             self.report.report_failure(
                 title="Failed to list namespaces",
@@ -408,12 +385,69 @@ class IcebergSource(StatefulIngestionSourceBase):
             args_list=[
                 (dataset_path, namespace_urn)
                 for dataset_path, namespace_urn in self._get_datasets(
-                    catalog, namespaces
+                    self.catalog, self.namespaces
                 )
             ],
             max_workers=self.config.processing_threads,
         ):
             yield wu
+
+    def _try_processing_namespace(
+        self, namespace: Identifier
+    ) -> Iterable[MetadataWorkUnit]:
+        namespace_repr = ".".join(namespace)
+        try:
+            LOGGER.debug(f"Processing namespace {namespace_repr}")
+            namespace_urn = make_container_urn(
+                NamespaceKey(
+                    namespace=namespace_repr,
+                    platform=self.platform,
+                    instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+            )
+
+            namespace_properties: Properties = self.catalog.load_namespace_properties(
+                namespace
+            )
+            for aspect in self._create_iceberg_namespace_aspects(
+                namespace, namespace_properties
+            ):
+                yield self.stamping_processor.stamp_wu(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=namespace_urn, aspect=aspect
+                    ).as_workunit()
+                )
+            self.namespaces.append((namespace, namespace_urn))
+        except NoSuchNamespaceError as e:
+            self.report.report_warning(
+                title="Failed to retrieve namespace properties",
+                message="Couldn't find the namespace, was it deleted during the ingestion?",
+                context=namespace_repr,
+                exc=e,
+            )
+            return
+        except RESTError as e:
+            self.report.warning(
+                title="Iceberg REST Server Error",
+                message="Iceberg REST Server returned error status when trying to retrieve namespace properties, skipping it.",
+                context=str(namespace),
+                exc=e,
+            )
+        except Exception as e:
+            self.report.report_failure(
+                title="Failed to process namespace",
+                message="Unhandled exception happened during processing of the namespace",
+                context=namespace_repr,
+                exc=e,
+            )
+
+    def _process_namespaces(self) -> Iterable[MetadataWorkUnit]:
+        namespace_ids = self._get_namespaces(self.catalog)
+        for namespace in namespace_ids:
+            yield from self._try_processing_namespace(namespace)
+
+        LOGGER.debug("Namespaces ingestion completed")
 
     def _create_iceberg_table_aspects(
         self, dataset_name: str, table: Table, namespace_urn: str
@@ -438,6 +472,10 @@ class IcebergSource(StatefulIngestionSourceBase):
             yield dpi
             yield self._create_browse_paths_aspect(dpi.instance, str(namespace_urn))
             yield ContainerClass(container=str(namespace_urn))
+
+            domain_urn = self._gen_domain_urn(dataset_name)
+            if domain_urn:
+                yield DomainsClass(domains=[domain_urn])
 
         self.report.report_table_processing_time(
             timer.elapsed_seconds(), dataset_name, table.metadata_location
@@ -517,11 +555,11 @@ class IcebergSource(StatefulIngestionSourceBase):
         custom_properties["format-version"] = str(table.metadata.format_version)
         custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
         last_modified: Optional[int] = table.metadata.last_updated_ms
-        if table.current_snapshot():
-            custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
-            custom_properties["manifest-list"] = table.current_snapshot().manifest_list
+        if current_snapshot := table.current_snapshot():
+            custom_properties["snapshot-id"] = str(current_snapshot.snapshot_id)
+            custom_properties["manifest-list"] = current_snapshot.manifest_list
             if not last_modified:
-                last_modified = int(table.current_snapshot().timestamp_ms)
+                last_modified = int(current_snapshot.timestamp_ms)
         if "created-at" in custom_properties:
             try:
                 dt = dateutil_parser.isoparse(custom_properties["created-at"])
@@ -608,17 +646,39 @@ class IcebergSource(StatefulIngestionSourceBase):
         return self.report
 
     def _create_iceberg_namespace_aspects(
-        self, namespace: Identifier
+        self, namespace: Identifier, properties: Properties
     ) -> Iterable[_Aspect]:
         namespace_repr = ".".join(namespace)
+        custom_properties: Dict[str, str] = {}
+        for k, v in properties.items():
+            try:
+                custom_properties[str(k)] = str(v)
+            except Exception as e:
+                LOGGER.warning(
+                    f"Exception when trying to parse namespace properties for {namespace_repr}. Exception: {e}"
+                )
         yield Status(removed=False)
         yield ContainerProperties(
-            name=namespace_repr, qualifiedName=namespace_repr, env=self.config.env
+            name=namespace_repr,
+            qualifiedName=namespace_repr,
+            env=self.config.env,
+            customProperties=custom_properties,
         )
         yield SubTypes(typeNames=[DatasetContainerSubTypes.NAMESPACE])
         dpi = self._get_dataplatform_instance_aspect()
         yield dpi
         yield self._create_browse_paths_aspect(dpi.instance)
+
+        domain_urn = self._gen_domain_urn(namespace_repr)
+        if domain_urn:
+            yield DomainsClass(domains=[domain_urn])
+
+    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
+        for domain, pattern in self.config.domain.items():
+            if pattern.allowed(dataset_name):
+                return make_domain_urn(domain)
+
+        return None
 
 
 class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
@@ -776,26 +836,7 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
             "native_data_type": str(timestamp_type),
         }
 
-    # visit_timestamptz() is required when using pyiceberg >= 0.5.0, which is essentially a duplicate
-    # of visit_timestampz().  The function has been renamed from visit_timestampz().
-    # Once Datahub can upgrade its pyiceberg dependency to >=0.5.0, the visit_timestampz() function can be safely removed.
     def visit_timestamptz(self, timestamptz_type: TimestamptzType) -> Dict[str, Any]:
-        # Avro supports 2 types of timestamp:
-        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
-        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
-        # utcAdjustment: bool = True
-        return {
-            "type": "long",
-            "logicalType": "timestamp-micros",
-            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
-            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
-            # "logicalType": "timestamp-micros"
-            # if timestamp_type.adjust_to_utc
-            # else "local-timestamp-micros",
-            "native_data_type": str(timestamptz_type),
-        }
-
-    def visit_timestampz(self, timestamptz_type: TimestamptzType) -> Dict[str, Any]:
         # Avro supports 2 types of timestamp:
         #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
         #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
@@ -828,4 +869,43 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
         return {
             "type": "bytes",
             "native_data_type": str(binary_type),
+        }
+
+    def visit_timestamp_ns(self, timestamp_ns_type: Any) -> Dict[str, Any]:
+        # Handle nanosecond precision timestamps
+        # Avro supports 2 types of timestamp:
+        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
+        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
+        return {
+            "type": "long",
+            "logicalType": "timestamp-micros",
+            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
+            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
+            # "logicalType": "timestamp-micros"
+            # if timestamp_ns_type.adjust_to_utc
+            # else "local-timestamp-micros",
+            "native_data_type": str(timestamp_ns_type),
+        }
+
+    def visit_timestamptz_ns(self, timestamptz_ns_type: Any) -> Dict[str, Any]:
+        # Handle nanosecond precision timestamps with timezone
+        # Avro supports 2 types of timestamp:
+        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
+        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
+        return {
+            "type": "long",
+            "logicalType": "timestamp-micros",
+            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
+            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
+            # "logicalType": "timestamp-micros"
+            # if timestamptz_ns_type.adjust_to_utc
+            # else "local-timestamp-micros",
+            "native_data_type": str(timestamptz_ns_type),
+        }
+
+    def visit_unknown(self, unknown_type: Any) -> Dict[str, Any]:
+        # Handle unknown types
+        return {
+            "type": "string",
+            "native_data_type": str(unknown_type),
         }

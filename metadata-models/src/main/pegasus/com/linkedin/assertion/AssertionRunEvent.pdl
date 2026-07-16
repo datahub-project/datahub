@@ -12,6 +12,7 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "assertionRunEvent",
   "type": "timeseries",
+  "schemaVersion": 2
 }
 record AssertionRunEvent {
 
@@ -33,6 +34,11 @@ record AssertionRunEvent {
   * Urn of entity on which the assertion is applicable
   */
   @TimeseriesField = {}
+  @UrnValidation = {
+    "exist": false,
+    "strict": true,
+    "entityTypes": [ "dataset" ]
+  }
   asserteeUrn: Urn
 
   /**
@@ -60,6 +66,11 @@ record AssertionRunEvent {
   * Urn of assertion which is evaluated
   */
   @TimeseriesField = {}
+  @UrnValidation = {
+    "exist": false,
+    "strict": true,
+    "entityTypes": [ "assertion" ]
+  }
   assertionUrn: Urn
 
   /**

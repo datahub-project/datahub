@@ -1,5 +1,5 @@
+import { DropdownProps } from 'antd';
 import React from 'react';
-import { IconNames } from '../Icon';
 
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
 export interface SelectOption {
@@ -19,21 +19,28 @@ type OptionPosition = 'start' | 'end' | 'center';
 
 export type CustomOptionRenderer<OptionType extends SelectOption> = (option: OptionType) => React.ReactNode;
 
+export interface RenderSelectBaseProps {
+    isOpened: boolean;
+    onClick: () => void;
+}
+
 export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     options: OptionType[];
     label?: string;
     values?: string[];
     initialValues?: string[];
     onCancel?: () => void;
+    onClear?: () => void;
     onUpdate?: (selectedValues: string[]) => void;
     size?: SelectSizeOptions;
-    icon?: IconNames;
+    icon?: React.ComponentType<any>;
     showSearch?: boolean;
     isDisabled?: boolean;
     isReadOnly?: boolean;
     isRequired?: boolean;
     showClear?: boolean;
     width?: number | 'full' | 'fit-content';
+    minWidth?: string;
     isMultiSelect?: boolean;
     placeholder?: string;
     disabledValues?: string[];
@@ -46,12 +53,21 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     onSearchChange?: (searchText: string) => void;
     combinedSelectedAndSearchOptions?: OptionType[];
     optionListStyle?: React.CSSProperties;
+    selectedOptionListStyle?: React.CSSProperties;
     optionListTestId?: string;
     optionSwitchable?: boolean;
     selectLabelProps?: SelectLabelProps;
     position?: OptionPosition;
     applyHoverWidth?: boolean;
     ignoreMaxHeight?: boolean;
+    isLoading?: boolean;
+    emptyState?: React.ReactElement;
+    descriptionMaxWidth?: number;
+    dataTestId?: string;
+    visibilityDeps?: React.DependencyList;
+    placement?: DropdownProps['placement'];
+    renderSelectBase?: (props: RenderSelectBaseProps) => React.ReactElement;
+    renderOptionsFooter?: () => React.ReactNode;
 }
 
 export interface SelectStyleProps {
@@ -65,11 +81,12 @@ export interface SelectStyleProps {
 }
 
 export interface ActionButtonsProps {
-    selectedValues: string[];
+    hasSelectedValues: boolean;
     isOpen: boolean;
     isDisabled: boolean;
     isReadOnly: boolean;
     showClear: boolean;
+    fontSize?: SelectSizeOptions;
     handleClearSelection: () => void;
 }
 
@@ -85,6 +102,7 @@ export interface SelectLabelDisplayProps<OptionType extends SelectOption> {
     renderCustomSelectedValue?: (selectedOptions: OptionType) => void;
     variant?: SelectLabelVariants;
     label?: string;
+    selectedOptionListStyle?: React.CSSProperties;
 }
 
 export interface SelectLabelVariantProps<OptionType extends SelectOption>

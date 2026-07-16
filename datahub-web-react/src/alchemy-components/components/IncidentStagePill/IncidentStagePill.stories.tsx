@@ -1,6 +1,6 @@
-import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
-import { IncidentStagePill } from './IncidentStagePill';
+
+import { IncidentStagePill } from '@components/components/IncidentStagePill/IncidentStagePill';
 
 const meta: Meta<typeof IncidentStagePill> = {
     title: 'Components / IncidentStagePill',
@@ -48,9 +48,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 // Sandbox Story
-export const sandbox: Story = {
-    render: (props) => <IncidentStagePill {...props} />,
-};
+export const sandbox: Story = {};
 
 // Example Stories
 export const triageStage: Story = {

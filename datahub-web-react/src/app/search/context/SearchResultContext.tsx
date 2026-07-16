@@ -1,14 +1,15 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
-import { EntityType, MatchedField, SearchResult } from '../../../types.generated';
+
+import { MatchedFieldName } from '@app/search/matches/constants';
 import {
-    getMatchedFieldsByUrn,
     getMatchedFieldNames,
     getMatchedFieldsByNames,
-    shouldShowInMatchedFieldList,
-    getMatchedFieldLabel,
+    getMatchedFieldsByUrn,
     getMatchesPrioritized,
-} from '../matches/utils';
-import { MatchedFieldName } from '../matches/constants';
+    shouldShowInMatchedFieldList,
+} from '@app/search/matches/utils';
+
+import { EntityType, MatchedField, SearchResult } from '@types';
 
 type SearchResultContextValue = {
     searchResult: SearchResult;
@@ -43,7 +44,7 @@ export const useEntityType = () => {
     return useSearchResultContext()?.searchResult?.entity?.type;
 };
 
-export const useMatchedFields = () => {
+const useMatchedFields = () => {
     return useSearchResult()?.matchedFields ?? [];
 };
 
@@ -69,9 +70,4 @@ export const useMatchedFieldsByGroup = (fieldName: MatchedFieldName) => {
 export const useHasMatchedFieldByUrn = (urn: string, fieldName: MatchedFieldName) => {
     const matchedFields = useMatchedFieldsByGroup(fieldName);
     return getMatchedFieldsByUrn(matchedFields, urn).length > 0;
-};
-
-export const useMatchedFieldLabel = (fieldName: string) => {
-    const entityType = useEntityType();
-    return getMatchedFieldLabel(entityType, fieldName);
 };

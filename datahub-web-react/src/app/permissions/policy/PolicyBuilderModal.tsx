@@ -1,14 +1,18 @@
+import { Steps } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { Modal, Steps } from 'antd';
-import { Button } from '@src/alchemy-components';
-import PolicyPrivilegeForm from './PolicyPrivilegeForm';
-import PolicyTypeForm from './PolicyTypeForm';
-import PolicyActorForm from './PolicyActorForm';
-import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../../types.generated';
-import { EMPTY_POLICY } from './policyUtils';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import ClickOutside from '../../shared/ClickOutside';
+
+import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
+import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
+import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
+import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
+import ClickOutside from '@app/shared/ClickOutside';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { Button, Modal } from '@src/alchemy-components';
+
+import { ActorFilter, Policy, PolicyType, ResourceFilter } from '@types';
 
 type Props = {
     policy: Omit<Policy, 'urn'>;
@@ -19,10 +23,21 @@ type Props = {
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
 };
 
-const StepsContainer = styled.div`
+const StepsWrapper = styled.div`
+    padding: 0px 20px;
+`;
+
+const StepContent = styled.div`
+    padding: 0px 20px;
+    max-height: 75vh;
+    overflow-y: auto;
+`;
+
+const StepsControls = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
+    padding: 0px 20px;
 `;
 
 const PrevButtonContainer = styled.div`
@@ -37,15 +52,24 @@ const NextButtonContainer = styled.div`
     margin-right: 12px;
 `;
 
+const MODAL_BODY_STYLE = {
+    paddingLeft: '0px',
+    paddingRight: '0px',
+};
+
 /**
  * Component used for constructing new policies. The purpose of this flow is to populate or edit a Policy
  * object through a sequence of steps.
  */
 export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, onSave, focusPolicyUrn }: Props) {
+    const { t } = useTranslation('settings.permissions');
+    const { t: tc } = useTranslation('common.actions');
     // Step control-flow.
     const [activeStepIndex, setActiveStepIndex] = useState(0);
     const [selectedTags, setSelectedTags] = useState<any[]>([]);
     const [isEditState, setEditState] = useState(true);
+
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     // Go to next step
     const next = () => {
@@ -74,7 +98,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
     // Step 1: Choose Policy Type
     const typeStep = () => {
         return {
-            title: 'Choose Policy Type',
+            title: t('stepChoosePolicyType'),
             content: (
                 <PolicyTypeForm
                     policyType={policy.type}
@@ -91,7 +115,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
 
     // Step 2: Select privileges step.
     const privilegeStep = () => ({
-        title: 'Configure Privileges',
+        title: t('stepConfigurePrivileges'),
         content: (
             <PolicyPrivilegeForm
                 focusPolicyUrn={focusPolicyUrn}
@@ -115,7 +139,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
     // Step 3: Assign Actors Step
     const actorStep = () => {
         return {
-            title: 'Assign Users & Groups',
+            title: t('stepAssignUsersGroups'),
             content: (
                 <PolicyActorForm
                     policyType={policy.type}
@@ -149,60 +173,61 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
         querySelectorToExecuteClick: '#saveButton',
     });
 
-    // modalClosePopup for outside policy modal click
-    const modalClosePopup = () => {
-        Modal.confirm({
-            title: 'Exit Policy Editor',
-            content: `Are you sure you want to exit policy editor? All changes will be lost`,
-            onOk() {
-                onClose();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     return (
-        <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="PolicyBuilderModal">
+        <ClickOutside onClickOutside={() => setShowConfirmationModal(true)} wrapperClassName="PolicyBuilderModal">
             <Modal
                 wrapClassName="PolicyBuilderModal"
-                title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
+                title={isEditing ? t('editPolicyModalTitle') : t('createPolicyModalTitle')}
                 open={open}
                 onCancel={onClose}
                 closable
                 width={750}
-                footer={null}
+                buttons={[]}
+                bodyStyle={MODAL_BODY_STYLE}
             >
-                <Steps current={activeStepIndex}>
-                    {policySteps.map((item) => (
-                        <Steps.Step key={item.title} title={item.title} />
-                    ))}
-                </Steps>
-                <div className="steps-content">{activeStep.content}</div>
-                <StepsContainer>
+                <StepsWrapper>
+                    <Steps current={activeStepIndex}>
+                        {policySteps.map((item) => (
+                            <Steps.Step key={item.title} title={item.title} />
+                        ))}
+                    </Steps>
+                </StepsWrapper>
+                <StepContent>{activeStep.content}</StepContent>
+                <StepsControls>
                     <PrevButtonContainer>
                         {activeStepIndex > 0 && (
                             <Button variant="outline" color="gray" onClick={() => prev()}>
-                                Previous
+                                {tc('previous')}
                             </Button>
                         )}
                     </PrevButtonContainer>
                     <NextButtonContainer>
                         {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
-                            <Button id="nextButton" onClick={() => next()}>
-                                Next
+                            <Button id="nextButton" data-testid="next-button" onClick={() => next()}>
+                                {tc('next')}
                             </Button>
                         )}
                         {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
-                            <Button id="saveButton" onClick={onSavePolicy}>
-                                Save
+                            <Button id="saveButton" data-testid="save-button" onClick={onSavePolicy}>
+                                {tc('save')}
                             </Button>
                         )}
                     </NextButtonContainer>
-                </StepsContainer>
+                </StepsControls>
             </Modal>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => {
+                    setShowConfirmationModal(false);
+                }}
+                handleConfirm={() => {
+                    setShowConfirmationModal(false);
+                    onClose();
+                }}
+                modalTitle={t('exitEditorTitle')}
+                modalText={t('exitEditorText')}
+                confirmButtonText={tc('yes')}
+            />
         </ClickOutside>
     );
 }

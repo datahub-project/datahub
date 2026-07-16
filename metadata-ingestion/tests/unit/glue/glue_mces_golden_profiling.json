@@ -77,6 +77,44 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:77f8f4c39b47069d3a71191de1333b0e",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-profiling.avro-profiling,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1623248255000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1623248255000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-profiling.avro-profiling,PROD)",
@@ -112,6 +150,12 @@
                         },
                         "name": "avro-profiling",
                         "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/flights-database-profiling/avro-profiling",
+                        "created": {
+                            "time": 1623248255000
+                        },
+                        "lastModified": {
+                            "time": 1623248255000
+                        },
                         "tags": []
                     }
                 },
@@ -146,8 +190,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].flightdate",
@@ -159,8 +202,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].uniquecarrier",
@@ -172,8 +214,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].airlineid",
@@ -185,8 +226,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].carrier",
@@ -198,8 +238,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].flightnum",
@@ -211,8 +250,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].origin",
@@ -224,8 +262,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -249,6 +286,40 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-profiling.avro-profiling,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1586847600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "fieldProfiles": [
+                {
+                    "fieldPath": "yr",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 2.0,
+                    "nullCount": 0,
+                    "nullProportion": 11.0,
+                    "min": "1",
+                    "max": "10",
+                    "mean": "1",
+                    "median": "2",
+                    "stdev": "3"
                 }
             ]
         }
@@ -297,26 +368,13 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-profiling.avro-profiling,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "timestampMillis": 1586847600000,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "fieldProfiles": [
+            "path": [
                 {
-                    "fieldPath": "yr",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 2.0,
-                    "nullCount": 0,
-                    "nullProportion": 11.0,
-                    "min": "1",
-                    "max": "10",
-                    "mean": "1",
-                    "median": "2",
-                    "stdev": "3"
+                    "id": "urn:li:container:77f8f4c39b47069d3a71191de1333b0e",
+                    "urn": "urn:li:container:77f8f4c39b47069d3a71191de1333b0e"
                 }
             ]
         }

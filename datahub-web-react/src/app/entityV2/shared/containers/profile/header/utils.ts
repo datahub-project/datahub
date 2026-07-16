@@ -1,7 +1,9 @@
-import { EntityType, StructuredPropertiesEntry } from '../../../../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import { EntityRegistry } from '../../../../../../entityRegistryContext';
-import { GenericEntityProperties } from '../../../../../entity/shared/types';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { EntityType, StructuredPropertiesEntry } from '@types';
 
 export function getDisplayedEntityType(
     entityData: GenericEntityProperties | null,
@@ -10,7 +12,7 @@ export function getDisplayedEntityType(
 ) {
     return (
         entityData?.entityTypeOverride ||
-        capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) ||
+        capitalizeFirstLetterOnly(getFirstSubType(entityData)) ||
         entityRegistry.getEntityName(entityType) ||
         ''
     );
@@ -24,6 +26,16 @@ export function getEntityPlatforms(entityType: EntityType | null, entityData: Ge
     return { platform, platforms };
 }
 
-export function filterForAssetBadge(prop: StructuredPropertiesEntry) {
-    return prop.structuredProperty.settings?.showAsAssetBadge && !prop.structuredProperty.settings?.isHidden;
+export function filterForAssetBadge(prop: StructuredPropertiesEntry, platformUrn?: string | null) {
+    if (!prop.structuredProperty.settings?.showAsAssetBadge || prop.structuredProperty.settings?.isHidden) {
+        return false;
+    }
+    const allowedPlatforms = prop.structuredProperty.definition?.allowedPlatforms;
+    if (!allowedPlatforms || allowedPlatforms.length === 0) {
+        return true;
+    }
+    if (!platformUrn) {
+        return false;
+    }
+    return allowedPlatforms.some((p) => p.urn === platformUrn);
 }

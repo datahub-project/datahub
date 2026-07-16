@@ -1,13 +1,15 @@
+import { Modal, message } from 'antd';
 import { useState } from 'react';
-import { message, Modal } from 'antd';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getDeleteEntityMutation } from '../../../shared/deleteUtils';
-import analytics, { EventType } from '../../../analytics';
-import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
-import { useHandleDeleteDomain } from './useHandleDeleteDomain';
-import { removeTermFromGlossaryNode } from '../../../glossary/cacheUtils';
+import { useTranslation } from 'react-i18next';
+
+import analytics, { EventType } from '@app/analytics';
+import { useHandleDeleteDomain } from '@app/entity/shared/EntityDropdown/useHandleDeleteDomain';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { getDeleteEntityMutation } from '@app/shared/deleteUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 /**
  * Performs the flow for deleting an entity of a given type.
@@ -25,11 +27,13 @@ function useDeleteEntity(
     skipWait?: boolean,
 ) {
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
-    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn } = useGlossaryEntityData();
     const { handleDeleteDomain } = useHandleDeleteDomain({ entityData, urn });
 
-    const [deleteEntity, { client }] = getDeleteEntityMutation(type)() ?? [undefined, { client: undefined }];
+    const [deleteEntity] = getDeleteEntityMutation(type)() ?? [undefined, { client: undefined }];
 
     function handleDeleteEntity() {
         deleteEntity?.({ variables: { urn } })
@@ -41,7 +45,7 @@ function useDeleteEntity(
                 });
                 if (!hideMessage && !skipWait) {
                     message.loading({
-                        content: 'Deleting...',
+                        content: t('delete.loading'),
                         duration: 2,
                     });
                 }
@@ -57,13 +61,16 @@ function useDeleteEntity(
                         if (isInGlossaryContext) {
                             const parentNodeToUpdate = getParentNodeToUpdate(entityData, type);
                             updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
-                            if (client) {
-                                removeTermFromGlossaryNode(client, parentNodeToUpdate, urn);
-                            }
+                            setNodeToDeletedUrn((currData) => ({
+                                ...currData,
+                                [parentNodeToUpdate]: urn,
+                            }));
                         }
                         if (!hideMessage) {
                             message.success({
-                                content: `Deleted ${entityRegistry.getEntityName(type)}!`,
+                                content: t('delete.success', {
+                                    entityName: entityRegistry.getEntityName(type),
+                                }),
                                 duration: 2,
                             });
                         }
@@ -73,21 +80,23 @@ function useDeleteEntity(
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to delete: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('delete.error', { errorMessage: e.message || '' }), duration: 3 });
             });
     }
 
     function onDeleteEntity() {
         Modal.confirm({
-            title: `Delete ${
-                (entityData && entityRegistry.getDisplayName(type, entityData)) || entityRegistry.getEntityName(type)
-            }`,
-            content: `Are you sure you want to remove this ${entityRegistry.getEntityName(type)}?`,
+            title: t('delete.confirmTitle', {
+                entityName:
+                    (entityData && entityRegistry.getDisplayName(type, entityData)) ||
+                    entityRegistry.getEntityName(type),
+            }),
+            content: t('delete.confirmContent', { entityName: entityRegistry.getEntityName(type) }),
             onOk() {
                 handleDeleteEntity();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });

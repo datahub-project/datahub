@@ -3,16 +3,18 @@ package com.linkedin.metadata.kafka.hook.spring;
 import static org.testng.AssertJUnit.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.kafka.MCLKafkaListenerRegistrar;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
-import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
+import com.linkedin.metadata.kafka.hook.event.PlatformEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
+import com.linkedin.metadata.kafka.listener.mcl.MCLKafkaListenerRegistrar;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.cassandra.CassandraAutoConfiguration;
+import org.springframework.boot.cassandra.autoconfigure.CassandraAutoConfiguration;
+import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchClientAutoConfiguration;
+import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchRestClientAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -27,12 +29,18 @@ import org.testng.annotations.Test;
     properties = {
       "ingestionScheduler.enabled=false",
       "configEntityRegistry.path=../../metadata-jobs/mae-consumer/src/test/resources/test-entity-registry.yml",
-      "kafka.schemaRegistry.type=INTERNAL"
+      "kafka.schemaRegistry.type=INTERNAL",
+      "spring.main.allow-bean-definition-overriding=true"
     })
 @TestPropertySource(
     locations = "classpath:/application.yaml",
     properties = {"MCL_CONSUMER_ENABLED=true"})
-@EnableAutoConfiguration(exclude = {CassandraAutoConfiguration.class})
+@EnableAutoConfiguration(
+    exclude = {
+      CassandraAutoConfiguration.class,
+      ElasticsearchClientAutoConfiguration.class,
+      ElasticsearchRestClientAutoConfiguration.class
+    })
 public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private UpdateIndicesService updateIndicesService;
@@ -42,20 +50,19 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
     MCLKafkaListenerRegistrar registrar =
         applicationContext.getBean(MCLKafkaListenerRegistrar.class);
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .noneMatch(hook -> hook instanceof IngestionSchedulerHook));
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
-            .anyMatch(hook -> hook instanceof UpdateIndicesHook));
+        registrar.getEnabledHooks().stream().anyMatch(hook -> hook instanceof UpdateIndicesHook));
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .anyMatch(hook -> hook instanceof SiblingAssociationHook));
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
-            .anyMatch(hook -> hook instanceof EntityChangeEventGeneratorHook));
+        registrar.getEnabledHooks().stream()
+            .anyMatch(hook -> hook instanceof PlatformEventGeneratorHook));
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof IncidentsSummaryHook)
             .count());
   }

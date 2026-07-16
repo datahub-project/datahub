@@ -1,0 +1,14 @@
+{"query": "CREATE TEMPORARY TABLE temp_user_summary AS SELECT user_id, COUNT(*) as session_count FROM snowflake.db.sessions GROUP BY user_id", "timestamp": 1609459200, "user": "analyst", "operation_type": "CREATE"}
+{"query": "SELECT * FROM temp_user_summary WHERE session_count > 10", "timestamp": 1609459260, "user": "analyst", "operation_type": "SELECT"}
+{"query": "CREATE TABLE tmp_daily_stats AS SELECT DATE(created_at) as date, COUNT(*) as daily_sessions FROM snowflake.db.sessions GROUP BY DATE(created_at)", "timestamp": 1609459320, "user": "etl_job", "operation_type": "CREATE"}
+{"query": "SELECT * FROM tmp_daily_stats WHERE daily_sessions > 1000", "timestamp": 1609459380, "user": "analyst", "operation_type": "SELECT"}
+{"query": "CREATE TABLE user_activity_temp AS SELECT user_id, action, COUNT(*) as action_count FROM snowflake.db.user_activity GROUP BY user_id, action", "timestamp": 1609459440, "user": "analyst", "operation_type": "CREATE"}
+{"query": "SELECT * FROM user_activity_temp ORDER BY action_count DESC LIMIT 100", "timestamp": 1609459500, "user": "analyst", "operation_type": "SELECT"}
+{"query": "DROP TABLE temp_user_summary", "timestamp": 1609459560, "user": "analyst", "operation_type": "DROP"}
+{"query": "DROP TABLE tmp_daily_stats", "timestamp": 1609459620, "user": "etl_job", "operation_type": "DROP"}
+{"query": "DROP TABLE user_activity_temp", "timestamp": 1609459680, "user": "analyst", "operation_type": "DROP"}
+{"query": "CREATE TEMPORARY TABLE staging_data AS SELECT * FROM snowflake.db.raw_events WHERE event_date >= '2021-01-01'", "timestamp": 1609459740, "user": "etl_job", "operation_type": "CREATE"}
+{"query": "SELECT * FROM temp_analytics_summary WHERE metric_value > 100", "timestamp": 1609459800, "user": "analyst", "operation_type": "SELECT"}
+{"query": "CREATE TEMPORARY TABLE staging_events AS SELECT user_id, event_type, event_timestamp, COUNT(*) as event_count FROM snowflake.db.raw_events WHERE event_date >= '2021-01-01' GROUP BY user_id, event_type, event_timestamp", "timestamp": 1609459860, "user": "etl_job", "operation_type": "CREATE"}
+{"query": "INSERT INTO snowflake.db.processed_events SELECT user_id, event_type, event_timestamp, event_count, NOW() as processed_at FROM staging_events WHERE event_count > 5", "timestamp": 1609459920, "user": "etl_job", "operation_type": "INSERT"}
+

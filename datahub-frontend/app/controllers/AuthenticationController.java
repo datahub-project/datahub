@@ -2,7 +2,11 @@ package controllers;
 
 import static auth.AuthUtils.*;
 import static org.pac4j.core.client.IndirectClient.ATTEMPTED_AUTHENTICATION_SUFFIX;
-import static org.pac4j.play.store.PlayCookieSessionStore.*;
+import static utils.FrontendConstants.FALLBACK_LOGIN;
+import static utils.FrontendConstants.GUEST_LOGIN;
+import static utils.FrontendConstants.PASSWORD_LOGIN;
+import static utils.FrontendConstants.PASSWORD_RESET;
+import static utils.FrontendConstants.SIGN_UP_LINK_LOGIN;
 
 import auth.AuthUtils;
 import auth.CookieConfigs;
@@ -11,30 +15,33 @@ import auth.JAASConfigs;
 import auth.NativeAuthenticationConfigs;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
+import client.NativeUserCredentialVerifyResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.auth.LoginIdentityMask;
+import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.Config;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import java.time.Duration;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
-import org.apache.commons.httpclient.InvalidRedirectLocationException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.client.RedirectException;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.CallContext;
-import org.pac4j.core.context.Cookie;
 import org.pac4j.core.context.WebContext;
+import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.core.exception.http.FoundAction;
 import org.pac4j.core.exception.http.RedirectionAction;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.http.PlayHttpActionAdapter;
-import org.pac4j.play.store.PlayCookieSessionStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.data.validation.Constraints;
@@ -44,6 +51,7 @@ import play.mvc.Http;
 import play.mvc.Result;
 import play.mvc.Results;
 import security.AuthenticationManager;
+import utils.SerializationUtils;
 
 public class AuthenticationController extends Controller {
   public static final String AUTH_VERBOSE_LOGGING = "auth.verbose.logging";
@@ -62,22 +70,47 @@ public class AuthenticationController extends Controller {
   private final GuestAuthenticationConfigs guestAuthenticationConfigs;
 
   private final boolean verbose;
+  private final Config config;
+
+  private final String basePath;
 
   @Inject private org.pac4j.core.config.Config ssoConfig;
 
-  @Inject private PlayCookieSessionStore playCookieSessionStore;
+  @VisibleForTesting @Inject protected SessionStore sessionStore;
 
-  @Inject private SsoManager ssoManager;
+  @VisibleForTesting @Inject protected SsoManager ssoManager;
 
   @Inject AuthServiceClient authClient;
 
   @Inject
   public AuthenticationController(@Nonnull Config configs) {
+    this.config = configs;
     cookieConfigs = new CookieConfigs(configs);
     jaasConfigs = new JAASConfigs(configs);
     nativeAuthenticationConfigs = new NativeAuthenticationConfigs(configs);
     guestAuthenticationConfigs = new GuestAuthenticationConfigs(configs);
     verbose = configs.hasPath(AUTH_VERBOSE_LOGGING) && configs.getBoolean(AUTH_VERBOSE_LOGGING);
+    basePath = getBasePath();
+  }
+
+  /**
+   * Gets the configured base path for DataHub.
+   *
+   * @return the normalized base path
+   */
+  @Nonnull
+  private String getBasePath() {
+    return BasePathUtils.normalizeBasePath(config.getString("datahub.basePath"));
+  }
+
+  /**
+   * Gets the login URL with proper base path.
+   *
+   * @return the full login URL with base path
+   */
+  @Nonnull
+  private String getLoginUrl() {
+    return BasePathUtils.addBasePath(LOGIN_ROUTE, this.basePath);
   }
 
   /**
@@ -96,18 +129,29 @@ public class AuthenticationController extends Controller {
     final Optional<String> maybeRedirectPath =
         Optional.ofNullable(request.getQueryString(AUTH_REDIRECT_URI_PARAM));
     String redirectPath = maybeRedirectPath.orElse("/");
+    // If the redirect path is /logOut, we do not want to redirect to the logout page after login.
+    if (redirectPath.equals("/logOut")) {
+      redirectPath = BasePathUtils.addBasePath("/logOut", this.basePath);
+    }
     try {
+      // Reject protocol-relative URLs (e.g. ///google.com) which browsers resolve to
+      // https://host; the URI parser may not set scheme/authority for these.
+      if (redirectPath.trim().startsWith("//")) {
+        throw new RedirectException(
+            "Redirect location must be relative to the base url, cannot "
+                + "use protocol-relative URL: "
+                + redirectPath);
+      }
       URI redirectUri = new URI(redirectPath);
       if (redirectUri.getScheme() != null || redirectUri.getAuthority() != null) {
-        throw new InvalidRedirectLocationException(
+        throw new RedirectException(
             "Redirect location must be relative to the base url, cannot "
                 + "redirect to other domains: "
-                + redirectPath,
-            redirectPath);
+                + redirectPath);
       }
-    } catch (URISyntaxException | InvalidRedirectLocationException e) {
+    } catch (URISyntaxException | RedirectException e) {
       logger.warn(e.getMessage());
-      redirectPath = "/";
+      redirectPath = BasePathUtils.addBasePath("/", this.basePath);
     }
 
     if (AuthUtils.hasValidSessionCookie(request)) {
@@ -117,9 +161,10 @@ public class AuthenticationController extends Controller {
     if (guestAuthenticationConfigs.isGuestEnabled()
         && guestAuthenticationConfigs.getGuestPath().equals(redirectPath)) {
       final String accessToken =
-          authClient.generateSessionTokenForUser(guestAuthenticationConfigs.getGuestUser());
-      redirectPath =
-          "/"; // We requested guest login by accessing {guestPath} URL. It is not really a target.
+          authClient.generateSessionTokenForUser(
+              guestAuthenticationConfigs.getGuestUser(), GUEST_LOGIN);
+      // We requested guest login by accessing {guestPath} URL. It is not really a target.
+      redirectPath = BasePathUtils.addBasePath("/", this.basePath);
       CorpuserUrn guestUserUrn = new CorpuserUrn(guestAuthenticationConfigs.getGuestUser());
       return Results.redirect(redirectPath)
           .withSession(createSessionMap(guestUserUrn.toString(), accessToken))
@@ -136,7 +181,7 @@ public class AuthenticationController extends Controller {
       return redirectToIdentityProvider(request, redirectPath)
           .orElse(
               Results.redirect(
-                  LOGIN_ROUTE
+                  getLoginUrl() // will already have a basepath
                       + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE)));
     }
 
@@ -144,13 +189,14 @@ public class AuthenticationController extends Controller {
     if (jaasConfigs.isJAASEnabled()
         || nativeAuthenticationConfigs.isNativeAuthenticationEnabled()) {
       return Results.redirect(
-          LOGIN_ROUTE
+          getLoginUrl()
               + String.format("?%s=%s", AUTH_REDIRECT_URI_PARAM, encodeRedirectUri(redirectPath)));
     }
 
     // 3. If no auth enabled, fallback to using default user account & redirect.
     // Generate GMS session token, TODO:
-    final String accessToken = authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId());
+    final String accessToken =
+        authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId(), FALLBACK_LOGIN);
     return Results.redirect(redirectPath)
         .withSession(createSessionMap(DEFAULT_ACTOR_URN.toString(), accessToken))
         .withCookies(
@@ -168,11 +214,12 @@ public class AuthenticationController extends Controller {
       return redirectToIdentityProvider(request, "/")
           .orElse(
               Results.redirect(
-                  LOGIN_ROUTE
+                  getLoginUrl()
                       + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE)));
     }
     return Results.redirect(
-        LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_DISABLED_ERROR_MESSAGE));
+        getLoginUrl()
+            + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_DISABLED_ERROR_MESSAGE));
   }
 
   /**
@@ -209,13 +256,14 @@ public class AuthenticationController extends Controller {
     boolean loginSucceeded = tryLogin(username, password);
 
     if (!loginSucceeded) {
-      logger.info("Login failed for user: {}", username);
+      logger.info("Login failed for userRef: {}", LoginIdentityMask.mask(username));
       return Results.badRequest(invalidCredsJson);
     }
 
     final Urn actorUrn = new CorpuserUrn(username);
-    logger.info("Login successful for user: {}, urn: {}", username, actorUrn);
-    final String accessToken = authClient.generateSessionTokenForUser(actorUrn.getId());
+    logger.info("Login successful for userRef: {}", LoginIdentityMask.mask(username));
+    final String accessToken =
+        authClient.generateSessionTokenForUser(actorUrn.getId(), PASSWORD_LOGIN);
     return createSession(actorUrn.toString(), accessToken);
   }
 
@@ -238,7 +286,11 @@ public class AuthenticationController extends Controller {
     final JsonNode json = request.body().asJson();
     final String fullName = json.findPath(FULL_NAME).textValue();
     final String email = json.findPath(EMAIL).textValue();
-    final String title = json.findPath(TITLE).textValue();
+    // Title is optional - pass null if blank
+    final String title =
+        StringUtils.isBlank(json.findPath(TITLE).textValue())
+            ? null
+            : json.findPath(TITLE).textValue();
     final String password = json.findPath(PASSWORD).textValue();
     final String inviteToken = json.findPath(INVITE_TOKEN).textValue();
 
@@ -264,11 +316,6 @@ public class AuthenticationController extends Controller {
       return Results.badRequest(invalidCredsJson);
     }
 
-    if (StringUtils.isBlank(title)) {
-      JsonNode invalidCredsJson = Json.newObject().put("message", "Title must not be empty.");
-      return Results.badRequest(invalidCredsJson);
-    }
-
     if (StringUtils.isBlank(inviteToken)) {
       JsonNode invalidCredsJson =
           Json.newObject().put("message", "Invite token must not be empty.");
@@ -279,7 +326,8 @@ public class AuthenticationController extends Controller {
     final String userUrnString = userUrn.toString();
     authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
     logger.info("Signed up user {} using invite tokens", userUrnString);
-    final String accessToken = authClient.generateSessionTokenForUser(userUrn.getId());
+    final String accessToken =
+        authClient.generateSessionTokenForUser(userUrn.getId(), SIGN_UP_LINK_LOGIN);
     return createSession(userUrnString, accessToken);
   }
 
@@ -319,8 +367,28 @@ public class AuthenticationController extends Controller {
     final Urn userUrn = new CorpuserUrn(email);
     final String userUrnString = userUrn.toString();
     authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
-    final String accessToken = authClient.generateSessionTokenForUser(userUrn.getId());
+    final String accessToken =
+        authClient.generateSessionTokenForUser(userUrn.getId(), PASSWORD_RESET);
     return createSession(userUrnString, accessToken);
+  }
+
+  @VisibleForTesting
+  protected Result addRedirectCookie(Result result, CallContext ctx, String redirectPath) {
+    // Set the originally requested path for post-auth redirection. We split off into a separate
+    // cookie from the session
+    // to reduce size of the session cookie
+    FoundAction foundAction =
+        new FoundAction(BasePathUtils.addBasePath(redirectPath, this.basePath));
+    Http.CookieBuilder redirectCookieBuilder =
+        Http.Cookie.builder(
+            REDIRECT_URL_COOKIE_NAME, SerializationUtils.serializeFoundAction(foundAction));
+    redirectCookieBuilder.withPath(BasePathUtils.addBasePath("/", this.basePath));
+    redirectCookieBuilder.withSecure(true);
+    redirectCookieBuilder.withHttpOnly(true);
+    redirectCookieBuilder.withMaxAge(Duration.ofSeconds(86400));
+    redirectCookieBuilder.withSameSite(Http.Cookie.SameSite.NONE);
+
+    return result.withCookies(redirectCookieBuilder.build());
   }
 
   private Optional<Result> redirectToIdentityProvider(
@@ -328,10 +396,12 @@ public class AuthenticationController extends Controller {
     CallContext ctx = buildCallContext(request);
 
     final Client client = ssoManager.getSsoProvider().client();
-    configurePac4jSessionStore(ctx, client, redirectPath);
+    configurePac4jSessionStore(ctx, client);
     try {
       final Optional<RedirectionAction> action = client.getRedirectionAction(ctx);
-      return action.map(act -> new PlayHttpActionAdapter().adapt(act, ctx.webContext()));
+      final Optional<Result> maybeResult =
+          action.map(act -> new PlayHttpActionAdapter().adapt(act, ctx.webContext()));
+      return maybeResult.map(result -> addRedirectCookie(result, ctx, redirectPath));
     } catch (Exception e) {
       if (verbose) {
         logger.error(
@@ -344,7 +414,8 @@ public class AuthenticationController extends Controller {
       return Optional.of(
           Results.redirect(
               String.format(
-                  "/login?error_msg=%s",
+                  "%s?error_msg=%s",
+                  getLoginUrl(),
                   URLEncoder.encode(
                       "Failed to redirect to Single Sign-On provider. Please contact your DataHub Administrator, "
                           + "or refer to server logs for more information.",
@@ -357,28 +428,20 @@ public class AuthenticationController extends Controller {
     PlayWebContext webContext = new PlayWebContext(request);
 
     // Then create CallContext using the web context and session store
-    return new CallContext(webContext, playCookieSessionStore);
+    return new CallContext(webContext, sessionStore);
   }
 
-  private void configurePac4jSessionStore(CallContext ctx, Client client, String redirectPath) {
+  private void configurePac4jSessionStore(CallContext ctx, Client client) {
     WebContext context = ctx.webContext();
 
-    // Set the originally requested path for post-auth redirection. We split off into a separate
-    // cookie from the session
-    // to reduce size of the session cookie
-    FoundAction foundAction = new FoundAction(redirectPath);
-    byte[] javaSerBytes =
-        ((PlayCookieSessionStore) ctx.sessionStore()).getSerializer().serializeToBytes(foundAction);
-    String serialized = Base64.getEncoder().encodeToString(compressBytes(javaSerBytes));
-    context.addResponseCookie(new Cookie(REDIRECT_URL_COOKIE_NAME, serialized));
     // This is to prevent previous login attempts from being cached.
     // We replicate the logic here, which is buried in the Pac4j client.
     Optional<Object> attempt =
-        playCookieSessionStore.get(context, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX);
+        ctx.sessionStore().get(context, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX);
     if (attempt.isPresent() && !"".equals(attempt.get())) {
       logger.debug(
           "Found previous login attempt. Removing it manually to prevent unexpected errors.");
-      playCookieSessionStore.set(context, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX, "");
+      ctx.sessionStore().set(context, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX, "");
     }
   }
 
@@ -409,8 +472,9 @@ public class AuthenticationController extends Controller {
     if (nativeAuthenticationConfigs.isNativeAuthenticationEnabled() && !loginSucceeded) {
       final Urn userUrn = new CorpuserUrn(username);
       final String userUrnString = userUrn.toString();
-      loginSucceeded =
-          loginSucceeded || authClient.verifyNativeUserCredentials(userUrnString, password);
+      final NativeUserCredentialVerifyResult verifyResult =
+          authClient.verifyNativeUserCredentials(userUrnString, password);
+      loginSucceeded = loginSucceeded || verifyResult.allowsSessionCreation();
     }
 
     return loginSucceeded;

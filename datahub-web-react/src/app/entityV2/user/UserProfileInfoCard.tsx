@@ -1,24 +1,27 @@
-import React, { useState } from 'react';
+import { Avatar } from '@components';
 import { Col } from 'antd';
-import { EntityRelationship, SearchResults } from '../../../types.generated';
-import SectionActionButton from '../shared/containers/profile/sidebar/SectionActionButton';
-import UserEditProfileModal from './UserEditProfileModal';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import {
     CustomAvatarContainer,
-    GradientContainer,
     EditProfileButtonContainer,
-    WhiteEditOutlinedIconStyle,
+    GradientContainer,
     UserInfo,
-} from '../shared/SidebarStyledComponents';
-import { UserBasicInfoContainer } from './UserBasicInfoContainer';
+    WhiteEditOutlinedIconStyle,
+} from '@app/entityV2/shared/SidebarStyledComponents';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { UserBasicInfoContainer } from '@app/entityV2/user/UserBasicInfoContainer';
+import UserEditProfileModal from '@app/entityV2/user/UserEditProfileModal';
 
-const AVATAR_STYLE = {
-    marginRight: '0px',
-    borderRadius: '100%',
-    zIndex: '2',
-};
+import { EntityRelationship, SearchResults } from '@types';
+
+const ProfileAvatarWrapper = styled.div`
+    position: relative;
+    z-index: 2;
+`;
 
 export type SidebarData = {
     photoUrl: string | undefined;
@@ -65,7 +68,9 @@ export const UserProfileInfoCard = ({ sidebarData, refetch, dataHubRoleName, isP
                 <GradientContainer />
                 <UserInfo>
                     <Col xxl={8} xl={10} lg={24} md={24} sm={24} xs={24}>
-                        <CustomAvatar size={113} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
+                        <ProfileAvatarWrapper>
+                            <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.user} size="3xl" />
+                        </ProfileAvatarWrapper>
                     </Col>
                     <Col xxl={14} xl={10} lg={18} md={18} sm={18} xs={18}>
                         <UserBasicInfoContainer

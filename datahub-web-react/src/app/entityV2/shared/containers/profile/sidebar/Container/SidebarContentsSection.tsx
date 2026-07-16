@@ -1,14 +1,20 @@
 import React from 'react';
-import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { SidebarSection } from '../SidebarSection';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { getContentsSummary, getContentsSummaryText, navigateToContainerContents } from './utils';
-import { useGetContainerEntitySummaryQuery } from '../../../../../../../graphql/container.generated';
-import SidebarContentsLoadingSection from './SidebarContentsLoadingSection';
-import EmptySectionText from '../EmptySectionText';
-import { REDESIGN_COLORS } from '../../../../constants';
+import styled from 'styled-components/macro';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import SidebarContentsLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Container/SidebarContentsLoadingSection';
+import {
+    getContentsSummary,
+    getContentsSummaryText,
+    navigateToContainerContents,
+} from '@app/entityV2/shared/containers/profile/sidebar/Container/utils';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetContainerEntitySummaryQuery } from '@graphql/container.generated';
 
 const Section = styled.div`
     display: flex;
@@ -27,13 +33,15 @@ const ViewAllButton = styled.div`
     align-items: center;
     font-weight: bold;
     padding: 0px 2px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     :hover {
         cursor: pointer;
     }
 `;
 
 const SidebarContentsSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const { urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
@@ -50,7 +58,7 @@ const SidebarContentsSection = () => {
 
     return (
         <SidebarSection
-            title="Contents"
+            title={t('sidebar.contents.sectionTitle')}
             key="Contents"
             content={
                 <>
@@ -66,11 +74,11 @@ const SidebarContentsSection = () => {
                                         navigateToContainerContents(urn, entityType, history, entityRegistry)
                                     }
                                 >
-                                    View all
+                                    {tc('viewAll')}
                                 </ViewAllButton>
                             </Section>
                         ) : (
-                            <EmptySectionText message="No contents yet" />
+                            <EmptySectionText message={t('sidebar.contents.emptyText')} />
                         ))}
                 </>
             }

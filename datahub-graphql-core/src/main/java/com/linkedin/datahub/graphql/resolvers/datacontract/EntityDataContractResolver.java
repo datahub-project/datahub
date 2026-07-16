@@ -1,10 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.datacontract;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataContract;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.datacontract.DataContractMapper;
@@ -38,7 +39,7 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
 
   @Override
   public CompletableFuture<DataContract> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           final String entityUrn = ((Entity) environment.getSource()).getUrn();
@@ -48,7 +49,7 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
             final EntityRelationships relationships =
                 _graphClient.getRelatedEntities(
                     entityUrn,
-                    ImmutableList.of(CONTRACT_FOR_RELATIONSHIP),
+                    ImmutableSet.of(CONTRACT_FOR_RELATIONSHIP),
                     RelationshipDirection.INCOMING,
                     0,
                     1,
@@ -83,7 +84,7 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
 
               if (entityResponse != null) {
                 // Step 4: Package and return result
-                return DataContractMapper.mapContract(entityResponse);
+                return DataContractMapper.mapContract(context, entityResponse);
               }
             }
             // No contract found
@@ -91,6 +92,8 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve Data Contract from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

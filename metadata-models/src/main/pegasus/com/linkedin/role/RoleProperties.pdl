@@ -6,7 +6,8 @@ import com.linkedin.common.AuditStamp
  * Information about a ExternalRoleProperties
  */
 @Aspect = {
-  "name": "roleProperties"
+  "name": "roleProperties",
+  "schemaVersion": 2
 }
 record RoleProperties {
 
@@ -17,7 +18,9 @@ record RoleProperties {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   name: string
 

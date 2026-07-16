@@ -1,18 +1,14 @@
-import { Button } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
-import { REDESIGN_COLORS } from '../../constants';
 
-// Styled Components
-// Todo(Gabe): replace this with the @components button once it supports text buttons with hover states
+import { Button } from '@src/alchemy-components';
+
+import DeprecatedIcon from '@images/deprecated-status.svg?react';
+
 const StyledButton = styled(Button)`
-    padding: 4px;
-    margin-top: -8px;
-    color: ${REDESIGN_COLORS.LINK_GREY};
-    :hover {
-        color: ${REDESIGN_COLORS.LINK_GREY};
-    }
+    padding-left: 4px;
+    padding-right: 4px;
 `;
 
 const FlexContainer = styled.div`
@@ -40,11 +36,12 @@ type MarkAsDeprecatedButtonContentsProps = {
     internalText?: string;
 };
 
-export const MarkAsDeprecatedButtonContents = ({ internalText }: MarkAsDeprecatedButtonContentsProps) => {
+const MarkAsDeprecatedButtonContents = ({ internalText }: MarkAsDeprecatedButtonContentsProps) => {
+    const { t } = useTranslation('entity.shared.components');
     return (
         <FlexContainer>
             <StyledDeprecatedIcon />
-            {internalText || 'Mark as deprecated'}
+            {internalText || t('deprecation.markAsDeprecated')}
         </FlexContainer>
     );
 };
@@ -52,7 +49,7 @@ export const MarkAsDeprecatedButtonContents = ({ internalText }: MarkAsDeprecate
 // Main Component
 const MarkAsDeprecatedButton = ({ onClick, internalText }: DeprecatedButtonProps) => {
     return (
-        <StyledButton onClick={onClick} type="text">
+        <StyledButton onClick={onClick} variant="text" size="sm" color="gray">
             <MarkAsDeprecatedButtonContents internalText={internalText} />
         </StyledButton>
     );

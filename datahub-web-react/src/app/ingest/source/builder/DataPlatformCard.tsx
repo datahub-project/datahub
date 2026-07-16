@@ -1,8 +1,8 @@
-import React from 'react';
 import { Button, Image } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '../../../entity/shared/constants';
+import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 
 const Container = styled(Button)`
     padding: 32px;

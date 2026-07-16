@@ -1,4 +1,6 @@
-from typing import List, Optional
+import logging
+import re
+from typing import AbstractSet, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
@@ -8,29 +10,286 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 )
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
-SHOW_VIEWS_MAX_PAGE_SIZE = 10000
+logger = logging.getLogger(__name__)
+
+SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
+
+# Conservative ceiling for the composed allow/deny filter — the dominant
+# variable-length part of the object-listing queries. Snowflake documents a 1 MB
+# max statement size
+# (https://docs.snowflake.com/en/sql-reference/limits#general-limits), but empirically
+# it accepts far larger text (10 MB+ when tested in 2026-06), so this is not a hard
+# limit we're hugging — it's a deliberately low threshold past which we stop pushing
+# down and filter client-side, which at that scale is typically faster anyway (see
+# get_tables_for_schema). Decimal 1e6 (< 2^20) keeps headroom for the query
+# scaffolding the filter is embedded in.
+SNOWFLAKE_MAX_QUERY_BYTES = 1_000_000
+
+
+def _escape_sql_string_literal(value: str) -> str:
+    """Escape a value for embedding inside a single-quoted SQL string literal.
+
+    Snowflake string literals (default session settings) treat BOTH ``\\`` and
+    ``'`` as escape mechanisms: ``\\'`` is a literal quote and ``\\\\`` a literal
+    backslash, so a lone backslash consumes the following character — including a
+    closing quote. Backslashes must therefore be doubled FIRST, then single
+    quotes, otherwise a trailing backslash (or ``\\'``) in an attacker-controlled
+    object/schema name breaks out of the literal and injects SQL.
+    """
+    return value.replace("\\", "\\\\").replace("'", "''")
+
+
+# Snowflake unquoted-identifier names — single segments (``DB``, ``MY_SHARE``)
+# or dot-qualified (``ORG.PROVIDER.LISTING``).
+SNOWFLAKE_OBJECT_NAME_RE = re.compile(
+    r"^[A-Za-z_][A-Za-z0-9_$]*(\.[A-Za-z_][A-Za-z0-9_$]*)*$"
+)
+
+# Allow-patterns containing only Snowflake unquoted-identifier chars (letters,
+# digits, underscores, dollar signs) and FQN-separator dots, terminated by a
+# '$' regex anchor. No other metacharacters. Patterns in this subset are
+# trivially valid capturing groups, so _make_composable can skip the
+# re.compile validation step for them.
+#
+# Note: Snowflake unquoted identifiers are [A-Za-z_][A-Za-z0-9_$]* (no digit
+# start, no dots). This regex is slightly broader — it admits digit-initial
+# patterns and uses '.' as an FQN separator — which is intentional: it
+# characterises patterns that are composable without re.compile validation,
+# not patterns that are syntactically valid Snowflake identifiers.
+_PLAIN_LITERAL_PATTERN_RE = re.compile(r"^[A-Za-z0-9_$.]+\$$")
+
+
+def _make_composable(pattern: str) -> Optional[str]:
+    """Wrap a regex pattern in (...) for use in a single RLIKE alternation.
+
+    Snowflake RLIKE uses POSIX ERE, not PCRE — non-capturing groups (?:...)
+    are invalid and raise "no argument for repetition operator: ?". Plain
+    capturing groups (...) are valid ERE and sufficient for alternation
+    grouping.
+
+    Returns the wrapped form if the result is a valid regex, or None if the
+    pattern has unbalanced parentheses or other syntax that would break the
+    alternation context (e.g., ``TABLE(unclosed``).
+    """
+    wrapped = f"({pattern})"
+    # Fast path: safe-literal-subset patterns are trivially valid capturing
+    # groups — skip re.compile for the common exact-literal case.
+    if _PLAIN_LITERAL_PATTERN_RE.match(pattern):
+        return wrapped
+    try:
+        re.compile(wrapped)
+    except re.error:
+        return None
+    return wrapped
+
+
+def _compose_deny(
+    deny_patterns: List[str],
+    col_expr: str,
+    ignore_case: bool,
+    deny_budget: int,
+) -> Optional[str]:
+    """Compose deny patterns into a single capped ``NOT RLIKE`` alternation.
+
+    Server-side deny is a best-effort row-reduction optimization, not the source of
+    truth — the caller always re-applies the full allow/deny patterns client-side.
+    So this includes only the patterns that are parsable as a Snowflake regex AND
+    fit within ``deny_budget`` bytes; patterns that are unparsable (would break
+    RLIKE) or past the budget (deny can't be paged) are simply left out, and the
+    client-side pass catches them. Returns ``None`` when no pattern qualifies.
+    """
+    kept: List[str] = []
+    skipped = 0
+    # Track the composed clause's byte size incrementally instead of re-joining and
+    # re-escaping the whole list each iteration (which would be O(n^2)). Escaping is
+    # a per-character expansion and '|' never expands, so the escaped alternation's
+    # length is exactly the sum of each pattern's escaped length plus one byte per
+    # '|' separator. clause_bytes starts at the fixed wrapper "<col> NOT RLIKE ''".
+    clause_bytes = len(f"{col_expr} NOT RLIKE ''".encode())
+
+    for p in deny_patterns:
+        wrapped = _make_composable(p.upper() if ignore_case else p)
+        if wrapped is None:
+            skipped += 1  # unparsable — handled client-side
+            continue
+        added_bytes = len(_escape_sql_string_literal(wrapped).encode()) + (
+            1 if kept else 0  # '|' separator before all but the first pattern
+        )
+        if clause_bytes + added_bytes > deny_budget:
+            skipped += 1  # past the byte budget — handled client-side
+            continue
+        kept.append(wrapped)
+        clause_bytes += added_bytes
+
+    if skipped:
+        logger.debug(
+            "%d of %d deny patterns not pushed server-side (unparsable or past the "
+            "%d-byte budget); the client-side deny pass applies them.",
+            skipped,
+            len(deny_patterns),
+            deny_budget,
+        )
+    if not kept:
+        return None
+    alternation = _escape_sql_string_literal("|".join(kept))
+    return f"{col_expr} NOT RLIKE '{alternation}'"
 
 
 def create_deny_regex_sql_filter(
     deny_pattern: List[str], filter_cols: List[str]
 ) -> str:
-    upstream_sql_filter = (
-        " AND ".join(
-            [
-                (f"NOT RLIKE({col_name},'{regexp}','i')")
-                for col_name in filter_cols
-                for regexp in deny_pattern
-            ]
-        )
-        if deny_pattern
-        else ""
-    )
+    """Build a deny-only SQL filter across one or more columns.
 
-    return upstream_sql_filter
+    Delegates to SnowflakeQuery._build_pattern_filter for SQL generation,
+    ensuring a single code path for all RLIKE-based filtering.
+    """
+    if not deny_pattern:
+        return ""
+
+    pattern = AllowDenyPattern(deny=deny_pattern)
+    conditions = [
+        col_filter
+        for col in filter_cols
+        if (col_filter := SnowflakeQuery._build_pattern_filter(pattern, col))
+    ]
+    return " AND ".join(conditions)
 
 
 class SnowflakeQuery:
+    @staticmethod
+    def _build_pattern_filter(
+        pattern: Optional[AllowDenyPattern],
+        column_expr: str,
+    ) -> str:
+        """
+        Build SQL WHERE clause from AllowDenyPattern.
+
+        Behavior mirrors Python AllowDenyPattern.allowed():
+        - Deny patterns checked first (if any match → excluded)
+        - Then allow patterns checked (if any match → included)
+        - ".*" in allow list means "allow all" (other allow patterns are redundant)
+
+        Implementation:
+        - ALL patterns use Snowflake RLIKE operator (both allow and deny)
+        - Handles ignoreCase flag via UPPER() wrapper
+        - Patterns must follow Snowflake's regex syntax
+
+        Args:
+            pattern: The AllowDenyPattern to convert
+            column_expr: SQL expression for the column (e.g., "database_name",
+                         "CONCAT(table_catalog, '.', table_schema, '.', table_name)")
+
+        Returns:
+            SQL WHERE clause string, or empty string if no filtering needed
+        """
+        if not pattern:
+            return ""
+
+        if pattern.allow == []:
+            logger.warning(
+                "Pattern has an empty allow list for column '%s'. "
+                "This will exclude all entities matching this filter, "
+                "which may result in zero ingested entities.",
+                column_expr,
+            )
+            return "FALSE"
+
+        if pattern.allow == [".*"] and not pattern.deny:
+            return ""
+
+        def transform(v: str) -> str:
+            return v.upper() if pattern.ignoreCase else v
+
+        col_expr = f"UPPER({column_expr})" if pattern.ignoreCase else column_expr
+
+        # Compose DENY first, capped at half the per-query byte budget (deny can't
+        # be paged, so the other half is reserved for the allow clause). Server-side
+        # deny is best-effort: unparsable or over-budget patterns are left out and
+        # caught by the caller's mandatory client-side deny pass.
+        deny_budget = SNOWFLAKE_MAX_QUERY_BYTES // 2
+        deny_clause = _compose_deny(
+            pattern.deny, col_expr, bool(pattern.ignoreCase), deny_budget
+        )
+
+        # Compose the ALLOW patterns handed to THIS call into one clause. Allow
+        # can't be truncated — a dropped allow pattern silently misses tables, and
+        # unlike deny there's no client-side pass that recovers an under-selection.
+        # So when the full allow list is too large for one query, the CALLER pages
+        # it: it splits the allow patterns into byte-sized chunks (sized against the
+        # budget left after the deny holdback) and calls this once per chunk,
+        # running one query per page and merging the results. Each call here emits
+        # exactly one page's allow clause.
+        allow_clause: Optional[str] = None
+        has_allow_all = ".*" in pattern.allow
+        if not has_allow_all and pattern.allow:
+            composable: List[str] = []
+            for p in pattern.allow:
+                wrapped = _make_composable(transform(p))
+                if wrapped is None:
+                    logger.warning(
+                        "Skipping allow pattern %r: cannot be safely composed "
+                        "(unbalanced parentheses or invalid regex). "
+                        "This pattern will not be applied as a SQL filter.",
+                        p,
+                    )
+                else:
+                    composable.append(wrapped)
+            if composable:
+                # Single RLIKE alternation: ~5s for 500 patterns vs OR-chain ~30s.
+                combined = "|".join(composable)
+                sql_escaped = _escape_sql_string_literal(combined)
+                allow_clause = f"{col_expr} RLIKE '{sql_escaped}'"
+            else:
+                # Allow patterns were provided but none could be composed. Fail
+                # CLOSED (match nothing) rather than emitting no condition — an
+                # empty filter would allow everything, silently widening an
+                # allow-list scoped away from sensitive objects.
+                allow_clause = "FALSE"
+
+        # Emit allow before deny (allow AND deny), matching the original order.
+        conditions = [clause for clause in (allow_clause, deny_clause) if clause]
+        return " AND ".join(conditions) if conditions else ""
+
+    @staticmethod
+    def build_database_filter(database_pattern: Optional[AllowDenyPattern]) -> str:
+        """Build SQL WHERE clause for database_pattern filtering."""
+        return SnowflakeQuery._build_pattern_filter(database_pattern, "database_name")
+
+    @staticmethod
+    def build_schema_filter(
+        schema_pattern: Optional[AllowDenyPattern],
+        db_name: str,
+        match_fully_qualified_names: bool,
+    ) -> str:
+        """Build SQL WHERE clause for schema_pattern filtering."""
+        if match_fully_qualified_names:
+            escaped_db = db_name.replace("'", "''")
+            column_expr = f"CONCAT('{escaped_db}', '.', schema_name)"
+        else:
+            column_expr = "schema_name"
+
+        return SnowflakeQuery._build_pattern_filter(schema_pattern, column_expr)
+
+    @staticmethod
+    def build_table_filter(table_pattern: Optional[AllowDenyPattern]) -> str:
+        """Build SQL WHERE clause for table_pattern filtering.
+
+        Table patterns always match against full qualified name: DATABASE.SCHEMA.TABLE
+        """
+        column_expr = "CONCAT(table_catalog, '.', table_schema, '.', table_name)"
+        return SnowflakeQuery._build_pattern_filter(table_pattern, column_expr)
+
+    @staticmethod
+    def build_view_filter(view_pattern: Optional[AllowDenyPattern]) -> str:
+        """Build SQL WHERE clause for view_pattern filtering.
+
+        View patterns always match against full qualified name: DATABASE.SCHEMA.VIEW
+        Views use same column names (table_catalog, table_schema, table_name) in information_schema.
+        """
+        column_expr = "CONCAT(table_catalog, '.', table_schema, '.', table_name)"
+        return SnowflakeQuery._build_pattern_filter(view_pattern, column_expr)
+
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS = {
         SnowflakeObjectDomain.TABLE.capitalize(),
         SnowflakeObjectDomain.EXTERNAL_TABLE.capitalize(),
@@ -38,17 +297,21 @@ class SnowflakeQuery:
         SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
         SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
         SnowflakeObjectDomain.STREAM.capitalize(),
+        SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
     }
 
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
         ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS)
     )
-    ACCESS_HISTORY_TABLE_DOMAINS_FILTER = (
-        "("
-        f"'{SnowflakeObjectDomain.TABLE.capitalize()}',"
-        f"'{SnowflakeObjectDomain.VIEW.capitalize()}',"
-        f"'{SnowflakeObjectDomain.STREAM.capitalize()}',"
-        ")"
+
+    # Domains that can be downstream tables in lineage
+    DOWNSTREAM_TABLE_DOMAINS = {
+        SnowflakeObjectDomain.TABLE.capitalize(),
+        SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
+    }
+
+    DOWNSTREAM_TABLE_DOMAINS_FILTER = "({})".format(
+        ",".join(f"'{domain}'" for domain in DOWNSTREAM_TABLE_DOMAINS)
     )
 
     @staticmethod
@@ -72,14 +335,6 @@ class SnowflakeQuery:
         return "select CURRENT_WAREHOUSE()"
 
     @staticmethod
-    def current_database() -> str:
-        return "select CURRENT_DATABASE()"
-
-    @staticmethod
-    def current_schema() -> str:
-        return "select CURRENT_SCHEMA()"
-
-    @staticmethod
     def show_databases() -> str:
         return "show databases"
 
@@ -96,38 +351,94 @@ class SnowflakeQuery:
         return f'use schema "{schema_name}"'
 
     @staticmethod
-    def get_databases(db_name: Optional[str]) -> str:
+    def get_databases(db_name: Optional[str], database_filter: str = "") -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
+
+        where_clause = ""
+        if database_filter:
+            where_clause = f"WHERE {database_filter}"
+
         return f"""
         SELECT database_name AS "DATABASE_NAME",
         created AS "CREATED",
         last_altered AS "LAST_ALTERED",
         comment AS "COMMENT"
-        from {db_clause}information_schema.databases
-        order by database_name"""
+        FROM {db_clause}information_schema.databases
+        {where_clause}
+        ORDER BY database_name"""
 
     @staticmethod
-    def schemas_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def schemas_for_database(db_name: str, schema_filter: str = "") -> str:
+        db_clause = f'"{db_name}".'
+
+        where_conditions = ["schema_name != 'INFORMATION_SCHEMA'"]
+        if schema_filter:
+            where_conditions.append(schema_filter)
+
+        where_clause = " AND ".join(where_conditions)
+
         return f"""
         SELECT schema_name AS "SCHEMA_NAME",
         created AS "CREATED",
         last_altered AS "LAST_ALTERED",
         comment AS "COMMENT"
-        from {db_clause}information_schema.schemata
-        WHERE schema_name != 'INFORMATION_SCHEMA'
-        order by schema_name"""
+        FROM {db_clause}information_schema.schemata
+        WHERE {where_clause}
+        ORDER BY schema_name"""
 
     @staticmethod
-    def tables_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def _build_table_type_conditions(
+        table_types: AbstractSet[str],
+        exclude_dynamic_tables: bool = False,
+    ) -> List[str]:
+        """Build WHERE conditions for table type filtering.
+
+        Args:
+            table_types: Set of TABLE_TYPE values to include (e.g., {"BASE TABLE", "EXTERNAL TABLE"}).
+            exclude_dynamic_tables: If True, excludes dynamic tables from results.
+
+        Returns:
+            List of SQL WHERE conditions for table type filtering
+        """
+        conditions = []
+
+        type_list = ", ".join(f"'{t}'" for t in sorted(table_types))
+        conditions.append(f"table_type in ({type_list})")
+
+        # Filter out dynamic tables if excluded
+        if exclude_dynamic_tables:
+            conditions.append("COALESCE(is_dynamic, 'NO') = 'NO'")
+
+        return conditions
+
+    @staticmethod
+    def tables_for_database(
+        db_name: str,
+        table_types: AbstractSet[str],
+        table_filter: str = "",
+        exclude_dynamic_tables: bool = False,
+    ) -> str:
+        db_clause = f'"{db_name}".'
+
+        where_conditions = [
+            "table_schema != 'INFORMATION_SCHEMA'",
+            *SnowflakeQuery._build_table_type_conditions(
+                table_types, exclude_dynamic_tables
+            ),
+        ]
+
+        if table_filter:
+            where_conditions.append(table_filter)
+
+        where_clause = " AND ".join(where_conditions)
+
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
         table_name AS "TABLE_NAME",
         table_type AS "TABLE_TYPE",
         created AS "CREATED",
-        last_altered AS "LAST_ALTERED" ,
+        last_altered AS "LAST_ALTERED",
         comment AS "COMMENT",
         row_count AS "ROW_COUNT",
         bytes AS "BYTES",
@@ -135,22 +446,41 @@ class SnowflakeQuery:
         auto_clustering_on AS "AUTO_CLUSTERING_ON",
         is_dynamic AS "IS_DYNAMIC",
         is_iceberg AS "IS_ICEBERG",
-        is_hybrid AS "IS_HYBRID"
+        is_hybrid AS "IS_HYBRID",
+        retention_time AS "RETENTION_TIME"
         FROM {db_clause}information_schema.tables t
-        WHERE table_schema != 'INFORMATION_SCHEMA'
-        and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE')
-        order by table_schema, table_name"""
+        WHERE {where_clause}
+        ORDER BY table_schema, table_name"""
 
     @staticmethod
-    def tables_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def tables_for_schema(
+        schema_name: str,
+        db_name: str,
+        table_types: AbstractSet[str],
+        table_filter: str = "",
+        exclude_dynamic_tables: bool = False,
+    ) -> str:
+        db_clause = f'"{db_name}".'
+
+        where_conditions = [
+            f"table_schema='{schema_name}'",
+            *SnowflakeQuery._build_table_type_conditions(
+                table_types, exclude_dynamic_tables
+            ),
+        ]
+
+        if table_filter:
+            where_conditions.append(table_filter)
+
+        where_clause = " AND ".join(where_conditions)
+
         return f"""
         SELECT table_catalog AS "TABLE_CATALOG",
         table_schema AS "TABLE_SCHEMA",
         table_name AS "TABLE_NAME",
         table_type AS "TABLE_TYPE",
         created AS "CREATED",
-        last_altered AS "LAST_ALTERED" ,
+        last_altered AS "LAST_ALTERED",
         comment AS "COMMENT",
         row_count AS "ROW_COUNT",
         bytes AS "BYTES",
@@ -158,15 +488,15 @@ class SnowflakeQuery:
         auto_clustering_on AS "AUTO_CLUSTERING_ON",
         is_dynamic AS "IS_DYNAMIC",
         is_iceberg AS "IS_ICEBERG",
-        is_hybrid AS "IS_HYBRID"
+        is_hybrid AS "IS_HYBRID",
+        retention_time AS "RETENTION_TIME"
         FROM {db_clause}information_schema.tables t
-        where table_schema='{schema_name}'
-        and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
-        order by table_schema, table_name"""
+        WHERE {where_clause}
+        ORDER BY table_schema, table_name"""
 
     @staticmethod
-    def procedures_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
+    def procedures_for_database(db_name: str) -> str:
+        db_clause = f'"{db_name}".'
         return f"""
         SELECT procedure_catalog AS "PROCEDURE_CATALOG",
         procedure_schema AS "PROCEDURE_SCHEMA",
@@ -182,6 +512,10 @@ class SnowflakeQuery:
         order by procedure_schema, procedure_name"""
 
     @staticmethod
+    def streamlit_apps_for_database(db_name: str) -> str:
+        return f'SHOW STREAMLITS IN DATABASE "{db_name}"'
+
+    @staticmethod
     def get_all_tags():
         return """
         SELECT tag_database as "TAG_DATABASE",
@@ -190,19 +524,6 @@ class SnowflakeQuery:
         FROM snowflake.account_usage.tag_references
         GROUP BY TAG_DATABASE , TAG_SCHEMA, tag_name
         ORDER BY TAG_DATABASE, TAG_SCHEMA, TAG_NAME  ASC;
-        """
-
-    @staticmethod
-    def get_all_tags_on_object_with_propagation(
-        db_name: str, quoted_identifier: str, domain: str
-    ) -> str:
-        # https://docs.snowflake.com/en/sql-reference/functions/tag_references.html
-        return f"""
-        SELECT tag_database as "TAG_DATABASE",
-        tag_schema AS "TAG_SCHEMA",
-        tag_name AS "TAG_NAME",
-        tag_value AS "TAG_VALUE"
-        FROM table("{db_name}".information_schema.tag_references('{quoted_identifier}', '{domain}'));
         """
 
     @staticmethod
@@ -234,23 +555,9 @@ class SnowflakeQuery:
         """
 
     @staticmethod
-    def get_tags_on_columns_with_propagation(
-        db_name: str, quoted_table_identifier: str
-    ) -> str:
-        # https://docs.snowflake.com/en/sql-reference/functions/tag_references_all_columns.html
-        return f"""
-        SELECT tag_database as "TAG_DATABASE",
-        tag_schema AS "TAG_SCHEMA",
-        tag_name AS "TAG_NAME",
-        tag_value AS "TAG_VALUE",
-        column_name AS "COLUMN_NAME"
-        FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', '{SnowflakeObjectDomain.TABLE}'));
-        """
-
-    @staticmethod
     def show_views_for_database(
         db_name: str,
-        limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
         view_pagination_marker: Optional[str] = None,
     ) -> str:
         # While there is an information_schema.views view, that only shows the view definition if the role
@@ -259,7 +566,7 @@ class SnowflakeQuery:
 
         # SHOW VIEWS can return a maximum of 10000 rows.
         # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
-        assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
         # To work around this, we paginate through the results using the FROM clause.
         from_clause = (
@@ -268,6 +575,62 @@ class SnowflakeQuery:
         return f"""\
 SHOW VIEWS IN DATABASE "{db_name}"
 LIMIT {limit} {from_clause};
+"""
+
+    @staticmethod
+    def get_views_for_database(db_name: str, view_filter: str = "") -> str:
+        # We've seen some issues with the `SHOW VIEWS` query,
+        # particularly when it requires pagination.
+        # This is an experimental alternative query that might be more reliable.
+        where_conditions = [
+            f"TABLE_CATALOG = '{db_name}'",
+            "TABLE_SCHEMA != 'INFORMATION_SCHEMA'",
+        ]
+        if view_filter:
+            where_conditions.append(view_filter)
+
+        where_clause = "\n  AND ".join(where_conditions)
+
+        return f"""\
+SELECT
+  TABLE_CATALOG as "VIEW_CATALOG",
+  TABLE_SCHEMA as "VIEW_SCHEMA",
+  TABLE_NAME as "VIEW_NAME",
+  COMMENT,
+  VIEW_DEFINITION,
+  CREATED,
+  LAST_ALTERED,
+  IS_SECURE
+FROM "{db_name}".information_schema.views
+WHERE {where_clause}
+"""
+
+    @staticmethod
+    def get_views_for_schema(
+        db_name: str, schema_name: str, view_filter: str = ""
+    ) -> str:
+        where_conditions = [
+            f"TABLE_CATALOG = '{db_name}'",
+            "TABLE_SCHEMA != 'INFORMATION_SCHEMA'",
+            f"TABLE_SCHEMA = '{schema_name}'",
+        ]
+        if view_filter:
+            where_conditions.append(view_filter)
+
+        where_clause = "\n  AND ".join(where_conditions)
+
+        return f"""\
+SELECT
+  TABLE_CATALOG as "VIEW_CATALOG",
+  TABLE_SCHEMA as "VIEW_SCHEMA",
+  TABLE_NAME as "VIEW_NAME",
+  COMMENT,
+  VIEW_DEFINITION,
+  CREATED,
+  LAST_ALTERED,
+  IS_SECURE
+FROM "{db_name}".information_schema.views
+WHERE {where_clause}
 """
 
     @staticmethod
@@ -282,6 +645,188 @@ LIMIT {limit} {from_clause};
             FROM SNOWFLAKE.ACCOUNT_USAGE.VIEWS
             WHERE IS_SECURE = 'YES' AND VIEW_DEFINITION !='' AND DELETED IS NULL
         """
+
+    @staticmethod
+    def get_semantic_views_for_database(db_name: str) -> str:
+        # Query semantic views from dedicated INFORMATION_SCHEMA.SEMANTIC_VIEWS view
+        return f"""\
+SELECT
+  CATALOG as "SEMANTIC_VIEW_CATALOG",
+  SCHEMA as "SEMANTIC_VIEW_SCHEMA",
+  NAME as "SEMANTIC_VIEW_NAME",
+  COMMENT,
+  CREATED
+FROM "{db_name}".information_schema.semantic_views
+"""
+
+    @staticmethod
+    def get_semantic_views_for_schema(db_name: str, schema_name: str) -> str:
+        return f"""\
+{SnowflakeQuery.get_semantic_views_for_database(db_name).rstrip()}
+WHERE SCHEMA = '{schema_name}'
+"""
+
+    @staticmethod
+    def get_semantic_view_ddl(
+        db_name: str, schema_name: str, semantic_view_name: str
+    ) -> str:
+        """Generate query to get the DDL definition of a semantic view.
+
+        Note: Inputs are expected to be pre-validated Snowflake identifiers from
+        INFORMATION_SCHEMA queries. Double-quote escaping is used for identifiers.
+        """
+        return f"""SELECT GET_DDL('SEMANTIC_VIEW', '"{db_name}"."{schema_name}"."{semantic_view_name}"') AS "DDL";"""
+
+    @staticmethod
+    def get_semantic_tables_for_database(db_name: str) -> str:
+        """Generate query to get semantic tables (base table mappings) for all semantic views in a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "SEMANTIC_TABLE_NAME",
+  base_table_catalog AS "BASE_TABLE_CATALOG",
+  base_table_schema AS "BASE_TABLE_SCHEMA",
+  base_table_name AS "BASE_TABLE_NAME",
+  primary_keys AS "PRIMARY_KEYS",
+  unique_keys AS "UNIQUE_KEYS",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_tables
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_tables_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic tables for semantic views in a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  name AS "SEMANTIC_TABLE_NAME",
+  base_table_catalog AS "BASE_TABLE_CATALOG",
+  base_table_schema AS "BASE_TABLE_SCHEMA",
+  base_table_name AS "BASE_TABLE_NAME",
+  primary_keys AS "PRIMARY_KEYS",
+  unique_keys AS "UNIQUE_KEYS",
+  comment AS "COMMENT"
+FROM "{db_name}".information_schema.semantic_tables
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_dimensions_for_database(db_name: str) -> str:
+        """Generate query to get all semantic dimensions for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_dimensions
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_dimensions_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic dimensions for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_dimensions
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_facts_for_database(db_name: str) -> str:
+        """Generate query to get all semantic facts for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_facts
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_facts_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic facts for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_facts
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_metrics_for_database(db_name: str) -> str:
+        """Generate query to get all semantic metrics for a database."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_metrics
+ORDER BY semantic_view_schema, semantic_view_name, name
+"""
+
+    @staticmethod
+    def get_semantic_metrics_for_schema(db_name: str, schema_name: str) -> str:
+        """Generate query to get semantic metrics for a specific schema."""
+        return f"""\
+SELECT
+  semantic_view_catalog AS "SEMANTIC_VIEW_CATALOG",
+  semantic_view_schema AS "SEMANTIC_VIEW_SCHEMA",
+  semantic_view_name AS "SEMANTIC_VIEW_NAME",
+  table_name AS "TABLE_NAME",
+  name AS "NAME",
+  data_type AS "DATA_TYPE",
+  expression AS "EXPRESSION",
+  comment AS "COMMENT",
+  synonyms AS "SYNONYMS"
+FROM "{db_name}".information_schema.semantic_metrics
+WHERE semantic_view_schema = '{schema_name}'
+ORDER BY semantic_view_name, name
+"""
 
     @staticmethod
     def columns_for_schema(
@@ -340,6 +885,18 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         show imported keys in schema "{db_name}"."{schema_name}" """
 
     @staticmethod
+    def show_stages_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW STAGES IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
+    def show_tasks_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW TASKS IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
+    def show_pipes_for_schema(schema_name: str, db_name: str) -> str:
+        return f"""SHOW PIPES IN SCHEMA "{db_name}"."{schema_name}";"""
+
+    @staticmethod
     def operational_data_for_time_window(
         start_time_millis: int, end_time_millis: int
     ) -> str:
@@ -382,26 +939,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         ORDER BY query_start_time DESC
         ;"""
 
-    @staticmethod
-    def view_dependencies() -> str:
-        return """
-        SELECT
-          concat(
-            referenced_database, '.', referenced_schema,
-            '.', referenced_object_name
-          ) AS "VIEW_UPSTREAM",
-          referenced_object_domain as "REFERENCED_OBJECT_DOMAIN",
-          concat(
-            referencing_database, '.', referencing_schema,
-            '.', referencing_object_name
-          ) AS "DOWNSTREAM_VIEW",
-          referencing_object_domain AS "REFERENCING_OBJECT_DOMAIN"
-        FROM
-          snowflake.account_usage.object_dependencies
-        WHERE
-          referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
-        """
-
     # Note on use of `upstreams_deny_pattern` to ignore temporary tables:
     # Snowflake access history may include temporary tables in DIRECT_OBJECTS_ACCESSED and
     # OBJECTS_MODIFIED->columns->directSources. We do not need these temporary tables and filter these in the query.
@@ -424,32 +961,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 end_time_millis,
                 upstreams_deny_pattern,
             )
-
-    @staticmethod
-    def view_dependencies_v2() -> str:
-        return """
-        SELECT
-            ARRAY_UNIQUE_AGG(
-                OBJECT_CONSTRUCT(
-                    'upstream_object_name', concat(
-                                    referenced_database, '.', referenced_schema,
-                                    '.', referenced_object_name
-                                ),
-                    'upstream_object_domain', referenced_object_domain
-                )
-                ) as "UPSTREAM_TABLES",
-          concat(
-            referencing_database, '.', referencing_schema,
-            '.', referencing_object_name
-          ) AS "DOWNSTREAM_TABLE_NAME",
-          ANY_VALUE(referencing_object_domain) AS "DOWNSTREAM_TABLE_DOMAIN"
-        FROM
-          snowflake.account_usage.object_dependencies
-        WHERE
-          referencing_object_domain in ('VIEW', 'MATERIALIZED VIEW')
-        GROUP BY
-            DOWNSTREAM_TABLE_NAME
-        """
 
     @staticmethod
     def show_external_tables() -> str:
@@ -747,7 +1258,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
-                AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                AND downstream_table_domain in {SnowflakeQuery.DOWNSTREAM_TABLE_DOMAINS_FILTER}
                 {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
             ),
         column_upstream_jobs AS (
@@ -904,7 +1415,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
-                AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                AND downstream_table_domain in {SnowflakeQuery.DOWNSTREAM_TABLE_DOMAINS_FILTER}
                 {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
             ),
         table_upstream_jobs_unique AS (
@@ -961,9 +1472,20 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         """
 
     @staticmethod
-    def dmf_assertion_results(start_time_millis: int, end_time_millis: int) -> str:
-        pattern = r"datahub\\_\\_%"
-        escape_pattern = r"\\"
+    def dmf_assertion_results(
+        start_time_millis: int,
+        end_time_millis: int,
+        include_external: bool = False,
+    ) -> str:
+        # When include_external=True, don't filter by pattern
+        pattern_filter = ""
+        if not include_external:
+            pattern = r"datahub\\_\\_%"
+            escape_pattern = r"\\"
+            pattern_filter = (
+                f"AND METRIC_NAME ilike '{pattern}' escape '{escape_pattern}'"
+            )
+
         return f"""
             SELECT
                 MEASUREMENT_TIME AS "MEASUREMENT_TIME",
@@ -971,15 +1493,16 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 TABLE_NAME AS "TABLE_NAME",
                 TABLE_SCHEMA AS "TABLE_SCHEMA",
                 TABLE_DATABASE AS "TABLE_DATABASE",
+                REFERENCE_ID AS "REFERENCE_ID",
+                ARGUMENT_NAMES AS "ARGUMENT_NAMES",
                 VALUE::INT AS "VALUE"
             FROM
                 SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS
             WHERE
                 MEASUREMENT_TIME >= to_timestamp_ltz({start_time_millis}, 3)
                 AND MEASUREMENT_TIME < to_timestamp_ltz({end_time_millis}, 3)
-                AND METRIC_NAME ilike '{pattern}' escape '{escape_pattern}'
-                ORDER BY MEASUREMENT_TIME ASC;
-
+                {pattern_filter}
+            ORDER BY MEASUREMENT_TIME ASC;
             """
 
     @staticmethod
@@ -1000,4 +1523,382 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         from_clause = (
             f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
         )
-        return f"""SHOW STREAMS IN DATABASE {db_name} LIMIT {limit} {from_clause};"""
+        return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit} {from_clause};"""
+
+    @staticmethod
+    def show_dynamic_tables_for_database(
+        db_name: str,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
+        dynamic_table_pagination_marker: Optional[str] = None,
+    ) -> str:
+        """Get dynamic table definitions using SHOW DYNAMIC TABLES."""
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+
+        from_clause = (
+            f"""FROM '{dynamic_table_pagination_marker}'"""
+            if dynamic_table_pagination_marker
+            else ""
+        )
+        return f"""\
+    SHOW DYNAMIC TABLES IN DATABASE "{db_name}"
+    LIMIT {limit} {from_clause};
+    """
+
+    @staticmethod
+    def get_dynamic_table_graph_history(db_name: str) -> str:
+        """Get dynamic table dependency information from information schema."""
+        return f"""
+            SELECT
+                name,
+                inputs,
+                target_lag_type,
+                target_lag_sec,
+                scheduling_state,
+                alter_trigger
+            FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
+            ORDER BY name
+        """
+
+    @staticmethod
+    def marketplace_listings() -> str:
+        return "SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE"
+
+    @staticmethod
+    def marketplace_purchases() -> str:
+        return """
+            SELECT
+                DATABASE_NAME AS "DATABASE_NAME",
+                CREATED AS "PURCHASE_DATE",
+                DATABASE_OWNER AS "OWNER",
+                COMMENT AS "COMMENT"
+            FROM SNOWFLAKE.ACCOUNT_USAGE.DATABASES
+            WHERE TYPE = 'IMPORTED DATABASE'
+            AND DELETED IS NULL
+            ORDER BY CREATED DESC
+            """
+
+    @staticmethod
+    def marketplace_shares() -> str:
+        return "SHOW SHARES"
+
+    @staticmethod
+    def marketplace_listing_access_history(
+        start_time_millis: int,
+        end_time_millis: int,
+        time_bucket_size: BucketDuration = BucketDuration.DAY,
+        listing_global_names: Optional[List[str]] = None,
+    ) -> str:
+        """Bucketed listing access history, flattened so each row is one
+        ``(bucket, table)`` tuple. Listing names are filtered in ``WHERE``
+        (not ``GROUP BY``) so a table exposed via N listings still produces
+        a single row — ``COUNT(DISTINCT CONSUMER_ACCOUNT_NAME)`` can't be
+        reconstructed by summing in Python.
+
+        ``listing_global_names`` are filtered through
+        ``SNOWFLAKE_OBJECT_NAME_RE`` before interpolation so non-conforming
+        names cannot reach SQL; ``time_bucket_size`` and the millis
+        timestamps are type-constrained at the parameter level.
+        """
+        listing_filter = ""
+        if listing_global_names:
+            safe = [
+                n for n in listing_global_names if SNOWFLAKE_OBJECT_NAME_RE.match(n)
+            ]
+            rejected = sorted(set(listing_global_names) - set(safe))
+            if rejected:
+                logger.warning(
+                    "Dropping marketplace listing name(s) outside the expected "
+                    "Snowflake identifier shape: %s",
+                    rejected,
+                )
+            if safe:
+                quoted = ", ".join(f"'{n}'" for n in safe)
+                listing_filter = (
+                    f"\n              AND h.LISTING_GLOBAL_NAME IN ({quoted})"
+                )
+        return f"""
+            SELECT
+                DATE_TRUNC('{time_bucket_size.value}', h.QUERY_DATE) AS "BUCKET_START_TIME",
+                f.value:"objectName"::STRING AS "OBJECT_NAME",
+                f.value:"objectDomain"::STRING AS "OBJECT_DOMAIN",
+                COUNT(DISTINCT h.QUERY_TOKEN) AS "TOTAL_QUERIES",
+                COUNT(DISTINCT h.CONSUMER_ACCOUNT_NAME) AS "UNIQUE_ACCOUNTS"
+            FROM SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY h,
+                 LATERAL FLATTEN(input => h.SHARE_OBJECTS_ACCESSED) f
+            WHERE h.QUERY_DATE >= to_timestamp_ltz({start_time_millis}, 3)
+              AND h.QUERY_DATE < to_timestamp_ltz({end_time_millis}, 3)
+              AND h.IS_SHARE = TRUE
+              AND f.value:"objectName" IS NOT NULL{listing_filter}
+            GROUP BY 1, 2, 3
+            ORDER BY 1, 2
+            """
+
+    @staticmethod
+    def marketplace_describe_available_listing(listing_global_name: str) -> str:
+        if not SNOWFLAKE_OBJECT_NAME_RE.match(listing_global_name):
+            raise ValueError(
+                f"Refusing to build DESCRIBE AVAILABLE LISTING SQL for "
+                f"name {listing_global_name!r}: outside the expected "
+                "Snowflake identifier shape."
+            )
+        return f"DESCRIBE AVAILABLE LISTING {listing_global_name}"
+
+    @staticmethod
+    def marketplace_describe_share(share_name: str) -> str:
+        if not SNOWFLAKE_OBJECT_NAME_RE.match(share_name):
+            raise ValueError(
+                f"Refusing to build DESC SHARE SQL for name {share_name!r}: "
+                "outside the expected Snowflake identifier shape."
+            )
+        return f"DESC SHARE {share_name}"
+
+    @staticmethod
+    def marketplace_imported_database_tables(
+        db_name: str,
+        schemas: Optional[List[str]] = None,
+    ) -> str:
+        if not SNOWFLAKE_OBJECT_NAME_RE.match(db_name):
+            raise ValueError(
+                f"Refusing to build INFORMATION_SCHEMA query for database "
+                f"name {db_name!r}: outside the expected Snowflake "
+                "identifier shape."
+            )
+        schema_filter = ""
+        if schemas:
+            safe_schemas = [
+                s.upper() for s in schemas if SNOWFLAKE_OBJECT_NAME_RE.match(s)
+            ]
+            if safe_schemas:
+                quoted = ", ".join(f"'{s}'" for s in safe_schemas)
+                schema_filter = f"AND TABLE_SCHEMA IN ({quoted})"
+        return f"""
+            SELECT
+                TABLE_SCHEMA AS "SCHEMA_NAME",
+                TABLE_NAME AS "TABLE_NAME",
+                TABLE_TYPE AS "TABLE_TYPE"
+            FROM {db_name}.INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+            {schema_filter}
+            ORDER BY TABLE_SCHEMA, TABLE_NAME
+            """
+
+    # ==================== Semantic View Usage Queries ====================
+
+    @staticmethod
+    def semantic_view_usage_statistics(
+        start_time_millis: int,
+        end_time_millis: int,
+        time_bucket_size: BucketDuration,
+        top_n_queries: int = 10,
+    ) -> str:
+        """Query QUERY_HISTORY for semantic view usage statistics.
+
+        Uses pattern matching on SEMANTIC_VIEW() function calls.
+        """
+        assert (
+            time_bucket_size == BucketDuration.DAY
+            or time_bucket_size == BucketDuration.HOUR
+        )
+
+        return f"""
+        WITH semantic_view_queries AS (
+            SELECT
+                query_id,
+                start_time AS query_start_time,
+                user_name,
+                query_text,
+                total_elapsed_time,
+                rows_produced,
+                -- Extract semantic view name from SEMANTIC_VIEW(name ...) pattern
+                REGEXP_SUBSTR(query_text, 'SEMANTIC_VIEW\\\\(\\\\s*([A-Za-z0-9_\\\\.]+)', 1, 1, 'i', 1) AS semantic_view_name,
+                -- Detect if this is a Cortex Analyst generated query
+                CASE
+                    WHEN query_text LIKE '%-- Generated by Cortex Analyst%' THEN 'CORTEX_ANALYST'
+                    ELSE 'DIRECT_SQL'
+                END AS query_source
+            FROM snowflake.account_usage.query_history
+            WHERE query_text ILIKE '%SEMANTIC_VIEW(%'
+                AND execution_status = 'SUCCESS'
+                AND start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                AND start_time < to_timestamp_ltz({end_time_millis}, 3)
+        ),
+        usage_aggregated AS (
+            SELECT
+                semantic_view_name,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                COUNT(DISTINCT query_id) AS total_queries,
+                COUNT(DISTINCT user_name) AS unique_users,
+                SUM(CASE WHEN query_source = 'DIRECT_SQL' THEN 1 ELSE 0 END) AS direct_sql_queries,
+                SUM(CASE WHEN query_source = 'CORTEX_ANALYST' THEN 1 ELSE 0 END) AS cortex_analyst_queries,
+                AVG(total_elapsed_time) AS avg_execution_time_ms,
+                SUM(rows_produced) AS total_rows_produced
+            FROM semantic_view_queries
+            WHERE semantic_view_name IS NOT NULL
+            GROUP BY semantic_view_name, bucket_start_time
+        ),
+        user_counts AS (
+            SELECT
+                semantic_view_name,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                user_name,
+                COUNT(DISTINCT query_id) AS query_count
+            FROM semantic_view_queries
+            WHERE semantic_view_name IS NOT NULL
+            GROUP BY semantic_view_name, bucket_start_time, user_name
+        ),
+        top_queries AS (
+            SELECT
+                semantic_view_name,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                query_text,
+                COUNT(DISTINCT query_id) AS query_count
+            FROM semantic_view_queries
+            WHERE semantic_view_name IS NOT NULL
+            GROUP BY semantic_view_name, bucket_start_time, query_text
+            QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY semantic_view_name, bucket_start_time
+                ORDER BY query_count DESC, query_text ASC
+            ) <= {top_n_queries}
+        )
+        SELECT
+            ua.semantic_view_name AS "SEMANTIC_VIEW_NAME",
+            ua.bucket_start_time AS "BUCKET_START_TIME",
+            ua.total_queries AS "TOTAL_QUERIES",
+            ua.unique_users AS "UNIQUE_USERS",
+            ua.direct_sql_queries AS "DIRECT_SQL_QUERIES",
+            ua.cortex_analyst_queries AS "CORTEX_ANALYST_QUERIES",
+            ua.avg_execution_time_ms AS "AVG_EXECUTION_TIME_MS",
+            ua.total_rows_produced AS "TOTAL_ROWS_PRODUCED",
+            ARRAY_AGG(DISTINCT OBJECT_CONSTRUCT(
+                'user_name', uc.user_name,
+                'query_count', uc.query_count
+            )) AS "USER_COUNTS",
+            ARRAY_AGG(DISTINCT tq.query_text) AS "TOP_SQL_QUERIES"
+        FROM usage_aggregated ua
+        LEFT JOIN user_counts uc
+            ON ua.semantic_view_name = uc.semantic_view_name
+            AND ua.bucket_start_time = uc.bucket_start_time
+        LEFT JOIN top_queries tq
+            ON ua.semantic_view_name = tq.semantic_view_name
+            AND ua.bucket_start_time = tq.bucket_start_time
+        GROUP BY
+            ua.semantic_view_name,
+            ua.bucket_start_time,
+            ua.total_queries,
+            ua.unique_users,
+            ua.direct_sql_queries,
+            ua.cortex_analyst_queries,
+            ua.avg_execution_time_ms,
+            ua.total_rows_produced
+        ORDER BY ua.bucket_start_time, ua.semantic_view_name
+        """
+
+    @staticmethod
+    def semantic_view_queries(
+        start_time_millis: int,
+        end_time_millis: int,
+        max_queries: int = 100,
+    ) -> str:
+        """Query QUERY_HISTORY for queries against semantic views.
+
+        Uses pattern matching on SEMANTIC_VIEW() function calls.
+        Returns individual query records for emission as Query entities.
+        """
+        return f"""
+        SELECT
+            query_id AS "QUERY_ID",
+            query_text AS "QUERY_TEXT",
+            user_name AS "USER_NAME",
+            role_name AS "ROLE_NAME",
+            warehouse_name AS "WAREHOUSE_NAME",
+            start_time AS "START_TIME",
+            total_elapsed_time AS "TOTAL_ELAPSED_TIME",
+            rows_produced AS "ROWS_PRODUCED",
+            -- Extract semantic view name from SEMANTIC_VIEW(name ...) pattern
+            REGEXP_SUBSTR(query_text, 'SEMANTIC_VIEW\\\\(\\\\s*([A-Za-z0-9_\\\\.]+)', 1, 1, 'i', 1) AS "SEMANTIC_VIEW_NAME",
+            -- Detect if this is a Cortex Analyst generated query
+            CASE
+                WHEN query_text LIKE '%-- Generated by Cortex Analyst%' THEN 'CORTEX_ANALYST'
+                ELSE 'DIRECT_SQL'
+            END AS "QUERY_SOURCE"
+        FROM snowflake.account_usage.query_history
+        WHERE query_text ILIKE '%SEMANTIC_VIEW(%'
+            AND execution_status = 'SUCCESS'
+            AND start_time >= to_timestamp_ltz({start_time_millis}, 3)
+            AND start_time < to_timestamp_ltz({end_time_millis}, 3)
+        ORDER BY start_time DESC
+        LIMIT {max_queries}
+        """
+
+    @staticmethod
+    def semantic_view_profile_counts(db_name: str) -> str:
+        """Query to get counts of dimensions, facts, metrics for semantic view profiles.
+
+        This aggregates counts from SEMANTIC_DIMENSIONS, SEMANTIC_FACTS, SEMANTIC_METRICS,
+        and SEMANTIC_TABLES to populate the Stats tab (DatasetProfile).
+        """
+        return f"""
+        WITH dimension_counts AS (
+            SELECT
+                semantic_view_catalog,
+                semantic_view_schema,
+                semantic_view_name,
+                COUNT(*) AS dimension_count
+            FROM "{db_name}".information_schema.semantic_dimensions
+            GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
+        ),
+        fact_counts AS (
+            SELECT
+                semantic_view_catalog,
+                semantic_view_schema,
+                semantic_view_name,
+                COUNT(*) AS fact_count
+            FROM "{db_name}".information_schema.semantic_facts
+            GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
+        ),
+        metric_counts AS (
+            SELECT
+                semantic_view_catalog,
+                semantic_view_schema,
+                semantic_view_name,
+                COUNT(*) AS metric_count
+            FROM "{db_name}".information_schema.semantic_metrics
+            GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
+        ),
+        table_counts AS (
+            SELECT
+                semantic_view_catalog,
+                semantic_view_schema,
+                semantic_view_name,
+                COUNT(*) AS table_count
+            FROM "{db_name}".information_schema.semantic_tables
+            GROUP BY semantic_view_catalog, semantic_view_schema, semantic_view_name
+        )
+        SELECT
+            sv.CATALOG AS "SEMANTIC_VIEW_CATALOG",
+            sv.SCHEMA AS "SEMANTIC_VIEW_SCHEMA",
+            sv.NAME AS "SEMANTIC_VIEW_NAME",
+            COALESCE(dc.dimension_count, 0) AS "DIMENSION_COUNT",
+            COALESCE(fc.fact_count, 0) AS "FACT_COUNT",
+            COALESCE(mc.metric_count, 0) AS "METRIC_COUNT",
+            COALESCE(tc.table_count, 0) AS "TABLE_COUNT",
+            COALESCE(dc.dimension_count, 0) + COALESCE(fc.fact_count, 0) + COALESCE(mc.metric_count, 0) AS "TOTAL_COLUMN_COUNT"
+        FROM "{db_name}".information_schema.semantic_views sv
+        LEFT JOIN dimension_counts dc
+            ON sv.CATALOG = dc.semantic_view_catalog
+            AND sv.SCHEMA = dc.semantic_view_schema
+            AND sv.NAME = dc.semantic_view_name
+        LEFT JOIN fact_counts fc
+            ON sv.CATALOG = fc.semantic_view_catalog
+            AND sv.SCHEMA = fc.semantic_view_schema
+            AND sv.NAME = fc.semantic_view_name
+        LEFT JOIN metric_counts mc
+            ON sv.CATALOG = mc.semantic_view_catalog
+            AND sv.SCHEMA = mc.semantic_view_schema
+            AND sv.NAME = mc.semantic_view_name
+        LEFT JOIN table_counts tc
+            ON sv.CATALOG = tc.semantic_view_catalog
+            AND sv.SCHEMA = tc.semantic_view_schema
+            AND sv.NAME = tc.semantic_view_name
+        ORDER BY sv.SCHEMA, sv.NAME
+        """

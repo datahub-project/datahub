@@ -1,16 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { CSSObject } from 'styled-components';
-import HealthIcon from '@src/app/previewV2/HealthIcon';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { IconStyleType } from '@src/app/entityV2/Entity';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
-import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import PlatformHeaderIcons from '@src/app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import { getEntityPlatforms } from '@src/app/entityV2/shared/containers/profile/header/utils';
-import { Entity, EntityType } from '../../../../types.generated';
-import { GenericEntityProperties } from '../../../entity/shared/types';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { GlossaryPreviewCardDecoration } from '../../../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import HealthIcon from '@src/app/previewV2/HealthIcon';
+import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+
+import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperties }>`
     display: flex;
@@ -21,10 +24,11 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
     border-radius: 8px;
     cursor: pointer;
     width: ${(props) => props.entity.type === EntityType.GlossaryTerm && 'fit-content'};
-    border: ${(props) => (props.entity.type === EntityType.GlossaryTerm ? '1px solid #C1C4D0' : 'none')};
+    border: ${(props) =>
+        props.entity.type === EntityType.GlossaryTerm ? `1px solid ${props.theme.colors.border}` : 'none'};
 
     :hover {
-        ${(props) => props.showHover && 'background-color: #f5f7fa;'}
+        ${(props) => props.showHover && `background-color: ${props.theme.colors.bgHover};`}
     }
 
     > a {
@@ -33,11 +37,14 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
 `;
 
 const IconWrapper = styled.div`
-    padding-right: 8px;
+    padding: 0px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
-const LinkButton = styled(Link)<{ includePadding: boolean }>`
-    padding: ${(props) => (props.includePadding ? '2px 4px' : '0px')};
+const LinkButton = styled(Link)<{ $includePadding: boolean }>`
+    padding: ${(props) => (props.$includePadding ? '2px 4px' : '0px')};
     height: auto;
     margin: 4px 0px 4px 0px;
     max-width: 100%; /* Ensure the grid container does not exceed its parent's width */
@@ -52,7 +59,7 @@ const LinkButton = styled(Link)<{ includePadding: boolean }>`
 `;
 
 const DisplayNameText = styled.span<{ entity: GenericEntityProperties }>`
-    color: #52596c;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-family: Mulish;
     font-size: 12px;
     font-style: normal;
@@ -64,16 +71,11 @@ const DisplayNameText = styled.span<{ entity: GenericEntityProperties }>`
     text-overflow: ellipsis;
 `;
 
-const RibbonDecoration = styled.div`
-    width: 22px;
-    height: 32px;
-    position: relative;
-    overflow: hidden;
-
-    > span {
-        top: -10px;
-        padding: 5px;
-    }
+const GlossaryIconWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0px 4px;
 `;
 
 type Props = {
@@ -103,11 +105,15 @@ export const EntityLink = ({
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
 
     const getPlatformIcon = (entityData: GenericEntityProperties) => {
-        if (entityData.type === EntityType.GlossaryTerm) {
+        if (entityData.type === EntityType.GlossaryTerm || entityData.type === EntityType.GlossaryNode) {
             return (
-                <RibbonDecoration>
-                    <GlossaryPreviewCardDecoration urn={entity.urn || ''} entityData={entity} />
-                </RibbonDecoration>
+                <GlossaryIconWrapper>
+                    <GlossaryEntityIcon
+                        entity={entity as unknown as GlossaryTerm | GlossaryNode}
+                        size={24}
+                        iconSize={14}
+                    />
+                </GlossaryIconWrapper>
             );
         }
         const { platform, platforms } = getEntityPlatforms(entityData.type || null, entityData);
@@ -122,7 +128,9 @@ export const EntityLink = ({
                     ...styles,
                 }}
             />
-        ) : null;
+        ) : (
+            <IconWrapper>{entityRegistry.getIcon(entity.type as EntityType, 18, IconStyleType.ACCENT)}</IconWrapper>
+        );
     };
 
     return (
@@ -133,7 +141,7 @@ export const EntityLink = ({
                 <>
                     <HoverEntityTooltip entity={entity as Entity} showArrow={false} placement="bottom">
                         <LinkButton
-                            includePadding={entity.type !== EntityType.GlossaryTerm}
+                            $includePadding={entity.type !== EntityType.GlossaryTerm}
                             to={!onClick ? entityRegistry.getEntityUrl(entity.type, entity.urn) : undefined}
                             onClick={onClick}
                             {...linkProps}

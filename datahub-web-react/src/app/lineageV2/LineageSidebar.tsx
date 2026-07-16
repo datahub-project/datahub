@@ -1,12 +1,14 @@
-import React, { useCallback, useContext, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useOnSelectionChange, useStore } from 'reactflow';
 import styled from 'styled-components/macro';
-import translateFieldPath from '../entityV2/dataset/profile/schema/utils/translateFieldPath';
-import EntitySidebarContext, { FineGrainedOperation } from '../sharedV2/EntitySidebarContext';
-import CompactContext from '../shared/CompactContext';
-import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { LineageDisplayContext, LineageEntity, LineageNodesContext } from './common';
+
+import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import { LineageDisplayContext, LineageEntity, LineageNodesContext } from '@app/lineageV2/common';
+import CompactContext from '@app/shared/CompactContext';
+import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
+import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     position: absolute;
@@ -24,7 +26,11 @@ const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     }
 `;
 
-export default function LineageSidebar() {
+interface Props {
+    urn: string;
+}
+
+export default function LineageSidebar({ urn }: Props) {
     const entityRegistry = useEntityRegistry();
     const [selectedEntity, setSelectedEntity] = useSelectedNode();
     const resetSelectedElements = useStore((actions) => actions.resetSelectedElements);
@@ -40,6 +46,11 @@ export default function LineageSidebar() {
         },
         [resetSelectedElements, setSelectedEntity],
     );
+
+    useEffect(() => {
+        setSidebarClosed(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [urn]);
 
     // This manages closing, rather than isClosed
     if (!selectedEntity) {
@@ -57,11 +68,14 @@ export default function LineageSidebar() {
                 fineGrainedOperations: queryDetails,
             }}
         >
-            <SidebarWrapper $distanceFromTop={0}>
-                <CompactContext.Provider key={selectedEntity.urn} value>
-                    {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
-                </CompactContext.Provider>
-            </SidebarWrapper>
+            {createPortal(
+                <SidebarWrapper $distanceFromTop={0}>
+                    <CompactContext.Provider key={selectedEntity.urn} value>
+                        {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
+                    </CompactContext.Provider>
+                </SidebarWrapper>,
+                document.body,
+            )}
         </EntitySidebarContext.Provider>
     );
 }

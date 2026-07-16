@@ -6,7 +6,8 @@ import com.linkedin.common.Url
  * Group information that can be edited from UI
  */
 @Aspect = {
-  "name": "corpGroupEditableInfo"
+  "name": "corpGroupEditableInfo",
+  "schemaVersion": 2
 }
 record CorpGroupEditableInfo {
   /**
@@ -15,6 +16,7 @@ record CorpGroupEditableInfo {
    @Searchable = {
      "fieldType": "TEXT",
      "fieldName": "editedDescription",
+     "searchTier": 2
    }
   description: optional string
 

@@ -1,8 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { Form, Input, Modal, Typography } from 'antd';
 import { FromToProps } from '@remirror/core-types';
-import { useAttrs, useCommands, useEditorState, useHelpers } from '@remirror/react';
 import { getMarkRange } from '@remirror/core-utils';
+import { useAttrs, useCommands, useEditorState, useHelpers } from '@remirror/react';
+import { Form, Input } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { Modal } from '@components/components/Modal';
+import { Text } from '@components/components/Text';
+
+// Sample URL shown as input placeholder — illustrative, not user-facing copy.
+const EXAMPLE_LINK_URL = 'https://www.google.com';
 
 type LinkModalProps = {
     visible: boolean;
@@ -11,6 +18,8 @@ type LinkModalProps = {
 
 export const LinkModal = (props: LinkModalProps) => {
     const { visible, handleClose } = props;
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.actions');
 
     const [trPos, setTrPos] = useState<FromToProps>({ from: 0, to: 0 });
     const [form] = Form.useForm();
@@ -58,7 +67,19 @@ export const LinkModal = (props: LinkModalProps) => {
     };
 
     return (
-        <Modal title="Add Link" okText="Save" onCancel={handleClose} onOk={handleOk} visible={visible}>
+        <Modal
+            title={t('editor.link.title')}
+            onCancel={handleClose}
+            open={visible}
+            buttons={[
+                {
+                    text: tc('save'),
+                    variant: 'filled',
+                    onClick: handleOk,
+                },
+            ]}
+            zIndex={1200}
+        >
             <Form
                 form={form}
                 layout="vertical"
@@ -68,12 +89,23 @@ export const LinkModal = (props: LinkModalProps) => {
             >
                 <Form.Item
                     name="href"
-                    label={<Typography.Text strong>Link URL</Typography.Text>}
+                    label={
+                        <Text type="span" weight="bold">
+                            {t('editor.link.urlLabel')}
+                        </Text>
+                    }
                     rules={[{ required: true }]}
                 >
-                    <Input placeholder="https://www.google.com" autoFocus />
+                    <Input placeholder={EXAMPLE_LINK_URL} autoFocus />
                 </Form.Item>
-                <Form.Item name="text" label={<Typography.Text strong>Text</Typography.Text>}>
+                <Form.Item
+                    name="text"
+                    label={
+                        <Text type="span" weight="bold">
+                            {t('editor.link.textLabel')}
+                        </Text>
+                    }
+                >
                     <Input />
                 </Form.Item>
             </Form>

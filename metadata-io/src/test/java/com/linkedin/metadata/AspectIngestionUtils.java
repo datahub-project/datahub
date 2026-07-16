@@ -53,7 +53,7 @@ public class AspectIngestionUtils {
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
     return aspects;
@@ -90,7 +90,7 @@ public class AspectIngestionUtils {
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
     return aspects;
@@ -128,7 +128,7 @@ public class AspectIngestionUtils {
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
     return aspects;

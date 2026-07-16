@@ -1,11 +1,12 @@
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import {
+    NodeContext,
     createEdgeId,
     getEdgeId,
     isUrnDataProcessInstance,
     isUrnTransformational,
-    NodeContext,
 } from '@app/lineageV2/common';
+
 import { LineageDirection } from '@types';
 
 enum HideOption {
@@ -45,7 +46,7 @@ export default function pruneAllDuplicateEdges(
 /**
  * Remove direct edges between a certain set of "excluded" nodes, if there is a path between them through only "included" nodes.
  */
-export function pruneDuplicateEdges(
+function pruneDuplicateEdges(
     urn: string,
     direction: LineageDirection | null,
     hideOption: HideOption,

@@ -1,13 +1,15 @@
-import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { ChangeTransaction, DataPlatform } from '../../../../../../../types.generated';
-import { formatTimestamp } from './historyUtils';
-import ChangeEventComponent from './ChangeEvent';
-import { REDESIGN_COLORS } from '../../../../constants';
+
+import ChangeEventComponent from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeEvent';
+import { formatTimestamp } from '@app/entityV2/shared/tabs/Dataset/Schema/history/historyUtils';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+
+import { ChangeTransaction, DataPlatform } from '@types';
 
 const TitleText = styled.span`
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-size: 13px;
     font-style: normal;
     font-weight: 600;
@@ -15,9 +17,16 @@ const TitleText = styled.span`
 `;
 
 const ChangeTransactionTimestamp = styled(TitleText)`
-    background: #eeecfa;
+    background: ${(props) => props.theme.colors.bgSurface};
     border-radius: 20px;
     padding: 5px 15px;
+`;
+
+const ActorText = styled.span`
+    color: ${(props) => props.theme.colors.textTertiary};
+    font-size: 12px;
+    font-style: italic;
+    font-weight: 400;
 `;
 
 const ChangeTransactionContainer = styled.div`
@@ -62,7 +71,7 @@ const ChangeEventCircle = styled.div`
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background-color: #d2d6e0;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     margin-left: -3px;
 `;
 
@@ -71,23 +80,38 @@ const InnerEventCircle = styled.div`
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: ${REDESIGN_COLORS.DARK_GREY};
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const ChangeEventVerticalLine = styled.div`
     width: 2px;
     height: 100%;
     margin-left: 3px;
-    background-color: #e8e6eb;
+    background-color: ${(props) => props.theme.colors.bgSurface};
 `;
 
 export interface ChangeTransactionEntry {
     transaction: ChangeTransaction;
     semanticVersion?: string;
     platform?: DataPlatform;
+    nameMap?: Map<string, string>;
 }
 
-export default function ChangeTransactionView({ transaction, platform, semanticVersion }: ChangeTransactionEntry) {
+function extractActorName(actorUrn?: string | null): string | null {
+    if (!actorUrn) return null;
+    const parts = actorUrn.split(':');
+    return parts[parts.length - 1] || null;
+}
+
+export default function ChangeTransactionView({
+    transaction,
+    platform,
+    semanticVersion,
+    nameMap,
+}: ChangeTransactionEntry) {
+    const { t } = useTranslation('entity.profile.schema');
+    const actorName = extractActorName(transaction.actor);
+
     return (
         <ChangeTransactionContainer>
             <ChangeTransactionSidebar>
@@ -104,11 +128,16 @@ export default function ChangeTransactionView({ transaction, platform, semanticV
                             {formatTimestamp(transaction.timestampMillis)}
                         </ChangeTransactionTimestamp>
                         {semanticVersion && <TitleText>{`(${semanticVersion})`}</TitleText>}
+                        {actorName && <ActorText>{t('historyTransaction.byActor', { actorName })}</ActorText>}
                     </ChangeTransactionTitle>
                 </TransactionDateHeader>
                 <div>
                     {transaction?.changes?.map((change) => (
-                        <ChangeEventComponent changeEvent={change} />
+                        <ChangeEventComponent
+                            key={`${change.category}-${change.operation}-${change.description}`}
+                            changeEvent={change}
+                            nameMap={nameMap}
+                        />
                     ))}
                 </div>
             </ChangeTransactionMainContent>

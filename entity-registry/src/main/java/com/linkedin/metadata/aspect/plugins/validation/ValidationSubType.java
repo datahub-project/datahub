@@ -6,5 +6,7 @@ public enum ValidationSubType {
   // A failed precondition is thrown if the header constraints are not met
   PRECONDITION,
   // Exclude from processing further
-  FILTER
+  FILTER,
+  // An authorization validation
+  AUTHORIZATION
 }

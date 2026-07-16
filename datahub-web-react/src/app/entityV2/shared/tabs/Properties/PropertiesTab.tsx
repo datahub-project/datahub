@@ -1,23 +1,27 @@
-import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
-import { Maybe, StructuredProperties } from '@src/types.generated';
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import TabHeader from '../../../../entity/shared/tabs/Properties/TabHeader';
-import { PropertyRow } from '../../../../entity/shared/tabs/Properties/types';
-import useUpdateExpandedRowsFromFilter from '../../../../entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabHeader from '@app/entity/shared/tabs/Properties/TabHeader';
+import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
+import useUpdateExpandedRowsFromFilter from '@app/entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
 import {
     getFilteredCustomProperties,
     mapCustomPropertiesToPropertyRows,
-} from '../../../../entity/shared/tabs/Properties/utils';
-import { useEntityRegistryV2 } from '../../../../useEntityRegistry';
-import { TabRenderType } from '../../types';
-import ExpandIcon from '../Dataset/Schema/components/ExpandIcon';
-import NameColumn from './NameColumn';
-import ValuesColumn from './ValuesColumn';
-import { useHydratedEntityMap } from './useHydratedEntityMap';
-import useStructuredProperties from './useStructuredProperties';
+} from '@app/entity/shared/tabs/Properties/utils';
+import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
+import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
+import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
+import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { TabRenderType } from '@app/entityV2/shared/types';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
+import { Maybe, StructuredProperties } from '@src/types.generated';
+
+const PROPERTY_ROW_KEY = 'qualifiedName';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
@@ -41,11 +45,15 @@ interface Props {
         fieldUrn?: string;
         fieldProperties?: Maybe<StructuredProperties>;
         refetch?: () => void;
+        disableEdit?: boolean;
+        disableSearch?: boolean;
     };
     renderType?: TabRenderType;
 }
 
 export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }: Props) => {
+    const { t } = useTranslation('entity.profile.tabs');
+    const { t: tc } = useTranslation('common.labels');
     const fieldPath = properties?.fieldPath;
     const fieldUrn = properties?.fieldUrn;
     const fieldProperties = properties?.fieldProperties;
@@ -79,12 +87,12 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
 
     const propertyTableColumns = [
         {
-            width: 210,
-            title: 'Name',
+            width: '40%',
+            title: tc('name'),
             render: (propertyRow: PropertyRow) => <NameColumn propertyRow={propertyRow} filterText={filterText} />,
         },
         {
-            title: 'Value',
+            title: tc('value'),
             ellipsis: true,
             render: (propertyRow: PropertyRow) => (
                 <ValuesColumn
@@ -98,7 +106,8 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     ];
 
     const canEditProperties =
-        entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
+        (entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties) &&
+        !properties?.disableEdit;
 
     if (canEditProperties) {
         propertyTableColumns.push({
@@ -117,41 +126,47 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
 
     return (
         <>
-            <TabHeader
-                setFilterText={setFilterText}
-                fieldUrn={fieldUrn}
-                fieldProperties={fieldProperties}
-                refetch={refetch}
-            />
-            <StyledTable
-                pagination={false}
-                // typescript is complaining that default sort order is not a valid column field- overriding this here
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                columns={propertyTableColumns}
-                dataSource={dataSource}
-                locale={{
-                    emptyText: <EmptyText description="No properties found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                }}
-                rowKey="qualifiedName"
-                expandable={{
-                    expandedRowKeys: [...Array.from(expandedRows)],
-                    defaultExpandAllRows: false,
-                    expandRowByClick: false,
-                    expandIcon: (props) => <ExpandIcon {...props} isCompact />,
-                    onExpand: (expanded, record) => {
-                        if (expanded) {
-                            setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
-                        } else {
-                            setExpandedRows((previousRows) => {
-                                previousRows.delete(record.qualifiedName);
-                                return new Set(previousRows);
-                            });
-                        }
-                    },
-                    indentSize: 16,
-                }}
-            />
+            {!properties?.disableSearch && (
+                <TabHeader
+                    setFilterText={setFilterText}
+                    fieldUrn={fieldUrn}
+                    fieldProperties={fieldProperties}
+                    refetch={refetch}
+                />
+            )}
+            <div data-testid="entity-properties-table">
+                <StyledTable
+                    pagination={false}
+                    // typescript is complaining that default sort order is not a valid column field- overriding this here
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-ignore
+                    columns={propertyTableColumns}
+                    dataSource={dataSource}
+                    locale={{
+                        emptyText: (
+                            <EmptyText description={t('properties.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                        ),
+                    }}
+                    rowKey={PROPERTY_ROW_KEY}
+                    expandable={{
+                        expandedRowKeys: [...Array.from(expandedRows)],
+                        defaultExpandAllRows: false,
+                        expandRowByClick: false,
+                        expandIcon: (props) => <ExpandIcon {...props} isCompact />,
+                        onExpand: (expanded, record) => {
+                            if (expanded) {
+                                setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
+                            } else {
+                                setExpandedRows((previousRows) => {
+                                    previousRows.delete(record.qualifiedName);
+                                    return new Set(previousRows);
+                                });
+                            }
+                        },
+                        indentSize: 16,
+                    }}
+                />
+            </div>
         </>
     );
 };

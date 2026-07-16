@@ -1,23 +1,25 @@
 import { ConsoleSqlOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
-import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
-import { Skeleton, Spin } from 'antd';
 import { Tooltip } from '@components';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { Skeleton, Spin } from 'antd';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
-import { useGetQueryQuery } from '../../../graphql/query.generated';
-import { EntityType, LineageDirection } from '../../../types.generated';
-import { LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
+
+import { LoadingWrapper } from '@app/lineageV2/LineageEntityNode/NodeContents';
+import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import {
     FetchStatus,
-    isGhostEntity,
     LineageDisplayContext,
     LineageEntity,
     LineageNodesContext,
+    isGhostEntity,
     useIgnoreSchemaFieldStatus,
-} from '../common';
-import { LoadingWrapper } from '../LineageEntityNode/NodeContents';
+} from '@app/lineageV2/common';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { useGetQueryQuery } from '@graphql/query.generated';
+import { EntityType, LineageDirection } from '@types';
 
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
 export const TRANSFORMATION_NODE_SIZE = 30;
@@ -25,9 +27,9 @@ export const TRANSFORMATION_NODE_SIZE = 30;
 // TODO: Share with LineageEntityNode
 const HomeNodeBubble = styled.div`
     align-items: center;
-    background-color: ${LINEAGE_COLORS.PURPLE_3};
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
     border-radius: 10px;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     display: flex;
     font-size: 10px;
     font-weight: 600;
@@ -47,12 +49,12 @@ const NodeWrapper = styled.div<{
     isSearchedEntity: boolean;
     type: EntityType;
 }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border: ${({ selected }) => (selected ? 2 : 1)}px solid;
-    border-color: ${({ selected }) => (selected ? LINEAGE_COLORS.PURPLE_3 : LINEAGE_COLORS.NODE_BORDER)};
+    border-color: ${(props) => (props.selected ? props.theme.colors.borderBrand : props.theme.colors.border)};
     border-radius: 50%;
-    box-shadow: ${({ isSearchedEntity }) =>
-        isSearchedEntity ? `0 0 3px 3px ${REDESIGN_COLORS.TITLE_PURPLE}95` : 'none'};
+    box-shadow: ${({ isSearchedEntity, theme }) =>
+        isSearchedEntity ? `0 0 3px 3px ${theme.colors.borderBrand}95` : 'none'};
     opacity: ${({ opacity }) => opacity};
 
     align-items: center;
@@ -92,6 +94,7 @@ const CustomIcon = styled.img`
 `;
 
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
+    const { t } = useTranslation('lineage');
     const { data, selected, dragging } = props;
     const { urn, type, entity, fetchStatus } = data;
     const entityRegistry = useEntityRegistryV2();
@@ -130,7 +133,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             {urn === rootUrn && (
                 <HomeNodeBubble>
                     <HomeOutlined style={{ marginRight: 4 }} />
-                    Home
+                    {t('node.homePill.label')}
                 </HomeNodeBubble>
             )}
             <IconWrapper isGhost={isGhost}>

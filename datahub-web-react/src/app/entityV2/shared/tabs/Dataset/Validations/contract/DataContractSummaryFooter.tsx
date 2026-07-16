@@ -1,11 +1,16 @@
-import React from 'react';
-import styled from 'styled-components';
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import { Assertion } from '../../../../../../../types.generated';
-import { StyledCheckOutlined, StyledCloseOutlined, StyledExclamationOutlined } from '../shared/styledComponents';
-import { getAssertionsSummary } from '../acrylUtils';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../constants';
+import React from 'react';
+import styled from 'styled-components';
+
+import { getAssertionsSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import {
+    StyledCheckOutlined,
+    StyledCloseOutlined,
+    StyledExclamationOutlined,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/shared/styledComponents';
+
+import { Assertion } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -19,12 +24,12 @@ const StatusContainer = styled.div`
 `;
 
 const StatusText = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-left: 4px;
 `;
 
 const ActionButton = styled(Button)`
-    color: ${REDESIGN_COLORS.BLUE};
+    color: ${(props) => props.theme.colors.textInformation};
 `;
 
 const StyledArrowRightOutlined = styled(ArrowRightOutlined)`

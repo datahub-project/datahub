@@ -1,13 +1,13 @@
-import React from 'react';
-import { Button, Typography } from 'antd';
 import { ClockCircleOutlined, LineChartOutlined } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
-import styled from 'styled-components';
-import { ViewType } from './viewType';
-import TabToolbar from '../../../components/styled/TabToolbar';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
-import { LookbackWindow } from './lookbackWindows';
-import LookbackWindowSelect from './historical/LookbackWindowSelect';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import LookbackWindowSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/LookbackWindowSelect';
+import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { ViewType } from '@app/entityV2/shared/tabs/Dataset/Stats/viewType';
 
 const StatsHeaderContainer = styled.div`
     display: flex;
@@ -21,7 +21,7 @@ const ReportedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {
@@ -33,19 +33,24 @@ type Props = {
 };
 
 export default function StatsHeader({ viewType, setViewType, reportedAt, lookbackWindow, setLookbackWindow }: Props) {
-    const latestButtonColor = viewType === ViewType.LATEST ? REDESIGN_COLORS.BLUE : ANTD_GRAY[8];
+    const { t } = useTranslation('entity.profile.stats');
+    const theme = useTheme();
+    const latestButtonColor = viewType === ViewType.LATEST ? theme.colors.textInformation : theme.colors.textSecondary;
     const latestButton = (
         <Button type="text" onClick={() => setViewType(ViewType.LATEST)}>
             <LineChartOutlined style={{ color: latestButtonColor }} />
-            <Typography.Text style={{ color: latestButtonColor }}>Latest</Typography.Text>
+            <Typography.Text style={{ color: latestButtonColor }}>{t('statsHeader.latestButton')}</Typography.Text>
         </Button>
     );
 
-    const historicalButtonColor = viewType === ViewType.HISTORICAL ? REDESIGN_COLORS.BLUE : ANTD_GRAY[8];
+    const historicalButtonColor =
+        viewType === ViewType.HISTORICAL ? theme.colors.textInformation : theme.colors.textSecondary;
     const historicalButton = (
         <Button type="text" onClick={() => setViewType(ViewType.HISTORICAL)}>
             <ClockCircleOutlined style={{ color: historicalButtonColor }} />
-            <Typography.Text style={{ color: historicalButtonColor }}>Historical</Typography.Text>
+            <Typography.Text style={{ color: historicalButtonColor }}>
+                {t('statsHeader.historicalButton')}
+            </Typography.Text>
         </Button>
     );
 

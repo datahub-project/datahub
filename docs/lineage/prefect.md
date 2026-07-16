@@ -1,3 +1,7 @@
+---
+description: "Capture and emit dataset lineage and run metadata from Prefect flows and tasks into DataHub for end-to-end pipeline visibility."
+---
+
 # Prefect Integration with DataHub
 
 ## Overview
@@ -31,6 +35,30 @@ Blocks in Prefect are primitives that enable the storage of configuration and pr
    - Prefect Cloud: `https://api.prefect.cloud/api/accounts/<account_id>/workspaces/<workspace_id>`
    - Self-hosted: `http://<host>:<port>/api`
 
+## Upgrading from Prefect v2
+
+`prefect-datahub` ≥ 1.0.0 requires **Prefect v3** and contains two breaking changes for existing users.
+
+**Module path changed.** The emitter moved from `prefect_datahub.prefect_datahub` to `prefect_datahub.datahub_emitter`. Update any direct imports:
+
+```python
+# Before (Prefect v2)
+from prefect_datahub.prefect_datahub import DatahubEmitter
+
+# After (Prefect v3)
+from prefect_datahub.datahub_emitter import DatahubEmitter
+```
+
+**Saved blocks must be re-registered.** Blocks previously saved to Prefect Cloud or a self-hosted server under the old entry point (`prefect_datahub.prefect_datahub:DatahubEmitter`) will fail to load after the upgrade because that module no longer exists. Re-register by running `.save()` again:
+
+```python
+from prefect_datahub.datahub_emitter import DatahubEmitter
+
+DatahubEmitter(datahub_rest_url="...", env="PROD").save("MY-DATAHUB-BLOCK", overwrite=True)
+```
+
+In Prefect v3, block types are discovered automatically when the collection package is imported — the entry point no longer needs to reference the class explicitly.
+
 ## Setup Instructions
 
 ### 1. Installation
@@ -41,7 +69,7 @@ Install `prefect-datahub` using pip:
 pip install 'prefect-datahub'
 ```
 
-Note: Requires Python 3.7+
+Note: Requires Python 3.10+ and Prefect 3.x (`>=3.0.0,<4.0.0`). Prefect 2.x is not supported. If you are upgrading from Prefect 2.x, upgrade Prefect first and re-register the DataHub block (see [Upgrading from Prefect v2](#upgrading-from-prefect-v2)).
 
 ### 2. Saving Configurations to a Block
 
@@ -59,11 +87,12 @@ DatahubEmitter(
 
 Configuration options:
 
-| Config | Type | Default | Description |
-|--------|------|---------|-------------|
-| datahub_rest_url | `str` | `http://localhost:8080` | DataHub GMS REST URL |
-| env | `str` | `PROD` | Environment for assets (see [FabricType](https://datahubproject.io/docs/graphql/enums/#fabrictype)) |
-| platform_instance | `str` | `None` | Platform instance for assets (see [Platform Instances](https://datahubproject.io/docs/platform-instances/)) |
+| Config            | Type       | Default                 | Description                                                                                                                                                                                                                 |
+| ----------------- | ---------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| datahub_rest_url  | `str`      | `http://localhost:8080` | DataHub GMS REST URL                                                                                                                                                                                                        |
+| env               | `str`      | `PROD`                  | Environment for assets (see [FabricType](https://docs.datahub.com/docs/graphql/enums/#fabrictype))                                                                                                                          |
+| platform_instance | `str`      | `None`                  | Platform instance for assets (see [Platform Instances](https://docs.datahub.com/docs/platform-instances/))                                                                                                                  |
+| emit_mode         | `EmitMode` | `ASYNC`                 | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees. |
 
 ### 3. Using the Block in Prefect Workflows
 
@@ -95,13 +124,13 @@ def etl():
 
 ## Concept Mapping
 
-| Prefect Concept | DataHub Concept |
-|-----------------|-----------------|
-| [Flow](https://docs.prefect.io/latest/concepts/flows/) | [DataFlow](https://datahubproject.io/docs/generated/metamodel/entities/dataflow/) |
-| [Flow Run](https://docs.prefect.io/latest/concepts/flows/#flow-runs) | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance) |
-| [Task](https://docs.prefect.io/latest/concepts/tasks/) | [DataJob](https://datahubproject.io/docs/generated/metamodel/entities/datajob/) |
-| [Task Run](https://docs.prefect.io/latest/concepts/tasks/#tasks) | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance) |
-| [Task Tag](https://docs.prefect.io/latest/concepts/tasks/#tags) | [Tag](https://datahubproject.io/docs/generated/metamodel/entities/tag/) |
+| Prefect Concept                                                      | DataHub Concept                                                                                       |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [Flow](https://docs.prefect.io/latest/concepts/flows/)               | [DataFlow](https://docs.datahub.com/docs/generated/metamodel/entities/dataflow/)                      |
+| [Flow Run](https://docs.prefect.io/latest/concepts/flows/#flow-runs) | [DataProcessInstance](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance) |
+| [Task](https://docs.prefect.io/latest/concepts/tasks/)               | [DataJob](https://docs.datahub.com/docs/generated/metamodel/entities/datajob/)                        |
+| [Task Run](https://docs.prefect.io/latest/concepts/tasks/#tasks)     | [DataProcessInstance](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance) |
+| [Task Tag](https://docs.prefect.io/latest/concepts/tasks/#tags)      | [Tag](https://docs.datahub.com/docs/generated/metamodel/entities/tag/)                                |
 
 ## Validation and Troubleshooting
 
@@ -132,6 +161,6 @@ If you encounter a `ConnectionError: HTTPConnectionPool(host='localhost', port=8
 ## Additional Resources
 
 - [Prefect Documentation](https://docs.prefect.io/)
-- [DataHub Documentation](https://datahubproject.io/docs/)
+- [DataHub Documentation](https://docs.datahub.com/docs/)
 
 For more information or support, please refer to the official Prefect and DataHub documentation or reach out to their respective communities.

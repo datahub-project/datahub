@@ -1,5 +1,6 @@
-import { SchemaField } from '../../../types.generated';
-import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, NUM_COLUMNS_PER_PAGE } from '../constants';
+import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, NUM_COLUMNS_PER_PAGE } from '@app/lineage/constants';
+
+import { SchemaField } from '@types';
 
 interface OptionalOptions {
     font?: string;
@@ -25,8 +26,9 @@ interface Size {
 }
 
 const HEIGHT_WITHOUT_TEXT_HEIGHT = 66;
-const DEFAULT_TEXT_TO_GET_NON_ZERO_HEIGHT = 'a';
-export const NODE_WIDTH_WITHOUT_TITLE = 61;
+const DEFAULT_TEXT_TO_GET_NON_ZERO_HEIGHT =
+    'a'; /* untranslated-text -- dummy DOM-measurement node for height calculation, not user-visible */
+const NODE_WIDTH_WITHOUT_TITLE = 61;
 
 function createDummyElement(text: string, options: Options): HTMLElement {
     const element = document.createElement('div');

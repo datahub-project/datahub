@@ -1,7 +1,9 @@
-import React from 'react';
 import { EyeOutlined } from '@ant-design/icons';
-import { IconItemTitle } from './IconItemTitle';
-import { MenuItemStyle } from './styledComponent';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 
 type Props = {
     key: string;
@@ -12,9 +14,11 @@ type Props = {
  * Preview View Menu Item
  */
 export const PreviewViewItem = ({ key, onClick }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <MenuItemStyle key={key} onClick={onClick}>
-            <IconItemTitle tip="See the View definition." title="Preview" icon={<EyeOutlined />} />
+            <IconItemTitle tip={t('menu.previewTooltip')} title={tc('preview')} icon={<EyeOutlined />} />
         </MenuItemStyle>
     );
 };

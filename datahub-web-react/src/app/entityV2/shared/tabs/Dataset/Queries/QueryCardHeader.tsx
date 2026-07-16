@@ -1,8 +1,9 @@
-import React from 'react';
-import styled from 'styled-components';
 import { ExpandOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import CopyQuery from './CopyQuery';
+import React from 'react';
+import styled from 'styled-components';
+
+import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
 
 const Header = styled.div`
     display: flex;
@@ -21,7 +22,7 @@ const ExpandButton = styled(Button)`
     margin-left: 8px;
 `;
 
-export type Props = {
+type Props = {
     query: string;
     focused: boolean;
     onClickExpand?: (newQuery) => void;

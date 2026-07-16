@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Actor;
@@ -9,8 +10,10 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -18,10 +21,14 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -37,24 +44,40 @@ public class TestUtils {
   }
 
   public static QueryContext getMockAllowContext(String actorUrn) {
-    QueryContext mockContext = mock(QueryContext.class);
-    when(mockContext.getActorUrn()).thenReturn(actorUrn);
+    return getMockAllowContext(actorUrn, (AuthorizationRequest) null);
+  }
 
-    Authorizer mockAuthorizer = mock(Authorizer.class);
-    AuthorizationResult result = mock(AuthorizationResult.class);
-    when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(mockAuthorizer.authorize(any())).thenReturn(result);
+  public static QueryContext getMockAllowContext(
+      @Nonnull String actorUrn, @Nonnull Collection<Urn> sessionGroupMembership) {
+    return withSessionGroupMembership(getMockAllowContext(actorUrn), sessionGroupMembership);
+  }
 
-    when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
-    Authentication authentication =
-        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
-    when(mockContext.getAuthentication()).thenReturn(authentication);
+  /** Stubs session group membership on an existing mock context. */
+  public static QueryContext withSessionGroupMembership(
+      @Nonnull QueryContext context, @Nonnull Collection<Urn> sessionGroupMembership) {
+    return withSessionActorIdentity(
+        context,
+        new SessionActorIdentity(
+            UrnUtils.getUrn(context.getActorUrn()), List.copyOf(sessionGroupMembership), Set.of()));
+  }
 
-    OperationContext operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
-    when(mockContext.getOperationContext()).thenReturn(operationContext);
+  /** Stubs session actor identity (corp + native groups) on an existing mock context. */
+  public static QueryContext withSessionActorIdentity(
+      @Nonnull QueryContext context, @Nonnull SessionActorIdentity sessionActorIdentity) {
+    OperationContext operationContext = spy(context.getOperationContext());
+    io.datahubproject.metadata.context.ActorContext actorContext =
+        mock(io.datahubproject.metadata.context.ActorContext.class);
+    when(actorContext.getActorUrn()).thenReturn(sessionActorIdentity.getActorUrn());
+    when(actorContext.getGroupMembership()).thenReturn(sessionActorIdentity.getGroups());
+    when(operationContext.getSessionActorContext()).thenReturn(actorContext);
 
-    return mockContext;
+    AuthorizationContext authorizationContext = mock(AuthorizationContext.class);
+    when(authorizationContext.getSessionActorIdentity(sessionActorIdentity.getActorUrn()))
+        .thenReturn(sessionActorIdentity);
+    when(operationContext.getAuthorizationContext()).thenReturn(authorizationContext);
+
+    when(context.getOperationContext()).thenReturn(operationContext);
+    return context;
   }
 
   public static QueryContext getMockAllowContext(String actorUrn, AuthorizationRequest request) {
@@ -62,14 +85,33 @@ public class TestUtils {
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
 
     Authorizer mockAuthorizer = mock(Authorizer.class);
-    AuthorizationResult result = mock(AuthorizationResult.class);
-    when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(mockAuthorizer.authorize(Mockito.eq(request))).thenReturn(result);
+
+    if (request == null) {
+      // Simple case: always allow
+      AuthorizationResult result =
+          new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, "");
+      when(mockAuthorizer.authorize(any())).thenReturn(result);
+    } else {
+      // Complex case: allow only for specific request
+      when(mockAuthorizer.authorize(Mockito.any(AuthorizationRequest.class)))
+          .thenAnswer(
+              args -> {
+                AuthorizationRequest req = args.getArgument(0);
+
+                if (request.equals(req)) {
+                  return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "");
+                } else {
+                  return new AuthorizationResult(req, AuthorizationResult.Type.DENY, "");
+                }
+              });
+    }
 
     Authentication authentication =
         new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
+    when(mockContext.getMaxParentDepth()).thenReturn(50);
 
     OperationContext operationContext =
         TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
@@ -83,24 +125,7 @@ public class TestUtils {
   }
 
   public static QueryContext getMockDenyContext(String actorUrn) {
-    QueryContext mockContext = mock(QueryContext.class);
-    when(mockContext.getActorUrn()).thenReturn(actorUrn);
-
-    Authorizer mockAuthorizer = mock(Authorizer.class);
-    AuthorizationResult result = mock(AuthorizationResult.class);
-    when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
-    when(mockAuthorizer.authorize(any())).thenReturn(result);
-
-    Authentication authentication =
-        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
-    when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
-    when(mockContext.getAuthentication()).thenReturn(authentication);
-
-    OperationContext operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
-    when(mockContext.getOperationContext()).thenReturn(operationContext);
-
-    return mockContext;
+    return getMockDenyContext(actorUrn, null);
   }
 
   public static QueryContext getMockDenyContext(String actorUrn, AuthorizationRequest request) {
@@ -110,15 +135,57 @@ public class TestUtils {
     Authorizer mockAuthorizer = mock(Authorizer.class);
     AuthorizationResult result = mock(AuthorizationResult.class);
     when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
-    when(mockAuthorizer.authorize(Mockito.eq(request))).thenReturn(result);
+
+    if (request == null) {
+      // Simple case: always deny
+      when(mockAuthorizer.authorize(any())).thenReturn(result);
+    } else {
+      // Specific case: deny only for this specific request
+      when(mockAuthorizer.authorize(Mockito.eq(request))).thenReturn(result);
+    }
 
     Authentication authentication =
         new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
+    when(mockContext.getMaxParentDepth()).thenReturn(50);
 
     OperationContext operationContext =
         TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
+    when(mockContext.getOperationContext()).thenReturn(operationContext);
+
+    return mockContext;
+  }
+
+  /**
+   * Returns a deny {@link QueryContext} backed by a real {@link OperationContext} so authorization
+   * checks that route through {@code OperationContext.authorize(...)} (e.g. {@code
+   * AuthUtil.canViewEntity}) actually enforce the deny decision.
+   *
+   * <p>The plain {@link #getMockDenyContext()} only mocks {@code QueryContext.getAuthorizer()} and
+   * leaves {@code getOperationContext()} unset; that works for checks that resolve via {@code
+   * QueryContext.getAuthorizer()} but NPEs for checks that go through {@code OperationContext}.
+   */
+  public static QueryContext getMockDenyContextWithOperationContext() {
+    return getMockDenyContextWithOperationContext("urn:li:corpuser:test");
+  }
+
+  public static QueryContext getMockDenyContextWithOperationContext(
+      @Nonnull final String actorUrn) {
+    Authorizer denyAuthorizer = mock(Authorizer.class);
+    AuthorizationResult denyResult = mock(AuthorizationResult.class);
+    when(denyResult.getType()).thenReturn(AuthorizationResult.Type.DENY);
+    when(denyAuthorizer.authorize(any())).thenReturn(denyResult);
+
+    Authentication authentication =
+        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+
+    OperationContext operationContext =
+        TestOperationContexts.userContextNoSearchAuthorization(denyAuthorizer, authentication);
+
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getActorUrn()).thenReturn(actorUrn);
     when(mockContext.getOperationContext()).thenReturn(operationContext);
 
     return mockContext;
@@ -147,10 +214,22 @@ public class TestUtils {
     // check without time
     Assert.assertEquals(
         batchCaptor.getValue().getItems().stream()
-            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .map(
+                m -> {
+                  m.getSystemMetadata().removeAspectModified();
+                  m.getSystemMetadata().removeAspectCreated();
+                  m.getSystemMetadata().removeSchemaVersion();
+                  return m.getSystemMetadata().setLastObserved(0);
+                })
             .collect(Collectors.toList()),
         proposals.stream()
-            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .map(
+                m -> {
+                  m.getSystemMetadata().removeAspectModified();
+                  m.getSystemMetadata().removeAspectCreated();
+                  m.getSystemMetadata().removeSchemaVersion();
+                  return m.getSystemMetadata().setLastObserved(0);
+                })
             .collect(Collectors.toList()));
   }
 
@@ -169,7 +248,9 @@ public class TestUtils {
 
     // check without time
     proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
+    proposalCaptor.getValue().getSystemMetadata().removeSchemaVersion();
     expectedProposal.getSystemMetadata().setLastObserved(0L);
+    expectedProposal.getSystemMetadata().removeSchemaVersion();
     Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
   }
 
@@ -205,7 +286,9 @@ public class TestUtils {
 
     // check without time
     proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
+    proposalCaptor.getValue().getSystemMetadata().removeSchemaVersion();
     expectedProposal.getSystemMetadata().setLastObserved(0L);
+    expectedProposal.getSystemMetadata().removeSchemaVersion();
     Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
   }
 

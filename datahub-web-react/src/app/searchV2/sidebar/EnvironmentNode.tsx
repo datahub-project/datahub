@@ -1,20 +1,21 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Typography } from 'antd';
-import { formatNumber } from '../../shared/formatNumber';
-import ExpandableNode from './ExpandableNode';
-import useAggregationsQuery from './useAggregationsQuery';
-import { PLATFORM_FILTER_NAME } from '../utils/constants';
-import PlatformNode from './PlatformNode';
-import SidebarLoadingError from './SidebarLoadingError';
-import useToggle from '../../shared/useToggle';
+import React from 'react';
+import styled, { useTheme } from 'styled-components';
+
 import {
     BrowseProvider,
     useEntityAggregation,
     useEnvironmentAggregation,
     useIsEnvironmentSelected,
-} from './BrowseContext';
-import useSidebarAnalytics from './useSidebarAnalytics';
+} from '@app/searchV2/sidebar/BrowseContext';
+import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
+import PlatformNode from '@app/searchV2/sidebar/PlatformNode';
+import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
+import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
+import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
+import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { formatNumber } from '@app/shared/formatNumber';
+import useToggle from '@app/shared/useToggle';
 
 const Count = styled(Typography.Text)`
     font-size: 12px;
@@ -23,6 +24,7 @@ const Count = styled(Typography.Text)`
 `;
 
 const EnvironmentNode = () => {
+    const theme = useTheme();
     const isSelected = useIsEnvironmentSelected();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useEnvironmentAggregation();
@@ -43,7 +45,7 @@ const EnvironmentNode = () => {
         facets: [PLATFORM_FILTER_NAME],
     });
 
-    const color = '#000';
+    const color = theme.colors.text;
 
     return (
         <ExpandableNode

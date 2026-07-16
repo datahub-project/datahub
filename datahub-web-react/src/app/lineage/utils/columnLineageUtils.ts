@@ -1,6 +1,7 @@
-import { ColumnEdge, FetchedEntity, NodeData } from '../types';
-import { EntityType, InputFields, SchemaField, SchemaFieldDataType } from '../../../types.generated';
-import { downgradeV2FieldPath } from '../../entity/dataset/profile/schema/utils/utils';
+import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { ColumnEdge, FetchedEntity, NodeData } from '@app/lineage/types';
+
+import { EntityType, InputFields, SchemaField, SchemaFieldDataType } from '@types';
 
 export function getHighlightedColumnsForNode(highlightedEdges: ColumnEdge[], fields: SchemaField[], nodeUrn: string) {
     return highlightedEdges
@@ -69,7 +70,7 @@ export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
  * pointing to and to know where to draw column arrows in and out of the entity. DataJobs won't show columns
  * underneath them, but we need this populated for validating that this column "exists" on the entity.
  */
-export function getPopulatedColumnsByUrn(
+function getPopulatedColumnsByUrn(
     columnsByUrn: Record<string, SchemaField[]>,
     fetchedEntities: Map<string, FetchedEntity>,
 ) {

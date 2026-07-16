@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from pydantic import validator
+import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
@@ -16,7 +16,7 @@ class PlatformInstanceConfigMixin(ConfigModel):
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to. "
         "This should be unique within the platform. "
-        "See https://datahubproject.io/docs/platform-instances/ for more details.",
+        "See https://docs.datahub.com/docs/platform-instances/ for more details.",
     )
 
 
@@ -30,7 +30,8 @@ class EnvConfigMixin(ConfigModel):
         description="The environment that all assets produced by this connector belong to",
     )
 
-    @validator("env")
+    @pydantic.field_validator("env", mode="after")
+    @classmethod
     def env_must_be_one_of(cls, v: str) -> str:
         if v.upper() not in ALL_ENV_TYPES:
             raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")

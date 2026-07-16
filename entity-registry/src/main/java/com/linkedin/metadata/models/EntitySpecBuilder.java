@@ -159,6 +159,13 @@ public class EntitySpecBuilder {
 
   public EntitySpec buildEntitySpec(
       @Nonnull final DataSchema entitySnapshotSchema, @Nonnull final List<AspectSpec> aspectSpecs) {
+    return buildEntitySpec(entitySnapshotSchema, aspectSpecs, null);
+  }
+
+  public EntitySpec buildEntitySpec(
+      @Nonnull final DataSchema entitySnapshotSchema,
+      @Nonnull final List<AspectSpec> aspectSpecs,
+      @Nullable final String searchGroup) {
 
     // 0. Validate the Snapshot definition
     final RecordDataSchema entitySnapshotRecordSchema = validateSnapshot(entitySnapshotSchema);
@@ -172,6 +179,13 @@ public class EntitySpecBuilder {
       EntityAnnotation entityAnnotation =
           EntityAnnotation.fromSchemaProperty(
               entityAnnotationObj, entitySnapshotRecordSchema.getFullName());
+
+      // Override searchGroup from YAML configuration if provided
+      if (searchGroup != null) {
+        entityAnnotation =
+            new EntityAnnotation(
+                entityAnnotation.getName(), entityAnnotation.getKeyAspect(), searchGroup);
+      }
 
       final EntitySpec entitySpec =
           new DefaultEntitySpec(aspectSpecs, entityAnnotation, entitySnapshotRecordSchema);
@@ -192,8 +206,9 @@ public class EntitySpecBuilder {
   public EntitySpec buildConfigEntitySpec(
       @Nonnull final String entityName,
       @Nonnull final String keyAspect,
-      @Nonnull final List<AspectSpec> aspectSpecs) {
-    return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs);
+      @Nonnull final List<AspectSpec> aspectSpecs,
+      @Nonnull final String searchGroup) {
+    return new ConfigEntitySpec(entityName, keyAspect, aspectSpecs, searchGroup);
   }
 
   public EntitySpec buildPartialEntitySpec(
@@ -240,6 +255,13 @@ public class EntitySpecBuilder {
               aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
 
+      if (processedSearchResult.hasError()) {
+        failValidation(
+            String.format(
+                "Could not build aspect spec for aspect with name %s. Failed to process @Searchable annotation with errors: %s",
+                aspectRecordSchema.getName(), processedSearchResult.getErrorMsgs()));
+      }
+
       // Extract Searchable Field Specs
       final SearchableFieldSpecExtractor searchableFieldSpecExtractor =
           new SearchableFieldSpecExtractor();
@@ -278,6 +300,13 @@ public class EntitySpecBuilder {
               Collections.singletonList(_relationshipHandler),
               aspectRecordSchema,
               new SchemaAnnotationProcessor.AnnotationProcessOption());
+
+      if (processedRelationshipResult.hasError()) {
+        failValidation(
+            String.format(
+                "Could not build aspect spec for aspect with name %s. Failed to process @Relationship annotation with errors: %s",
+                aspectRecordSchema.getName(), processedRelationshipResult.getErrorMsgs()));
+      }
 
       // Extract Relationship Field Specs
       final RelationshipFieldSpecExtractor relationshipFieldSpecExtractor =

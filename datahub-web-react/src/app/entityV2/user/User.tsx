@@ -1,11 +1,14 @@
-import { UserOutlined } from '@ant-design/icons';
+import { User } from '@phosphor-icons/react/dist/csr/User';
+import i18next from 'i18next';
 import * as React from 'react';
-import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { Preview } from './preview/Preview';
-import UserProfile from './UserProfile';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import UserProfile from '@app/entityV2/user/UserProfile';
+import { Preview } from '@app/entityV2/user/preview/Preview';
+
+import { CorpUser, EntityType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -14,21 +17,12 @@ export class UserEntity implements Entity<CorpUser> {
     type: EntityType = EntityType.CorpUser;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <UserOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <UserOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
         return (
-            <UserOutlined
+            <User
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -45,22 +39,23 @@ export class UserEntity implements Entity<CorpUser> {
 
     getPathName: () => string = () => 'user';
 
-    getEntityName = () => 'Person';
+    getEntityName = () => i18next.t('entity.types:user.name');
 
-    getCollectionName: () => string = () => 'People';
+    getCollectionName: () => string = () => i18next.t('entity.types:user.namePlural');
 
     renderProfile = (urn: string) => <UserProfile urn={urn} />;
 
-    renderPreview = (_: PreviewType, data: CorpUser) => (
+    renderPreview = (_: PreviewType, data: CorpUser, _actions, extraContext?: PreviewContext) => (
         <Preview
             urn={data.urn}
             name={this.displayName(data)}
             title={data.editableProperties?.title || data.info?.title || ''}
+            propagationDetails={extraContext?.propagationDetails}
         />
     );
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as CorpUser);
+        return this.renderPreview(PreviewType.SEARCH, result.entity as CorpUser, undefined, undefined);
     };
 
     displayName = (data: CorpUser) => {

@@ -1,15 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import { Empty } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { AcrylAssertionSummaryCard } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryCard';
+import { AcrylAssertionsSummaryTabLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionsSummaryLoading';
+import { getAssertionGroupsByDisplayOrder } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
+import {
+    createAssertionGroups,
+    tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 import { Assertion } from '@src/types.generated';
-import { createAssertionGroups, tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '../../acrylUtils';
-import { AcrylAssertionSummaryCard } from './AcrylAssertionSummaryCard';
-import { AssertionGroup } from '../../acrylTypes';
-import { getAssertionGroupsByDisplayOrder } from '../utils';
-import { AcrylAssertionsSummaryTabLoading } from './AcrylAssertionsSummaryLoading';
 
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;
@@ -20,6 +25,7 @@ const AcrylAssertionSummaryContainer = styled.div`
     overflow: auto;
 `;
 export const AcrylAssertionSummaryTab = () => {
+    const { t } = useTranslation('entity.profile.validations');
     const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -54,7 +60,7 @@ export const AcrylAssertionSummaryTab = () => {
                 </AcrylAssertionSummaryContainer>
             );
         }
-        return <Empty description="No assertions created yet." image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <Empty description={t('assertionSummary.noAssertionsCreated')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
     return <>{renderSummaryTab()}</>;
 };

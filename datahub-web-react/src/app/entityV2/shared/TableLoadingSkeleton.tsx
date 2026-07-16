@@ -1,7 +1,6 @@
+import { Skeleton } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Skeleton } from 'antd';
-import { ANTD_GRAY } from './constants';
 
 const Header = styled.div`
     width: 100%;
@@ -11,7 +10,7 @@ const Header = styled.div`
     padding-right: 40px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const Body = styled.div``;

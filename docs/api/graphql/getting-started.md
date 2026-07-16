@@ -1,3 +1,7 @@
+---
+description: "Get started with the DataHub GraphQL API by reading entities, running queries, and exploring metadata through the schema."
+---
+
 # Getting Started With GraphQL
 
 ## Reading an Entity: Queries
@@ -77,6 +81,16 @@ Mutations which change Entity metadata are subject to [DataHub Access Policies](
 This means that DataHub's server will check whether the requesting actor is authorized to perform the action.
 :::
 
+:::note
+GraphQL's mutations in DataHub are primarily designed to support user interface interactions and should generally be
+avoided in programmatic use cases. While mutations are implemented and available through the GraphQL API,
+they are not intended for high-throughput scenarios or bulk operations commonly found in data integration workflows.
+
+For programmatic metadata management, data ingestion, and bulk operations, use the **Python SDK** instead.
+The Python SDK is available as part of the `acryl-datahub` package and includes comprehensive examples for common use
+cases. For detailed usage instructions, see the [Python SDK documentation](../../../metadata-ingestion/as-a-library.md).
+:::
+
 To update an existing Metadata Entity, simply use the `update<entityName>(urn: String!, input: EntityUpdateInput!)` GraphQL Query.
 For example, to update a Dashboard entity, you can issue the following GraphQL mutation:
 
@@ -86,7 +100,7 @@ mutation updateDashboard {
         urn: "urn:li:dashboard:(looker,baz)",
         input: {
             editableProperties: {
-                description: "My new desription"
+                description: "My new description"
             }
         }
     ) {
@@ -110,7 +124,7 @@ For more information, please refer to following links.
 - [Editing Description (i.e. Documentation) on Columns](/docs/api/tutorials/descriptions.md#add-description-on-column)
 - [Soft Deleting](/docs/api/tutorials/datasets.md#delete-dataset)
 
-Please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide.
+Please refer to [DataHub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide.
 
 ## Handling Errors
 
@@ -153,4 +167,3 @@ With the following error codes officially supported:
 | 403  | UNAUTHORIZED | The current actor is not authorized to perform the requested action.                          |
 | 404  | NOT_FOUND    | The resource is not found.                                                                    |
 | 500  | SERVER_ERROR | An internal error has occurred. Check your server logs or contact your DataHub administrator. |
-

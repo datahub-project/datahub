@@ -1,8 +1,11 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
-import { EntityType, Exact, FeatureFlagsConfig, SearchResult } from '../../types.generated';
-import { GenericEntityProperties } from '../entity/shared/types';
-import { FetchedEntity } from '../lineage/types';
-import { EntitySidebarSection, EntitySidebarTab } from './shared/types';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
+import { FetchedEntity } from '@app/lineage/types';
+import { AttributionDetails } from '@app/sharedV2/propagation/types';
+
+import { EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
 
 export enum PreviewType {
     /**
@@ -94,11 +97,31 @@ export enum EntityCapabilityType {
      * Lineage information of an entity
      */
     LINEAGE,
+    /**
+     * Assigning the entity to an application
+     */
+    APPLICATIONS,
+    /**
+     * Related context documents for this entity
+     */
+    RELATED_DOCUMENTS,
+    /**
+     * Adding a business attribute to the entity
+     */
+    BUSINESS_ATTRIBUTES,
+    /**
+     * Forms associated with an entity
+     */
+    FORMS,
 }
 
 export interface EntityMenuActions {
     onDelete?: () => void;
     onEdit?: () => void;
+}
+
+export interface PreviewContext {
+    propagationDetails?: AttributionDetails;
 }
 
 /**
@@ -160,7 +183,12 @@ export interface Entity<T> {
      *
      * TODO: Explore using getGenericEntityProperties for rendering previews.
      */
-    renderPreview: (type: PreviewType, data: T, actions?: EntityMenuActions) => JSX.Element;
+    renderPreview: (
+        type: PreviewType,
+        data: T,
+        actions?: EntityMenuActions,
+        extraContext?: PreviewContext,
+    ) => JSX.Element;
 
     /**
      * Renders a search result

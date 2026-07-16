@@ -1,11 +1,14 @@
-import { TeamOutlined } from '@ant-design/icons';
+import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
+import i18next from 'i18next';
 import * as React from 'react';
-import { CorpGroup, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { Preview } from './preview/Preview';
-import GroupProfile from './GroupProfile';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+
+import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import GroupProfile from '@app/entityV2/group/GroupProfile';
+import { Preview } from '@app/entityV2/group/preview/Preview';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+
+import { CorpGroup, EntityType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub CorpGroup entity.
@@ -13,23 +16,13 @@ import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 export class GroupEntity implements Entity<CorpGroup> {
     type: EntityType = EntityType.CorpGroup;
 
-    // TODO: update icons for UserGroup
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <TeamOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TeamOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
         return (
-            <TeamOutlined
+            <UsersThree
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -46,9 +39,9 @@ export class GroupEntity implements Entity<CorpGroup> {
 
     getPathName: () => string = () => 'group';
 
-    getEntityName = () => 'Group';
+    getEntityName = () => i18next.t('entity.types:group.name');
 
-    getCollectionName: () => string = () => 'Groups';
+    getCollectionName: () => string = () => i18next.t('entity.types:group.namePlural');
 
     renderProfile = (urn: string) => <GroupProfile urn={urn} />;
 

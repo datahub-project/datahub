@@ -1,8 +1,11 @@
+import { Popconfirm, message } from 'antd';
 import React from 'react';
-import { message, Popconfirm } from 'antd';
-import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
-import { DataHubRole } from '../../../types.generated';
-import analytics, { EventType } from '../../analytics';
+import { useTranslation } from 'react-i18next';
+
+import analytics, { EventType } from '@app/analytics';
+
+import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
+import { DataHubRole } from '@types';
 
 type Props = {
     open: boolean;
@@ -14,6 +17,7 @@ type Props = {
 };
 
 export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, username, onClose, onConfirm }: Props) {
+    const { t } = useTranslation('entity.identity');
     const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
     // eslint-disable-next-line
     const batchAssignRole = () => {
@@ -34,8 +38,8 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                     });
                     message.success({
                         content: roleToAssign
-                            ? `Assigned role ${roleToAssign?.name} to user ${username}!`
-                            : `Removed role from user ${username}!`,
+                            ? t('users.roleAssign.assignSuccess', { role: roleToAssign?.name, name: username })
+                            : t('users.roleAssign.removeSuccess', { name: username }),
                         duration: 2,
                     });
                     onConfirm();
@@ -45,16 +49,20 @@ export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, us
                 message.destroy();
                 message.error({
                     content: roleToAssign
-                        ? `Failed to assign role ${roleToAssign?.name} to ${username}: \n ${e.message || ''}`
-                        : `Failed to remove role from ${username}: \n ${e.message || ''}`,
+                        ? t('users.roleAssign.assignError', {
+                              role: roleToAssign?.name,
+                              name: username,
+                              error: e.message || '',
+                          })
+                        : t('users.roleAssign.removeError', { name: username, error: e.message || '' }),
                     duration: 3,
                 });
             });
     };
 
     const assignRoleText = roleToAssign
-        ? `Would you like to assign the role ${roleToAssign?.name} to ${username}?`
-        : `Would you like to remove ${username}'s existing role?`;
+        ? t('roleAssignment.assignMessage', { role: roleToAssign?.name, name: username })
+        : t('roleAssignment.removeMessage', { name: username });
 
     return <Popconfirm title={assignRoleText} open={open} onConfirm={batchAssignRole} onCancel={onClose} />;
 }

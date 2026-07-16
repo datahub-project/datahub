@@ -1,8 +1,8 @@
-import React, { ReactNode, useEffect, useMemo } from 'react';
 import { message } from 'antd';
+import React, { ReactNode, useEffect, useMemo } from 'react';
 
 type MessageType = 'loading' | 'info' | 'error' | 'warning' | 'success';
-export type MessageProps = {
+type MessageProps = {
     type: MessageType;
     content: ReactNode;
     style?: React.CSSProperties;

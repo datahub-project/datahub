@@ -1,18 +1,20 @@
-import React from 'react';
+import { ConsoleSqlOutlined, EyeOutlined, ToolOutlined, UserOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
+import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { ConsoleSqlOutlined, UserOutlined, ToolOutlined, EyeOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import {
     getBarsStatusFromPopularityTier,
     getChartPopularityTier,
     getDashboardPopularityTier,
     getDatasetPopularityTier,
     isValuePresent,
-} from './utils';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { PopularityBars } from '../../../../tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
-import { EntityType } from '../../../../../../../types.generated';
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { PopularityBars } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
+
+import { EntityType } from '@types';
 
 const Wrapper = styled.div`
     display: flex;
@@ -26,7 +28,7 @@ const Insight = styled.div`
     align-items: center;
     justify-content: space-between;
     && {
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
@@ -94,6 +96,7 @@ interface Props {
 }
 
 const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, size, entityType }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData } = useEntityData();
     const dataset = entityData as any;
 
@@ -133,8 +136,12 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
                         <Insight>
                             <StyledEyeOutlined />
                             <div>
-                                Viewed more than <b>{viewCountPercentileLast30Days}%</b> of similar assets in the past
-                                30 days
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.popularity.viewedMoreThan"
+                                    values={{ pct: viewCountPercentileLast30Days }}
+                                    components={{ bold: <b /> }}
+                                />
                             </div>
                         </Insight>
                     )}
@@ -142,8 +149,12 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
                         <Insight>
                             <StyledConsoleSqlOutlined />
                             <div>
-                                Queried more than <b>{queryCountPercentileLast30Days}%</b> of similar assets in the past
-                                30 days
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.popularity.queriedMoreThan"
+                                    values={{ pct: queryCountPercentileLast30Days }}
+                                    components={{ bold: <b /> }}
+                                />
                             </div>
                         </Insight>
                     )}
@@ -151,8 +162,12 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
                         <Insight>
                             <StyledUserOutlined />
                             <div>
-                                More users than <b>{uniqueUserPercentileLast30Days}%</b> of similar assets in the past
-                                30 days
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.popularity.moreUsersThan"
+                                    values={{ pct: uniqueUserPercentileLast30Days }}
+                                    components={{ bold: <b /> }}
+                                />
                             </div>
                         </Insight>
                     )}
@@ -160,8 +175,12 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
                         <Insight>
                             <StyledToolOutlined />
                             <div>
-                                More changes than <b>{updatePercentileLast30Days}%</b> of similar assets in the past 30
-                                days
+                                <Trans
+                                    t={t}
+                                    i18nKey="sidebar.popularity.moreChangesThan"
+                                    values={{ pct: updatePercentileLast30Days }}
+                                    components={{ bold: <b /> }}
+                                />
                             </div>
                         </Insight>
                     )}

@@ -2,13 +2,13 @@ import React, { useContext, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { EdgeLabelRenderer, EdgeProps, getBezierPath } from 'reactflow';
 import styled from 'styled-components';
-import { LineageDisplayContext, LineageTableEdgeData } from '../common';
-import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
+
+import { LineageDisplayContext, LineageTableEdgeData } from '@app/lineageV2/common';
 
 export const LINEAGE_TABLE_EDGE_NAME = 'table-table';
 
 const StyledPath = styled.path<{ isHighlighted: boolean; isColumnSelected: boolean; isManual?: boolean }>`
-    ${({ isHighlighted }) => (isHighlighted ? `stroke: ${LINEAGE_COLORS.BLUE_2};` : '')};
+    ${(props) => (props.isHighlighted ? `stroke: ${props.theme.colors.textBrand};` : '')};
     stroke-opacity: ${({ isColumnSelected }) => (isColumnSelected ? 0.5 : 1)};
     stroke-dasharray: ${({ isManual }) => (isManual ? '5,2' : 'none')};
 `;

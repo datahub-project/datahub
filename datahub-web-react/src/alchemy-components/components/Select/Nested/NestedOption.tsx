@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
-
-import { colors, Icon } from '@components';
-import theme from '@components/theme';
+import { Icon } from '@components';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Checkbox } from 'antd';
 
-import { OptionLabel } from '../components';
-import { NestedSelectOption } from './types';
-import useNestedOption from './useSelectOption';
-import useNestedSelectOptionChildren from './useNestedSelectOptionChildren';
-import { CustomOptionRenderer } from '../types';
+import { Checkbox } from '@components/components/Checkbox';
+import { NestedSelectOption } from '@components/components/Select/Nested/types';
+import useNestedSelectOptionChildren from '@components/components/Select/Nested/useNestedSelectOptionChildren';
+import useNestedOption from '@components/components/Select/Nested/useSelectOption';
+import { OptionLabel } from '@components/components/Select/components';
+import { CustomOptionRenderer } from '@components/components/Select/types';
 
 const ParentOption = styled.div`
     display: flex;
@@ -20,37 +19,8 @@ const ChildOptions = styled.div`
     padding-left: 20px;
 `;
 
-const StyledCheckbox = styled(Checkbox)<{ checked: boolean; indeterminate?: boolean }>`
-    .ant-checkbox-inner {
-        border: 1px solid ${colors.gray[300]} !important;
-        border-radius: 3px;
-    }
+const CheckboxWrapper = styled.div`
     margin-left: auto;
-    ${(props) =>
-        props.checked &&
-        !props.indeterminate &&
-        `
-		.ant-checkbox-inner {
-			background-color: ${theme.semanticTokens.colors.primary};
-			border-color: ${theme.semanticTokens.colors.primary} !important;
-		}
-	`}
-    ${(props) =>
-        props.indeterminate &&
-        `
-		.ant-checkbox-inner {
-			&:after {
-				background-color: ${theme.semanticTokens.colors.primary};
-			}
-		}
-	`}
-    ${(props) =>
-        props.disabled &&
-        `
-		.ant-checkbox-inner {
-			background-color: ${colors.gray[200]} !important;
-		}
-	`}
 `;
 
 interface OptionProps<OptionType extends NestedSelectOption> {
@@ -106,6 +76,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
             selectableChildren,
             areParentsSelectable,
             implicitlySelectChildren,
+            isMultiSelect: !!isMultiSelect,
             addOptions,
             removeOptions,
             setSelectedOptions,
@@ -170,7 +141,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                                     loadData?.(option);
                                 }
                             }}
-                            icon="ChevronLeft"
+                            icon={CaretLeft}
                             rotate={isOpen ? '90' : '270'}
                             size="xl"
                             color="gray"
@@ -178,25 +149,26 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                         />
                     )}
                     {!(hideParentCheckbox && option.isParent) && (
-                        <StyledCheckbox
-                            checked={isImplicitlySelected || isSelected}
-                            indeterminate={isPartialSelected}
-                            onClick={(e) => {
-                                e.preventDefault();
-                                if (isImplicitlySelected) {
-                                    return;
-                                }
-                                e.stopPropagation();
-                                if (isParentMissingChildren) {
-                                    loadData?.(option);
-                                    if (!areParentsSelectable) {
-                                        setAutoSelectChildren(true);
+                        <CheckboxWrapper>
+                            <Checkbox
+                                isChecked={isImplicitlySelected || isSelected}
+                                isIntermediate={isPartialSelected}
+                                isDisabled={isImplicitlySelected}
+                                size="sm"
+                                onCheckboxChange={() => {
+                                    if (isImplicitlySelected) {
+                                        return;
                                     }
-                                }
-                                selectOption();
-                            }}
-                            disabled={isImplicitlySelected}
-                        />
+                                    if (isParentMissingChildren) {
+                                        loadData?.(option);
+                                        if (!areParentsSelectable) {
+                                            setAutoSelectChildren(true);
+                                        }
+                                    }
+                                    selectOption();
+                                }}
+                            />
+                        </CheckboxWrapper>
                     )}
                 </OptionLabel>
             </ParentOption>
@@ -216,6 +188,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             areParentsSelectable={areParentsSelectable}
                             setSelectedOptions={setSelectedOptions}
                             implicitlySelectChildren={implicitlySelectChildren}
+                            renderCustomOptionText={renderCustomOptionText}
                         />
                     ))}
                 </ChildOptions>

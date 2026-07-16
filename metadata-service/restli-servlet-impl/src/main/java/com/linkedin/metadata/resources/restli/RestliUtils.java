@@ -2,6 +2,7 @@ package com.linkedin.metadata.resources.restli;
 
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.dao.throttle.ThrottledRestLiServiceException;
 import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
@@ -41,8 +42,8 @@ public class RestliUtils {
         finalException = badRequestException(throwable.getMessage());
       } else if (throwable.getCause() instanceof ActorAccessException) {
           finalException = forbidden(throwable.getCause().getMessage());
-      } else if (throwable instanceof APIThrottleException) {
-        finalException = apiThrottled(throwable.getMessage());
+      } else if (throwable instanceof APIThrottleException apiThrottleException) {
+        finalException = apiThrottled(apiThrottleException);
       } else if (throwable instanceof RestLiServiceException) {
         finalException = (RestLiServiceException) throwable;
       } else {
@@ -61,9 +62,9 @@ public class RestliUtils {
               .transform(
                       orig -> {
                         if (orig.isFailed()) {
-                          MetricUtils.counter(MetricRegistry.name(metricName, "failed")).inc();
+                          opContext.getMetricUtils().ifPresent(metricUtils -> metricUtils.increment(MetricRegistry.name(metricName, "failed"),1 ));
                         } else {
-                          MetricUtils.counter(MetricRegistry.name(metricName, "success")).inc();
+                          opContext.getMetricUtils().ifPresent(metricUtils -> metricUtils.increment(MetricRegistry.name(metricName, "success"),1 ));
                         }
                         return orig;
                       });
@@ -106,6 +107,11 @@ public class RestliUtils {
   @Nonnull
   public static RestLiServiceException invalidArgumentsException(@Nullable String message) {
     return new RestLiServiceException(HttpStatus.S_412_PRECONDITION_FAILED, message);
+  }
+
+  @Nonnull
+  public static RestLiServiceException apiThrottled(@Nonnull APIThrottleException throttleException) {
+    return new ThrottledRestLiServiceException(throttleException);
   }
 
   @Nonnull

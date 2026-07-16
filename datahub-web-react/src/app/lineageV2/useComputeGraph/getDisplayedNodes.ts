@@ -1,20 +1,21 @@
 import { SubType } from '@app/entityV2/shared/components/subtypes';
 import {
-    createLineageFilterNodeId,
-    getEdgeId,
-    getParents,
-    isDbt,
-    isQuery,
-    isTransformational,
     LINEAGE_FILTER_PAGINATION,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
     LineageFilter,
     LineageNode,
     NodeContext,
+    createLineageFilterNodeId,
+    getEdgeId,
+    getParents,
+    isDbt,
+    isQuery,
+    isTransformational,
     setDefault,
 } from '@app/lineageV2/common';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+
 import { LineageDirection } from '@types';
 
 interface Output {
@@ -186,8 +187,10 @@ function getChildrenToFilter(
     for (let node = queue.pop(); node; node = queue.pop()) {
         const children = adjacencyList[direction].get(node.urn);
         // Include non-query transformational nodes if they have no children
+        // Have to also include non-query transformational nodes in cycles with their parent, because
+        // those are effectively leaves as well.
         if (
-            !children?.size &&
+            (!children?.size || (node.inCycle && children.has(parent.urn))) &&
             !isQuery(node) &&
             !(direction === LineageDirection.Downstream && isDbt(node) && node.entity?.subtype === SubType.DbtSource)
         ) {

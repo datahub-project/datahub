@@ -1,11 +1,11 @@
-import React from 'react';
-import { render, waitFor } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
+import { render, waitFor } from '@testing-library/react';
+import React from 'react';
 import { Route } from 'react-router';
 
-import TagProfile from '../TagProfile';
-import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
-import { mocks } from '../../../../Mocks';
+import TagProfile from '@app/entityV2/tag/TagProfile';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('TagProfile', () => {
     it('renders tag details', async () => {

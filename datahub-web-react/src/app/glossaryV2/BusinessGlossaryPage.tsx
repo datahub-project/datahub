@@ -1,31 +1,34 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
-import CreateGlossaryEntityModal from '../entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
-import { EntityType } from '../../types.generated';
-import { Message } from '../shared/Message';
-import { sortGlossaryTerms } from '../entityV2/glossaryTerm/utils';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { sortGlossaryNodes } from '../entityV2/glossaryNode/utils';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
+import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
+import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import GlossaryContentProvider from '@app/glossaryV2/GlossaryContentProvider';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
-    BUSINESS_GLOSSARY_INTRO_ID,
-    BUSINESS_GLOSSARY_CREATE_TERM_ID,
     BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
-} from '../onboarding/config/BusinessGlossaryOnboardingConfig';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
-import { useGlossaryEntityData } from '../entityV2/shared/GlossaryEntityContext';
-import { useUserContext } from '../context/useUserContext';
-import GlossaryContentProvider from './GlossaryContentProvider';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+    BUSINESS_GLOSSARY_CREATE_TERM_ID,
+    BUSINESS_GLOSSARY_INTRO_ID,
+} from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
+import { Message } from '@app/shared/Message';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '@graphql/glossary.generated';
+import { EntityType } from '@types';
 
 const GlossaryWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex: 1;
     height: 100%;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']}`}
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm}`}
 `;
 
 const MainWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -34,6 +37,7 @@ const MainWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const BusinessGlossaryPage = () => {
+    const { t } = useTranslation('governance.glossary');
     const {
         data: termsData,
         refetch: refetchForTerms,
@@ -90,20 +94,17 @@ const BusinessGlossaryPage = () => {
                 )} */}
                 <GlossaryWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                     {(termsLoading || nodesLoading) && (
-                        <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
+                        <Message type="loading" content={t('list.loading')} style={{ marginTop: '10%' }} />
                     )}
-                    {(termsError || nodesError) && (
-                        <Message type="error" content="Failed to load glossary! An unexpected error occurred." />
-                    )}
+                    {(termsError || nodesError) && <Message type="error" content={t('list.error')} />}
                     <GlossaryContentProvider
                         setIsCreateNodeModalVisible={setIsCreateNodeModalVisible}
+                        setIsCreateTermModalVisible={setIsCreateTermModalVisible}
                         hasTermsOrNodes={hasTermsOrNodes}
                         nodes={nodes || []}
                         terms={terms || []}
                         termsLoading={termsLoading}
                         nodesLoading={nodesLoading}
-                        refetchForNodes={refetchForNodes}
-                        refetchForTerms={refetchForTerms}
                     />
                 </GlossaryWrapper>
             </MainWrapper>
@@ -121,7 +122,6 @@ const BusinessGlossaryPage = () => {
                     canCreateGlossaryEntity={!!canManageGlossaries}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
-                    canSelectParentUrn={false}
                 />
             )}
         </>

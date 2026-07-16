@@ -8,7 +8,8 @@ import com.linkedin.common.ChangeAuditStamps
  * Note: This is IN BETA version
  */
 @Aspect = {
-  "name": "editableNotebookProperties"
+  "name": "editableNotebookProperties",
+  "schemaVersion": 2
 }
 record EditableNotebookProperties includes ChangeAuditStamps {
   /**
@@ -17,6 +18,8 @@ record EditableNotebookProperties includes ChangeAuditStamps {
   @Searchable = {
     "fieldType": "TEXT",
     "fieldName": "editedDescription",
+    "searchTier": 2,
+    "sanitizeRichText": true
   }
   description: optional string
 }

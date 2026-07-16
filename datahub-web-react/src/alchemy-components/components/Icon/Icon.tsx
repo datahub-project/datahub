@@ -1,59 +1,44 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
-import { getFontSize, getColor, getRotationTransform } from '@components/theme/utils';
+import { IconWrapper } from '@components/components/Icon/components';
+import { IconProps, IconPropsDefaults } from '@components/components/Icon/types';
+import { Tooltip } from '@components/components/Tooltip';
+import { ColorOptions } from '@components/theme/config';
+import { getColor, getFontSize, getRotationTransform } from '@components/theme/utils';
 
-import { IconProps, IconPropsDefaults } from './types';
-import { IconWrapper } from './components';
-import { getIconNames, getIconComponent } from './utils';
+import { useCustomTheme } from '@src/customThemeContext';
 
 export const iconDefaults: IconPropsDefaults = {
-    source: 'material',
-    variant: 'outline',
     size: '4xl',
     color: 'inherit',
     rotate: '0',
+    tooltipText: '',
 };
 
 export const Icon = ({
-    icon,
-    source = iconDefaults.source,
-    variant = iconDefaults.variant,
+    icon: IconComponent,
     size = iconDefaults.size,
     color = iconDefaults.color,
+    colorLevel,
     rotate = iconDefaults.rotate,
+    weight,
+    tooltipText,
     ...props
 }: IconProps) => {
-    const { filled, outlined } = getIconNames();
+    const { theme } = useCustomTheme();
 
-    // Return early if no icon is provided
-    if (!icon) return null;
+    const resolvedColor = useMemo(() => {
+        const semantic = color ? theme?.colors?.[color as keyof typeof theme.colors] : undefined;
+        return typeof semantic === 'string' ? semantic : getColor(color as ColorOptions, colorLevel, theme);
+    }, [color, colorLevel, theme]);
 
-    // Get outlined icon component name
-    const iconName = source === 'material' && variant === 'outline' ? `${icon}Outlined` : icon;
-
-    // Warn if the icon does not have the specified variant
-    if (source === 'material' && variant === 'outline' && !outlined.includes(iconName)) {
-        console.warn(`Icon "${icon}" does not have an outlined variant.`);
-        return null;
-    }
-
-    // Warn if the icon does not have the specified variant
-    if (source === 'material' && variant === 'filled' && !filled.includes(iconName)) {
-        console.warn(`Icon "${icon}" does not have a filled variant.`);
-        return null;
-    }
-
-    const IconComponent = getIconComponent(source, iconName);
+    if (!IconComponent) return null;
 
     return (
         <IconWrapper size={getFontSize(size)} rotate={getRotationTransform(rotate)} {...props}>
-            <IconComponent
-                sx={{
-                    fontSize: getFontSize(size),
-                    color: getColor(color),
-                }}
-                style={{ color: getColor(color) }}
-            />
+            <Tooltip title={tooltipText}>
+                <IconComponent style={{ fontSize: getFontSize(size), color: resolvedColor }} weight={weight} />
+            </Tooltip>
         </IconWrapper>
     );
 };

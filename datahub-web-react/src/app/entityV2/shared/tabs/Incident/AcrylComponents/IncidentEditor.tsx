@@ -1,12 +1,21 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
-import { Input } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
-import { Editor } from '@src/alchemy-components/components/Editor/Editor';
-import { useUserContext } from '@src/app/context/useUserContext';
 import { Form } from 'antd';
-import styled from 'styled-components';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
+import { IncidentAssigneeSelector } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentAssigneeSelector';
+import { IncidentLinkedAssetsList } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentLinkedAssetsList';
+import { IncidentSelectField } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentSelectedField';
+import { useIncidentHandler } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/hooks/useIncidentHandler';
+import {
+    IncidentFooter,
+    InputFormItem,
+    SaveButton,
+    SelectFormItem,
+    StyledForm,
+    StyledFormElements,
+    StyledSpinner,
+} from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import {
     INCIDENT_CATEGORIES,
     INCIDENT_OPTION_LABEL_MAPPING,
@@ -14,46 +23,42 @@ import {
     INCIDENT_STAGES,
     INCIDENT_STATES,
     IncidentAction,
-} from '../constant';
-import { getAssigneeWithURN, getLinkedAssetsData, validateForm } from '../utils';
-import {
-    IncidentFooter,
-    SelectFormItem,
-    SaveButton,
-    StyledForm,
-    StyledFormElements,
-    InputFormItem,
-    StyledSpinner,
-} from './styledComponents';
-import { IncidentEditorProps } from '../types';
-import { IncidentLinkedAssetsList } from './IncidentLinkedAssetsList';
-import { IncidentSelectField } from './IncidentSelectedField';
-import { IncidentAssigneeSelector } from './IncidentAssigneeSelector';
-import { useIncidentHandler } from './hooks/useIncidentHandler';
+} from '@app/entityV2/shared/tabs/Incident/constant';
+import { IncidentEditorProps } from '@app/entityV2/shared/tabs/Incident/types';
+import { getAssigneeWithURN, getLinkedAssetsData, validateForm } from '@app/entityV2/shared/tabs/Incident/utils';
+import { Input } from '@src/alchemy-components';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 
 const HalfWidthInput = styled(Input)`
     width: 50%;
 `;
 
 export const IncidentEditor = ({
+    entity,
     incidentUrn,
     onSubmit,
     data,
     mode = IncidentAction.CREATE,
-    entity,
 }: IncidentEditorProps) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
+    const { t: tf } = useTranslation('common.feedback');
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
     const isFormValid = Boolean(
         data?.title?.length &&
             data?.description &&
             data?.type &&
-            (data?.type !== IncidentType.Custom || data?.customType),
+            (data?.type !== IncidentType?.Custom || data?.customType),
     );
+    const themeConfig = useTheme();
     const { user } = useUserContext();
     const userHasChangedState = useRef(false);
     const isFirstRender = useRef(true);
-    const [cachedAssignees, setCachedAssignees] = useState<any>([]);
-    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<any>([]);
+    const [cachedAssignees, setCachedAssignees] = useState<any[]>([]);
+    const [cachedLinkedAssets, setCachedLinkedAssets] = useState<any[]>([]);
     const [isLoadingAssigneeOrAssets, setIsLoadingAssigneeOrAssets] = useState(true);
 
     const [isRequiredFieldsFilled, setIsRequiredFieldsFilled] = useState<boolean>(
@@ -68,7 +73,6 @@ export const IncidentEditor = ({
         assignees: cachedAssignees,
         linkedAssets: cachedLinkedAssets,
         entity,
-        currentIncident: data,
     });
     const formValues = Form.useWatch([], form);
 
@@ -86,7 +90,6 @@ export const IncidentEditor = ({
             isFirstRender.current = false;
             return;
         }
-
         // Ensure we don't override user's choice if they manually change the state
         if (
             mode === IncidentAction.EDIT &&
@@ -116,15 +119,44 @@ export const IncidentEditor = ({
         }
     };
 
-    const actionButtonLabel = mode === IncidentAction.CREATE ? 'Create' : 'Update';
+    const handleCategoryUpdate = (value: string) => {
+        if (value !== IncidentType.Custom) {
+            form.setFieldValue('customType', '');
+        }
+    };
+
     const showCustomCategory = form.getFieldValue('type') === IncidentType.Custom;
-    const isLinkedAssetPresent = !formValues?.resourceUrns?.length;
+    const isLinkedAssetMissing = !formValues?.resourceUrns?.length;
     const isSubmitButtonDisabled =
         !validateForm(form) ||
         !isRequiredFieldsFilled ||
         isLoadingAssigneeOrAssets ||
-        isLinkedAssetPresent ||
+        isLinkedAssetMissing ||
         isLoading;
+
+    const isCreateMode = mode === IncidentAction.CREATE;
+    const actionButtonLabel = isCreateMode ? tc('create') : tc('update');
+    const actionButton = isLoading ? (
+        <>
+            <StyledSpinner />
+            {isCreateMode ? tf('creating') : tf('updating')}
+        </>
+    ) : (
+        actionButtonLabel
+    );
+
+    const resolutionInput = form.getFieldValue('state') === IncidentState.Resolved && (
+        <SelectFormItem
+            label={t('editor.resolutionNoteLabel')}
+            name="message"
+            rules={[{ required: false }]}
+            customStyle={{
+                color: themeConfig.colors.text,
+            }}
+        >
+            <HalfWidthInput label="" placeholder={t('editor.resolutionNotePlaceholder')} id="incident-message" />
+        </SelectFormItem>
+    );
 
     return (
         <StyledForm
@@ -144,40 +176,36 @@ export const IncidentEditor = ({
             }}
         >
             <StyledFormElements data-testid="incident-editor-form-container">
-                <InputFormItem label="Name" name="title">
+                <InputFormItem label={tl('name')} name="title">
                     <Input
                         label=""
-                        placeholder="Provide a name..."
+                        placeholder={t('editor.namePlaceholder')}
                         inputTestId="incident-name-input"
-                        color={colors.gray[600]}
+                        color={themeConfig.colors.text}
                     />
                 </InputFormItem>
-                <InputFormItem label="Description" name="description">
+                <InputFormItem label={tl('description')} name="description">
                     <Editor
                         doNotFocus
                         className="add-incident-description"
-                        placeholder="Provide a description..."
+                        placeholder={t('editor.descriptionPlaceholder')}
                         content={mode === IncidentAction.EDIT ? data?.description : ''}
                     />
                 </InputFormItem>
                 <IncidentSelectField
                     incidentLabelMap={INCIDENT_OPTION_LABEL_MAPPING.category}
                     options={INCIDENT_CATEGORIES}
-                    onUpdate={(value) => {
-                        if (value !== IncidentType.Custom) {
-                            form.setFieldValue('customType', '');
-                        }
-                    }}
+                    onUpdate={handleCategoryUpdate}
                     form={form}
                     isDisabled={mode === IncidentAction.EDIT}
                     handleValuesChange={handleValuesChange}
                     value={formValues?.[INCIDENT_OPTION_LABEL_MAPPING.category.fieldName]}
                 />
                 {showCustomCategory && (
-                    <SelectFormItem label="Custom Category" name="customType">
+                    <SelectFormItem label={t('editor.customCategoryLabel')} name="customType">
                         <HalfWidthInput
                             label=""
-                            placeholder="Enter category name..."
+                            placeholder={t('editor.customCategoryPlaceholder')}
                             required
                             isDisabled={mode === IncidentAction.EDIT}
                             id="custom-incident-type-input"
@@ -198,15 +226,20 @@ export const IncidentEditor = ({
                     handleValuesChange={handleValuesChange}
                     value={formValues?.[INCIDENT_OPTION_LABEL_MAPPING.stage.fieldName]}
                 />
-                <SelectFormItem label="Assignees" name="assigneeUrns" initialValue={assigneeValues || []}>
+                <SelectFormItem
+                    label={t('field.assigneesLabel')}
+                    name="assigneeUrns"
+                    initialValue={assigneeValues || []}
+                >
                     <IncidentAssigneeSelector form={form} data={data} setCachedAssignees={setCachedAssignees} />
                 </SelectFormItem>
                 <SelectFormItem
-                    label="Linked Assets"
+                    label={t('field.linkedAssetsLabel')}
                     name="resourceUrns"
                     initialValue={getLinkedAssetsData(data?.linkedAssets) || []}
                 >
                     <IncidentLinkedAssetsList
+                        initialUrn={entity?.urn}
                         form={form}
                         data={data}
                         mode={mode}
@@ -224,30 +257,11 @@ export const IncidentEditor = ({
                         value={formValues?.[INCIDENT_OPTION_LABEL_MAPPING.state.fieldName]}
                     />
                 )}
-                {form.getFieldValue('state') === IncidentState.Resolved && (
-                    <SelectFormItem
-                        label="Resolution Note"
-                        name="message"
-                        rules={[{ required: false }]}
-                        customStyle={{
-                            color: colors.gray[600],
-                        }}
-                    >
-                        <HalfWidthInput label="" placeholder="Add a resolution note......" id="incident-message" />
-                    </SelectFormItem>
-                )}
+                {resolutionInput}
             </StyledFormElements>
             <IncidentFooter>
                 <SaveButton data-testid="incident-create-button" type="submit" disabled={isSubmitButtonDisabled}>
-                    {/* {actionButtonLabel} */}
-                    {isLoading ? (
-                        <>
-                            <StyledSpinner />
-                            {actionButtonLabel === 'Create' ? 'Creating...' : 'Updating...'}
-                        </>
-                    ) : (
-                        actionButtonLabel
-                    )}
+                    {actionButton}
                 </SaveButton>
             </IncidentFooter>
         </StyledForm>

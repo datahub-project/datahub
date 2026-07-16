@@ -1,18 +1,22 @@
+import { FileOutlined } from '@ant-design/icons';
+import { FileSql } from '@phosphor-icons/react/dist/csr/FileSql';
+import i18next from 'i18next';
 import * as React from 'react';
-import { ConsoleSqlOutlined, FileOutlined } from '@ant-design/icons';
-import { DataPlatform, EntityType, QueryEntity as Query } from '../../../types.generated';
-import { Entity, IconStyleType } from '../Entity';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { useGetQueryQuery } from '../../../graphql/query.generated';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import SidebarQueryUpdatedAtSection from '../shared/containers/profile/sidebar/Query/SidebarQueryUpdatedAtSection';
-import SidebarQueryDescriptionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
-import SidebarQueryDefinitionSection from '../shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection';
-import { SidebarQueryLogicSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity, IconStyleType } from '@app/entityV2/Entity';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import SidebarQueryDefinitionSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryDefinitionSection';
+import SidebarQueryDescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryDescriptionSection';
+import SidebarQueryOperationsSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
+import SidebarQueryUpdatedAtSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryUpdatedAtSection';
+import { SidebarQueryLogicSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+
+import { useGetQueryQuery } from '@graphql/query.generated';
+import { DataPlatform, EntityType, QueryEntity as Query } from '@types';
 
 /**
  * Definition of the DataHub DataPlatformInstance entity.
@@ -21,14 +25,13 @@ import { SidebarQueryLogicSection } from '../shared/containers/profile/sidebar/S
 export class QueryEntity implements Entity<Query> {
     type: EntityType = EntityType.Query;
 
-    icon = (fontSize?: number, _styleType?: IconStyleType, color?: string) => {
+    icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         return (
-            <ConsoleSqlOutlined
+            <FileSql
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -43,9 +46,9 @@ export class QueryEntity implements Entity<Query> {
 
     getPathName = () => 'query';
 
-    getEntityName = () => 'Query';
+    getEntityName = () => i18next.t('entity.types:query.name');
 
-    getCollectionName = () => 'Queries';
+    getCollectionName = () => i18next.t('entity.types:query.namePlural');
 
     useEntityQuery = useGetQueryQuery;
 
@@ -57,7 +60,7 @@ export class QueryEntity implements Entity<Query> {
                 useEntityQuery={useGetQueryQuery}
                 tabs={[
                     {
-                        name: 'Documentation',
+                        name: i18next.t('entity.types:tab.documentation'),
                         component: DocumentationTab,
                         icon: FileOutlined,
                     },
@@ -105,7 +108,11 @@ export class QueryEntity implements Entity<Query> {
     };
 
     displayName = (data: Query) => {
-        return data?.properties?.name || (data?.properties?.source === 'SYSTEM' && 'System Query') || data?.urn;
+        return (
+            data?.properties?.name ||
+            (data?.properties?.source === 'SYSTEM' && i18next.t('entity.types:query.systemQueryFallback')) ||
+            data?.urn
+        );
     };
 
     getGenericEntityProperties = (data: Query) => {

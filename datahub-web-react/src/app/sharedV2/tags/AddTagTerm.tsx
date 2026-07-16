@@ -1,8 +1,9 @@
 import React from 'react';
 
-import { EntityType, SubResourceType } from '../../../types.generated';
+import AddTagsModal from '@app/shared/tags/AddTagsModal';
+import AddTermsModal from '@app/shared/tags/AddTermsModal';
 
-import EditTagTermsModal from '../../shared/tags/AddTagsTermsModal';
+import { EntityType, SubResourceType } from '@types';
 
 type Props = {
     onOpenModal?: () => void;
@@ -12,7 +13,8 @@ type Props = {
     refetch?: () => Promise<any>;
     showAddModal: boolean;
     setShowAddModal: React.Dispatch<React.SetStateAction<boolean>>;
-    addModalType: any;
+    addModalType: EntityType | undefined;
+    existingUrns?: string[];
 };
 
 export default function AddTagTerm({
@@ -24,27 +26,26 @@ export default function AddTagTerm({
     showAddModal,
     setShowAddModal,
     addModalType,
+    existingUrns,
 }: Props) {
-    return (
-        <>
-            {showAddModal && !!entityUrn && !!entityType && (
-                <EditTagTermsModal
-                    type={addModalType}
-                    open
-                    onCloseModal={() => {
-                        onOpenModal?.();
-                        setShowAddModal(false);
-                        setTimeout(() => refetch?.(), 2000);
-                    }}
-                    resources={[
-                        {
-                            resourceUrn: entityUrn,
-                            subResource: entitySubresource,
-                            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-                        },
-                    ]}
-                />
-            )}
-        </>
+    if (!showAddModal || !entityUrn || !entityType) return null;
+
+    const onClose = () => {
+        onOpenModal?.();
+        setShowAddModal(false);
+        setTimeout(() => refetch?.(), 2000);
+    };
+    const resources = [
+        {
+            resourceUrn: entityUrn,
+            subResource: entitySubresource,
+            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+        },
+    ];
+
+    return addModalType === EntityType.Tag ? (
+        <AddTagsModal open onCloseModal={onClose} resources={resources} existingUrns={existingUrns} />
+    ) : (
+        <AddTermsModal open onCloseModal={onClose} resources={resources} existingUrns={existingUrns} />
     );
 }

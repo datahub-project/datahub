@@ -1,20 +1,27 @@
+import { Hexagon } from '@phosphor-icons/react/dist/csr/Hexagon';
+import i18next from 'i18next';
 import * as React from 'react';
-import { GlobalOutlined } from '@ant-design/icons';
-import { BusinessAttribute, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { useGetBusinessAttributeQuery } from '../../../graphql/businessAttribute.generated';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { Preview } from './preview/Preview';
-import { PageRoutes } from '../../../conf/Global';
-import BusinessAttributeRelatedEntity from './profile/BusinessAttributeRelatedEntity';
-import { BusinessAttributeDataTypeSection } from './profile/BusinessAttributeDataTypeSection';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { Preview } from '@app/entityV2/businessAttribute/preview/Preview';
+import { BusinessAttributeDataTypeSection } from '@app/entityV2/businessAttribute/profile/BusinessAttributeDataTypeSection';
+import BusinessAttributeRelatedEntity from '@app/entityV2/businessAttribute/profile/BusinessAttributeRelatedEntity';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { PageRoutes } from '@conf/Global';
+
+import { useGetBusinessAttributeQuery } from '@graphql/businessAttribute.generated';
+import { BusinessAttribute, EntityType, SearchResult } from '@types';
+
+const headerDropdownItems = new Set([EntityMenuItems.DELETE]);
 
 /**
  *  Definition of datahub Business Attribute Entity
@@ -24,27 +31,18 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
     type: EntityType = EntityType.BusinessAttribute;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <GlobalOutlined style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <GlobalOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         if (styleType === IconStyleType.SVG) {
-            // TODO: Update the returned path value to the correct svg icon path
             return (
                 <path d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-600 72h560v208H232V136zm560 480H232V408h560v208zm0 272H232V680h560v208zM304 240a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0z" />
             );
         }
 
         return (
-            <GlobalOutlined
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+            <Hexagon
+                className={TYPE_ICON_CLASS_NAME}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -55,9 +53,9 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
 
     getPathName = () => 'business-attribute';
 
-    getEntityName = () => 'Business Attribute';
+    getEntityName = () => i18next.t('entity.types:businessAttribute.name');
 
-    getCollectionName = () => 'Business Attributes';
+    getCollectionName = () => i18next.t('entity.types:businessAttribute.namePlural');
 
     getGraphName = () => 'businessAttribute';
 
@@ -88,6 +86,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
             <Preview
                 previewType={previewType}
                 urn={data.urn}
+                data={data}
                 name={this.displayName(data)}
                 description={data.properties?.description || ''}
                 owners={data.ownership?.owners}
@@ -101,19 +100,19 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                 urn={urn}
                 entityType={EntityType.BusinessAttribute}
                 useEntityQuery={useGetBusinessAttributeQuery as any}
-                headerDropdownItems={new Set([EntityMenuItems.DELETE])}
+                headerDropdownItems={headerDropdownItems}
                 isNameEditable
                 tabs={[
                     {
-                        name: 'Documentation',
+                        name: i18next.t('entity.types:tab.documentation'),
                         component: DocumentationTab,
                     },
                     {
-                        name: 'Related Entities',
+                        name: i18next.t('entity.types:businessAttribute.relatedEntitiesTab'),
                         component: BusinessAttributeRelatedEntity,
                     },
                     {
-                        name: 'Properties',
+                        name: i18next.t('entity.types:tab.properties'),
                         component: PropertiesTab,
                     },
                 ]}
@@ -130,9 +129,12 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                     {
                         component: SidebarTagsSection,
                         properties: {
-                            hasTags: true,
-                            hasTerms: true,
                             customTagPath: 'properties.tags',
+                        },
+                    },
+                    {
+                        component: SidebarGlossaryTermsSection,
+                        properties: {
                             customTermPath: 'properties.glossaryTerms',
                         },
                     },
@@ -151,7 +153,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
             EntityCapabilityType.OWNERS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.GLOSSARY_TERMS,
-            // EntityCapabilityType.BUSINESS_ATTRIBUTES,
+            EntityCapabilityType.BUSINESS_ATTRIBUTES,
         ]);
     };
 }

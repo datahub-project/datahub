@@ -2,12 +2,12 @@ package com.linkedin.gms.factory.entity;
 
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.event.EventProducer;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -28,11 +28,14 @@ public class EntityServiceFactory {
   @DependsOn({"entityAspectDao", "kafkaEventProducer"})
   @Nonnull
   protected EntityService<ChangeItemImpl> createInstance(
-      @Qualifier("kafkaEventProducer") final KafkaEventProducer eventProducer,
+      @Qualifier("kafkaEventProducer") final EventProducer eventProducer,
       @Qualifier("entityAspectDao") final AspectDao aspectDao,
       @Qualifier("configurationProvider") ConfigurationProvider configurationProvider,
       @Value("${featureFlags.showBrowseV2}") final boolean enableBrowsePathV2,
-      final List<ThrottleSensor> throttleSensors) {
+      @Value("${featureFlags.cdcModeChangeLog}") final boolean enableCDCModeChangeLog,
+      final List<ThrottleSensor> throttleSensors,
+      @javax.annotation.Nullable
+          final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
 
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
 
@@ -41,9 +44,11 @@ public class EntityServiceFactory {
             aspectDao,
             eventProducer,
             featureFlags.isAlwaysEmitChangeLog(),
+            featureFlags.isCdcModeChangeLog(),
             featureFlags.getPreProcessHooks(),
             _ebeanMaxTransactionRetry,
-            enableBrowsePathV2);
+            enableBrowsePathV2,
+            metricUtils);
 
     if (throttleSensors != null
         && !throttleSensors.isEmpty()

@@ -1,0 +1,43 @@
+import React from 'react';
+
+import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
+
+export type FieldName = string;
+
+export interface AppliedFieldFilterValue {
+    filters: FacetFilterInput[];
+}
+
+export type FieldToAppliedFieldFiltersMap = Map<FieldName, AppliedFieldFilterValue>;
+
+export interface FilterComponentProps {
+    fieldName: FieldName;
+    facetState?: FeildFacetState;
+    appliedFilters?: AppliedFieldFilterValue;
+    onUpdate?: (value: AppliedFieldFilterValue) => void;
+}
+
+export type FilterComponent = React.FC<FilterComponentProps>;
+
+export interface Filter {
+    fieldName: FieldName;
+    props: FilterComponentProps;
+    component: FilterComponent;
+}
+
+export interface FiltersRendererProps {
+    filters: Filter[];
+}
+
+export type FeildFacetState = {
+    facet?: FacetMetadata | undefined;
+    loading?: boolean;
+};
+
+export type FieldToFacetStateMap = Map<FieldName, FeildFacetState>;
+
+export type FiltersRenderer = React.FC<FiltersRendererProps>;
+
+export type FiltersAppliedHandler = (appliedFilters: FieldToAppliedFieldFiltersMap | undefined) => void;
+
+export type AppliedFieldFilterUpdater = (fieldName: FieldName, value: AppliedFieldFilterValue) => void;

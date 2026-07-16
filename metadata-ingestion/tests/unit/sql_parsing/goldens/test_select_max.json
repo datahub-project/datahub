@@ -23,9 +23,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)",
                     "column": "col2"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "GREATEST(`mytable`.`col1`, `mytable`.`col2`) AS `max_col`"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "SELECT GREATEST(col1, COL2) AS max_col FROM mytable"

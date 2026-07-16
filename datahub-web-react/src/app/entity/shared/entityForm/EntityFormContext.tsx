@@ -1,12 +1,14 @@
 import React, { useContext } from 'react';
-import { Entity } from '../../../../types.generated';
-import { EntityAndType, GenericEntityProperties } from '../types';
+
+import { EntityAndType, GenericEntityProperties } from '@app/entity/shared/types';
+
+import { Entity } from '@types';
 
 export enum FormView {
     BY_ENTITY,
 }
 
-export type EntityFormContextType = {
+type EntityFormContextType = {
     formUrn: string;
     isInFormContext: boolean;
     entityData: GenericEntityProperties | undefined;
@@ -25,7 +27,7 @@ export type EntityFormContextType = {
     isVerificationType: boolean;
 };
 
-export const DEFAULT_CONTEXT = {
+const DEFAULT_CONTEXT = {
     formUrn: '',
     isInFormContext: false,
     entityData: undefined,

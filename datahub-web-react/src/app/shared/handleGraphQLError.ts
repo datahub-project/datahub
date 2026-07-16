@@ -1,6 +1,8 @@
 import { ErrorResponse } from '@apollo/client/link/error';
-import { message } from 'antd';
-import { ErrorCodes } from './constants';
+import { toast } from '@components';
+import i18next from 'i18next';
+
+import { ErrorCodes } from '@app/shared/constants';
 
 interface Props {
     error: ErrorResponse;
@@ -13,28 +15,28 @@ interface Props {
 export default function handleGraphQLError({
     error,
     defaultMessage,
-    permissionMessage = 'Unauthorized. Please contact your DataHub administrator.',
+    permissionMessage = i18next.t('shared.error:unauthorized'),
     badRequestMessage,
     serverErrorMessage,
 }: Props) {
     // destroy the default error message from errorLink in App.tsx
-    message.destroy();
+    toast.destroy();
     const { graphQLErrors } = error;
     if (graphQLErrors && graphQLErrors.length) {
         const { extensions } = graphQLErrors[0];
         const errorCode = extensions && (extensions.code as number);
         if (errorCode === ErrorCodes.Forbidden) {
-            message.error(permissionMessage);
+            toast.error(permissionMessage);
             return;
         }
         if (errorCode === ErrorCodes.BadRequest && badRequestMessage) {
-            message.error(badRequestMessage);
+            toast.error(badRequestMessage);
             return;
         }
         if (errorCode === ErrorCodes.ServerError && serverErrorMessage) {
-            message.error(serverErrorMessage);
+            toast.error(serverErrorMessage);
             return;
         }
     }
-    message.error(defaultMessage);
+    toast.error(defaultMessage);
 }

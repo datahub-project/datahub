@@ -1,13 +1,14 @@
-import React from 'react';
-import { render, waitFor } from '@testing-library/react';
 import { InMemoryCache } from '@apollo/client';
 import { MockedProvider } from '@apollo/client/testing';
+import { render, waitFor } from '@testing-library/react';
+import React from 'react';
 import { Route } from 'react-router';
-import { SearchPage } from '../SearchPage';
-import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
-import { mocksWithSearchFlagsOff } from '../../../Mocks';
-import { PageRoutes } from '../../../conf/Global';
-import possibleTypesResult from '../../../possibleTypes.generated';
+
+import { SearchPage } from '@app/searchV2/SearchPage';
+import { PageRoutes } from '@conf/Global';
+import { mocksWithSearchFlagsOff } from '@src/Mocks';
+import possibleTypesResult from '@src/possibleTypes.generated';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 const cache = new InMemoryCache({
     // need to define possibleTypes to allow us to use Apollo cache with union types

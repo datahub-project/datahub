@@ -46,14 +46,10 @@ public class UpdateDataProductResolver implements DataFetcher<CompletableFuture<
           Domains domains =
               _dataProductService.getDataProductDomains(
                   context.getOperationContext(), dataProductUrn);
-          if (domains != null && domains.hasDomains() && domains.getDomains().size() > 0) {
-            // get first domain since we only allow one domain right now
-            Urn domainUrn = UrnUtils.getUrn(domains.getDomains().get(0).toString());
-            if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(
-                context, domainUrn)) {
-              throw new AuthorizationException(
-                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
-            }
+          if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
+              context, domains)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
 
           try {

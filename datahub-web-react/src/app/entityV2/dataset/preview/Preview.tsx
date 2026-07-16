@@ -1,6 +1,17 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
+import { useTheme } from 'styled-components';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { DatasetStatsSummary as DatasetStatsSummaryView } from '@app/entityV2/dataset/shared/DatasetStatsSummary';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { DatasetLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
+    BrowsePathV2,
     Container,
     DataProduct,
     DatasetStatsSummary,
@@ -16,16 +27,7 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
-    BrowsePathV2,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
-import { summaryHasStats, DatasetLastUpdatedMs } from '../../shared/utils';
-import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+} from '@types';
 
 export const Preview = ({
     urn,
@@ -95,10 +97,11 @@ export const Preview = ({
     isOutputPort?: boolean;
     tier?: PopularityTier;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: Maybe<PreviewType>;
+    previewType: PreviewType;
     browsePaths?: BrowsePathV2;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const hasStats = !!columnCount || summaryHasStats(statsSummary);
 
     return (
@@ -111,7 +114,7 @@ export const Preview = ({
             entityType={EntityType.Dataset}
             type={subtype}
             logoUrl={platformLogo || ''}
-            typeIcon={entityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT)}
+            typeIcon={entityRegistry.getIcon(EntityType.Dataset, 14, IconStyleType.ACCENT)}
             platform={platformName}
             platforms={platformNames}
             logoUrls={platformLogos}
@@ -136,7 +139,7 @@ export const Preview = ({
                         rowCount={rowCount}
                         queryCountLast30Days={statsSummary?.queryCountLast30Days}
                         uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
-                        color={ANTD_GRAY[8]}
+                        color={theme.colors.textSecondary}
                     />
                 )
             }

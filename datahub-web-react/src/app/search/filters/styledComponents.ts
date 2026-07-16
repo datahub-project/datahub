@@ -1,6 +1,7 @@
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 export const SearchFilterLabel = styled(Button)<{ isActive: boolean }>`
     font-size: 14px;
@@ -14,8 +15,8 @@ export const SearchFilterLabel = styled(Button)<{ isActive: boolean }>`
     ${(props) =>
         props.isActive &&
         `
-        background-color: ${props.theme.styles['primary-color']};
-        border: 1px solid ${props.theme.styles['primary-color']};
+        background-color: ${props.theme.colors.buttonFillBrand};
+        border: 1px solid ${props.theme.colors.borderBrand};
         color: white;
     `}
 `;
@@ -32,19 +33,8 @@ export const MoreFilterOptionLabel = styled.div<{ isActive: boolean; isOpen: boo
         background-color: ${ANTD_GRAY[3]};
     }
 
-    ${(props) => props.isActive && `color: ${props.theme.styles['primary-color']};`}
+    ${(props) => props.isActive && `color: ${props.theme.colors.textBrand};`}
     ${(props) => props.isOpen && `background-color: ${ANTD_GRAY[3]};`}
-`;
-
-export const TextButton = styled(Button)<{ marginTop?: number; height?: number }>`
-    color: ${(props) => props.theme.styles['primary-color']};
-    padding: 0px 6px;
-    margin-top: ${(props) => (props.marginTop !== undefined ? `${props.marginTop}px` : '8px')};
-    ${(props) => props.height !== undefined && `height: ${props.height}px;`}
-
-    &:hover {
-        background-color: white;
-    }
 `;
 
 export const Label = styled(Typography.Text)`

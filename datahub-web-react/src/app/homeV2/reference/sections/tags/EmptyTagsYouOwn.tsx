@@ -1,21 +1,28 @@
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 const Text = styled.div`
     font-size: 14px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 export const EmptyTagsYouOwn = () => {
+    const { t } = useTranslation('home.v2');
     return (
         <Text>
-            You have not created any tags yet.
+            {t('yourTags.emptyNotCreated')}
             <br />
-            <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/tags">
-                Learn more
-            </a>{' '}
-            about tags.
+            <Trans
+                t={t}
+                i18nKey="yourTags.learnMoreAbout"
+                components={{
+                    anchor: (
+                        // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                        <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/tags" />
+                    ),
+                }}
+            />
         </Text>
     );
 };

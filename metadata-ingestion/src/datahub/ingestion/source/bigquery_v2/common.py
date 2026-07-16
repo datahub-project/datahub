@@ -17,6 +17,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryFilterConfig,
     BigQueryIdentifierConfig,
 )
+from datahub.ingestion.source.common.gcp_project_filter import (
+    is_project_allowed as gcp_is_project_allowed,
+)
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 BQ_DATE_SHARD_FORMAT = "%Y%m%d"
@@ -63,7 +66,7 @@ class BigQueryIdentifierBuilder:
         )
 
     def gen_user_urn(self, user_email: str) -> str:
-        return make_user_urn(user_email.split("@")[0])
+        return make_user_urn(user_email)
 
     def make_data_platform_urn(self) -> str:
         return make_data_platform_urn(self.platform)
@@ -90,11 +93,20 @@ class BigQueryFilter:
         self.filter_config = filter_config
         self.structured_reporter = structured_reporter
 
+    def is_dataset_allowed(self, dataset_name: str, project_id: str) -> bool:
+        """Check if a dataset should be processed based on dataset_pattern."""
+        return is_schema_allowed(
+            self.filter_config.dataset_pattern,
+            dataset_name,
+            project_id,
+            self.filter_config.match_fully_qualified_names,
+        )
+
     def is_allowed(self, table_id: BigqueryTableIdentifier) -> bool:
         return AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN).allowed(
             str(table_id)
         ) and (
-            self.is_project_allowed(table_id.project_id)
+            gcp_is_project_allowed(self.filter_config, table_id.project_id)
             and is_schema_allowed(
                 self.filter_config.dataset_pattern,
                 table_id.dataset,
@@ -103,8 +115,3 @@ class BigQueryFilter:
             )
             and self.filter_config.table_pattern.allowed(str(table_id))
         )  # TODO: use view_pattern ?
-
-    def is_project_allowed(self, project_id: str) -> bool:
-        if self.filter_config.project_ids:
-            return project_id in self.filter_config.project_ids
-        return self.filter_config.project_id_pattern.allowed(project_id)

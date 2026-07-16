@@ -1,78 +1,61 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Typography } from 'antd';
-import React, { useState } from 'react';
+import { EmptyState } from '@components';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { EntityType } from '../../types.generated';
-import { useEntityData } from '../entity/shared/EntityContext';
-import CreateGlossaryEntityModal from '../entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
-import { useUserContext } from '../context/useUserContext';
 
-const StyledEmpty = styled(Empty)`
-    padding: 80px 40px;
-    .ant-empty-footer {
-        .ant-btn:not(:last-child) {
-            margin-right: 8px;
-        }
-    }
-`;
-
-const StyledButton = styled(Button)`
-    margin-right: 8px;
+// Fills the remaining vertical space inside the parent flex column so the
+// EmptyState lands in the optical center of the page rather than hugging the
+// top-left of whatever container it sits in.
+const CenteredWrapper = styled.div`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    min-height: 240px;
 `;
 
 interface Props {
     title?: string;
     description?: string;
-    refetchForTerms?: () => void;
-    refetchForNodes?: () => void;
+    onAddTerm: () => void;
+    onAddtermGroup: () => void;
 }
 
 function EmptyGlossarySection(props: Props) {
-    const { title, description, refetchForTerms, refetchForNodes } = props;
+    const { t } = useTranslation('governance.glossary');
+    const { title, description, onAddTerm, onAddtermGroup } = props;
 
-    const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
-    const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
-
-    const user = useUserContext();
-    const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
-    const { entityData } = useEntityData();
-    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren || canManageGlossaries;
+    // Alchemy EmptyState requires a non-empty title. Some callers (e.g. the
+    // glossary-node ChildrenTab) only have a single line of copy to show — for
+    // those we promote `description` into the title slot so we never render an
+    // empty heading.
+    const resolvedTitle = title ?? description ?? '';
+    const resolvedDescription = title ? description : undefined;
 
     return (
-        <>
-            <StyledEmpty
-                description={
-                    <>
-                        <Typography.Title level={4}>{title}</Typography.Title>
-                        <Typography.Paragraph type="secondary">{description}</Typography.Paragraph>
-                    </>
-                }
-            >
-                {/* not disabled on acryl-main due to ability to propose */}
-                <StyledButton onClick={() => setIsCreateTermModalVisible(true)}>
-                    <PlusOutlined /> Add Term
-                </StyledButton>
-                <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
-                    <PlusOutlined /> Add Term Group
-                </StyledButton>
-            </StyledEmpty>
-            {isCreateTermModalVisible && (
-                <CreateGlossaryEntityModal
-                    entityType={EntityType.GlossaryTerm}
-                    canCreateGlossaryEntity={!!canCreateGlossaryEntity}
-                    onClose={() => setIsCreateTermModalVisible(false)}
-                    refetchData={refetchForTerms}
-                />
-            )}
-            {isCreateNodeModalVisible && (
-                <CreateGlossaryEntityModal
-                    entityType={EntityType.GlossaryNode}
-                    canCreateGlossaryEntity={!!canCreateGlossaryEntity}
-                    onClose={() => setIsCreateNodeModalVisible(false)}
-                    refetchData={refetchForNodes}
-                />
-            )}
-        </>
+        <CenteredWrapper>
+            <EmptyState
+                icon={BookmarksSimple}
+                title={resolvedTitle}
+                description={resolvedDescription}
+                action={{
+                    label: t('empty.addTerm'),
+                    icon: { icon: Plus },
+                    onClick: onAddTerm,
+                    dataTestId: 'add-term-button',
+                }}
+                secondaryAction={{
+                    label: t('empty.addTermGroup'),
+                    icon: { icon: Plus },
+                    variant: 'secondary',
+                    onClick: onAddtermGroup,
+                    dataTestId: 'add-term-group-button',
+                }}
+            />
+        </CenteredWrapper>
     );
 }
 

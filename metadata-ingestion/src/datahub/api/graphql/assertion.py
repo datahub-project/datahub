@@ -36,11 +36,21 @@ query dataset($urn: String!, $start: Int, $count: Int, $status: AssertionRunStat
             result {
               __typename
               type
+              severity
               rowCount
               missingCount
               unexpectedCount
               actualAggValue
               externalUrl
+              nativeResults {
+                value
+              }
+              error {
+                type
+                properties {
+                  value
+                }
+              }
             }
             assertionUrn
           }
@@ -65,7 +75,7 @@ query dataset($urn: String!, $start: Int, $count: Int, $status: AssertionRunStat
 
         :param urn: The DataHub dataset unique identifier.
         :param status: The assertion status to filter for. Every status will be accepted if it is not set.
-            See valid status at https://datahubproject.io/docs/graphql/enums#assertionrunstatus
+            See valid status at https://docs.datahub.com/docs/graphql/enums#assertionrunstatus
         :param start_time_millis: The start time in milliseconds from the assertions will be queried.
         :param end_time_millis: The end time in milliseconds until the assertions will be queried.
         :param filter: Additional key value filters which will be applied as AND query

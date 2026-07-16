@@ -1,5 +1,5 @@
-import { validateURL } from '../../utils';
-import { RecipeField, FieldType, setListValuesOnRecipe } from './common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
+import { validateURL } from '@app/ingest/source/utils';
 
 export const AZURE_CLIENT_ID: RecipeField = {
     name: 'client_id',
@@ -159,13 +159,4 @@ export const USER_DENY: RecipeField = {
     section: 'User',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, schemaDenyFieldPathUser),
-};
-
-export const SKIP_USERS_WITHOUT_GROUP: RecipeField = {
-    name: 'skip_users_without_a_group',
-    label: 'Skip users without group',
-    tooltip: 'Whether to skip users without group from Okta.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.skip_users_without_a_group',
-    rules: null,
 };

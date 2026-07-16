@@ -1,14 +1,15 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
 import { Tooltip } from '@components';
-import styled from 'styled-components';
-import { EntityType } from '@src/types.generated';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import styled, { useTheme } from 'styled-components';
+
+import { getAssertionSummaryCardHeaderByStatus } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
+import { buildAssertionUrlSearch } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { AssertionGroup } from '../../acrylTypes';
-import { ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '../AcrylAssertionListConstants';
-import { buildAssertionUrlSearch } from '../utils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { EntityType } from '@src/types.generated';
 
 const StyledSummaryLabel = styled.div<{ background: string; color: string }>`
     background: ${({ background }) => background};
@@ -39,13 +40,16 @@ type SummarySectionProps = {
 };
 
 export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ group, visibleStatus }) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
+    const headerByStatus = getAssertionSummaryCardHeaderByStatus(theme.colors);
 
     return (
         <SummarySection>
             {visibleStatus.map((key) => {
-                const status = ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS[key];
+                const status = headerByStatus[key];
                 const url = `${entityRegistry.getEntityUrl(
                     EntityType.Dataset,
                     entityData.urn,
@@ -55,16 +59,20 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                         key={status.text}
                         title={
                             status.resultType && (
-                                <>
-                                    {group.name} {status.text} Assertions{' '}
-                                    <Link
-                                        to={url}
-                                        style={{ color: REDESIGN_COLORS.BLUE }}
-                                        onClick={(event) => event.stopPropagation()}
-                                    >
-                                        view
-                                    </Link>
-                                </>
+                                <Trans
+                                    t={t}
+                                    i18nKey="assertionSummary.tooltipTitle"
+                                    values={{ groupName: group.name, statusText: status.text }}
+                                    components={{
+                                        anchor: (
+                                            <Link
+                                                to={url}
+                                                style={{ color: theme.colors.textInformation }}
+                                                onClick={(event) => event.stopPropagation()}
+                                            />
+                                        ),
+                                    }}
+                                />
                             )
                         }
                     >

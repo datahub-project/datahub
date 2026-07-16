@@ -1,18 +1,20 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Typography } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { Owner, OwnershipTypeEntity } from '../../../../types.generated';
-import { getOwnershipTypeName } from '../../shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import { REDESIGN_COLORS } from '../../shared/constants';
-import OwnerDetail from './OwnerDetail';
-import { SummaryTabHeaderTitle } from '../../shared/summary/HeaderComponents';
+import { Typography } from 'antd';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import OwnerDetail from '@app/entityV2/domain/summary/OwnerDetail';
+import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import { SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
+
+import { Owner, OwnershipTypeEntity } from '@types';
 
 const OwnershipTypeNameText = styled(Typography.Text)`
     font-weight: 500;
     font-size: 12px;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const OwnersContainer = styled.div`
@@ -43,6 +45,7 @@ const Details = styled.div`
 `;
 
 const OwnersSection = () => {
+    const { t: tl } = useTranslation('common.labels');
     const { entityData } = useEntityData();
     const ownersEmpty = !entityData?.ownership?.owners?.length;
     const ownershipTypesMap: Map<string, OwnershipTypeEntity> = new Map();
@@ -66,7 +69,7 @@ const OwnersSection = () => {
 
     return (
         <SectionContainer>
-            <SummaryTabHeaderTitle title="Owners" icon={<UserOutlined />} />
+            <SummaryTabHeaderTitle title={tl('owners')} icon={<UserOutlined />} />
             <Details>
                 {ownershipTypeNames.map((ownershipTypeName) => {
                     const owners = ownersByTypeMap.get(ownershipTypeName) as Owner[];

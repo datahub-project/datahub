@@ -1,16 +1,16 @@
-import React from 'react';
-import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Breadcrumb, Row } from 'antd';
-import styled from 'styled-components';
+import React from 'react';
 import { IconBaseProps } from 'react-icons/lib';
-import { VscRepoForked, VscPreview } from 'react-icons/vsc';
-import { blue, grey } from '@ant-design/colors';
+import { VscPreview, VscRepoForked } from 'react-icons/vsc';
+import { Link, useHistory, useLocation } from 'react-router-dom';
+import styled from 'styled-components';
 
-import { PageRoutes } from '../../conf/Global';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType } from '../../types.generated';
-import { navigateToLineageUrl } from '../lineage/utils/navigateToLineageUrl';
-import useIsLineageMode from '../lineage/utils/useIsLineageMode';
+import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
+import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+
+import { EntityType } from '@types';
 
 interface Props {
     type: EntityType;
@@ -29,9 +29,9 @@ const LineageIconGroup = styled.div`
 const HoverableVscPreview = styled(({ isSelected: _, ...props }: IconBaseProps & { isSelected: boolean }) => (
     <VscPreview {...props} />
 ))`
-    color: ${(props) => (props.isSelected ? 'black' : grey[2])};
+    color: ${(props) => (props.isSelected ? props.theme.colors.text : props.theme.colors.textTertiary)};
     &:hover {
-        color: ${(props) => (props.isSelected ? 'black' : blue[4])};
+        color: ${(props) => (props.isSelected ? props.theme.colors.text : props.theme.colors.textBrand)};
         cursor: pointer;
     }
 `;
@@ -39,9 +39,9 @@ const HoverableVscPreview = styled(({ isSelected: _, ...props }: IconBaseProps &
 const HoverableVscRepoForked = styled(({ isSelected: _, ...props }: IconBaseProps & { isSelected: boolean }) => (
     <VscRepoForked {...props} />
 ))`
-    color: ${(props) => (props.isSelected ? 'black' : grey[2])};
+    color: ${(props) => (props.isSelected ? props.theme.colors.text : props.theme.colors.textTertiary)};
     &:hover {
-        color: ${(props) => (props.isSelected ? 'black' : blue[4])};
+        color: ${(props) => (props.isSelected ? props.theme.colors.text : props.theme.colors.textBrand)};
         cursor: pointer;
     }
     transform: rotate(90deg);
@@ -49,8 +49,8 @@ const HoverableVscRepoForked = styled(({ isSelected: _, ...props }: IconBaseProp
 
 const BrowseRow = styled(Row)`
     padding: 10px 100px;
-    border-bottom: 1px solid #dcdcdc;
-    background-color: ${(props) => props.theme.styles['body-background']};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     justify-content: space-between;
 `;

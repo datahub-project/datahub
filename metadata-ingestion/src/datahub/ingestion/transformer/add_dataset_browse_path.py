@@ -32,7 +32,7 @@ class AddDatasetBrowsePathTransformer(DatasetBrowsePathsTransformer):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "AddDatasetBrowsePathTransformer":
-        config = AddDatasetBrowsePathConfig.parse_obj(config_dict)
+        config = AddDatasetBrowsePathConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     @staticmethod

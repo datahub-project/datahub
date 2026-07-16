@@ -1,14 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { SearchBar, PageTitle, Pagination } from '@components';
-import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { PageContainer } from '@app/govern/structuredProperties/styledComponents';
+import CreateNewTagModal from '@app/tags/CreateNewTagModal/CreateNewTagModal';
+import EmptyTags from '@app/tags/EmptyTags';
+import TagsTable from '@app/tags/TagsTable';
 import { Message } from '@src/app/shared/Message';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import styled from 'styled-components';
-import { PageContainer } from '../govern/structuredProperties/styledComponents';
-import EmptyTags from './EmptyTags';
-import TagsTable from './TagsTable';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { EntityType } from '@src/types.generated';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -30,7 +36,7 @@ const LoadingBar = styled.div`
     left: 0;
     width: 100%;
     height: 4px;
-    background-color: #1890ff;
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     z-index: 1000;
     animation: loading 2s infinite ease-in-out;
 
@@ -50,11 +56,18 @@ const LoadingBar = styled.div`
 const PAGE_SIZE = 10;
 
 const ManageTags = () => {
+    const { t } = useTranslation('misc');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(PAGE_SIZE);
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('*');
     const entityRegistry = useEntityRegistry();
+    const [showCreateTagModal, setShowCreateTagModal] = useState(false);
+
+    // Check permissions using UserContext
+    const userContext = useUserContext();
+    const canCreateTags = userContext?.platformPrivileges?.createTags || userContext?.platformPrivileges?.manageTags;
 
     // Debounce search query input to reduce unnecessary renders
     useEffect(() => {
@@ -70,11 +83,11 @@ const ManageTags = () => {
         () => ({
             types: [EntityType.Tag],
             query: debouncedSearchQuery,
-            start: (currentPage - 1) * PAGE_SIZE,
-            count: PAGE_SIZE,
+            start: (currentPage - 1) * pageSize,
+            count: pageSize,
             filters: [],
         }),
-        [currentPage, debouncedSearchQuery],
+        [currentPage, debouncedSearchQuery, pageSize],
     );
 
     const {
@@ -107,20 +120,54 @@ const ManageTags = () => {
     }, [searchData, debouncedSearchQuery, entityRegistry]);
 
     if (searchError) {
-        return <Message type="error" content={`Failed to load tags: ${searchError.message}`} />;
+        return <Message type="error" content={t('tags.loadError', { error: searchError.message })} />;
     }
+
+    // Create the Create Tag button with proper permissions handling
+    const renderCreateTagButton = () => {
+        if (!canCreateTags) {
+            return (
+                <StructuredPopover
+                    title={t('tags.noCreatePermissionTooltip')}
+                    placement="left"
+                    showArrow
+                    mouseEnterDelay={0.1}
+                    mouseLeaveDelay={0.1}
+                >
+                    <span>
+                        <Button size="md" color="violet" icon={{ icon: Plus }} disabled>
+                            {t('tags.createButton')}
+                        </Button>
+                    </span>
+                </StructuredPopover>
+            );
+        }
+
+        return (
+            <Button
+                onClick={() => setShowCreateTagModal(true)}
+                size="md"
+                color="violet"
+                icon={{ icon: Plus }}
+                data-testid="add-tag-button"
+            >
+                {t('tags.createButton')}
+            </Button>
+        );
+    };
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             {searchLoading && <LoadingBar />}
 
             <HeaderContainer>
-                <PageTitle title="Manage Tags" subTitle="Create and edit asset & column tags" />
+                <PageTitle title={t('tags.pageTitle')} subTitle={t('tags.pageSubtitle')} />
+                {renderCreateTagButton()}
             </HeaderContainer>
 
             <SearchContainer>
                 <SearchBar
-                    placeholder="Search tags..."
+                    placeholder={t('tags.searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e)}
                     data-testid="tag-search-input"
@@ -141,13 +188,28 @@ const ManageTags = () => {
                     />
                     <Pagination
                         currentPage={currentPage}
-                        itemsPerPage={PAGE_SIZE}
-                        totalPages={totalTags}
+                        itemsPerPage={pageSize}
+                        total={totalTags}
                         loading={searchLoading}
-                        onPageChange={(page) => setCurrentPage(page)}
+                        onPageChange={(newPage, newPageSize) => {
+                            if (newPageSize !== pageSize) {
+                                setCurrentPage(1);
+                                setPageSize(newPageSize);
+                            } else {
+                                setCurrentPage(newPage);
+                            }
+                        }}
                     />
                 </>
             )}
+
+            <CreateNewTagModal
+                open={showCreateTagModal}
+                onClose={() => {
+                    setShowCreateTagModal(false);
+                    setTimeout(() => refetch(), 3000);
+                }}
+            />
         </PageContainer>
     );
 };

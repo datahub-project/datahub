@@ -1,13 +1,15 @@
 import * as QueryString from 'query-string';
-import { useLocation, useParams } from 'react-router';
 import { useMemo } from 'react';
-import { FacetFilterInput, EntityType } from '../../types.generated';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { ENTITY_FILTER_NAME, UnionType } from './utils/constants';
-import { useUserContext } from '../context/useUserContext';
-import useFilters from './utils/useFilters';
-import { generateOrFilters } from './utils/generateOrFilters';
-import useSortInput from './sorting/useSortInput';
+import { useLocation, useParams } from 'react-router';
+
+import { useUserContext } from '@app/context/useUserContext';
+import useSortInput from '@app/search/sorting/useSortInput';
+import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
+import { generateOrFilters } from '@app/search/utils/generateOrFilters';
+import useFilters from '@app/search/utils/useFilters';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, FacetFilterInput } from '@types';
 
 type SearchPageParams = {
     type?: string;

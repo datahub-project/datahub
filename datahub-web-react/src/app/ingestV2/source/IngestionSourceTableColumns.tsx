@@ -1,0 +1,372 @@
+import { CellHoverWrapper, Icon, Pill, Text, Tooltip } from '@components';
+import { Play } from '@phosphor-icons/react/dist/csr/Play';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
+import { Image, Typography } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components/macro';
+
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
+import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
+import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
+import { IngestionSourceTableData } from '@app/ingestV2/source/types';
+import { capitalizeMonthsAndDays, formatTimezone } from '@app/ingestV2/source/utils';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
+import { cronToString, removeTimePrefix } from '@utils/cronstrue';
+
+import { Owner } from '@types';
+
+const PreviewImage = styled(Image)`
+    max-height: 20px;
+    width: auto;
+    max-width: 28px;
+    object-fit: contain;
+    margin: 0px;
+    background-color: transparent;
+`;
+
+const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
+    color: ${(props) => props.theme.colors.textSecondary};
+    ${(props) =>
+        props.$shouldUnderline &&
+        `
+            :hover {
+                text-decoration: underline;
+            }
+        `}
+`;
+
+const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
+    font-size: 14px;
+    font-weight: 600;
+    color: ${(props) => props.theme.colors.text};
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    white-space: normal;
+    text-overflow: unset;
+
+    &.ant-typography {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        white-space: normal;
+    }
+
+    ${(props) =>
+        props.$shouldUnderline &&
+        `
+            :hover {
+                text-decoration: underline;
+            }
+        `}
+`;
+
+const SourceTypeText = styled(Typography.Text)`
+    font-size: 14px;
+    font-weight: 400;
+    color: ${(props) => props.theme.colors.textSecondary};
+    line-height: normal;
+`;
+
+const NameContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+`;
+
+const DisplayNameContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    max-width: calc(100% - 50px);
+`;
+
+interface NameColumnProps {
+    type: string;
+    record: any;
+    onNameClick?: () => void;
+}
+
+export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
+    const { t } = useTranslation('ingestion');
+    const theme = useTheme();
+    const iconUrl = useGetSourceLogoUrl(type);
+    const typeDisplayName = capitalizeFirstLetter(type);
+    const textRef = useRef<HTMLDivElement>(null);
+    const [showTooltip, setShowTooltip] = useState(false);
+
+    useEffect(() => {
+        const element = textRef.current;
+        if (element) {
+            const isOverflowing = element.scrollHeight > element.clientHeight;
+            setShowTooltip(isOverflowing);
+        }
+    }, [record.name]);
+
+    const textElement = (
+        <SourceNameText
+            ref={textRef}
+            onClick={(e) => {
+                if (onNameClick) {
+                    e.stopPropagation();
+                    onNameClick();
+                }
+            }}
+            $shouldUnderline={!!onNameClick}
+            data-testid="ingestion-source-name"
+        >
+            {record.name || ''}
+        </SourceNameText>
+    );
+
+    return (
+        <NameContainer>
+            {iconUrl && !record.cliIngestion ? (
+                <Tooltip overlay={typeDisplayName}>
+                    <PreviewImage preview={false} src={iconUrl} alt={type || ''} />
+                </Tooltip>
+            ) : (
+                <Icon icon={Plugs} size="2xl" color="gray" />
+            )}
+            <DisplayNameContainer>
+                {showTooltip ? (
+                    <Tooltip
+                        title={record.name}
+                        overlayInnerStyle={{ color: theme.colors.textSecondary }}
+                        showArrow={false}
+                    >
+                        {textElement}
+                    </Tooltip>
+                ) : (
+                    textElement
+                )}
+                {!iconUrl && typeDisplayName && <SourceTypeText color="gray">{typeDisplayName}</SourceTypeText>}
+            </DisplayNameContainer>
+            {record.cliIngestion && (
+                <Tooltip title={t('source.cliTooltip')}>
+                    <div data-testid="ingestion-source-cli-pill">
+                        <Pill label="CLI" color="blue" size="xs" />
+                    </div>
+                </Tooltip>
+            )}
+        </NameContainer>
+    );
+}
+
+export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
+    const { t } = useTranslation('ingestion');
+    const theme = useTheme();
+    let scheduleText: string;
+
+    try {
+        const text = schedule && `${cronToString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
+        const cleanedText = removeTimePrefix(text);
+        const finalText = capitalizeFirstLetterOnly(capitalizeMonthsAndDays(cleanedText));
+        scheduleText = finalText ?? '-';
+    } catch (e) {
+        scheduleText = t('source.invalidCron');
+        console.debug('Error parsing cron schedule', e);
+    }
+    return (
+        <TextContainer
+            ellipsis={{
+                tooltip: {
+                    title: scheduleText,
+                    overlayInnerStyle: { color: theme.colors.textSecondary },
+                    showArrow: false,
+                },
+            }}
+            data-testid="schedule"
+        >
+            {scheduleText || '-'}
+        </TextContainer>
+    );
+}
+
+export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entityRegistry: EntityRegistry }) {
+    if (owners.length === 0) return <>-</>;
+
+    return <OwnerAvatarGroup owners={owners} entityRegistry={entityRegistry} />;
+}
+
+export function wrapOwnerColumnWithHover(content: React.ReactNode, record: any): React.ReactNode {
+    const singleOwner = record.owners?.length === 1 ? record.owners[0].owner : undefined;
+
+    if (singleOwner) {
+        return (
+            <HoverEntityTooltip entity={singleOwner} showArrow={false}>
+                <CellHoverWrapper>{content}</CellHoverWrapper>
+            </HoverEntityTooltip>
+        );
+    }
+
+    return content;
+}
+interface ActionsColumnProps {
+    record: any;
+    setFocusExecutionUrn: (urn: string) => void;
+    onExecute: (urn: string) => void;
+    onCancel: (executionUrn: string | undefined, ingestionSourceUrn: string) => void;
+    onEdit: (urn: string) => void;
+    onView: (urn: string) => void;
+    onDelete: (urn: string) => void;
+    navigateToRunHistory: (record: IngestionSourceTableData) => void;
+}
+
+type MenuOption = {
+    key: string;
+    label: React.ReactNode;
+    danger?: boolean;
+};
+
+export function ActionsColumn({
+    record,
+    onEdit,
+    setFocusExecutionUrn,
+    onView,
+    onExecute,
+    onCancel,
+    onDelete,
+    navigateToRunHistory,
+}: ActionsColumnProps) {
+    const { t } = useTranslation('ingestion');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
+    const items: MenuOption[] = [];
+
+    if (!record.cliIngestion)
+        items.push({
+            key: '0',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        onEdit(record.urn);
+                    }}
+                >
+                    {tc('edit')}
+                </MenuItem>
+            ),
+        });
+    else
+        items.push({
+            key: '1',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        onView(record.urn);
+                    }}
+                >
+                    {tc('view')}
+                </MenuItem>
+            ),
+        });
+    if (record.lastExecUrn) {
+        items.push({
+            key: '2',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        setFocusExecutionUrn(record.lastExecUrn);
+                    }}
+                >
+                    {t('source.viewLastRunResult')}
+                </MenuItem>
+            ),
+        });
+    }
+    if (record.execCount)
+        items.push({
+            key: '3',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        navigateToRunHistory(record);
+                    }}
+                >
+                    {t('source.viewRunHistory')}
+                </MenuItem>
+            ),
+        });
+    if (navigator.clipboard)
+        items.push({
+            key: '4',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        navigator.clipboard.writeText(record.urn);
+                    }}
+                >
+                    {t('source.copyUrn')}
+                </MenuItem>
+            ),
+        });
+    if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING)
+        items.push({
+            key: '5',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        setFocusExecutionUrn(record.lastExecUrn);
+                    }}
+                >
+                    {tl('details')}
+                </MenuItem>
+            ),
+        });
+    items.push({
+        key: '6',
+        danger: true,
+        label: (
+            <MenuItem
+                onClick={() => {
+                    onDelete(record.urn);
+                }}
+            >
+                <Text color="red">{tc('delete')}</Text>
+            </MenuItem>
+        ),
+    });
+
+    const renderRunStopButton = () => {
+        if (record.cliIngestion || record.lastExecStatus === EXECUTION_REQUEST_STATUS_LOADING) return null;
+
+        if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING) {
+            return (
+                <Icon
+                    icon={Stop}
+                    weight="fill"
+                    color="primary"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onCancel(record.lastExecUrn, record.urn);
+                    }}
+                    tooltipText={t('source.stopExecution')}
+                />
+            );
+        }
+        return (
+            <Icon
+                icon={Play}
+                weight="fill"
+                color="iconBrand"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onExecute(record.urn);
+                }}
+                tooltipText={t('source.execute')}
+                data-testid="run-ingestion-source-button"
+            />
+        );
+    };
+
+    return <BaseActionsColumn dropdownItems={items} extraActions={renderRunStopButton()} />;
+}

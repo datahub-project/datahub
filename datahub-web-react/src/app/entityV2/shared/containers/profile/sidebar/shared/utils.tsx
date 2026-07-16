@@ -1,6 +1,6 @@
-import moment from 'moment';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { CorpUser } from '../../../../../../../types.generated';
+import dayjs from '@utils/dayjs';
+
+import { CorpUser } from '@types';
 
 /**
  * A tier of popularity for the dataset.
@@ -11,8 +11,6 @@ export enum PopularityTier {
     TIER_3,
     TIER_4, // Least Popular
 }
-
-export const ACRYL_PLATFORM = 'Acryl';
 
 export enum ActionType {
     SHARE,
@@ -85,19 +83,6 @@ export const getChartPopularityTier = (viewCountPercentileLast30Days, uniqueUser
     return PopularityTier.TIER_4;
 };
 
-export const getQueryPopularityTier = (runsPercentileLast30days: number) => {
-    if (runsPercentileLast30days > 80) {
-        return PopularityTier.TIER_1;
-    }
-    if (runsPercentileLast30days > 30) {
-        return PopularityTier.TIER_2;
-    }
-    if (runsPercentileLast30days > 0) {
-        return PopularityTier.TIER_3;
-    }
-    return PopularityTier.TIER_4;
-};
-
 /**
  * Returns true if the user "exists", e.g. there exists some information about
  * the user in DataHub already.
@@ -120,13 +105,15 @@ export const getBarsStatusFromPopularityTier = (tier: number) => {
     return status;
 };
 
-export function getRelativeTimeColor(time: number) {
-    const relativeTime = moment(time);
-    if (relativeTime.isAfter(moment().subtract(1, 'week'))) {
-        return `${REDESIGN_COLORS.GREEN_NORMAL}`;
+export type RelativeTimeStatus = 'green' | 'yellow' | 'red';
+
+export function getRelativeTimeStatus(time: number): RelativeTimeStatus {
+    const relativeTime = dayjs(time);
+    if (relativeTime.isAfter(dayjs().subtract(1, 'week'))) {
+        return 'green';
     }
-    if (relativeTime.isAfter(moment().subtract(1, 'month'))) {
-        return `${REDESIGN_COLORS.WARNING_YELLOW}`;
+    if (relativeTime.isAfter(dayjs().subtract(1, 'month'))) {
+        return 'yellow';
     }
-    return `${REDESIGN_COLORS.WARNING_RED}`;
+    return 'red';
 }

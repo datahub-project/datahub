@@ -1,18 +1,6 @@
-import { dataset3 } from '../../../../../Mocks';
-import { EntityType, Schema, SchemaMetadata, SchemaField, SchemaFieldDataType } from '../../../../../types.generated';
+import { dataset3 } from '@src/Mocks';
 
-// Extending the schema type with an option for tags
-export type TaggedSchemaField = {
-    tags: Tag[];
-} & SchemaField;
-
-export type Tag = {
-    name: string;
-    value?: string;
-    color: string;
-    category: string;
-    descriptor?: boolean;
-};
+import { EntityType, Schema, SchemaField, SchemaFieldDataType, SchemaMetadata } from '@types';
 
 export const sampleSchema: SchemaMetadata | Schema | null = {
     name: 'MockSchema',

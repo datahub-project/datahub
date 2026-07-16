@@ -1,9 +1,11 @@
 import { useContext, useEffect } from 'react';
-import { SchemaField } from '../../../types.generated';
-import usePrevious from '../../shared/usePrevious';
-import { NUM_COLUMNS_PER_PAGE } from '../constants';
-import { getHighlightedColumnsForNode } from './columnLineageUtils';
-import { LineageExplorerContext } from './LineageExplorerContext';
+
+import { NUM_COLUMNS_PER_PAGE } from '@app/lineage/constants';
+import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
+import { getHighlightedColumnsForNode } from '@app/lineage/utils/columnLineageUtils';
+import usePrevious from '@app/shared/usePrevious';
+
+import { SchemaField } from '@types';
 
 export function useResetPageIndexAfterSelect(
     nodeUrn: string,

@@ -1,9 +1,12 @@
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
-import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
-import { FilterRenderer } from '../FilterRenderer';
-import { FilterRenderProps } from '../types';
-import { DeprecationFilter } from './DeprecationFilter';
+
+import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
+import { DeprecationFilter } from '@app/searchV2/filters/render/deprecation/DeprecationFilter';
+import { FilterRenderProps } from '@app/searchV2/filters/render/types';
+
+import DeprecatedIcon from '@images/deprecated-status.svg?react';
 
 const StyledDeprecatedIcon = styled(DeprecatedIcon)`
     color: inherit;
@@ -25,8 +28,8 @@ export class DeprecationRenderer implements FilterRenderer {
 
     valueLabel = (value: string) => {
         if (value === 'true') {
-            return <>Is Deprecated</>;
+            return <>{i18next.t('search:filters.deprecation.isDeprecatedOption')}</>;
         }
-        return <>Is Not Deprecated</>;
+        return <>{i18next.t('search:filters.deprecation.isNotDeprecatedLabel')}</>;
     };
 }

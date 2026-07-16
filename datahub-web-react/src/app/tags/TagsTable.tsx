@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
-import { NetworkStatus } from '@apollo/client';
-import { Table } from '@components';
-import { AlignmentOptions } from '@src/alchemy-components/theme/config';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
-import { ManageTag } from './ManageTag';
+import { NetworkStatus, useApolloClient } from '@apollo/client';
+import { Modal, Table } from '@components';
+import { message } from 'antd';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { UpdateDeprecationModal } from '@app/entity/shared/EntityDropdown/UpdateDeprecationModal';
+import { ManageTag } from '@app/tags/ManageTag';
 import {
     TagActionsColumn,
     TagAppliedToColumn,
@@ -13,7 +14,13 @@ import {
     TagDescriptionColumn,
     TagNameColumn,
     TagOwnersColumn,
-} from './TagsTableColumns';
+} from '@app/tags/TagsTableColumns';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+import { EntityType } from '@src/types.generated';
+
+import { GetTagDocument, useDeleteTagMutation } from '@graphql/tag.generated';
 
 interface Props {
     searchQuery: string;
@@ -24,7 +31,16 @@ interface Props {
 }
 
 const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatus, refetch }: Props) => {
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
+    const userContext = useUserContext();
+    const client = useApolloClient();
+    const [deleteTagMutation] = useDeleteTagMutation();
+
+    // Check if user has permission to manage or delete tags
+    const canManageTags = Boolean(userContext?.platformPrivileges?.manageTags);
 
     // Optimize the tagsData with useMemo to prevent unnecessary filtering on re-renders
     const tagsData = useMemo(() => {
@@ -33,6 +49,19 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
 
     const [showEdit, setShowEdit] = useState(false);
     const [editingTag, setEditingTag] = useState('');
+
+    const [showDeprecationModal, setShowDeprecationModal] = useState(false);
+    const [deprecationTagUrn, setDeprecationTagUrn] = useState('');
+
+    const handleDeprecationComplete = useCallback(() => {
+        refetch();
+        client.refetchQueries({ include: [GetTagDocument] });
+    }, [client, refetch]);
+
+    // Simplified state for delete confirmation modal
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [tagUrnToDelete, setTagUrnToDelete] = useState('');
+    const [tagDisplayName, setTagDisplayName] = useState('');
 
     const [sortedInfo, setSortedInfo] = useState<{
         columnKey?: string;
@@ -62,10 +91,47 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
 
     const isLoading = propLoading || networkStatus === NetworkStatus.refetch;
 
+    // Simplified function to initiate tag deletion
+    const showDeleteConfirmation = useCallback(
+        (tagUrn: string) => {
+            // Find the tag entity from tagsData
+            const tagData = tagsData.find((result) => result.entity.urn === tagUrn);
+            if (!tagData) {
+                message.error(t('tags.findInfoError'));
+                return;
+            }
+
+            const fullDisplayName = entityRegistry.getDisplayName(EntityType.Tag, tagData.entity);
+
+            setTagUrnToDelete(tagUrn);
+            setTagDisplayName(fullDisplayName);
+            setShowDeleteModal(true);
+        },
+        [entityRegistry, tagsData, t],
+    );
+
+    // Function to handle the actual tag deletion
+    const handleDeleteTag = useCallback(() => {
+        deleteTagMutation({
+            variables: {
+                urn: tagUrnToDelete,
+            },
+        })
+            .then(() => {
+                message.success(t('tags.deleteSuccess', { name: tagDisplayName }));
+                refetch(); // Refresh the tag list
+            })
+            .catch((e: any) => {
+                message.error(t('tags.deleteError', { error: e.message }));
+            });
+
+        setShowDeleteModal(false);
+    }, [deleteTagMutation, refetch, tagUrnToDelete, tagDisplayName, t]);
+
     const columns = useMemo(
         () => [
             {
-                title: 'Tag',
+                title: t('tags.columnTag'),
                 key: 'tag',
                 render: (record) => {
                     const tag = record.entity;
@@ -80,28 +146,28 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                 sortOrder: sortedInfo.columnKey === 'tag' ? sortedInfo.order : null,
             },
             {
-                title: 'Color',
+                title: t('tags.color'),
                 key: 'color',
                 render: (record) => {
                     return <TagColorColumn tag={record.entity} />;
                 },
             },
             {
-                title: 'Description',
+                title: tl('description'),
                 key: 'description',
                 render: (record) => {
                     return <TagDescriptionColumn key={`description-${record.entity.urn}`} tagUrn={record.entity.urn} />;
                 },
             },
             {
-                title: 'Owners',
+                title: t('tags.columnOwners'),
                 key: 'owners',
                 render: (record) => {
                     return <TagOwnersColumn key={`owners-${record.entity.urn}`} tagUrn={record.entity.urn} />;
                 },
             },
             {
-                title: 'Applied to',
+                title: t('tags.columnAppliedTo'),
                 key: 'appliedTo',
                 render: (record) => {
                     return <TagAppliedToColumn key={`applied-${record.entity.urn}`} tagUrn={record.entity.urn} />;
@@ -119,12 +185,24 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                                 setEditingTag(record.entity.urn);
                                 setShowEdit(true);
                             }}
+                            onDelete={() => {
+                                if (canManageTags) {
+                                    showDeleteConfirmation(record.entity.urn);
+                                } else {
+                                    message.error(t('tags.noDeletePermissionError'));
+                                }
+                            }}
+                            onDeprecate={() => {
+                                setDeprecationTagUrn(record.entity.urn);
+                                setShowDeprecationModal(true);
+                            }}
+                            canManageTags={canManageTags}
                         />
                     );
                 },
             },
         ],
-        [entityRegistry, searchQuery, sortedInfo],
+        [entityRegistry, searchQuery, sortedInfo, canManageTags, showDeleteConfirmation, t, tl],
     );
 
     // Generate table data once with memoization
@@ -154,6 +232,39 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                     isModalOpen={showEdit}
                 />
             )}
+
+            {showDeprecationModal && (
+                <UpdateDeprecationModal
+                    urns={[deprecationTagUrn]}
+                    onClose={() => setShowDeprecationModal(false)}
+                    refetch={handleDeprecationComplete}
+                />
+            )}
+
+            {/* Delete confirmation modal - simplified */}
+            <Modal
+                title={t('tags.deleteModalTitle', { name: tagDisplayName })}
+                onCancel={() => setShowDeleteModal(false)}
+                open={showDeleteModal}
+                centered
+                buttons={[
+                    {
+                        text: tc('cancel'),
+                        color: 'primary',
+                        variant: 'text',
+                        onClick: () => setShowDeleteModal(false),
+                    },
+                    {
+                        text: tc('delete'),
+                        color: 'red',
+                        variant: 'filled',
+                        onClick: handleDeleteTag,
+                        buttonDataTestId: 'delete-tag-button',
+                    },
+                ]}
+            >
+                <p>{t('tags.deleteConfirmation')}</p>
+            </Modal>
         </>
     );
 };

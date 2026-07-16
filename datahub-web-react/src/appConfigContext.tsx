@@ -1,5 +1,6 @@
 import React from 'react';
-import { AppConfig } from './types.generated';
+
+import { AppConfig, PersonalSidebarSection, SearchBarApi } from '@types';
 
 export const DEFAULT_APP_CONFIG = {
     analyticsConfig: {
@@ -43,6 +44,18 @@ export const DEFAULT_APP_CONFIG = {
     viewsConfig: {
         enabled: false,
     },
+    searchBarConfig: {
+        apiVariant: SearchBarApi.AutocompleteForMultiple,
+    },
+    searchCardConfig: {
+        showDescription: false,
+    },
+    searchFlagsConfig: {
+        defaultSkipHighlighting: false,
+    },
+    homePageConfig: {
+        firstInPersonalSidebar: PersonalSidebarSection.YourAssets,
+    },
     featureFlags: {
         readOnlyModeEnabled: false,
         showSearchFiltersV2: true,
@@ -52,6 +65,8 @@ export const DEFAULT_APP_CONFIG = {
         showAccessManagement: false,
         nestedDomainsEnabled: true,
         platformBrowseV2: false,
+        browserTracingEnabled: false,
+        browserWebVitalsEnabled: false,
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
         editableDatasetNameEnabled: false,
@@ -70,6 +85,27 @@ export const DEFAULT_APP_CONFIG = {
         showHasSiblingsFilter: false,
         showSearchBarAutocompleteRedesign: false,
         showManageTags: false,
+        showIntroducePage: false,
+        showIngestionPageRedesign: false,
+        ingestionOnboardingRedesignV1: false,
+        showLineageExpandMore: false,
+        showDefaultExternalLinks: true,
+        showStatsTabRedesign: false,
+        showHomePageRedesign: false,
+        showProductUpdates: false,
+        lineageGraphV3: false,
+        logicalModelsEnabled: false,
+        showHomepageUserRole: false,
+        assetSummaryPageV1: false,
+        datasetSummaryPageV1: false,
+        metricsEnabled: false,
+        documentationFileUploadV1: false,
+        contextDocumentsEnabled: false,
+        hideLineageInSearchCards: false,
+        glossaryBasedPoliciesEnabled: false,
+        multipleDataProductsPerAsset: false,
+        showTestsInHealthIcon: false,
+        i18nEnabled: true,
     },
     chromeExtensionConfig: {
         enabled: false,

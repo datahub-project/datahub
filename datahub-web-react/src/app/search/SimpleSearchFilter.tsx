@@ -2,12 +2,14 @@ import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { Button, Checkbox } from 'antd';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { FacetFilterInput, FacetMetadata } from '../../types.generated';
-import { SearchFilterLabel } from './SearchFilterLabel';
-import { TRUNCATED_FILTER_LENGTH } from './utils/constants';
+import { SearchFilterLabel } from '@app/search/SearchFilterLabel';
+import { TRUNCATED_FILTER_LENGTH } from '@app/search/utils/constants';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const GRAPH_DEGREE_FILTER_FIELD = 'degree';
 
@@ -55,6 +57,7 @@ const StyledDownOutlined = styled(DownOutlined)`
 `;
 
 export const SimpleSearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDisplayFilters }: Props) => {
+    const { t } = useTranslation('search');
     const [areFiltersVisible, setAreFiltersVisible] = useState(defaultDisplayFilters);
     const [expanded, setExpanded] = useState(false);
 
@@ -122,7 +125,7 @@ export const SimpleSearchFilter = ({ facet, selectedFilters, onFilterSelect, def
                         })}
                     {shouldTruncate && (
                         <ExpandButton type="text" onClick={() => setExpanded(!expanded)}>
-                            {expanded ? '- Less' : '+ More'}
+                            {expanded ? t('simpleFilter.less') : t('simpleFilter.more')}
                         </ExpandButton>
                     )}
                 </>

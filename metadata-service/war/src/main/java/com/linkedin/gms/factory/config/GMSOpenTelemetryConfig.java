@@ -1,7 +1,10 @@
 package com.linkedin.gms.factory.config;
 
 import com.linkedin.gms.factory.system_telemetry.OpenTelemetryBaseFactory;
-import io.datahubproject.metadata.context.TraceContext;
+import com.linkedin.metadata.event.UsageEventPublisher;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,7 +18,10 @@ public class GMSOpenTelemetryConfig extends OpenTelemetryBaseFactory {
 
   @Bean
   @Override
-  protected TraceContext traceContext() {
-    return super.traceContext();
+  protected SystemTelemetryContext traceContext(
+      MetricUtils metricUtils,
+      ConfigurationProvider configurationProvider,
+      @Qualifier("dataHubUsageEventProducer") UsageEventPublisher usageEventPublisher) {
+    return super.traceContext(metricUtils, configurationProvider, usageEventPublisher);
   }
 }

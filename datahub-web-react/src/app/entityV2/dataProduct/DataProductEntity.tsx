@@ -1,41 +1,44 @@
-import {
-    AppstoreOutlined,
-    FileDoneOutlined,
-    FileOutlined,
-    ReadOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
+import i18next from 'i18next';
 import * as React from 'react';
-import { useGetDataProductQuery } from '../../../graphql/dataProduct.generated';
-import { GetDatasetQuery } from '../../../graphql/dataset.generated';
-import { DataProduct, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import { EntityProfileTab } from '../shared/constants';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityActionItem } from '../shared/entity/EntityActions';
-import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { DataProductEntitiesTab } from './DataProductEntitiesTab';
-import { DataProductSummaryTab } from './DataProductSummaryTab';
-import { Preview } from './preview/Preview';
-import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { DataProductEntitiesTab } from '@app/entityV2/dataProduct/DataProductEntitiesTab';
+import { DataProductSummaryTab } from '@app/entityV2/dataProduct/DataProductSummaryTab';
+import { Preview } from '@app/entityV2/dataProduct/preview/Preview';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityProfileTab } from '@app/entityV2/shared/constants';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
+import { SidebarViewDefinitionSection } from '@app/entityV2/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
+import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
+import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
+import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
+
+import { useGetDataProductQuery } from '@graphql/dataProduct.generated';
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { DataProduct, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.DELETE,
     EntityMenuItems.EDIT,
     EntityMenuItems.ANNOUNCE,
@@ -48,16 +51,6 @@ export class DataProductEntity implements Entity<DataProduct> {
     type: EntityType = EntityType.DataProduct;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />
-            );
-        }
-
         if (styleType === IconStyleType.SVG) {
             return (
                 <path d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-600 72h560v208H232V136zm560 480H232V408h560v208zm0 272H232V680h560v208zM304 240a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0z" />
@@ -65,12 +58,11 @@ export class DataProductEntity implements Entity<DataProduct> {
         }
 
         return (
-            <FileDoneOutlined
+            <Storefront
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -85,9 +77,9 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getPathName = () => 'dataProduct';
 
-    getEntityName = () => 'Data Product';
+    getEntityName = () => i18next.t('entity.types:dataProduct.name');
 
-    getCollectionName = () => 'Data Products';
+    getCollectionName = () => i18next.t('entity.types:dataProduct.namePlural');
 
     useEntityQuery = useGetDataProductQuery;
 
@@ -101,33 +93,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_DATA_PRODUCT])}
             headerDropdownItems={headerDropdownItems}
             isNameEditable
-            tabs={[
-                {
-                    id: EntityProfileTab.SUMMARY_TAB,
-                    name: 'Summary',
-                    component: DataProductSummaryTab,
-                    icon: ReadOutlined,
-                },
-                {
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    name: 'Assets',
-                    getDynamicName: (entityData, _, loading) => {
-                        const assetCount = entityData?.entities?.total;
-                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
-                    },
-                    component: DataProductEntitiesTab,
-                    icon: AppstoreOutlined,
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
@@ -152,6 +118,9 @@ export class DataProductEntity implements Entity<DataProduct> {
                 updateOnly: true,
             },
         },
+        {
+            component: SidebarApplicationSection,
+        },
         // TODO: Is someone actually using the below code?
         {
             component: SidebarViewDefinitionSection,
@@ -174,11 +143,46 @@ export class DataProductEntity implements Entity<DataProduct> {
         },
     ];
 
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            {
+                id: EntityProfileTab.SUMMARY_TAB,
+                name: i18next.t('entity.types:tab.summary'),
+                component: showSummaryTab ? SummaryTab : DataProductSummaryTab,
+                icon: ReadOutlined,
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.documentation'),
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('entity.types:tab.assets'),
+                getCount: (entityData, _) => {
+                    return entityData?.entities?.total;
+                },
+                component: DataProductEntitiesTab,
+                icon: AppstoreOutlined,
+            },
+            {
+                name: i18next.t('entity.types:tab.properties'),
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+        ];
+    };
+
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -197,6 +201,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 domain={data.domain?.domain}
                 entityCount={data?.entities?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
                 actions={actions}
@@ -221,7 +226,9 @@ export class DataProductEntity implements Entity<DataProduct> {
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -260,6 +267,10 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 

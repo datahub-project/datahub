@@ -5,10 +5,12 @@ import static io.datahubproject.iceberg.catalog.Utils.*;
 import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.DataOperation;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.ForbiddenException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.rest.CatalogHandlers;
 import org.apache.iceberg.rest.requests.CreateViewRequest;
@@ -36,10 +38,15 @@ public class IcebergViewApiController extends AbstractIcebergController {
     log.info(
         "CREATE VIEW REQUEST in {}.{}, body {}", platformInstance, namespace, createViewRequest);
 
-    OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_VIEWS, false);
-
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        namespaceFromString(namespace),
+        DataOperation.MANAGE_VIEWS,
+        false);
 
     LoadViewResponse createViewResponse =
         catalogOperation(
@@ -73,12 +80,12 @@ public class IcebergViewApiController extends AbstractIcebergController {
         view,
         updateViewRequest);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
     authorize(
         operationContext,
         warehouse,
-        tableIdFromString(namespace, view),
+        namespaceFromString(namespace),
         DataOperation.MANAGE_VIEWS,
         false);
 
@@ -104,7 +111,7 @@ public class IcebergViewApiController extends AbstractIcebergController {
       @PathVariable("view") String view) {
     log.info("GET VIEW REQUEST {}.{}.{}", platformInstance, namespace, view);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_READ);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     authorize(
@@ -131,9 +138,15 @@ public class IcebergViewApiController extends AbstractIcebergController {
       @PathVariable("view") String view) {
     log.info("DROP VIEW REQUEST {}.{}.{}", platformInstance, namespace, view);
 
-    OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_VIEWS, false);
+    OperationContext operationContext = opContext(request, UsageOperation.ENTITY_DELETE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext,
+        warehouse,
+        namespaceFromString(namespace),
+        DataOperation.MANAGE_VIEWS,
+        false);
 
     catalogOperation(
         warehouse,
@@ -158,10 +171,43 @@ public class IcebergViewApiController extends AbstractIcebergController {
         platformInstance,
         renameTableRequest);
 
-    OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.MANAGE_VIEWS, false);
-
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    ForbiddenException sourceAuthEx = null;
+    try {
+      authorize(
+          operationContext,
+          warehouse,
+          renameTableRequest.source().namespace(),
+          DataOperation.MANAGE_VIEWS,
+          false);
+    } catch (ForbiddenException e) {
+      sourceAuthEx = e;
+    }
+    if (!renameTableRequest
+        .source()
+        .namespace()
+        .equals(renameTableRequest.destination().namespace())) {
+      try {
+        authorize(
+            operationContext,
+            warehouse,
+            renameTableRequest.destination().namespace(),
+            DataOperation.MANAGE_VIEWS,
+            false);
+      } catch (ForbiddenException e) {
+        throw sourceAuthEx == null
+            ? e
+            : new ForbiddenException(
+                "Data operation MANAGE_VIEWS not authorized on %s & %s",
+                renameTableRequest.source().namespace(),
+                renameTableRequest.destination().namespace());
+      }
+    }
+    if (sourceAuthEx != null) {
+      throw sourceAuthEx;
+    }
 
     catalogOperation(
         warehouse,
@@ -186,9 +232,11 @@ public class IcebergViewApiController extends AbstractIcebergController {
       @RequestParam(value = "pageSize", required = false) Integer pageSize) {
     log.info("LIST VIEWS REQUEST for {}.{}", platformInstance, namespace);
 
-    OperationContext operationContext = opContext(request);
-    authorize(operationContext, platformInstance, DataOperation.LIST, false);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_READ);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
+
+    authorize(
+        operationContext, warehouse, namespaceFromString(namespace), DataOperation.LIST, false);
 
     ListTablesResponse listTablesResponse =
         catalogOperation(

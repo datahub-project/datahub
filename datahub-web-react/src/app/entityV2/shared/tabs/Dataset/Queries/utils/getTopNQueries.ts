@@ -1,4 +1,4 @@
-import { UsageAggregation, Maybe } from '../../../../../../../types.generated';
+import { Maybe, UsageAggregation } from '@types';
 
 type RecentQuery = {
     query: string;

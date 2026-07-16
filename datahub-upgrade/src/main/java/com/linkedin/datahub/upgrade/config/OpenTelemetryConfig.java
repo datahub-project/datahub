@@ -1,7 +1,13 @@
 package com.linkedin.datahub.upgrade.config;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.system_telemetry.OpenTelemetryBaseFactory;
-import io.datahubproject.metadata.context.TraceContext;
+import com.linkedin.metadata.event.UsageEventPublisher;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
+import javax.annotation.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,7 +21,11 @@ public class OpenTelemetryConfig extends OpenTelemetryBaseFactory {
 
   @Bean
   @Override
-  protected TraceContext traceContext() {
-    return super.traceContext();
+  protected SystemTelemetryContext traceContext(
+      MetricUtils metricUtils,
+      ConfigurationProvider configurationProvider,
+      @Autowired(required = false) @Qualifier("dataHubUsageEventProducer") @Nullable
+          UsageEventPublisher usageEventPublisher) {
+    return super.traceContext(metricUtils, configurationProvider, usageEventPublisher);
   }
 }

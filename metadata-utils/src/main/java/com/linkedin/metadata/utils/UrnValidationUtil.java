@@ -28,7 +28,7 @@ public class UrnValidationUtil {
   public static final int URN_NUM_BYTES_LIMIT = 512;
   // Related to BrowsePathv2
   public static final String URN_DELIMITER_SEPARATOR = "␟";
-  // https://datahubproject.io/docs/what/urn/#restrictions
+  // https://docs.datahub.com/docs/what/urn/#restrictions
   public static final Set<String> ILLEGAL_URN_CHARACTERS_PARENTHESES = Set.of("(", ")");
   // Commas are used as delimiters in tuple URNs, but not allowed in URN components
   public static final Set<String> ILLEGAL_URN_COMPONENT_DELIMITER = Set.of(",");
@@ -74,7 +74,7 @@ public class UrnValidationUtil {
                   "Simple URN %s contains comma character which is not allowed in non-tuple URNs",
                   urn));
         } else {
-          log.error(
+          log.warn(
               "Simple URN {} contains comma character which is not allowed in non-tuple URNs", urn);
         }
       }
@@ -91,7 +91,7 @@ public class UrnValidationUtil {
       if (strict) {
         throw new IllegalArgumentException(message);
       } else {
-        log.error(message);
+        log.warn(message);
       }
     }
 
@@ -221,6 +221,14 @@ public class UrnValidationUtil {
       // Recursively traverse nested DataMaps
       if (value instanceof DataMap) {
         traverseDataMap((DataMap) value, fieldPath, urnValidationSpecs, result);
+      } else if (value instanceof DataList) {
+        // Recursively traverse DataMaps within arrays (e.g., array[RecordType])
+        DataList list = (DataList) value;
+        for (Object item : list) {
+          if (item instanceof DataMap) {
+            traverseDataMap((DataMap) item, fieldPath + "/*", urnValidationSpecs, result);
+          }
+        }
       }
     }
   }

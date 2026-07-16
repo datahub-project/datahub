@@ -23,21 +23,20 @@ const third_degree_plus = [
 ];
 const downloadCsvFile = (filename) => {
   cy.get(".ant-list-items").should("be.visible");
-  cy.get(".anticon-download").should("be.visible").click();
+  cy.get('[data-testid="download-csv-button"]').should("be.visible").click();
   cy.get('[data-testid="download-as-csv-input"]').clear().type(filename);
   cy.get('[data-testid="csv-modal-download-button"]').click().wait(5000);
   cy.ensureTextNotPresent("Creating CSV");
 };
 
-describe("download lineage results to .csv file", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("download lineage results to .csv file", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.on("uncaught:exception", (err, runnable) => false);
   });
 
   it("download and verify lineage results for 1st, 2nd and 3+ degree of dependencies", () => {
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
     cy.goToDataset(test_dataset, "SampleCypressKafkaDataset");
     cy.get('[data-node-key="Lineage"]').first().should("be.visible").click();
 

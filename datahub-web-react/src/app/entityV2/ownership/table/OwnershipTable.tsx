@@ -1,10 +1,17 @@
+import { Table } from '@components';
 import React from 'react';
-import { Empty } from 'antd';
-import { OwnershipTypeEntity } from '../../../../types.generated';
-import { StyledTable } from '../../shared/components/styled/StyledTable';
-import { NameColumn } from './NameColumn';
-import { DescriptionColumn } from './DescriptionColumn';
-import { ActionsColumn } from './ActionsColumn';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { Column } from '@components/components/Table/types';
+
+import { ActionsColumn } from '@app/entityV2/ownership/table/ActionsColumn';
+
+import { OwnershipTypeEntity } from '@types';
+
+const NameText = styled.span`
+    font-weight: 700;
+`;
 
 type Props = {
     ownershipTypes: OwnershipTypeEntity[];
@@ -14,47 +21,47 @@ type Props = {
 };
 
 export const OwnershipTable = ({ ownershipTypes, setIsOpen, setOwnershipType, refetch }: Props) => {
-    const tableColumns = [
+    const { t } = useTranslation('entity.ownership');
+
+    const columns: Column<OwnershipTypeEntity>[] = [
         {
-            title: 'Name',
-            dataIndex: 'name',
-            sorter: (a: any, b: any) => a?.info?.name?.localeCompare(b?.info?.name),
+            title: t('table.name'),
             key: 'name',
-            render: (_, record: any) => <NameColumn ownershipType={record} />,
+            width: '25%',
+            sorter: (a, b) => (a?.info?.name || '').localeCompare(b?.info?.name || ''),
+            render: (record) => <NameText>{record?.info?.name || record?.urn}</NameText>,
         },
         {
-            title: 'Description',
-            dataIndex: 'description',
+            title: t('table.description'),
             key: 'description',
-            render: (_, record: any) => <DescriptionColumn ownershipType={record} />,
+            width: '65%',
+            render: (record) => record?.info?.description || '',
         },
         {
-            dataIndex: 'actions',
+            title: '',
             key: 'actions',
-            render: (_, record: any) => (
-                <ActionsColumn
-                    ownershipType={record}
-                    setIsOpen={setIsOpen}
-                    setOwnershipType={setOwnershipType}
-                    refetch={refetch}
-                />
+            width: '10%',
+            alignment: 'right',
+            render: (record) => (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <ActionsColumn
+                        ownershipType={record}
+                        setIsOpen={setIsOpen}
+                        setOwnershipType={setOwnershipType}
+                        refetch={refetch}
+                    />
+                </div>
             ),
         },
     ];
 
-    const getRowKey = (ownershipType: OwnershipTypeEntity) => {
-        return ownershipType?.info?.name || ownershipType.urn;
-    };
-
     return (
-        <StyledTable
-            columns={tableColumns}
-            dataSource={ownershipTypes}
-            rowKey={getRowKey}
-            locale={{
-                emptyText: <Empty description="No Ownership Types found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-            }}
-            pagination={false}
+        <Table<OwnershipTypeEntity>
+            columns={columns}
+            data={ownershipTypes}
+            rowKey={(record) => record?.info?.name || record.urn}
+            isScrollable
+            style={{ tableLayout: 'fixed' }}
         />
     );
 };

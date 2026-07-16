@@ -1,6 +1,8 @@
 ---
-title: Configuration
+title: Snowflake Configuration
+description: "Configure DataHub UI ingestion to connect to Snowflake using the dedicated DataHub user and roles created in the previous step."
 ---
+
 # Configuring Your Snowflake Connector to DataHub
 
 Now that you have created a DataHub-specific user with the relevant roles in Snowflake in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
@@ -25,12 +27,12 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 
 3. Create a Password secret
 
-  This will securely store your Snowflake password within DataHub
+This will securely store your Snowflake password within DataHub
 
-   * Enter a name like `SNOWFLAKE_PASSWORD` - we will use this later to refer to the secret
-   * Enter the password configured for the DataHub user in the previous step
-   * Optionally add a description
-   * Click **Create**
+- Enter a name like `SNOWFLAKE_PASSWORD` - we will use this later to refer to the secret
+- Enter the password configured for the DataHub user in the previous step
+- Optionally add a description
+- Click **Create**
 
 <p align="center">
    <img width="70%" alt="Snowflake Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_password_secret.png"/>
@@ -58,11 +60,12 @@ Enter the Snowflake Account Identifier as **Account ID** field. Account identifi
    <img width="70%" alt="Account Id Field" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_account_id.png"/>
 </p>
 
-*Learn more about Snowflake Account Identifiers [here](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#account-identifiers)*
+_Learn more about Snowflake Account Identifiers [here](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#account-identifiers)_
 
 Add the previously added Password secret to **Password** field:
-   * Click on the Password input field
-   * Select `SNOWFLAKE_PASSWORD` secret
+
+- Click on the Password input field
+- Select `SNOWFLAKE_PASSWORD` secret
 
 <p align="center">
      <img width="70%" alt="Password field" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_password_secret_field.png"/>
@@ -92,12 +95,12 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 <p align="center">
     <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_schedule.png"/>
-</p>  
+</p>
 
 9. Ensure you've configured your correct timezone
 <p align="center">
     <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_timezone.png"/>
-</p>  
+</p>
 
 10. Click **Next** when you are done
 
@@ -106,13 +109,13 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 11. Name your ingestion source, then click **Save and Run**
 <p align="center">
   <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_name_ingestion_source.png"/>
-</p>  
+</p>
 
 You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_source_running.png"/>
-</p>  
+</p>
 
 ## Validate Ingestion Runs
 
@@ -120,7 +123,7 @@ You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_ingestion_succeded.png"/>
-</p>  
+</p>
 
 13. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
 
@@ -132,13 +135,71 @@ You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_details_view_all.png"/>
-</p>  
+</p>
 
-15. Pick an entity from the list to manually validate if it contains the detail you expected  
+15. Pick an entity from the list to manually validate if it contains the detail you expected
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_view_ingested_assets.png"/>
-</p>  
+</p>
 
 **Congratulations!** You've successfully set up Snowflake as an ingestion source for DataHub!
 
+## Advanced Configuration
+
+### Snowflake Internal Marketplace (Optional)
+
+If you want to ingest Snowflake internal marketplace listings (private data sharing via Data Exchange) as Data Products, you'll need to enable additional configuration.
+
+#### For Consumer Organizations (Purchasing Listings)
+
+If you purchase/install internal marketplace listings, add these options to your recipe:
+
+```yaml
+marketplace:
+  enabled: true
+  marketplace_mode: "consumer" # This is the default
+  # Optional: Configure time window for usage statistics
+  start_time: "-7 days" # Default: -1 day
+  end_time: "now"
+
+# Required: Map your imported databases to their source shares
+shares:
+  DEMO_DATABASE_SNOWFLAKE_SHARE_1754064671731: # From: SHOW SHARES
+    database: "SOURCE_DATABASE" # Source database in the share
+    consumers:
+      - database: "DEMO_DATABASE" # Your purchased/imported database
+        # Optional but recommended: Explicit listing mapping for precise linking
+        listing_global_name: "PROVIDER.REGION.LISTING_NAME" # From: SHOW AVAILABLE LISTINGS
+```
+
+**Tip**: Adding `listing_global_name` ensures your purchased databases are accurately linked to their marketplace listings, especially when you have multiple similar listing names.
+
+#### For Provider Organizations (Publishing Listings)
+
+If you publish/share data through the internal marketplace, add these options to your recipe:
+
+```yaml
+marketplace:
+  enabled: true
+  marketplace_mode: "provider"
+  # Optional: Assign owners to your Data Products
+  internal_marketplace_owner_patterns:
+    "^Customer.*": ["data-team"]
+  # Optional: Configure time window for usage statistics
+  start_time: "-30 days"
+  end_time: "now"
+
+# Include your source databases being shared
+database_pattern:
+  allow:
+    - "YOUR_SOURCE_DATABASE"
+```
+
+**Important**: For provider mode to work, you must have granted `imported privileges on database snowflake` to both the role AND the user (see [Setup](setup.md) for details). Share access in Snowflake is granted at the user level, not the role level.
+
+#### For Organizations Doing Both
+
+Use `marketplace_mode: "both"` to track both purchased and published listings in the same ingestion.
+
+For complete documentation on marketplace configuration, see the [Snowflake connector documentation](https://datahub.io/docs/generated/ingestion/sources/snowflake).

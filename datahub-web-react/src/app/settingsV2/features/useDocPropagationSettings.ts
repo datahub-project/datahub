@@ -1,11 +1,8 @@
-import { useEffect, useState } from 'react';
-
 import { message } from 'antd';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import {
-    useGetDocPropagationSettingsQuery,
-    useUpdateDocPropagationSettingsMutation,
-} from '../../../graphql/app.generated';
+import { useGetDocPropagationSettingsQuery, useUpdateDocPropagationSettingsMutation } from '@graphql/app.generated';
 
 // Hook to get the document propagation settings & manage state
 export const useGetDocPropagationSettings = () => {
@@ -26,6 +23,7 @@ export const useGetDocPropagationSettings = () => {
 
 // Hook to update the document propagation settings
 export const useUpdateDocPropagationSettings = () => {
+    const { t } = useTranslation('settings.features');
     const [updateDocPropagationSettings] = useUpdateDocPropagationSettingsMutation();
     const { refetch } = useGetDocPropagationSettingsQuery();
 
@@ -39,9 +37,9 @@ export const useUpdateDocPropagationSettings = () => {
                 },
             });
             refetch();
-            message.success('Successfully updated documentation propagation settings');
+            message.success(t('docPropagation.updateSuccess'));
         } catch (e) {
-            message.error('Failed to update documentation propagation settings');
+            message.error(t('docPropagation.updateError'));
             refetch();
         }
     };

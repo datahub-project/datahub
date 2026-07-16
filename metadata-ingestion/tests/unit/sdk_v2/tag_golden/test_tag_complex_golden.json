@@ -1,0 +1,40 @@
+[
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:complex-tag",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "Updated Tag",
+            "description": "Updated description",
+            "colorHex": "#00FF00"
+        }
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:complex-tag",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:admin@datahubproject.io",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:user@datahubproject.io",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+}
+]

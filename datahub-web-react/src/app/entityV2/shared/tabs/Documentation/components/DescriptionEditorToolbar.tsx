@@ -1,7 +1,9 @@
-import styled from 'styled-components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { Button } from '@src/alchemy-components';
-import TabToolbar from '../../../components/styled/TabToolbar';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: flex-end !important;
@@ -15,13 +17,14 @@ type DescriptionEditorToolbarProps = {
 };
 
 export const DescriptionEditorToolbar = ({ disableSave, onSave, onCancel }: DescriptionEditorToolbarProps) => {
+    const { t: tc } = useTranslation('common.actions');
     return (
         <StyledTabToolbar>
             <Button variant="text" color="gray" data-testid="description-editor-cancel-button" onClick={onCancel}>
-                Cancel
+                {tc('cancel')}
             </Button>
             <Button data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>
-                Publish
+                {tc('publish')}
             </Button>
         </StyledTabToolbar>
     );

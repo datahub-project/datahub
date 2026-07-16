@@ -1,4 +1,3 @@
-
 # Goal
 
 This test is configuration driven by json files which contain request/response sequences intended to

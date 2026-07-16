@@ -1,16 +1,40 @@
+import dataclasses
+import itertools
+import json
 import logging
 import re
-from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+import time
+from typing import (
+    AbstractSet,
+    Any,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 from urllib.parse import urljoin
 
+import sqlglot
+import sqlglot.errors
+import sqlglot.expressions as sqlglot_exp
+import yaml
+
+from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
+    UNKNOWN_USER,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_group_urn,
+    make_ml_model_group_urn,
     make_schema_field_urn,
+    make_ts_millis,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -23,9 +47,9 @@ from datahub.emitter.mcp_builder import (
     UnitySchemaKey,
     UnitySchemaKeyWithMetastore,
     add_dataset_to_container,
+    add_entity_to_container,
     gen_containers,
 )
-from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -35,14 +59,9 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
-)
-from datahub.ingestion.api.source_helpers import (
-    create_dataset_owners_patch_builder,
-    create_dataset_props_patch_builder,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
@@ -53,32 +72,42 @@ from datahub.ingestion.source.aws.s3_util import (
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source.unity import federation, proxy_types as unity_proxy_types
 from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
 from datahub.ingestion.source.unity.config import (
+    FederationConnectionDetail,
     UnityCatalogAnalyzeProfilerConfig,
     UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
+    UnityCatalogSQLAlchemyProfilerConfig,
 )
+from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
 from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
 )
+from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
+from datahub.ingestion.source.unity.platform_resource_repository import (
+    UnityCatalogPlatformResourceRepository,
+)
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
     Catalog,
+    CatalogType,
     Column,
     CustomCatalogType,
+    HiveTableType,
     Metastore,
+    Model,
+    ModelVersion,
     Notebook,
     NotebookId,
     Schema,
@@ -87,22 +116,35 @@ from datahub.ingestion.source.unity.proxy_types import (
     TableReference,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.ingestion.source.unity.tag_entities import (
+    UnityCatalogTagPlatformResource,
+    UnityCatalogTagPlatformResourceId,
+)
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
-from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    GlobalTags,
+    MetadataAttribution,
+    Siblings,
+    TagAssociation,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
     Upstream,
     UpstreamLineage,
     ViewProperties,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathsClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DomainsClass,
+    ForeignKeyConstraintClass,
+    MLModelPropertiesClass,
     MySqlDDLClass,
     NullTypeClass,
     OwnerClass,
@@ -116,17 +158,197 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import (
-    SqlParsingResult,
-    sqlglot_lineage,
-    view_definition_lineage_helper,
+from datahub.metadata.urns import (
+    MlModelGroupUrn,
+    MlModelUrn,
+    StructuredPropertyUrn,
+    TagUrn,
 )
+from datahub.sdk import MLModel, MLModelGroup
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+# MEASURE(name) is a Databricks-specific token: https://docs.databricks.com/aws/en/business-semantics/metric-views/advanced-techniques
+_MEASURE_REF_RE = re.compile(
+    r"\bMEASURE\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", re.IGNORECASE
+)
+
+_DISPLAY_NAME_MAX_LEN = 255
+_SYNONYMS_MAX_COUNT = 10
+_SYNONYM_MAX_LEN = 255
+
+# Databricks external lineage can return object-storage paths with a trailing
+# partition-set component in brace-list syntax, e.g.
+#   s3://bucket/topics/event/{20260410,20260411,20260412}
+# The braces and (crucially) the commas are illegal in a DataHub dataset URN
+# name segment — the comma is the URN field delimiter — so such a path yields a
+# URN that GMS rejects. These characters only ever appear in the partition
+# component, so we drop every path component from the first offending one
+# onward, pointing lineage at the parent table path.
+_S3_PARTITION_ILLEGAL_CHARS = re.compile(r"[{},]")
+
+
+def _strip_s3_partition_from_path(path: str) -> str:
+    """Drop a trailing partition-set component (and anything after it) from an
+    object-storage path so the resulting URN is well-formed.
+
+    Returns the path unchanged when it has no offending component."""
+    scheme, sep, remainder = path.partition("://")
+    if not sep:
+        return path
+    cleaned = []
+    for component in remainder.split("/"):
+        if _S3_PARTITION_ILLEGAL_CHARS.search(component):
+            break
+        if component:
+            cleaned.append(component)
+    if not cleaned:
+        return path
+    return f"{scheme}://{'/'.join(cleaned)}"
+
+
+# Known format subkeys per type, from the agent-metadata spec
+_FORMAT_NUMERIC_SUBKEYS = frozenset(
+    {"decimal_places", "hide_group_separator", "abbreviation", "currency_code"}
+)
+_FORMAT_DATE_SUBKEYS = frozenset({"date_format", "leading_zeros"})
+_FORMAT_DATETIME_SUBKEYS = frozenset({"date_format", "time_format", "leading_zeros"})
+_FORMAT_DECIMAL_PLACES_SUBKEYS = frozenset({"type", "places"})
+_FORMAT_KNOWN_SUBKEYS: Dict[str, FrozenSet[str]] = {
+    "number": _FORMAT_NUMERIC_SUBKEYS,
+    "currency": _FORMAT_NUMERIC_SUBKEYS,
+    "percentage": frozenset({"decimal_places", "hide_group_separator"}),
+    "byte": frozenset({"decimal_places", "hide_group_separator"}),
+    "date": _FORMAT_DATE_SUBKEYS,
+    "date_time": _FORMAT_DATETIME_SUBKEYS,
+}
+
+
+# PyYAML's safe_load follows YAML 1.1, which coerces bareword keys/values
+# `on`/`off`/`yes`/`no` to booleans. Databricks metric-view join entries use
+# `on:` as a key (the SQL join predicate), which would silently become `True`.
+# This loader removes the YAML 1.1 bool resolver, matching YAML 1.2 behavior.
+class _MetricViewYamlLoader(yaml.SafeLoader):
+    pass
+
+
+_MetricViewYamlLoader.yaml_implicit_resolvers = {
+    ch: [(tag, regex) for tag, regex in resolvers if tag != "tag:yaml.org,2002:bool"]
+    for ch, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+# Restore only the YAML 1.2 bool spelling: true/True/TRUE, false/False/FALSE.
+_MetricViewYamlLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:bool",
+    re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"),
+    list("tTfF"),
+)
+
+
+def _safe_load_metric_view_yaml(stream: str) -> Any:
+    """Safe-load (SafeLoader subclass) with YAML 1.2 bool spelling so `on:` stays a string key."""
+    loader = _MetricViewYamlLoader(stream)
+    try:
+        return loader.get_single_data()
+    finally:
+        loader.dispose()
+
+
+def _collect_join_name_source_pairs(
+    joins: object,
+) -> List[Tuple[str, str]]:
+    """Return (alias_name, source_str) pairs for every level of a nested joins hierarchy."""
+    pairs: List[Tuple[str, str]] = []
+    if not isinstance(joins, list):
+        return pairs
+    for join in joins:
+        if not isinstance(join, dict):
+            continue
+        name = join.get("name")
+        src = join.get("source")
+        if isinstance(name, str) and isinstance(src, str):
+            pairs.append((name, src))
+        pairs.extend(_collect_join_name_source_pairs(join.get("joins")))
+    return pairs
+
+
+def _parse_metric_view_source(
+    raw: str,
+    *,
+    default_catalog: str,
+    default_metastore: Optional[str],
+) -> Optional[TableReference]:
+    # Returns None for subqueries, 1-part names, or malformed input so the caller falls back to REST lineage.
+    if not raw:
+        logger.debug("metric view source rejected: empty input")
+        return None
+    if any(ch in raw for ch in ("(", "\n")):
+        logger.debug("metric view source rejected (subquery / newline): %r", raw)
+        return None
+    if any(ch in raw for ch in (" ", "\t")) and "`" not in raw:
+        logger.debug("metric view source rejected (unquoted whitespace): %r", raw)
+        return None
+    parts = split_databricks_identifier(raw)
+    if parts is None:
+        logger.debug("metric view source rejected (unterminated backtick): %r", raw)
+        return None
+    if len(parts) == 3:
+        catalog, schema, name = parts
+    elif len(parts) == 2:
+        catalog = default_catalog
+        schema, name = parts
+    else:
+        logger.debug(
+            "metric view source rejected (need 2 or 3 parts, got %d): %r",
+            len(parts),
+            raw,
+        )
+        return None
+    if not (catalog and schema and name):
+        logger.debug("metric view source rejected (empty part after split): %r", raw)
+        return None
+    return TableReference(
+        metastore=default_metastore,
+        catalog=catalog,
+        schema=schema,
+        table=name,
+    )
+
+
+@dataclasses.dataclass(frozen=True)
+class _ExternalSchemaKey:
+    """Identity of an external federated source's schema scope. Used as the cache
+    key for the bulk-loaded SchemaResolver; a frozen dataclass (not a bare tuple) so
+    its string-typed slots can't be silently transposed."""
+
+    platform: str
+    platform_instance: Optional[str]
+    env: str
+    remote_database: Optional[str]
+    # Whether the external URN's name is lower-cased (the external source's own
+    # convert_urns_to_lowercase). The id-prefix scope must fold the same way.
+    lowercase_urns: bool = True
+
+    def id_prefix(self) -> Optional[str]:
+        """Prefix of the external dataset id (`[platform_instance.]database.`) used
+        to scope the bulk schema fetch, or None for two-tier platforms (no database).
+        The database segment is folded to match how the URN name was built; the
+        platform_instance segment is not (the URN doesn't fold it)."""
+        if not self.remote_database:
+            return None
+        database = (
+            self.remote_database.lower()
+            if self.lowercase_urns
+            else self.remote_database
+        )
+        parts = [p for p in (self.platform_instance, database) if p]
+        return ".".join(parts) + "."
 
 
 @platform_name("Databricks")
@@ -136,32 +358,49 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_FINE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "Enabled by default")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default via usage extraction, can be disabled via `include_operational_stats`",
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.CATALOG,
+        SourceCapabilityModifier.SCHEMA,
+    ],
+)
 @capability(SourceCapability.OWNERSHIP, "Supported via the `include_ownership` config")
 @capability(
     SourceCapability.DATA_PROFILING, "Supported via the `profiling.enabled` config"
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    "Enabled by default via stateful ingestion",
     supported=True,
 )
-@support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@support_status(SupportStatus.CERTIFIED)
 class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following metadata from Databricks Unity Catalog:
     - metastores
     - schemas
     - tables and column lineage
+    - model and model versions
     """
 
     config: UnityCatalogSourceConfig
     unity_catalog_api_proxy: UnityCatalogApiProxy
     platform: str = "databricks"
     platform_instance_name: Optional[str]
-    sql_parser_schema_resolver: Optional[SchemaResolver] = None
+    sql_parser_schema_resolver: SchemaResolver
+    platform_resource_repository: Optional[UnityCatalogPlatformResourceRepository] = (
+        None
+    )
+    sql_parsing_aggregator: Optional[SqlParsingAggregator] = None
 
     def get_report(self) -> UnityCatalogReport:
         return self.report
@@ -172,14 +411,25 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report: UnityCatalogReport = UnityCatalogReport()
 
+        # Always create the schema resolver up front so that every processed
+        # table (UC and hive-metastore) can register its schema for SQL parsing.
+        # The usage extractor receives this instance so unqualified table refs
+        # in queries are resolved correctly.
+        self.sql_parser_schema_resolver = SchemaResolver(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
         self.init_hive_metastore_proxy()
 
         self.unity_catalog_api_proxy = UnityCatalogApiProxy(
-            config.workspace_url,
-            config.token,
-            config.warehouse_id,
+            create_workspace_client(self.config),
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
+            lineage_data_source=config.lineage_data_source,
+            usage_data_source=config.usage_data_source,
+            databricks_api_page_size=config.databricks_api_page_size,
         )
 
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
@@ -205,12 +455,76 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
-        self.view_definitions: FileBackedDict[Tuple[TableReference, str]] = (
-            FileBackedDict()
-        )
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
+        if self.ctx.graph:
+            self.platform_resource_repository = UnityCatalogPlatformResourceRepository(
+                self.ctx.graph, platform_instance=self.platform_instance_name
+            )
+        else:
+            self.platform_resource_repository = None
+
+        if self.config._forced_disable_tag_extraction:
+            self.report.report_warning(
+                "Some features disabled because of configuration conflicts",
+                "Tag Extraction is disabled due to missing warehouse_id in config",
+            )
+
+        if self.config._forced_disable_hive_metastore_extraction:
+            self.report.report_warning(
+                "Some features disabled because of configuration conflicts",
+                "Hive Metastore Extraction is disabled due to missing warehouse_id in config",
+            )
+
+        # SDK lacks TableType.METRIC_VIEW; warn so the no-op flag isn't silent.
+        if (
+            self.config.include_metric_views
+            and not unity_proxy_types.metric_view_supported()
+        ):
+            try:
+                from databricks.sdk.version import __version__ as _sdk_version
+            except Exception:
+                _sdk_version = "unknown"
+            self.report.report_warning(
+                "include_metric_views has no effect with installed databricks-sdk",
+                f"databricks-sdk {_sdk_version} does not expose TableType.METRIC_VIEW. "
+                "Metric views will be emitted as plain Tables. Upgrade databricks-sdk "
+                "to >= 0.58.0 (the release that added this enum) to enable "
+                "metric-view ingestion.",
+            )
+
+        # Include platform resource repository in report for automatic cache statistics
+        if self.config.include_tags and self.platform_resource_repository:
+            self.report.tag_urn_resolver_cache = self.platform_resource_repository
+
+        # Federation property definitions are emitted lazily, the first time a
+        # foreign catalog is encountered, so non-federation workspaces never see them.
+        self._federation_defs_emitted: bool = False
+        # Federation target resolution is identical for every table in a catalog;
+        # caching by catalog name avoids re-resolving (and re-warning) per table.
+        # Keyed by catalog (not connection) because two foreign catalogs can share
+        # one connection while pointing at different remote databases.
+        self._federation_resolution_cache: Dict[
+            Optional[str],
+            Tuple[
+                Optional[FederationConnectionDetail],
+                Optional[federation.FederationTarget],
+            ],
+        ] = {}
+        # Bulk-loads external-source schemas via a scrolling query (scoped to the
+        # mirrored remote database) and resolves each foreign table's schema from the
+        # in-memory cache, instead of one graph round-trip per foreign table.
+        self._schema_resolver_provider: Optional[SchemaResolverProvider] = (
+            SchemaResolverProvider(graph=self.ctx.graph)
+            if self.ctx.graph is not None
+            else None
+        )
+        # Resolver cached per external schema scope (None if the bulk load failed)
+        # so a failed or already-loaded scope isn't fetched again per table.
+        self._external_schema_resolvers: Dict[
+            _ExternalSchemaKey, Optional[SchemaResolver]
+        ] = {}
 
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
@@ -224,11 +538,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.hive_metastore_catalog_found = True
 
                 if self.config.include_table_lineage:
-                    self.sql_parser_schema_resolver = SchemaResolver(
+                    # Reuse the resolver created unconditionally in __init__; do
+                    # not overwrite it so UC tables registered before this point
+                    # are preserved.
+                    self.sql_parsing_aggregator = SqlParsingAggregator(
                         platform=self.platform,
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
+                        schema_resolver=self.sql_parser_schema_resolver,
+                        generate_lineage=True,
+                        generate_queries=False,
+                        generate_usage_statistics=False,
+                        generate_operations=False,
                     )
+                    self.report.sql_aggregator = self.sql_parsing_aggregator.report
             except Exception as e:
                 logger.debug("Exception", exc_info=True)
                 self.warn(
@@ -251,16 +574,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = UnityCatalogSourceConfig.parse_obj(config_dict)
+        config = UnityCatalogSourceConfig.model_validate(config_dict)
         return cls(ctx=ctx, config=config)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage("Ingestion Setup"):
@@ -306,6 +621,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     proxy=self.unity_catalog_api_proxy,
                     table_urn_builder=self.gen_dataset_urn,
                     user_urn_builder=self.gen_user_urn,
+                    schema_resolver=self.sql_parser_schema_resolver,
                 )
                 yield from usage_extractor.get_usage_workunits(
                     self.table_refs | self.view_refs
@@ -329,15 +645,33 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
             with self.report.new_stage("Profiling"):
                 if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
+                    logger.info(
+                        "Using UnityCatalogAnalyzeProfiler (ANALYZE TABLE method)"
+                    )
                     yield from UnityCatalogAnalyzeProfiler(
                         self.config.profiling,
                         self.report,
                         self.unity_catalog_api_proxy,
                         self.gen_dataset_urn,
                     ).get_workunits(self.table_refs)
-                elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
+                elif isinstance(
+                    self.config.profiling, UnityCatalogSQLAlchemyProfilerConfig
+                ):
+                    logger.info(
+                        "Using UnityCatalogGEProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
+                    )
+                    # Use GenericProfiler which will use SQLAlchemyProfiler internally
                     yield from UnityCatalogGEProfiler(
-                        sql_common_config=self.config,
+                        config=self.config,
+                        profiling_config=self.config.profiling,
+                        report=self.report,
+                    ).get_workunits(list(self.tables.values()))
+                elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
+                    logger.info(
+                        "Using UnityCatalogGEProfiler with DatahubGEProfiler (method: ge)"
+                    )
+                    yield from UnityCatalogGEProfiler(
+                        config=self.config,
                         profiling_config=self.config.profiling,
                         report=self.report,
                     ).get_workunits(list(self.tables.values()))
@@ -383,12 +717,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         self.config.workspace_url, f"#notebook/{notebook.id}"
                     ),
                     created=(
-                        TimeStampClass(int(notebook.created_at.timestamp() * 1000))
+                        TimeStampClass(make_ts_millis(notebook.created_at))
                         if notebook.created_at
                         else None
                     ),
                     lastModified=(
-                        TimeStampClass(int(notebook.modified_at.timestamp() * 1000))
+                        TimeStampClass(make_ts_millis(notebook.modified_at))
                         if notebook.modified_at
                         else None
                     ),
@@ -407,17 +741,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if not notebook.upstreams:
             return None
 
+        upstreams = []
+        for upstream_ref in notebook.upstreams:
+            timestamp = make_ts_millis(upstream_ref.last_updated)
+            upstreams.append(
+                self._create_upstream_class(
+                    self.gen_dataset_urn(upstream_ref),
+                    DatasetLineageTypeClass.COPY,
+                    timestamp,
+                )
+            )
+
         return MetadataChangeProposalWrapper(
             entityUrn=self.gen_notebook_urn(notebook),
-            aspect=UpstreamLineageClass(
-                upstreams=[
-                    UpstreamClass(
-                        dataset=self.gen_dataset_urn(upstream_ref),
-                        type=DatasetLineageTypeClass.COPY,
-                    )
-                    for upstream_ref in notebook.upstreams
-                ]
-            ),
+            aspect=UpstreamLineageClass(upstreams=upstreams),
         ).as_workunit()
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
@@ -436,14 +773,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, metastore: Optional[Metastore]
     ) -> Iterable[MetadataWorkUnit]:
         for catalog in self._get_catalogs(metastore):
-            if not self.config.catalog_pattern.allowed(catalog.id):
-                self.report.catalogs.dropped(catalog.id)
-                continue
+            with self.report.new_stage(f"Ingest catalog {catalog.id}"):
+                if not self.config.catalog_pattern.allowed(catalog.id):
+                    self.report.catalogs.dropped(catalog.id)
+                    continue
 
-            yield from self.gen_catalog_containers(catalog)
-            yield from self.process_schemas(catalog)
+                yield from self.gen_catalog_containers(catalog)
+                yield from self.process_schemas(catalog)
 
-            self.report.catalogs.processed(catalog.id)
+                self.report.catalogs.processed(catalog.id)
 
     def _get_catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
         if self.config.catalogs:
@@ -466,6 +804,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_schema_containers(schema)
                 try:
                     yield from self.process_tables(schema)
+                    yield from self.process_ml_models(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
                     self.report.report_warning(
@@ -484,9 +823,40 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
+            # Views (VIEW / MATERIALIZED_VIEW / HIVE_VIEW) are honored via
+            # include_views + view_pattern, mirroring SQL-based sources. Metric
+            # views are not is_view and keep their dedicated filtering below.
+            if table.is_view and (
+                not self.config.include_views
+                or not self.config.view_pattern.allowed(table.ref.qualified_table_name)
+            ):
+                self.report.tables.dropped(table.id, f"view ({table.table_type})")
+                continue
+
+            if (
+                table.is_metric_view
+                and self.config.include_metric_views
+                and not self.config.metric_view_pattern.allowed(
+                    table.ref.qualified_table_name
+                )
+            ):
+                self.report.tables.dropped(table.id, f"table ({table.table_type})")
+                self.report.metric_views.dropped(table.id)
+                continue
+
+            # Regular tables (neither view nor metric view) are honored via
+            # include_tables; views and metric views keep their own toggles above.
+            if (
+                not table.is_view
+                and not table.is_metric_view
+                and not self.config.include_tables
+            ):
+                self.report.tables.dropped(table.id, f"table ({table.table_type})")
+                continue
+
             if (
                 self.config.is_profiling_enabled()
-                and self.config.is_ge_profiling()
+                and self.config.uses_table_level_profiler()
                 and self.config.profiling.pattern.allowed(
                     table.ref.qualified_table_name
                 )
@@ -497,27 +867,87 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if table.is_view:
                 self.view_refs.add(table.ref)
             else:
+                # Keep metric views in table_refs so stateful soft-delete still tracks them.
                 self.table_refs.add(table.ref)
             yield from self.process_table(table, schema)
             self.report.tables.processed(table.id, f"table ({table.table_type})")
+            if table.is_metric_view and self.config.include_metric_views:
+                self.report.metric_views.processed(table.id)
 
     def process_table(self, table: Table, schema: Schema) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_dataset_urn(table.ref)
         yield from self.add_table_to_dataset_container(dataset_urn, schema)
 
-        table_props = self._create_table_property_aspect(table)
+        metric_view_spec: Optional[Dict[str, Any]] = None
+        if table.is_metric_view and self.config.include_metric_views:
+            metric_view_spec = self._load_metric_view_spec(table)
+
+        table_props = self._create_table_property_aspect(table, metric_view_spec)
+        tags = None
+        if not isinstance(table.table_type, HiveTableType) and self.config.include_tags:
+            try:
+                table_tags = self._get_table_tags(
+                    table.ref.catalog, table.ref.schema, table.ref.table
+                )
+                if table_tags:
+                    logger.debug(f"Table tags for {table.ref}: {table_tags}")
+                    attribution = MetadataAttribution(
+                        # source="unity-catalog",
+                        actor="urn:li:corpuser:datahub",
+                        time=int(time.time() * 1000),
+                    )
+                    tags = GlobalTags(
+                        tags=[
+                            TagAssociation(
+                                tag=tag.to_datahub_tag_urn().urn(),
+                                attribution=attribution,
+                            )
+                            for tag in table_tags
+                        ]
+                    )
+
+                    yield from self.gen_platform_resources(table_tags)
+
+            except Exception as e:
+                logger.exception(f"Error fetching table {table.ref} tags", exc_info=e)
 
         view_props = None
         if table.view_definition:
-            view_props = self._create_view_property_aspect(table)
+            view_props = self._create_view_property_aspect(table, metric_view_spec)
 
         sub_type = self._create_table_sub_type_aspect(table)
-        schema_metadata = self._create_schema_metadata_aspect(table)
+        schema_metadata, platform_resources = self._create_schema_metadata_aspect(
+            table, metric_view_spec
+        )
+        yield from platform_resources
+
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
         ownership = self._create_table_ownership_aspect(table)
         data_platform_instance = self._create_data_platform_instance_aspect()
 
-        lineage = self.ingest_lineage(table)
+        if table.is_metric_view and self.config.include_metric_views:
+            # REST fallback so subquery sources / parse failures don't lose upstreams.
+            lineage = (
+                self._extract_metric_view_lineage(table, metric_view_spec)
+                if metric_view_spec is not None
+                else None
+            )
+            if lineage is None:
+                lineage = self.ingest_lineage(table)
+                if lineage is None:
+                    self.report.report_warning(
+                        "Metric view has no upstream lineage",
+                        f"{table.ref.qualified_table_name}: neither YAML parsing "
+                        "nor the table-lineage REST API produced any upstreams.",
+                    )
+        else:
+            lineage = self.ingest_lineage(table)
+
+        # Fold the foreign-catalog COPY upstream into this single upstreamLineage
+        # aspect; a second MCP for the same URN would clobber the lineage above.
+        lineage = self._with_federation_lineage(
+            lineage, dataset_urn, table, schema_metadata
+        )
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
@@ -526,16 +956,26 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         table.ref, self.notebooks[str(notebook_id)]
                     )
 
-        # Sql parsing is required only for hive metastore view lineage
+        # Register every processed table's schema so that the SQL parsing
+        # aggregator (used for both hive-metastore view lineage and UC usage)
+        # can resolve unqualified / partial table references in queries.
+        self.sql_parser_schema_resolver.add_schema_metadata(
+            dataset_urn, schema_metadata
+        )
+        # Hive-metastore views also need their definitions fed to the lineage
+        # aggregator so view lineage can be derived via SQL parsing.
         if (
-            self.sql_parser_schema_resolver
-            and table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
+            table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
+            and table.view_definition
+            and self.sql_parsing_aggregator
+            and not (table.is_metric_view and self.config.include_metric_views)
         ):
-            self.sql_parser_schema_resolver.add_schema_metadata(
-                dataset_urn, schema_metadata
+            self.sql_parsing_aggregator.add_view_definition(
+                view_urn=dataset_urn,
+                view_definition=table.view_definition,
+                default_db=table.ref.catalog,
+                default_schema=table.ref.schema,
             )
-            if table.view_definition:
-                self.view_definitions[dataset_urn] = (table.ref, table.view_definition)
 
         if (
             table_props.customProperties.get("table_type")
@@ -558,56 +998,152 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
                 yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
-        if ownership:
-            patch_builder = create_dataset_owners_patch_builder(dataset_urn, ownership)
-            for patch_mcp in patch_builder.build():
-                yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
-                )
-
-        if table_props:
-            # TODO: use auto_incremental_properties workunit processor instead
-            # Consider enabling incremental_properties by default
-            patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
-            for patch_mcp in patch_builder.build():
-                yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
-                )
-
         yield from [
             mcp.as_workunit()
             for mcp in MetadataChangeProposalWrapper.construct_many(
                 entityUrn=dataset_urn,
                 aspects=[
+                    table_props,
                     view_props,
                     sub_type,
                     schema_metadata,
                     domain,
+                    ownership,
                     data_platform_instance,
                     lineage,
+                    tags,
                 ],
             )
         ]
 
+    def process_ml_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
+        if not self.config.include_ml_models:
+            return
+        # ml_model_max_results is a hard cap on models ingested per schema, not
+        # just an API page size. islice stops pulling once the cap is reached
+        # (so a cap of 0 makes no API call at all).
+        for ml_model in itertools.islice(
+            self.unity_catalog_api_proxy.ml_models(
+                schema=schema, max_results=self.config.ml_model_max_results
+            ),
+            self.config.ml_model_max_results,
+        ):
+            yield from self.process_ml_model(ml_model, schema)
+            ml_model_urn = self.gen_ml_model_urn(ml_model.id)
+            for ml_model_version in self.unity_catalog_api_proxy.ml_model_versions(
+                ml_model, include_aliases=self.config.include_ml_model_aliases
+            ):
+                yield from self.process_ml_model_version(
+                    ml_model_urn, ml_model_version, schema
+                )
+
+    def process_ml_model(
+        self, ml_model: Model, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        ml_model_group = MLModelGroup(
+            id=ml_model.id,
+            name=ml_model.name,
+            platform=self.platform,
+            platform_instance=schema.name,
+            env=self.config.env,
+            description=ml_model.description,
+            created=ml_model.created_at,
+            last_modified=ml_model.updated_at,
+        )
+        yield from ml_model_group.as_workunits()
+        yield from self.add_model_to_schema_container(str(ml_model_group.urn), schema)
+        self.report.ml_models.processed(ml_model.id)
+
+    def process_ml_model_version(
+        self, ml_model_urn: str, ml_model_version: ModelVersion, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        extra_aspects = []
+        if ml_model_version.created_at is not None:
+            created_time = int(ml_model_version.created_at.timestamp() * 1000)
+            created_actor = (
+                f"urn:li:platformResource:{ml_model_version.created_by}"
+                if ml_model_version.created_by
+                else None
+            )
+            extra_aspects.append(
+                MLModelPropertiesClass(
+                    created=TimeStampClass(time=created_time, actor=created_actor),
+                )
+            )
+        custom_properties = {}
+        if ml_model_version.signature:
+            for key, value in dataclasses.asdict(ml_model_version.signature).items():
+                if value:
+                    custom_properties[f"signature.{key}"] = json.dumps(value)
+
+        if ml_model_version.run_details:
+            if ml_model_version.run_details.tags:
+                for key, value in ml_model_version.run_details.tags.items():
+                    if value:
+                        custom_properties[key] = json.dumps(value)
+
+        ml_model = MLModel(
+            id=ml_model_version.id,
+            name=ml_model_version.name,
+            version=str(ml_model_version.version),
+            aliases=ml_model_version.aliases,
+            description=ml_model_version.description,
+            model_group=ml_model_urn,
+            platform=self.platform,
+            env=self.config.env,
+            last_modified=ml_model_version.updated_at,
+            training_metrics=cast(
+                Optional[Dict[str, Optional[str]]], ml_model_version.run_details.metrics
+            )
+            if ml_model_version.run_details and ml_model_version.run_details.metrics
+            else None,
+            hyper_params=cast(
+                Optional[Dict[str, Optional[str]]],
+                ml_model_version.run_details.parameters,
+            )
+            if ml_model_version.run_details and ml_model_version.run_details.parameters
+            else None,
+            custom_properties=custom_properties if custom_properties else None,
+            extra_aspects=extra_aspects,
+        )
+
+        yield from ml_model.as_workunits()
+        yield from self.add_model_version_to_schema_container(str(ml_model.urn), schema)
+        self.report.ml_model_versions.processed(ml_model_version.id)
+
     def ingest_lineage(self, table: Table) -> Optional[UpstreamLineageClass]:
+        # Calculate datetime filters for lineage
+        lineage_start_time = None
+        lineage_end_time = self.config.end_time
+
+        if self.config.ignore_start_time_lineage:
+            lineage_start_time = None  # Ignore start time to get all lineage
+        else:
+            lineage_start_time = self.config.start_time
+
         if self.config.include_table_lineage:
             self.unity_catalog_api_proxy.table_lineage(
-                table, include_entity_lineage=self.config.include_notebooks
+                table,
+                include_entity_lineage=self.config.include_notebooks,
+                start_time=lineage_start_time,
+                end_time=lineage_end_time,
             )
 
         if self.config.include_column_lineage and table.upstreams:
             if len(table.columns) > self.config.column_lineage_column_limit:
                 self.report.num_column_lineage_skipped_column_count += 1
 
-            with ThreadPoolExecutor(
-                max_workers=self.config.lineage_max_workers
-            ) as executor:
-                for column in table.columns[: self.config.column_lineage_column_limit]:
-                    executor.submit(
-                        self.unity_catalog_api_proxy.get_column_lineage,
-                        table,
-                        column.name,
-                    )
+            column_names = [
+                column.name
+                for column in table.columns[: self.config.column_lineage_column_limit]
+            ]
+            self.unity_catalog_api_proxy.get_column_lineage(
+                table,
+                column_names,
+                max_workers=self.config.lineage_max_workers,
+                start_time=lineage_start_time,
+                end_time=lineage_end_time,
+            )
 
         return self._generate_lineage_aspect(self.gen_dataset_urn(table.ref), table)
 
@@ -635,18 +1171,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 for d_col, u_cols in sorted(downstream_to_upstream_cols.items())
             )
 
+            timestamp = make_ts_millis(upstream_ref.last_updated)
             upstreams.append(
-                UpstreamClass(
-                    dataset=upstream_urn,
-                    type=DatasetLineageTypeClass.TRANSFORMED,
+                self._create_upstream_class(
+                    upstream_urn,
+                    DatasetLineageTypeClass.TRANSFORMED,
+                    timestamp,
                 )
             )
 
-        for notebook in table.upstream_notebooks:
+        for notebook in table.upstream_notebooks.values():
+            timestamp = make_ts_millis(notebook.last_updated)
             upstreams.append(
-                UpstreamClass(
-                    dataset=self.gen_notebook_urn(notebook),
-                    type=DatasetLineageTypeClass.TRANSFORMED,
+                self._create_upstream_class(
+                    self.gen_notebook_urn(notebook.id),
+                    DatasetLineageTypeClass.TRANSFORMED,
+                    timestamp,
                 )
             )
 
@@ -658,10 +1198,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         f"Lacking permissions for external file upstream on {table.ref}"
                     )
                 elif external_ref.path.startswith("s3://"):
+                    normalized_path = _strip_s3_partition_from_path(external_ref.path)
+                    if normalized_path != external_ref.path:
+                        self.report.num_external_upstreams_partition_stripped += 1
                     upstreams.append(
                         UpstreamClass(
                             dataset=make_s3_urn_for_lineage(
-                                external_ref.path, self.config.env
+                                normalized_path, self.config.env
                             ),
                             type=DatasetLineageTypeClass.COPY,
                         )
@@ -708,6 +1251,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
+    def gen_ml_model_urn(self, name: str) -> str:
+        return make_ml_model_group_urn(
+            platform=self.platform,
+            group_name=name,
+            env=self.config.env,
+        )
+
     def gen_notebook_urn(self, notebook: Union[Notebook, NotebookId]) -> str:
         notebook_id = notebook.id if isinstance(notebook, Notebook) else notebook
         return NotebookKey(
@@ -716,8 +1266,41 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             instance=self.config.platform_instance,
         ).as_urn()
 
+    def _create_upstream_class(
+        self,
+        dataset_urn: str,
+        lineage_type: Union[str, DatasetLineageTypeClass],
+        timestamp: Optional[int],
+    ) -> UpstreamClass:
+        """
+        Helper method to create UpstreamClass with optional audit stamp.
+        If timestamp is None, audit stamp is omitted.
+        """
+        if timestamp is not None:
+            return UpstreamClass(
+                dataset=dataset_urn,
+                type=lineage_type,
+                auditStamp=AuditStampClass(
+                    time=timestamp,
+                    actor=UNKNOWN_USER,
+                ),
+            )
+        else:
+            return UpstreamClass(
+                dataset=dataset_urn,
+                type=lineage_type,
+            )
+
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
+        schema_tags = []
+        if self.config.include_tags:
+            schema_tags = self.unity_catalog_api_proxy.get_schema_tags(
+                schema.catalog.name
+            ).get(f"{schema.catalog.name}.{schema.name}", [])
+            logger.debug(f"Schema tags for {schema.name}: {schema_tags}")
+            # Generate platform resources for schema tags
+            yield from self.gen_platform_resources(schema_tags)
 
         schema_container_key = self.gen_schema_key(schema)
         yield from gen_containers(
@@ -729,6 +1312,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=schema.comment,
             owner_urn=self.get_owner_urn(schema.owner),
             external_url=f"{self.external_url_base}/{schema.catalog.name}/{schema.name}",
+            tags=[tag.to_datahub_tag_urn().name for tag in schema_tags]
+            if schema_tags
+            else None,
         )
 
     def gen_metastore_containers(
@@ -747,10 +1333,434 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             external_url=self.external_url_base,
         )
 
+    def _resolve_federation(
+        self, catalog: Catalog
+    ) -> Tuple[
+        Optional[FederationConnectionDetail], Optional[federation.FederationTarget]
+    ]:
+        """Resolve (and cache) the federation target for a foreign catalog.
+
+        Cached by catalog name because every table in the catalog resolves to the
+        same target; this also ensures the unresolved-target warning/counter below
+        fire once per catalog rather than once per table. The key is the catalog
+        (not the connection): two foreign catalogs can share one connection but
+        point at different remote databases via their own OPTIONS.
+        """
+        if catalog.name in self._federation_resolution_cache:
+            return self._federation_resolution_cache[catalog.name]
+
+        detail = (
+            self.config.federation_connection_details.get(catalog.connection_name)
+            if catalog.connection_name
+            else None
+        )
+        connection = (
+            self.unity_catalog_api_proxy.connections().get(catalog.connection_name)
+            if catalog.connection_name
+            else None
+        )
+        target = federation.resolve_federation_target(
+            connection.connection_type if connection else None,
+            options=catalog.options,
+            override_platform=detail.platform if detail else None,
+            override_database=detail.database if detail else None,
+        )
+        if target is None:
+            self.report.num_federation_targets_unresolved += 1
+            self.report.report_warning(
+                title="Could not resolve Lakehouse Federation target",
+                message=(
+                    "Foreign-catalog tables will not be linked to their external "
+                    "source dataset; set federation_connection_details "
+                    "(platform/database) or grant the service principal permission "
+                    "to list Unity Catalog connections."
+                ),
+                context=f"catalog={catalog.name}, connection={catalog.connection_name}",
+            )
+
+        self._federation_resolution_cache[catalog.name] = (detail, target)
+        return detail, target
+
+    def _federation_structured_properties(
+        self, catalog: Catalog
+    ) -> Optional[Dict[StructuredPropertyUrn, str]]:
+        if not (
+            catalog.is_foreign_catalog
+            and self.config.emit_federation_structured_properties
+        ):
+            return None
+        ns = self.config.federation_structured_property_namespace
+        values: Dict[str, str] = {
+            federation.FEDERATION_PROP_CATALOG_TYPE: CatalogType.FOREIGN_CATALOG.value
+        }
+        if catalog.connection_name:
+            values[federation.FEDERATION_PROP_CONNECTION] = catalog.connection_name
+        _, target = self._resolve_federation(catalog)
+        if target:
+            values[federation.FEDERATION_PROP_PLATFORM] = target.platform
+            if target.remote_database:
+                values[federation.FEDERATION_PROP_REMOTE_DATABASE] = (
+                    target.remote_database
+                )
+        return {
+            federation.federation_property_urn(ns, suffix): value
+            for suffix, value in values.items()
+        }
+
+    def _gen_federation_property_definition_workunits(
+        self,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit federation structured-property definitions.
+
+        Each definition MCP uses changeType=CREATE with an If-None-Match header, so
+        the server creates it only if absent — a pre-existing (e.g. centrally
+        managed) definition is left untouched.
+
+        When a graph is available (e.g. a datahub-rest sink), the definitions are
+        registered synchronously via the graph rather than yielded into the
+        workunit stream. GMS validates a structuredProperties *assignment* against
+        an already-committed definition; emitting both in one async batch races and
+        the assignment is rejected. A synchronous graph emit commits the definitions
+        first. Without a graph (e.g. a file sink), definitions are yielded as
+        workunits — such sinks don't validate, so ordering is irrelevant.
+        Callers (`gen_catalog_containers`) ensure this runs once per ingestion run.
+        """
+        if not self.config.emit_federation_structured_properties:
+            return
+        mcps = federation.federation_property_definition_mcps(
+            self.config.federation_structured_property_namespace
+        )
+        if self.ctx.graph is not None:
+            try:
+                for mcp in mcps:
+                    self.ctx.graph.emit_mcp(mcp)
+            except Exception as e:
+                # Federation is supplemental: a failure registering the definitions
+                # (network / auth / GMS validation) must not abort ingestion. The
+                # assignments will simply not resolve until the definitions exist.
+                self.report.num_federation_property_defs_failed += 1
+                self.report.warning(
+                    title="Failed to register federation structured-property definitions",
+                    message=(
+                        "Foreign-catalog structured properties will not be visible "
+                        "until the definitions are registered; check the graph "
+                        "connection and the service account's permissions."
+                    ),
+                    context=self.config.federation_structured_property_namespace,
+                    exc=e,
+                )
+            return
+        for mcp in mcps:
+            yield mcp.as_workunit()
+
+    def _external_platform_key(self, catalog: Catalog) -> Optional[_ExternalSchemaKey]:
+        """The (platform, platform_instance, env, remote_database) the external
+        federated dataset was ingested under, or None if the federation target can't
+        be resolved. Single source of truth for these coordinates — the external URN
+        and the schema-resolver scope must agree on them."""
+        detail, target = self._resolve_federation(catalog)
+        if target is None:
+            return None
+        return _ExternalSchemaKey(
+            platform=target.platform,
+            platform_instance=detail.platform_instance if detail else None,
+            env=detail.env if (detail and detail.env) else self.config.env,
+            remote_database=target.remote_database,
+            # Single source of truth for the external-URN case-folding: both the URN
+            # (_external_dataset_urn) and the schema-resolver scope prefix read this.
+            lowercase_urns=detail is None or detail.convert_urns_to_lowercase,
+        )
+
+    def _external_dataset_urn(
+        self, catalog: Catalog, schema_name: str, table_name: str
+    ) -> Optional[str]:
+        """External source dataset URN for a foreign-catalog table, or None if the
+        federation target can't be resolved. Honors the per-connection
+        platform_instance, env, and case-folding so the URN byte-matches the external
+        source's own ingestion."""
+        _, target = self._resolve_federation(catalog)
+        key = self._external_platform_key(catalog)
+        if target is None or key is None:
+            return None
+        name = federation.external_dataset_name(target, schema_name, table_name)
+        # The external URN must match how the external source was ingested — a
+        # concern independent of this source's own convert_urns_to_lowercase (which
+        # governs the Databricks URNs). The decision lives on the key so the URN and
+        # the schema-resolver scope prefix can't diverge.
+        if key.lowercase_urns:
+            name = name.lower()
+        return make_dataset_urn_with_platform_instance(
+            platform=key.platform,
+            name=name,
+            platform_instance=key.platform_instance,
+            env=key.env,
+        )
+
+    def _resolve_external_schema_fields(
+        self, table: Table
+    ) -> Optional[List[SchemaFieldClass]]:
+        """Backfill a foreign-catalog table's columns from the already-ingested
+        external source, for the common case where Unity Catalog has not synced the
+        foreign table's schema yet. Returns None (and records the reason) unless the
+        catalog is foreign, the feature is enabled, and the external dataset's schema
+        is resolvable. Owns the backfill report counters and warning."""
+        catalog = table.schema.catalog
+        if not (
+            catalog.is_foreign_catalog
+            and self.config.include_federation_column_backfill
+        ):
+            return None
+        external_urn = self._external_dataset_urn(
+            catalog, table.schema.name, table.name
+        )
+        resolver, schema_info = self._external_schema_lookup(catalog, external_urn)
+        if schema_info:
+            self.report.num_federation_columns_backfilled += 1
+            # Column structure only (field path + native type). Governance (tags /
+            # glossary terms) is not copied — it belongs to the external dataset, not
+            # this read-only mirror. The DataHub logical type is left as NullType
+            # because the bulk fetch doesn't return it; authoritative types live on
+            # the external dataset.
+            return [
+                SchemaFieldClass(
+                    fieldPath=field_path,
+                    type=SchemaFieldDataTypeClass(type=NullTypeClass()),
+                    nativeDataType=native_type,
+                )
+                for field_path, native_type in schema_info.items()
+            ]
+        # Backfill produced nothing. Count it so the empty schema isn't a silent
+        # drop, but only warn when the external schemas loaded and this table simply
+        # wasn't among them — a missing/failed scope is already reported at the
+        # platform level (num_federation_external_schema_fetch_failed) or the
+        # unresolved-target level, so warning here would double-report.
+        self.report.num_federation_columns_backfill_failed += 1
+        if resolver is not None:
+            self.report.warning(
+                title="Could not backfill foreign-catalog columns",
+                message=(
+                    "The foreign-catalog table has no columns from Unity Catalog and "
+                    "its schema was not found in the external source. Ingest the "
+                    "external source into DataHub (matching platform_instance and "
+                    "env) so its schema is available on the graph."
+                ),
+                context=table.id,
+            )
+        return None
+
+    def _external_schema_lookup(
+        self, catalog: Catalog, external_urn: Optional[str]
+    ) -> Tuple[Optional[SchemaResolver], Optional[SchemaInfo]]:
+        """Resolve an external federated schema: the bulk-loaded SchemaResolver for
+        the catalog's scope and the {field path: native type} for `external_urn`
+        (None if no graph, the scope is unresolved, or the dataset has no schema in
+        DataHub). Shared by column backfill and column-level lineage so the two can't
+        drift on scope/case-folding. Returning the resolver lets the backfill caller
+        distinguish "scope loaded but table absent" from "scope unavailable"."""
+        key = self._external_platform_key(catalog)
+        resolver = self._external_schema_resolver(key) if key is not None else None
+        schema_info = (
+            resolver.resolve_urn(external_urn)[1]
+            if resolver is not None and external_urn is not None
+            else None
+        )
+        return resolver, schema_info
+
+    def _external_schema_info(
+        self, catalog: Catalog, external_urn: str
+    ) -> Optional[SchemaInfo]:
+        """External dataset's {field path: native type}, or None if unresolvable.
+        Thin wrapper over _external_schema_lookup for the column-lineage path."""
+        return self._external_schema_lookup(catalog, external_urn)[1]
+
+    def _external_schema_resolver(
+        self, key: _ExternalSchemaKey
+    ) -> Optional[SchemaResolver]:
+        """Bulk-initialized SchemaResolver for an external schema scope, cached (None
+        on failure) so a scope is scroll-fetched at most once. The fetch is scoped by
+        an exact prefix on the dataset id — ``[platform_instance.]remote_database.`` —
+        so a foreign catalog that mirrors a subset of a large external platform loads
+        only that database's schemas, not the entire platform."""
+        if key in self._external_schema_resolvers:
+            return self._external_schema_resolvers[key]
+        if self._schema_resolver_provider is None:
+            return None
+        resolver: Optional[SchemaResolver] = None
+        try:
+            resolver = self._schema_resolver_provider.get(
+                platform=key.platform,
+                platform_instance=key.platform_instance,
+                env=key.env,
+                # Scope by an exact prefix on the dataset id, built with the same
+                # case-folding as the URN so it matches the persisted id (a free-text
+                # query would over-match databases sharing a name prefix).
+                name_starts_with=key.id_prefix(),
+            )
+        except Exception as e:
+            # Bulk fetch is a known failure point (network / GMS 5xx / auth).
+            # Federation is supplemental, so degrade to no external schema rather
+            # than aborting ingestion.
+            self.report.num_federation_external_schema_fetch_failed += 1
+            self.report.warning(
+                title="Failed to bulk-fetch external source schemas for federation",
+                message=(
+                    "Foreign-catalog column backfill and column-level lineage will "
+                    "be skipped for the affected external database."
+                ),
+                context=f"platform={key.platform}, database={key.remote_database}",
+                exc=e,
+            )
+        self._external_schema_resolvers[key] = resolver
+        return resolver
+
+    def _federation_lineage(
+        self,
+        dataset_urn: str,
+        table: Table,
+        catalog: Catalog,
+        schema_metadata: Optional[SchemaMetadataClass] = None,
+    ) -> Optional[UpstreamLineageClass]:
+        """Build the foreign-catalog COPY upstream lineage aspect (with identity 1:1,
+        case-insensitive column-level lineage when column lineage is enabled and both
+        schemas resolve), or None for a non-foreign catalog, when federation lineage
+        is disabled, or when the external source URN can't be resolved.
+
+        Returned rather than emitted so process_table can fold it into the table's
+        single upstreamLineage aspect — emitting a second MCP for the same URN would
+        clobber the Unity Catalog lineage (last-write-wins)."""
+        if not catalog.is_foreign_catalog:
+            return None
+        if not self.config.include_federation_lineage:
+            return None
+
+        external_urn = self._external_dataset_urn(
+            catalog, table.schema.name, table.name
+        )
+        if external_urn is None:
+            return None
+
+        # A foreign catalog is a read-only mirror (copy) of the external dataset, so
+        # COPY is more accurate than the default VIEW.
+        self.report.num_federation_links_emitted += 1
+        fine_grained_lineages = self._federation_column_lineage(
+            dataset_urn, external_urn, catalog, schema_metadata
+        )
+        return UpstreamLineageClass(
+            upstreams=[Upstream(dataset=external_urn, type=DatasetLineageType.COPY)],
+            fineGrainedLineages=fine_grained_lineages,
+        )
+
+    def _with_federation_lineage(
+        self,
+        lineage: Optional[UpstreamLineageClass],
+        dataset_urn: str,
+        table: Table,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Optional[UpstreamLineageClass]:
+        """Fold the foreign-catalog COPY upstream into the table's single
+        upstreamLineage aspect. Federation is a supplemental feature, so any failure
+        here degrades to the table's unchanged Unity Catalog lineage (counted +
+        warned) rather than dropping it."""
+        try:
+            federation_lineage = self._federation_lineage(
+                dataset_urn, table, table.schema.catalog, schema_metadata
+            )
+        except Exception as e:
+            self.report.num_federation_links_failed += 1
+            self.report.warning(
+                title="Failed to build federation lineage",
+                message=(
+                    "Foreign-catalog upstream lineage was skipped for this table; "
+                    "its Unity Catalog lineage is unaffected."
+                ),
+                context=table.id,
+                exc=e,
+            )
+            return lineage
+        if federation_lineage is None:
+            return lineage
+        if lineage is None:
+            return federation_lineage
+        lineage.upstreams = [*lineage.upstreams, *federation_lineage.upstreams]
+        if federation_lineage.fineGrainedLineages:
+            lineage.fineGrainedLineages = [
+                *(lineage.fineGrainedLineages or []),
+                *federation_lineage.fineGrainedLineages,
+            ]
+        return lineage
+
+    def _federation_column_lineage(
+        self,
+        dataset_urn: str,
+        external_urn: str,
+        catalog: Catalog,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Optional[List[FineGrainedLineage]]:
+        if not (
+            self.config.include_column_lineage
+            and schema_metadata
+            and schema_metadata.fields
+        ):
+            return None
+        schema_info = self._external_schema_info(catalog, external_urn)
+        if not schema_info:
+            # Unity Catalog gave us columns but the external source's schema isn't
+            # resolvable (not ingested, or wrong platform_instance/env) — the COPY
+            # link is still emitted, only the column-level detail is skipped. Count
+            # it so the drop is observable, and log the URN to aid live debugging
+            # (this path has no companion warning).
+            self.report.num_federation_cll_skipped += 1
+            logger.debug(
+                f"Skipping federation column-level lineage: external schema not "
+                f"found for {external_urn}"
+            )
+            return None
+        cll = federation.identity_column_lineage(
+            dataset_urn=dataset_urn,
+            external_urn=external_urn,
+            downstream_field_paths=[f.fieldPath for f in schema_metadata.fields],
+            upstream_field_paths=list(schema_info.keys()),
+        )
+        return cll or None
+
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
+        if (
+            catalog.is_foreign_catalog
+            and self.config.emit_federation_structured_properties
+            and not self._federation_defs_emitted
+        ):
+            self._federation_defs_emitted = True
+            yield from self._gen_federation_property_definition_workunits()
+
         domain_urn = self._gen_domain_urn(catalog.name)
+        catalog_tags = []
+        if self.config.include_tags:
+            catalog_tags = self.unity_catalog_api_proxy.get_catalog_tags(
+                catalog.name
+            ).get(catalog.name, [])
+            logger.debug(f"Schema tags for {catalog.name}: {catalog_tags}")
+            # Generate platform resources for schema tags
+            yield from self.gen_platform_resources(catalog_tags)
 
         catalog_container_key = self.gen_catalog_key(catalog)
+        try:
+            structured_properties = self._federation_structured_properties(catalog)
+        except Exception as e:
+            # Federation structured properties are supplemental — a failure must not
+            # stop the catalog container itself from being emitted.
+            self.report.num_federation_property_defs_failed += 1
+            self.report.warning(
+                title="Failed to assign federation structured properties",
+                message=(
+                    "The foreign-catalog container is emitted without its federation "
+                    "structured properties."
+                ),
+                context=catalog.name,
+                exc=e,
+            )
+            structured_properties = None
+        if catalog.is_foreign_catalog:
+            self.report.num_foreign_catalogs += 1
         yield from gen_containers(
             container_key=catalog_container_key,
             name=catalog.name,
@@ -764,6 +1774,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=catalog.comment,
             owner_urn=self.get_owner_urn(catalog.owner),
             external_url=f"{self.external_url_base}/{catalog.name}",
+            tags=[tag.to_datahub_tag_urn().name for tag in catalog_tags]
+            if catalog_tags
+            else None,
+            structured_properties=structured_properties,
         )
 
     def gen_schema_key(self, schema: Schema) -> ContainerKey:
@@ -832,7 +1846,55 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             dataset_urn=dataset_urn,
         )
 
-    def _create_table_property_aspect(self, table: Table) -> DatasetPropertiesClass:
+    def add_model_to_schema_container(
+        self, model_urn: str, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(schema)
+        yield from add_entity_to_container(
+            container_key=schema_container_key,
+            entity_type=MlModelGroupUrn.ENTITY_TYPE,
+            entity_urn=model_urn,
+        )
+
+    def add_model_version_to_schema_container(
+        self, model_version_urn: str, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(schema)
+        yield from add_entity_to_container(
+            container_key=schema_container_key,
+            entity_type=MlModelUrn.ENTITY_TYPE,
+            entity_urn=model_version_urn,
+        )
+
+    def _get_catalog_tags(
+        self, catalog: str, schema: str, table: str
+    ) -> List[UnityCatalogTag]:
+        all_tags = self.unity_catalog_api_proxy.get_catalog_tags(catalog)
+        return all_tags.get(f"{catalog}", [])
+
+    def _get_schema_tags(
+        self, catalog: str, schema: str, table: str
+    ) -> List[UnityCatalogTag]:
+        all_tags = self.unity_catalog_api_proxy.get_schema_tags(catalog)
+        return all_tags.get(f"{catalog}.{schema}", [])
+
+    def _get_table_tags(
+        self, catalog: str, schema: str, table: str
+    ) -> List[UnityCatalogTag]:
+        all_tags = self.unity_catalog_api_proxy.get_table_tags(catalog)
+        return all_tags.get(f"{catalog}.{schema}.{table}", [])
+
+    def _get_column_tags(
+        self, catalog: str, schema: str, table: str, column: str
+    ) -> List[UnityCatalogTag]:
+        all_tags = self.unity_catalog_api_proxy.get_column_tags(catalog)
+        return all_tags.get(f"{catalog}.{schema}.{table}.{column}", [])
+
+    def _create_table_property_aspect(
+        self,
+        table: Table,
+        metric_view_spec: Optional[Dict[str, Any]] = None,
+    ) -> DatasetPropertiesClass:
         custom_properties: dict = {}
         if table.storage_location is not None:
             custom_properties["storage_location"] = table.storage_location
@@ -847,7 +1909,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if table.created_by:
             custom_properties["created_by"] = table.created_by
         if table.properties:
-            custom_properties.update({k: str(v) for k, v in table.properties.items()})
+            # Unity Catalog injects ~150 view.sqlConfig.spark.* keys per metric view; drop them.
+            drop_sql_config = table.is_metric_view and self.config.include_metric_views
+            for k, v in table.properties.items():
+                if drop_sql_config and k.startswith("view.sqlConfig.spark."):
+                    continue
+                custom_properties[k] = str(v)
         if table.table_id:
             custom_properties["table_id"] = table.table_id
         if table.owner:
@@ -857,24 +1924,49 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if table.updated_at:
             custom_properties["updated_at"] = str(table.updated_at)
 
+        if (
+            table.is_metric_view
+            and self.config.include_metric_views
+            and metric_view_spec is not None
+        ):
+            custom_properties.update(
+                self._build_metric_view_spec_custom_props(metric_view_spec)
+            )
+
         created: Optional[TimeStampClass] = None
         if table.created_at:
             custom_properties["created_at"] = str(table.created_at)
-            created = TimeStampClass(
-                int(table.created_at.timestamp() * 1000),
-                make_user_urn(table.created_by) if table.created_by else None,
-            )
+            created_ts = make_ts_millis(table.created_at)
+            if created_ts is not None:
+                created = TimeStampClass(
+                    created_ts,
+                    make_user_urn(table.created_by) if table.created_by else None,
+                )
         last_modified = created
         if table.updated_at:
-            last_modified = TimeStampClass(
-                int(table.updated_at.timestamp() * 1000),
-                table.updated_by and make_user_urn(table.updated_by),
-            )
+            updated_ts = make_ts_millis(table.updated_at)
+            if updated_ts is not None:
+                last_modified = TimeStampClass(
+                    updated_ts,
+                    table.updated_by and make_user_urn(table.updated_by),
+                )
+
+        # YAML top-level `comment` is the metric view's own documentation; UC's table.comment
+        # is separate and may not be kept in sync. Prefer YAML when present.
+        description: Optional[str] = table.comment
+        if (
+            table.is_metric_view
+            and self.config.include_metric_views
+            and metric_view_spec is not None
+        ):
+            yaml_comment = metric_view_spec.get("comment")
+            if isinstance(yaml_comment, str) and yaml_comment.strip():
+                description = yaml_comment
 
         return DatasetPropertiesClass(
             name=table.name,
             qualifiedName=table.ref.qualified_table_name,
-            description=table.comment,
+            description=description,
             customProperties=custom_properties,
             created=created,
             lastModified=last_modified,
@@ -911,123 +2003,834 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return None
 
     def _create_table_sub_type_aspect(self, table: Table) -> SubTypesClass:
-        return SubTypesClass(
-            typeNames=[DatasetSubTypes.VIEW if table.is_view else DatasetSubTypes.TABLE]
-        )
-
-    def _create_view_property_aspect(self, table: Table) -> ViewProperties:
-        assert table.view_definition
-        return ViewProperties(
-            materialized=False, viewLanguage="SQL", viewLogic=table.view_definition
-        )
-
-    def _create_schema_metadata_aspect(self, table: Table) -> SchemaMetadataClass:
-        schema_fields: List[SchemaFieldClass] = []
-
-        for column in table.columns:
-            schema_fields.extend(self._create_schema_field(column))
-
-        return SchemaMetadataClass(
-            schemaName=table.id,
-            platform=make_data_platform_urn(self.platform),
-            fields=schema_fields,
-            hash="",
-            version=0,
-            platformSchema=MySqlDDLClass(tableSchema=""),
-        )
-
-    @staticmethod
-    def _create_schema_field(column: Column) -> List[SchemaFieldClass]:
-        _COMPLEX_TYPE = re.compile("^(struct|array)")
-
-        if _COMPLEX_TYPE.match(column.type_text.lower()):
-            return get_schema_fields_for_hive_column(
-                column.name, column.type_text.lower(), description=column.comment
-            )
+        if table.is_metric_view and self.config.include_metric_views:
+            type_name = DatasetSubTypes.METRIC_VIEW
+        elif table.is_view:
+            type_name = DatasetSubTypes.VIEW
         else:
-            return [
-                SchemaFieldClass(
-                    fieldPath=column.name,
-                    type=SchemaFieldDataTypeClass(
-                        type=DATA_TYPE_REGISTRY.get(column.type_name, NullTypeClass)()
-                    ),
-                    nativeDataType=column.type_text,
-                    nullable=column.nullable,
-                    description=column.comment,
+            type_name = DatasetSubTypes.TABLE
+        return SubTypesClass(typeNames=[type_name])
+
+    def _create_view_property_aspect(
+        self, table: Table, metric_view_spec: Optional[Dict[str, Any]] = None
+    ) -> ViewProperties:
+        assert table.view_definition
+        materialized = False
+        if table.is_metric_view and self.config.include_metric_views:
+            view_language = "YAML"
+            if metric_view_spec is not None:
+                mat = metric_view_spec.get("materialization")
+                # v0.1 used the string "materialized"; v1.1 uses an object.
+                materialized = isinstance(mat, dict) or (
+                    isinstance(mat, str) and mat.lower() == "materialized"
                 )
-            ]
-
-    def _run_sql_parser(
-        self, view_ref: TableReference, query: str, schema_resolver: SchemaResolver
-    ) -> Optional[SqlParsingResult]:
-        raw_lineage = sqlglot_lineage(
-            query,
-            schema_resolver=schema_resolver,
-            default_db=view_ref.catalog,
-            default_schema=view_ref.schema,
+        else:
+            view_language = "SQL"
+        return ViewProperties(
+            materialized=materialized,
+            viewLanguage=view_language,
+            viewLogic=table.view_definition,
         )
-        view_urn = self.gen_dataset_urn(view_ref)
 
-        if raw_lineage.debug_info.table_error:
-            logger.debug(
-                f"Failed to parse lineage for view {view_ref}: "
-                f"{raw_lineage.debug_info.table_error}"
-            )
-            self.report.num_view_definitions_failed_parsing += 1
-            self.report.view_definitions_parsing_failures.append(
-                f"Table-level sql parsing error for view {view_ref}: {raw_lineage.debug_info.table_error}"
+    def _load_metric_view_spec(self, table: Table) -> Optional[Dict[str, Any]]:
+        consequence = (
+            "Falling back to the REST table-lineage API; column-level lineage "
+            "and Dimension/Measure tags will be absent for this view."
+        )
+        if not table.view_definition:
+            self.report.num_metric_views_yaml_shape_invalid += 1
+            self.report.report_warning(
+                "Metric view has no YAML body",
+                f"{table.ref.qualified_table_name}: view_definition is empty. "
+                f"{consequence}",
             )
             return None
-
-        elif raw_lineage.debug_info.column_error:
-            self.report.num_view_definitions_failed_column_parsing += 1
-            self.report.view_definitions_parsing_failures.append(
-                f"Column-level sql parsing error for view {view_ref}: {raw_lineage.debug_info.column_error}"
+        try:
+            spec = _safe_load_metric_view_yaml(table.view_definition)
+        except (yaml.YAMLError, RecursionError, UnicodeDecodeError) as e:
+            self.report.num_metric_views_yaml_parse_failures += 1
+            self.report.report_warning(
+                "Metric view YAML failed to parse",
+                f"{table.ref.qualified_table_name}: {type(e).__name__}: {e}. "
+                f"{consequence}",
             )
+            return None
+        if not isinstance(spec, dict):
+            self.report.num_metric_views_yaml_shape_invalid += 1
+            self.report.report_warning(
+                "Metric view YAML is not a mapping",
+                f"{table.ref.qualified_table_name}: top-level type is "
+                f"{type(spec).__name__!r}, expected dict. {consequence}",
+            )
+            return None
+        return spec
+
+    def _extract_metric_view_lineage(
+        self,
+        table: Table,
+        metric_view_spec: Optional[Dict[str, Any]] = None,
+    ) -> Optional[UpstreamLineageClass]:
+        if metric_view_spec is None:
+            metric_view_spec = self._load_metric_view_spec(table)
+        if metric_view_spec is None:
+            return None
+
+        shape_issues: List[str] = []
+        source_names: List[str] = []
+        top_source = metric_view_spec.get("source")
+        if isinstance(top_source, str):
+            source_names.append(top_source)
+        elif top_source is not None:
+            shape_issues.append(
+                f"`source` is {type(top_source).__name__}, expected str"
+            )
+
+        joins = metric_view_spec.get("joins")
+        if isinstance(joins, list):
+            invalid_join_entries = [j for j in joins if not isinstance(j, dict)]
+            if invalid_join_entries:
+                shape_issues.append(
+                    f"`joins` has {len(invalid_join_entries)} non-mapping entry/entries"
+                )
+            for _name, src in _collect_join_name_source_pairs(joins):
+                source_names.append(src)
+        elif joins is not None:
+            shape_issues.append(f"`joins` is {type(joins).__name__}, expected list")
+
+        if shape_issues:
+            self.report.num_metric_views_yaml_shape_invalid += 1
+            self.report.report_warning(
+                "Metric view YAML has unexpected shape",
+                f"{table.ref.qualified_table_name}: {'; '.join(shape_issues)}. "
+                "Affected entries are skipped; remaining YAML continues to be processed.",
+            )
+
+        default_catalog = table.ref.catalog
+        default_metastore = table.ref.metastore
+        upstreams: List[UpstreamClass] = []
+        unparseable: List[str] = []
+        for raw in source_names:
+            ref = _parse_metric_view_source(
+                raw,
+                default_catalog=default_catalog,
+                default_metastore=default_metastore,
+            )
+            if ref is None:
+                unparseable.append(raw)
+                continue
+            upstreams.append(
+                self._create_upstream_class(
+                    self.gen_dataset_urn(ref),
+                    DatasetLineageTypeClass.TRANSFORMED,
+                    None,
+                )
+            )
+
+        if unparseable and upstreams:
+            # All-rejected case is reported below via num_metric_views_no_parseable_sources.
+            self.report.num_metric_view_unparseable_sources += len(unparseable)
+            self.report.report_warning(
+                "Metric view source(s) skipped",
+                f"{table.ref.qualified_table_name}: unparseable sources="
+                f"{unparseable!r}. Need 2-part (schema.table) or 3-part "
+                "(catalog.schema.table) identifiers; 1-part names and SQL "
+                "subqueries are not supported by the YAML lineage path.",
+            )
+
+        if not upstreams:
+            if source_names:
+                self.report.num_metric_views_no_parseable_sources += 1
+                self.report.report_warning(
+                    "Metric view has no parseable upstream sources",
+                    f"{table.ref.qualified_table_name}: sources={source_names!r}. "
+                    "Lineage extraction needs 2-part (schema.table) or 3-part "
+                    "(catalog.schema.table) identifiers; 1-part names and SQL "
+                    "subqueries fall back to the REST table-lineage API.",
+                )
+            return None
+
+        fine_grained: Optional[List[FineGrainedLineage]] = None
+        if self.config.include_column_lineage:
+            fine_grained = (
+                self._extract_metric_view_column_lineage(table, metric_view_spec)
+                or None
+            )
+        return UpstreamLineageClass(
+            upstreams=upstreams,
+            fineGrainedLineages=fine_grained,
+        )
+
+    def _extract_metric_view_column_lineage(
+        self, table: Table, spec: Dict[str, Any]
+    ) -> List[FineGrainedLineage]:
+        default_catalog = table.ref.catalog
+        default_metastore = table.ref.metastore
+        alias_map: Dict[str, TableReference] = {}
+        source_raw = spec.get("source")
+        if isinstance(source_raw, str):
+            source_ref = _parse_metric_view_source(
+                source_raw,
+                default_catalog=default_catalog,
+                default_metastore=default_metastore,
+            )
+            if source_ref is not None:
+                alias_map[""] = source_ref
+
+        joins_skipped = 0
+        joins = spec.get("joins")
+        if isinstance(joins, list):
+            joins_skipped += sum(1 for j in joins if not isinstance(j, dict))
+            for join_name, join_source in _collect_join_name_source_pairs(joins):
+                ref = _parse_metric_view_source(
+                    join_source,
+                    default_catalog=default_catalog,
+                    default_metastore=default_metastore,
+                )
+                if ref is None:
+                    joins_skipped += 1
+                    continue
+                alias_map[join_name.lower()] = ref
+
+        if joins_skipped:
+            self.report.num_metric_view_joins_skipped += joins_skipped
+            self.report.report_warning(
+                "Metric view joins skipped",
+                f"{table.ref.qualified_table_name}: {joins_skipped} join "
+                "entry/entries skipped due to malformed shape or unparseable "
+                "source. Column lineage for join-qualified columns will be absent.",
+            )
+
+        downstream_urn = self.gen_dataset_urn(table.ref)
+        fine: List[FineGrainedLineage] = []
+        unresolved_qualifiers: Set[str] = set()
+        skipped_entries = 0
+        for key in ("dimensions", "measures"):
+            entries = spec.get(key)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    skipped_entries += 1
+                    continue
+                col_name = entry.get("name")
+                expr = entry.get("expr")
+                if not isinstance(col_name, str) or not isinstance(expr, str):
+                    skipped_entries += 1
+                    continue
+                upstream_cols, unresolved = self._parse_metric_view_expr(
+                    expr,
+                    alias_map,
+                    context=f"{table.ref.qualified_table_name}:{col_name}",
+                )
+                unresolved_qualifiers.update(unresolved)
+                if not upstream_cols:
+                    continue
+                upstream_urns = [
+                    make_schema_field_urn(self.gen_dataset_urn(ref), upc)
+                    for (ref, upc) in upstream_cols
+                ]
+                fine.append(
+                    FineGrainedLineage(
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=upstream_urns,
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[make_schema_field_urn(downstream_urn, col_name)],
+                    )
+                )
+
+        if skipped_entries:
+            self.report.num_metric_view_skipped_dim_measure_entries += skipped_entries
+            self.report.report_warning(
+                "Metric view dimension/measure entries skipped",
+                f"{table.ref.qualified_table_name}: {skipped_entries} "
+                "dimension/measure entry/entries skipped due to malformed shape "
+                "(non-mapping entry, missing or non-string `name`/`expr`). Column "
+                "lineage for affected columns will be absent.",
+            )
+
+        if unresolved_qualifiers:
+            self.report.num_metric_view_unresolved_qualifiers += len(
+                unresolved_qualifiers
+            )
+            self.report.report_warning(
+                "Metric view expression references unknown qualifier",
+                f"{table.ref.qualified_table_name}: qualifiers="
+                f"{sorted(unresolved_qualifiers)!r} not found in `source`/`joins`. "
+                "Lineage rows for affected columns were skipped.",
+            )
+
+        fine.extend(self._extract_intra_mv_measure_lineage(spec, downstream_urn, table))
+        return fine
+
+    def _extract_intra_mv_measure_lineage(
+        self,
+        spec: Dict[str, Any],
+        downstream_urn: str,
+        table: Table,
+    ) -> List[FineGrainedLineage]:
+        """Emit intra-dataset lineage for MEASURE(name) composable measure references."""
+        measures = spec.get("measures")
+        if not isinstance(measures, list):
+            return []
+        # Maps lowercase name → original-case name so emitted URNs match the field path.
+        known_measures: Dict[str, str] = {}
+        for entry in measures:
+            if isinstance(entry, dict):
+                n = entry.get("name")
+                if isinstance(n, str) and n:
+                    known_measures[n.lower()] = n
+
+        fine: List[FineGrainedLineage] = []
+        unresolved_refs: Set[str] = set()
+        for entry in measures:
+            if not isinstance(entry, dict):
+                continue
+            col_name = entry.get("name")
+            expr = entry.get("expr")
+            if not isinstance(col_name, str) or not isinstance(expr, str):
+                continue
+            downstream_field = make_schema_field_urn(downstream_urn, col_name)
+            for match in _MEASURE_REF_RE.finditer(expr):
+                ref_name = match.group(1)
+                canonical = known_measures.get(ref_name.lower())
+                if canonical is not None:
+                    fine.append(
+                        FineGrainedLineage(
+                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                            upstreams=[
+                                make_schema_field_urn(downstream_urn, canonical)
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            downstreams=[downstream_field],
+                        )
+                    )
+                else:
+                    unresolved_refs.add(ref_name)
+
+        if unresolved_refs:
+            self.report.num_metric_view_unresolved_measure_refs += len(unresolved_refs)
+            self.report.warning(
+                title="Unresolved MEASURE() reference in metric view",
+                message=(
+                    "A MEASURE() reference does not match any measure defined in "
+                    "the same metric view. Intra-view lineage for affected fields "
+                    "was skipped."
+                ),
+                context=(
+                    f"{table.ref.qualified_table_name}: refs="
+                    f"{sorted(unresolved_refs)!r}"
+                ),
+            )
+        return fine
+
+    def _parse_metric_view_expr(
+        self,
+        expr: str,
+        alias_map: Dict[str, TableReference],
+        context: str = "",
+    ) -> Tuple[List[Tuple[TableReference, str]], Set[str]]:
+        # MEASURE(name) refers to a peer measure, not a source column — strip so sqlglot can't extract the inner name.
+        expr = _MEASURE_REF_RE.sub("0", expr)
+        try:
+            # sqlglot internals can leak AttributeError/TypeError on malformed ASTs.
+            tree = sqlglot.parse_one(expr, dialect="databricks")
+        except (
+            sqlglot.errors.SqlglotError,
+            RecursionError,
+            ValueError,
+            AttributeError,
+            TypeError,
+        ) as e:
+            self.report.num_metric_views_expr_parse_failures += 1
+            self.report.report_warning(
+                "Metric view expression failed to parse",
+                f"{context}: expr={expr!r}: {type(e).__name__}: {e}".lstrip(": "),
+            )
+            return [], set()
+        if tree is None:
+            self.report.num_metric_view_expr_empty_tree += 1
+            return [], set()
+
+        result: List[Tuple[TableReference, str]] = []
+        unresolved: Set[str] = set()
+        seen: Set[Tuple[str, str]] = set()
+        for col in tree.find_all(sqlglot_exp.Column):
+            qualifier = col.table.lower() if col.table else ""
+            ref = alias_map.get(qualifier)
+            if ref is None:
+                # "<source>" sentinel surfaces unqualified columns when top `source`
+                # was unparseable; without it they would be silently dropped.
+                unresolved.add(qualifier or "<source>")
+                continue
+            col_name = col.name
+            key = (str(ref), col_name)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append((ref, col_name))
+        return result, unresolved
+
+    def get_or_create_from_unity_tag(
+        self,
+        unity_tag: UnityCatalogTag,
+        platform_instance: Optional[str],
+        managed_by_datahub: bool = False,
+    ) -> UnityCatalogTagPlatformResource:
+        """
+        Optimized helper to get or create a Unity Catalog tag platform resource.
+        This eliminates the duplicate search by skipping the from_tag method which was
+        doing a redundant search before get_from_datahub.
+        """
+        # Create the platform resource ID directly without the from_tag search
+        platform_resource_id = UnityCatalogTagPlatformResourceId(
+            tag_key=unity_tag.key.raw_text,
+            tag_value=unity_tag.value.raw_text if unity_tag.value is not None else None,
+            platform_instance=platform_instance,
+            exists_in_unity_catalog=True,  # We got it from Unity Catalog
+            persisted=False,
+        )
+
+        # Use the repository's get_entity_from_datahub method which handles
+        # searching and caching internally - this is the ONLY search we need
+        if self.platform_resource_repository is None:
+            raise ValueError("Platform resource repository not initialized")
+        return self.platform_resource_repository.get_entity_from_datahub(
+            platform_resource_id,
+            managed_by_datahub,
+        )
+
+    def gen_platform_resources(
+        self, tags: List[UnityCatalogTag]
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.ctx.graph and self.platform_resource_repository:
+            for tag in tags:
+                try:
+                    # Use optimized helper method that combines ID creation and entity retrieval
+                    unity_catalog_tag = self.get_or_create_from_unity_tag(
+                        tag,
+                        self.platform_instance_name,
+                        managed_by_datahub=False,
+                    )
+                    logger.debug(
+                        f"Retrieved/created platform resource for tag {tag.key.raw_text}"
+                    )
+                    if (
+                        tag.to_datahub_tag_urn().urn()
+                        not in unity_catalog_tag.datahub_linked_resources().urns
+                    ):
+                        unity_catalog_tag.datahub_linked_resources().add(
+                            tag.to_datahub_tag_urn().urn()
+                        )
+                        platform_resource = unity_catalog_tag.as_platform_resource()
+                        for mcp in platform_resource.to_mcps():
+                            yield MetadataWorkUnit(
+                                id=f"platform_resource-{platform_resource.id}",
+                                mcp=mcp,
+                            )
+                except Exception as e:
+                    logger.exception(
+                        f"Error processing platform resource for tag {tag}"
+                    )
+                    self.report.report_warning(
+                        message="Error processing platform resource for tag",
+                        context=str(tag),
+                        title="Error processing platform resource for tag",
+                        exc=e,
+                    )
+                    continue
+
+    def _create_schema_metadata_aspect(
+        self,
+        table: Table,
+        metric_view_spec: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[SchemaMetadataClass, Iterable[MetadataWorkUnit]]:
+        # Collect primary-key column names and FK constraints from the API when
+        # enabled. `tables.get()` is required because `tables.list()` does not
+        # return table_constraints. Partition index values (used for
+        # `isPartitioningKey`) come from `tables.list()` — no extra API call needed.
+        primary_key_columns: Optional[Set[str]] = None
+        datahub_foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None
+
+        # Fetch PK/FK constraints if requested
+        if self.config.include_table_constraints:
+            primary_key_columns = set()
+            raw_constraints = self.unity_catalog_api_proxy.get_table_constraints(table)
+            for constraint in raw_constraints:
+                if constraint.primary_key_constraint:
+                    primary_key_columns.update(
+                        constraint.primary_key_constraint.child_columns or []
+                    )
+
+            fk_raw = [
+                c.foreign_key_constraint
+                for c in raw_constraints
+                if c.foreign_key_constraint
+            ]
+            if fk_raw:
+                dataset_urn = self.gen_dataset_urn(table.ref)
+                datahub_foreign_keys = []
+                for fk in fk_raw:
+                    if not fk.name:
+                        logger.warning(
+                            f"FK constraint on {table.ref} has no name — skipping"
+                        )
+                        continue
+                    if not fk.parent_columns or not fk.child_columns:
+                        logger.warning(
+                            f"FK constraint '{fk.name}' on {table.ref} has empty "
+                            f"column list — skipping"
+                        )
+                        continue
+                    parent_parts = (fk.parent_table or "").split(".")
+                    if len(parent_parts) != 3:
+                        logger.warning(
+                            f"Unexpected parent_table format in FK constraint "
+                            f"'{fk.name}': {fk.parent_table!r} — skipping"
+                        )
+                        continue
+                    parent_ref = TableReference(
+                        metastore=table.ref.metastore,
+                        catalog=parent_parts[0],
+                        schema=parent_parts[1],
+                        table=parent_parts[2],
+                    )
+                    foreign_dataset_urn = self.gen_dataset_urn(parent_ref)
+                    datahub_foreign_keys.append(
+                        ForeignKeyConstraintClass(
+                            name=fk.name,
+                            foreignDataset=foreign_dataset_urn,
+                            foreignFields=[
+                                make_schema_field_urn(foreign_dataset_urn, col)
+                                for col in fk.parent_columns
+                            ],
+                            sourceFields=[
+                                make_schema_field_urn(dataset_urn, col)
+                                for col in fk.child_columns
+                            ],
+                        )
+                    )
+
+        schema_fields: List[SchemaFieldClass] = []
+        unique_tags: Set[UnityCatalogTag] = set()
+        dim_measure_tags, dim_measure_descriptions = (
+            self._build_metric_view_column_overrides(table, metric_view_spec)
+        )
+        for column in table.columns:
+            tag_urns: Optional[List[TagUrn]] = None
+            if self.config.include_tags:
+                column_tags = self._get_column_tags(
+                    table.ref.catalog, table.ref.schema, table.ref.table, column.name
+                )
+                unique_tags.update(column_tags)
+                tag_urns = [tag.to_datahub_tag_urn() for tag in column_tags]
+            extra_tags = dim_measure_tags.get(column.name.lower())
+            description_override = dim_measure_descriptions.get(column.name.lower())
+            schema_fields.extend(
+                self._create_schema_field(
+                    column,
+                    tag_urns,
+                    extra_tags=extra_tags,
+                    description_override=description_override,
+                    primary_key_columns=primary_key_columns,
+                    include_partition_keys=self.config.include_partition_keys,
+                )
+            )
+
+        # Foreign (Lakehouse Federation) catalog tables often have no columns from
+        # Unity Catalog (UC syncs a foreign table's schema lazily). Backfill them
+        # from the already-ingested external source dataset via the graph.
+        if not schema_fields:
+            try:
+                backfilled = self._resolve_external_schema_fields(table)
+            except Exception as e:
+                # Backfill is supplemental — an error must never drop the table's
+                # schema aspect. Degrade to the (empty) Unity Catalog columns.
+                self.report.num_federation_columns_backfill_failed += 1
+                self.report.warning(
+                    title="Failed to backfill foreign-catalog columns",
+                    message=(
+                        "Column backfill from the external source raised; the "
+                        "foreign-catalog table keeps its Unity Catalog columns."
+                    ),
+                    context=table.id,
+                    exc=e,
+                )
+                backfilled = None
+            if backfilled:
+                schema_fields = backfilled
+
+        platform_resources = self.gen_platform_resources(list(unique_tags))
+        return (
+            SchemaMetadataClass(
+                schemaName=table.id,
+                platform=make_data_platform_urn(self.platform),
+                fields=schema_fields,
+                hash="",
+                version=0,
+                platformSchema=MySqlDDLClass(tableSchema=""),
+                primaryKeys=(
+                    sorted(primary_key_columns)
+                    if primary_key_columns is not None
+                    else None
+                ),
+                foreignKeys=datahub_foreign_keys if datahub_foreign_keys else None,
+            ),
+            platform_resources,
+        )
+
+    def _build_metric_view_column_overrides(
+        self, table: Table, metric_view_spec: Optional[Dict[str, Any]]
+    ) -> Tuple[Dict[str, List[TagUrn]], Dict[str, str]]:
+        """Return (tag_map, desc_map) keyed by lowercase field name."""
+        if not (
+            table.is_metric_view
+            and self.config.include_metric_views
+            and metric_view_spec is not None
+        ):
+            return {}, {}
+        tag_map: Dict[str, List[TagUrn]] = {}
+        desc_map: Dict[str, str] = {}
+        for key, base_tag in (("dimensions", "Dimension"), ("measures", "Measure")):
+            entries = metric_view_spec.get(key)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                if not isinstance(name, str) or not name:
+                    continue
+                key_lower = name.lower()
+                tags: List[TagUrn] = [TagUrn(base_tag)]
+                window = entry.get("window")
+                if key == "measures" and isinstance(window, list) and window:
+                    tags.append(TagUrn("Window Measure"))
+                tag_map[key_lower] = tags
+
+                # v1.1 uses "comment"; fall back to "description" for older YAML.
+                raw_desc = entry.get("comment") or entry.get("description")
+                if isinstance(raw_desc, str) and raw_desc.strip():
+                    desc_map[key_lower] = raw_desc
+        return tag_map, desc_map
+
+    def _build_metric_view_spec_custom_props(
+        self, spec: Dict[str, Any]
+    ) -> Dict[str, str]:
+        """Return dataset-level custom properties derived from the metric view YAML spec."""
+        props: Dict[str, str] = {}
+        filter_expr = spec.get("filter")
+        if isinstance(filter_expr, str) and filter_expr.strip():
+            props["metric_view.filter"] = filter_expr
+
+        version = spec.get("version")
+        if version is not None:
+            props["metric_view.spec_version"] = str(version)
+
+        joins = spec.get("joins")
+        if isinstance(joins, list) and joins:
+            props["metric_view.joins"] = json.dumps(
+                joins, separators=(",", ":"), default=str
+            )
+
+        mat = spec.get("materialization")
+        if isinstance(mat, dict):
+            if isinstance(mat.get("schedule"), str):
+                props["metric_view.materialization.schedule"] = mat["schedule"]
+            if isinstance(mat.get("mode"), str):
+                props["metric_view.materialization.mode"] = mat["mode"]
+            mvs = mat.get("materialized_views")
+            if isinstance(mvs, list):
+                props["metric_view.materialization.materialized_views"] = json.dumps(
+                    mvs, separators=(",", ":"), default=str
+                )
+
+        props.update(self._build_metric_view_field_custom_props(spec))
+        return props
+
+    def _build_metric_view_field_custom_props(
+        self, spec: Dict[str, Any]
+    ) -> Dict[str, str]:
+        """Flatten per-field agent metadata (display_name, synonyms, format, window) into custom properties keyed by metric_view.field.<name>.*."""
+        props: Dict[str, str] = {}
+        for section in ("dimensions", "measures"):
+            entries = spec.get(section)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                if not isinstance(name, str) or not name:
+                    continue
+                # Lowercase keeps prop keys consistent with tag/description keys (case-insensitive lookup).
+                prefix = f"metric_view.field.{name.lower()}"
+                self._add_display_name_prop(entry, prefix, props)
+                self._add_synonyms_props(entry, prefix, props)
+                self._add_format_props(entry, prefix, props)
+                if section == "measures":
+                    self._add_window_props(entry, prefix, props)
+        return props
+
+    def _add_display_name_prop(
+        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
+    ) -> None:
+        raw = entry.get("display_name")
+        if not isinstance(raw, str) or not raw.strip():
+            return
+        truncated = raw[:_DISPLAY_NAME_MAX_LEN]
+        if len(raw) > _DISPLAY_NAME_MAX_LEN:
+            self.report.num_metric_view_display_name_truncated += 1
+        props[f"{prefix}.display_name"] = truncated
+
+    def _add_synonyms_props(
+        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
+    ) -> None:
+        synonyms = entry.get("synonyms")
+        if not isinstance(synonyms, list) or not synonyms:
+            return
+        cleaned: List[str] = []
+        for s in synonyms:
+            if not isinstance(s, str) or not s.strip():
+                self.report.num_metric_view_synonyms_dropped_invalid += 1
+                continue
+            if len(s) > _SYNONYM_MAX_LEN:
+                self.report.num_metric_view_synonyms_truncated += 1
+            cleaned.append(s[:_SYNONYM_MAX_LEN])
+        if len(cleaned) > _SYNONYMS_MAX_COUNT:
+            self.report.num_metric_view_synonyms_overflow += 1
+            cleaned = cleaned[:_SYNONYMS_MAX_COUNT]
+        if cleaned:
+            props[f"{prefix}.synonyms"] = ",".join(cleaned)
+
+    def _add_format_props(
+        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
+    ) -> None:
+        fmt = entry.get("format")
+        if not isinstance(fmt, dict):
+            return
+        fmt_type = fmt.get("type")
+        if not isinstance(fmt_type, str):
+            return
+        props[f"{prefix}.format.type"] = fmt_type
+        known = _FORMAT_KNOWN_SUBKEYS.get(fmt_type.lower(), frozenset())
+        for subkey, val in fmt.items():
+            if subkey == "type":
+                continue
+            if subkey not in known:
+                self.report.num_metric_view_format_unknown_subkeys += 1
+                continue
+            if subkey == "decimal_places" and isinstance(val, dict):
+                for dp_key, dp_val in val.items():
+                    if dp_key in _FORMAT_DECIMAL_PLACES_SUBKEYS:
+                        props[f"{prefix}.format.decimal_places.{dp_key}"] = str(dp_val)
+                    else:
+                        self.report.num_metric_view_format_unknown_subkeys += 1
+            else:
+                props[f"{prefix}.format.{subkey}"] = str(val)
+
+    def _add_window_props(
+        self, entry: Dict[str, Any], prefix: str, props: Dict[str, str]
+    ) -> None:
+        window = entry.get("window")
+        if not isinstance(window, list) or not window:
+            return
+        if len(window) == 1 and isinstance(window[0], dict):
+            w = window[0]
+            for wk in ("order", "range", "semiadditive"):
+                wv = w.get(wk)
+                if wv is not None:
+                    props[f"{prefix}.window.{wk}"] = str(wv)
         else:
-            self.report.num_view_definitions_parsed += 1
-            if raw_lineage.out_tables != [view_urn]:
-                self.report.num_view_definitions_view_urn_mismatch += 1
-        return view_definition_lineage_helper(raw_lineage, view_urn)
+            props[f"{prefix}.window"] = json.dumps(
+                window, separators=(",", ":"), default=str
+            )
+
+    @staticmethod
+    def _create_schema_field(
+        column: Column,
+        tags: Optional[List[TagUrn]],
+        extra_tags: Optional[List[TagUrn]] = None,
+        description_override: Optional[str] = None,
+        primary_key_columns: Optional[AbstractSet[str]] = None,
+        include_partition_keys: bool = False,
+    ) -> List[SchemaFieldClass]:
+        _COMPLEX_TYPE = re.compile("^(struct|array)")
+        attribution = MetadataAttribution(
+            source="urn:li:dataPlatform:unity-catalog",
+            actor="urn:li:corpuser:datahub",
+            time=int(time.time() * 1000),
+        )
+        description = description_override if description_override else column.comment
+
+        if _COMPLEX_TYPE.match(column.type_text.lower()):
+            fields = get_schema_fields_for_hive_column(
+                column.name, column.type_text.lower(), description=description
+            )
+            # Complex types: tag the root field only; children carry no semantics.
+            if fields and extra_tags:
+                fields[0].globalTags = GlobalTags(
+                    tags=[
+                        TagAssociation(tag=t.urn(), attribution=attribution)
+                        for t in extra_tags
+                    ]
+                )
+            return fields
+
+        tag_associations: List[TagAssociation] = []
+        if tags is not None:
+            tag_associations.extend(
+                TagAssociation(tag=tag.urn(), attribution=attribution) for tag in tags
+            )
+        if extra_tags:
+            tag_associations.extend(
+                TagAssociation(tag=t.urn(), attribution=attribution) for t in extra_tags
+            )
+        global_tags = GlobalTags(tags=tag_associations) if tag_associations else None
+
+        return [
+            SchemaFieldClass(
+                fieldPath=column.name,
+                type=SchemaFieldDataTypeClass(
+                    type=DATA_TYPE_REGISTRY.get(column.type_name, NullTypeClass)()
+                ),
+                nativeDataType=column.type_text,
+                nullable=column.nullable,
+                description=description,
+                globalTags=global_tags,
+                isPartOfKey=(
+                    True
+                    if primary_key_columns is not None
+                    and column.name in primary_key_columns
+                    else None
+                ),
+                isPartitioningKey=(
+                    True
+                    if include_partition_keys and column.partition_index is not None
+                    else None
+                ),
+            )
+        ]
 
     def get_view_lineage(self) -> Iterable[MetadataWorkUnit]:
         if not (
             self.config.include_hive_metastore
             and self.config.include_table_lineage
-            and self.sql_parser_schema_resolver
+            and self.sql_parsing_aggregator
         ):
             return
-        # This is only used for parsing view lineage. Usage, Operations are emitted elsewhere
-        builder = SqlParsingBuilder(
-            generate_lineage=True,
-            generate_usage_statistics=False,
-            generate_operations=False,
-        )
-        for dataset_name in self.view_definitions:
-            view_ref, view_definition = self.view_definitions[dataset_name]
-            result = self._run_sql_parser(
-                view_ref,
-                view_definition,
-                self.sql_parser_schema_resolver,
-            )
-            if result and result.out_tables:
-                # This does not yield any workunits but we use
-                # yield here to execute this method
-                yield from builder.process_sql_parsing_result(
-                    result=result,
-                    query=view_definition,
-                    is_view_ddl=True,
-                    include_column_lineage=self.config.include_view_column_lineage,
-                )
-        yield from builder.gen_workunits()
+
+        for mcp in self.sql_parsing_aggregator.gen_metadata():
+            yield mcp.as_workunit()
 
     def close(self):
         if self.hive_metastore_proxy:
             self.hive_metastore_proxy.close()
-        if self.view_definitions:
-            self.view_definitions.close()
+        if self.sql_parsing_aggregator:
+            self.sql_parsing_aggregator.close()
         if self.sql_parser_schema_resolver:
             self.sql_parser_schema_resolver.close()
+        if self._schema_resolver_provider:
+            self._schema_resolver_provider.close()
 
         super().close()
 
@@ -1053,6 +2856,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_urn: str,
         source_dataset_urn: str,
+        lineage_type: Union[str, DatasetLineageType] = DatasetLineageType.VIEW,
+        fine_grained_lineages: Optional[List[FineGrainedLineage]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Generate dataset to source connector lineage workunit
@@ -1060,8 +2865,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=UpstreamLineage(
-                upstreams=[
-                    Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
-                ]
+                upstreams=[Upstream(dataset=source_dataset_urn, type=lineage_type)],
+                fineGrainedLineages=fine_grained_lineages,
             ),
         ).as_workunit()

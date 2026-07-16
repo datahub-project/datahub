@@ -1,4 +1,4 @@
-import { FilterOperator } from '../../types.generated';
+import { FilterOperator } from '@types';
 
 export function getHomePagePostsFilters() {
     return [

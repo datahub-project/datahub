@@ -1,10 +1,11 @@
 import React from 'react';
-import { EntityType } from '@src/types.generated';
-import { EntityIconProps } from '../icon/types';
-import UserEntitySubtitle from './UserEntitySubtitle';
-import DefaultEntitySubtitle from './DefaultEntitySubtitle';
 
-export default function EntitySubtitle(props: EntityIconProps) {
+import DefaultEntitySubtitle from '@app/searchV2/autoCompleteV2/components/subtitle/DefaultEntitySubtitle';
+import UserEntitySubtitle from '@app/searchV2/autoCompleteV2/components/subtitle/UserEntitySubtitle';
+import { EntitySubtitleProps } from '@app/searchV2/autoCompleteV2/components/subtitle/types';
+import { EntityType } from '@src/types.generated';
+
+export default function EntitySubtitle(props: EntitySubtitleProps) {
     const { entity } = props;
 
     switch (entity.type) {

@@ -1,16 +1,15 @@
 import React from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput, FacetMetadata, FilterOperator } from '../../../types.generated';
-import { FilterPill } from './FilterPill';
-import { useGetRecommendedFilters } from './useGetRecommendedFilters';
-import { RecommendedFilter } from './types';
+
+import { FilterPill } from '@app/searchV2/recommendation/FilterPill';
+import { RecommendedFilter } from '@app/searchV2/recommendation/types';
+import { useGetRecommendedFilters } from '@app/searchV2/recommendation/useGetRecommendedFilters';
+
+import { FacetFilterInput, FacetMetadata, FilterOperator } from '@types';
 
 const FilterPills = styled.div`
     display: flex;
     flex-direction: row;
-    margin-bottom: 8px;
-    margin-left: 20px;
-    padding-right: 20px;
     gap: 8px;
     flex-shrink: 0;
     overflow-x: auto;
@@ -19,8 +18,6 @@ const FilterPills = styled.div`
     &::-webkit-scrollbar {
         display: none;
     }
-
-    mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 95%, rgba(255, 0, 0, 0.5) 100%, rgba(255, 0, 0, 0) 100%);
 `;
 
 type Props = {

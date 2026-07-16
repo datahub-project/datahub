@@ -1,23 +1,21 @@
+import { Icon, Popover, Text, Tooltip } from '@components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { Popover, Tooltip } from '@components';
-import { ClockCircleOutlined, EyeOutlined, TeamOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { formatNumber, formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { StatsSummary } from '../../shared/components/styled/StatsSummary';
-import { PercentileLabel } from '../../shared/stats/PercentileLabel';
-import { countFormatter, needsFormatting } from '../../../../utils/formatter';
-import ExpandingStat from '../../dataset/shared/ExpandingStat';
+
+import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
+import { StatsSummary } from '@app/entityV2/shared/components/styled/StatsSummary';
+import { PercentileLabel } from '@app/entityV2/shared/stats/PercentileLabel';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span`
-    color: ${ANTD_GRAY[8]};
-`;
-
-const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
-    padding-left: 4px;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {
@@ -41,18 +39,28 @@ export const ChartStatsSummary = ({
     lastUpdatedMs,
     createdMs,
 }: Props) => {
+    const { t } = useTranslation('entity.types');
     // acryl-main only.
     const effectiveViewCount = (!!viewCountLast30Days && viewCountLast30Days) || viewCount;
-    const effectiveViewCountText = (!!viewCountLast30Days && 'views last month') || 'views';
 
     const statsViews = [
         (!!chartCount && (
             <ExpandingStat
                 disabled={!needsFormatting(chartCount)}
                 render={(isExpanded) => (
-                    <StatText color={ANTD_GRAY[8]}>
-                        <b>{isExpanded ? formatNumberWithoutAbbreviation(chartCount) : countFormatter(chartCount)}</b>{' '}
-                        charts
+                    <StatText>
+                        <Trans
+                            t={t}
+                            i18nKey="shared.chartsCount"
+                            count={chartCount}
+                            values={{
+                                count: chartCount,
+                                formattedCount: isExpanded
+                                    ? formatNumberWithoutAbbreviation(chartCount)
+                                    : countFormatter(chartCount),
+                            }}
+                            components={{ bold: <b /> }}
+                        />
                     </StatText>
                 )}
             />
@@ -60,12 +68,22 @@ export const ChartStatsSummary = ({
             undefined,
         (!!effectiveViewCount && (
             <StatText>
-                <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                {formatNumber(effectiveViewCount)} {effectiveViewCountText}
+                <Icon icon={Eye} color="textTertiary" style={{ marginRight: 8 }} />
+                {viewCountLast30Days
+                    ? t('shared.viewsLast30DaysCount', {
+                          count: effectiveViewCount,
+                          formattedCount: formatNumber(effectiveViewCount),
+                      })
+                    : t('shared.viewsCount', {
+                          count: effectiveViewCount,
+                          formattedCount: formatNumber(effectiveViewCount),
+                      })}
                 {!!viewCountPercentileLast30Days && (
                     <PercentileLabel
                         percentile={viewCountPercentileLast30Days}
-                        description={`More views than ${viewCountPercentileLast30Days}% of similar assets in the past 30 days`}
+                        description={t('shared.morePopularViewsPercentile', {
+                            percentile: viewCountPercentileLast30Days,
+                        })}
                     />
                 )}
             </StatText>
@@ -73,15 +91,20 @@ export const ChartStatsSummary = ({
             undefined,
         (!!uniqueUserCountLast30Days && (
             <StatText>
-                <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                {formatNumber(uniqueUserCountLast30Days)} users
+                <Icon icon={UsersThree} color="textTertiary" style={{ marginRight: 8 }} />
+                {t('shared.usersCount', {
+                    count: uniqueUserCountLast30Days,
+                    formattedCount: formatNumber(uniqueUserCountLast30Days),
+                })}
                 {!!uniqueUserPercentileLast30Days && (
-                    <Typography.Text type="secondary">
+                    <Text type="span" color="textSecondary">
                         <PercentileLabel
                             percentile={uniqueUserPercentileLast30Days}
-                            description={`More users than ${uniqueUserPercentileLast30Days}% of similar assets in the past 30 days`}
+                            description={t('shared.morePopularUsersPercentile', {
+                                percentile: uniqueUserPercentileLast30Days,
+                            })}
                         />
-                    </Typography.Text>
+                    </Text>
                 )}
             </StatText>
         )) ||
@@ -90,19 +113,21 @@ export const ChartStatsSummary = ({
             <Popover
                 content={
                     <>
-                        {createdMs && <div>Created on {toLocalDateTimeString(createdMs)}.</div>}
+                        {createdMs && (
+                            <div>{t('shared.createdOnDate', { date: toLocalDateTimeString(createdMs) })}</div>
+                        )}
                         <div>
-                            Changed on {toLocalDateTimeString(lastUpdatedMs)}.{' '}
-                            <Tooltip title="The time at which the chart was last changed in the source platform">
-                                <HelpIcon />
+                            {t('shared.changedOnDate', { date: toLocalDateTimeString(lastUpdatedMs) })}{' '}
+                            <Tooltip title={t('chart.lastChangedTooltip')}>
+                                <Icon icon={Question} color="textTertiary" style={{ paddingLeft: 4 }} />
                             </Tooltip>
                         </div>
                     </>
                 }
             >
                 <StatText>
-                    <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                    Changed {toRelativeTimeString(lastUpdatedMs)}
+                    <Icon icon={Clock} color="textTertiary" style={{ marginRight: 8 }} />
+                    {t('shared.changedRelativeTime', { time: toRelativeTimeString(lastUpdatedMs) })}
                 </StatText>
             </Popover>
         )) ||

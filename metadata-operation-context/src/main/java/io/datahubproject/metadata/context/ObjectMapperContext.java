@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.linkedin.metadata.Constants;
 import java.util.List;
 import java.util.Optional;
@@ -20,6 +21,7 @@ public class ObjectMapperContext implements ContextInterface {
 
   static {
     defaultMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    defaultMapper.registerModule(new Jdk8Module());
 
     for (ObjectMapper mapper : List.of(defaultMapper, defaultYamlMapper)) {
       int maxSize =

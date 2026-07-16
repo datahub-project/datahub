@@ -46,7 +46,7 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
       EntitySearchService entitySearchService,
       EntityService<?> entityService,
       EntityRegistry entityRegistry) {
-    super(entitySearchService, entityRegistry);
+    super(entityService, entitySearchService, entityRegistry);
     this.entityService = entityService;
   }
 

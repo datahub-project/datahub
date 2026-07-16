@@ -1,3 +1,7 @@
+---
+title: Metadata File Sink
+---
+
 # Metadata File
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
@@ -32,6 +36,6 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field    | Required | Default | Description               |
-| -------- | -------- | ------- | ------------------------- |
-| path     | ✅       |         | Path to file to write to. |
+| Field | Required | Default | Description               |
+| ----- | -------- | ------- | ------------------------- |
+| path  | ✅       |         | Path to file to write to. |

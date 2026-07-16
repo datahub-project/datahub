@@ -1,18 +1,14 @@
 import React, { useState } from 'react';
-import { Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { Button } from '@src/alchemy-components';
-import {
-    AndFilterInput,
-    EntityType,
-    FacetFilterInput,
-    SearchFlags,
-    SortCriterion,
-} from '../../../../../../types.generated';
-import { EmbeddedListSearch } from './EmbeddedListSearch';
-import { UnionType } from '../../../../../search/utils/constants';
-import { FilterSet } from './types';
-import { EntityActionProps } from './EntitySearchResults';
+
+import { EmbeddedListSearch } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearch';
+import { EntityActionProps } from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
+import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
+import { UnionType } from '@app/search/utils/constants';
+import { Modal } from '@src/alchemy-components';
+
+import { AndFilterInput, EntityType, FacetFilterInput, SearchFlags, SortCriterion } from '@types';
 
 const SearchContainer = styled.div<{ height?: string }>`
     height: ${(props) => props.height || '500px'};
@@ -26,7 +22,7 @@ const modalBodyStyle = {
 };
 
 type Props = {
-    title: React.ReactNode;
+    title: string;
     emptySearchQuery?: string | null;
     fixedFilters?: FilterSet;
     fixedOrFilters?: AndFilterInput[];
@@ -64,6 +60,7 @@ export const EmbeddedListSearchModal = ({
     entityTypes,
     searchFlags,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     // Component state
     const [query, setQuery] = useState<string>('');
     const [page, setPage] = useState(1);
@@ -89,13 +86,9 @@ export const EmbeddedListSearchModal = ({
             style={modalStyle}
             bodyStyle={modalBodyStyle}
             title={title}
-            visible
-            onCancel={onClose}
-            footer={
-                <Button variant="text" onClick={onClose}>
-                    Close
-                </Button>
-            }
+            open
+            onCancel={onClose || (() => {})}
+            buttons={[{ text: tc('close'), variant: 'text', onClick: onClose || (() => {}) }]}
         >
             <SearchContainer height={height}>
                 <EmbeddedListSearch

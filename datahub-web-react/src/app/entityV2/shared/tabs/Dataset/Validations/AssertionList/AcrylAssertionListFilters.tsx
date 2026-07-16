@@ -1,12 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
+
+import { AcrylAssertionRecommendedFilters } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionRecommendedFilters';
+import {
+    ASSERTION_DEFAULT_FILTERS,
+    ASSERTION_FILTER_TYPES,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import { useSetFilterFromURLParams } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
+import { AssertionListFilter, AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { FilterSelect } from '@src/app/entityV2/shared/FilterSelect';
-import { GroupBySelect } from '@src/app/entityV2/shared/GroupBySelect';
 import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
-import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFilters';
-import { AssertionListFilter, AssertionTable } from './types';
-import { ASSERTION_GROUP_BY_FILTER_OPTIONS, ASSERTION_DEFAULT_FILTERS, ASSERTION_FILTER_TYPES } from './constant';
-import { useSetFilterFromURLParams } from './hooks';
 
 interface FilterItem {
     name: string;
@@ -24,11 +27,10 @@ interface AcrylAssertionListFiltersProps {
     handleFilterChange: (filter: any) => void;
 }
 
+const ASSERTION_ENTITY_TYPE = 'assertion';
+
 const SearchFilterContainer = styled.div`
     display: flex;
-    padding: 0px 10px;
-    margin-bottom: 8px;
-    margin-top: 8px;
     gap: 12px;
     justify-content: space-between;
 `;
@@ -44,7 +46,7 @@ const StyledFilterContainer = styled.div`
         height: 36px !important;
         font-size: 14px !important;
         border-radius: 8px !important;
-        color: #5f6685;
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
@@ -58,16 +60,11 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
 }) => {
     const [appliedRecommendedFilters, setAppliedRecommendedFilters] = useState([]);
 
-    const handleSearchTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const searchText = event.target.value;
+    const handleSearchTextChange = (searchText: string) => {
         handleFilterChange({
             ...selectedFilters,
             filterCriteria: { ...selectedFilters.filterCriteria, searchText },
         });
-    };
-
-    const handleAssertionTypeChange = (value: string) => {
-        handleFilterChange({ ...selectedFilters, groupBy: value });
     };
 
     const handleFilterOptionChange = (updatedFilters: FilterItem[]) => {
@@ -123,7 +120,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                     debouncedSetFilterText={handleSearchTextChange}
                     matchResultCount={filteredAssertions.searchMatchesCount || 0}
                     numRows={filteredAssertions.totalCount || 0}
-                    entityTypeName="assertion"
+                    entityTypeName={ASSERTION_ENTITY_TYPE}
                 />
 
                 {/* ************Render Filter Component ************************* */}
@@ -136,15 +133,6 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                             initialSelectedOptions={initialSelectedOptions}
                         />
                     </StyledFilterContainer>
-                    {/* ************Render Group By Component ************************* */}
-                    <div>
-                        <GroupBySelect
-                            options={ASSERTION_GROUP_BY_FILTER_OPTIONS}
-                            selectedValue={selectedFilters.groupBy}
-                            onSelect={handleAssertionTypeChange}
-                            width={50}
-                        />
-                    </div>
                 </FiltersContainer>
             </SearchFilterContainer>
             <div>

@@ -1,38 +1,36 @@
-import React from 'react';
-import { Avatar } from 'antd';
-import { Tooltip } from '@components';
-import { CorpUser, EntityType } from '../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import ActorAvatar from '../../../../ActorAvatar';
-import { userExists } from './utils';
+import React, { useMemo } from 'react';
 
-export type Props = {
+import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
+import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
+
+import { userExists } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, EntityType } from '@types';
+
+type Props = {
     users: Array<CorpUser>;
     max?: number;
     checkExistence?: boolean;
 };
 
 export default function TopUsersFacepile({ users, max, checkExistence = true }: Props) {
+    const entityRegistry = useEntityRegistry();
     const displayedUsers = users.filter((user) => userExists(user));
     const usersList = checkExistence ? displayedUsers : users;
-    const entityRegistry = useEntityRegistry();
-    return (
-        <Avatar.Group maxCount={max}>
-            {usersList?.map((user) => {
-                const userName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
-                return (
-                    <Tooltip title={userName} showArrow={false}>
-                        <ActorAvatar
-                            size={26}
-                            name={userName}
-                            url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}
-                            photoUrl={
-                                user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined
-                            }
-                        />
-                    </Tooltip>
-                );
-            })}
-        </Avatar.Group>
-    );
+
+    const avatars: AvatarItemProps[] = useMemo(() => {
+        return (
+            usersList?.map((user) => ({
+                name: entityRegistry.getDisplayName(EntityType.CorpUser, user),
+                imageUrl: user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined,
+                urn: user.urn,
+                type: AvatarType.user,
+            })) || []
+        );
+    }, [usersList, entityRegistry]);
+
+    // eslint-disable-next-line i18next/no-literal-string -- placeholder dash for empty user list, not translatable UI text
+    if (!usersList?.length) return <div>-</div>;
+    return <AvatarStack avatars={avatars} maxToShow={max} />;
 }

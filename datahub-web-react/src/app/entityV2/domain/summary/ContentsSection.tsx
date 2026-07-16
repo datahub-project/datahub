@@ -1,38 +1,41 @@
+import { AppstoreOutlined } from '@ant-design/icons';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { AppstoreOutlined } from '@ant-design/icons';
-import { useEntityContext, useEntityData } from '../../../entity/shared/EntityContext';
-import { useGetDomainEntitySummaryQuery } from '../../../../graphql/domain.generated';
+
+import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import ContentSectionLoading from '@app/entityV2/domain/summary/ContentSectionLoading';
 import {
     getContentsSummary,
     getDomainEntitiesFilterUrl,
     navigateToDomainEntities,
-} from '../../shared/containers/profile/sidebar/Domain/utils';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import ContentSectionLoading from './ContentSectionLoading';
-import { EntityCountCard } from '../../../sharedV2/cards/EntityCountCard';
-import { pluralize } from '../../../shared/textUtil';
+} from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
 import {
     SectionContainer,
     SummaryTabHeaderTitle,
     SummaryTabHeaderWrapper,
-} from '../../shared/summary/HeaderComponents';
-import { getContentTypeIcon } from '../../shared/summary/IconComponents';
-import { ANTD_GRAY } from '../../shared/constants';
-import { Carousel } from '../../../sharedV2/carousel/Carousel';
+} from '@app/entityV2/shared/summary/HeaderComponents';
+import { getContentTypeIcon } from '@app/entityV2/shared/summary/IconComponents';
+import { EntityCountCard } from '@app/sharedV2/cards/EntityCountCard';
+import { Carousel } from '@app/sharedV2/carousel/Carousel';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetDomainEntitySummaryQuery } from '@graphql/domain.generated';
 
 const ViewAllButton = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     padding: 2px;
     :hover {
         cursor: pointer;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textSecondary};
         text-decoration: underline;
     }
 `;
 
 export const ContentsSection = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const { entityState } = useEntityContext();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -62,9 +65,12 @@ export const ContentsSection = () => {
     return (
         <SectionContainer>
             <SummaryTabHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<AppstoreOutlined />} title={`Assets (${contentsCount})`} />
+                <SummaryTabHeaderTitle
+                    icon={<AppstoreOutlined />}
+                    title={t('shared.assetsCountTitle', { count: contentsCount })}
+                />
                 <ViewAllButton onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
-                    View all
+                    {tc('viewAll')}
                 </ViewAllButton>
             </SummaryTabHeaderWrapper>
             {loading && <ContentSectionLoading />}
@@ -91,7 +97,7 @@ export const ContentsSection = () => {
                                 name={typeName}
                                 count={summary.count}
                                 icon={getContentTypeIcon(entityRegistry, summary.entityType, summary.type)}
-                                tooltipDescriptor={pluralize(count, typeName)}
+                                tooltipDescriptor={t('shared.assetTypeNameCount', { count, type: typeName })}
                                 link={link}
                             />
                         );

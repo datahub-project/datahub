@@ -1,6 +1,7 @@
 import Cookies from 'js-cookie';
 import { v4 as uuidv4 } from 'uuid';
-import { BROWSER_ID_COOKIE } from '../conf/Global';
+
+import { BROWSER_ID_COOKIE } from '@conf/Global';
 
 function generateBrowserId(): string {
     return uuidv4();

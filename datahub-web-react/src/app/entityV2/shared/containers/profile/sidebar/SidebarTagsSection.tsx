@@ -1,15 +1,19 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import TagTermGroup from '../../../../../sharedV2/tags/TagTermGroup';
-import { useEntityData, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
-import { ENTITY_PROFILE_TAGS_ID } from '../../../../../onboarding/config/EntityProfileOnboardingConfig';
-import { SidebarSection } from './SidebarSection';
-import { EntityType } from '../../../../../../types.generated';
-import SectionActionButton from './SectionActionButton';
-import AddTagTerm from '../../../../../sharedV2/tags/AddTagTerm';
-import EmptySectionText from './EmptySectionText';
-import { EMPTY_MESSAGES } from '../../../constants';
+
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useEntityDataExtractor } from '@app/entityV2/shared/containers/profile/sidebar/hooks/useEntityDataExtractor';
+import { ENTITY_PROFILE_TAGS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
+import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
+
+import { EntityType } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -20,9 +24,11 @@ const Content = styled.div`
 
 interface Props {
     readOnly?: boolean;
+    properties?: any;
 }
 
-export const SidebarTagsSection = ({ readOnly }: Props) => {
+export const SidebarTagsSection = ({ readOnly, properties }: Props) => {
+    const { t: tl } = useTranslation('common.labels');
     const { entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
@@ -30,19 +36,26 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
-    const areTagsEmpty = !entityData?.globalTags?.tags?.length;
+    // Extract tags using custom hook
+    const { data: tags, isEmpty: areTagsEmpty } = useEntityDataExtractor({
+        customPath: properties?.customTagPath,
+        defaultPath: 'globalTags',
+        arrayProperty: 'tags',
+    });
+
+    const existingTagUrns = tags?.tags?.map((t: { tag?: { urn?: string } }) => t.tag?.urn).filter(Boolean) || [];
 
     const canEditTags = !!entityData?.privileges?.canEditTags;
 
     return (
         <div id={ENTITY_PROFILE_TAGS_ID}>
             <SidebarSection
-                title="Tags"
+                title={tl('tags')}
                 content={
                     <Content>
                         {!areTagsEmpty ? (
                             <TagTermGroup
-                                editableTags={entityData?.globalTags}
+                                editableTags={tags}
                                 canAddTag
                                 canRemove
                                 showEmptyMessage
@@ -60,13 +73,14 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                 }
                 extra={
                     <SectionActionButton
-                        button={<AddRoundedIcon />}
+                        icon={Plus}
                         onClick={(event) => {
                             setShowAddModal(true);
                             setAddModalType(EntityType.Tag);
                             event.stopPropagation();
                         }}
                         actionPrivilege={canEditTags}
+                        dataTestId="add-tags-button"
                     />
                 }
             />
@@ -77,6 +91,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                existingUrns={existingTagUrns}
             />
         </div>
     );

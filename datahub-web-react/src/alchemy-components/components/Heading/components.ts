@@ -1,8 +1,9 @@
 import styled from 'styled-components';
 
-import { typography, colors } from '@components/theme';
+import { HeadingStyleProps } from '@components/components/Heading/types';
+import { typography } from '@components/theme';
+import { ColorOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
-import { HeadingStyleProps } from './types';
 
 const headingStyles = {
     H1: {
@@ -31,27 +32,32 @@ const headingStyles = {
     },
 };
 
-// Default styles
+const semanticHeadingColors: Record<string, 'text'> = {
+    H1: 'text',
+    H2: 'text',
+    H3: 'text',
+    H4: 'text',
+    H5: 'text',
+    H6: 'text',
+};
+
 const baseStyles = {
     fontFamily: typography.fonts.heading,
     margin: 0,
-
-    '& a': {
-        color: colors.violet[400],
-        textDecoration: 'none',
-        transition: 'color 0.15s ease',
-
-        '&:hover': {
-            color: colors.violet[500],
-        },
-    },
 };
 
 // Prop Driven Styles
-const propStyles = (props: HeadingStyleProps, isText = false) => {
+const propStyles = (props: HeadingStyleProps & { theme?: any }, isText = false, headingLevel?: string) => {
     const styles = {} as any;
     if (props.size) styles.fontSize = getFontSize(props.size);
-    if (props.color) styles.color = getColor(props.color, props.colorLevel);
+    if (props.color) {
+        const semantic = props.theme.colors[props.color];
+        styles.color =
+            typeof semantic === 'string' ? semantic : getColor(props.color as ColorOptions, props.colorLevel);
+    } else if (headingLevel && props.theme?.colors) {
+        const tokenKey = semanticHeadingColors[headingLevel];
+        styles.color = props.theme.colors[tokenKey];
+    }
     if (props.weight) styles.fontWeight = typography.fontWeights[props.weight];
     if (isText) styles.lineHeight = typography.lineHeights[props.size];
     return styles;
@@ -64,6 +70,14 @@ const headings = {} as any;
     const component = styled[heading.toLowerCase()];
     headings[heading] = component({ ...baseStyles, ...headingStyles[heading] }, (props: HeadingStyleProps) => ({
         ...propStyles(props),
+        '& a': {
+            color: props.theme.colors.hyperlinks,
+            textDecoration: 'none',
+            transition: 'color 0.15s ease',
+            '&:hover': {
+                color: props.theme.colors.textBrand,
+            },
+        },
     }));
 });
 

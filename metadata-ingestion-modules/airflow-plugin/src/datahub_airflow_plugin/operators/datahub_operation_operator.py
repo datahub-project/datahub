@@ -1,7 +1,7 @@
 import datetime
 from typing import Any, List, Optional, Sequence, Union
 
-from airflow.sensors.base import BaseSensorOperator
+from airflow.sdk import BaseSensorOperator
 
 from datahub.api.circuit_breaker import (
     OperationCircuitBreaker,
@@ -18,7 +18,7 @@ class DataHubOperationCircuitBreakerOperator(BaseSensorOperator):
     :param datahub_rest_conn_id: The REST datahub connection id to communicate with DataHub
         which is set as Airflow connection.
     :param partition: The partition to check the operation.
-    :param source_type: The partition to check the operation. :ref:`https://datahubproject.io/docs/graphql/enums#operationsourcetype`
+    :param source_type: The partition to check the operation. :ref:`https://docs.datahub.com/docs/graphql/enums#operationsourcetype`
 
     """
 

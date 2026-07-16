@@ -2,7 +2,9 @@ package com.linkedin.metadata.forms.validation;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -29,7 +31,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 
 @Setter
 @Getter
@@ -43,6 +45,7 @@ public class FormPromptValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return validateFormInfoUpserts(mcpItems, retrieverContext);
@@ -50,7 +53,9 @@ public class FormPromptValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 
@@ -84,11 +89,16 @@ public class FormPromptValidator extends AspectPayloadValidator {
                 SearchRetriever.RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS);
 
         if (CollectionUtils.isNotEmpty(scrollResult.getEntities())) {
-          if (scrollResult.getEntities().size() > 0) {
+          Urn urnFromMcp = mcpItem.getUrn();
+          List<SearchEntity> otherEntities =
+              scrollResult.getEntities().stream()
+                  .filter(e -> !e.getEntity().equals(urnFromMcp))
+                  .collect(Collectors.toList());
+          if (otherEntities.size() > 0) {
             exceptions.addException(
                 mcpItem,
                 "Cannot have duplicate prompt IDs across any form, all prompt IDs must be globally unique. Form urns with prompt IDs matching given prompt IDs:"
-                    + scrollResult.getEntities().stream()
+                    + otherEntities.stream()
                         .map(SearchEntity::getEntity)
                         .collect(Collectors.toList()));
           }

@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { EntitySidebarSections } from './EntitySidebar';
-import { EntitySidebarSection, TabContextType, TabRenderType } from '../../../types';
-import SidebarFormInfoWrapper from './FormInfo/SidebarFormInfoWrapper';
+
+import { EntitySidebarSections } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebar';
+import SidebarFormInfoWrapper from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/SidebarFormInfoWrapper';
+import { EntitySidebarSection, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
 
 const DEFAULT_SIDEBAR_SECTION = {
     visible: (_, _1) => true,
@@ -20,13 +21,6 @@ interface Props {
     contextType: TabContextType;
     renderType: TabRenderType;
 }
-
-export const contextsWithoutLastSynchronized = [
-    TabContextType.CHROME_SIDEBAR,
-    TabContextType.SEARCH_SIDEBAR,
-    TabContextType.LINEAGE_SIDEBAR,
-    TabContextType.FORM_SIDEBAR,
-];
 
 export default function EntitySidebarSectionsTab({ properties, contextType, renderType }: Props) {
     const sections = properties?.sections || [];

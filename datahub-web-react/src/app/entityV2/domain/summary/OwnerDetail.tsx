@@ -1,16 +1,18 @@
+import { Avatar, Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
-import { useEntityRegistryV2 } from '../../../useEntityRegistry';
-import { EntityType, Owner } from '../../../../types.generated';
-import CustomAvatar from '../../../shared/avatar/CustomAvatar';
-import { REDESIGN_COLORS } from '../../shared/constants';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
+
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { EntityType, Owner } from '@types';
 
 const Details = styled.div`
     display: flex;
     align-items: center;
     gap: 5px;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-weight: 500;
 `;
@@ -30,24 +32,18 @@ const OwnerDetail = ({ owner }: Props) => {
     const entityRegistry = useEntityRegistryV2();
 
     const ownerName = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner);
-
     const ownerPictureLink = owner.owner.editableProperties?.pictureLink || undefined;
-
-    const avatar: React.ReactNode = (
-        <CustomAvatar name={ownerName} photoUrl={ownerPictureLink} useDefaultAvatar={false} hideTooltip />
-    );
+    const avatarType = owner.owner.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
 
     return (
         <>
             {!!ownerName && (
-                <>
-                    <Details>
-                        <div>{avatar}</div>
-                        <Tooltip title={ownerName}>
-                            <OwnerName>{ownerName}</OwnerName>
-                        </Tooltip>
-                    </Details>
-                </>
+                <Details>
+                    <Avatar name={ownerName} imageUrl={ownerPictureLink} type={avatarType} />
+                    <Tooltip title={ownerName}>
+                        <OwnerName>{ownerName}</OwnerName>
+                    </Tooltip>
+                </Details>
             )}
         </>
     );

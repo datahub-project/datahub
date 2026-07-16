@@ -61,16 +61,14 @@ public class OwnerServiceTest {
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
                 new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            OwnershipType.NONE);
+            OwnershipType.NONE,
+            null);
 
     OwnerArray expected =
         new OwnerArray(
             ImmutableList.of(
                 new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.NONE),
-                new Owner()
-                    .setOwner(newOwnerUrn)
-                    .setType(OwnershipType.NONE)
-                    .setTypeUrn(mapOwnershipTypeToEntity(OwnershipType.NONE.toString()))));
+                new Owner().setOwner(newOwnerUrn).setType(OwnershipType.NONE)));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.OWNERSHIP_ASPECT_NAME);
@@ -103,15 +101,12 @@ public class OwnerServiceTest {
             ImmutableList.of(
                 new ResourceReference(TEST_ENTITY_URN_1, null, null),
                 new ResourceReference(TEST_ENTITY_URN_2, null, null)),
-            OwnershipType.NONE);
+            OwnershipType.NONE,
+            null);
 
     OwnerArray expectedOwners =
         new OwnerArray(
-            ImmutableList.of(
-                new Owner()
-                    .setOwner(newOwnerUrn)
-                    .setType(OwnershipType.NONE)
-                    .setTypeUrn(mapOwnershipTypeToEntity(OwnershipType.NONE.toString()))));
+            ImmutableList.of(new Owner().setOwner(newOwnerUrn).setType(OwnershipType.NONE)));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.OWNERSHIP_ASPECT_NAME);

@@ -2,7 +2,9 @@ extend type Query {
   """
   Fetch recommendations for a particular scenario
   """
-  listRecommendations(input: ListRecommendationsInput!): ListRecommendationsResult
+  listRecommendations(
+    input: ListRecommendationsInput!
+  ): ListRecommendationsResult
 }
 
 """
@@ -37,17 +39,17 @@ enum ScenarioType {
   """
   Recommendations to show on the users home page
   """
-  HOME,
+  HOME
 
   """
   Recommendations to show on the search results page
   """
-  SEARCH_RESULTS,
+  SEARCH_RESULTS
 
   """
   Recommendations to show on an Entity Profile page
   """
-  ENTITY_PROFILE,
+  ENTITY_PROFILE
 
   """
   Recommendations to show on the search bar when clicked
@@ -85,17 +87,16 @@ input SearchRequestContext {
   """
   query: String!
 
-	"""
-	Faceted filters applied to search results
-	"""
-	filters: [FacetFilterInput!]
+  """
+  Faceted filters applied to search results
+  """
+  filters: [FacetFilterInput!]
 }
 
 """
 Context that defines an entity page requesting recommendations
 """
 input EntityRequestContext {
-
   """
   Type of the enity being displayed
   """
@@ -147,17 +148,17 @@ enum RecommendationRenderType {
   """
   Simple list of entities
   """
-  ENTITY_NAME_LIST,
+  ENTITY_NAME_LIST
 
   """
   List of platforms
   """
-  PLATFORM_SEARCH_LIST,
+  PLATFORM_SEARCH_LIST
 
   """
   Tag search list
   """
-  TAG_SEARCH_LIST,
+  TAG_SEARCH_LIST
 
   """
   A list of recommended search queries
@@ -248,7 +249,6 @@ type EntityProfileParams {
   Type of the enity being displayed
   """
   type: EntityType!
-
 }
 
 """

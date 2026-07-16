@@ -1,7 +1,6 @@
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Tooltip } from '@components';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
 
 const Header = styled.div`
     display: flex;
@@ -10,7 +9,7 @@ const Header = styled.div`
 `;
 
 const Title = styled.div`
-    color: #403d5c;
+    color: ${(props) => props.theme.colors.text};
     margin: 0px;
     font-size: 18px;
     font-weight: 600;
@@ -18,7 +17,7 @@ const Title = styled.div`
 `;
 
 const Content = styled.div`
-    margin-bottom: 12px;
+    margin-bottom: 20px;
     position: relative;
     &:hover {
         .hover-btn {
@@ -28,7 +27,7 @@ const Content = styled.div`
 `;
 
 const Action = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 700;
     :hover {

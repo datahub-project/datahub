@@ -5,11 +5,10 @@ import os.path
 import pathlib
 from dataclasses import dataclass, field
 from enum import auto
-from functools import partial
-from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Iterable, Iterator, List, Optional, Tuple, Type, Union
 
 import ijson
-from pydantic import validator
+from pydantic import field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigEnum
@@ -18,32 +17,38 @@ from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.source_helpers import (
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.fs.fs_base import FileInfo, get_path_schema
 from datahub.ingestion.fs.fs_registry import fs_registry
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_status_aspect import (
+    AutoStatusAspectProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -101,7 +106,8 @@ class FileSourceConfig(StatefulIngestionConfigBase):
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("file_extension", always=True)
+    @field_validator("file_extension", mode="after")
+    @classmethod
     def add_leading_dot_to_extension(cls, v: str) -> str:
         if v:
             if v.startswith("."):
@@ -187,6 +193,7 @@ class FileSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Metadata File")
 @config_class(FileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin pulls metadata from a previously generated file.
@@ -202,7 +209,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = FileSourceConfig.parse_obj(config_dict)
+        config = FileSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_filenames(self) -> Iterable[FileInfo]:
@@ -216,15 +223,15 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 yield file_info
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # No super() call, as we don't want helpers that create / remove workunits
-        return [
-            partial(auto_workunit_reporter, self.report),
-            auto_status_aspect if self.config.stateful_ingestion else None,
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
+    def get_allowed_workunit_processors(self):
+        # No helpers that create/remove workunits (replays existing metadata)
+        processors: List[Type[WorkunitProcessor]] = [
+            AutoWorkunitsReporterProcessor,
+            AutoStaleEntityRemovalProcessor,
         ]
+        if self.config.stateful_ingestion:
+            processors.insert(0, AutoStatusAspectProcessor)
+        return processors
 
     def get_workunits_internal(
         self,
@@ -355,7 +362,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        config = FileSourceConfig.parse_obj(config_dict)
+        config = FileSourceConfig.model_validate(config_dict)
         exists = os.path.exists(config.path)
         if not exists:
             return TestConnectionReport(

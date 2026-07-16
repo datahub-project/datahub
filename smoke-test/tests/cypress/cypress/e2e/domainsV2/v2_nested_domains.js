@@ -1,4 +1,7 @@
+import DatasetHelper from "../manage_tagsV2/helpers/dataset_helper";
+
 const domainName = "CypressNestedDomain";
+const chartUrn = "urn:li:chart:(looker,cypress_baz2)";
 
 const handledResizeLoopErrors = () => {
   const resizeObserverLoopLimitErrRe = "ResizeObserver loop limit exceeded";
@@ -55,7 +58,7 @@ const moveDomaintoParent = () => {
 
 const getDomainList = (domainName) => {
   cy.contains("span.ant-typography-ellipsis", domainName)
-    .parent('[data-testid="domain-list-item"]')
+    .parent('[data-testid="domain-options-list"]')
     .find('[aria-label="right"]')
     .click();
 };
@@ -79,11 +82,18 @@ const verifyEditAndPerformAddAndRemoveActionForDomain = (
 ) => {
   cy.clickOptionWithText(entity);
   cy.clickOptionWithText(action);
-  cy.get('[data-testid="tag-term-modal-input"]').type(text);
-  cy.get('[data-testid="tag-term-option"]').contains(text).click();
+  // AddTagsModal uses alchemy SimpleSelect: click the trigger to open the
+  // portal-rendered dropdown, then type into its search input.
+  cy.get('[data-testid="tag-term-modal-input"]').click();
+  cy.get('[data-testid="dropdown-search-input"]').type(text);
+  cy.get(`[data-testid="tag-term-option-${text}"]`)
+    .first()
+    .click({ force: true });
   cy.clickOptionWithText(body);
   cy.get('[data-testid="add-tag-term-from-modal-btn"]').click();
-  cy.waitTextVisible(text);
+  cy.get('[id$="-panel-Assets"]').within(() => {
+    cy.waitTextVisible(text);
+  });
 };
 
 const clearAndType = (text) => {
@@ -102,8 +112,7 @@ const clearAndDelete = () => {
 
 describe("Verify nested domains test functionalities", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    cy.login();
     cy.skipIntroducePage();
     cy.goToDomainList();
     cy.wait(2000);
@@ -151,9 +160,9 @@ describe("Verify nested domains test functionalities", () => {
 
     // Add a new link
     cy.clickFirstOptionWithTestId("add-link-button");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
 
     // Verify link addition
     cy.waitTextVisible("Test Label");
@@ -188,9 +197,9 @@ describe("Verify nested domains test functionalities", () => {
 
     // Add a new link
     cy.clickOptionWithTestId("add-link-button");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
 
     // Verify link addition
     cy.waitTextVisible("Test Label");
@@ -203,7 +212,7 @@ describe("Verify nested domains test functionalities", () => {
       .click();
 
     // Add an owner
-    cy.clickOptionWithTestId("addOwner");
+    cy.clickOptionWithTestId("add-owners-button");
     cy.enterTextInTestId(
       "edit-owners-modal-find-actors-input",
       Cypress.env("ADMIN_DISPLAYNAME") || "DataHub",
@@ -282,7 +291,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Add assets to Domain");
     cy.get("[data-testid='search-input']").last().type("Baz Chart 2");
     cy.get('[data-testid="preview-urn:li:chart:(looker,cypress_baz2)"]');
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     cy.clickOptionWithId("#continueButton");
     cy.waitTextVisible("Added assets to Domain!");
     cy.get('[data-node-key="Assets"]').click();
@@ -293,21 +302,24 @@ describe("Verify nested domains test functionalities", () => {
     }).click();
     cy.waitTextVisible("0 selected");
     cy.get("[data-testid='search-input']").last().type("Baz Chart 2");
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     verifyEditAndPerformAddAndRemoveActionForDomain(
       "Tags",
       "Add tags",
       "Cypress",
       "Add Tags",
     );
-    cy.clickOptionWithText("Baz Chart 2");
+    cy.wait(3000); // give time for elastic to update before going to page
+    cy.get('[id$="-panel-Assets"]').within(() => {
+      cy.clickOptionWithText("Baz Chart 2");
+    });
     cy.waitTextVisible("Cypress");
     cy.waitTextVisible("Marketing");
     cy.go("back");
     cy.get('[data-testid="search-results-edit-button"]', {
       timeout: 10000,
     }).click();
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     verifyEditAndPerformAddAndRemoveActionForDomain(
       "Tags",
       "Remove tags",
@@ -320,7 +332,11 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Baz Chart 2");
     cy.waitTextVisible("Dashboards");
     cy.reload();
+    cy.get("#entity-profile-tags", { timeout: 10000 }).should("be.visible");
     cy.ensureTextNotPresent("Cypress");
     cy.ensureTextNotPresent("Marketing");
+
+    // Reassign Cypress tag to Baz Chart 2 as some test could rely on it (e.g. v2_glossaryTerm)
+    DatasetHelper.assignTag("Cypress");
   });
 });

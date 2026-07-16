@@ -1,6 +1,8 @@
+import { Button, Form, Input, Modal } from 'antd';
 import React from 'react';
-import { Modal, Button, Form, Input } from 'antd';
-import { IncidentState } from '../../../../../../types.generated';
+import { useTranslation } from 'react-i18next';
+
+import { IncidentState } from '@types';
 
 const { TextArea } = Input;
 
@@ -15,6 +17,8 @@ export const ResolveIncidentModal = ({
     isResolvedModalVisible,
     updateIncidentStatus,
 }: AddIncidentProps) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tc } = useTranslation('common.actions');
     const [form] = Form.useForm();
 
     const handleClose = () => {
@@ -30,21 +34,21 @@ export const ResolveIncidentModal = ({
     return (
         <>
             <Modal
-                title="Resolve Incident"
+                title={t('resolution.title')}
                 open={isResolvedModalVisible}
                 destroyOnClose
                 onCancel={handleClose}
                 footer={[
                     <Button type="text" onClick={handleClose}>
-                        Cancel
+                        {tc('common.actions:cancel')}
                     </Button>,
                     <Button form="resolveIncidentForm" key="submit" htmlType="submit" data-testid="confirm-resolve">
-                        Resolve
+                        {t('resolution.resolveButton')}
                     </Button>,
                 ]}
             >
                 <Form form={form} name="resolveIncidentForm" onFinish={onResolvedIncident} layout="vertical">
-                    <Form.Item name="message" label="Note (optional)">
+                    <Form.Item name="message" label={t('resolution.notePlaceholderOptional')}>
                         <TextArea rows={4} />
                     </Form.Item>
                 </Form>

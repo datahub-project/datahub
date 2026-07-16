@@ -1,10 +1,13 @@
 import { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { getAndFilters } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { EntityType, FacetFilterInput, QuerySource } from '../../../../../../../types.generated';
-import { useAggregateAcrossEntitiesQuery } from '../../../../../../../graphql/search.generated';
-import { getV1FieldPathFromSchemaFieldUrn } from '../../../../../../lineageV2/lineageUtils';
-import { getAndFilters } from '../utils/filterQueries';
+
+import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
+import { EntityType, FacetFilterInput, QuerySource } from '@types';
 
 interface Props {
     selectedColumnsFilter: FacetFilterInput;
@@ -17,6 +20,7 @@ export default function useColumnsFilter({
     selectedUsersFilter,
     setSelectedColumnsFilter,
 }: Props) {
+    const { t: tc } = useTranslation('common.labels');
     const { entityData } = useEntityData();
     const entityUrn = entityData?.urn;
     const siblingUrn = entityData?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
@@ -77,7 +81,11 @@ export default function useColumnsFilter({
         }
     }, [selectedColumnsFilter, columnAggregations, setSelectedColumnsFilter]);
 
-    const columnsFilter = { aggregations: columnAggregations, displayName: 'Columns', field: 'entities' };
+    const columnsFilter = {
+        aggregations: columnAggregations,
+        displayName: tc('columns'),
+        field: 'entities',
+    };
 
     return columnsFilter;
 }

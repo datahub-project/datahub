@@ -1,16 +1,19 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Button, message, Modal } from 'antd';
+import { Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { useGetEntityLineageQuery } from '../../../graphql/lineage.generated';
-import { Direction, UpdatedLineages } from '../types';
-import AddEntityEdge from './AddEntityEdge';
-import LineageEntityView from './LineageEntityView';
-import LineageEdges from './LineageEdges';
-import { Entity, EntityType } from '../../../types.generated';
-import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { buildUpdateLineagePayload, recordAnalyticsEvents } from '../utils/manageLineageUtils';
+
+import AddEntityEdge from '@app/lineage/manage/AddEntityEdge';
+import LineageEdges from '@app/lineage/manage/LineageEdges';
+import LineageEntityView from '@app/lineage/manage/LineageEntityView';
+import { Direction, UpdatedLineages } from '@app/lineage/types';
+import { buildUpdateLineagePayload, recordAnalyticsEvents } from '@app/lineage/utils/manageLineageUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetEntityLineageQuery } from '@graphql/lineage.generated';
+import { useUpdateLineageMutation } from '@graphql/mutations.generated';
+import { Entity, EntityType } from '@types';
 
 const ModalFooter = styled.div`
     display: flex;
@@ -56,6 +59,9 @@ export default function ManageLineageModal({
     entityType,
     entityPlatform,
 }: Props) {
+    const { t } = useTranslation('lineage');
+    const { t: tcAction } = useTranslation('common.actions');
+    const { t: tcFeedback } = useTranslation('common.feedback');
     const entityRegistry = useEntityRegistry();
     const [entitiesToAdd, setEntitiesToAdd] = useState<Entity[]>([]);
     const [entitiesToRemove, setEntitiesToRemove] = useState<Entity[]>([]);
@@ -77,15 +83,15 @@ export default function ManageLineageModal({
                 if (res.data?.updateLineage) {
                     closeModal();
                     if (showLoading) {
-                        message.loading('Loading...');
+                        message.loading(tcFeedback('loading'));
                     } else {
-                        message.success('Updated lineage!');
+                        message.success(t('manualLineage.updatedLineageSuccess'));
                     }
                     setTimeout(() => {
                         refetchEntity();
                         if (showLoading) {
                             message.destroy();
-                            message.success('Updated lineage!');
+                            message.success(t('manualLineage.updatedLineageSuccess'));
                         }
                     }, 2000);
 
@@ -108,7 +114,7 @@ export default function ManageLineageModal({
                 }
             })
             .catch((error) => {
-                message.error(error.message || 'Error updating lineage');
+                message.error(error.message || t('manualLineage.updateLineageError'));
             });
     }
 
@@ -116,17 +122,23 @@ export default function ManageLineageModal({
 
     return (
         <StyledModal
-            title={<TitleText>Manage {lineageDirection} Lineage</TitleText>}
+            title={
+                <TitleText>
+                    {lineageDirection === Direction.Upstream
+                        ? t('manageLineage.modalTitleUpstream')
+                        : t('manageLineage.modalTitleDownstream')}
+                </TitleText>
+            }
             open
             onCancel={closeModal}
             keyboard
             footer={
                 <ModalFooter>
                     <Button onClick={closeModal} type="text">
-                        Cancel
+                        {tcAction('cancel')}
                     </Button>
                     <Button onClick={saveLineageChanges} disabled={isSaveDisabled}>
-                        Save Changes
+                        {tcAction('saveChanges')}
                     </Button>
                 </ModalFooter>
             }

@@ -1,17 +1,20 @@
 import dataclasses
+import json
 from dataclasses import dataclass
 from os import PathLike
 from typing import Any, Dict, List, Union
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
-from tests.test_helpers import mce_helpers, test_connection_helpers
+from datahub.testing import mce_helpers
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+from tests.test_helpers import test_connection_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 GMS_PORT = 8080
@@ -169,7 +172,7 @@ class DbtTestConfig:
             },
         ),
         DbtTestConfig(
-            "dbt-column-meta-mapping",  # this also tests snapshot support
+            "dbt-column-meta-mapping",  # this also tests snapshot support and meta nested mapping
             "dbt_test_column_meta_mapping.json",
             "dbt_test_column_meta_mapping_golden.json",
             catalog_file="sample_dbt_catalog_1.json",
@@ -177,6 +180,43 @@ class DbtTestConfig:
             sources_file="sample_dbt_sources_1.json",
             source_config_modifiers={
                 "enable_meta_mapping": True,
+                "meta_mapping": {
+                    "data_governance_nested.team_owner": {
+                        "match": "Finance",
+                        "operation": "add_term",
+                        "config": {"term": "Finance_test_nested"},
+                    },
+                    "owner": {
+                        "match": "^@(.*)",
+                        "operation": "add_owner",
+                        "config": {"owner_type": "user"},
+                    },
+                    "business_owner": {
+                        "match": ".*",
+                        "operation": "add_owner",
+                        "config": {"owner_type": "user"},
+                    },
+                    "has_pii": {
+                        "match": True,
+                        "operation": "add_tag",
+                        "config": {"tag": "has_pii_test"},
+                    },
+                    "int_property": {
+                        "match": 1,
+                        "operation": "add_tag",
+                        "config": {"tag": "int_meta_property"},
+                    },
+                    "double_property": {
+                        "match": 2.5,
+                        "operation": "add_term",
+                        "config": {"term": "double_meta_property"},
+                    },
+                    "data_governance.team_owner": {
+                        "match": "Finance",
+                        "operation": "add_term",
+                        "config": {"term": "Finance_test"},
+                    },
+                },
                 "column_meta_mapping": {
                     "terms": {
                         "match": ".*",
@@ -192,6 +232,11 @@ class DbtTestConfig:
                         "match": ".*",
                         "operation": "add_term",
                         "config": {"term": "maturity_{{ $match }}"},
+                    },
+                    "governance.pii_category": {
+                        "match": ".*",
+                        "operation": "add_term",
+                        "config": {"term": "pii_category_{{ $match }}"},
                     },
                 },
                 "entities_enabled": {
@@ -224,11 +269,73 @@ class DbtTestConfig:
                 # "entities_enabled": {"sources": "NO"},
             },
         ),
+        DbtTestConfig(
+            "dbt-test-target-platform-primary-siblings",
+            "dbt_test_target_platform_primary_siblings.json",
+            "dbt_test_target_platform_primary_siblings_golden.json",
+            source_config_modifiers={
+                "dbt_is_primary_sibling": False,
+                "enable_meta_mapping": False,
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-source-schema-pattern",
+            "dbt_test_with_source_schema_pattern_mces.json",
+            "dbt_test_with_source_schema_pattern_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "materialized_node_pattern": {
+                    "schema_pattern": {"allow": ["pagila\\.dbt_postgres"]}
+                }
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-source-database-pattern",
+            "dbt_test_with_source_database_pattern_mces.json",
+            "dbt_test_with_source_database_pattern_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "materialized_node_pattern": {"database_pattern": {"allow": ["pagila"]}}
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-source-combined-patterns",
+            "dbt_test_with_source_combined_patterns_mces.json",
+            "dbt_test_with_source_combined_patterns_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "node_name_pattern": {
+                    "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
+                },
+                "materialized_node_pattern": {
+                    "database_pattern": {"allow": ["pagila"]},
+                    "schema_pattern": {"allow": ["pagila\\.dbt_postgres"]},
+                },
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-source-table-pattern",
+            "dbt_test_with_source_table_pattern_mces.json",
+            "dbt_test_with_source_table_pattern_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "materialized_node_pattern": {
+                    "table_pattern": {"allow": ["pagila\\.dbt_postgres\\.customer.*"]}
+                }
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-query-entity-emission",
+            "dbt_test_query_entity_emission.json",
+            "dbt_test_query_entity_emission_golden.json",
+            manifest_file="dbt_manifest_with_queries.json",
+            source_config_modifiers={},  # queries enabled by default via entities_enabled.queries
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_ingest(
     dbt_test_config,
     test_resources_dir,
@@ -296,7 +403,7 @@ def test_dbt_ingest(
     ],
 )
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_test_connection(test_resources_dir, config_dict, is_success):
     config_dict["manifest_path"] = str(
         (test_resources_dir / config_dict["manifest_path"]).resolve()
@@ -314,7 +421,7 @@ def test_dbt_test_connection(test_resources_dir, config_dict, is_success):
 
 
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "dbt_test_events.json"
@@ -357,7 +464,7 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
 
 
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_tests_only_assertions(
     test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
 ):
@@ -437,7 +544,7 @@ def test_dbt_tests_only_assertions(
 
 
 @pytest.mark.integration
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_dbt_only_test_definitions_and_results(
     test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs
 ):
@@ -513,3 +620,53 @@ def test_dbt_only_test_definitions_and_results(
         )
         == number_of_assertions - 1
     )
+
+
+@pytest.mark.integration
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_dbt_convert_urns_to_lowercase(
+    test_resources_dir, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    """Verify that convert_urns_to_lowercase flows through the full pipeline
+    and all emitted dbt-platform URNs contain only lowercase dataset names."""
+    output_file = tmp_path / "dbt_lowercase_urns_output.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTCoreConfig(
+                    **_default_dbt_source_args,
+                    manifest_path=str(
+                        (test_resources_dir / "dbt_manifest.json").resolve()
+                    ),
+                    catalog_path=str(
+                        (test_resources_dir / "dbt_catalog.json").resolve()
+                    ),
+                    sources_path=str(
+                        (test_resources_dir / "dbt_sources.json").resolve()
+                    ),
+                    target_platform="postgres",
+                    convert_urns_to_lowercase=True,
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_file) as f:
+        output = json.load(f)
+
+    dbt_urns = {
+        item["entityUrn"]
+        for item in output
+        if "entityUrn" in item and "dataPlatform:dbt" in item["entityUrn"]
+    }
+    assert len(dbt_urns) > 0, "Expected at least one dbt platform URN in output"
+    for urn in dbt_urns:
+        dataset_name = DatasetUrn.from_string(urn).name
+        assert dataset_name == dataset_name.lower(), (
+            f"dbt URN dataset name should be lowercase: {urn}"
+        )

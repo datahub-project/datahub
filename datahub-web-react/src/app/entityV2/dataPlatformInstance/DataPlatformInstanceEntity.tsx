@@ -1,8 +1,11 @@
+import i18next from 'i18next';
 import * as React from 'react';
-import { DataPlatformInstance, EntityType } from '../../../types.generated';
-import { Entity } from '../Entity';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity } from '@app/entityV2/Entity';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+
+import { DataPlatformInstance, EntityType } from '@types';
 
 /**
  * Definition of the DataHub DataPlatformInstance entity.
@@ -25,9 +28,9 @@ export class DataPlatformInstanceEntity implements Entity<DataPlatformInstance> 
 
     getPathName = () => 'dataPlatformInstance';
 
-    getEntityName = () => 'Data Platform Instance';
+    getEntityName = () => i18next.t('entity.types:dataPlatformInstance.name');
 
-    getCollectionName = () => 'Data Platform Instances';
+    getCollectionName = () => i18next.t('entity.types:dataPlatformInstance.namePlural');
 
     renderProfile = () => <></>;
 

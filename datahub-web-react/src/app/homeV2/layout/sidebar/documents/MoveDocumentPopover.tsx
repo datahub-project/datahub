@@ -1,0 +1,255 @@
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useMoveDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
+import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
+import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
+import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
+import { Button, Input } from '@src/alchemy-components';
+
+import { DocumentSourceType, DocumentState } from '@types';
+
+const PopoverContainer = styled.div`
+    width: 400px;
+    max-height: 300px; /* Fixed height to prevent popover jumping */
+    display: flex;
+    flex-direction: column;
+    background: ${(props) => props.theme.colors.bg};
+    border-radius: 8px;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
+`;
+
+const SearchContainer = styled.div`
+    padding: 8px;
+`;
+
+const TreeScrollContainer = styled.div`
+    flex: 1;
+    overflow-y: auto;
+    height: 300px; /* Fixed height to prevent popover jumping */
+
+    padding: 8px 4px;
+
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+
+    /* Custom scrollbar styling */
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: ${(props) => props.theme.colors.scrollbarThumb};
+        border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
+    }
+`;
+
+const RootOption = styled.div<{ $isSelected: boolean }>`
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 0px;
+    transition: background-color 0.15s ease;
+    font-size: 14px;
+
+    ${(props) =>
+        props.$isSelected
+            ? `
+        background: ${props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${props.theme.colors.shadowFocusBrand};
+    `
+            : `
+        &:hover {
+            background-color: ${props.theme.colors.bgHover};
+        }
+    `}
+`;
+
+const EmptyState = styled.div`
+    padding: 24px;
+    text-align: center;
+    color: ${(props) => props.theme.colors.text};
+    font-size: 14px;
+`;
+
+const ButtonContainer = styled.div`
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 8px;
+`;
+
+const BREADCRUMB_SEPARATOR = ' > ';
+
+interface MoveDocumentPopoverProps {
+    documentUrn: string;
+    currentParentUrn?: string | null;
+    onClose: () => void;
+    onMove?: (documentUrn: string) => void;
+}
+
+export const MoveDocumentPopover: React.FC<MoveDocumentPopoverProps> = ({
+    documentUrn,
+    currentParentUrn,
+    onClose,
+    onMove,
+}) => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
+    const [selectedParentUrn, setSelectedParentUrn] = useState<string | null | undefined>(currentParentUrn);
+    const [movingDocument, setMovingDocument] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+    const { moveDocument } = useMoveDocumentTreeMutation();
+
+    // Debounce search query
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Search for documents (only when searching). Bypass the active View so a document
+    // can be re-parented under any destination the user can access, even outside the View.
+    const { documents: searchResults, loading: searchLoading } = useSearchDocuments({
+        query: debouncedSearchQuery || '*',
+        states: [DocumentState.Published, DocumentState.Unpublished],
+        count: 50,
+        fetchPolicy: 'network-only', // Always fetch fresh for search
+        includeParentDocuments: true, // Fetch parent documents for breadcrumb display
+        sourceTypes: [DocumentSourceType.Native],
+        applyView: false,
+    });
+
+    const isSearching = debouncedSearchQuery.trim().length > 0;
+    const filteredSearchResults = searchResults.filter((doc) => doc.urn !== documentUrn);
+
+    const handleSelectRoot = () => {
+        setSelectedParentUrn(null);
+    };
+
+    const handleSelectDocument = (urn: string) => {
+        setSelectedParentUrn(urn);
+    };
+
+    const handleMove = async () => {
+        setMovingDocument(true);
+        try {
+            // Tree mutation handles optimistic move + backend call + rollback on error!
+            await moveDocument(documentUrn, selectedParentUrn === undefined ? null : selectedParentUrn);
+            // Success - call onMove callback if provided, then close popover
+            if (onMove) {
+                onMove(documentUrn);
+            }
+            setTimeout(() => {
+                onClose();
+            }, 300);
+        } finally {
+            setMovingDocument(false);
+        }
+    };
+
+    const isRootSelected = selectedParentUrn === null;
+    const hasSelectionChanged = selectedParentUrn !== currentParentUrn;
+
+    return (
+        <PopoverContainer data-testid="move-document-popover">
+            <SearchContainer>
+                <Input
+                    label=""
+                    placeholder={t('documents.searchPlaceholder')}
+                    value={searchQuery}
+                    setValue={setSearchQuery}
+                />
+            </SearchContainer>
+
+            <TreeScrollContainer>
+                {/* Show search results when searching */}
+                {isSearching ? (
+                    <>
+                        {searchLoading && <EmptyState>{t('documents.searching')}</EmptyState>}
+                        {!searchLoading && filteredSearchResults.length === 0 && (
+                            <EmptyState>{tc('noResults')}</EmptyState>
+                        )}
+                        {!searchLoading &&
+                            filteredSearchResults.map((doc) => {
+                                const isSelected = selectedParentUrn === doc.urn;
+
+                                // Build breadcrumb from parentDocuments array if there are parents
+                                // parentDocuments is ordered: [direct parent, parent's parent, ...]
+                                // We want to show: grandparent > parent
+                                let breadcrumb: string | null = null;
+                                if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
+                                    const parents = [...doc.parentDocuments.documents].reverse(); // Reverse to get root first
+                                    breadcrumb = parents
+                                        .map((parent) => parent.info?.title || t('untitled'))
+                                        .join(BREADCRUMB_SEPARATOR);
+                                }
+
+                                return (
+                                    <SearchResultItem
+                                        key={doc.urn}
+                                        doc={doc}
+                                        level={0}
+                                        isSelected={isSelected}
+                                        hasChildren={false}
+                                        isExpanded={false}
+                                        isLoading={false}
+                                        breadcrumb={breadcrumb}
+                                        onSelect={() => handleSelectDocument(doc.urn)}
+                                        onToggleExpand={() => {}}
+                                    />
+                                );
+                            })}
+                    </>
+                ) : (
+                    <>
+                        {/* Only show "Move to Root" if document is not already at root */}
+                        {currentParentUrn !== null && currentParentUrn !== undefined && (
+                            <RootOption $isSelected={isRootSelected} onClick={handleSelectRoot}>
+                                {t('documents.moveToRoot')}
+                            </RootOption>
+                        )}
+
+                        {/* Show tree when not searching */}
+                        <DocumentTree
+                            onCreateChild={() => {}}
+                            selectedUrn={selectedParentUrn || undefined}
+                            onSelectDocument={handleSelectDocument}
+                            hideActions
+                        />
+                    </>
+                )}
+            </TreeScrollContainer>
+
+            <ButtonContainer>
+                <Button
+                    variant="outline"
+                    onClick={onClose}
+                    disabled={movingDocument}
+                    data-testid="move-document-cancel-button"
+                >
+                    {tc('cancel')}
+                </Button>
+                <Button
+                    data-testid="move-document-confirm-button"
+                    onClick={handleMove}
+                    disabled={!hasSelectionChanged || movingDocument}
+                    isLoading={movingDocument}
+                >
+                    {tc('move')}
+                </Button>
+            </ButtonContainer>
+        </PopoverContainer>
+    );
+};

@@ -1,18 +1,20 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
-
 import { Tooltip } from '@components';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { PageRoutes } from '../../../../../../../../conf/Global';
-import { useListRecommendationsQuery } from '../../../../../../../../graphql/recommendations.generated';
-import { useUserContext } from '../../../../../../../context/useUserContext';
-import { ANTD_GRAY } from '../../../../../../../entity/shared/constants';
-import OnboardingContext from '../../../../../../../onboarding/OnboardingContext';
-import { EntityLinkList } from '../../../../../../reference/sections/EntityLinkList';
-import { RecommendationRenderType, ScenarioType } from '../../../../../../../../types.generated';
-import { useRegisterInsight } from '../InsightStatusProvider';
-import { InsightCard } from '../shared/InsightCard';
-import InsightCardSkeleton from '../shared/InsightCardSkeleton';
+
+import analytics, { EventType, HomePageModule } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { useRegisterInsight } from '@app/homeV2/content/tabs/discovery/sections/insight/InsightStatusProvider';
+import { InsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCard';
+import InsightCardSkeleton from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCardSkeleton';
+import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import { useHomeRecommendations } from '@app/homeV2/useHomeRecommendations';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { PageRoutes } from '@conf/Global';
+
+import { RecommendationRenderType } from '@types';
 
 const Header = styled.div`
     display: flex;
@@ -27,13 +29,13 @@ const Title = styled.div`
     display: flex;
     align-items: center;
     justify-content: start;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     white-space: nowrap;
     margin-right: 20px;
 `;
 
 const ShowAll = styled(Link)`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 700;
 
@@ -48,25 +50,13 @@ const ShowAll = styled(Link)`
 export const POPULAR_GLOSSARY_TERMS_ID = 'PopularGlossaryTerms';
 
 export const PopularGlossaryTerms = () => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const [loaded, setLoaded] = useState(false);
     const { isUserInitializing } = useContext(OnboardingContext);
     const userContext = useUserContext();
-    const userUrn = userContext?.user?.urn;
 
-    const { loading, data } = useListRecommendationsQuery({
-        variables: {
-            input: {
-                userUrn: userUrn || '',
-                requestContext: {
-                    scenario: ScenarioType.Home,
-                },
-                limit: 10,
-            },
-        },
-        fetchPolicy: 'cache-first',
-        skip: !userUrn,
-    });
-    const recommendationModules = data?.listRecommendations?.modules;
+    const { modules: recommendationModules, loading } = useHomeRecommendations();
     const glossaryRecommendationModules = recommendationModules?.filter(
         (module) => module.renderType === RecommendationRenderType.GlossaryTermSearchList,
     );
@@ -80,6 +70,27 @@ export const PopularGlossaryTerms = () => {
                 ?.slice(0, 5) || [],
         [glossaryRecommendationModule],
     );
+
+    const title = t('insights.popularGlossaryTermsTitle');
+    const handleViewAll = () => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'For you',
+            subSection: title,
+            value: tc('viewAll'),
+        });
+    };
+
+    const handleClickEntity = (urn?: string) => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'For you',
+            subSection: title,
+            value: urn,
+        });
+    };
 
     useEffect(() => {
         if (!loading && recommendationModules && !loaded) {
@@ -101,15 +112,18 @@ export const PopularGlossaryTerms = () => {
             {!showSkeleton && !!recommendedGlossaryTerms.length && (
                 <InsightCard id={POPULAR_GLOSSARY_TERMS_ID} minWidth={340} maxWidth={500}>
                     <Header>
-                        <Tooltip title="Commonly used glossary terms" showArrow={false} placement="top">
-                            <Title>Popular Glossary Terms</Title>
+                        <Tooltip title={t('insights.popularGlossaryTermsTooltip')} showArrow={false} placement="top">
+                            <Title>{title}</Title>
                         </Tooltip>
-                        <ShowAll to={PageRoutes.GLOSSARY}>View all</ShowAll>
+                        <ShowAll to={PageRoutes.GLOSSARY} onClick={handleViewAll}>
+                            {tc('viewAll')}
+                        </ShowAll>
                     </Header>
                     <EntityLinkList
                         entities={recommendedGlossaryTerms}
                         loading={false}
-                        empty={recommendedGlossaryTerms?.length === 0 || 'No assets found'}
+                        empty={recommendedGlossaryTerms?.length === 0 || t('insights.noAssetsFound')}
+                        onClickEntity={handleClickEntity}
                     />
                 </InsightCard>
             )}

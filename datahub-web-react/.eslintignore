@@ -2,3 +2,5 @@
 dist/
 build/
 node_modules/
+**/*.generated.ts
+scripts/

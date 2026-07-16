@@ -1,34 +1,34 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GenericEntityProperties } from '../../../entity/shared/types';
-import { Entity, EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getDisplayedEntityType } from '../../../entityV2/shared/containers/profile/header/utils';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { SEARCH_COLORS } from '../../../entityV2/shared/constants';
-import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityType } from '@types';
 
 const Container = styled.div`
     display: flex;
     flex-direction: row;
     padding: 10px 12px 10px 12px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 10px;
     min-width: 200px;
     max-width: 260px;
-    border: 1.5px solid #0000001a;
+    border: 1.5px solid ${(props) => props.theme.colors.border};
     gap: 12px;
 
     :hover {
-        border: 1.5px solid ${SEARCH_COLORS.LINK_BLUE};
+        border: 1.5px solid ${(props) => props.theme.colors.borderBrand};
     }
 `;
 
 const Name = styled.div`
     font-size: 14px;
-    color: #565657;
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-bottom: 4px;
     font-weight: 500;
     overflow: hidden;
@@ -44,7 +44,7 @@ const Context = styled.div`
 
 const SubHeader = styled.div`
     font-size: 14px;
-    color: ${ANTD_GRAY[5]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-top: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -52,7 +52,7 @@ const SubHeader = styled.div`
 
 const Type = styled.div`
     font-size: 14px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;

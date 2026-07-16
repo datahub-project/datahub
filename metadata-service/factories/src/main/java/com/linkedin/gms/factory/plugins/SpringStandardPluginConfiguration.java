@@ -2,29 +2,70 @@ package com.linkedin.gms.factory.plugins;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
+import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
+import com.linkedin.metadata.aspect.hooks.DomainsSyncMutationHook;
+import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
+import com.linkedin.metadata.aspect.hooks.LifecycleStageTransitionHook;
+import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
+import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
+import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
+import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
+import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
+import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
+import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
+import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
+import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
+import com.linkedin.metadata.aspect.validation.UrlValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
+import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
+import com.linkedin.metadata.config.PoliciesConfiguration;
+import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
+import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
 import com.linkedin.metadata.forms.validation.FormPromptValidator;
+import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
+import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
+import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
+import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
+import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -41,12 +82,46 @@ public class SpringStandardPluginConfiguration {
   private static final String PATCH = "PATCH";
   private static final String DELETE = "DELETE";
   private static final String RESTATE = "RESTATE";
+  // Authentication validation should consider all change types as best practice
+  private static final List<String> AUTH_CHANGE_TYPE_OPERATIONS =
+      List.of(CREATE, CREATE_ENTITY, UPDATE, UPSERT, PATCH, DELETE, RESTATE);
 
   @Value("${metadataChangeProposal.validation.ignoreUnknown}")
   private boolean ignoreUnknownEnabled;
 
   @Value("${metadataChangeProposal.validation.extensions.enabled:false}")
   private boolean extensionsEnabled;
+
+  @Value("${featureFlags.aspectMigrationMutatorEnabled:false}")
+  private boolean aspectMigrationMutatorEnabled;
+
+  /**
+   * Registers the migration chain as the highest-priority mutation hook. Collects all {@link
+   * AspectMigrationMutator} beans (there may be none at first). The chain self-disables once all
+   * aspect migrations are complete.
+   *
+   * <p>Requires the {@code featureFlags.aspectMigrationMutatorEnabled} flag; the chain is disabled
+   * otherwise.
+   */
+  @Bean
+  public AspectMigrationMutatorChain aspectMigrationMutatorChain(
+      List<AspectMigrationMutator> migrationMutators) {
+    List<AspectMigrationMutator> mutators =
+        aspectMigrationMutatorEnabled ? new ArrayList<>(migrationMutators) : new ArrayList<>();
+    AspectMigrationMutatorChain chain = new AspectMigrationMutatorChain(mutators);
+    chain.setConfig(
+        AspectPluginConfig.builder()
+            .className(AspectMigrationMutatorChain.class.getName())
+            .enabled(true)
+            .supportedOperations(List.of(ALL))
+            .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+            .build());
+    log.info(
+        "Initialized AspectMigrationMutatorChain: aspectMigrationMutatorEnabled={}, mutator(s)={}",
+        aspectMigrationMutatorEnabled,
+        mutators.size());
+    return chain;
+  }
 
   @Bean
   @ConditionalOnProperty(
@@ -101,10 +176,15 @@ public class SpringStandardPluginConfiguration {
   @ConditionalOnProperty(
       name = "metadataChangeProposal.sideEffects.dataProductUnset.enabled",
       havingValue = "true")
-  public MCPSideEffect dataProductUnsetSideEffect() {
+  public MCPSideEffect dataProductUnsetSideEffect(ConfigurationProvider configurationProvider) {
+    // Only enable this side effect if multiple data products per asset feature is disabled
+    final boolean multipleDataProductsEnabled =
+        configurationProvider.getFeatureFlags().isMultipleDataProductsPerAsset();
+
     AspectPluginConfig config =
         AspectPluginConfig.builder()
-            .enabled(true)
+            .enabled(!multipleDataProductsEnabled) // Disable if multiple data products feature is
+            // enabled
             .className(DataProductUnsetSideEffect.class.getName())
             .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE"))
             .supportedEntityAspectNames(
@@ -115,8 +195,38 @@ public class SpringStandardPluginConfiguration {
                         .build()))
             .build();
 
-    log.info("Initialized {}", SchemaFieldSideEffect.class.getName());
+    log.info(
+        "Initialized {} with enabled={}",
+        DataProductUnsetSideEffect.class.getName(),
+        !multipleDataProductsEnabled);
     return new DataProductUnsetSideEffect().setConfig(config);
+  }
+
+  // Returns null when MeterRegistry/ObjectMapper unavailable
+  @Bean
+  @ConditionalOnProperty(name = "ingestionMetrics.enabled", havingValue = "true")
+  public MCPObserver ingestionMetricsEmitter(
+      ObjectProvider<MeterRegistry> meterRegistryProvider,
+      ObjectProvider<ObjectMapper> objectMapperProvider) {
+    MeterRegistry meterRegistry = meterRegistryProvider.getIfAvailable();
+    ObjectMapper objectMapper = objectMapperProvider.getIfAvailable();
+    if (meterRegistry == null || objectMapper == null) {
+      log.info("Required beans not available, skipping IngestionMetricsEmitter");
+      return null;
+    }
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .className(IngestionMetricsEmitter.class.getName())
+            .enabled(true)
+            .supportedOperations(List.of("UPSERT", "CREATE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(EXECUTION_REQUEST_ENTITY_NAME)
+                        .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                        .build()))
+            .build();
+    return new IngestionMetricsEmitter(meterRegistry, objectMapper).setConfig(config);
   }
 
   @Bean
@@ -213,7 +323,6 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public AspectPayloadValidator versionPropertiesValidator() {
     return new VersionPropertiesValidator()
         .setConfig(
@@ -231,7 +340,6 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public AspectPayloadValidator versionSetPropertiesValidator() {
     return new VersionSetPropertiesValidator()
         .setConfig(
@@ -249,7 +357,6 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public MCPSideEffect versionPropertiesSideEffect() {
     return new VersionPropertiesSideEffect()
         .setConfig(
@@ -267,7 +374,6 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public MCPSideEffect versionSetSideEffect() {
     return new VersionSetSideEffect()
         .setConfig(
@@ -280,6 +386,36 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(VERSION_SET_ENTITY_NAME)
                             .aspectName(VERSION_SET_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.urlValidation.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator urlValidator(ConfigurationProvider configurationProvider) {
+    com.linkedin.metadata.config.UrlValidationConfig urlConfig =
+        configurationProvider.getMetadataChangeProposal().getValidation().getUrlValidation();
+
+    return new UrlValidator()
+        .setAllowHttp(urlConfig != null && urlConfig.isAllowHttp())
+        .setExtraDenyHostsList(urlConfig != null ? urlConfig.getExtraDenyHosts() : null)
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(UrlValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(CORP_USER_EDITABLE_INFO_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_GROUP_ENTITY_NAME)
+                            .aspectName(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)
                             .build()))
                 .build());
   }
@@ -317,5 +453,386 @@ public class SpringStandardPluginConfiguration {
                             .aspectName(ALL)
                             .build()))
                 .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator corpUserPrivilegedFlagsValidator() {
+    return new CorpUserPrivilegedFlagsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(CorpUserPrivilegedFlagsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(UPSERT, UPDATE, CREATE, CREATE_ENTITY, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(CORP_USER_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.privilegeConstraints.enabled",
+      havingValue = "true")
+  public AspectPayloadValidator tagPrivilegeConstraintsValidator() {
+    return new TagPrivilegeConstraintsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(TagPrivilegeConstraintsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.logicalParent.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator logicalParentAuthorizationValidator() {
+    return new LogicalParentAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(LogicalParentAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(LOGICAL_PARENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.dataProductMembership.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator dataProductMembershipAuthorizationValidator() {
+    return new DataProductMembershipAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(DataProductMembershipAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATA_PRODUCT_ENTITY_NAME)
+                            .aspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator ModifyIngestionSourceAuthValidator() {
+    return new ModifyIngestionSourceAuthValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ModifyIngestionSourceAuthValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(INGESTION_SOURCE_ENTITY_NAME)
+                            .aspectName(INGESTION_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator ExecuteIngestionAuthValidator() {
+    return new ExecuteIngestionAuthValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ExecuteIngestionAuthValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, UPSERT, PATCH, UPDATE, CREATE_ENTITY))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(EXECUTION_REQUEST_ENTITY_NAME)
+                            .aspectName(EXECUTION_REQUEST_INPUT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator createIfNotExistsValidator() {
+    return new CreateIfNotExistsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(CreateIfNotExistsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY))
+                .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator conditionalWriteValidator() {
+    return new ConditionalWriteValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ConditionalWriteValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, DELETE, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+                .build());
+  }
+
+  @Bean
+  public MutationHook fieldPathMutator() {
+    return new FieldPathMutator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(FieldPathMutator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, UPSERT, UPDATE, RESTATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MutationHook ownershipOwnerTypes() {
+    return new OwnershipOwnerTypes()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(OwnershipOwnerTypes.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, RESTATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(OWNERSHIP_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MutationHook structuredPropertiesAssignmentMutator(
+      @Nonnull ConfigurationProvider configurationProvider) {
+    StructuredPropertiesConfiguration structuredPropertiesConfiguration =
+        configurationProvider.getStructuredProperties();
+    return new StructuredPropertiesAssignmentMutator()
+        .setDropMissingPropertyValuesWithWarning(
+            structuredPropertiesConfiguration != null
+                && structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(StructuredPropertiesAssignmentMutator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(STRUCTURED_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator propertyDefinitionValidator() {
+    return new PropertyDefinitionValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PropertyDefinitionValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator structuredPropertiesValidator(
+      @Nonnull ConfigurationProvider configurationProvider) {
+    StructuredPropertiesConfiguration structuredPropertiesConfiguration =
+        configurationProvider.getStructuredProperties();
+    return new StructuredPropertiesValidator()
+        .setDropMissingPropertyValuesWithWarning(
+            structuredPropertiesConfiguration != null
+                && structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(StructuredPropertiesValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, UPSERT, DELETE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(STRUCTURED_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MCPSideEffect propertyDefinitionDeleteSideEffect(@Nullable MetricUtils metricUtils) {
+    return new PropertyDefinitionDeleteSideEffect()
+        .setMetricUtils(metricUtils)
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PropertyDefinitionDeleteSideEffect.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(DELETE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator systemPolicyValidator(ConfigurationProvider configProvider) {
+    PoliciesConfiguration policiesConfiguration = configProvider.getDatahub().getPolicies();
+    Set<Urn> policyUrns = null;
+    if (StringUtils.isNotBlank(policiesConfiguration.getSystemPolicyUrnList())) {
+      List<String> urnStrings = List.of(policiesConfiguration.getSystemPolicyUrnList().split(","));
+      policyUrns = urnStrings.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+    }
+    return new SystemPolicyValidator()
+        .setSystemPolicyUrns(policyUrns)
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(SystemPolicyValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(DELETE, UPDATE, UPSERT, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(POLICY_ENTITY_NAME)
+                            .aspectName(ALL)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MutationHook lifecycleStageTransitionHook() {
+    return new LifecycleStageTransitionHook()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(LifecycleStageTransitionHook.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName("*")
+                            .aspectName(STATUS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MutationHook domainsSyncMutationHook() {
+    return new DomainsSyncMutationHook()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(DomainsSyncMutationHook.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, RESTATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(DOMAINS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator lifecycleStageValidator() {
+    return new LifecycleStageValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(LifecycleStageValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName("*")
+                            .aspectName(STATUS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator policyFieldTypeValidator() {
+    return new PolicyFieldTypeValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PolicyFieldTypeValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(POLICY_ENTITY_NAME)
+                            .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public com.linkedin.metadata.aspect.SystemAspectValidator aspectSizePayloadValidator(
+      ConfigurationProvider configProvider,
+      @Nullable com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
+    AspectSizeValidationConfiguration config =
+        configProvider.getDatahub().getValidation().getAspectSize();
+    AspectSizePayloadValidator validator = new AspectSizePayloadValidator(config, metricUtils);
+    log.info(
+        "Initialized AspectSizePayloadValidator with config: prePatch={}, postPatch={}",
+        config.getPrePatch(),
+        config.getPostPatch());
+    return validator;
   }
 }

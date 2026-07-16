@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { NestedSelectOption } from './types';
+
+import { NestedSelectOption } from '@components/components/Select/Nested/types';
 
 function getChildrenRecursively<OptionType extends NestedSelectOption>(
     directChildren: OptionType[],

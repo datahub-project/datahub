@@ -10,7 +10,8 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderConfig,
     JobId,
 )
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext
     ) -> "DatahubIngestionCheckpointingProvider":
-        config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
+        config = DatahubIngestionStateProviderConfig.model_validate(config_dict)
         if config.datahub_api is not None:
             return cls(DataHubGraph(config.datahub_api))
         elif ctx.graph:

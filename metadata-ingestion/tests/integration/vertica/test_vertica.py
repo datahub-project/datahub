@@ -2,11 +2,18 @@ import subprocess
 from typing import List
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+
+pytestmark = [
+    pytest.mark.integration_batch_3,
+    pytest.mark.skip(
+        reason="Skipping Vertica tests due to https://github.com/vertica/vertica-containers/issues/64"
+    ),
+]
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
@@ -53,7 +60,7 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
     cleanup_image("vertica/vertica-ce")
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_vertica_ingest_with_db(vertica_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/vertica"

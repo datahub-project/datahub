@@ -1,22 +1,28 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
-import { Button, Empty, List, Select, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useGetEntityIncidentsQuery } from '../../../../../graphql/incident.generated';
-import TabToolbar from '../../components/styled/TabToolbar';
-import { useEntityData } from '../../EntityContext';
-import IncidentListItem from './components/IncidentListItem';
-import { INCIDENT_DISPLAY_STATES, PAGE_SIZE, getIncidentsStatusSummary } from './incidentUtils';
-import { EntityType, Incident, IncidentState } from '../../../../../types.generated';
-import { IncidentSummary } from './components/IncidentSummary';
-import { AddIncidentModal } from './components/AddIncidentModal';
-import { combineEntityDataWithSiblings } from '../../siblingUtils';
-import { IncidentsLoadingSection } from './components/IncidentsLoadingSection';
-import { ANTD_GRAY } from '../../constants';
+import { Button, Empty, List, Select, Typography } from 'antd';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { AddIncidentModal } from '@app/entity/shared/tabs/Incident/components/AddIncidentModal';
+import IncidentListItem from '@app/entity/shared/tabs/Incident/components/IncidentListItem';
+import { IncidentSummary } from '@app/entity/shared/tabs/Incident/components/IncidentSummary';
+import { IncidentsLoadingSection } from '@app/entity/shared/tabs/Incident/components/IncidentsLoadingSection';
+import {
+    PAGE_SIZE,
+    getIncidentDisplayStates,
+    getIncidentsStatusSummary,
+} from '@app/entity/shared/tabs/Incident/incidentUtils';
+
+import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
+import { EntityType, Incident, IncidentState } from '@types';
 
 const Header = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[3]};
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
 `;
 
 const Summary = styled.div`
@@ -34,7 +40,7 @@ const IncidentList = styled.div`
 const IncidentStyledList = styled(List)`
     &&& {
         width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
+        border-color: ${(props) => props.theme.colors.border};
         flex: 1;
     }
 `;
@@ -45,8 +51,9 @@ const IncidentStateSelect = styled(Select)`
 `;
 
 export const IncidentTab = () => {
+    const { t } = useTranslation('entity.profile.incident');
     const { urn, entityType } = useEntityData();
-    const incidentStates = INCIDENT_DISPLAY_STATES;
+    const incidentStates = getIncidentDisplayStates();
     const [selectedIncidentState, setSelectedIncidentState] = useState<IncidentState | undefined>(IncidentState.Active);
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
@@ -62,28 +69,19 @@ export const IncidentTab = () => {
 
     const hasData = (data?.entity as any)?.incidents;
     const combinedData = (entityType === EntityType.Dataset && combineEntityDataWithSiblings(data)) || data;
-    const allIncidents =
+    const allIncidents: Incident[] =
         (combinedData && (combinedData as any).entity?.incidents?.incidents?.map((incident) => incident as Incident)) ||
         [];
     const filteredIncidents = allIncidents.filter(
-        (incident) => !selectedIncidentState || incident.status?.state === selectedIncidentState,
+        (incident) => !selectedIncidentState || incident.incidentStatus?.state === selectedIncidentState,
     );
-    const incidentList = filteredIncidents?.map((incident) => ({
-        urn: incident?.urn,
-        created: incident.created,
-        customType: incident.customType,
-        description: incident.description,
-        status: incident.status,
-        type: incident?.incidentType,
-        title: incident?.title,
-    }));
 
     return (
         <>
             <Header>
                 <TabToolbar>
                     <Button icon={<PlusOutlined />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
-                        Raise Incident
+                        {t('modal.title')}
                     </Button>
                     <AddIncidentModal
                         refetch={refetch}
@@ -117,14 +115,16 @@ export const IncidentTab = () => {
                         locale={{
                             emptyText: (
                                 <Empty
-                                    description={`No${
-                                        selectedIncidentState ? ` ${selectedIncidentState.toLocaleLowerCase()} ` : ''
-                                    } incidents`}
+                                    description={
+                                        selectedIncidentState
+                                            ? t('tab.emptyState', { state: selectedIncidentState.toLocaleLowerCase() })
+                                            : t('tab.emptyStateNoFilter')
+                                    }
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                                 />
                             ),
                         }}
-                        dataSource={incidentList}
+                        dataSource={filteredIncidents}
                         renderItem={(item: any) => <IncidentListItem refetch={refetch} incident={item} />}
                     />
                 </IncidentList>

@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.kafka.hydrator.EntityHydrator;
 import com.linkedin.metadata.kafka.hydrator.EntityType;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import lombok.Value;
@@ -74,11 +75,33 @@ public class DataHubUsageEventTransformer {
     }
 
     // Timestamp is required
-    if (!usageEvent.has(TIMESTAMP)) {
+    long timestampMillis;
+    if (usageEvent.get(TIMESTAMP).isNumber()) {
+      // Handle numeric timestamp (epoch milliseconds)
+      timestampMillis = usageEvent.get(TIMESTAMP).asLong();
+    } else if (usageEvent.get(TIMESTAMP).isTextual()) {
+      // Handle ISO date string
+      try {
+        String isoDate = usageEvent.get(TIMESTAMP).asText();
+        java.time.Instant instant = java.time.Instant.parse(isoDate);
+        timestampMillis = instant.toEpochMilli();
+      } catch (Exception e) {
+        log.warn(
+            "Failed to parse ISO date string: {}. Defaulting to current system time",
+            usageEvent.get(TIMESTAMP));
+        timestampMillis = Instant.now().toEpochMilli();
+      }
+    } else {
+      log.warn(
+          "Invalid timestamp format - expected number or ISO date string but got: {}",
+          usageEvent.get(TIMESTAMP));
       return Optional.empty();
     }
-    // Set @timestamp
-    eventDocument.put("@timestamp", usageEvent.get(TIMESTAMP).asLong());
+
+    log.debug("Raw timestamp value from event: {}", timestampMillis);
+    eventDocument.put("@timestamp", timestampMillis);
+    eventDocument.put("timestamp", timestampMillis);
+    log.debug("Event document after setting timestamps: {}", eventDocument);
 
     // Hydrate actor fields
     setFieldsForEntity(EntityType.CORP_USER, usageEvent.get(ACTOR_URN).asText(), eventDocument);
@@ -89,11 +112,11 @@ public class DataHubUsageEventTransformer {
     }
 
     try {
-      return Optional.of(
-          new TransformedDocument(
-              getId(eventDocument), OBJECT_MAPPER.writeValueAsString(eventDocument)));
+      String serializedDoc = OBJECT_MAPPER.writeValueAsString(eventDocument);
+      log.debug("Final serialized document: {}", serializedDoc);
+      return Optional.of(new TransformedDocument(getId(eventDocument), serializedDoc));
     } catch (JsonProcessingException e) {
-      log.info("Failed to package document: {}", eventDocument);
+      log.error("Failed to package document: {}", eventDocument);
       return Optional.empty();
     }
   }

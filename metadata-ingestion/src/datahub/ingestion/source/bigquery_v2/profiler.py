@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 from dateutil.relativedelta import relativedelta
+from sqlalchemy import create_engine, inspect
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
@@ -12,12 +13,22 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     RANGE_PARTITION_NAME,
     BigqueryTable,
 )
+from datahub.ingestion.source.profiling.common import (
+    create_datahub_ge_profiler,
+)
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +46,63 @@ class BigqueryProfiler(GenericProfiler):
         super().__init__(config, report, "bigquery", state_handler)
         self.config = config
         self.report = report
+
+    def get_profiler_instance(
+        self, db_name: Optional[str] = None
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+        # Override the parent so the SQLAlchemy engine reuses our in-memory
+        # bigquery.Client (built with explicit credentials) instead of letting
+        # the dialect fall back to google.auth.default() — which would require
+        # the GOOGLE_APPLICATION_CREDENTIALS env var to be set and would leak
+        # the service account key through the process environment.
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
+        logger.debug(f"Getting profiler instance from {self.platform}")
+        url = self.config.get_sql_alchemy_url()
+        connect_args: Dict[str, object] = {}
+        if self.config.has_explicit_credentials():
+            # user_supplied_client=true tells the BigQuery dialect to short
+            # circuit its own client construction and use the one we pass via
+            # connect_args. Requires sqlalchemy-bigquery>=1.5.0.
+            # Covers both the service-account and WIF paths — anywhere we hold
+            # an in-memory credential, we pass it through explicitly rather
+            # than leaking the key via GOOGLE_APPLICATION_CREDENTIALS.
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}user_supplied_client=true"
+            connect_args["client"] = self.config.get_bigquery_client()
+        logger.debug(f"sql_alchemy_url={url}")
+
+        engine = create_engine(url, connect_args=connect_args, **self.config.options)
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+
+        if self.config.profiling.method == "sqlalchemy":
+            logger.info(
+                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+            )
+            return SQLAlchemyProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        else:
+            # TODO: Remove this branch once Great Expectations is fully
+            # deprecated. The entire if/else then collapses to the
+            # SQLAlchemyProfiler return above.
+            logger.info(
+                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
+            )
+            return create_datahub_ge_profiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
 
     @staticmethod
     def get_partition_range_from_partition_id(
@@ -189,6 +257,7 @@ WHERE
 
         if len(profile_requests) == 0:
             return
+
         yield from self.generate_profile_workunits(
             profile_requests,
             max_workers=self.config.profiling.max_workers,
@@ -226,13 +295,25 @@ WHERE
             db_name, schema_name, bq_table, self.config.profiling.partition_datetime
         )
 
-        if partition is None and bq_table.partition_info:
+        # For partitioned tables, if it has a row count but not a valid partition, that means
+        # something went wrong with the partition detection. However, if it's a pseudo-partition
+        # (column=None), we should allow profiling to proceed.
+        # Note: If partition is None but partition_info exists and it's a pseudo-partition or
+        # the table has no rows, we still profile the entire table (matching GE profiler behavior).
+        if (
+            partition is None
+            and bq_table.partition_info
+            and bq_table.rows_count
+            and bq_table.partition_info.column
+            is not None  # Only skip if it's a real partitioned column, not a pseudo-partition
+        ):
             self.report.report_warning(
                 title="Profile skipped for partitioned table",
-                message="profile skipped as partitioned table is empty or partition id or type was invalid",
+                message="profile skipped as partition id or type was invalid",
                 context=profile_request.pretty_name,
             )
             return None
+
         if (
             partition is not None
             and not self.config.profiling.partition_profiling_enabled

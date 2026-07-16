@@ -1,17 +1,19 @@
 import { Checkbox, Select, Tag } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { ANTD_GRAY_V2 } from '../../../constants';
-import { getStructuredPropertyValue } from '../../../utils';
-import ValueDescription from '../../../entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
-import { AllowedValue } from '../../../../../../types.generated';
-import DropdownLabel from './DropdownLabel';
+
+import DropdownLabel from '@app/entity/shared/components/styled/StructuredProperty/DropdownLabel';
+import ValueDescription from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
+import { getStructuredPropertyValue } from '@app/entity/shared/utils';
+
+import { AllowedValue } from '@types';
 
 const StyledCheckbox = styled(Checkbox)`
     display: flex;
     margin: 0 0 4px 0;
     .ant-checkbox-inner {
-        border-color: ${ANTD_GRAY_V2[8]};
+        border-color: ${(props) => props.theme.colors.border};
     }
     &&& {
         margin-left: 0;
@@ -40,12 +42,13 @@ export default function MultiSelectInput({
     allowedValues,
     selectedValues,
 }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
     const shouldShowSelectDropdown = allowedValues.length > 5;
 
     return shouldShowSelectDropdown ? (
         <Select
             style={DROPDOWN_STYLE as any}
-            placeholder="Select"
+            placeholder={t('structuredProperty.selectPlaceholder')}
             value={selectedValues}
             mode="multiple"
             options={allowedValues.map((allowedValue) => ({

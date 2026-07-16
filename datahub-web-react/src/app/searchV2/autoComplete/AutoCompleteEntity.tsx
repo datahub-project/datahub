@@ -1,16 +1,18 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Entity, EntityType } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { getAutoCompleteEntityText } from './utils';
-import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
-import AutoCompleteEntityIcon from './AutoCompleteEntityIcon';
-import { SuggestionText } from './styledComponents';
-import AutoCompletePlatformNames from './AutoCompletePlatformNames';
-import { getPlatformName } from '../../entity/shared/utils';
-import { getParentEntities } from '../filters/utils';
-import ParentEntities from '../filters/ParentEntities';
+
+import { getPlatformName } from '@app/entity/shared/utils';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
+import AutoCompleteEntityIcon from '@app/searchV2/autoComplete/AutoCompleteEntityIcon';
+import AutoCompletePlatformNames from '@app/searchV2/autoComplete/AutoCompletePlatformNames';
+import { SuggestionText } from '@app/searchV2/autoComplete/styledComponents';
+import { getAutoCompleteEntityText } from '@app/searchV2/autoComplete/utils';
+import ParentEntities from '@app/searchV2/filters/ParentEntities';
+import { getParentEntities } from '@app/searchV2/filters/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityType } from '@types';
 
 const AutoCompleteEntityWrapper = styled.div`
     display: flex;
@@ -31,8 +33,8 @@ const ContentWrapper = styled.div`
 `;
 
 const Subtype = styled.span`
-    color: ${ANTD_GRAY_V2[8]};
-    border: 1px solid ${ANTD_GRAY_V2[6]};
+    color: ${(props) => props.theme.colors.textSecondary};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 16px;
     padding: 4px 8px;
     line-height: 12px;
@@ -45,10 +47,11 @@ const ItemHeader = styled.div`
     align-items: center;
     margin-bottom: 3px;
     gap: 8px;
+    font-size: 12px;
 `;
 
 const Divider = styled.div`
-    border-right: 1px solid ${ANTD_GRAY_V2[6]};
+    border-right: 1px solid ${(props) => props.theme.colors.border};
     height: 12px;
 `;
 
@@ -81,7 +84,7 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
 
     const parentContainers = genericEntityProps?.parentContainers?.containers || [];
 
-    const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
+    const subtype = getFirstSubType(genericEntityProps);
 
     // Parent entities are either a) containers or b) entity-type specific parents (glossary nodes, domains, etc)
     const parentEntities = (parentContainers?.length && parentContainers) || getParentEntities(entity) || [];
@@ -107,11 +110,7 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
                             {showParentEntities && <ParentEntities parentEntities={parentEntities} />}
                         </ItemHeader>
                     )}
-                    <Typography.Text
-                        ellipsis={
-                            hasParentTooltip ? {} : { tooltip: { title: displayName, color: 'rgba(0, 0, 0, 0.9)' } }
-                        }
-                    >
+                    <Typography.Text ellipsis={hasParentTooltip ? {} : { tooltip: { title: displayName } }}>
                         <Typography.Text strong>{matchedText}</Typography.Text>
                         {unmatchedText}
                     </Typography.Text>

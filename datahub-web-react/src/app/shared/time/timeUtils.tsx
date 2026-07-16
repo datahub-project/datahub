@@ -1,11 +1,29 @@
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import moment from 'moment';
-import { DateInterval } from '../../../types.generated';
+import i18next from 'i18next';
 
-dayjs.extend(relativeTime);
+import dayjs from '@utils/dayjs';
+import type { Dayjs, ManipulateType } from '@utils/dayjs';
 
-export const INTERVAL_TO_SECONDS = {
+import { DateInterval } from '@types';
+
+// Intl.supportedValuesOf omits a few common moment-timezone aliases. Keep this list focused on
+// customer-facing UTC/GMT variants and common business aliases that Java ZoneId accepts.
+const COMMON_TIMEZONE_ALIASES_SUPPORTED_BY_JAVA = [
+    'Asia/Kolkata',
+    'CET',
+    'Etc/GMT',
+    'Etc/UTC',
+    'GMT',
+    'US/Alaska',
+    'US/Arizona',
+    'US/Central',
+    'US/Eastern',
+    'US/Hawaii',
+    'US/Mountain',
+    'US/Pacific',
+    'UTC',
+];
+
+const INTERVAL_TO_SECONDS = {
     [DateInterval.Second]: 1,
     [DateInterval.Minute]: 60,
     [DateInterval.Hour]: 3600,
@@ -15,7 +33,7 @@ export const INTERVAL_TO_SECONDS = {
     [DateInterval.Year]: 31536000,
 };
 
-export const INTERVAL_TO_MS = {
+const INTERVAL_TO_MS = {
     [DateInterval.Second]: 1000,
     [DateInterval.Minute]: 60000,
     [DateInterval.Hour]: 3600000,
@@ -25,7 +43,7 @@ export const INTERVAL_TO_MS = {
     [DateInterval.Year]: 31536000000,
 };
 
-export const INTERVAL_TO_MOMENT_INTERVAL: { [key: string]: moment.DurationInputArg2 } = {
+const INTERVAL_TO_DURATION_UNIT: { [key: string]: ManipulateType } = {
     [DateInterval.Second]: 'seconds',
     [DateInterval.Minute]: 'minutes',
     [DateInterval.Hour]: 'hours',
@@ -40,9 +58,9 @@ export type TimeWindowSize = {
     count: number;
 };
 
-export type TimeWindowSizeMs = number;
+type TimeWindowSizeMs = number;
 
-export type TimeWindow = {
+type TimeWindow = {
     startTime: number;
     endTime: number;
 };
@@ -54,15 +72,12 @@ export type TimeWindow = {
  * @param interval a human-readable time interval
  * @param count the number of time intervals composing the window
  */
-export const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeMs => {
+const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeMs => {
     return INTERVAL_TO_SECONDS[windowSize.interval] * 1000 * windowSize.count;
 };
 
 export const addInterval = (interval_num: number, date: Date, interval: DateInterval): Date => {
-    return moment(date)
-        .utc()
-        .add(interval_num, INTERVAL_TO_MOMENT_INTERVAL[interval] as moment.DurationInputArg2)
-        .toDate();
+    return dayjs(date).utc().add(interval_num, INTERVAL_TO_DURATION_UNIT[interval]).toDate();
 };
 
 /**
@@ -83,9 +98,9 @@ export const getTimeWindowStart = (endTimeMillis: number, interval: DateInterval
  * @param windowSize the
  */
 export const getFixedLookbackWindow = (windowSize: TimeWindowSize): TimeWindow => {
-    const endTime = moment().valueOf();
-    const startTime = moment(endTime)
-        .subtract(windowSize.count, INTERVAL_TO_MOMENT_INTERVAL[windowSize.interval])
+    const endTime = dayjs().valueOf();
+    const startTime = dayjs(endTime)
+        .subtract(windowSize.count, INTERVAL_TO_DURATION_UNIT[windowSize.interval])
         .valueOf();
 
     return {
@@ -97,6 +112,15 @@ export const getFixedLookbackWindow = (windowSize: TimeWindowSize): TimeWindow =
 export const toLocalDateString = (timeMs: number) => {
     const date = new Date(timeMs);
     return date.toLocaleDateString();
+};
+
+// decommissionTime on the deprecation aspect has been persisted in both seconds and milliseconds
+// across DataHub versions. Values below this threshold are too small to be a plausible epoch-millis
+// timestamp, so we treat them as already being in seconds; larger values are treated as milliseconds.
+const DECOMMISSION_TIME_MILLIS_THRESHOLD = 943920000000;
+
+export const decommissionTimeToSeconds = (decommissionTime: number): number => {
+    return decommissionTime < DECOMMISSION_TIME_MILLIS_THRESHOLD ? decommissionTime : decommissionTime / 1000;
 };
 
 export const toLocalTimeString = (timeMs: number) => {
@@ -116,25 +140,19 @@ export const toLocalDateTimeString = (timeMs: number) => {
     });
 };
 
-export const toUTCDateTimeString = (timeMs: number) => {
-    const date = new Date(timeMs);
-    return date.toLocaleString([], {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'UTC',
-        timeZoneName: 'short',
-    });
-};
-
 export const getLocaleTimezone = () => {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 };
 
+export const getSupportedTimezones = () => {
+    const intlWithSupportedValues = Intl as unknown as { supportedValuesOf?: (input: string) => string[] };
+    const timezones = intlWithSupportedValues.supportedValuesOf?.('timeZone') || [];
+
+    return Array.from(new Set([...timezones, ...COMMON_TIMEZONE_ALIASES_SUPPORTED_BY_JAVA])).sort();
+};
+
 export const toRelativeTimeString = (timeMs: number | undefined) => {
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const rtf = new Intl.RelativeTimeFormat(i18next.language || 'en', { numeric: 'auto' });
 
     if (!timeMs) return null;
     const diffInMs = timeMs - new Date().getTime();
@@ -142,7 +160,7 @@ export const toRelativeTimeString = (timeMs: number | undefined) => {
     const diffInSeconds = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Second]);
 
     if (Math.abs(diffInSeconds) === 0) {
-        return 'just now';
+        return i18next.t('shared.time:justNow');
     }
 
     if (Math.abs(diffInSeconds) > 0 && Math.abs(diffInSeconds) <= 60) {
@@ -183,60 +201,64 @@ export function getTimeFromNow(timestampMillis) {
         return '';
     }
     const relativeTimeString = dayjs(timestampMillis).fromNow();
-    if (relativeTimeString === 'a few seconds ago') {
-        return 'now';
+    if (relativeTimeString === 'a few seconds ago' /* untranslated-text -- dayjs library output comparison value */) {
+        return i18next.t('shared.time:now');
     }
     return relativeTimeString;
 }
 
-export function getTimeRangeDescription(startDate: moment.Moment | null, endDate: moment.Moment | null): string {
+export function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs | null): string {
     if (!startDate && !endDate) {
-        return 'All Time';
+        return i18next.t('shared.time:allTime');
     }
 
     if (!startDate && endDate) {
-        return `Until ${endDate.format('ll')}`;
+        return i18next.t('shared.time:untilDate', { date: endDate.format('ll') });
     }
 
     if (startDate && !endDate) {
-        return `From ${startDate.format('ll')}`;
+        return i18next.t('shared.time:fromDate', { date: startDate.format('ll') });
     }
 
     if (startDate && endDate) {
-        if (endDate && endDate.isSame(moment(), 'day')) {
-            const startDateRelativeTime = moment().diff(startDate, 'days');
-            return `Last ${startDateRelativeTime} days`;
+        if (endDate && endDate.isSame(dayjs(), 'day')) {
+            const startDateRelativeTime = dayjs().diff(startDate, 'days');
+            return i18next.t('shared.time:lastDaysCount', { count: startDateRelativeTime });
         }
 
         if (endDate.isSame(startDate, 'day')) {
             return startDate.format('ll');
         }
-        return `${startDate.format('ll')} - ${endDate.format('ll')}`;
+        return i18next.t('shared.time:dateRange', {
+            startDate: startDate.format('ll'),
+            endDate: endDate.format('ll'),
+        });
     }
 
-    return 'Unknown time range';
+    return i18next.t('shared.time:unknownTimeRange');
 }
 
 export function formatDuration(durationMs: number): string {
-    const duration = moment.duration(durationMs);
+    const duration = dayjs.duration(durationMs);
     const hours = Math.floor(duration.asHours());
     const minutes = duration.minutes();
     const seconds = duration.seconds();
 
     if (hours === 0 && minutes === 0) {
-        return seconds === 1 ? `${seconds} sec` : `${seconds} secs`;
+        return i18next.t('shared.time:durationSecondsCount', { count: seconds });
     }
 
     if (hours === 0) {
-        return minutes === 1 ? `${minutes} min` : `${minutes} mins`;
+        return i18next.t('shared.time:durationMinutesCount', { count: minutes });
     }
 
-    const minuteStr = minutes > 0 ? ` ${minutes} mins` : '';
-    return hours === 1 ? `${hours} hr${minuteStr}` : `${hours} hrs${minuteStr}`;
+    const hourStr = i18next.t('shared.time:durationHoursCount', { count: hours });
+    const minuteStr = minutes > 0 ? ` ${i18next.t('shared.time:durationMinutesCount', { count: minutes })}` : '';
+    return `${hourStr}${minuteStr}`;
 }
 
 export function formatDetailedDuration(durationMs: number): string {
-    const duration = moment.duration(durationMs);
+    const duration = dayjs.duration(durationMs);
     const hours = Math.floor(duration.asHours());
     const minutes = duration.minutes();
     const seconds = duration.seconds();
@@ -244,13 +266,13 @@ export function formatDetailedDuration(durationMs: number): string {
     const parts: string[] = [];
 
     if (hours > 0) {
-        parts.push(hours === 1 ? `${hours} hr` : `${hours} hrs`);
+        parts.push(i18next.t('shared.time:durationHoursCount', { count: hours }));
     }
     if (minutes > 0) {
-        parts.push(minutes === 1 ? `${minutes} min` : `${minutes} mins`);
+        parts.push(i18next.t('shared.time:durationMinutesCount', { count: minutes }));
     }
     if (seconds > 0) {
-        parts.push(seconds === 1 ? `${seconds} sec` : `${seconds} secs`);
+        parts.push(i18next.t('shared.time:durationSecondsCount', { count: seconds }));
     }
     return parts.join(' ');
 }

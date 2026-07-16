@@ -1,4 +1,5 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+
 import {
     DataPlatform,
     Deprecation,
@@ -75,4 +76,5 @@ export interface FetchedEntityV2 {
     parent?: GenericEntityProperties; // Schema field parent
     structuredProperties?: StructuredProperties;
     deprecation?: Deprecation;
+    genericEntityProperties?: GenericEntityProperties;
 }

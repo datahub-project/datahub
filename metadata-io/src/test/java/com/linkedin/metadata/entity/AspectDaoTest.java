@@ -27,7 +27,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
@@ -61,7 +62,7 @@ public class AspectDaoTest {
 
             // Create a tracer
             Tracer tracer = openTelemetry.getTracer("test-tracer");
-            return TraceContext.builder().tracer(tracer).build();
+            return SystemTelemetryContext.builder().tracer(tracer).build();
           });
   private final EntitySpec corpUserEntitySpec =
       opContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME);
@@ -96,7 +97,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, null, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, null, newAspect, 2);
 
     // Verify
     assertFalse(result.getFirst().isPresent(), "Should not have inserted previous version");
@@ -114,11 +115,28 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
     // Verify
     assertTrue(result.getFirst().isPresent(), "Should have inserted previous version");
     assertTrue(result.getSecond().isPresent(), "Should have updated current version");
+  }
+
+  @Test
+  public void testSaveLatestAspect_MaxVersionsOne_NoHistoryRow() {
+    // When maxVersionsToKeep <= 1, no previous-version row is inserted (only version 0 updated)
+    SystemAspect currentAspect = createSystemAspect("1");
+    SystemAspect newAspect = createSystemAspect("2");
+    SystemAspect dbAspect = createSystemAspect("1");
+    currentAspect.setDatabaseAspect(dbAspect);
+
+    Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 1);
+
+    assertFalse(
+        result.getFirst().isPresent(),
+        "Should not insert previous version when maxVersionsToKeep=1");
+    assertTrue(result.getSecond().isPresent(), "Should still update version 0");
   }
 
   @Test
@@ -134,7 +152,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
     // Verify
     assertFalse(result.getFirst().isPresent(), "Should not have inserted previous version");
@@ -152,7 +170,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
     // Verify
     assertFalse(result.getFirst().isPresent(), "Should not have inserted previous version");
@@ -178,7 +196,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, null, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, null, currentAspect, newAspect, 2);
 
     // Verify
     assertTrue(result.getFirst().isPresent(), "Should have inserted previous version");
@@ -195,7 +213,7 @@ public class AspectDaoTest {
     currentAspect.setDatabaseAspect(dbAspect);
 
     // Execute - should throw IllegalArgumentException
-    aspectDao.saveLatestAspect(opContext, null, currentAspect, newAspect);
+    aspectDao.saveLatestAspect(opContext, null, currentAspect, newAspect, 2);
   }
 
   @Test
@@ -208,7 +226,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
     // Verify
     assertTrue(result.getFirst().isPresent(), "Should have inserted previous version");
@@ -228,7 +246,7 @@ public class AspectDaoTest {
     SystemAspect newAspect = createSystemAspect(null);
 
     // Execute - should throw IllegalArgumentException
-    aspectDao.saveLatestAspect(opContext, null, null, newAspect);
+    aspectDao.saveLatestAspect(opContext, null, null, newAspect, 2);
   }
 
   @Test
@@ -241,7 +259,7 @@ public class AspectDaoTest {
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+        aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
     // Verify
     // Should not have any changes since it's a true no-op (same version and content)
@@ -276,7 +294,7 @@ public class AspectDaoTest {
 
           // Execute
           Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-              aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+              aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
           // Verify
           assertFalse(result.getFirst().isPresent(), "Should not have inserted previous version");
@@ -316,7 +334,7 @@ public class AspectDaoTest {
 
           // Execute
           Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-              aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+              aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
           // Verify
           assertTrue(result.getFirst().isPresent(), "Should have inserted previous version");
@@ -373,7 +391,7 @@ public class AspectDaoTest {
 
           // Execute
           Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
-              aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect);
+              aspectDao.saveLatestAspect(opContext, txContext, currentAspect, newAspect, 2);
 
           // Verify
           assertTrue(result.getSecond().isPresent(), "Should have updated current version");
@@ -399,24 +417,32 @@ public class AspectDaoTest {
   private class TestAspectDao implements AspectDao {
 
     @Override
-    public EntityAspect getAspect(String urn, String aspectName, long version) {
+    public EntityAspect getAspect(
+        @Nonnull OperationContext opContext, String urn, String aspectName, long version) {
       return null;
     }
 
     @Override
-    public EntityAspect getAspect(EntityAspectIdentifier key) {
+    public EntityAspect getAspect(
+        @Nonnull OperationContext opContext, @Nonnull EntityAspectIdentifier key) {
       return null;
     }
 
     @Override
     public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-        Set<EntityAspectIdentifier> keys, boolean forUpdate) {
+        @Nonnull OperationContext opContext,
+        @Nonnull Set<EntityAspectIdentifier> keys,
+        boolean forUpdate) {
       return null;
     }
 
     @Override
     public List<EntityAspect> getAspectsInRange(
-        Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
+        @Nonnull OperationContext opContext,
+        @Nonnull Urn urn,
+        Set<String> aspectNames,
+        long startTimeMillis,
+        long endTimeMillis) {
       return null;
     }
 
@@ -428,34 +454,56 @@ public class AspectDaoTest {
 
     @Nonnull
     @Override
-    public Optional<EntityAspect> updateAspect(TransactionContext txContext, SystemAspect aspect) {
+    public Optional<EntityAspect> updateAspect(
+        OperationContext operationContext, TransactionContext txContext, SystemAspect aspect) {
       return Optional.of(aspect.withVersion(0));
     }
 
     @Nonnull
     @Override
     public Optional<EntityAspect> insertAspect(
-        TransactionContext txContext, SystemAspect aspect, long version) {
+        OperationContext operationContext,
+        TransactionContext txContext,
+        SystemAspect aspect,
+        long version) {
       return Optional.of(aspect.withVersion(version));
     }
 
     // Implementing remaining interface methods
     @Override
-    public void deleteAspect(Urn urn, String aspect, Long version) {}
+    public void deleteAspect(
+        OperationContext operationContext, Urn urn, String aspect, Long version) {}
 
     @Override
     public ListResult<String> listUrns(
-        String entityName, String aspectName, int start, int pageSize) {
+        OperationContext operationContext,
+        String entityName,
+        String aspectName,
+        int start,
+        int pageSize) {
       return null;
     }
 
     @Override
-    public Integer countAspect(String aspectName, String urnLike) {
+    public Integer countAspect(
+        OperationContext operationContext, String aspectName, String urnLike) {
       return null;
     }
 
     @Override
-    public PartitionedStream<EbeanAspectV2> streamAspectBatches(RestoreIndicesArgs args) {
+    public Integer countAspect(OperationContext operationContext, RestoreIndicesArgs args) {
+      return null;
+    }
+
+    @Override
+    public PartitionedStream<EbeanAspectV2> streamAspectBatches(
+        OperationContext opContext, RestoreIndicesArgs args) {
+      return null;
+    }
+
+    @Override
+    public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
+        Map<String, Long> aspectTargetVersions, long afterCreatedOnMs, int batchSize, int limit) {
       return null;
     }
 
@@ -465,34 +513,50 @@ public class AspectDaoTest {
     }
 
     @Override
-    public int deleteUrn(TransactionContext txContext, String urn) {
+    public int deleteUrn(
+        @Nonnull OperationContext opContext,
+        @Nullable TransactionContext txContext,
+        @Nonnull final String urn) {
       return 0;
     }
 
     @Override
     public ListResult<String> listLatestAspectMetadata(
-        String entityName, String aspectName, int start, int pageSize) {
+        OperationContext operationContext,
+        String entityName,
+        String aspectName,
+        int start,
+        int pageSize) {
       return null;
     }
 
     @Override
     public ListResult<String> listAspectMetadata(
-        String entityName, String aspectName, long version, int start, int pageSize) {
+        OperationContext operationContext,
+        String entityName,
+        String aspectName,
+        long version,
+        int start,
+        int pageSize) {
       return null;
     }
 
     @Override
-    public Map<String, Map<String, Long>> getNextVersions(Map<String, Set<String>> urnAspectMap) {
+    public Map<String, Map<String, Long>> getNextVersions(
+        @Nonnull OperationContext opContext,
+        @Nonnull Map<String, Set<String>> urnAspectMap,
+        boolean lockLatestForWrite) {
       return null;
     }
 
     @Override
-    public long getMaxVersion(String urn, String aspectName) {
+    public long getMaxVersion(OperationContext operationContext, String urn, String aspectName) {
       return 0;
     }
 
     @Override
-    public Pair<Long, Long> getVersionRange(String urn, String aspectName) {
+    public Pair<Long, Long> getVersionRange(
+        OperationContext operationContext, String urn, String aspectName) {
       return null;
     }
 
@@ -501,8 +565,22 @@ public class AspectDaoTest {
 
     @Override
     public <T> Optional<T> runInTransactionWithRetry(
-        Function<TransactionContext, TransactionResult<T>> block, int maxTransactionRetry) {
+        OperationContext operationContext,
+        Function<TransactionContext, TransactionResult<T>> block,
+        int maxTransactionRetry) {
       return Optional.empty();
+    }
+
+    @Nonnull
+    @Override
+    public List<com.linkedin.metadata.aspect.SystemAspectValidator> getSystemAspectValidators() {
+      return java.util.Collections.emptyList();
+    }
+
+    @Nullable
+    @Override
+    public com.linkedin.metadata.config.AspectSizeValidationConfiguration getValidationConfig() {
+      return null;
     }
   }
 }

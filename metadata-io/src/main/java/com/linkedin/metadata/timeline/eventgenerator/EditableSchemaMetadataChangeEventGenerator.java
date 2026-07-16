@@ -2,14 +2,15 @@ package com.linkedin.metadata.timeline.eventgenerator;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils.*;
+import static com.linkedin.metadata.utils.SchemaFieldUtils.generateSchemaFieldUrn;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -20,6 +21,7 @@ import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import jakarta.json.JsonPatch;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -57,25 +59,36 @@ public class EditableSchemaMetadataChangeEventGenerator
   private static List<ChangeEvent> getAllChangeEvents(
       EditableSchemaFieldInfo baseFieldInfo,
       EditableSchemaFieldInfo targetFieldInfo,
-      String entityUrn,
+      Urn datasetUrn,
       ChangeCategory changeCategory,
       AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    Urn datasetFieldUrn = getDatasetFieldUrn(baseFieldInfo, targetFieldInfo, entityUrn);
+    Urn datasetFieldUrn = getDatasetFieldUrn(baseFieldInfo, targetFieldInfo, datasetUrn);
     if (changeCategory == ChangeCategory.DOCUMENTATION) {
       ChangeEvent documentationChangeEvent =
           getDocumentationChangeEvent(baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp);
       if (documentationChangeEvent != null) {
+        if (targetFieldInfo != null || baseFieldInfo != null) {
+          String fieldPath =
+              targetFieldInfo != null
+                  ? targetFieldInfo.getFieldPath()
+                  : baseFieldInfo.getFieldPath();
+          documentationChangeEvent =
+              convertEntityDocumentationChangeEvent(
+                  fieldPath, datasetUrn, documentationChangeEvent);
+        }
         changeEvents.add(documentationChangeEvent);
       }
     }
     if (changeCategory == ChangeCategory.TAG) {
       changeEvents.addAll(
-          getTagChangeEvents(baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp));
+          getTagChangeEvents(
+              baseFieldInfo, targetFieldInfo, datasetFieldUrn, datasetUrn, auditStamp));
     }
     if (changeCategory == ChangeCategory.GLOSSARY_TERM) {
       changeEvents.addAll(
-          getGlossaryTermChangeEvents(baseFieldInfo, targetFieldInfo, datasetFieldUrn, auditStamp));
+          getGlossaryTermChangeEvents(
+              baseFieldInfo, targetFieldInfo, datasetFieldUrn, datasetUrn, auditStamp));
     }
     return changeEvents;
   }
@@ -83,7 +96,7 @@ public class EditableSchemaMetadataChangeEventGenerator
   private static List<ChangeEvent> computeDiffs(
       EditableSchemaMetadata baseEditableSchemaMetadata,
       EditableSchemaMetadata targetEditableSchemaMetadata,
-      String entityUrn,
+      Urn datasetUrn,
       ChangeCategory changeCategory,
       AuditStamp auditStamp) {
     sortEditableSchemaMetadataByFieldPath(baseEditableSchemaMetadata);
@@ -94,7 +107,9 @@ public class EditableSchemaMetadataChangeEventGenerator
             ? baseEditableSchemaMetadata.getEditableSchemaFieldInfo()
             : new EditableSchemaFieldInfoArray();
     EditableSchemaFieldInfoArray targetFieldInfos =
-        targetEditableSchemaMetadata.getEditableSchemaFieldInfo();
+        (targetEditableSchemaMetadata != null)
+            ? targetEditableSchemaMetadata.getEditableSchemaFieldInfo()
+            : new EditableSchemaFieldInfoArray();
     int baseIdx = 0;
     int targetIdx = 0;
     while (baseIdx < baseFieldInfos.size() && targetIdx < targetFieldInfos.size()) {
@@ -104,18 +119,18 @@ public class EditableSchemaMetadataChangeEventGenerator
       if (comparison == 0) {
         changeEvents.addAll(
             getAllChangeEvents(
-                baseFieldInfo, targetFieldInfo, entityUrn, changeCategory, auditStamp));
+                baseFieldInfo, targetFieldInfo, datasetUrn, changeCategory, auditStamp));
         ++baseIdx;
         ++targetIdx;
       } else if (comparison < 0) {
         // EditableFieldInfo got removed.
         changeEvents.addAll(
-            getAllChangeEvents(baseFieldInfo, null, entityUrn, changeCategory, auditStamp));
+            getAllChangeEvents(baseFieldInfo, null, datasetUrn, changeCategory, auditStamp));
         ++baseIdx;
       } else {
         // EditableFieldInfo got added.
         changeEvents.addAll(
-            getAllChangeEvents(null, targetFieldInfo, entityUrn, changeCategory, auditStamp));
+            getAllChangeEvents(null, targetFieldInfo, datasetUrn, changeCategory, auditStamp));
         ++targetIdx;
       }
     }
@@ -124,14 +139,14 @@ public class EditableSchemaMetadataChangeEventGenerator
       // Handle removed baseFieldInfo
       EditableSchemaFieldInfo baseFieldInfo = baseFieldInfos.get(baseIdx);
       changeEvents.addAll(
-          getAllChangeEvents(baseFieldInfo, null, entityUrn, changeCategory, auditStamp));
+          getAllChangeEvents(baseFieldInfo, null, datasetUrn, changeCategory, auditStamp));
       ++baseIdx;
     }
     while (targetIdx < targetFieldInfos.size()) {
       // Handle newly added targetFieldInfo
       EditableSchemaFieldInfo targetFieldInfo = targetFieldInfos.get(targetIdx);
       changeEvents.addAll(
-          getAllChangeEvents(null, targetFieldInfo, entityUrn, changeCategory, auditStamp));
+          getAllChangeEvents(null, targetFieldInfo, datasetUrn, changeCategory, auditStamp));
       ++targetIdx;
     }
     return changeEvents;
@@ -218,6 +233,7 @@ public class EditableSchemaMetadataChangeEventGenerator
       EditableSchemaFieldInfo baseFieldInfo,
       EditableSchemaFieldInfo targetFieldInfo,
       Urn datasetFieldUrn,
+      Urn parentUrn,
       AuditStamp auditStamp) {
     GlossaryTerms baseGlossaryTerms =
         (baseFieldInfo != null) ? baseFieldInfo.getGlossaryTerms() : null;
@@ -234,7 +250,7 @@ public class EditableSchemaMetadataChangeEventGenerator
           targetFieldInfo != null ? targetFieldInfo.getFieldPath() : baseFieldInfo.getFieldPath();
       // 2. Convert EntityGlossaryTermChangeEvent into a SchemaFieldGlossaryTermChangeEvent.
       return convertEntityGlossaryTermChangeEvents(
-          fieldPath, datasetFieldUrn, entityGlossaryTermsChangeEvents);
+          fieldPath, parentUrn, entityGlossaryTermsChangeEvents);
     }
 
     return Collections.emptyList();
@@ -244,6 +260,7 @@ public class EditableSchemaMetadataChangeEventGenerator
       EditableSchemaFieldInfo baseFieldInfo,
       EditableSchemaFieldInfo targetFieldInfo,
       Urn datasetFieldUrn,
+      Urn parentUrn,
       AuditStamp auditStamp) {
     GlobalTags baseGlobalTags = (baseFieldInfo != null) ? baseFieldInfo.getGlobalTags() : null;
     GlobalTags targetGlobalTags =
@@ -258,7 +275,7 @@ public class EditableSchemaMetadataChangeEventGenerator
       String fieldPath =
           targetFieldInfo != null ? targetFieldInfo.getFieldPath() : baseFieldInfo.getFieldPath();
       // 2. Convert EntityTagChangeEvent into a SchemaFieldTagChangeEvent.
-      return convertEntityTagChangeEvents(fieldPath, datasetFieldUrn, entityTagChangeEvents);
+      return convertEntityTagChangeEvents(fieldPath, parentUrn, entityTagChangeEvents);
     }
 
     return Collections.emptyList();
@@ -276,8 +293,9 @@ public class EditableSchemaMetadataChangeEventGenerator
       throw new IllegalArgumentException("EntityAspect currentValue should not be null");
     }
 
-    if (!previousValue.getAspect().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
-        || !currentValue.getAspect().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)) {
+    if (!currentValue.getAspect().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+        || (previousValue != null
+            && !previousValue.getAspect().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))) {
       throw new IllegalArgumentException("Aspect is not " + EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
     }
 
@@ -287,13 +305,17 @@ public class EditableSchemaMetadataChangeEventGenerator
         getEditableSchemaMetadataFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (SUPPORTED_CATEGORIES.contains(element)) {
-      changeEvents.addAll(
-          computeDiffs(
-              baseEditableSchemaMetadata,
-              targetEditableSchemaMetadata,
-              currentValue.getUrn(),
-              element,
-              null));
+      try {
+        changeEvents.addAll(
+            computeDiffs(
+                baseEditableSchemaMetadata,
+                targetEditableSchemaMetadata,
+                DatasetUrn.createFromString(currentValue.getUrn()),
+                element,
+                null));
+      } catch (URISyntaxException e) {
+        throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
+      }
     }
 
     // Assess the highest change at the transaction(schema) level.
@@ -324,37 +346,24 @@ public class EditableSchemaMetadataChangeEventGenerator
     final List<ChangeEvent> changeEvents = new ArrayList<>();
     changeEvents.addAll(
         computeDiffs(
-            from.getValue(),
-            to.getValue(),
-            urn.toString(),
-            ChangeCategory.DOCUMENTATION,
-            auditStamp));
+            from.getValue(), to.getValue(), urn, ChangeCategory.DOCUMENTATION, auditStamp));
+    changeEvents.addAll(
+        computeDiffs(from.getValue(), to.getValue(), urn, ChangeCategory.TAG, auditStamp));
     changeEvents.addAll(
         computeDiffs(
-            from.getValue(), to.getValue(), urn.toString(), ChangeCategory.TAG, auditStamp));
+            from.getValue(), to.getValue(), urn, ChangeCategory.TECHNICAL_SCHEMA, auditStamp));
     changeEvents.addAll(
         computeDiffs(
-            from.getValue(),
-            to.getValue(),
-            urn.toString(),
-            ChangeCategory.TECHNICAL_SCHEMA,
-            auditStamp));
-    changeEvents.addAll(
-        computeDiffs(
-            from.getValue(),
-            to.getValue(),
-            urn.toString(),
-            ChangeCategory.GLOSSARY_TERM,
-            auditStamp));
+            from.getValue(), to.getValue(), urn, ChangeCategory.GLOSSARY_TERM, auditStamp));
     return changeEvents;
   }
 
   private static Urn getDatasetFieldUrn(
       final EditableSchemaFieldInfo previous,
       final EditableSchemaFieldInfo latest,
-      String entityUrn) {
+      Urn datasetUrn) {
     return previous != null
-        ? getSchemaFieldUrn(UrnUtils.getUrn(entityUrn), previous.getFieldPath())
-        : getSchemaFieldUrn(UrnUtils.getUrn(entityUrn), latest.getFieldPath());
+        ? generateSchemaFieldUrn(datasetUrn, previous.getFieldPath())
+        : generateSchemaFieldUrn(datasetUrn, latest.getFieldPath());
   }
 }

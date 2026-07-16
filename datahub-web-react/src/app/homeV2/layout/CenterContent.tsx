@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import { RecentActions } from '@app/homeV2/content/recent/RecentActions';
+import { CenterTabs } from '@app/homeV2/content/tabs/CenterTabs';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { RecentActions } from '../content/recent/RecentActions';
-import { CenterTabs } from '../content/tabs/CenterTabs';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
@@ -21,9 +22,9 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         `
         margin: 0 5px 0 5px;
         border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowSm};
         height: calc(100vh - 87px);
-        background-color: white;
+        background-color: ${props.theme.colors.bg};
     `}
 
     display: flex;

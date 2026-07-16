@@ -1,15 +1,18 @@
-import React from 'react';
-import { Button, Typography } from 'antd';
 import { FilterOutlined } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import TabToolbar from '../TabToolbar';
-import { SearchBar } from '../../../../../search/SearchBar';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { AndFilterInput } from '../../../../../../types.generated';
-import SearchExtendedMenu from './SearchExtendedMenu';
-import { SearchSelectBar } from './SearchSelectBar';
-import { EntityAndType } from '../../../types';
-import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
+
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import SearchExtendedMenu from '@app/entity/shared/components/styled/search/SearchExtendedMenu';
+import { SearchSelectBar } from '@app/entity/shared/components/styled/search/SearchSelectBar';
+import { EntityAndType } from '@app/entity/shared/types';
+import { SearchBar } from '@app/search/SearchBar';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { AndFilterInput } from '@types';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -62,6 +65,7 @@ export default function EmbeddedListSearchHeader({
     searchBarInputStyle,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entityV1.shared.components');
 
     return (
         <>
@@ -69,13 +73,13 @@ export default function EmbeddedListSearchHeader({
                 <HeaderContainer>
                     <Button type="text" onClick={onToggleFilters}>
                         <FilterOutlined />
-                        <Typography.Text>Filters</Typography.Text>
+                        <Typography.Text>{t('embeddedListSearch.filters')}</Typography.Text>
                     </Button>
                     <SearchAndDownloadContainer>
                         <SearchBar
                             data-testid="embedded-search-bar"
                             initialQuery=""
-                            placeholderText={placeholderText || 'Search entities...'}
+                            placeholderText={placeholderText || t('embeddedListSearch.searchPlaceholder')}
                             suggestions={[]}
                             style={
                                 searchBarStyle || {

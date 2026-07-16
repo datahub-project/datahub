@@ -9,7 +9,7 @@ import { retry } from "@octokit/plugin-retry";
 // Note: this must be executed within the docs-website directory.
 
 // Constants.
-const HOSTED_SITE_URL = "https://datahubproject.io";
+const HOSTED_SITE_URL = "https://docs.datahub.com";
 const GITHUB_EDIT_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 const GITHUB_BROWSE_URL =
@@ -60,7 +60,9 @@ function accounted_for_in_sidebar(filepath: string): boolean {
 }
 
 function list_markdown_files(): string[] {
-  let all_markdown_files = execSync("git ls-files --full-name .. | grep '.md$'")
+  let all_markdown_files = execSync(
+    "git ls-files --full-name .. | grep '\\.md$'"
+  )
     .toString()
     .trim()
     .split("\n");
@@ -76,7 +78,7 @@ function list_markdown_files(): string[] {
   if (!process.env.CI) {
     // If not in CI, we also include "untracked" files.
     const untracked_files = execSync(
-      "(git ls-files --full-name --others --exclude-standard .. | grep '.md$') || true"
+      "(git ls-files --full-name --others --exclude-standard .. | grep '\\.md$') || true"
     )
       .toString()
       .trim()
@@ -92,7 +94,7 @@ function list_markdown_files(): string[] {
 
     // But we should also exclude any files that have been deleted.
     const deleted_files = execSync(
-      "(git ls-files --full-name --deleted --exclude-standard .. | grep '.md$') || true"
+      "(git ls-files --full-name --deleted --exclude-standard .. | grep '\\.md$') || true"
     )
       .toString()
       .trim()
@@ -109,8 +111,13 @@ function list_markdown_files(): string[] {
   const filter_patterns = [
     // We don't need our issue and pull request templates.
     /^\.github\//,
+    // Ignore hidden/dot directories at the repo root (e.g. .claude, .agent-skills, .cursor).
+    /^\.[^/]+\//,
     // Ignore everything within this directory.
     /^docs-website\//,
+    // Ignore third-party dependencies and library documentation.
+    /^node_modules\//,
+    /^vendor\//,
     // Don't want hosted docs for these.
     /^contrib\//,
     // Keep main docs for kubernetes, but skip the inner docs.
@@ -124,6 +131,7 @@ function list_markdown_files(): string[] {
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^docs\/rfcs\/template\.md/, // RFC template file should not be processed
     /^\s*$/, //Empty string
   ];
 
@@ -171,8 +179,8 @@ function get_slug(filepath: string): string {
 }
 
 const hardcoded_titles = {
-  "README.md": "Introduction",
-  "docs/actions/README.md": "Introduction",
+  "README.md": "DataHub Docs Overview",
+  "docs/actions/README.md": "DataHub Actions Framework",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
   "docs/saas.md": "DataHub Cloud",
@@ -258,8 +266,55 @@ function markdown_add_edit_url(
   contents: matter.GrayMatterFile<string>,
   filepath: string
 ): void {
-  const editUrl = `${GITHUB_EDIT_URL}/${filepath}`;
-  contents.data.custom_edit_url = editUrl;
+  // 1. Intercept auto-generated files (Ingestion, Metamodel, Lineage, etc.) OR metadata-integration docs
+  if (
+    filepath.startsWith("docs/generated/") ||
+    filepath.includes("metadata-integration")
+  ) {
+    // Hide the default broken Docusaurus edit button
+    contents.data.custom_edit_url = null;
+
+    // Set up default routing for the DevRel note
+    let sourceLink = "https://github.com/datahub-project/datahub";
+    let guideLink = "https://docs.datahub.com/docs/contributing";
+    let folderName = "DataHub repository";
+
+    // Route specifically for ingestion docs
+    if (filepath.startsWith("docs/generated/ingestion")) {
+      sourceLink =
+        "https://github.com/datahub-project/datahub/tree/master/metadata-ingestion";
+      folderName = "metadata-ingestion";
+    }
+    // Route specifically for metamodel docs
+    else if (filepath.startsWith("docs/generated/metamodel")) {
+      sourceLink =
+        "https://github.com/datahub-project/datahub/tree/master/metadata-models";
+      folderName = "metadata-models";
+    }
+
+    // Route for Java/Spark/Protobuf integrations
+    else if (filepath.includes("metadata-integration")) {
+      sourceLink =
+        "https://github.com/datahub-project/datahub/tree/master/metadata-integration";
+      folderName = "metadata-integration";
+    }
+
+    // Create the DevRel bridge (A clean note at the bottom of the page)
+    const devRelNote = `\n\n
+:::note 💡 **Contributing to this documentation**
+This page is auto-generated from the underlying source code. To make changes, please edit the relevant source files in the [${folderName}](${sourceLink}) directory. 
+
+**Tip:** For quick typo fixes or documentation updates, you can click the ✏️ **Edit** icon directly in the GitHub UI to open a Pull Request. For larger changes and PR naming conventions, please refer to our [Contributing Guide](${guideLink}).
+:::\n`;
+
+    // Append the note to the bottom of the markdown content
+    contents.content = contents.content + devRelNote;
+  }
+  // 2. Standard behavior for manually written, Git-tracked docs
+  else {
+    const editUrl = `${GITHUB_EDIT_URL}/${filepath}`;
+    contents.data.custom_edit_url = editUrl;
+  }
 }
 
 function markdown_add_slug(
@@ -282,6 +337,10 @@ function markdown_add_slug(
 //       "/imgs/platform-logos"
 //   );
 // }
+
+function preprocess_url(url: string): string {
+  return url.trim().replace(/^<(.+)>$/, "$1");
+}
 
 function trim_anchor_link(url: string): string {
   return url.replace(/#.+$/, "");
@@ -382,7 +441,7 @@ function markdown_rewrite_urls(
       // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
       /\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
       (_, text, url) => {
-        const updated = new_url(url.trim(), filepath);
+        const updated = new_url(preprocess_url(url), filepath);
         return `[${text}](${updated})`;
       }
     )
@@ -390,7 +449,7 @@ function markdown_rewrite_urls(
       // Also look for the [text]: url syntax.
       /^\[([^^\n\r]+?)\]\s*:\s*(.+?)\s*$/gm,
       (_, text, url) => {
-        const updated = new_url(url, filepath);
+        const updated = new_url(preprocess_url(url), filepath);
         return `[${text}]: ${updated}`;
       }
     );
@@ -412,8 +471,18 @@ function markdown_process_inline_directives(
   filepath: string
 ): void {
   const new_content = contents.content.replace(
-    /^{{\s+inline\s+(\S+)\s+(show_path_as_comment\s+)?\s*}}$/gm,
-    (_, inline_file_path: string, show_path_as_comment: string) => {
+    // Use [ \t]* (not \s*) for the leading-indent capture so a preceding blank
+    // line's \n isn't swallowed and prepended to every embedded line, which
+    // would insert blank lines between rows of an embedded table.
+    /^([ \t]*){{(\s*)inline\s+(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$/gm,
+    (
+      _,
+      indent: string,
+      __,
+      inline_file_path: string,
+      ___,
+      show_path_as_comment: string
+    ) => {
       if (!inline_file_path.startsWith("/")) {
         throw new Error(`inline path must be absolute: ${inline_file_path}`);
       }
@@ -428,9 +497,14 @@ function markdown_process_inline_directives(
       // that can be used to limit the inlined content to a specific range of lines.
       let new_contents = "";
       if (show_path_as_comment) {
-        new_contents += `# Inlined from ${inline_file_path}\n`;
+        new_contents += `${indent}# Inlined from ${inline_file_path}\n`;
       }
-      new_contents += referenced_file;
+
+      // Add indentation to each line of the referenced file
+      new_contents += referenced_file
+        .split("\n")
+        .map((line) => `${indent}${line}`)
+        .join("\n");
 
       return new_contents;
     }
@@ -555,7 +629,9 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   // Full details
   for (const release of releases_list) {
     let body: string;
-    if (releaseNoteVersions.has(release.tag_name)) {
+    if (release.tag_name === "v1.1.0") {
+      body = `View the [release notes](${release.html_url}) for ${release.name} on GitHub.`;
+    } else if (releaseNoteVersions.has(release.tag_name)) {
       body = release.body ?? "";
       body = markdown_sanitize_and_linkify(body);
 
@@ -655,8 +731,8 @@ function write_markdown_file(
       continue;
     }
     if (!accounted_for_in_sidebar(filepath)) {
-      throw new Error(
-        `File not accounted for in sidebar: ${filepath} - try adding it to docs-website/sidebars.js`
+      console.warn(
+        `File not accounted for in sidebar: ${filepath} - consider adding it to docs-website/sidebars.js or explicitly ignoring it`
       );
     }
   }

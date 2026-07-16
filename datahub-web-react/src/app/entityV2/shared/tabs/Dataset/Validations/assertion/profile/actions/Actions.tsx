@@ -1,13 +1,13 @@
 import React from 'react';
-
 import styled from 'styled-components';
 
-import { Assertion, DataContract } from '../../../../../../../../../types.generated';
-import { ContractAction } from './ContractAction';
-import { CopyLinkAction } from './CopyLinkAction';
-import { CopyUrnAction } from './CopyUrnAction';
-import { ExternalUrlAction } from './ExternalUrlAction';
-import { useIsOnSiblingsView } from '../../../../../../useIsSeparateSiblingsMode';
+import { ContractAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ContractAction';
+import { CopyLinkAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyLinkAction';
+import { CopyUrnAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyUrnAction';
+import { ExternalUrlAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ExternalUrlAction';
+import { useIsOnSiblingsView } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+
+import { Assertion, DataContract } from '@types';
 
 const ActionList = styled.div`
     display: flex;

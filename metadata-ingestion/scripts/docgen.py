@@ -8,17 +8,29 @@ import re
 import sys
 import textwrap
 from importlib.metadata import metadata, requires
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import click
+import yaml
 from docgen_types import Platform, Plugin
-from docs_config_table import gen_md_table_from_json_schema
+from docs_config_table import gen_md_table_from_pydantic
 
 from datahub.configuration.common import ConfigModel
-from datahub.ingestion.api.decorators import SourceCapability, SupportStatus
+from datahub.ingestion.api.decorators import (
+    CapabilitySetting,
+    SourceCapability,
+    SupportStatus,
+)
 from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
+
+DENY_LIST = {
+    "snowflake-summary",
+    "snowflake-queries",
+    "bigquery-queries",
+    "datahub-mock-data",
+}
 
 
 def get_snippet(long_string: str, max_length: int = 100) -> str:
@@ -57,7 +69,7 @@ def get_capability_text(src_capability: SourceCapability) -> str:
         SourceCapability.DOMAINS: "../../../domains.md",
         SourceCapability.PLATFORM_INSTANCE: "../../../platform-instances.md",
         SourceCapability.DATA_PROFILING: "../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md",
-        SourceCapability.CLASSIFICATION: "../../../../metadata-ingestion/docs/dev_guides/classification.md",
+        SourceCapability.OPERATION_CAPTURE: "../../../api/tutorials/operations.md",
     }
 
     capability_doc = capability_docs_mapping.get(src_capability)
@@ -66,6 +78,20 @@ def get_capability_text(src_capability: SourceCapability) -> str:
         if not capability_doc
         else f"[{src_capability.value}]({capability_doc})"
     )
+
+
+def map_capability_name_to_enum(capability_name: str) -> SourceCapability:
+    """
+    Maps capability names from the JSON file to SourceCapability enum values.
+    The JSON file uses enum names (e.g., "DATA_PROFILING") but the enum expects values (e.g., "Data Profiling").
+    """
+    try:
+        return SourceCapability[capability_name]
+    except KeyError:
+        try:
+            return SourceCapability(capability_name)
+        except ValueError:
+            raise ValueError(f"Unknown capability name: {capability_name}") from None
 
 
 def does_extra_exist(extra_name: str) -> bool:
@@ -116,7 +142,7 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
     # See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
     new_content = re.sub(
         r"\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)",
-        lambda x: f"[{x.group(1)}]({new_url(x.group(2).strip(),path)})",  # type: ignore
+        lambda x: f"[{x.group(1)}]({new_url(x.group(2).strip(), path)})",  # type: ignore
         file_contents,
     )
 
@@ -129,83 +155,216 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
     return new_content
 
 
-def load_plugin(plugin_name: str, out_dir: str) -> Plugin:
-    logger.debug(f"Loading {plugin_name}")
-    class_or_exception = source_registry._ensure_not_lazy(plugin_name)
-    if isinstance(class_or_exception, Exception):
-        raise class_or_exception
-    source_type = source_registry.get(plugin_name)
-    logger.debug(f"Source class is {source_type}")
+def _extract_headings(markdown: str) -> List[tuple[int, str, int]]:
+    headings: List[tuple[int, str, int]] = []
+    in_fence = False
+    for idx, line in enumerate(markdown.splitlines(), start=1):
+        stripped = line.lstrip()
+        if stripped.startswith(("```", "~~~")):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if m := re.match(r"^(#{1,6})\s+(.*)$", line):
+            headings.append((len(m.group(1)), m.group(2).strip(), idx))
+    return headings
 
-    if hasattr(source_type, "get_platform_name"):
-        platform_name = source_type.get_platform_name()
-    else:
-        platform_name = (
-            plugin_name.title()
-        )  # we like platform names to be human readable
 
-    platform_id = None
-    if hasattr(source_type, "get_platform_id"):
-        platform_id = source_type.get_platform_id()
-    if platform_id is None:
-        raise ValueError(f"Platform ID not found for {plugin_name}")
+def _validate_heading_contract(
+    file_path: str,
+    markdown: str,
+    required_level: int,
+    required_headings: List[str],
+    disallowed_levels: List[int],
+) -> None:
+    """Validate a strict heading contract for authored markdown content.
 
-    plugin = Plugin(
-        name=plugin_name,
-        platform_id=platform_id,
-        platform_name=platform_name,
-        classname=".".join([source_type.__module__, source_type.__name__]),
+    Rules enforced:
+    - Any heading level listed in ``disallowed_levels`` is forbidden.
+    - At ``required_level``, only headings in ``required_headings`` are allowed.
+    - Each required heading must appear exactly once.
+    - Required headings must appear in the same order as ``required_headings``.
+
+    This allows deeper nested headings (e.g. H4+) while ensuring the top-level
+    section contract for a file remains canonical and predictable.
+    """
+    headings = _extract_headings(markdown)
+    required_set = set(required_headings)
+
+    if invalid := [
+        (lvl, title, line)
+        for lvl, title, line in headings
+        if lvl in set(disallowed_levels)
+    ]:
+        invalid_str = ", ".join(
+            [f"H{lvl} '{title}' (line {line})" for lvl, title, line in invalid]
+        )
+        raise ValueError(f"{file_path} contains disallowed headings: {invalid_str}")
+
+    level_headings = [title for lvl, title, _ in headings if lvl == required_level]
+    if extras := [title for title in level_headings if title not in required_set]:
+        raise ValueError(
+            f"{file_path} has unsupported H{required_level} headings: {extras}. "
+            f"Allowed H{required_level} headings: {required_headings}"
+        )
+
+    for heading in required_headings:
+        if level_headings.count(heading) != 1:
+            raise ValueError(
+                f"{file_path} must contain exactly one "
+                f"'{'#' * required_level} {heading}' section."
+            )
+
+    indices = [level_headings.index(heading) for heading in required_headings]
+    if indices != sorted(indices):
+        raise ValueError(
+            f"{file_path} has required H{required_level} headings out of order. "
+            f"Expected order: {required_headings}"
+        )
+
+
+def _validate_platform_readme_contract(file_path: str, markdown: str) -> None:
+    _validate_heading_contract(
+        file_path=file_path,
+        markdown=markdown,
+        required_level=2,
+        required_headings=["Overview", "Concept Mapping"],
+        disallowed_levels=[1],
     )
 
-    if hasattr(source_type, "get_platform_doc_order"):
-        platform_doc_order = source_type.get_platform_doc_order()
-        plugin.doc_order = platform_doc_order
 
-    plugin_file_name = "src/" + "/".join(source_type.__module__.split("."))
-    if os.path.exists(plugin_file_name) and os.path.isdir(plugin_file_name):
-        plugin_file_name = plugin_file_name + "/__init__.py"
-    else:
-        plugin_file_name = plugin_file_name + ".py"
-    if os.path.exists(plugin_file_name):
-        plugin.filename = plugin_file_name
-    else:
-        logger.info(
-            f"Failed to locate filename for {plugin_name}. Guessed {plugin_file_name}, but that doesn't exist"
+def load_connector_registry(connector_registry_dir: str) -> Dict:
+    """Load connector registry data from all package JSON files in directory."""
+    registry_dir = pathlib.Path(connector_registry_dir) / "connector_registry"
+
+    merged_data = {
+        "generated_by": "metadata-ingestion/scripts/connector_registry.py",
+        "plugin_details": {},
+    }
+
+    if not registry_dir.exists():
+        raise FileNotFoundError(
+            f"Connector registry directory not found: {registry_dir}"
         )
 
-    if hasattr(source_type, "__doc__"):
-        plugin.source_docstring = textwrap.dedent(source_type.__doc__ or "")
+    # Load all JSON files from directory
+    json_files = sorted(registry_dir.glob("*.json"))
+    json_files = [f for f in json_files if f.stem != "manifest"]
 
-    if hasattr(source_type, "get_support_status"):
-        plugin.support_status = source_type.get_support_status()
+    if not json_files:
+        raise FileNotFoundError(f"No connector registry files found in {registry_dir}")
 
-    if hasattr(source_type, "get_capabilities"):
-        capabilities = list(source_type.get_capabilities())
-        capabilities.sort(key=lambda x: x.capability.value)
+    for json_file in json_files:
+        try:
+            with open(json_file) as f:
+                package_data = json.load(f)
+                package_name = json_file.stem
+                plugin_count = len(package_data.get("plugin_details", {}))
+                merged_data["plugin_details"].update(
+                    package_data.get("plugin_details", {})
+                )
+                logger.info(
+                    f"Loaded {plugin_count} connectors from package '{package_name}'"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to load {json_file}: {e}")
+
+    logger.info(f"Total connectors loaded: {len(merged_data['plugin_details'])}")
+    return merged_data
+
+
+def create_plugin_from_capability_data(
+    plugin_name: str, plugin_data: Dict, out_dir: str
+) -> Plugin:
+    """Create a Plugin object from capability data."""
+    plugin = Plugin(
+        name=plugin_name,
+        platform_id=plugin_data["platform_id"],
+        platform_name=plugin_data["platform_name"],
+        classname=plugin_data["classname"],
+    )
+
+    # Set support status
+    if plugin_data.get("support_status"):
+        plugin.support_status = SupportStatus[plugin_data["support_status"]]
+
+    # Set capabilities
+    if plugin_data.get("capabilities"):
+        capabilities = []
+        for cap_data in plugin_data["capabilities"]:
+            capability = map_capability_name_to_enum(cap_data["capability"])
+            capabilities.append(
+                CapabilitySetting(
+                    capability=capability,
+                    supported=cap_data["supported"],
+                    description=cap_data["description"],
+                    subtype_modifier=cap_data.get("subtype_modifier", None),
+                )
+            )
         plugin.capabilities = capabilities
 
+    # Load additional plugin information that's not in capability summary
     try:
-        extra_plugin = plugin_name if does_extra_exist(plugin_name) else None
-        plugin.extra_deps = (
-            get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
-        )
+        # Load source class to get additional metadata
+        class_or_exception = source_registry._ensure_not_lazy(plugin_name)
+        if isinstance(class_or_exception, Exception):
+            raise class_or_exception
+        source_type = source_registry.get(plugin_name)
+
+        # Get doc order
+        if hasattr(source_type, "get_platform_doc_order"):
+            platform_doc_order = source_type.get_platform_doc_order()
+            plugin.doc_order = platform_doc_order
+
+        # Get filename
+        plugin_file_name = "src/" + "/".join(source_type.__module__.split("."))
+        if os.path.exists(plugin_file_name) and os.path.isdir(plugin_file_name):
+            plugin_file_name = plugin_file_name + "/__init__.py"
+        else:
+            plugin_file_name = plugin_file_name + ".py"
+        if os.path.exists(plugin_file_name):
+            plugin.filename = plugin_file_name
+        else:
+            logger.info(
+                f"Failed to locate filename for {plugin_name}. Guessed {plugin_file_name}, but that doesn't exist"
+            )
+
+        # Get docstring
+        if hasattr(source_type, "__doc__"):
+            plugin.source_docstring = textwrap.dedent(source_type.__doc__ or "")
+
+        # Get extra dependencies
+        try:
+            extra_plugin = plugin_name if does_extra_exist(plugin_name) else None
+            plugin.extra_deps = (
+                get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
+            )
+        except Exception as e:
+            logger.info(
+                f"Failed to load extras for {plugin_name} due to exception {e}",
+                exc_info=e,
+            )
+
+        # Get config class
+        if hasattr(source_type, "get_config_class"):
+            source_config_class: ConfigModel = source_type.get_config_class()
+
+            plugin.config_json_schema = json.dumps(
+                source_config_class.model_json_schema(), indent=2
+            )
+            plugin.config_md = gen_md_table_from_pydantic(
+                source_config_class, current_source=plugin_name
+            )
+
+            # Write the config json schema to the out_dir.
+            config_dir = pathlib.Path(out_dir) / "config_schemas"
+            config_dir.mkdir(parents=True, exist_ok=True)
+            (config_dir / f"{plugin_name}_config.json").write_text(
+                plugin.config_json_schema
+            )
+
     except Exception as e:
-        logger.info(
-            f"Failed to load extras for {plugin_name} due to exception {e}", exc_info=e
-        )
-
-    if hasattr(source_type, "get_config_class"):
-        source_config_class: ConfigModel = source_type.get_config_class()
-
-        plugin.config_json_schema = source_config_class.schema_json(indent=2)
-        plugin.config_md = gen_md_table_from_json_schema(source_config_class.schema())
-
-        # Write the config json schema to the out_dir.
-        config_dir = pathlib.Path(out_dir) / "config_schemas"
-        config_dir.mkdir(parents=True, exist_ok=True)
-        (config_dir / f"{plugin_name}_config.json").write_text(
-            plugin.config_json_schema
-        )
+        logger.warning(f"Failed to load additional metadata for {plugin_name}: {e}")
 
     return plugin
 
@@ -225,32 +384,316 @@ class PlatformMetrics:
     warnings: List[str] = dataclasses.field(default_factory=list)
 
 
+CAPABILITY_FEATURE_MAP: Dict[str, str] = {
+    "DELETION_DETECTION": "Stateful Ingestion",
+    "LINEAGE_FINE": "Column Level Lineage",
+    "LINEAGE_COARSE": "Table-Level Lineage",
+    "DATA_PROFILING": "Data Profiling",
+    "OPERATION_CAPTURE": "Operation Capture",
+    "TEST_CONNECTION": "UI Ingestion",
+}
+
+
+def _derive_features(platform: "Platform", meta: Dict[str, Any]) -> List[str]:
+    """Derive feature tags from a platform's capabilities + catalog extras."""
+    features: List[str] = []
+    seen: set = set()
+    for plugin in platform.plugins.values():
+        if plugin.capabilities:
+            for cap in plugin.capabilities:
+                if cap.supported:
+                    ft = CAPABILITY_FEATURE_MAP.get(cap.capability.name)
+                    if ft and ft not in seen:
+                        features.append(ft)
+                        seen.add(ft)
+    for ef in meta.get("extra_features", []):
+        if ef not in seen:
+            features.append(ef)
+            seen.add(ef)
+    return features
+
+
+def _get_support_status_tag(platform: "Platform") -> str:
+    """Get the support status tag string from a platform's plugins."""
+    for plugin in platform.plugins.values():
+        if plugin.support_status != SupportStatus.UNKNOWN:
+            return plugin.support_status.name.title()
+    return ""
+
+
+def _resolve_platform_type(meta: Dict[str, Any], default: str = "Metadata") -> str:
+    """Resolve platform_type from a catalog entry, supporting both string and list."""
+    raw = meta.get("platform_type", default)
+    if isinstance(raw, list):
+        return ", ".join(raw)
+    return raw
+
+
+def _build_variant_entry(
+    platform_id: str,
+    meta: Dict[str, Any],
+    parent: "Platform",
+    parent_meta: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build an integrations.json entry for a supported_via variant.
+
+    Inherits features, support status, platform_type, and connection_type
+    from the parent platform.
+    """
+    supported_via = meta["supported_via"]
+    features = _derive_features(parent, parent_meta)
+    support_status_tag = _get_support_status_tag(parent)
+
+    tags: Dict[str, str] = {
+        "Platform Type": _resolve_platform_type(
+            meta, default=_resolve_platform_type(parent_meta)
+        ),
+        "Connection Type": meta.get(
+            "connection_type", parent_meta.get("connection_type", "Pull")
+        ),
+        "Features": ", ".join(features),
+    }
+    if support_status_tag:
+        tags["Support Status"] = support_status_tag
+
+    return {
+        "Path": meta.get(
+            "doc_path_override",
+            f"docs/generated/ingestion/sources/{supported_via}",
+        ),
+        "imgPath": meta.get("img_path", f"img/logos/platforms/{platform_id}.svg"),
+        "Title": meta.get("title", platform_id),
+        "Description": meta.get("description", ""),
+        "tags": tags,
+    }
+
+
+def load_data_platforms_yaml(yaml_path: str) -> Dict[str, str]:
+    """Load data-platforms.yaml and return a mapping of platform name → displayName."""
+    display_names: Dict[str, str] = {}
+    with open(yaml_path) as f:
+        platforms_list: List[Dict[str, Any]] = yaml.safe_load(f)
+    for entry in platforms_list:
+        aspect = entry.get("aspect", {})
+        name = aspect.get("name")
+        display_name = aspect.get("displayName")
+        if name and display_name:
+            display_names[name] = display_name
+    return display_names
+
+
+def generate_filter_tag_indexes(
+    platforms: Dict[str, Platform],
+    catalog_path: str,
+    output_path: str,
+    data_platforms_yaml_path: Optional[str] = None,
+) -> None:
+    """Generate integrations.json for the docs-website integrations page.
+
+    Merges auto-derived data from the connector registry with supplemental
+    metadata from integrations_catalog.json. Platforms without a catalog entry
+    still appear with sensible defaults.
+    """
+    with open(catalog_path) as f:
+        catalog: Dict[str, Any] = json.load(f)
+
+    # Load data-platforms.yaml for title/logo fallback
+    dp_display_names: Dict[str, str] = {}
+    if data_platforms_yaml_path and os.path.exists(data_platforms_yaml_path):
+        dp_display_names = load_data_platforms_yaml(data_platforms_yaml_path)
+
+    entries: List[Dict[str, Any]] = []
+
+    # Sanity check: no registry connector should be marked as api_connector
+    mismarked = [pid for pid in platforms if catalog.get(pid, {}).get("api_connector")]
+    if mismarked:
+        raise ValueError(
+            f"Catalog entries marked api_connector=true but present in the source "
+            f"registry (native connectors): {', '.join(sorted(mismarked))}. "
+            f"Remove api_connector from these entries in integrations_catalog.json."
+        )
+
+    # Process registry-based platforms
+    for platform_id, platform in platforms.items():
+        meta = catalog.get(platform_id, {})
+
+        # Skip if this platform is marked as api_connector in the catalog
+        if meta.get("api_connector"):
+            continue
+
+        features = _derive_features(platform, meta)
+        support_status_tag = _get_support_status_tag(platform)
+
+        title = meta.get("title") or dp_display_names.get(platform_id) or platform.name
+        description = meta.get(
+            "description", f"{platform.name} integration with DataHub."
+        )
+        img_path = meta.get("img_path", f"img/logos/platforms/{platform_id}.svg")
+        doc_path = meta.get(
+            "doc_path_override",
+            f"docs/generated/ingestion/sources/{platform_id}",
+        )
+
+        tags: Dict[str, str] = {
+            "Platform Type": _resolve_platform_type(meta),
+            "Connection Type": meta.get("connection_type", "Pull"),
+            "Features": ", ".join(features),
+        }
+        if support_status_tag:
+            tags["Support Status"] = support_status_tag
+
+        entries.append(
+            {
+                "Path": doc_path,
+                "imgPath": img_path,
+                "Title": title,
+                "Description": description,
+                "tags": tags,
+            }
+        )
+
+    # Process external integrations, API-based cards, and supported_via
+    # variants from catalog
+    for platform_id, meta in catalog.items():
+        is_external = meta.get("external", False)
+        is_api = meta.get("api_connector", False)
+        supported_via = meta.get("supported_via")
+
+        # Skip registry connectors (already processed above)
+        if not is_external and not is_api and not supported_via:
+            if platform_id in platforms:
+                continue
+
+        # Skip external entries that were already in the registry
+        if is_external and platform_id in platforms:
+            continue
+
+        # For supported_via variants, inherit from the parent platform
+        if supported_via and supported_via in platforms:
+            entries.append(
+                _build_variant_entry(
+                    platform_id=platform_id,
+                    meta=meta,
+                    parent=platforms[supported_via],
+                    parent_meta=catalog.get(supported_via, {}),
+                )
+            )
+            continue
+
+        features_list = meta.get("extra_features", [])
+        connection_type = "API" if is_api else meta.get("connection_type", "Pull")
+        tags: Dict[str, str] = {
+            "Platform Type": _resolve_platform_type(meta),
+            "Connection Type": connection_type,
+            "Features": ", ".join(features_list),
+        }
+        if meta.get("support_status"):
+            tags["Support Status"] = meta["support_status"]
+
+        entry: Dict[str, Any] = {
+            "Path": meta.get(
+                "doc_path_override",
+                "docs/api/datahub-apis" if is_api else "",
+            ),
+            "imgPath": meta.get(
+                "img_path",
+                f"img/logos/platforms/{platform_id}.svg",
+            ),
+            "Title": meta.get("title", platform_id),
+            "Description": meta.get("description", ""),
+            "tags": tags,
+        }
+
+        if is_api:
+            entry["isApiConnector"] = True
+            if meta.get("requestNativeUrl"):
+                entry["requestNativeUrl"] = meta["requestNativeUrl"]
+
+        entries.append(entry)
+
+    # Sort by title
+    entries.sort(key=lambda x: x["Title"].lower())
+
+    output = {"ingestionSources": entries}
+    with open(output_path, "w") as f:
+        json.dump(output, f, indent=2)
+        f.write("\n")
+
+    logger.info(
+        f"Generated integrations.json with {len(entries)} entries at {output_path}"
+    )
+
+
 @click.command()
 @click.option("--out-dir", type=str, required=True)
+@click.option(
+    "--connector-registry-dir",
+    type=str,
+    required=True,
+    help="Directory containing connector_registry/ with package JSON files",
+)
 @click.option("--extra-docs", type=str, required=False)
 @click.option("--source", type=str, required=False)
-def generate(
-    out_dir: str, extra_docs: Optional[str] = None, source: Optional[str] = None
-) -> None:  # noqa: C901
+@click.option(
+    "--integrations-output",
+    type=str,
+    required=False,
+    help="Path to write generated integrations.json",
+)
+@click.option(
+    "--data-platforms-yaml",
+    type=str,
+    required=False,
+    help="Path to data-platforms.yaml for title/logo fallback",
+)
+def generate(  # noqa: C901
+    out_dir: str,
+    connector_registry_dir: str,
+    extra_docs: Optional[str] = None,
+    source: Optional[str] = None,
+    integrations_output: Optional[str] = None,
+    data_platforms_yaml: Optional[str] = None,
+) -> None:
     plugin_metrics = PluginMetrics()
     platform_metrics = PlatformMetrics()
 
     platforms: Dict[str, Platform] = {}
-    for plugin_name in sorted(source_registry.mapping.keys()):
+
+    # Load connector registry data
+    try:
+        capability_data = load_connector_registry(connector_registry_dir)
+        logger.info(f"Loaded connector registry from {connector_registry_dir}")
+    except Exception as e:
+        logger.error(f"Failed to load connector registry: {e}")
+        sys.exit(1)
+
+    # Use the union of source registry and connector registry so that plugins
+    # with uninstalled extras (e.g. rdf) still get docs generated.
+    all_plugin_names = sorted(
+        set(source_registry.mapping.keys())
+        | set(capability_data.get("plugin_details", {}).keys())
+    )
+    for plugin_name in all_plugin_names:
+        logger.info(f"Processing plugin: {plugin_name}")
         if source and source != plugin_name:
             continue
 
-        if plugin_name in {
-            "snowflake-summary",
-            "snowflake-queries",
-            "bigquery-queries",
-        }:
+        if plugin_name in DENY_LIST:
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
 
         plugin_metrics.discovered += 1
         try:
-            plugin = load_plugin(plugin_name, out_dir=out_dir)
+            if plugin_name in capability_data.get("plugin_details", {}):
+                # Use capability data
+                plugin_data = capability_data["plugin_details"][plugin_name]
+                plugin = create_plugin_from_capability_data(
+                    plugin_name, plugin_data, out_dir=out_dir
+                )
+            else:
+                logger.error(f"Plugin {plugin_name} not found in capability data")
+                plugin_metrics.failed += 1
+                continue
         except Exception as e:
             logger.error(
                 f"Failed to load {plugin_name} due to exception {e}", exc_info=e
@@ -271,6 +714,7 @@ def generate(
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
+            logger.info(f"Processing extra doc: {path}")
             if m := re.search("/docs/sources/(.*)/(.*).md", path):
                 platform_name = m.group(1).lower()  # TODO: rename this to platform_id
                 file_name = m.group(2)
@@ -283,6 +727,7 @@ def generate(
                 final_markdown = rewrite_markdown(file_contents, path, destination_md)
 
                 if file_name == "README":
+                    _validate_platform_readme_contract(path, final_markdown)
                     # README goes as platform level docs
                     # all other docs are assumed to be plugin level
                     platforms[platform_name].custom_docs_pre = final_markdown
@@ -295,10 +740,28 @@ def generate(
                         )
                     plugin_name, suffix = plugin_doc_parts
                     if suffix == "pre":
+                        _validate_heading_contract(
+                            file_path=path,
+                            markdown=final_markdown,
+                            required_level=3,
+                            required_headings=["Overview", "Prerequisites"],
+                            disallowed_levels=[1, 2],
+                        )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_pre = final_markdown
                     elif suffix == "post":
+                        _validate_heading_contract(
+                            file_path=path,
+                            markdown=final_markdown,
+                            required_level=3,
+                            required_headings=[
+                                "Capabilities",
+                                "Limitations",
+                                "Troubleshooting",
+                            ],
+                            disallowed_levels=[1, 2],
+                        )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_post = final_markdown
@@ -307,11 +770,10 @@ def generate(
                             f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
                         )
 
-                else:  # assume this is the platform post.
-                    # TODO: Probably need better error checking here.
-                    platforms[platform_name].plugins[
-                        file_name
-                    ].custom_docs_post = final_markdown
+                else:
+                    raise ValueError(
+                        f"{file_name} must be README or of the form <plugin>_pre.md / <plugin>_post.md"
+                    )
             elif yml_match := re.search("/docs/sources/(.*)/(.*)_recipe.yml", path):
                 platform_name = yml_match.group(1).lower()
                 plugin_name = yml_match.group(2)
@@ -319,14 +781,49 @@ def generate(
                     plugin_name
                 ].starter_recipe = pathlib.Path(path).read_text()
 
+    for platform in platforms.values():
+        if not platform.custom_docs_pre:
+            raise ValueError(
+                f"Missing README.md docs for platform '{platform.id}'. "
+                "Each platform must provide README.md with required sections."
+            )
+        for plugin_name, plugin in platform.plugins.items():
+            if not plugin.custom_docs_pre:
+                raise ValueError(
+                    f"Missing {plugin_name}_pre.md for platform '{platform.id}'. "
+                    "Each module must provide a _pre.md file with required sections."
+                )
+            if not plugin.custom_docs_post:
+                raise ValueError(
+                    f"Missing {plugin_name}_post.md for platform '{platform.id}'. "
+                    "Each module must provide a _post.md file with required sections."
+                )
+
     sources_dir = f"{out_dir}/sources"
     os.makedirs(sources_dir, exist_ok=True)
+
+    # Load integrations catalog once for SEO meta descriptions on platform pages.
+    # The catalog already powers the /integrations page; reusing it here ensures
+    # the meta description matches the marketing card copy for each connector.
+    catalog_descriptions: Dict[str, str] = {}
+    if extra_docs:
+        catalog_path = os.path.join(extra_docs, "integrations_catalog.json")
+        if os.path.exists(catalog_path):
+            with open(catalog_path) as cf:
+                catalog_for_desc: Dict[str, Any] = json.load(cf)
+            for pid, entry in catalog_for_desc.items():
+                desc = entry.get("description")
+                if desc:
+                    catalog_descriptions[pid] = desc
 
     # Sort platforms by platform name.
     platforms = dict(sorted(platforms.items(), key=lambda x: x[1].name.casefold()))
 
     i = 0
     for platform_id, platform in platforms.items():
+        logger.info(
+            f"Generating docs for platform {platform.name} with id {platform_id}"
+        )
         if source and platform_id != source:
             continue
         platform_metrics.discovered += 1
@@ -340,7 +837,13 @@ def generate(
 
         with open(platform_doc_file, "w") as f:
             i += 1
-            f.write(f"---\nsidebar_position: {i}\n---\n\n")
+            description = catalog_descriptions.get(platform_id)
+            f.write("---\n")
+            f.write(f"sidebar_position: {i}\n")
+            if description:
+                # json.dumps yields a YAML-compatible double-quoted string.
+                f.write(f"description: {json.dumps(description)}\n")
+            f.write("---\n\n")
             f.write(
                 "import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n"
             )
@@ -380,43 +883,49 @@ def generate(
                 #                        f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
                 #                    )
                 f.write("</table>\n\n")
-            # insert platform level custom docs before plugin section
-            f.write(platform.custom_docs_pre or "")
-            # all_plugins = platform_docs["plugins"].keys()
+            # Insert platform-level authored docs from README.md before module docs.
+            f.write("\n")
+            f.write(platform.custom_docs_pre.strip())
+            f.write("\n")
 
             for plugin_name, plugin in platform.plugins.items():
-                if len(platform.plugins) > 1:
-                    # We only need to show this if there are multiple modules.
-                    f.write(f"\n\n## Module `{plugin_name}`\n")
+                # Always use ### for all content sections (consistent baseline)
+                section_heading = "###"
 
+                # Always show the module name for consistency (single and multi-plugin)
+                f.write(f"\n\n## Module `{plugin_name}`\n")
                 if plugin.support_status != SupportStatus.UNKNOWN:
                     f.write(get_support_status_badge(plugin.support_status) + "\n\n")
+                f.write(f"\n{section_heading} Important Capabilities\n")
                 if plugin.capabilities and len(plugin.capabilities):
-                    f.write("\n### Important Capabilities\n")
                     f.write("| Capability | Status | Notes |\n")
                     f.write("| ---------- | ------ | ----- |\n")
                     for cap_setting in plugin.capabilities:
+                        description = cap_setting.description
+                        if not description.endswith("."):
+                            description += "."
+                        if cap_setting.subtype_modifier:
+                            description += f" Supported for types - {', '.join(cap_setting.subtype_modifier)}."
                         f.write(
-                            f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {cap_setting.description} |\n"
+                            f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {description} |\n"
                         )
-                    f.write("\n")
+                else:
+                    f.write(
+                        "Capability metadata is not explicitly declared for this module. "
+                        "Refer to module documentation and configuration sections below.\n"
+                    )
+                f.write("\n")
 
-                f.write(f"{plugin.source_docstring or ''}\n")
-                # Insert custom pre section
-                f.write(plugin.custom_docs_pre or "")
-                f.write("\n### CLI based Ingestion\n")
-                if plugin.extra_deps and len(plugin.extra_deps):
-                    f.write("\n#### Install the Plugin\n")
-                    if plugin.extra_deps != []:
-                        f.write("```shell\n")
-                        f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
-                        f.write("```\n")
-                    else:
-                        f.write(
-                            f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
-                        )
+                # PRE authored module docs (<module>_pre.md).
+                f.write(f"{plugin.custom_docs_pre.strip()}\n\n")
+
+                # Always show Install the Plugin section
+                f.write(f"\n{section_heading} Install the Plugin\n")
+                f.write("```shell\n")
+                f.write(f"pip install 'acryl-datahub[{plugin_name}]'\n")
+                f.write("```\n")
+                f.write(f"\n{section_heading} Starter Recipe\n")
                 if plugin.starter_recipe:
-                    f.write("\n### Starter Recipe\n")
                     f.write(
                         "Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.\n\n\n"
                     )
@@ -426,9 +935,15 @@ def generate(
                     f.write("```yaml\n")
                     f.write(plugin.starter_recipe)
                     f.write("\n```\n")
+                else:
+                    f.write(
+                        "A starter recipe is not currently available for this module. "
+                        "Use the configuration schema below to build a recipe.\n"
+                    )
+
+                f.write(f"\n{section_heading} Config Details\n")
                 if plugin.config_json_schema:
                     assert plugin.config_md is not None
-                    f.write("\n### Config Details\n")
                     f.write(
                         """<Tabs>
                 <TabItem value="options" label="Options" default>\n\n"""
@@ -453,11 +968,17 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
 </TabItem>
 </Tabs>\n\n"""
                     )
+                else:
+                    f.write(
+                        "Configuration schema is not auto-generated for this module. "
+                        "Refer to the source code coordinates and module guidance below.\n\n"
+                    )
 
-                # insert custom plugin docs after config details
-                f.write(plugin.custom_docs_post or "")
+                # POST authored module docs (<module>_post.md).
+                f.write(f"{plugin.custom_docs_post.strip()}\n\n")
+
                 if plugin.classname:
-                    f.write("\n### Code Coordinates\n")
+                    f.write(f"\n{section_heading} Code Coordinates\n")
                     f.write(f"- Class Name: `{plugin.classname}`\n")
                     if plugin.filename:
                         f.write(
@@ -465,10 +986,10 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                         )
                 plugin_metrics.generated += 1
 
-            # Using an h2 tag to prevent this from showing up in page's TOC sidebar.
-            f.write("\n<h2>Questions</h2>\n\n")
             f.write(
-                f"If you've got any questions on configuring ingestion for {platform.name}, feel free to ping us on [our Slack](https://slack.datahubproject.io).\n"
+                f"\n:::tip Questions?\n\n"
+                f"If you've got any questions on configuring ingestion for {platform.name}, feel free to ping us on [our Slack](https://datahub.com/slack).\n"
+                f":::\n"
             )
             platform_metrics.generated += 1
     print("Ingestion Documentation Generation Complete")
@@ -489,110 +1010,55 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
     # Create Lineage doc
     generate_lineage_doc(platforms)
 
+    # Generate the SQL/Data Profiling supported-sources table that gets
+    # inlined into metadata-ingestion/docs/dev_guides/sql_profiles.md.
+    generate_sql_profiling_support_table(platforms)
+
+    # Generate the Operation Capture supported-sources table that gets
+    # inlined into docs/api/tutorials/operations.md.
+    generate_operation_capture_support_table(platforms)
+
+    # Generate filterTagIndexes.json for the integrations page
+    if integrations_output and extra_docs:
+        catalog_path = os.path.join(extra_docs, "integrations_catalog.json")
+        if os.path.exists(catalog_path):
+            generate_filter_tag_indexes(
+                platforms=platforms,
+                catalog_path=catalog_path,
+                output_path=integrations_output,
+                data_platforms_yaml_path=data_platforms_yaml,
+            )
+        else:
+            logger.warning(
+                f"integrations_catalog.json not found at {catalog_path} — skipping integrations.json generation"
+            )
+
 
 def generate_lineage_doc(platforms: Dict[str, Platform]) -> None:
     source_dir = "../docs/generated/lineage"
     os.makedirs(source_dir, exist_ok=True)
-    doc_file = f"{source_dir}/lineage-feature-guide.md"
+    doc_file = f"{source_dir}/automatic-lineage-extraction.md"
     with open(doc_file, "w+") as f:
         f.write(
-            "import FeatureAvailability from '@site/src/components/FeatureAvailability';\n\n"
-        )
-        f.write("# About DataHub Lineage\n\n")
-        f.write("<FeatureAvailability/>\n")
-
-        f.write(
             """
-Data lineage is a **map that shows how data flows through your organization.** It details where your data originates, how it travels, and where it ultimately ends up. 
-This can happen within a single system (like data moving between Snowflake tables) or across various platforms.
-
-With data lineage, you can
-- Maintaining Data Integrity
-- Simplify and Refine Complex Relationships
-- Perform [Lineage Impact Analysis](../../act-on-metadata/impact-analysis.md)
-- [Propagate Metadata](https://blog.datahubproject.io/acryl-data-introduces-lineage-support-and-automated-propagation-of-governance-information-for-339c99536561) Across Lineage
-
-
-## Viewing Lineage
-
-You can view lineage under **Lineage** tab or **Lineage Visualization** screen.
-
-
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-tab.png" />
-</p>
-
-By default, the UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
-
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-view.png" />
-</p>
-
-In this example, data flows from Airflow/BigQuery to Snowflake tables, then to the Hive dataset, and ultimately to the features of Machine Learning Models.
-
-
-:::tip The Lineage Tab is greyed out - why can’t I click on it?
-This means you have not yet ingested lineage metadata for that entity. Please ingest lineage to proceed.
-
-:::
-
-## Column Level Lineage Support
-
-Column-level lineage **tracks changes and movements for each specific data column.** This approach is often contrasted with table-level lineage, which specifies lineage at the table level.
-Below is how column-level lineage can be set with dbt and Postgres tables.
-
-<p align="center">
-<img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/column-level-lineage.png" />
-</p>
-
-## Adding Lineage
-
-### Ingestion Source
-
-If you're using an ingestion source that supports extraction of Lineage (e.g. **Table Lineage Capability**), then lineage information can be extracted automatically.
-For detailed instructions, refer to the [source documentation](https://datahubproject.io/integrations) for the source you are using.
-
-### UI
-
-As of `v0.9.5`, DataHub supports the manual editing of lineage between entities. Data experts are free to add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction or establish important entity relationships in sources that do not support automatic extraction. Editing lineage by hand is supported for Datasets, Charts, Dashboards, and Data Jobs.
-Please refer to our [UI Guides on Lineage](../../features/feature-guides/ui-lineage.md) for more information.
-
-:::caution Recommendation on UI-based lineage
-
-Lineage added by hand and programmatically may conflict with one another to cause unwanted overwrites.
-It is strongly recommend that lineage is edited manually in cases where lineage information is not also extracted in automated fashion, e.g. by running an ingestion source.
-
-:::
-
-### API
-
-If you are not using a Lineage-support ingestion source, you can programmatically emit lineage edges between entities via API.
-Please refer to [API Guides on Lineage](../../api/tutorials/lineage.md) for more information.
-
-
-## Lineage Support
+# Automatic Lineage Extraction
 
 DataHub supports **[automatic table- and column-level lineage detection](#automatic-lineage-extraction-support)** from BigQuery, Snowflake, dbt, Looker, PowerBI, and 20+ modern data tools. 
 For data tools with limited native lineage tracking, [**DataHub's SQL Parser**](../../lineage/sql_parsing.md) detects lineage with 97-99% accuracy, ensuring teams will have high quality lineage graphs across all corners of their data stack.
 
-### Types of Lineage Connections
+## Types of Lineage Connections
 
 Types of lineage connections supported in DataHub and the example codes are as follows.
 
-* Dataset to Dataset
-    * [Dataset Lineage](../../../metadata-ingestion/examples/library/lineage_emitter_rest.py)
-    * [Finegrained Dataset Lineage](../../../metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py)
-    * [Datahub BigQuery Lineage](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/sql/snowflake.py#L249)
-    * [Dataset Lineage via MCPW REST Emitter](../../../metadata-ingestion/examples/library/lineage_emitter_mcpw_rest.py)
-    * [Dataset Lineage via Kafka Emitter](../../../metadata-ingestion/examples/library/lineage_emitter_kafka.py)
+* [Dataset to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_add.py)
 * [DataJob to DataFlow](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)
 * [DataJob to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_job_dataset.py)
 * [Chart to Dashboard](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)
 * [Chart to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py)
 
-### Automatic Lineage Extraction Support
+## Automatic Lineage Extraction Support
 
-This is a summary of automatic lineage extraciton support in our data source. Please refer to the **Important Capabilities** table in the source documentation. Note that even if the source does not support automatic extraction, you can still add lineage manually using our API & SDKs.\n"""
+This is a summary of automatic lineage extraction support in our data source. Please refer to the **Important Capabilities** table in the source documentation. Note that even if the source does not support automatic extraction, you can still add lineage manually using our API & SDKs.\n"""
         )
 
         f.write(
@@ -637,7 +1103,9 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
                         ):
                             column_level_supported = "✅"
 
-                if not (table_level_supported == "❌" and column_level_supported == "❌"):
+                if not (
+                    table_level_supported == "❌" and column_level_supported == "❌"
+                ):
                     if plugin.config_json_schema:
                         config_properties = json.loads(plugin.config_json_schema).get(
                             "properties", {}
@@ -669,12 +1137,12 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
         f.write(
             """
         
-### SQL Parser Lineage Extraction
+## SQL Parser Lineage Extraction
 
-If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, 
+If you're using a different database system for which we don't support column-level lineage out of the box, but you do have a database query log available, 
 we have a SQL queries connector that generates column-level lineage and detailed table usage statistics from the query log.
 
-If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code [here](https://datahubproject.io/docs/python-sdk/clients/))
+If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code [here](https://docs.datahub.com/docs/python-sdk/clients/graph-client))
 
 For more information, refer to the [Extracting Column-Level Lineage from SQL](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567) 
 
@@ -695,6 +1163,136 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
         )
 
     print("Lineage Documentation Generation Complete")
+
+
+def generate_sql_profiling_support_table(platforms: Dict[str, Platform]) -> None:
+    """Generate a markdown table of all sources that declare DATA_PROFILING support.
+
+    The output is a partial markdown file (just the table, no headings) intended to
+    be inlined into ``metadata-ingestion/docs/dev_guides/sql_profiles.md`` via the
+    ``{{ inline }}`` directive in ``docs-website/generateDocsDir.ts``.
+
+    The output extension is ``.md.snippet`` (not ``.md``) so that
+    ``generateDocsDir.ts`` does not pick it up as a standalone doc page in its
+    ``.md`` discovery glob — that would fail title-detection because a table
+    fragment has no ``# H1`` header.
+
+    Source links are written relative to the host doc's location
+    (``metadata-ingestion/docs/dev_guides/``) since ``markdown_rewrite_urls`` runs
+    before inline expansion in the docs-website build pipeline.
+    """
+    out_dir = "../docs/generated/ingestion"
+    os.makedirs(out_dir, exist_ok=True)
+    out_file = f"{out_dir}/sql_profiling_support_table.md.snippet"
+
+    rows: List[Dict[str, str]] = []
+    for platform_id, platform in platforms.items():
+        for plugin in platform.plugins.values():
+            if not plugin.capabilities:
+                continue
+            profiling_cap = next(
+                (
+                    cap
+                    for cap in plugin.capabilities
+                    if cap.capability == SourceCapability.DATA_PROFILING
+                    and cap.supported
+                ),
+                None,
+            )
+            if profiling_cap is None:
+                continue
+
+            if len(platform.plugins) > 1:
+                display_name = f"{platform.name} `{plugin.name}`"
+            else:
+                display_name = platform.name
+
+            notes = (profiling_cap.description or "").strip()
+            if notes and not notes.endswith("."):
+                notes += "."
+
+            rows.append(
+                {
+                    "name": display_name,
+                    "platform_id": platform_id,
+                    "notes": notes,
+                }
+            )
+
+    rows.sort(key=lambda r: r["name"].casefold())
+
+    with open(out_file, "w") as f:
+        f.write("| Source | Notes |\n")
+        f.write("| ------ | ----- |\n")
+        for row in rows:
+            link = f"../../../docs/generated/ingestion/sources/{row['platform_id']}.md"
+            f.write(f"| [{row['name']}]({link}) | {row['notes']} |\n")
+
+    print(
+        f"SQL Profiling Support Table Generation Complete ({len(rows)} sources) -> {out_file}"
+    )
+
+
+def generate_operation_capture_support_table(platforms: Dict[str, Platform]) -> None:
+    """Generate a markdown table of all sources that declare OPERATION_CAPTURE support.
+
+    The output is a partial markdown file that gets inlined into
+    ``docs/api/tutorials/operations.md`` via the docs build inline directive.
+
+    Source links are written relative to ``docs/api/tutorials/operations.md`` since
+    ``markdown_rewrite_urls`` runs before inline expansion in the docs-website
+    build pipeline.
+    """
+    out_dir = "../docs/generated/ingestion"
+    os.makedirs(out_dir, exist_ok=True)
+    out_file = f"{out_dir}/operation_capture_support_table.md.snippet"
+
+    rows: List[Dict[str, str]] = []
+    for platform_id, platform in platforms.items():
+        for plugin in platform.plugins.values():
+            if not plugin.capabilities:
+                continue
+            operation_cap = next(
+                (
+                    cap
+                    for cap in plugin.capabilities
+                    if cap.capability == SourceCapability.OPERATION_CAPTURE
+                    and cap.supported
+                ),
+                None,
+            )
+            if operation_cap is None:
+                continue
+
+            if len(platform.plugins) > 1:
+                display_name = f"{platform.name} `{plugin.name}`"
+            else:
+                display_name = platform.name
+
+            notes = (operation_cap.description or "").strip()
+            if notes and not notes.endswith("."):
+                notes += "."
+
+            rows.append(
+                {
+                    "name": display_name,
+                    "platform_id": platform_id,
+                    "notes": notes,
+                }
+            )
+
+    rows.sort(key=lambda r: r["name"].casefold())
+
+    with open(out_file, "w") as f:
+        f.write("| Source | Notes |\n")
+        f.write("| ------ | ----- |\n")
+        for row in rows:
+            link = f"../../generated/ingestion/sources/{row['platform_id']}.md"
+            f.write(f"| [{row['name']}]({link}) | {row['notes']} |\n")
+
+    print(
+        f"Operation Capture Support Table Generation Complete ({len(rows)} sources) -> {out_file}"
+    )
 
 
 if __name__ == "__main__":

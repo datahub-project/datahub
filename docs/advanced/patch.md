@@ -1,3 +1,7 @@
+---
+description: "Use DataHub patch APIs to make partial updates to metadata aspects without overwriting unrelated fields on the same entity."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -5,25 +9,25 @@ import TabItem from '@theme/TabItem';
 
 ## Why Would You Use Patch
 
-By default, most of the SDK tutorials and APIs involve applying full upserts at the aspect level, e.g. replacing the aspect entirely. 
+By default, most of the SDK tutorials and APIs involve applying full upserts at the aspect level, e.g. replacing the aspect entirely.
 This means that when you want to change even a single field within an aspect without modifying others, you need to do a read-modify-write to avoid overwriting existing fields.
 To support these scenarios, DataHub supports `PATCH` operations to perform targeted changes for individual fields or values within arrays of fields are possible without impacting other existing metadata.
 
 :::note
 
-Currently, PATCH support is only available for a selected set of aspects, so before pinning your hopes on using PATCH as a way to make modifications to aspect values, confirm whether your aspect supports PATCH semantics. The complete list of Aspects that are supported are maintained [here](https://github.com/datahub-project/datahub/blob/9588440549f3d99965085e97b214a7dabc181ed2/entity-registry/src/main/java/com/linkedin/metadata/models/registry/template/AspectTemplateEngine.java#L24). 
+PATCH support is now supported generically via [OpenAPI](../api/openapi/openapi-usage-guide.md#generic-patching). Traditional PATCH support is only available for a selected set of aspects. The complete list of Aspects that are supported are maintained by the `SUPPORTED_TEMPLATES` constant [here](https://github.com/datahub-project/datahub/blob/master/entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/template/AspectTemplateEngine.java#L23).
 
 :::
 
 ## How To Use Patches
 
-Here's how to find the appropriate classes for the language for your choice.
+The Patch builders are available in both Python and Java SDKs:
 
-<Tabs>
-<TabItem value="Python" label="Python SDK" default>
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
-The Python Patch builders are entity-oriented and located in the [metadata-ingestion](https://github.com/datahub-project/datahub/tree/9588440549f3d99965085e97b214a7dabc181ed2/metadata-ingestion/src/datahub/specific) module and located in the `datahub.specific` module. 
-Patch builder helper classes exist for 
+The Python Patch builders are entity-oriented and located in the [metadata-ingestion](https://github.com/datahub-project/datahub/tree/9588440549f3d99965085e97b214a7dabc181ed2/metadata-ingestion/src/datahub/specific) module and located in the `datahub.specific` module.
+Patch builder helper classes exist for
 
 - [Datasets](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/dataset.py)
 - [Charts](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/chart.py)
@@ -33,17 +37,35 @@ Patch builder helper classes exist for
 
 And we are gladly accepting contributions for Containers, Data Flows (Pipelines), Tags, Glossary Terms, Domains, and ML Models.
 
+</TabItem>
+<TabItem value="java" label="Java SDK">
+
+The Java Patch builders are aspect-oriented and located in the [datahub-client](https://github.com/datahub-project/datahub/tree/master/metadata-integration/java/datahub-client/src/main/java/datahub/client/patch) module under the `datahub.client.patch` namespace.
+
+</TabItem>
+</Tabs>
+
 ### Add & Remove Owners for Dataset
 
 To add & remove specific owners for a dataset:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_owner_patch.py show_path_as_comment }}
 ```
 
+</TabItem>
+
+</Tabs>
+
 ### Add & Remove Tags for Dataset
 
 To add & remove specific tags for a dataset:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_tag_patch.py show_path_as_comment }}
@@ -55,9 +77,16 @@ And for a specific schema field within the Dataset:
 {{ inline /metadata-ingestion/examples/library/dataset_field_add_tag_patch.py show_path_as_comment }}
 ```
 
+</TabItem>
+
+</Tabs>
+
 ### Add & Remove Glossary Terms for Dataset
 
 To add & remove specific glossary terms for a dataset:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_glossary_term_patch.py show_path_as_comment }}
@@ -69,42 +98,71 @@ And for a specific schema field within the Dataset:
 {{ inline /metadata-ingestion/examples/library/dataset_field_add_glossary_term_patch.py show_path_as_comment }}
 ```
 
+</TabItem>
+</Tabs>
+
 ### Add & Remove Structured Properties for Dataset
 
 To add & remove structured properties for a dataset:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_structured_properties_patch.py show_path_as_comment }}
 ```
 
+</TabItem>
+
+</Tabs>
+
 ### Add & Remove Upstream Lineage for Dataset
 
 To add & remove a lineage edge connecting a dataset to it's upstream or input at both the dataset and schema field level:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_upstream_lineage_patch.py show_path_as_comment }}
 ```
 
+</TabItem>
+
+</Tabs>
+
 ### Add & Remove Read-Only Custom Properties for Dataset
 
-To add & remove specific custom properties for a dataset: 
+To add & remove specific custom properties for a dataset:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_remove_custom_properties_patch.py show_path_as_comment }}
 ```
 
 </TabItem>
-<TabItem value="Java" label="Java SDK">
-
-The Java Patch builders are aspect-oriented and located in the [datahub-client](https://github.com/datahub-project/datahub/tree/master/metadata-integration/java/datahub-client/src/main/java/datahub/client/patch) module under the `datahub.client.patch` namespace.
-
-### Add & Remove Read-Only Custom Properties
+<TabItem value="java" label="Java SDK">
 
 ```java
 {{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAddRemove.java show_path_as_comment }}
 ```
 
-### Add Data Job Lineage
+</TabItem>
+</Tabs>
+
+### Add & Remove Data Job Lineage
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
+
+```python
+{{ inline /metadata-ingestion/examples/library/datajob_add_lineage_patch.py show_path_as_comment }}
+```
+
+</TabItem>
+<TabItem value="java" label="Java SDK">
 
 ```java
 {{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DataJobLineageAdd.java show_path_as_comment }}
@@ -112,7 +170,6 @@ The Java Patch builders are aspect-oriented and located in the [datahub-client](
 
 </TabItem>
 </Tabs>
-
 
 ## Advanced: How Patch works
 
@@ -132,22 +189,24 @@ A patch path for targeting an upstream dataset:
 `/upstreams/urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created_upstream,PROD)`
 
 Breakdown:
-* `/upstreams` -> References the upstreams field of the UpstreamLineage aspect, this is an array of Upstream objects where the key is the Urn
-* `/urn:...` -> The dataset to be targeted by the operation
+
+- `/upstreams` -> References the upstreams field of the UpstreamLineage aspect, this is an array of Upstream objects where the key is the Urn
+- `/urn:...` -> The dataset to be targeted by the operation
 
 A patch path for targeting a fine-grained lineage upstream:
 
 `/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),foo)/urn:li:query:queryId/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created_upstream,PROD),bar)`
 
 Breakdown:
-* `/fineGrainedLineages` -> References the fineGrainedLineages field on an UpstreamLineage, this is an array of FineGrainedLineage objects keyed on transformOperation, downstream urn, and query urn
-* `/TRANSFORM` -> transformOperation, one of the fields determining the key for a fineGrainedLineage
-* `/urn:li:schemaField:...` -> The downstream schemaField referenced in this schema, part of the key for a fineGrainedLineage
-* `/urn:li:query:...` -> The query urn this relationship was derived from, part of the key for a fineGrainedLineage
-* `/urn:li:schemaField:` -> The upstream urn that is being targeted by this patch operation
 
-This showcases that in some cases the key for objects is simple, in others in can be complex to determine, but for our fully supported use cases we have 
-SDK support on both the Java and Python side that will generate these patches for you as long as you supply the required method parameters. 
+- `/fineGrainedLineages` -> References the fineGrainedLineages field on an UpstreamLineage, this is an array of FineGrainedLineage objects keyed on transformOperation, downstream urn, and query urn
+- `/TRANSFORM` -> transformOperation, one of the fields determining the key for a fineGrainedLineage
+- `/urn:li:schemaField:...` -> The downstream schemaField referenced in this schema, part of the key for a fineGrainedLineage
+- `/urn:li:query:...` -> The query urn this relationship was derived from, part of the key for a fineGrainedLineage
+- `/urn:li:schemaField:` -> The upstream urn that is being targeted by this patch operation
+
+This showcases that in some cases the key for objects is simple, in others in can be complex to determine, but for our fully supported use cases we have
+SDK support on both the Java and Python side that will generate these patches for you as long as you supply the required method parameters.
 Path is generally the most complicated portion of a patch to reason about as it requires intimate knowledge of the schema and models.
 
 ### Operation
@@ -157,7 +216,7 @@ as the other patch operations do not currently have a use case within our system
 
 #### Add
 
-Add is a bit of a misnomer for the JSON Patch spec, it is not an explicit add but an upsert/replace. If the path specified does not exist, it will be created, 
+Add is a bit of a misnomer for the JSON Patch spec, it is not an explicit add but an upsert/replace. If the path specified does not exist, it will be created,
 but if the path already exists the value will be replaced. Patch operations apply at a path level so it is possible to do full replaces of arrays or objects in the schema
 using adds, but generally the most useful use case for patch is to add elements to arrays without affecting the other elements as full upserts are supported by standard ingestion.
 
@@ -183,7 +242,7 @@ An example UpstreamLineage object value:
   "type": "TRANSFORMED"
 }
 ```
- 
+
 For the previous path example (`/upstreams/urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created_upstream,PROD)`), this object would represent the UpstreamLineage object for that path.
 This specifies the required fields to properly represent that object. Note: by modifying this path, you could reference a single field within the UpstreamLineage object itself, like so:
 

@@ -16,7 +16,13 @@ from datahub._version import __version__, nice_version_name
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
+from datahub.configuration.env_vars import (
+    get_sentry_dsn,
+    get_sentry_environment,
+    get_telemetry_timeout,
+)
 from datahub.metadata.schema_classes import _custom_package_path
+from datahub.utilities.caller_context import identify_caller
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -97,19 +103,20 @@ if any(var in os.environ for var in CI_ENV_VARS):
 if _custom_package_path:
     ENV_ENABLED = False
 
-TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
+TIMEOUT = int(get_telemetry_timeout())
 MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
-SENTRY_DSN: Optional[str] = os.environ.get("SENTRY_DSN", None)
-SENTRY_ENVIRONMENT: str = os.environ.get("SENTRY_ENVIRONMENT", "dev")
+SENTRY_DSN: Optional[str] = get_sentry_dsn()
+SENTRY_ENVIRONMENT: str = get_sentry_environment()
 
 
-def _default_telemetry_properties() -> Dict[str, Any]:
+def _default_global_properties() -> Dict[str, Any]:
     return {
         "datahub_version": nice_version_name(),
         "python_version": platform.python_version(),
         "os": platform.system(),
         "arch": platform.machine(),
+        # caller is populated lazily in ping() to avoid subprocess calls at import time
     }
 
 
@@ -122,6 +129,7 @@ class Telemetry:
     context_properties: Dict[str, Any] = {}
 
     def __init__(self):
+        self.global_properties = _default_global_properties()
         self.context_properties = {}
 
         if SENTRY_DSN:
@@ -247,6 +255,10 @@ class Telemetry:
 
         return False
 
+    def add_global_property(self, key: str, value: Any) -> None:
+        self.global_properties[key] = value
+        self._update_sentry_properties()
+
     def set_context(
         self,
         server: Optional["DataHubGraph"] = None,
@@ -257,16 +269,20 @@ class Telemetry:
             **(properties or {}),
         }
 
+        self._update_sentry_properties()
+
+    def _update_sentry_properties(self) -> None:
+        properties = {
+            **self.global_properties,
+            **self.context_properties,
+        }
         if self.sentry_enabled:
-            from sentry_sdk import set_tag
+            import sentry_sdk
 
-            properties = {
-                **_default_telemetry_properties(),
-                **self.context_properties,
-            }
-
-            for key in properties:
-                set_tag(key, properties[key])
+            # Note: once we're on sentry-sdk 2.1.0+, we can use sentry_sdk.set_tags(properties)
+            # See https://github.com/getsentry/sentry-python/commit/6c960d752c7c7aff3fd7469d2e9ad98f19663aa8
+            for key, value in properties.items():
+                sentry_sdk.set_tag(key, value)
 
     def init_capture_exception(self) -> None:
         if self.sentry_enabled:
@@ -300,7 +316,7 @@ class Telemetry:
         try:
             self.mp.people_set(
                 self.client_id,
-                _default_telemetry_properties(),
+                self.global_properties,
             )
         except Exception as e:
             logger.debug(f"Error initializing telemetry: {e}")
@@ -324,6 +340,10 @@ class Telemetry:
 
         properties = properties or {}
 
+        # Lazily populate caller to avoid subprocess calls at import time
+        if "caller" not in self.global_properties:
+            self.global_properties["caller"] = identify_caller()
+
         # send event
         try:
             if event_name == "function-call":
@@ -334,7 +354,7 @@ class Telemetry:
                 logger.debug(f"Sending telemetry for {event_name}")
 
             properties = {
-                **_default_telemetry_properties(),
+                **self.global_properties,
                 **self.context_properties,
                 **properties,
             }
@@ -352,10 +372,10 @@ class Telemetry:
             }
         else:
             return {
-                "server_type": server.server_config.get("datahub", {}).get(
+                "server_type": server.server_config.raw_config.get("datahub", {}).get(
                     "serverType", "missing"
                 ),
-                "server_version": server.server_config.get("versions", {})
+                "server_version": server.server_config.raw_config.get("versions", {})
                 .get("acryldata/datahub", {})
                 .get("version", "missing"),
                 "server_id": server.server_id or "missing",
@@ -397,6 +417,19 @@ _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
 
+def _get_cli_context() -> Dict[str, str]:
+    """Read --context key=value pairs from the Click context, if available."""
+    try:
+        import click
+
+        ctx = click.get_current_context(silent=True)
+        if ctx and ctx.obj and isinstance(ctx.obj, dict):
+            return {f"ctx_{k}": v for k, v in ctx.obj.get("context", {}).items()}
+    except Exception:
+        pass
+    return {}
+
+
 def with_telemetry(
     *, capture_kwargs: Optional[List[str]] = None
 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
@@ -411,6 +444,7 @@ def with_telemetry(
             telemetry_instance.init_capture_exception()
 
             call_props: Dict[str, Any] = {"function": function}
+            call_props.update(_get_cli_context())
             for kwarg in kwargs_to_track:
                 call_props[f"arg_{kwarg}"] = kwargs.get(kwarg)
 

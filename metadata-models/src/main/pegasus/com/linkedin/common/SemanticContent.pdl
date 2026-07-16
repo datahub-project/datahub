@@ -1,0 +1,26 @@
+namespace com.linkedin.common
+
+/**
+ * Semantic content for enabling vector similarity search.
+ * 
+ * This aspect stores chunked text and embedding vectors for any entity that supports semantic search. Generation of the data for this aspect should be built in tight collaboration with the embedding generator during semantic search query processing. Chunk determination and generation can happen somewhat independently
+ * The data in this aspect is directly passed along to the semantic search index.
+ * 
+ * Design notes:
+ * - Supports multiple embedding models (e.g., different providers or versions)
+ * - Supports chunked content for long documents
+ * - Text field is optional to support privacy-sensitive use cases where
+ *   only embeddings (not source text) are shared with DataHub
+ */
+@Aspect = {
+  "name": "semanticContent"
+}
+record SemanticContent {
+
+  /**
+   * Map of embedding model name to embedding data.
+   * Key is the model identifier (e.g., cohere_embed_v3, openai_ada_002).
+   * Allows storing embeddings from multiple models simultaneously.
+   */
+  embeddings: map[string, EmbeddingModelData]
+}

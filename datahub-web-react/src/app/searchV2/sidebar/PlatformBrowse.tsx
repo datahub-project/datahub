@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
-import styled from 'styled-components';
 import { Divider, Empty } from 'antd';
-import { BrowseProvider } from './BrowseContext';
-import SidebarLoadingError from './SidebarLoadingError';
-import useSidebarPlatforms from './useSidebarPlatforms';
-import PlatformNode from './PlatformNode';
+import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
+import PlatformNode from '@app/searchV2/sidebar/PlatformNode';
+import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
+import useSidebarPlatforms from '@app/searchV2/sidebar/useSidebarPlatforms';
 
 const BrowsePlatformIcons = styled.div`
     display: flex;
@@ -24,6 +26,7 @@ type Props = {
 };
 
 const PlatformBrowse = ({ visible, collapsed = false, expand, hideSidebar, unhideSidebar }: Props) => {
+    const { t } = useTranslation('search');
     const { error, platformAggregations, retry } = useSidebarPlatforms({
         skip: !visible,
     });
@@ -40,7 +43,7 @@ const PlatformBrowse = ({ visible, collapsed = false, expand, hideSidebar, unhid
 
     return (
         <>
-            {isEmpty && <Empty description="No matching platforms found" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+            {isEmpty && <Empty description={t('sidebar.noMatchingPlatforms')} image={Empty.PRESENTED_IMAGE_SIMPLE} />}
             <BrowsePlatformIcons>
                 {platformAggregations
                     ?.sort((a, b) => b.count - a.count)

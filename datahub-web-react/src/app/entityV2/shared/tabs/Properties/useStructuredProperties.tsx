@@ -1,18 +1,19 @@
-import { PropertyValue, StructuredPropertiesEntry } from '../../../../../types.generated';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import { GenericEntityProperties } from '../../../../entity/shared/types';
-import { getStructuredPropertyValue } from '../../../../entity/shared/utils';
-import EntityRegistry from '../../../EntityRegistry';
-import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
-import { PropertyRow } from './types';
-import { filterStructuredProperties } from './utils';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getStructuredPropertyValue } from '@app/entity/shared/utils';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';
+
+import { PropertyValue, StructuredPropertiesEntry } from '@types';
 
 const typeNameToType = {
     StringValue: { type: 'string', nativeDataType: 'text' },
     NumberValue: { type: 'number', nativeDataType: 'float' },
 };
 
-export function mapStructuredPropertyValues(structuredPropertiesEntry: StructuredPropertiesEntry) {
+function mapStructuredPropertyValues(structuredPropertiesEntry: StructuredPropertiesEntry) {
     return structuredPropertiesEntry.values
         .filter((value) => !!value)
         .map((value) => ({
@@ -40,6 +41,7 @@ export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: St
                   }
                 : undefined,
         associatedUrn: structuredPropertiesEntry.associatedUrn,
+        attribution: structuredPropertiesEntry.attribution,
     };
 }
 
@@ -72,7 +74,7 @@ function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericE
     return structuredPropertyRows;
 }
 
-export function findAllSubstrings(s: string): Array<string> {
+function findAllSubstrings(s: string): Array<string> {
     const substrings: Array<string> = [];
 
     for (let i = 0; i < s.length; i++) {
@@ -84,7 +86,7 @@ export function findAllSubstrings(s: string): Array<string> {
     return substrings;
 }
 
-export function createParentPropertyRow(displayName: string, qualifiedName: string): PropertyRow {
+function createParentPropertyRow(displayName: string, qualifiedName: string): PropertyRow {
     return {
         displayName,
         qualifiedName,
@@ -148,7 +150,7 @@ export function identifyAndAddParentRows(rows?: Array<PropertyRow>): Array<Prope
     return finalParents;
 }
 
-export function groupByParentProperty(rows?: Array<PropertyRow>): Array<PropertyRow> {
+function groupByParentProperty(rows?: Array<PropertyRow>): Array<PropertyRow> {
     /**
      * This function takes in an array of PropertyRow objects, representing parent and child properties. Parent properties
      * will not have values, but child properties will. It organizes the rows into the parent and child structure and

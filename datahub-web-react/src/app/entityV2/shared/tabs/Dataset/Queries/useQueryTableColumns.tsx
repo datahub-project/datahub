@@ -1,16 +1,25 @@
-import moment from 'moment';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
-import { Query } from './types';
-import QueryComponent from './Query';
-import { EditDeleteColumn, QueryCreatedBy, QueryDescription, PopularityColumn, ColumnsColumn } from './queryColumns';
-import { CorpUser, Entity } from '../../../../../../types.generated';
-import { EntityLink } from '../../../../../homeV2/reference/sections/EntityLink';
-import { useEntityRegistryV2 } from '../../../../../useEntityRegistry';
-import { Sorting } from '../../../../../sharedV2/sorting/useSorting';
-import TopUsersFacepile from '../../../containers/profile/sidebar/shared/TopUsersFacepile';
-import { toRelativeTimeString } from '../../../../../shared/time/timeUtils';
+
+import TopUsersFacepile from '@app/entityV2/shared/containers/profile/sidebar/shared/TopUsersFacepile';
+import QueryComponent from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
+import {
+    ColumnsColumn,
+    EditDeleteColumn,
+    QueryCreatedBy,
+    QueryDescription,
+} from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
+import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+import { Sorting } from '@app/sharedV2/sorting/useSorting';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
+
+import { ActorWithDisplayNameFragment } from '@graphql/query.generated';
+import { CorpUser, Entity } from '@types';
+
+const DATE_FORMAT = 'MM/DD/YYYY';
 
 const UsersWrapper = styled.div`
     display: flex;
@@ -41,12 +50,14 @@ export default function useQueryTableColumns({
     sorting,
     showPagination,
 }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistryV2();
     // only rely on backend sorting if we provide a sorting config and we are paginating
     const shouldRelyOnBackendSorting = sorting && showPagination;
 
     const titleColumn = {
-        title: 'Title',
+        title: tc('title'),
         dataIndex: 'title',
         key: 'name',
         field: 'name',
@@ -57,14 +68,14 @@ export default function useQueryTableColumns({
     };
 
     const descriptionColumn = {
-        title: 'Description',
+        title: t('queryCard.columnDescription'),
         dataIndex: 'description',
         key: 'description',
         render: (description: string) => <QueryDescription description={description} />,
     };
 
     const queryTextColumn = (width?: string | number) => ({
-        title: 'Query Text',
+        title: t('queryCard.columnQueryText'),
         dataIndex: 'query',
         key: 'query',
         render: (rowQuery: string) => {
@@ -92,7 +103,7 @@ export default function useQueryTableColumns({
     });
 
     const createdByColumn = {
-        title: 'Created By',
+        title: t('queryCard.columnCreatedBy'),
         dataIndex: 'createdBy',
         key: 'createdBy',
         sorter: shouldRelyOnBackendSorting
@@ -103,24 +114,24 @@ export default function useQueryTableColumns({
                   const createdByB = entityRegistry.getDisplayName(queryB.createdBy.type, queryB.createdBy);
                   return createdByA.localeCompare(createdByB);
               },
-        render: (createdBy: CorpUser) => {
+        render: (createdBy: ActorWithDisplayNameFragment) => {
             return <QueryCreatedBy createdBy={createdBy} />;
         },
     };
 
     const createdDateColumn = {
-        title: 'Date Created',
+        title: t('queryCard.columnDateCreated'),
         dataIndex: 'createdTime',
         key: 'dateCreated',
         field: 'createdAt',
         sorter: shouldRelyOnBackendSorting ? true : (queryA, queryB) => queryA.createdTime - queryB.createdTime,
         render: (date: number) => {
-            return <div>{moment(date).format('MM/DD/YYYY')}</div>;
+            return <div>{dayjs(date).format(DATE_FORMAT)}</div>;
         },
     };
 
     const powersColumn = {
-        title: 'Powers',
+        title: t('queryCard.columnPowers'),
         dataIndex: 'poweredEntity',
         key: 'powers',
         sorter: (queryA, queryB) => {
@@ -139,13 +150,13 @@ export default function useQueryTableColumns({
         },
     };
 
-    const usedByColumn = {
-        title: 'Used By',
+    const topUsersColumn = {
+        title: t('queryCard.columnTopUsers'),
         dataIndex: 'usedBy',
         key: 'usedBy',
         className: 'usedBy',
         sorter: shouldRelyOnBackendSorting
-            ? false // we don't support sorting by topUsersLast30DaysFeature on backend since it is a text field
+            ? false
             : (queryA, queryB) => {
                   if (!queryA.usedBy || !queryA.usedBy[0] || !queryB.usedBy || !queryB.usedBy[0]) return 0;
                   const usedByA = entityRegistry.getDisplayName(queryA.usedBy[0].type, queryA.usedBy[0]);
@@ -161,41 +172,11 @@ export default function useQueryTableColumns({
         },
     };
 
-    const popularityColumn = {
-        title: 'Popularity',
-        key: 'popularity',
-        field: 'runsPercentileLast30days',
-        width: 110,
-        sorter: shouldRelyOnBackendSorting
-            ? true
-            : (queryA, queryB) => queryA.runsPercentileLast30days - queryB.runsPercentileLast30days,
-        render: (query: Query) => <PopularityColumn query={query} />,
-    };
-
     const columnsColumn = {
-        title: 'Columns',
+        title: tc('columns'),
         key: 'columns',
         width: 105,
         render: (query: Query) => <ColumnsColumn query={query} />,
-    };
-
-    const lastRunColumn = {
-        title: 'Last Run',
-        dataIndex: 'lastRun',
-        key: 'lastRun',
-        field: 'lastExecutedAtFeature',
-        className: 'lastRun',
-        sorter: shouldRelyOnBackendSorting ? true : (queryA, queryB) => queryA.lastRun - queryB.lastRun,
-        render: (lastRun: string) => {
-            if (!lastRun) return null;
-            return (
-                <div>
-                    <Tooltip title={moment(lastRun).format('MM/DD/YYYY')}>
-                        {toRelativeTimeString(new Date(lastRun).getTime())}
-                    </Tooltip>
-                </div>
-            );
-        },
     };
 
     const editColumn = {
@@ -219,10 +200,8 @@ export default function useQueryTableColumns({
         createdByColumn,
         createdDateColumn,
         powersColumn,
-        usedByColumn,
-        popularityColumn,
+        topUsersColumn,
         columnsColumn,
-        lastRunColumn,
         editColumn,
     };
 }

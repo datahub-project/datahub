@@ -7,20 +7,13 @@ bootstrap:
   templates:
     # Bootstrap
     - name: root-user
-      version: v2
+      version: v5
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/root-user.yaml"
 
-    - name: root-user-editable-info
-      version: v1
-      blocking: true
-      optional: true
-      async: false
-      mcps_location: "bootstrap_mcps/root-user-editable-info.yaml"
-
     - name: data-platforms
-      version: v2
+      version: v14
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/data-platforms.yaml"
@@ -37,16 +30,41 @@ bootstrap:
       async: false
       mcps_location: "bootstrap_mcps/ownership-types.yaml"
 
+    - name: lifecycle-stages
+      version: v2
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/lifecycle-stages.yaml"
+
     - name: roles
       version: v1
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/roles.yaml"
 
+    - name: page-modules
+      version: v9
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/page-modules.yaml"
+
+    - name: page-templates
+      version: v3
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/page-templates.yaml"
+
     # Ingestion Recipes
     - name: ingestion-datahub-gc
-      version: v5
+      version: v8
       optional: false
       mcps_location: "bootstrap_mcps/ingestion-datahub-gc.yaml"
       values_env: "DATAHUB_GC_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"
+
+    - name: ingestion-datahub-documents
+      version: v2
+      optional: true
+      mcps_location: "bootstrap_mcps/ingestion-datahub-documents.yaml"
+      values_env: "DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_DOCUMENTS_REVISION"

@@ -1,12 +1,16 @@
+---
+description: "Configure DataHub's React analytics to emit product usage events to Mixpanel, Amplitude, Google Analytics, or other providers."
+---
+
 # DataHub React Analytics
 
 ## About
 
 The DataHub React application can be configured to emit a set of standardized product analytics events to multiple backend providers including
 
--   Mixpanel
--   Amplitude
--   Google Analytics
+- Mixpanel
+- Amplitude
+- Google Analytics
 
 This provides operators of DataHub with visibility into how their users are engaging with the platform, allowing them to answer questions around weekly active users, the most used features, the least used features, and more.
 

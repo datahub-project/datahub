@@ -1,21 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import { Form, message, Modal } from 'antd';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import CreatePostForm from './CreatePostForm';
-import {
-    CREATE_POST_BUTTON_ID,
-    DESCRIPTION_FIELD_NAME,
-    LINK_FIELD_NAME,
-    LOCATION_FIELD_NAME,
-    TYPE_FIELD_NAME,
-    TITLE_FIELD_NAME,
-} from './constants';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { MediaType, PostContentType, PostType } from '../../../types.generated';
-import { useCreatePostMutation, useUpdatePostMutation } from '../../../graphql/mutations.generated';
-import { PostEntry } from './PostsListColumns';
-import handleGraphQLError from '../../shared/handleGraphQLError';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import CreatePostForm, { PostFormData } from '@app/settingsV2/posts/CreatePostForm';
+import { PostEntry } from '@app/settingsV2/posts/PostsListColumns';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { Modal, toast } from '@src/alchemy-components';
+
+import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
+import { MediaType, PostContentType, PostType } from '@types';
+
+function getInitialFormData(editData?: PostEntry): PostFormData {
+    if (editData) {
+        return {
+            type: (editData.contentType as PostContentType) || PostContentType.Text,
+            title: editData.title || '',
+            description: (editData.description as string) || '',
+            link: editData.link || '',
+            location: editData.imageUrl || '',
+        };
+    }
+    return {
+        type: PostContentType.Text,
+        title: '',
+        description: '',
+        link: '',
+        location: '',
+    };
+}
 
 type Props = {
     editData: PostEntry;
@@ -31,41 +42,30 @@ type Props = {
 };
 
 export default function CreatePostModal({ onClose, onCreate, editData, onEdit }: Props) {
+    const { t } = useTranslation('settings.posts');
+    const { t: tc } = useTranslation('common.actions');
     const [createPostMutation] = useCreatePostMutation();
     const [updatePostMutation] = useUpdatePostMutation();
-    const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
-    const [form] = Form.useForm();
+    const [formData, setFormData] = useState<PostFormData>(() => getInitialFormData(editData));
 
-    useEffect(() => {
-        if (editData) {
-            form.setFieldsValue({
-                description: editData.description,
-                title: editData.title,
-                link: editData.link,
-                location: editData.imageUrl,
-                type: editData.contentType,
-            });
-        }
-    }, [editData, form]);
+    const handleChange = useCallback((field: keyof PostFormData, value: string | PostContentType) => {
+        setFormData((prev) => ({ ...prev, [field]: value }));
+    }, []);
+
+    const isValid = useMemo(() => formData.title.trim().length > 0, [formData.title]);
 
     const onCreatePost = () => {
-        const contentTypeValue = form.getFieldValue(TYPE_FIELD_NAME) ?? PostContentType.Text;
         const mediaValue =
-            form.getFieldValue(TYPE_FIELD_NAME) && form.getFieldValue(LOCATION_FIELD_NAME)
-                ? {
-                      type: MediaType.Image,
-                      location: form.getFieldValue(LOCATION_FIELD_NAME) ?? null,
-                  }
-                : null;
+            formData.type && formData.location ? { type: MediaType.Image, location: formData.location } : null;
         createPostMutation({
             variables: {
                 input: {
                     postType: PostType.HomePageAnnouncement,
                     content: {
-                        contentType: contentTypeValue,
-                        title: form.getFieldValue(TITLE_FIELD_NAME),
-                        description: form.getFieldValue(DESCRIPTION_FIELD_NAME) ?? null,
-                        link: form.getFieldValue(LINK_FIELD_NAME) ?? null,
+                        contentType: formData.type || PostContentType.Text,
+                        title: formData.title,
+                        description: formData.description || null,
+                        link: formData.link || null,
                         media: mediaValue,
                     },
                 },
@@ -73,49 +73,39 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: `Created Post!`,
-                        duration: 3,
-                    });
+                    toast.success(t('createSuccess'));
                     onCreate(
-                        form.getFieldValue(TYPE_FIELD_NAME) ?? PostContentType.Text,
-                        form.getFieldValue(TITLE_FIELD_NAME),
-                        form.getFieldValue(DESCRIPTION_FIELD_NAME),
-                        form.getFieldValue(LINK_FIELD_NAME),
-                        form.getFieldValue(LOCATION_FIELD_NAME),
+                        formData.type || PostContentType.Text,
+                        formData.title,
+                        formData.description,
+                        formData.link,
+                        formData.location,
                     );
-                    form.resetFields();
                 }
             })
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to create Post! An unexpected error occurred',
-                    permissionMessage: 'Unauthorized to create Post. Please contact your DataHub administrator.',
+                    defaultMessage: t('createError'),
+                    permissionMessage: t('createUnauthorized'),
                 });
             });
         onClose();
     };
 
     const onUpdatePost = () => {
-        const contentTypeValue = form.getFieldValue(TYPE_FIELD_NAME) ?? PostContentType.Text;
         const mediaValue =
-            form.getFieldValue(TYPE_FIELD_NAME) && form.getFieldValue(LOCATION_FIELD_NAME)
-                ? {
-                      type: MediaType.Image,
-                      location: form.getFieldValue(LOCATION_FIELD_NAME) ?? null,
-                  }
-                : null;
+            formData.type && formData.location ? { type: MediaType.Image, location: formData.location } : null;
         updatePostMutation({
             variables: {
                 input: {
                     urn: editData?.urn,
                     postType: PostType.HomePageAnnouncement,
                     content: {
-                        contentType: contentTypeValue,
-                        title: form.getFieldValue(TITLE_FIELD_NAME),
-                        description: form.getFieldValue(DESCRIPTION_FIELD_NAME) ?? null,
-                        link: form.getFieldValue(LINK_FIELD_NAME) ?? null,
+                        contentType: formData.type || PostContentType.Text,
+                        title: formData.title,
+                        description: formData.description || null,
+                        link: formData.link || null,
                         media: mediaValue,
                     },
                 },
@@ -123,62 +113,41 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: `Updated Post!`,
-                        duration: 3,
-                    });
+                    toast.success(t('updateSuccess'));
                     onEdit();
-                    form.resetFields();
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: 'Failed to update Post! An unknown error occured.', duration: 3 });
+                toast.error(t('updateError'));
                 console.error('Failed to update Post:', e.message);
             });
         onClose();
     };
 
-    // Handle the Enter press
-    useEnterKeyListener({
-        querySelectorToExecuteClick: '#createPostButton',
-    });
-
-    const onCloseModal = () => {
-        form.resetFields();
-        onClose();
-    };
-
-    const titleText = editData ? 'Edit' : 'Create';
+    const titleText = editData ? tc('edit') : tc('create');
 
     return (
         <Modal
             title={titleText}
             open
-            onCancel={onCloseModal}
-            width={700}
-            footer={
-                <ModalButtonContainer>
-                    <Button color="gray" onClick={onCloseModal} variant="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        id={CREATE_POST_BUTTON_ID}
-                        data-testid={!editData ? 'create-post-button' : 'update-post-button'}
-                        onClick={!editData ? onCreatePost : onUpdatePost}
-                        disabled={!createButtonEnabled}
-                    >
-                        {!editData ? 'Create' : 'Update'}
-                    </Button>
-                </ModalButtonContainer>
-            }
+            onCancel={onClose}
+            width={800}
+            buttons={[
+                {
+                    text: tc('cancel'),
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: !editData ? tc('create') : tc('update'),
+                    onClick: !editData ? onCreatePost : onUpdatePost,
+                    variant: 'filled',
+                    disabled: !isValid,
+                    buttonDataTestId: !editData ? 'create-post-button' : 'update-post-button',
+                },
+            ]}
         >
-            <CreatePostForm
-                setCreateButtonEnabled={setCreateButtonEnabled}
-                form={form}
-                editData={editData}
-                contentType={editData?.contentType as PostContentType}
-            />
+            <CreatePostForm formData={formData} onChange={handleChange} />
         </Modal>
     );
 }

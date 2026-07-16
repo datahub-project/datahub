@@ -1,9 +1,11 @@
 import * as QueryString from 'query-string';
 import { RouteComponentProps } from 'react-router-dom';
-import filtersToQueryStringParams from './filtersToQueryStringParams';
-import { FacetFilterInput } from '../../../types.generated';
-import { PageRoutes } from '../../../conf/Global';
-import { UnionType } from './constants';
+
+import { UnionType } from '@app/searchV2/utils/constants';
+import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
+import { PageRoutes } from '@conf/Global';
+
+import { FacetFilterInput } from '@types';
 
 export const navigateToSearchUrl = ({
     query,

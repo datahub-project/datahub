@@ -1,19 +1,27 @@
+---
+title: Domains Overview
+description: "Use DataHub Domains to group related data assets into curated, top-level collections owned by business units or teams."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Domains
 
 <FeatureAvailability/>
 
-Starting in version `0.8.25`, DataHub supports grouping data assets into logical collections called **Domains**. Domains are curated, top-level folders or categories where related assets can be explicitly grouped. Management of Domains can be centralized, or distributed out to Domain owners Currently, an asset can belong to only one Domain at a time. 
+Starting in version `0.8.25`, DataHub supports grouping data assets into logical collections called **Domains**. Domains are curated, top-level folders or categories where related assets can be explicitly grouped. Management of Domains can be centralized, or distributed out to Domain owners Currently, an asset can belong to only one Domain at a time.
+
+:::tip Domains and view-based access control
+Domains are ideal for **curation and organization**. Using them as the primary boundary for view-based access control can hurt performance. See [Domains and containers](./authorization/policies.md#domains-and-containers) in the Policies Guide.
+:::
 
 ## Domains Setup, Prerequisites, and Permissions
 
 What you need to create and add domains:
 
-* **Manage Domains** platform privilege to add domains at the entity level
+- **Manage Domains** platform privilege to add domains at the entity level
 
 You can create this privileges by creating a new [Metadata Policy](./authorization/policies.md).
-
 
 ## Using Domains
 
@@ -26,7 +34,7 @@ To create a Domain, first navigate to the **Domains** tab in the top-right menu 
 </p>
 
 Once you're on the Domains page, you'll see a list of all the Domains that have been created on DataHub. Additionally, you can
-view the number of entities inside each Domain. 
+view the number of entities inside each Domain.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/list-domains.png"/>
@@ -45,34 +53,36 @@ Inside the form, you can choose a name for your Domain. Most often, this will al
 
 Click on 'Advanced' to show the option to set a custom Domain id. The Domain id determines what will appear in the DataHub 'urn' (primary key)
 for the Domain. This option is useful if you intend to refer to Domains by a common name inside your code, or you want the primary
-key to be human-readable. Proceed with caution: once you select a custom id, it cannot be easily changed. 
+key to be human-readable. Proceed with caution: once you select a custom id, it cannot be easily changed.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/set-domain-id.png"/>
 </p>
 
-By default, you don't need to worry about this. DataHub will auto-generate a unique Domain id for you. 
+By default, you don't need to worry about this. DataHub will auto-generate a unique Domain id for you.
 
-Once you've chosen a name and a description, click 'Create' to create the new Domain. 
+Once you've chosen a name and a description, click 'Create' to create the new Domain.
 
 ### Assigning an Asset to a Domain
 
-You can assign assets to Domain using the UI or programmatically using the API or during ingestion. 
+You can assign assets to Domain using the UI or programmatically using the API or during ingestion.
 
 #### UI-Based Assignment
-To assign an asset to a Domain, simply navigate to the asset's profile page. At the bottom left-side menu bar, you'll 
+
+To assign an asset to a Domain, simply navigate to the asset's profile page. At the bottom left-side menu bar, you'll
 see a 'Domain' section. Click 'Set Domain', and then search for the Domain you'd like to add to. When you're done, click 'Add'.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/set-domain.png"/>
 </p>
 
-To remove an asset from a Domain, click the 'x' icon on the Domain tag. 
+To remove an asset from a Domain, click the 'x' icon on the Domain tag.
 
 > Notice: Adding or removing an asset from a Domain requires the `Edit Domain` Metadata Privilege, which can be granted
 > by a [Policy](authorization/policies.md).
 
 #### Ingestion-time Assignment
+
 All SQL-based ingestion sources support assigning domains during ingestion using the `domain` configuration. Consult your source's configuration details page (e.g. [Snowflake](./generated/ingestion/sources/snowflake.md)), to verify that it supports the Domain capability.
 
 :::note
@@ -80,7 +90,6 @@ All SQL-based ingestion sources support assigning domains during ingestion using
 Assignment of domains during ingestion will overwrite domains that you have assigned in the UI. A single table can only belong to one domain.
 
 :::
-
 
 Here is a quick example of a snowflake ingestion recipe that has been enhanced to attach the **Analytics** domain to all tables in the **long_tail_companions** database in the **analytics** schema, and the **Finance** domain to all tables in the **long_tail_companions** database in the **ecommerce** schema.
 
@@ -90,7 +99,7 @@ source:
   config:
     username: ${SNOW_USER}
     password: ${SNOW_PASS}
-    account_id: 
+    account_id:
     warehouse: COMPUTE_WH
     role: accountadmin
     database_pattern:
@@ -112,7 +121,7 @@ source:
 
 :::note
 
-When bare domain names like `Analytics` is used, the ingestion system will first check if a domain like `urn:li:domain:Analytics` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then ingestion will refuse to proceeed until the domain is provisioned on DataHub.
+When bare domain names like `Analytics` is used, the ingestion system will first check if a domain like `urn:li:domain:Analytics` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then ingestion will refuse to proceed until the domain is provisioned on DataHub.
 
 :::
 
@@ -153,14 +162,14 @@ Once you've created a Domain, you can use the search bar to find it.
 </p>
 
 Clicking on the search result will take you to the Domain's profile, where you
-can edit its description, add / remove owners, and view the assets inside the Domain. 
+can edit its description, add / remove owners, and view the assets inside the Domain.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/domain-entities.png"/>
 </p>
 
 Once you've added assets to a Domain, you can filter search results to limit to those Assets
-within a particular Domain using the left-side search filters. 
+within a particular Domain using the left-side search filters.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/search-by-domain.png"/>
@@ -179,16 +188,16 @@ On the homepage, you'll also find a list of the most popular Domains in your org
 **Supercharge Data Mesh with Domains in DataHub**
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/CyvujJWV-8A" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/CyvujJWV-8A" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
 </p>
 
 ### GraphQL
 
-* [domain](../graphql/queries.md#domain)
-* [listDomains](../graphql/queries.md#listdomains)
-* [createDomains](../graphql/mutations.md#createdomain)
-* [setDomain](../graphql/mutations.md#setdomain)
-* [unsetDomain](../graphql/mutations.md#unsetdomain)
+- [domain](../graphql/queries.md#domain)
+- [listDomains](../graphql/queries.md#listdomains)
+- [createDomains](../graphql/mutations.md#createdomain)
+- [setDomain](../graphql/mutations.md#setdomain)
+- [unsetDomain](../graphql/mutations.md#unsetdomain)
 
 #### Examples
 
@@ -196,17 +205,25 @@ On the homepage, you'll also find a list of the most popular Domains in your org
 
 ```graphql
 mutation createDomain {
-  createDomain(input: { name: "My New Domain", description: "An optional description" })
+  createDomain(
+    input: { name: "My New Domain", description: "An optional description" }
+  )
 }
 ```
 
-This query will return an `urn` which you can use to fetch the Domain details. 
+This query will return an `urn` which you can use to fetch the Domain details.
 
 ## Create a Nested Domain
 
 ```graphql
 mutation createDomain {
-  createDomain(input: { name: "Verticals", description: "An optional description", parentDomain: "urn:li:domain:marketing" })
+  createDomain(
+    input: {
+      name: "Verticals"
+      description: "An optional description"
+      parentDomain: "urn:li:domain:marketing"
+    }
+  )
 }
 ```
 
@@ -219,11 +236,11 @@ query getDomain {
   domain(urn: "urn:li:domain:engineering") {
     urn
     properties {
-        name 
-        description
+      name
+      description
     }
     entities {
-			total
+      total
     }
   }
 }
@@ -233,7 +250,10 @@ query getDomain {
 
 ```graphql
 mutation setDomain {
-  setDomain(entityUrn: "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)", domainUrn: "urn:li:domain:engineering")
+  setDomain(
+    entityUrn: "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
+    domainUrn: "urn:li:domain:engineering"
+  )
 }
 ```
 
@@ -241,7 +261,7 @@ mutation setDomain {
 
 ### DataHub Blog
 
-* [Just Shipped: UI-Based Ingestion, Data Domains & Containers, Tableau support, and MORE!](https://blog.datahubproject.io/just-shipped-ui-based-ingestion-data-domains-containers-and-more-f1b1c90ed3a)
+- [Just Shipped: UI-Based Ingestion, Data Domains & Containers, Tableau support, and MORE!](https://medium.com/datahub-project/just-shipped-ui-based-ingestion-data-domains-containers-and-more-f1b1c90ed3a)
 
 ## FAQ and Troubleshooting
 
@@ -253,8 +273,7 @@ DataHub supports Tags, Glossary Terms, & Domains as distinct types of Metadata t
 - **Glossary Terms**: A controlled vocabulary, with optional hierarchy. Terms are typically used to standardize types of leaf-level attributes (i.e. schema fields) for governance. E.g. (EMAIL_PLAINTEXT)
 - **Domains**: A set of top-level categories. Usually aligned to business units / disciplines to which the assets are most relevant. Central or distributed management. Single Domain assignment per data asset.
 
-
 ### Related Features
 
-* [Glossary Terms](./glossary/business-glossary.md)
-* [Tags](./tags.md)
+- [Glossary Terms](./glossary/business-glossary.md)
+- [Tags](./tags.md)

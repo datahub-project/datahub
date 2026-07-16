@@ -13,6 +13,7 @@ from datahub.configuration.common import (
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mce_builder import datahub_guid, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
@@ -27,7 +28,9 @@ from datahub.metadata.schema_classes import (
     StructuredExecutionReportClass,
     _Aspect,
 )
+from datahub.metadata.urns import DataHubExecutionRequestUrn
 from datahub.utilities.logging_manager import get_log_buffer
+from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
@@ -81,7 +84,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         ctx: PipelineContext,
         sink: Sink,
     ) -> PipelineRunListener:
-        reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
+        reporter_config = DatahubIngestionRunSummaryProviderConfig.model_validate(
             config_dict or {}
         )
         if reporter_config.sink:
@@ -111,40 +114,69 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     def __init__(self, sink: Sink, report_recipe: bool, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
 
+        self.ctx = ctx
         self.sink: Sink = sink
         self.report_recipe = report_recipe
         ingestion_source_key = self.generate_unique_key(ctx.pipeline_config)
         self.entity_name: str = self.generate_entity_name(ingestion_source_key)
+
+        # If run_id is an execution request URN, the executor owns the source/request lifecycle.
+        try:
+            parsed = Urn.from_string(ctx.run_id)
+            self._is_running_under_executor = (
+                parsed.entity_type == DataHubExecutionRequestUrn.ENTITY_TYPE
+            )
+        except InvalidUrnError:
+            self._is_running_under_executor = False
+        except Exception:
+            logger.warning(
+                f"Unexpected error parsing run_id={ctx.run_id!r} as URN; "
+                "assuming standalone CLI context.",
+                exc_info=True,
+            )
+            self._is_running_under_executor = False
+
+        if self._is_running_under_executor:
+            logger.debug(f"Executor-managed run detected (run_id={ctx.run_id}).")
 
         self.ingestion_source_urn: Urn = Urn(
             entity_type="dataHubIngestionSource",
             entity_id=["cli-" + datahub_guid(ingestion_source_key)],
         )
         logger.debug(f"Ingestion source urn = {self.ingestion_source_urn}")
-        self.execution_request_input_urn: Urn = Urn(
-            entity_type="dataHubExecutionRequest", entity_id=[ctx.run_id]
-        )
+        # Use typed URN only in the executor path (run_id already validated as such).
+        # For standalone CLI runs, run_id is a plain string; passing a foreign URN type
+        # to DataHubExecutionRequestUrn would raise InvalidUrnError.
+        if self._is_running_under_executor:
+            self.execution_request_input_urn: Urn = DataHubExecutionRequestUrn(
+                ctx.run_id
+            )
+        else:
+            self.execution_request_input_urn = Urn(
+                entity_type="dataHubExecutionRequest", entity_id=[ctx.run_id]
+            )
         self.start_time_ms: int = self.get_cur_time_in_ms()
 
-        # Construct the dataHubIngestionSourceInfo aspect
-        source_info_aspect = DataHubIngestionSourceInfoClass(
-            name=self.entity_name,
-            type=ctx.pipeline_config.source.type,
-            platform=make_data_platform_urn(
-                getattr(ctx.pipeline_config.source, "platform", "unknown")
-            ),
-            config=DataHubIngestionSourceConfigClass(
-                recipe=self._get_recipe_to_report(ctx),
-                version=nice_version_name(),
-                executorId=self._EXECUTOR_ID,
-            ),
-        )
+        if not self._is_running_under_executor:
+            # Construct the dataHubIngestionSourceInfo aspect
+            source_info_aspect = DataHubIngestionSourceInfoClass(
+                name=self.entity_name,
+                type=ctx.pipeline_config.source.type,
+                platform=make_data_platform_urn(
+                    getattr(ctx.pipeline_config.source, "platform", "unknown")
+                ),
+                config=DataHubIngestionSourceConfigClass(
+                    recipe=self._get_recipe_to_report(ctx),
+                    version=nice_version_name(),
+                    executorId=self._EXECUTOR_ID,
+                ),
+            )
 
-        # Emit the dataHubIngestionSourceInfo aspect
-        self._emit_aspect(
-            entity_urn=self.ingestion_source_urn,
-            aspect_value=source_info_aspect,
-        )
+            # Emit the dataHubIngestionSourceInfo aspect
+            self._emit_aspect(
+                entity_urn=self.ingestion_source_urn,
+                aspect_value=source_info_aspect,
+            )
 
     @staticmethod
     def _convert_sets_to_lists(obj: Any) -> Any:
@@ -191,20 +223,31 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             )
             return json.dumps(converted_recipe)
 
-    def _emit_aspect(self, entity_urn: Urn, aspect_value: _Aspect) -> None:
-        self.sink.write_record_async(
-            RecordEnvelope(
-                record=MetadataChangeProposalWrapper(
-                    entityUrn=str(entity_urn),
-                    aspect=aspect_value,
-                ),
-                metadata={},
-            ),
-            NoopWriteCallback(),
+    def _emit_aspect(
+        self, entity_urn: Urn, aspect_value: _Aspect, try_sync: bool = False
+    ) -> None:
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(entity_urn),
+            aspect=aspect_value,
         )
+
+        if try_sync and self.ctx.graph:
+            self.ctx.graph.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+        else:
+            self.sink.write_record_async(
+                RecordEnvelope(
+                    record=mcp,
+                    metadata={},
+                ),
+                NoopWriteCallback(),
+            )
 
     def on_start(self, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
+
+        if self._is_running_under_executor:
+            return
+
         # Construct the dataHubExecutionRequestInput aspect
         execution_input_aspect = ExecutionRequestInputClass(
             task=self._INGESTION_TASK_NAME,
@@ -223,6 +266,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         self._emit_aspect(
             entity_urn=self.execution_request_input_urn,
             aspect_value=execution_input_aspect,
+            try_sync=True,
         )
 
     def on_completion(
@@ -258,4 +302,4 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             entity_urn=self.execution_request_input_urn,
             aspect_value=execution_result_aspect,
         )
-        self.sink.close()
+        # Note: sink.close() is handled by the pipeline's context manager

@@ -205,7 +205,7 @@ class FeatureGroupProcessor:
                     textwrap.dedent(
                         f"""Note: table {full_table_name} is an AWS Glue object. This source does not ingest all metadata for Glue tables.
                         To view full table metadata, run Glue ingestion
-                        (see https://datahubproject.io/docs/generated/ingestion/sources/glue)"""
+                        (see https://docs.datahub.com/docs/generated/ingestion/sources/glue)"""
                     )
                 )
 

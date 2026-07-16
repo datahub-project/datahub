@@ -1,27 +1,31 @@
 import pathlib
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.csv_enricher import CSVEnricherConfig
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 
 def test_csv_enricher_config():
-    config = CSVEnricherConfig.parse_obj(
+    config = CSVEnricherConfig.model_validate(
         dict(
             filename="../integration/csv_enricher/csv_enricher_test_data.csv",
             write_semantics="OVERRIDE",
             delimiter=",",
             array_delimiter="|",
+            structured_properties={
+                "tier": "io.acryl.metadata.tier",
+                "classification": "urn:li:structuredProperty:io.acryl.privacy.classification",
+            },
         )
     )
     assert config
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_csv_enricher_source(pytestconfig, tmp_path):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/csv-enricher"
@@ -37,6 +41,9 @@ def test_csv_enricher_source(pytestconfig, tmp_path):
                     "write_semantics": "OVERRIDE",
                     "delimiter": ",",
                     "array_delimiter": "|",
+                    "structured_properties": {
+                        "classification": "io.acryl.test.classification",
+                    },
                 },
             },
             "sink": {

@@ -1,24 +1,17 @@
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import Pills from './Pills';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
-import {
-    DatasetStatsSummary,
-    EntityPath,
-    EntityType,
-    GlobalTags,
-    GlossaryTerms,
-    Maybe,
-    Owner,
-} from '../../types.generated';
-import { EntityCapabilityType, PreviewType } from '../entityV2/Entity';
-import PreviewCardFooterRightSection from './PreviewCardFooterRightSection';
-import EntityRegistry from '../entityV2/EntityRegistry';
-import { entityHasCapability } from './utils';
 
-import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
+import { EntityCapabilityType, PreviewType } from '@app/entityV2/Entity';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
+import Pills from '@app/previewV2/Pills';
+import PreviewCardFooterRightSection from '@app/previewV2/PreviewCardFooterRightSection';
+import { entityHasCapability } from '@app/previewV2/utils';
+import { useHideLineageInSearchCards } from '@app/useAppConfig';
+
+import { DatasetStatsSummary, EntityPath, EntityType, GlobalTags, GlossaryTerms, Maybe, Owner } from '@types';
 
 interface DefaultPreviewCardFooterProps {
     glossaryTerms?: GlossaryTerms;
@@ -43,6 +36,7 @@ const Container = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+
     .ant-btn-link {
         padding: inherit;
     }
@@ -63,11 +57,11 @@ const EntityLink = styled.div`
     .ant-btn-link {
         display: flex;
         align-items: center;
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => props.theme.colors.textBrand};
         height: 100%;
 
         :hover {
-            color: ${REDESIGN_COLORS.HOVER_PURPLE};
+            color: ${(props) => props.theme.colors.textHover};
         }
 
         > span:first-child {
@@ -80,7 +74,7 @@ const EntityLink = styled.div`
 `;
 
 const HorizontalDivider = styled(Divider)`
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_2};
+    color: ${(props) => props.theme.colors.border};
     margin-top: 14px;
     margin-bottom: 8px;
     width: calc(100% + 40px) !important;
@@ -103,13 +97,13 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
     paths,
     isFullViewCard,
 }) => {
+    const hideLineage = useHideLineageInSearchCards();
+    const showLineageBadge = !hideLineage && entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
+
     const shouldRenderPillsRow = [glossaryTerms?.terms, tags?.tags, owners?.length].some(Boolean);
     const shouldRenderEntityLink = previewType === PreviewType.HOVER_CARD && entityTitleSuffix;
     const shouldRenderRightSection =
-        tier !== undefined ||
-        lastUpdatedMs?.lastUpdatedMs ||
-        statsSummary?.queryCountLast30Days ||
-        entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);
+        tier !== undefined || lastUpdatedMs?.lastUpdatedMs || statsSummary?.queryCountLast30Days || showLineageBadge;
 
     return shouldRenderPillsRow || shouldRenderRightSection || shouldRenderEntityLink ? (
         <>
@@ -131,7 +125,7 @@ const DefaultPreviewCardFooter: React.FC<DefaultPreviewCardFooterProps> = ({
                         entityType={entityType}
                         urn={urn}
                         entityRegistry={entityRegistry}
-                        entityCapabilities={entityCapabilities}
+                        showLineageBadge={showLineageBadge}
                         lastUpdatedMs={lastUpdatedMs}
                         tier={tier}
                         statsSummary={statsSummary}

@@ -1,4 +1,4 @@
-import { Entity, EntityType, FacetFilterInput, FilterOperator } from '../../../types.generated';
+import { Entity, EntityType, FacetFilterInput, FilterOperator } from '@types';
 
 export interface FilterOptionType {
     field: string;
@@ -6,12 +6,6 @@ export interface FilterOptionType {
     count?: number;
     entity?: Entity | null;
     displayName?: string | null;
-}
-
-export interface Filter {
-    field: string;
-    displayName: string;
-    options?: FilterOptionType[];
 }
 
 export interface FilterValue {

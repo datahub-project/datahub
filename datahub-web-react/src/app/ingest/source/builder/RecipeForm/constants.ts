@@ -1,161 +1,3 @@
-import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
-import { BIGQUERY } from '../../conf/bigquery/bigquery';
-import { REDSHIFT } from '../../conf/redshift/redshift';
-import { LOOKER } from '../../conf/looker/looker';
-import { TABLEAU } from '../../conf/tableau/tableau';
-import { KAFKA } from '../../conf/kafka/kafka';
-import {
-    INCLUDE_LINEAGE,
-    TABLE_PROFILING_ENABLED,
-    STATEFUL_INGESTION_ENABLED,
-    INCLUDE_TABLES,
-    INCLUDE_VIEWS,
-    DATABASE_ALLOW,
-    DATABASE_DENY,
-    TABLE_LINEAGE_MODE,
-    INGEST_TAGS,
-    INGEST_OWNER,
-    EXTRACT_USAGE_HISTORY,
-    EXTRACT_OWNERS,
-    SKIP_PERSONAL_FOLDERS,
-    RecipeField,
-    START_TIME,
-    INCLUDE_TABLE_LINEAGE,
-    TABLE_DENY,
-    VIEW_DENY,
-    VIEW_ALLOW,
-    TABLE_ALLOW,
-    SCHEMA_DENY,
-    SCHEMA_ALLOW,
-    COLUMN_PROFILING_ENABLED,
-} from './common';
-import {
-    SNOWFLAKE_ACCOUNT_ID,
-    SNOWFLAKE_WAREHOUSE,
-    SNOWFLAKE_USERNAME,
-    SNOWFLAKE_PASSWORD,
-    SNOWFLAKE_ROLE,
-} from './snowflake';
-import { BIGQUERY_PRIVATE_KEY, BIGQUERY_PRIVATE_KEY_ID, BIGQUERY_CLIENT_EMAIL, BIGQUERY_CLIENT_ID } from './bigquery';
-import { REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD } from './redshift';
-import {
-    TABLEAU_CONNECTION_URI,
-    TABLEAU_PROJECT,
-    TABLEAU_SITE,
-    TABLEAU_USERNAME,
-    TABLEAU_PASSWORD,
-    TABLEAU_TOKEN_NAME,
-    TABLEAU_TOKEN_VALUE,
-} from './tableau';
-import {
-    CHART_ALLOW,
-    CHART_DENY,
-    DASHBOARD_ALLOW as LOOKER_DASHBOARD_ALLOW,
-    DASHBOARD_DENY as LOOKER_DASHBOARD_DENY,
-    LOOKER_BASE_URL,
-    LOOKER_CLIENT_ID,
-    LOOKER_CLIENT_SECRET,
-} from './looker';
-import {
-    KAFKA_SASL_USERNAME,
-    KAFKA_SASL_PASSWORD,
-    KAFKA_BOOTSTRAP,
-    KAFKA_SCHEMA_REGISTRY_URL,
-    KAFKA_SCHEMA_REGISTRY_USER_CREDENTIAL,
-    KAFKA_SECURITY_PROTOCOL,
-    KAFKA_SASL_MECHANISM,
-    TOPIC_ALLOW,
-    TOPIC_DENY,
-} from './kafka';
-import { POSTGRES } from '../../conf/postgres/postgres';
-import { POSTGRES_HOST_PORT, POSTGRES_DATABASE, POSTGRES_USERNAME, POSTGRES_PASSWORD } from './postgres';
-import { HIVE } from '../../conf/hive/hive';
-import { HIVE_HOST_PORT, HIVE_DATABASE, HIVE_USERNAME, HIVE_PASSWORD } from './hive';
-import {
-    LOOKML,
-    CONNECTION_TO_PLATFORM_MAP,
-    DEPLOY_KEY,
-    LOOKML_BASE_URL,
-    LOOKML_CLIENT_ID,
-    LOOKML_CLIENT_SECRET,
-    LOOKML_GITHUB_INFO_REPO,
-    PARSE_TABLE_NAMES_FROM_SQL,
-    PROJECT_NAME,
-} from './lookml';
-import { PRESTO, PRESTO_HOST_PORT, PRESTO_DATABASE, PRESTO_USERNAME, PRESTO_PASSWORD } from './presto';
-import { AZURE, BIGQUERY_BETA, CSV, DBT_CLOUD, MYSQL, OKTA, POWER_BI, SAC, UNITY_CATALOG, VERTICA } from '../constants';
-import { BIGQUERY_BETA_PROJECT_ID, DATASET_ALLOW, DATASET_DENY, PROJECT_ALLOW, PROJECT_DENY } from './bigqueryBeta';
-import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from './mysql';
-import { MSSQL, MSSQL_DATABASE, MSSQL_HOST_PORT, MSSQL_PASSWORD, MSSQL_USERNAME } from './mssql';
-import { TRINO, TRINO_DATABASE, TRINO_HOST_PORT, TRINO_PASSWORD, TRINO_USERNAME } from './trino';
-import { MARIADB, MARIADB_DATABASE, MARIADB_HOST_PORT, MARIADB_PASSWORD, MARIADB_USERNAME } from './mariadb';
-import {
-    INCLUDE_COLUMN_LINEAGE,
-    TOKEN,
-    UNITY_CATALOG_ALLOW,
-    UNITY_CATALOG_DENY,
-    UNITY_METASTORE_ID_ALLOW,
-    UNITY_METASTORE_ID_DENY,
-    UNITY_TABLE_ALLOW,
-    UNITY_TABLE_DENY,
-    WORKSPACE_URL,
-} from './unity_catalog';
-import {
-    DBT_CLOUD_ACCOUNT_ID,
-    DBT_CLOUD_JOB_ID,
-    DBT_CLOUD_PROJECT_ID,
-    INCLUDE_MODELS,
-    INCLUDE_SEEDS,
-    INCLUDE_SOURCES,
-    INCLUDE_TEST_DEFINITIONS,
-    INCLUDE_TEST_RESULTS,
-    EXTRACT_OWNERS as DBT_EXTRACT_OWNERS,
-    NODE_ALLOW,
-    NODE_DENY,
-    TARGET_PLATFORM,
-    TARGET_PLATFORM_INSTANCE,
-    DBT_CLOUD_TOKEN,
-} from './dbt_cloud';
-import {
-    ADMIN_APIS_ONLY,
-    EXTRACT_ENDORSEMENTS_AS_TAGS,
-    EXTRACT_OWNERSHIP,
-    INCLUDE_REPORTS,
-    INCLUDE_POWERBI_LINEAGE,
-    INCLUDE_WORKSPACES,
-    POWERBI_CLIENT_ID,
-    POWERBI_CLIENT_SECRET,
-    POWERBI_TENANT_ID,
-    WORKSPACE_ID_ALLOW,
-    WORKSPACE_ID_DENY,
-} from './powerbi';
-
-import {
-    VERTICA_HOST_PORT,
-    VERTICA_DATABASE,
-    VERTICA_USERNAME,
-    VERTICA_PASSWORD,
-    INCLUDE_PROJECTIONS,
-    INCLUDE_MLMODELS,
-    INCLUDE_VIEW_LINEAGE,
-    INCLUDE_PROJECTIONS_LINEAGE,
-} from './vertica';
-import { CSV_ARRAY_DELIMITER, CSV_DELIMITER, CSV_FILE_URL, CSV_WRITE_SEMANTICS } from './csv';
-import {
-    INCLUDE_DEPROVISIONED_USERS,
-    INCLUDE_SUSPENDED_USERS,
-    INGEST_GROUPS,
-    INGEST_USERS,
-    OKTA_API_TOKEN,
-    OKTA_DOMAIN_URL,
-    POFILE_TO_GROUP,
-    POFILE_TO_GROUP_REGX_ALLOW,
-    POFILE_TO_GROUP_REGX_DENY,
-    POFILE_TO_USER,
-    POFILE_TO_USER_REGX_ALLOW,
-    POFILE_TO_USER_REGX_DENY,
-    SKIP_USERS_WITHOUT_GROUP,
-} from './okta';
 import {
     AZURE_AUTHORITY_URL,
     AZURE_CLIENT_ID,
@@ -170,21 +12,363 @@ import {
     GROUP_DENY,
     USER_ALLOW,
     USER_DENY,
-} from './azure';
+} from '@app/ingest/source/builder/RecipeForm/azure';
 import {
-    SAC_TENANT_URL,
-    SAC_TOKEN_URL,
-    SAC_CLIENT_ID,
-    SAC_CLIENT_SECRET,
-    INGEST_STORIES,
+    BIGID_ACCESS_TOKEN,
+    BIGID_CONFIDENCE_LEVEL_TAG,
+    BIGID_CONNECTION_ALLOW,
+    BIGID_CONNECTION_DENY,
+    BIGID_CREATE_DATASETS,
+    BIGID_ENV,
+    BIGID_MIN_CONFIDENCE,
+    BIGID_PLATFORM_INSTANCE,
+    BIGID_STATEFUL_INGESTION,
+    BIGID_SYNC_IDSOR,
+    BIGID_SYNC_TAGS,
+    BIGID_SYNC_UNLINKED_CLASSIFIERS,
+    BIGID_SYNC_UNSTRUCTURED,
+    BIGID_URL,
+    BIGID_USER_TOKEN,
+} from '@app/ingest/source/builder/RecipeForm/bigid';
+import {
+    BIGQUERY_CLIENT_EMAIL,
+    BIGQUERY_CLIENT_ID,
+    BIGQUERY_PRIVATE_KEY,
+    BIGQUERY_PRIVATE_KEY_ID,
+} from '@app/ingest/source/builder/RecipeForm/bigquery';
+import {
+    BIGQUERY_BETA_PROJECT_ID,
+    DATASET_ALLOW,
+    DATASET_DENY,
+    PROJECT_ALLOW,
+    PROJECT_DENY,
+} from '@app/ingest/source/builder/RecipeForm/bigqueryBeta';
+import {
+    COLUMN_PROFILING_ENABLED,
+    DATABASE_ALLOW,
+    DATABASE_DENY,
+    EXTRACT_OWNERS,
+    EXTRACT_USAGE_HISTORY,
+    INCLUDE_LINEAGE,
+    INCLUDE_TABLES,
+    INCLUDE_TABLE_LINEAGE,
+    INCLUDE_VIEWS,
+    INGEST_OWNER,
+    INGEST_TAGS,
+    RecipeField,
+    SCHEMA_ALLOW,
+    SCHEMA_DENY,
+    SKIP_PERSONAL_FOLDERS,
+    START_TIME,
+    STATEFUL_INGESTION_ENABLED,
+    TABLE_ALLOW,
+    TABLE_DENY,
+    TABLE_LINEAGE_MODE,
+    TABLE_PROFILING_ENABLED,
+    VIEW_ALLOW,
+    VIEW_DENY,
+} from '@app/ingest/source/builder/RecipeForm/common';
+import {
+    CONFLUENCE_API_TOKEN,
+    CONFLUENCE_PAGE_ALLOW,
+    CONFLUENCE_PAGE_DENY,
+    CONFLUENCE_SPACE_ALLOW,
+    CONFLUENCE_SPACE_DENY,
+    CONFLUENCE_URL,
+    CONFLUENCE_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/confluence';
+import {
+    CSV_ARRAY_DELIMITER,
+    CSV_DELIMITER,
+    CSV_FILE_URL,
+    CSV_WRITE_SEMANTICS,
+} from '@app/ingest/source/builder/RecipeForm/csv';
+import {
+    CUBE_ALLOW,
+    CUBE_API_TOKEN,
+    CUBE_API_URL,
+    CUBE_CLOUD_API_KEY,
+    CUBE_DENY,
+    CUBE_DEPLOYMENT_ID,
+    CUBE_DEPLOYMENT_TYPE,
+    CUBE_ENVIRONMENT_ID,
+    CUBE_INCLUDE_COLUMN_LINEAGE,
+    CUBE_INCLUDE_CUBES,
+    CUBE_INCLUDE_REPORTS,
+    CUBE_INCLUDE_WORKBOOKS,
+    CUBE_PARSE_SQL_FOR_LINEAGE,
+    CUBE_WAREHOUSE_DATABASE,
+    CUBE_WAREHOUSE_PLATFORM,
+} from '@app/ingest/source/builder/RecipeForm/cube';
+import {
+    DBT_CLOUD_ACCOUNT_ID,
+    DBT_CLOUD_JOB_ID,
+    DBT_CLOUD_PROJECT_ID,
+    DBT_CLOUD_TOKEN,
+    EXTRACT_OWNERS as DBT_EXTRACT_OWNERS,
+    INCLUDE_MODELS,
+    INCLUDE_SEEDS,
+    INCLUDE_SOURCES,
+    INCLUDE_TEST_DEFINITIONS,
+    INCLUDE_TEST_RESULTS,
+    NODE_ALLOW,
+    NODE_DENY,
+    TARGET_PLATFORM,
+    TARGET_PLATFORM_INSTANCE,
+} from '@app/ingest/source/builder/RecipeForm/dbt_cloud';
+import {
+    DORIS,
+    DORIS_DATABASE,
+    DORIS_HOST_PORT,
+    DORIS_PASSWORD,
+    DORIS_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/doris';
+import {
+    HIVE_DATABASE,
+    HIVE_HOST_PORT,
+    HIVE_PASSWORD,
+    HIVE_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/hive';
+import {
+    KAFKA_BOOTSTRAP,
+    KAFKA_SASL_MECHANISM,
+    KAFKA_SASL_PASSWORD,
+    KAFKA_SASL_USERNAME,
+    KAFKA_SCHEMA_REGISTRY_URL,
+    KAFKA_SCHEMA_REGISTRY_USER_CREDENTIAL,
+    KAFKA_SECURITY_PROTOCOL,
+    TOPIC_ALLOW,
+    TOPIC_DENY,
+} from '@app/ingest/source/builder/RecipeForm/kafka';
+import {
+    CHART_ALLOW,
+    CHART_DENY,
+    LOOKER_BASE_URL,
+    LOOKER_CLIENT_ID,
+    LOOKER_CLIENT_SECRET,
+    DASHBOARD_ALLOW as LOOKER_DASHBOARD_ALLOW,
+    DASHBOARD_DENY as LOOKER_DASHBOARD_DENY,
+} from '@app/ingest/source/builder/RecipeForm/looker';
+import {
+    CONNECTION_TO_PLATFORM_MAP,
+    DEPLOY_KEY,
+    LOOKML,
+    LOOKML_BASE_URL,
+    LOOKML_CLIENT_ID,
+    LOOKML_CLIENT_SECRET,
+    LOOKML_GITHUB_INFO_REPO,
+    PARSE_TABLE_NAMES_FROM_SQL,
+    PROJECT_NAME,
+} from '@app/ingest/source/builder/RecipeForm/lookml';
+import {
+    MARIADB,
+    MARIADB_DATABASE,
+    MARIADB_HOST_PORT,
+    MARIADB_PASSWORD,
+    MARIADB_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/mariadb';
+import {
+    MATILLION_CLIENT_ID,
+    MATILLION_CLIENT_SECRET,
+    MATILLION_ENV,
+    MATILLION_ENVIRONMENT_ALLOW,
+    MATILLION_ENVIRONMENT_DENY,
+    MATILLION_INCLUDE_EXECUTIONS,
+    MATILLION_INCLUDE_UNPUBLISHED,
+    MATILLION_PIPELINE_ALLOW,
+    MATILLION_PIPELINE_DENY,
+    MATILLION_PLATFORM_INSTANCE,
+    MATILLION_PROJECT_ALLOW,
+    MATILLION_PROJECT_DENY,
+    MATILLION_REGION,
+    MATILLION_STATEFUL_INGESTION,
+    MATILLION_STREAMING_ALLOW,
+    MATILLION_STREAMING_DENY,
+} from '@app/ingest/source/builder/RecipeForm/matillion-dpc';
+import {
+    MICROSTRATEGY_AUTH_TYPE,
+    MICROSTRATEGY_BASE_URL,
+    MICROSTRATEGY_DASHBOARD_ALLOW,
+    MICROSTRATEGY_DASHBOARD_DENY,
+    MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES,
+    MICROSTRATEGY_EXTRACT_CHARTS,
+    MICROSTRATEGY_EXTRACT_CUBES,
+    MICROSTRATEGY_EXTRACT_DASHBOARDS,
+    MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES,
+    MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS,
+    MICROSTRATEGY_EXTRACT_LINEAGE,
+    MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS,
+    MICROSTRATEGY_EXTRACT_MODEL_LINEAGE,
+    MICROSTRATEGY_EXTRACT_REPORTS,
+    MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE,
+    MICROSTRATEGY_EXTRACT_SOURCE_WAREHOUSES,
+    MICROSTRATEGY_EXTRACT_USAGE_STATISTICS,
+    MICROSTRATEGY_EXTRACT_VISUALIZATION_DETAILS,
+    MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE,
+    MICROSTRATEGY_FOLDER_ALLOW,
+    MICROSTRATEGY_FOLDER_DENY,
+    MICROSTRATEGY_INCLUDE_HIDDEN,
+    MICROSTRATEGY_INGEST_OWNER,
+    MICROSTRATEGY_PASSWORD,
+    MICROSTRATEGY_PLATFORM_INSTANCE,
+    MICROSTRATEGY_PROJECT_ALLOW,
+    MICROSTRATEGY_PROJECT_DENY,
+    MICROSTRATEGY_REPORT_ALLOW,
+    MICROSTRATEGY_REPORT_DENY,
+    MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS,
+    MICROSTRATEGY_USERNAME,
+    MICROSTRATEGY_VERIFY_SSL,
+} from '@app/ingest/source/builder/RecipeForm/microstrategy';
+import {
+    MSSQL,
+    MSSQL_DATABASE,
+    MSSQL_HOST_PORT,
+    MSSQL_PASSWORD,
+    MSSQL_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/mssql';
+import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingest/source/builder/RecipeForm/mysql';
+import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingest/source/builder/RecipeForm/notion';
+import {
+    INCLUDE_DEPROVISIONED_USERS,
+    INCLUDE_SUSPENDED_USERS,
+    INGEST_GROUPS,
+    INGEST_USERS,
+    OKTA_API_TOKEN,
+    OKTA_DOMAIN_URL,
+    POFILE_TO_GROUP,
+    POFILE_TO_GROUP_REGX_ALLOW,
+    POFILE_TO_GROUP_REGX_DENY,
+    POFILE_TO_USER,
+    POFILE_TO_USER_REGX_ALLOW,
+    POFILE_TO_USER_REGX_DENY,
+    SKIP_USERS_WITHOUT_GROUP,
+} from '@app/ingest/source/builder/RecipeForm/okta';
+import {
+    POSTGRES_DATABASE,
+    POSTGRES_HOST_PORT,
+    POSTGRES_PASSWORD,
+    POSTGRES_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/postgres';
+import {
+    ADMIN_APIS_ONLY,
+    EXTRACT_ENDORSEMENTS_AS_TAGS,
+    EXTRACT_OWNERSHIP,
+    INCLUDE_POWERBI_LINEAGE,
+    INCLUDE_REPORTS,
+    INCLUDE_WORKSPACES,
+    POWERBI_CLIENT_ID,
+    POWERBI_CLIENT_SECRET,
+    POWERBI_TENANT_ID,
+    WORKSPACE_ID_ALLOW,
+    WORKSPACE_ID_DENY,
+} from '@app/ingest/source/builder/RecipeForm/powerbi';
+import {
+    PRESTO,
+    PRESTO_DATABASE,
+    PRESTO_HOST_PORT,
+    PRESTO_PASSWORD,
+    PRESTO_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/presto';
+import {
+    REDSHIFT_DATABASE,
+    REDSHIFT_HOST_PORT,
+    REDSHIFT_PASSWORD,
+    REDSHIFT_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/redshift';
+import {
+    FOLDER_ALLOW,
+    FOLDER_DENY,
     INGEST_APPLICATIONS,
+    INGEST_STORIES,
     RESOURCE_ID_ALLOW,
     RESOURCE_ID_DENY,
     RESOURCE_NAME_ALLOW,
     RESOURCE_NAME_DENY,
-    FOLDER_ALLOW,
-    FOLDER_DENY,
-} from './sac';
+    SAC_CLIENT_ID,
+    SAC_CLIENT_SECRET,
+    SAC_TENANT_URL,
+    SAC_TOKEN_URL,
+} from '@app/ingest/source/builder/RecipeForm/sac';
+import {
+    SNOWFLAKE_ACCOUNT_ID,
+    SNOWFLAKE_AUTHENTICATION_TYPE,
+    SNOWFLAKE_PASSWORD,
+    SNOWFLAKE_PRIVATE_KEY,
+    SNOWFLAKE_PRIVATE_KEY_PASSWORD,
+    SNOWFLAKE_ROLE,
+    SNOWFLAKE_USERNAME,
+    SNOWFLAKE_WAREHOUSE,
+} from '@app/ingest/source/builder/RecipeForm/snowflake';
+import {
+    TABLEAU_CONNECTION_URI,
+    TABLEAU_PASSWORD,
+    TABLEAU_PROJECT,
+    TABLEAU_SITE,
+    TABLEAU_TOKEN_NAME,
+    TABLEAU_TOKEN_VALUE,
+    TABLEAU_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/tableau';
+import {
+    TIDB,
+    TIDB_DATABASE,
+    TIDB_HOST_PORT,
+    TIDB_PASSWORD,
+    TIDB_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/tidb';
+import {
+    TRINO,
+    TRINO_DATABASE,
+    TRINO_HOST_PORT,
+    TRINO_PASSWORD,
+    TRINO_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/trino';
+import {
+    INCLUDE_COLUMN_LINEAGE,
+    TOKEN,
+    UNITY_CATALOG_ALLOW,
+    UNITY_CATALOG_DENY,
+    UNITY_METASTORE_ID_ALLOW,
+    UNITY_METASTORE_ID_DENY,
+    UNITY_TABLE_ALLOW,
+    UNITY_TABLE_DENY,
+    WORKSPACE_URL,
+} from '@app/ingest/source/builder/RecipeForm/unity_catalog';
+import {
+    INCLUDE_MLMODELS,
+    INCLUDE_PROJECTIONS,
+    INCLUDE_PROJECTIONS_LINEAGE,
+    INCLUDE_VIEW_LINEAGE,
+    VERTICA_DATABASE,
+    VERTICA_HOST_PORT,
+    VERTICA_PASSWORD,
+    VERTICA_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/vertica';
+import {
+    AZURE,
+    BIGID,
+    BIGQUERY_BETA,
+    CONFLUENCE,
+    CSV,
+    CUBE,
+    DATABRICKS,
+    DBT_CLOUD,
+    MATILLION_DPC,
+    MICROSTRATEGY,
+    MYSQL,
+    NOTION,
+    OKTA,
+    POWER_BI,
+    SAC,
+    VERTICA,
+} from '@app/ingest/source/builder/constants';
+import { BIGQUERY } from '@app/ingest/source/conf/bigquery/bigquery';
+import { HIVE } from '@app/ingest/source/conf/hive/hive';
+import { KAFKA } from '@app/ingest/source/conf/kafka/kafka';
+import { LOOKER } from '@app/ingest/source/conf/looker/looker';
+import { POSTGRES } from '@app/ingest/source/conf/postgres/postgres';
+import { REDSHIFT } from '@app/ingest/source/conf/redshift/redshift';
+import { SNOWFLAKE } from '@app/ingest/source/conf/snowflake/snowflake';
+import { TABLEAU } from '@app/ingest/source/conf/tableau/tableau';
 
 export enum RecipeSections {
     Connection = 0,
@@ -206,7 +390,16 @@ interface RecipeFields {
 
 export const RECIPE_FIELDS: RecipeFields = {
     [SNOWFLAKE]: {
-        fields: [SNOWFLAKE_ACCOUNT_ID, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_USERNAME, SNOWFLAKE_PASSWORD, SNOWFLAKE_ROLE],
+        fields: [
+            SNOWFLAKE_ACCOUNT_ID,
+            SNOWFLAKE_WAREHOUSE,
+            SNOWFLAKE_USERNAME,
+            SNOWFLAKE_AUTHENTICATION_TYPE,
+            SNOWFLAKE_PASSWORD,
+            SNOWFLAKE_PRIVATE_KEY,
+            SNOWFLAKE_PRIVATE_KEY_PASSWORD,
+            SNOWFLAKE_ROLE,
+        ],
         advancedFields: [
             INCLUDE_TABLES,
             INCLUDE_VIEWS,
@@ -434,7 +627,68 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
-    [UNITY_CATALOG]: {
+    [TIDB]: {
+        fields: [TIDB_HOST_PORT, TIDB_USERNAME, TIDB_PASSWORD, TIDB_DATABASE],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
+    },
+    [BIGID]: {
+        fields: [BIGID_URL, BIGID_USER_TOKEN, BIGID_ACCESS_TOKEN, BIGID_ENV, BIGID_PLATFORM_INSTANCE],
+        filterFields: [BIGID_CONNECTION_ALLOW, BIGID_CONNECTION_DENY],
+        advancedFields: [
+            BIGID_MIN_CONFIDENCE,
+            BIGID_CREATE_DATASETS,
+            BIGID_CONFIDENCE_LEVEL_TAG,
+            BIGID_SYNC_TAGS,
+            BIGID_SYNC_UNLINKED_CLASSIFIERS,
+            BIGID_SYNC_IDSOR,
+            BIGID_SYNC_UNSTRUCTURED,
+            BIGID_STATEFUL_INGESTION,
+        ],
+        filterSectionTooltip: 'Include or exclude specific BigID connections (data sources) from ingestion.',
+    },
+    [MATILLION_DPC]: {
+        fields: [
+            MATILLION_CLIENT_ID,
+            MATILLION_CLIENT_SECRET,
+            MATILLION_REGION,
+            MATILLION_ENV,
+            MATILLION_PLATFORM_INSTANCE,
+        ],
+        filterFields: [
+            MATILLION_PROJECT_ALLOW,
+            MATILLION_PROJECT_DENY,
+            MATILLION_ENVIRONMENT_ALLOW,
+            MATILLION_ENVIRONMENT_DENY,
+            MATILLION_PIPELINE_ALLOW,
+            MATILLION_PIPELINE_DENY,
+            MATILLION_STREAMING_ALLOW,
+            MATILLION_STREAMING_DENY,
+        ],
+        advancedFields: [MATILLION_INCLUDE_EXECUTIONS, MATILLION_INCLUDE_UNPUBLISHED, MATILLION_STATEFUL_INGESTION],
+        filterSectionTooltip:
+            'Include or exclude specific Projects, Environments, Pipelines, and Streaming Pipelines from ingestion.',
+    },
+    [DORIS]: {
+        fields: [DORIS_HOST_PORT, DORIS_USERNAME, DORIS_PASSWORD, DORIS_DATABASE],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            TABLE_PROFILING_ENABLED,
+            COLUMN_PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
+    },
+    [DATABRICKS]: {
         fields: [WORKSPACE_URL, TOKEN],
         filterFields: [
             UNITY_METASTORE_ID_ALLOW,
@@ -483,6 +737,49 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific PowerBI Workspaces from ingestion.',
+    },
+    [MICROSTRATEGY]: {
+        fields: [
+            MICROSTRATEGY_BASE_URL,
+            MICROSTRATEGY_AUTH_TYPE,
+            MICROSTRATEGY_USERNAME,
+            MICROSTRATEGY_PASSWORD,
+            MICROSTRATEGY_PLATFORM_INSTANCE,
+        ],
+        filterFields: [
+            MICROSTRATEGY_PROJECT_ALLOW,
+            MICROSTRATEGY_PROJECT_DENY,
+            MICROSTRATEGY_FOLDER_ALLOW,
+            MICROSTRATEGY_FOLDER_DENY,
+            MICROSTRATEGY_DASHBOARD_ALLOW,
+            MICROSTRATEGY_DASHBOARD_DENY,
+            MICROSTRATEGY_REPORT_ALLOW,
+            MICROSTRATEGY_REPORT_DENY,
+        ],
+        advancedFields: [
+            MICROSTRATEGY_EXTRACT_DASHBOARDS,
+            MICROSTRATEGY_EXTRACT_CHARTS,
+            MICROSTRATEGY_EXTRACT_CUBES,
+            MICROSTRATEGY_EXTRACT_REPORTS,
+            MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS,
+            MICROSTRATEGY_EXTRACT_LINEAGE,
+            MICROSTRATEGY_EXTRACT_VISUALIZATION_DETAILS,
+            MICROSTRATEGY_EXTRACT_SOURCE_WAREHOUSES,
+            MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES,
+            MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS,
+            MICROSTRATEGY_EXTRACT_MODEL_LINEAGE,
+            MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE,
+            MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE,
+            MICROSTRATEGY_EXTRACT_USAGE_STATISTICS,
+            MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES,
+            MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS,
+            MICROSTRATEGY_INGEST_OWNER,
+            MICROSTRATEGY_INCLUDE_HIDDEN,
+            MICROSTRATEGY_VERIFY_SSL,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip:
+            'Include or exclude specific Projects, Folders, Dashboards, and Reports from MicroStrategy ingestion.',
     },
     [VERTICA]: {
         fields: [VERTICA_HOST_PORT, VERTICA_DATABASE, VERTICA_USERNAME, VERTICA_PASSWORD],
@@ -547,6 +844,43 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
     },
+    [NOTION]: {
+        fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
+        filterFields: [],
+        advancedFields: [],
+    },
+    [CONFLUENCE]: {
+        fields: [CONFLUENCE_URL, CONFLUENCE_USERNAME, CONFLUENCE_API_TOKEN],
+        filterFields: [CONFLUENCE_SPACE_ALLOW, CONFLUENCE_SPACE_DENY, CONFLUENCE_PAGE_ALLOW, CONFLUENCE_PAGE_DENY],
+        advancedFields: [],
+        filterSectionTooltip:
+            'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
+    },
+    [CUBE]: {
+        fields: [
+            CUBE_API_URL,
+            CUBE_DEPLOYMENT_TYPE,
+            CUBE_API_TOKEN,
+            CUBE_CLOUD_API_KEY,
+            CUBE_DEPLOYMENT_ID,
+            CUBE_ENVIRONMENT_ID,
+        ],
+        filterFields: [CUBE_ALLOW, CUBE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            CUBE_WAREHOUSE_PLATFORM,
+            CUBE_WAREHOUSE_DATABASE,
+            CUBE_INCLUDE_CUBES,
+            INCLUDE_VIEWS,
+            CUBE_INCLUDE_REPORTS,
+            CUBE_INCLUDE_WORKBOOKS,
+            CUBE_PARSE_SQL_FOR_LINEAGE,
+            CUBE_INCLUDE_COLUMN_LINEAGE,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        connectionSectionTooltip:
+            'For Cube Cloud, providing a Cloud API Key with the Deployment and Environment IDs unlocks warehouse lineage, reports, and workbooks.',
+        filterSectionTooltip: 'Include or exclude specific Cubes and Views from ingestion.',
+    },
 };
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
@@ -556,6 +890,8 @@ export const CONNECTORS_WITH_TEST_CONNECTION = new Set([
     LOOKER,
     BIGQUERY_BETA,
     BIGQUERY,
-    UNITY_CATALOG,
+    DATABRICKS,
+    MATILLION_DPC,
+    BIGID,
     SAC,
 ]);

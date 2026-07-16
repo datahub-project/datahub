@@ -1,20 +1,21 @@
-import React from 'react';
-import { Divider } from 'antd';
-import { Tooltip } from '@components';
 import { PhoneOutlined, SlackOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Divider } from 'antd';
+import React from 'react';
+import { useTheme } from 'styled-components';
+
 import {
-    EmptyValue,
-    SocialDetails,
-    Name,
-    TitleRole,
-    RoleName,
+    BasicDetails,
     BasicDetailsContainer,
     DraftsOutlinedIconStyle,
-    BasicDetails,
+    EmptyValue,
+    Name,
     NameTitleContainer,
+    RoleName,
+    SocialDetails,
     SocialInfo,
-} from '../shared/SidebarStyledComponents';
-import { REDESIGN_COLORS } from '../shared/constants';
+    TitleRole,
+} from '@app/entityV2/shared/SidebarStyledComponents';
 
 type Props = {
     name: string | undefined;
@@ -26,6 +27,7 @@ type Props = {
 };
 
 export const UserBasicInfoContainer = ({ name, dataHubRoleName, email, role, slack, phone }: Props) => {
+    const theme = useTheme();
     return (
         <BasicDetailsContainer>
             <BasicDetails>
@@ -36,7 +38,7 @@ export const UserBasicInfoContainer = ({ name, dataHubRoleName, email, role, sla
                         </Tooltip>
                         {dataHubRoleName ? <RoleName>{dataHubRoleName}</RoleName> : null}
                     </Name>
-                    <TitleRole>{role || <EmptyValue color={REDESIGN_COLORS.WHITE} />}</TitleRole>
+                    <TitleRole>{role || <EmptyValue color={theme.colors.bg} />}</TitleRole>
                 </NameTitleContainer>
                 <Divider />
                 <SocialInfo>

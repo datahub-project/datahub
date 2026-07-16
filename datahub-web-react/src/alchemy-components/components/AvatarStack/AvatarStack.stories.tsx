@@ -1,6 +1,17 @@
-import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
-import { AvatarStack, avatarListDefaults } from './AvatarStack';
+import React from 'react';
+
+import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
+import { AvatarStackProps } from '@components/components/AvatarStack/types';
+
+const avatarListDefaults: AvatarStackProps = {
+    avatars: [
+        { name: 'John Doe', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+        { name: 'Test User', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+        { name: 'Micky Test', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+    ],
+    size: 'md',
+};
 
 // Meta Configuration
 const meta = {
@@ -58,7 +69,7 @@ export const withMultipleAvatar = () => (
 );
 
 // Example Stories
-export const witouthImagesMultipleAvatar = () => (
+export const withoutImagesMultipleAvatar = () => (
     <AvatarStack
         avatars={[
             { name: 'John Doe', imageUrl: null },
@@ -74,3 +85,17 @@ export const withSingleAvatar = () => (
 );
 
 export const withNoAvatar = () => <AvatarStack avatars={[]} />;
+
+export const withMoreAvatars = () => (
+    <AvatarStack
+        avatars={[
+            { name: 'John Doe', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { name: 'Test User', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { name: 'Micky Test', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { name: 'Jake', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { name: 'Mike', imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg' },
+        ]}
+        size="md"
+        maxToShow={3}
+    />
+);

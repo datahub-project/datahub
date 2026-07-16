@@ -1,32 +1,40 @@
-import { EntityType } from '@types';
 import React, { useContext, useState } from 'react';
+import { Trans } from 'react-i18next';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
-import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
-import { getFilterIconAndLabel } from '../../searchV2/filters/utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
-import { useEntityRegistryV2 } from '../../useEntityRegistry';
-import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '../common';
-import { useAvoidIntersectionsOften } from '../LineageEntityNode/useAvoidIntersections';
-import { LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
-import { ShowMoreButton } from './ShowMoreButton';
-import useFetchFilterNodeContents, { PlatformAggregate, SubtypeAggregate } from './useFetchFilterNodeContents';
-import LineageFilterSearch from './LineageFilterSearch';
+
+import { useAvoidIntersectionsOften } from '@app/lineageV2/LineageEntityNode/useAvoidIntersections';
+import { LINEAGE_NODE_WIDTH } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
+import LineageFilterSearch from '@app/lineageV2/LineageFilterNode/LineageFilterSearch';
+import { ShowMoreButton } from '@app/lineageV2/LineageFilterNode/ShowMoreButton';
+import useFetchFilterNodeContents, {
+    PlatformAggregate,
+    SubtypeAggregate,
+} from '@app/lineageV2/LineageFilterNode/useFetchFilterNodeContents';
+import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV2/common';
+import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
+import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
 const NodeWrapper = styled.div`
-    background-color: white;
-    border: 1px solid ${LINEAGE_COLORS.NODE_BORDER};
+    background-color: ${(props) => props.theme.colors.bg};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
+    color: ${(props) => props.theme.colors.text};
     cursor: pointer;
+    font-size: 12px;
+    line-height: 16px;
     padding: 8px;
     width: ${LINEAGE_NODE_WIDTH}px;
 `;
 
 const ExtraCard = styled.div<{ bottom: number }>`
-    background-color: white;
-    border: 1px solid #eee;
+    background-color: ${(props) => props.theme.colors.bg};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 12px;
     bottom: ${({ bottom }) => bottom}px;
     height: 40px;
@@ -52,7 +60,7 @@ const Title = styled.div`
 `;
 
 const TitleCount = styled.span`
-    font-weight: bold;
+    font-weight: 700;
     margin: 0 1px;
 `;
 
@@ -69,6 +77,7 @@ const PillsWrapper = styled.div`
 `;
 
 const PillColumn = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     flex-direction: row;
 `;
@@ -91,7 +100,7 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     useAvoidIntersectionsOften(id, numMatches ? 133 : 117);
 
     const numerator = numShown ?? shown.size;
-    const denominator = showGhostEntities ? allChildren.size : total ?? allChildren.size;
+    const denominator = showGhostEntities ? allChildren.size : (total ?? allChildren.size);
     return (
         <NodeWrapper>
             <ExtraCard className="extra-card" bottom={-3} />
@@ -99,29 +108,31 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
             <CustomHandle type="target" position={Position.Left} isConnectable={false} />
             <CustomHandle type="source" position={Position.Right} isConnectable={false} />
             <TitleWrapper>
-                <Title>
-                    <TitleCount>{Math.min(numerator, denominator)}</TitleCount> of{' '}
-                    <TitleCount>
-                        {denominator}
-                        {showGhostEntities && '+'}
-                    </TitleCount>{' '}
-                    shown
+                <Title data-testid="title">
+                    <Trans
+                        i18nKey="lineage:filter.shownOfTotal"
+                        values={{
+                            shown: Math.min(numerator, denominator),
+                            total: denominator,
+                            plus: showGhostEntities ? '+' : '',
+                        }}
+                        components={{
+                            shown: <TitleCount />,
+                            total: <TitleCount />,
+                        }}
+                    />
                 </Title>
                 <ShowMoreButton data={data} numMatches={numMatches} />
             </TitleWrapper>
             <LineageFilterSearch data={data} numMatches={numMatches} setNumMatches={setNumMatches} />
             <PillsWrapper>
                 <PillColumn>
-                    {platforms?.map((agg, index) => (
-                        <PlatformEntry agg={agg} key={agg[0]} index={index} />
-                    ))}
+                    {platforms?.map((agg, index) => <PlatformEntry agg={agg} key={agg[0]} index={index} />)}
                 </PillColumn>
                 <PillColumn>
                     {subtypes
                         ?.filter(([filterValue]) => !filterValue.toLocaleLowerCase().endsWith('query'))
-                        .map((agg, index) => (
-                            <SubtypeEntry agg={agg} key={agg[0]} index={index} />
-                        ))}
+                        .map((agg, index) => <SubtypeEntry agg={agg} key={agg[0]} index={index} />)}
                 </PillColumn>
             </PillsWrapper>
         </NodeWrapper>
@@ -134,11 +145,11 @@ interface EntryProps<T> {
 }
 
 function PlatformEntry({ agg, index }: EntryProps<PlatformAggregate>) {
-    return LineageFilterEntry(PLATFORM_FILTER_NAME, agg, index);
+    return LineageFilterEntry(PLATFORM_FILTER_NAME, agg, index, 'platform');
 }
 
 function SubtypeEntry({ agg, index }: EntryProps<SubtypeAggregate>) {
-    return LineageFilterEntry(ENTITY_SUB_TYPE_FILTER_NAME, agg, index);
+    return LineageFilterEntry(ENTITY_SUB_TYPE_FILTER_NAME, agg, index, 'subtype');
 }
 
 const EntryWrapper = styled.span<{ includeBefore: boolean }>`
@@ -161,6 +172,7 @@ function LineageFilterEntry(
     filterName: string,
     [filterValue, count, entity]: PlatformAggregate | SubtypeAggregate,
     index: number,
+    dataTestIdPrefix: string,
 ) {
     const entityRegistry = useEntityRegistryV2();
     const { icon, label } = getFilterIconAndLabel(filterName, filterValue, entityRegistry, entity || null, 12);
@@ -168,7 +180,7 @@ function LineageFilterEntry(
     return (
         <EntryWrapper title={label} includeBefore={index > 0}>
             {icon}
-            <CountWrapper>{count}</CountWrapper>
+            <CountWrapper data-testid={`filter-counter-${dataTestIdPrefix}-${label}`}>{count}</CountWrapper>
         </EntryWrapper>
     );
 }

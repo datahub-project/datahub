@@ -15,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -45,7 +46,7 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
     final Urn incidentUrn = Urn.createFromString(environment.getArgument("urn"));
     final UpdateIncidentInput input =
         bindArgument(environment.getArgument("input"), UpdateIncidentInput.class);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // Check whether the incident exists.
@@ -80,7 +81,9 @@ public class UpdateIncidentResolver implements DataFetcher<CompletableFuture<Boo
           throw new DataHubGraphQLException(
               "Failed to update incident. Incident does not exist.",
               DataHubGraphQLErrorCode.NOT_FOUND);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void verifyAuthorizationOrThrow(

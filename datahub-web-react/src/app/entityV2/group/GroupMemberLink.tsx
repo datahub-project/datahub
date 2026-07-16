@@ -1,18 +1,17 @@
+import { Avatar } from '@components';
 import React from 'react';
-import { Tag } from 'antd';
-import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { CustomAvatar } from '../../shared/avatar';
-import { CorpUser, EntityType } from '../../../types.generated';
-import EntityRegistry from '../../entity/EntityRegistry';
 
-const MemberTag = styled(Tag)`
-    padding: 2px;
-    padding-right: 6px;
-    margin-bottom: 8px;
+import { AvatarType } from '@components/components/AvatarStack/types';
+
+import EntityRegistry from '@app/entity/EntityRegistry';
+
+import { CorpUser, EntityType } from '@types';
+
+const MemberPill = styled.div`
     display: inline-flex;
-    width: auto;
+    margin-bottom: 8px;
 `;
 
 type Props = {
@@ -23,15 +22,15 @@ type Props = {
 export const GroupMemberLink = ({ user, entityRegistry }: Props) => {
     const name = entityRegistry.getDisplayName(EntityType.CorpUser, user);
     return (
-        <MemberTag key={user.urn}>
+        <MemberPill key={user.urn}>
             <Link to={`${entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}`}>
-                <CustomAvatar
+                <Avatar
                     name={name}
-                    photoUrl={user.editableProperties?.pictureLink || undefined}
-                    useDefaultAvatar={false}
+                    imageUrl={user.editableProperties?.pictureLink || undefined}
+                    type={AvatarType.user}
+                    showInPill
                 />
-                {name.length > 15 ? <Tooltip title={name}>{`${name.substring(0, 15)}..`}</Tooltip> : name}
             </Link>
-        </MemberTag>
+        </MemberPill>
     );
 };

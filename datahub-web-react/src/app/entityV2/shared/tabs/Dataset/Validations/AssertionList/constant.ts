@@ -1,5 +1,5 @@
+import { AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { AssertionSourceType } from '@src/types.generated';
-import { AssertionTable } from './types';
 
 export const ASSERTION_DEFAULT_FILTERS = {
     sortBy: '',
@@ -13,11 +13,6 @@ export const ASSERTION_DEFAULT_FILTERS = {
         source: [],
     },
 };
-
-export const ASSERTION_GROUP_BY_FILTER_OPTIONS = [
-    { label: 'Type', value: 'type' },
-    { label: 'Status', value: 'status' },
-];
 
 export const ASSERTION_SUMMARY_CARD_STATUSES = ['failing', 'passing', 'erroring'];
 

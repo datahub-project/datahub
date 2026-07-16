@@ -49,6 +49,13 @@ query appConfig {
             searchResult {
                 enableNameHighlight
             }
+            theme {
+                themeId
+            }
+            application {
+                showSidebarSectionWhenEmpty
+                showApplicationInNavigation
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
@@ -58,6 +65,18 @@ query appConfig {
         }
         viewsConfig {
             enabled
+        }
+        searchBarConfig {
+            apiVariant
+        }
+        searchCardConfig {
+            showDescription
+        }
+        searchFlagsConfig {
+            defaultSkipHighlighting
+        }
+        homePageConfig {
+            firstInPersonalSidebar
         }
         featureFlags {
             readOnlyModeEnabled
@@ -69,6 +88,7 @@ query appConfig {
             nestedDomainsEnabled
             platformBrowseV2
             businessAttributeEntityEnabled
+            contextDocumentsEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
             themeV2Enabled
@@ -86,6 +106,29 @@ query appConfig {
             showHasSiblingsFilter
             showSearchBarAutocompleteRedesign
             showManageTags
+            showIntroducePage
+            showIngestionPageRedesign
+            showLineageExpandMore
+            showStatsTabRedesign
+            showHomePageRedesign
+            showDefaultExternalLinks
+            showProductUpdates
+            lineageGraphV3
+            logicalModelsEnabled
+            showHomepageUserRole
+            assetSummaryPageV1
+            datasetSummaryPageV1
+            metricsEnabled
+            ingestionOnboardingRedesignV1
+            documentationFileUploadV1
+            contextDocumentsEnabled
+            hideLineageInSearchCards
+            glossaryBasedPoliciesEnabled
+            multipleDataProductsPerAsset
+            showTestsInHealthIcon
+            i18nEnabled
+            browserTracingEnabled
+            browserWebVitalsEnabled
         }
         chromeExtensionConfig {
             enabled
@@ -115,10 +158,61 @@ query getDocPropagationSettings {
     }
 }
 
+query getHomePageSettings {
+    globalHomePageSettings {
+        defaultTemplate {
+            ...PageTemplate
+        }
+    }
+}
+
+query getPresignedUploadUrl($input: GetPresignedUploadUrlInput!) {
+    getPresignedUploadUrl(input: $input) {
+        url
+        fileId
+    }
+}
+
+mutation createDataHubFile($input: CreateDataHubFileInput!) {
+    createDataHubFile(input: $input) {
+        file {
+            urn
+        }
+    }
+}
+
 mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
     updateGlobalViewsSettings(input: $input)
 }
 
 mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!) {
     updateDocPropagationSettings(input: $input)
+}
+
+mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
+    updateApplicationsSettings(input: $input)
+}
+
+query getLatestProductUpdate {
+    latestProductUpdate {
+        enabled
+        id
+        title
+        header
+        requiredVersion
+        description
+        image
+        primaryCtaText
+        primaryCtaLink
+        secondaryCtaText
+        secondaryCtaLink
+        ctaText
+        ctaLink
+        features {
+            title
+            description
+            icon
+            availability
+        }
+    }
 }

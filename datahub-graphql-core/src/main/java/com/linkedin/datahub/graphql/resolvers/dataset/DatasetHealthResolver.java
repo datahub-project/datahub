@@ -6,6 +6,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
@@ -134,7 +135,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
     final EntityRelationships relationships =
         _graphClient.getRelatedEntities(
             datasetUrn,
-            ImmutableList.of(ASSERTS_RELATIONSHIP_NAME),
+            ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
             RelationshipDirection.INCOMING,
             0,
             500,

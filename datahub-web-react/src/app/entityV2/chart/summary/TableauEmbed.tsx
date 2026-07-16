@@ -1,7 +1,9 @@
-import React, { useEffect } from 'react';
-import styled from 'styled-components';
 import HeaderIcon from '@mui/icons-material/VisibilityOutlined';
-import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
+import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
 
 const Wrapper = styled.div`
     height: fit-content;
@@ -12,6 +14,7 @@ interface Props {
 }
 
 export default function TableauEmbed({ externalUrl }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     useEffect(() => {
         const script = document.createElement('script');
         script.type = 'module';
@@ -28,7 +31,7 @@ export default function TableauEmbed({ externalUrl }: Props) {
     return (
         <Wrapper>
             <SummaryTabHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<HeaderIcon />} title="Preview" />
+                <SummaryTabHeaderTitle icon={<HeaderIcon />} title={tc('preview')} />
             </SummaryTabHeaderWrapper>
             {
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment

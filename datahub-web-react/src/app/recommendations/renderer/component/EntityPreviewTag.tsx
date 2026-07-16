@@ -1,28 +1,40 @@
 import { Tooltip } from '@components';
-import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import { Divider, Image, Tag } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
 
-const EntityTag = styled(Tag)`
-    margin: 4px;
+import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+
+// Styled to match the rest of the app's pills (see TagPill / GlossaryTermPill): 26px tall, fully
+// rounded, single 8px horizontal padding, 12px / 500 text, theme-text color. antd's Tag defaults
+// are overridden with !important since antd uses inline styles + high-specificity selectors.
+// font-size and font-weight are pinned explicitly so the pill text doesn't shift if an ancestor
+// (e.g. sidebar headers) sets a different size or weight.
+const EntityTag = styled(Tag)<{ $showMargin?: boolean }>`
+    ${(props) => (props.$showMargin ? `margin: 4px;` : `margin: 0px;`)}
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 100em;
+    line-height: 1.4;
+    font-size: 12px;
+    font-weight: 500;
+    color: ${(props) => props.theme.colors.text} !important;
+    border-color: ${(props) => props.theme.colors.border} !important;
     max-width: inherit;
 `;
 
 const TitleContainer = styled.div`
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 4px;
+    gap: 6px;
     max-width: inherit;
 `;
 
 const IconContainer = styled.span`
-    padding-left: 4px;
-    padding-right: 4px;
     display: flex;
     align-items: center;
 `;
@@ -35,8 +47,6 @@ const PlatformLogo = styled(Image)`
 `;
 
 const DisplayNameContainer = styled.span`
-    padding-left: 4px;
-    padding-right: 4px;
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -51,9 +61,9 @@ const ColumnName = styled.span`
     font-weight: bold;
 `;
 
-export const StyledDivider = styled(Divider)`
-    background-color: ${ANTD_GRAY[6]};
-    margin: 0 7px;
+const StyledDivider = styled(Divider)`
+    background-color: ${(props) => props.theme.colors.border};
+    margin: 0 4px;
 `;
 
 const StyledLink = styled(Link)`
@@ -70,6 +80,7 @@ type Props = {
     columnName?: string;
     dataTestId?: string;
     showNameTooltip?: boolean;
+    showMargin?: boolean;
 };
 
 const constructExternalUrl = (url) => {
@@ -91,22 +102,23 @@ export const EntityPreviewTag = ({
     columnName,
     dataTestId,
     showNameTooltip = true,
+    showMargin = true,
 }: Props) => {
     const externalUrl = constructExternalUrl(url);
     const linkProps = useEmbeddedProfileLinkProps();
 
     return (
         <StyledLink to={externalUrl} {...linkProps} onClick={onClick} data-testid={dataTestId}>
-            <EntityTag>
+            <EntityTag $showMargin={showMargin}>
                 <TitleContainer>
                     <IconContainer>
                         {(!!platformLogoUrl && !platformLogoUrls && (
-                            <PlatformLogo preview={false} src={platformLogoUrl} alt="none" />
+                            <PlatformLogo preview={false} src={platformLogoUrl} alt="" />
                         )) ||
                             (!!platformLogoUrls &&
                                 platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
                                     <>
-                                        <PlatformLogo preview={false} src={platformLogoUrlsEntry || ''} alt="none" />
+                                        <PlatformLogo preview={false} src={platformLogoUrlsEntry || ''} alt="" />
                                     </>
                                 ))) ||
                             logoComponent}

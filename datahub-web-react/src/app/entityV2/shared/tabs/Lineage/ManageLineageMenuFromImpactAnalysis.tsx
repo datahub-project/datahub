@@ -1,16 +1,18 @@
 import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined } from '@ant-design/icons';
 import { Popover, Tooltip } from '@components';
-import { Direction } from '@src/app/lineage/types';
 import { Dropdown } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { EntityType } from '../../../../../types.generated';
-import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../../../entity/shared/constants';
-import { MenuItemStyle } from '../../../../entity/view/menu/item/styledComponent';
+
+import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { Direction } from '@src/app/lineage/types';
+
+import { EntityType } from '@types';
 
 const DROPDOWN_Z_INDEX = 100;
 const POPOVER_Z_INDEX = 101;
-const UNAUTHORIZED_TEXT = "You aren't authorized to edit lineage for this entity.";
 
 const UnderlineWrapper = styled.span`
     text-decoration: underline;
@@ -19,22 +21,25 @@ const UnderlineWrapper = styled.span`
 
 const MenuItemContent = styled.div``;
 
-function PopoverContent({ centerEntity, direction }: { centerEntity?: () => void; direction: string }) {
+function PopoverContent({
+    centerEntity,
+    direction,
+}: {
+    centerEntity?: () => void;
+    direction: 'upstream' | 'downstream';
+}) {
     return (
         <div>
-            <UnderlineWrapper onClick={centerEntity}>Focus</UnderlineWrapper> on this entity to make {direction} edits.
+            <Trans
+                i18nKey={
+                    direction === 'upstream'
+                        ? 'lineage:manageLineage.focusPopoverContentUpstream'
+                        : 'lineage:manageLineage.focusPopoverContentDownstream'
+                }
+                components={{ focus: <UnderlineWrapper onClick={centerEntity} /> }}
+            />
         </div>
     );
-}
-
-function getDownstreamDisabledPopoverContent(canEditLineage: boolean, isDashboard: boolean, centerEntity?: () => void) {
-    if (!canEditLineage) {
-        return UNAUTHORIZED_TEXT;
-    }
-    if (isDashboard) {
-        return 'Dashboard entities have no downstream lineage';
-    }
-    return <PopoverContent centerEntity={centerEntity} direction="downstream" />;
 }
 
 interface Props {
@@ -58,6 +63,8 @@ export default function ManageLineageMenuForImpactAnalysis({
     disableDropdown,
     setVisualizeViewInEditMode,
 }: Props) {
+    const { t } = useTranslation('lineage');
+
     function manageLineage(direction: Direction) {
         setVisualizeViewInEditMode(true, direction);
     }
@@ -67,6 +74,18 @@ export default function ManageLineageMenuForImpactAnalysis({
     const isDownstreamDisabled = disableDownstream || isDashboard || !canEditLineage;
     const isUpstreamDisabled = disableUpstream || !canEditLineage;
     const isManualLineageSupported = entityType && ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(entityType);
+
+    const unauthorizedText = t('manageLineage.unauthorized');
+
+    function getDownstreamDisabledPopoverContent() {
+        if (!canEditLineage) {
+            return unauthorizedText;
+        }
+        if (isDashboard) {
+            return t('manageLineage.dashboardNoDownstream');
+        }
+        return <PopoverContent centerEntity={centerEntity} direction="downstream" />;
+    }
 
     // if we don't show manual lineage options or the center node option, this menu has no options
     if (!isManualLineageSupported && isCenterNode) return null;
@@ -80,7 +99,7 @@ export default function ManageLineageMenuForImpactAnalysis({
                           <Popover
                               content={
                                   !canEditLineage ? (
-                                      UNAUTHORIZED_TEXT
+                                      unauthorizedText
                                   ) : (
                                       <PopoverContent centerEntity={centerEntity} direction="upstream" />
                                   )
@@ -89,7 +108,7 @@ export default function ManageLineageMenuForImpactAnalysis({
                           >
                               <MenuItemContent data-testid="edit-upstream-lineage">
                                   <ArrowUpOutlined />
-                                  &nbsp; Edit Upstream
+                                  &nbsp;{t('manageLineage.editUpstream')}
                               </MenuItemContent>
                           </Popover>
                       </MenuItemStyle>
@@ -105,12 +124,12 @@ export default function ManageLineageMenuForImpactAnalysis({
                           disabled={isDownstreamDisabled}
                       >
                           <Popover
-                              content={getDownstreamDisabledPopoverContent(!!canEditLineage, isDashboard, centerEntity)}
+                              content={getDownstreamDisabledPopoverContent()}
                               overlayStyle={isDownstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
                           >
                               <MenuItemContent data-testid="edit-downstream-lineage">
                                   <ArrowDownOutlined />
-                                  &nbsp; Edit Downstream
+                                  &nbsp;{t('manageLineage.editDownstream')}
                               </MenuItemContent>
                           </Popover>
                       </MenuItemStyle>
@@ -121,7 +140,7 @@ export default function ManageLineageMenuForImpactAnalysis({
 
     return (
         <>
-            <Tooltip title={disableDropdown ? UNAUTHORIZED_TEXT : ''}>
+            <Tooltip title={disableDropdown ? unauthorizedText : ''}>
                 <div data-testid="lineage-edit-menu-button">
                     <Dropdown
                         overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}

@@ -1,21 +1,33 @@
 import platform
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_5
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
-@freeze_time(FROZEN_TIME)
-@pytest.mark.xfail  # TODO: debug the flakes for this test
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.xfail(
+    reason=(
+        "Golden file hasn't been regenerated since 2022 and is expected to "
+        "drift from the current metadata schema. Regenerate on an amd64 "
+        "Linux host (hdbcli isn't published for ARM wheels) with "
+        "`pytest tests/integration/hana/test_hana.py --update-golden-files`, "
+        "then drop this xfail. Calc-view, stored-procedure, and usage paths "
+        "are covered unconditionally by test_hana_calc_views_mock.py."
+    ),
+)
 @pytest.mark.skipif(
-    platform.machine().lower() == "aarch64",
-    reason="The hdbcli dependency is not available for aarch64",
+    platform.machine().lower() in ("aarch64", "arm64"),
+    reason=(
+        "saplabs/hanaexpress runs only on x86_64 and the hdbcli Python "
+        "driver isn't published for ARM wheels."
+    ),
 )
 def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"

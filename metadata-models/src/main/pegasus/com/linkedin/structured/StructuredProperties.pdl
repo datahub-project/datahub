@@ -4,7 +4,8 @@ namespace com.linkedin.structured
  * Properties about an entity governed by StructuredPropertyDefinition
  */
 @Aspect = {
-   "name": "structuredProperties"
+   "name": "structuredProperties",
+   "schemaVersion": 2
 }
 record StructuredProperties {
   /**

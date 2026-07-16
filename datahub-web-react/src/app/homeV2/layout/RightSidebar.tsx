@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { Announcements } from '@app/homeV2/action/announcement/Announcements';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { Announcements } from '../action/announcement/Announcements';
 
 const Container = styled.div<{ $isHidden?: boolean; $isShowNavBarRedesign?: boolean }>`
     overflow-y: auto;
@@ -13,8 +14,8 @@ const Container = styled.div<{ $isHidden?: boolean; $isShowNavBarRedesign?: bool
         `
         margin: 5px;
         border-radius: ${props.theme.styles['border-radius-navbar-redesign']};
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-        background-color: white;
+        box-shadow: ${props.theme.colors.shadowSm};
+        background-color: ${props.theme.colors.bg};
     `}
 
     /* Hide scrollbar for Chrome, Safari, and Opera */

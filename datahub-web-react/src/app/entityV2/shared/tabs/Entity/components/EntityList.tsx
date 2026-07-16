@@ -1,11 +1,16 @@
-import React from 'react';
 import { List, Pagination, Typography } from 'antd';
+import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { PreviewType } from '../../../../Entity';
-import { EntityType } from '../../../../../../types.generated';
-import { SearchCfg } from '../../../../../../conf';
-import { Message } from '../../../../../shared/Message';
+
+import { PreviewType } from '@app/entityV2/Entity';
+import { Message } from '@app/shared/Message';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { SearchCfg } from '@src/conf';
+
+import { EntityType } from '@types';
+
+const LOADING_MARGIN_TOP = '10%';
 
 const ScrollWrapper = styled.div`
     overflow: auto;
@@ -14,12 +19,12 @@ const ScrollWrapper = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 5px;
-        background: #f2f2f2;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #cccccc;
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
 
@@ -38,7 +43,7 @@ const StyledList = styled(List)`
         margin-left: -20px;
         border-bottom: none;
         padding-bottom: 0px;
-        padding-top: 15px;
+        padding-top: 0px;
     }
 ` as typeof List;
 
@@ -50,7 +55,7 @@ const PaginationInfoContainer = styled.span`
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -99,12 +104,13 @@ export const EntityList = ({
     setNumResultsPerPage,
 }: EntityListProps) => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.profile.tabs');
+    const { t: tc } = useTranslation('common.feedback');
 
     return (
         <>
             <ScrollWrapper>
                 <StyledList
-                    bordered
                     dataSource={entities}
                     header={title || `${entities.length || 0} ${entityRegistry.getCollectionName(type)}`}
                     renderItem={(item) => (
@@ -112,15 +118,21 @@ export const EntityList = ({
                     )}
                 />
             </ScrollWrapper>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
+            {loading && <Message type="loading" content={tc('loading')} style={{ marginTop: LOADING_MARGIN_TOP }} />}
+            {error && <Message type="error" content={t('entity.list.loadError')} />}
             {showPagination && (
                 <PaginationInfoContainer>
                     <PaginationInfo>
-                        <b>
-                            {lastResultIndex > 0 ? ((page as number) - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                        </b>{' '}
-                        of <b>{totalAssets}</b>
+                        <Trans
+                            t={t}
+                            i18nKey="entity.paginationRange"
+                            values={{
+                                start: lastResultIndex > 0 ? ((page as number) - 1) * pageSize + 1 : 0,
+                                end: lastResultIndex,
+                                total: totalAssets,
+                            }}
+                            components={{ bold: <b /> }}
+                        />
                     </PaginationInfo>
                     <StyledPagination
                         current={page}

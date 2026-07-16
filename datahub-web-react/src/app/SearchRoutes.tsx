@@ -1,38 +1,37 @@
 import React from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
-import { PageRoutes } from '../conf/Global';
-import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
-import { BrowseResultsPage } from './browse/BrowseResultsPage';
-import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
-import { useUserContext } from './context/useUserContext';
-import DomainRoutes from './domain/DomainRoutes';
-import { ManageDomainsPage } from './domain/ManageDomainsPage';
-import StructuredProperties from './govern/structuredProperties/StructuredProperties';
+
+import { AnalyticsPage as AnalyticsPageV2 } from '@app/analyticsDashboardV2/components/AnalyticsPage';
+import { ManageApplications } from '@app/applications/ManageApplications';
+import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
+import { BusinessAttributes } from '@app/businessAttribute/BusinessAttributes';
+import ContextRoutes from '@app/context/ContextRoutes';
+import { useUserContext } from '@app/context/useUserContext';
+import DomainRoutesV2 from '@app/domainV2/DomainRoutes';
+import { ManageDomainsPage as ManageDomainsPageV2 } from '@app/domainV2/ManageDomainsPage';
+import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
+import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
+import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
+import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
+import IngestionRoutes from '@app/ingestV2/IngestionRoutes';
+import MetricsPage from '@app/metrics/MetricsPage';
+import { MFERoutes } from '@app/mfeframework/mfeConfigLoader';
+import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
+import { SearchablePage as SearchablePageV2 } from '@app/searchV2/SearchablePage';
+import { SettingsPage as SettingsPageV2 } from '@app/settingsV2/SettingsPage';
+import { NoPageFound } from '@app/shared/NoPageFound';
+import { ManageTags } from '@app/tags/ManageTags';
 import {
     useAppConfig,
     useBusinessAttributesFlag,
     useIsAppConfigContextLoaded,
+    useIsContextDocumentsEnabled,
     useIsNestedDomainsEnabled,
-} from './useAppConfig';
+} from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
 
-import { EntityPage } from './entity/EntityPage';
-import { EntityPage as EntityPageV2 } from './entityV2/EntityPage';
-import GlossaryRoutes from './glossary/GlossaryRoutes';
-import GlossaryRoutesV2 from './glossaryV2/GlossaryRoutes';
-import { ManageIngestionPage } from './ingest/ManageIngestionPage';
-import { SearchPage } from './search/SearchPage';
-import { SearchablePage } from './search/SearchablePage';
-import { SearchPage as SearchPageV2 } from './searchV2/SearchPage';
-import { SearchablePage as SearchablePageV2 } from './searchV2/SearchablePage';
-import { SettingsPage } from './settings/SettingsPage';
-import { SettingsPage as SettingsPageV2 } from './settingsV2/SettingsPage';
-import { NoPageFound } from './shared/NoPageFound';
-import { useEntityRegistry } from './useEntityRegistry';
-
-import DomainRoutesV2 from './domainV2/DomainRoutes';
-import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
-import { useIsThemeV2 } from './useIsThemeV2';
-import { ManageTags } from './tags/ManageTags';
+import { EntityType } from '@types';
 
 /**
  * Container for all searchable page routes
@@ -41,12 +40,16 @@ export const SearchRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
-    const entities = isNestedDomainsEnabled
+    const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
+
+    // Get entities, filtering out Document when context documents is enabled (handled by ContextRoutes)
+    const allEntities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
-    const { config } = useAppConfig();
-    const isThemeV2 = useIsThemeV2();
-    const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
+    const entities = isContextDocumentsEnabled
+        ? allEntities.filter((entity) => entity.type !== EntityType.Document)
+        : allEntities;
+    const { config, loaded } = useAppConfig();
 
     const businessAttributesFlag = useBusinessAttributesFlag();
     const appConfigContextLoaded = useIsAppConfigContextLoaded();
@@ -59,29 +62,40 @@ export const SearchRoutes = (): JSX.Element => {
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
+    const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
+    const { metricsEnabled } = config.featureFlags;
+    const showAnalytics = (config?.analyticsConfig?.enabled && me && me?.platformPrivileges?.viewAnalytics) || false;
+
+    const renderAnalyticsPage = () => {
+        if (!showAnalytics) {
+            return <NoPageFound />;
+        }
+        return <AnalyticsPageV2 />;
+    };
+
     return (
-        <FinalSearchablePage>
+        <SearchablePageV2>
             <Switch>
+                {/* Context Documents routes - must be before entity routes */}
+                {isContextDocumentsEnabled && (
+                    <Route path={`${PageRoutes.DOCUMENT}/:urn`} render={() => <ContextRoutes />} />
+                )}
+                {isContextDocumentsEnabled && (
+                    <Route path={`${PageRoutes.CONTEXT}*`} render={() => <ContextRoutes />} />
+                )}
                 {entities.map((entity) => (
                     <Route
                         key={entity.getPathName()}
                         path={`/${entity.getPathName()}/:urn`}
-                        render={() =>
-                            isThemeV2 ? (
-                                <EntityPageV2 entityType={entity.type} />
-                            ) : (
-                                <EntityPage entityType={entity.type} />
-                            )
-                        }
+                        render={() => <EntityPageV2 entityType={entity.type} />}
                     />
                 ))}
-                <Route
-                    path={PageRoutes.SEARCH_RESULTS}
-                    render={() => (isThemeV2 ? <SearchPageV2 /> : <SearchPage />)}
-                />
+                {metricsEnabled && <Route path={PageRoutes.METRICS} render={() => <MetricsPage />} />}
+                <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPageV2 />} />
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
-                <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
+                <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
+                <Route path={PageRoutes.ANALYTICS} render={renderAnalyticsPage} />
                 <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                 <Route
                     path={PageRoutes.SETTINGS_POLICIES}
@@ -89,25 +103,14 @@ export const SearchRoutes = (): JSX.Element => {
                 />
                 <Route path={PageRoutes.PERMISSIONS} render={() => <Redirect to="/settings/permissions" />} />
                 <Route path={PageRoutes.IDENTITIES} render={() => <Redirect to="/settings/identities" />} />
-                {isNestedDomainsEnabled && (
-                    <Route
-                        path={`${PageRoutes.DOMAIN}*`}
-                        render={() => (isThemeV2 ? <DomainRoutesV2 /> : <DomainRoutes />)}
-                    />
-                )}
-                {!isNestedDomainsEnabled && (
-                    <Route
-                        path={PageRoutes.DOMAINS}
-                        render={() => (isThemeV2 ? <ManageDomainsPageV2 /> : <ManageDomainsPage />)}
-                    />
-                )}
+                {isNestedDomainsEnabled && <Route path={`${PageRoutes.DOMAIN}*`} render={() => <DomainRoutesV2 />} />}
+                {!isNestedDomainsEnabled && <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPageV2 />} />}
 
-                <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
-                <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
-                <Route
-                    path={`${PageRoutes.GLOSSARY}*`}
-                    render={() => (isThemeV2 ? <GlossaryRoutesV2 /> : <GlossaryRoutes />)}
-                />
+                {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
+                {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <IngestionRoutes />} />}
+
+                <Route path={PageRoutes.SETTINGS} render={() => <SettingsPageV2 />} />
+                <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutesV2 />} />
                 {showStructuredProperties && (
                     <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
                 )}
@@ -123,8 +126,9 @@ export const SearchRoutes = (): JSX.Element => {
                         return <NoPageFound />;
                     }}
                 />
-                <Route component={NoPageFound} />
+                <Route path="/mfe*" component={MFERoutes} />
+                {me.loaded && loaded && <Route component={NoPageFound} />}
             </Switch>
-        </FinalSearchablePage>
+        </SearchablePageV2>
     );
 };

@@ -28,7 +28,9 @@ def load_entity_registry(entity_registry_file: Path) -> List[EntityType]:
     with entity_registry_file.open() as f:
         raw_entity_registry = yaml.safe_load(f)
 
-    entities = pydantic.parse_obj_as(List[EntityType], raw_entity_registry["entities"])
+    entities = pydantic.TypeAdapter(List[EntityType]).validate_python(
+        raw_entity_registry["entities"]
+    )
     return entities
 
 
@@ -45,6 +47,7 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
         "mxe/MetadataChangeLog.avsc",
         "mxe/PlatformEvent.avsc",
         "platform/event/v1/EntityChangeEvent.avsc",
+        "platform/event/v1/RelationshipChangeEvent.avsc",
         "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
     }
 
@@ -323,7 +326,7 @@ ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
     for aspect in ASPECT_CLASSES
 }}
 
-from typing import Literal
+from typing import Literal, Set
 from typing_extensions import TypedDict
 
 class AspectBag(TypedDict, total=False):
@@ -333,6 +336,8 @@ class AspectBag(TypedDict, total=False):
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
 }}
+
+KEY_ASPECT_NAMES: Set[str] = {{cls.ASPECT_NAME for cls in KEY_ASPECTS.values()}}
 
 ENTITY_TYPE_NAMES: List[str] = [
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}'" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
@@ -466,6 +471,10 @@ def create_from_ids(cls, data_flow_urn: str, job_id: str) -> "DataJobUrn":
 
 def get_data_flow_urn(self) -> "DataFlowUrn":
     return DataFlowUrn.from_string(self.flow)
+
+@property
+def orchestrator(self) -> str:
+    return self.get_data_flow_urn().orchestrator
 
 @deprecated(reason="Use .job_id instead")
 def get_job_id(self) -> str:
@@ -842,9 +851,9 @@ def generate(
     )
 
     if enable_custom_loader:
-        # Move schema_classes.py -> _schema_classes.py
+        # Move schema_classes.py -> _internal_schema_classes.py
         # and add a custom loader.
-        (Path(outdir) / "_schema_classes.py").write_text(
+        (Path(outdir) / "_internal_schema_classes.py").write_text(
             (Path(outdir) / "schema_classes.py").read_text()
         )
         (Path(outdir) / "schema_classes.py").write_text(
@@ -861,16 +870,16 @@ from datahub.utilities._custom_package_loader import get_custom_models_package
 _custom_package_path = get_custom_models_package()
 
 if TYPE_CHECKING or not _custom_package_path:
-    from ._schema_classes import *
+    from ._internal_schema_classes import *
 
     # Required explicitly because __all__ doesn't include _ prefixed names.
-    from ._schema_classes import __SCHEMA_TYPES
+    from ._internal_schema_classes import __SCHEMA_TYPES
 
     if IS_SPHINX_BUILD:
         # Set __module__ to the current module so that Sphinx will document the
         # classes as belonging to this module instead of the custom package.
         for _cls in list(globals().values()):
-            if hasattr(_cls, "__module__") and "datahub.metadata._schema_classes" in _cls.__module__:
+            if hasattr(_cls, "__module__") and "datahub.metadata._internal_schema_classes" in _cls.__module__:
                 _cls.__module__ = __name__
 else:
     _custom_package = importlib.import_module(_custom_package_path)

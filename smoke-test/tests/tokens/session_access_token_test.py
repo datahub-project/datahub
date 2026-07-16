@@ -21,13 +21,15 @@ pytestmark = pytest.mark.no_cypress_suite1
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 (admin_user, admin_pass) = get_admin_credentials()
-user_urn = "urn:li:corpuser:sessionUser"
+# Valid email for auth.native.signUp.enforceValidEmail (Play EmailValidator).
+SESSION_TEST_EMAIL = "session.access.token@smoke.datahub.test"
+user_urn = f"urn:li:corpuser:{SESSION_TEST_EMAIL}"
 
 
 @pytest.fixture(scope="class")
-def custom_user_session():
+def custom_user_session(auth_session):
     """Fixture to execute setup before and tear down after all tests are run"""
-    admin_session = login_as(admin_user, admin_pass)
+    admin_session = auth_session
 
     res_data = removeUser(admin_session, user_urn)
     assert res_data
@@ -58,30 +60,27 @@ def custom_user_session():
     # Pass the invite token when creating the user
     sign_up_json = {
         "fullName": "Test Session User",
-        "email": "sessionUser",
+        "email": SESSION_TEST_EMAIL,
         "password": "sessionUser",
         "title": "Date Engineer",
         "inviteToken": invite_token,
     }
 
-    sign_up_response = admin_session.post(
+    sign_up_session = login_as(admin_user, admin_pass)
+    sign_up_response = sign_up_session.post(
         f"{get_frontend_url()}/signUp", json=sign_up_json
     )
     sign_up_response.raise_for_status()
     assert sign_up_response
     assert "error" not in sign_up_response
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
-
-    # signUp will override the session cookie to the new user to be signed up.
-    admin_session.cookies.clear()
-    admin_session = login_as(admin_user, admin_pass)
+    wait_for_writes_to_sync(auth_session=auth_session)
 
     # Make user created user is there.
     res_data = listUsers(admin_session)
     assert res_data["data"]
     assert res_data["data"]["listUsers"]
-    assert {"username": "sessionUser"} in res_data["data"]["listUsers"]["users"]
+    assert {"username": SESSION_TEST_EMAIL} in res_data["data"]["listUsers"]["users"]
 
     yield login_as(sign_up_json["email"], sign_up_json["password"])
 
@@ -91,34 +90,34 @@ def custom_user_session():
     assert res_data["data"]
     assert res_data["data"]["removeUser"] is True
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(auth_session=auth_session)
 
     # Make user created user is not there.
     res_data = listUsers(admin_session)
     assert res_data["data"]
     assert res_data["data"]["listUsers"]
-    assert {"username": "sessionUser"} not in res_data["data"]["listUsers"]["users"]
+    assert {"username": SESSION_TEST_EMAIL} not in res_data["data"]["listUsers"][
+        "users"
+    ]
 
 
-@pytest.mark.dependency()
-def test_soft_delete(graph_client, custom_user_session):
+def test_01_soft_delete(auth_session, graph_client, custom_user_session):
     # assert initial access
     assert getUserId(custom_user_session) == {"urn": user_urn}
 
     graph_client.soft_delete_entity(urn=user_urn)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(auth_session=auth_session)
 
     with pytest.raises(HTTPError) as req_info:
         getUserId(custom_user_session)
-    assert "403 Client Error: Forbidden" in str(req_info.value)
+    assert "401 Client Error: Unauthorized" in str(req_info.value)
 
     # undo soft delete
     graph_client.set_soft_delete_status(urn=user_urn, delete=False)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(auth_session=auth_session)
 
 
-@pytest.mark.dependency(depends=["test_soft_delete"])
-def test_suspend(graph_client, custom_user_session):
+def test_02_suspend(auth_session, graph_client, custom_user_session):
     # assert initial access
     assert getUserId(custom_user_session) == {"urn": user_urn}
 
@@ -136,11 +135,11 @@ def test_suspend(graph_client, custom_user_session):
             ),
         )
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(auth_session=auth_session)
 
     with pytest.raises(HTTPError) as req_info:
         getUserId(custom_user_session)
-    assert "403 Client Error: Forbidden" in str(req_info.value)
+    assert "401 Client Error: Unauthorized" in str(req_info.value)
 
     # undo suspend
     graph_client.emit(
@@ -157,17 +156,16 @@ def test_suspend(graph_client, custom_user_session):
             ),
         )
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(auth_session=auth_session)
 
 
-@pytest.mark.dependency(depends=["test_suspend"])
-def test_hard_delete(graph_client, custom_user_session):
+def test_03_hard_delete(auth_session, graph_client, custom_user_session):
     # assert initial access
     assert getUserId(custom_user_session) == {"urn": user_urn}
 
     graph_client.hard_delete_entity(urn=user_urn)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(auth_session=auth_session)
 
     with pytest.raises(HTTPError) as req_info:
         getUserId(custom_user_session)
-    assert "403 Client Error: Forbidden" in str(req_info.value)
+    assert "401 Client Error: Unauthorized" in str(req_info.value)

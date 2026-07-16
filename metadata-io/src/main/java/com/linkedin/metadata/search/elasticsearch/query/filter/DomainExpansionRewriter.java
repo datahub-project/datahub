@@ -5,16 +5,23 @@ import static com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilte
 import static com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterSearchType.STRUCTURED_SEARCH;
 
 import com.linkedin.metadata.config.search.QueryFilterRewriterConfiguration;
+import com.linkedin.metadata.graph.cache.EntityGraphBinding;
+import com.linkedin.metadata.graph.cache.KnownEntityGraph;
+import com.linkedin.metadata.graph.cache.TraversalDirection;
+import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
+import com.linkedin.metadata.graph.cache.client.HierarchyReadSpec;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 
 @Builder
 public class DomainExpansionRewriter extends BaseQueryFilterRewriter {
@@ -33,6 +40,16 @@ public class DomainExpansionRewriter extends BaseQueryFilterRewriter {
     return Set.of("domains.keyword");
   }
 
+  @Nonnull
+  @Override
+  protected Optional<EntityGraphBinding> resolveEntityGraphBinding(
+      @Nonnull OperationContext opContext) {
+    Optional<HierarchyReadSpec> spec =
+        HierarchyBindings.resolveByFilterFieldWithFallback(
+            opContext, "domains.keyword", KnownEntityGraph.DOMAIN);
+    return spec.map(HierarchyReadSpec::getBinding);
+  }
+
   @Override
   public <T extends QueryBuilder> T rewrite(
       @Nonnull OperationContext opContext,
@@ -47,7 +64,7 @@ public class DomainExpansionRewriter extends BaseQueryFilterRewriter {
           return expandUrnsByGraph(
               opContext,
               filterQuery,
-              List.of("IsPartOf"),
+              Set.of("IsPartOf"),
               RelationshipDirection.INCOMING,
               config.getPageSize(),
               config.getLimit());
@@ -55,25 +72,36 @@ public class DomainExpansionRewriter extends BaseQueryFilterRewriter {
           return expandUrnsByGraph(
               opContext,
               filterQuery,
-              List.of("IsPartOf"),
+              Set.of("IsPartOf"),
               RelationshipDirection.OUTGOING,
               config.getPageSize(),
               config.getLimit());
-        default:
+        case RELATED_INCL:
+          if (filterQuery instanceof TermsQueryBuilder termsQueryBuilder) {
+            Optional<TermsQueryBuilder> cached =
+                tryExpandTermsViaEntityGraphCache(
+                    opContext,
+                    termsQueryBuilder,
+                    List.of(TraversalDirection.REVERSE, TraversalDirection.FORWARD),
+                    config.getLimit());
+            if (cached.isPresent()) {
+              return (T) cached.get();
+            }
+          }
           // UNDIRECTED doesn't work at the graph service layer
           // RelationshipDirection.UNDIRECTED;
           T descendantQuery =
               expandUrnsByGraph(
                   opContext,
                   filterQuery,
-                  List.of("IsPartOf"),
+                  Set.of("IsPartOf"),
                   RelationshipDirection.INCOMING,
                   config.getPageSize(),
                   config.getLimit());
           return expandUrnsByGraph(
               opContext,
               descendantQuery,
-              List.of("IsPartOf"),
+              Set.of("IsPartOf"),
               RelationshipDirection.OUTGOING,
               config.getPageSize(),
               config.getLimit());

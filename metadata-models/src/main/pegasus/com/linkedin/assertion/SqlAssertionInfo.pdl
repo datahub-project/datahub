@@ -33,6 +33,11 @@ record SqlAssertionInfo {
       "name": "Asserts",
       "entityTypes": [ "dataset" ]
     }
+    @UrnValidation = {
+      "exist": false,
+      "strict": true,
+      "entityTypes": [ "dataset" ]
+    }
     entity: Urn
 
     /**
@@ -64,4 +69,9 @@ record SqlAssertionInfo {
     * Note that only numeric parameter types are valid inputs: NUMBER.
     */
     parameters: AssertionStdParameters
+
+    /**
+    * Optional configuration for assigning severities to failed SQL assertions.
+    */
+    failureSeverityConfig: optional AssertionFailureSeverityConfig
 }

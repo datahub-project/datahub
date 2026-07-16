@@ -30,6 +30,19 @@ public class SchemaFieldUtilsTest {
             "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=long].f"),
         UrnUtils.getUrn(
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD),[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=long].f)"));
+
+    assertEquals(
+        SchemaFieldUtils.generateSchemaFieldUrn(
+            TEST_DATASET_URN,
+            "[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=long].f"),
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD),[version=2.0].[type=ABFooUnion].[type=union].[type=array].[type=array].[type=Foo].a.[type=long].f)"));
+
+    assertEquals(
+        SchemaFieldUtils.generateSchemaFieldUrn(
+            TEST_DATASET_URN, "Split 1 - final (Investment Income Details"),
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD),Split 1 - final %28Investment Income Details)"));
   }
 
   @Test

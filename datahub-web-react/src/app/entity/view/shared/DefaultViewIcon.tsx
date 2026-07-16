@@ -1,6 +1,6 @@
+import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
 
 const CircleContainer = styled.span`
     width: 10px;

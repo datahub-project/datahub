@@ -1,0 +1,21 @@
+namespace com.linkedin.operations
+
+import com.linkedin.common.WindowDuration
+import com.linkedin.common.Urn
+
+/**
+ * Operations data for a given resource, rolled up into a bucket.
+ */
+record OperationsAggregation {
+  /** Bucket start time in milliseconds */
+  bucket: long
+
+  /** Bucket duration */
+  duration: WindowDuration
+
+  /** Resource associated with these usage stats */
+  resource: Urn
+
+  /** Aggregations associated with this bucket */
+  aggregations: OperationsAggregationsResult
+}

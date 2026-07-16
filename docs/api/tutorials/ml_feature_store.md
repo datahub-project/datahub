@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for emitting ML feature store metadata to DataHub, including features, feature tables, and primary keys."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -5,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 ## Why Would You Integrate Feature Store with DataHub?
 
-Feature Store is a data management layer that stores, organizes, and manages features for machine learning models. It is a centralized repository for features that can be used across different AI/ML models. 
+Feature Store is a data management layer that stores, organizes, and manages features for machine learning models. It is a centralized repository for features that can be used across different AI/ML models.
 By integrating Feature Store with DataHub, you can track the lineage of features used in AI/ML models, understand how features are generated, and how they are used to train models.
 
 For technical details on feature store entities, please refer to the following docs:
@@ -27,11 +31,11 @@ This guide will show you how to
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed steps, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 ## Create ML Entities
 
-:::note 
+:::note
 For creating MLModels and MLGroups, please refer to [AI/ML Integration Guide](/docs/api/tutorials/ml.md).
 :::
 
@@ -43,7 +47,7 @@ An ML Feature represents an instance of a feature that can be used across differ
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_mlfeature.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlfeature_create.py show_path_as_comment }}
 ```
 
 Note that when creating a feature, you create upstream lineage to the data warehouse using `sources`.
@@ -59,7 +63,7 @@ An ML Primary Key represents a specific element of a Feature Table that indicate
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_mlprimarykey.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlprimarykey_create.py show_path_as_comment }}
 ```
 
 Note that when creating a primary key, you create upstream lineage to the data warehouse using `sources`.
@@ -75,14 +79,13 @@ A feature table represents a group of similar Features that can all be used toge
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_mlfeature_table.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlfeature_table_create.py show_path_as_comment }}
 ```
 
 Note that when creating a feature table, you connect the table to its features and primary key using `mlFeatures` and `mlPrimaryKeys`.
 
 </TabItem>
 </Tabs>
-
 
 ### Expected Outcome of creating entities
 
@@ -172,7 +175,7 @@ Expected response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_mlfeature.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlfeature_read.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -259,7 +262,7 @@ Expected response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_mlprimarykey.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlprimarykey_read.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -360,7 +363,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_mlfeature_table.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlfeature_table_read.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -448,7 +451,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_mlmodel.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlmodel_read.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -462,7 +465,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/add_mlfeature_to_mlfeature_table.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlfeature_add_to_mlfeature_table.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -474,7 +477,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/add_mlfeature_to_mlmodel.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlfeature_add_to_mlmodel.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -486,7 +489,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/add_mlgroup_to_mlmodel.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/mlgroup_add_to_mlmodel.py show_path_as_comment }}
 ```
 
 </TabItem>

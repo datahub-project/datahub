@@ -1,6 +1,6 @@
 package com.linkedin.metadata.trace;
 
-import static io.datahubproject.metadata.context.TraceContext.TELEMETRY_TRACE_KEY;
+import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -10,6 +10,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.v1.models.TraceStorageStatus;
 import io.datahubproject.openapi.v1.models.TraceWriteStatus;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -37,12 +39,13 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
-import org.apache.kafka.clients.producer.internals.DefaultPartitioner;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.protocol.types.SchemaException;
+import org.apache.kafka.common.utils.Utils;
 
 @Slf4j
 @SuperBuilder
@@ -242,11 +245,8 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
 
     try {
       // Get all topic partitions first
-      Map<String, TopicDescription> topicInfo =
-          adminClient
-              .describeTopics(Collections.singletonList(getTopicName()))
-              .all()
-              .get(timeoutSeconds, TimeUnit.SECONDS);
+      Map<String, KafkaFuture<TopicDescription>> topicInfo =
+          adminClient.describeTopics(Collections.singletonList(getTopicName())).topicNameValues();
 
       if (topicInfo == null || !topicInfo.containsKey(getTopicName())) {
         log.error("Failed to get topic information for topic: {}", getTopicName());
@@ -255,7 +255,7 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
 
       // Create a list of all TopicPartitions
       List<TopicPartition> allPartitions =
-          topicInfo.get(getTopicName()).partitions().stream()
+          topicInfo.get(getTopicName()).get(timeoutSeconds, TimeUnit.SECONDS).partitions().stream()
               .map(partitionInfo -> new TopicPartition(getTopicName(), partitionInfo.partition()))
               .collect(Collectors.toList());
 
@@ -320,11 +320,8 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
   public Map<TopicPartition, Long> getEndOffsets(boolean skipCache) {
     try {
       // Get all topic partitions first (reuse the same approach as in getAllPartitionOffsets)
-      Map<String, TopicDescription> topicInfo =
-          adminClient
-              .describeTopics(Collections.singletonList(getTopicName()))
-              .all()
-              .get(timeoutSeconds, TimeUnit.SECONDS);
+      Map<String, KafkaFuture<TopicDescription>> topicInfo =
+          adminClient.describeTopics(Collections.singletonList(getTopicName())).topicNameValues();
 
       if (topicInfo == null || !topicInfo.containsKey(getTopicName())) {
         log.error("Failed to get topic information for topic: {}", getTopicName());
@@ -333,7 +330,7 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
 
       // Create a list of all TopicPartitions
       List<TopicPartition> allPartitions =
-          topicInfo.get(getTopicName()).partitions().stream()
+          topicInfo.get(getTopicName()).get(timeoutSeconds, TimeUnit.SECONDS).partitions().stream()
               .map(partitionInfo -> new TopicPartition(getTopicName(), partitionInfo.partition()))
               .collect(Collectors.toList());
 
@@ -628,14 +625,13 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
         urn.toString(),
         key -> {
           try {
-            DefaultPartitioner partitioner = new DefaultPartitioner();
 
             TopicDescription topicDescription =
                 adminClient
                     .describeTopics(Collections.singletonList(getTopicName()))
-                    .all()
-                    .get()
-                    .get(getTopicName());
+                    .topicNameValues()
+                    .get(getTopicName())
+                    .get(timeoutSeconds, TimeUnit.SECONDS);
 
             if (topicDescription == null) {
               throw new IllegalStateException("Topic " + getTopicName() + " not found");
@@ -664,11 +660,13 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
                 new Cluster(
                     null, nodes, partitions, Collections.emptySet(), Collections.emptySet());
 
-            int partition =
-                partitioner.partition(getTopicName(), key, key.getBytes(), null, null, cluster);
+            int partition = getPartitionForKey(key, cluster.partitionCountForTopic(getTopicName()));
 
             return new TopicPartition(getTopicName(), partition);
-          } catch (InterruptedException | ExecutionException e) {
+          } catch (InterruptedException
+              | ExecutionException
+              | RuntimeException
+              | TimeoutException e) {
             throw new RuntimeException("Failed to get topic partition for " + key, e);
           }
         });
@@ -683,5 +681,20 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
         Collections.singletonMap(topicPartition, traceTimestampMillis);
 
     return consumer.offsetsForTimes(timestampsToSearch).get(topicPartition);
+  }
+
+  /**
+   * Calculate which partition a key would be assigned to. This replicates Kafka's default
+   * partitioning behavior.
+   */
+  private static int getPartitionForKey(String key, int numPartitions) {
+    if (key == null) {
+      throw new IllegalArgumentException("Key cannot be null");
+    }
+
+    byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+
+    // Use murmur2 hash (same as Kafka default)
+    return Utils.toPositive(Utils.murmur2(keyBytes)) % numPartitions;
   }
 }

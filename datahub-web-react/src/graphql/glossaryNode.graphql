@@ -7,38 +7,77 @@ fragment childGlossaryTerm on GlossaryTerm {
         name
         description
     }
+    displayProperties {
+        ...displayPropertiesFields
+    }
+    domain {
+        ...entityDomain
+    }
+    deprecation {
+        ...deprecationFields
+    }
+}
+
+fragment glossaryNodeFields on GlossaryNode {
+    urn
+    type
+    exists
+    properties {
+        name
+        description
+        customProperties {
+            ...customPropertiesFields
+        }
+        createdOn {
+            time
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    domain {
+        ...entityDomain
+    }
+    parentNodes {
+        ...parentNodesFields
+    }
+    privileges {
+        ...entityPrivileges
+    }
+    autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+        ...autoRenderAspectFields
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    childrenCount {
+        termsCount
+        nodesCount
+    }
+    displayProperties {
+        ...displayPropertiesFields
+    }
+    ...notes
+    settings {
+        ...AssetSettingsFields
+    }
 }
 
 query getGlossaryNode($urn: String!) {
     glossaryNode(urn: $urn) {
-        urn
-        type
-        exists
-        properties {
-            name
-            description
-        }
-        ownership {
-            ...ownershipFields
-        }
-        parentNodes {
-            ...parentNodesFields
-        }
-        privileges {
-            ...entityPrivileges
-        }
-        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
-            ...autoRenderAspectFields
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        forms {
-            ...formsFields
-        }
-        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 10000 }) {
+        ...glossaryNodeFields
+    }
+}
+
+query getGlossaryNodeWithChildren($urn: String!) {
+    glossaryNode(urn: $urn) {
+        ...glossaryNodeFields
+        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 1000 }) {
             total
             relationships {
                 direction
@@ -54,9 +93,5 @@ query getGlossaryNode($urn: String!) {
                 }
             }
         }
-        displayProperties {
-            ...displayPropertiesFields
-        }
-        ...notes
     }
 }

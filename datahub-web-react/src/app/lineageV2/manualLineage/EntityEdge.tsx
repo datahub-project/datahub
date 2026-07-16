@@ -1,14 +1,18 @@
-import { Icon } from '@src/alchemy-components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import Text from 'antd/lib/typography/Text';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { CorpUser, Entity } from '../../../types.generated';
-import { ANTD_GRAY, DEFAULT_SYSTEM_ACTOR_URNS } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import UserAvatar from './UserAvatar';
+
+import { DEFAULT_SYSTEM_ACTOR_URNS } from '@app/entity/shared/constants';
+import UserAvatar from '@app/lineageV2/manualLineage/UserAvatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Icon } from '@src/alchemy-components';
+
+import { CorpUser, Entity } from '@types';
 
 const EntityItem = styled.div`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     align-items: center;
     padding: 12px 0;
@@ -45,6 +49,7 @@ interface Props {
 }
 
 export default function EntityEdge({ entity, removeEntity, createdOn, createdActor }: Props) {
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
     const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
@@ -54,7 +59,7 @@ export default function EntityEdge({ entity, removeEntity, createdOn, createdAct
     return (
         <EntityItem data-testid="lineage-entity-item">
             <NameAndLogoWrapper>
-                {platformLogoUrl && <PlatformLogo src={platformLogoUrl} alt="platform logo" />}{' '}
+                {platformLogoUrl && <PlatformLogo src={platformLogoUrl} alt={t('manualLineage.platformLogoAlt')} />}{' '}
                 <EntityName ellipsis={{ tooltip: entityRegistry.getDisplayName(entity.type, entity) }}>
                     {entityRegistry.getDisplayName(entity.type, entity)}
                 </EntityName>
@@ -65,7 +70,7 @@ export default function EntityEdge({ entity, removeEntity, createdOn, createdAct
                         <UserAvatar createdActor={createdActor} createdOn={createdOn} />
                     </div>
                 )}
-                <Icon icon="X" source="phosphor" onClick={() => removeEntity(entity)} />
+                <Icon icon={X} onClick={() => removeEntity(entity)} />
             </AvatarWrapper>
         </EntityItem>
     );

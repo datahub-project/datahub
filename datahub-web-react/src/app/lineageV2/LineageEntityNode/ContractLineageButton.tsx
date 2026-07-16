@@ -1,9 +1,11 @@
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import React, { useContext } from 'react';
-import { KeyboardArrowLeft } from '@mui/icons-material';
-import { LineageDirection } from '../../../types.generated';
-import { UpstreamWrapper, DownstreamWrapper, Button } from './components';
-import { LineageNodesContext, onClickPreventSelect } from '../common';
-import analytics, { EventType } from '../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import { Button, DownstreamWrapper, UpstreamWrapper } from '@app/lineageV2/LineageEntityNode/components';
+import { LineageNodesContext, onClickPreventSelect } from '@app/lineageV2/common';
+
+import { LineageDirection } from '@types';
 
 interface Props {
     urn: string;
@@ -37,8 +39,9 @@ export function ContractLineageButton({ urn, direction }: Props) {
                 onClick={(e) => onClickPreventSelect(e) && contractLineage(e)}
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}
+                data-testid={`contract-${urn}-button`}
             >
-                <KeyboardArrowLeft viewBox="4 3 18 18" fontSize="inherit" />
+                <CaretLeft size="1em" />
             </Button>
         </Wrapper>
     );

@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for applying Glossary Terms to DataHub Datasets and columns via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -21,7 +25,7 @@ This guide will show you how to
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 :::note
 Before modifying terms, you need to ensure the target dataset is already present in your DataHub instance.
@@ -85,7 +89,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/create_term.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/glossary_term_create_simple.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -95,11 +99,9 @@ Expected Response:
 
 You can now see the new term `Rate of Return` has been created.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/term-created.png"/>
 </p>
-
 
 We can also verify this operation by programmatically searching `Rate of Return` term after running this code using the `datahub` cli.
 
@@ -293,11 +295,9 @@ Expected Response:
 
 You can now see `Rate of Return` term has been added to `user_name` column.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/term-added.png"/>
 </p>
-
 
 ## Remove Terms
 
@@ -369,8 +369,6 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 You can now see `Rate of Return` term has been removed to `user_name` column.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/term-removed.png"/>
 </p>
-

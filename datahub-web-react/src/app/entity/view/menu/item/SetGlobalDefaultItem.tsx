@@ -1,7 +1,9 @@
 import React from 'react';
-import { GlobalDefaultViewIcon } from '../../shared/GlobalDefaultViewIcon';
-import { IconItemTitle } from './IconItemTitle';
-import { MenuItemStyle } from './styledComponent';
+import { useTranslation } from 'react-i18next';
+
+import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { GlobalDefaultViewIcon } from '@app/entity/view/shared/GlobalDefaultViewIcon';
 
 type Props = {
     key: string;
@@ -12,11 +14,12 @@ type Props = {
  * Set the Global Default Item
  */
 export const SetGlobalDefaultItem = ({ key, onClick }: Props) => {
+    const { t } = useTranslation('entity.views');
     return (
         <MenuItemStyle key={key} onClick={onClick} data-testid="view-dropdown-set-global-default">
             <IconItemTitle
-                tip="Make this View your organization's default. All new users will have this View applied automatically."
-                title="Make organization default"
+                tip={t('menu.makeOrgDefaultTooltipLegacy')}
+                title={t('menu.makeOrgDefault')}
                 icon={<GlobalDefaultViewIcon />}
             />
         </MenuItemStyle>

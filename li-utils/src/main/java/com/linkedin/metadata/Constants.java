@@ -12,13 +12,31 @@ public class Constants {
 
   // Use on specific MCP to request an synchronous index update avoid the kafka lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
+  public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
 
   public static final String URN_LI_PREFIX = "urn:li:";
-  public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
+
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
-  public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
+  // Actor ID for unauthenticated requests
+  public static final String ANONYMOUS_ACTOR_ID = "__anonymous";
+  // Unauthenticated requests (no valid credentials provided).
+  public static final String ANONYMOUS_ACTOR = "urn:li:corpuser:" + ANONYMOUS_ACTOR_ID;
+  // Unknown principal (identity exists but cannot be determined).
+  public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN";
+  public static final Urn SYSTEM_POLICY_ZERO = UrnUtils.getUrn("urn:li:dataHubPolicy:0");
+  public static final Urn SYSTEM_POLICY_ONE = UrnUtils.getUrn("urn:li:dataHubPolicy:1");
   public static final Long ASPECT_LATEST_VERSION = 0L;
+
+  /**
+   * Optional {@link com.linkedin.mxe.MetadataChangeLog#getHeaders() MetadataChangeLog} header: the
+   * {@code metadata_aspect.version} column for the row this event describes. {@link
+   * #ASPECT_LATEST_VERSION} is the latest materialized row; pgSearch indexing should ignore rows
+   * with any other version.
+   */
+  public static final String MCL_HEADER_DATABASE_ASPECT_VERSION =
+      "X-DataHub-Database-Aspect-Version";
+
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
   public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
@@ -39,8 +57,22 @@ public class Constants {
   public static final String INGESTION_MAX_SERIALIZED_STRING_LENGTH =
       "INGESTION_MAX_SERIALIZED_STRING_LENGTH";
 
+  // Jackson's default max JSON property-name length is 50000. Deeply-nested struct field paths
+  // (e.g. dbt column-level lineage) can be carried as JSON names in patches and exceed it, throwing
+  // a StreamConstraintsException during deserialization. Raise it alongside the string-length
+  // limit.
+  public static final String MAX_JACKSON_NAME_LENGTH = "16000000";
+  public static final String INGESTION_MAX_SERIALIZED_NAME_LENGTH =
+      "INGESTION_MAX_SERIALIZED_NAME_LENGTH";
+
   /** System Metadata */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
+
+  /**
+   * Default schema version for aspects that were written before schema versioning was introduced,
+   * or whose {@code @Aspect} annotation does not specify a {@code schemaVersion}.
+   */
+  public static final long DEFAULT_SCHEMA_VERSION = 1L;
 
   // Forces indexing for no-ops, enabled for restore indices calls. Only
   // considered in the no-op
@@ -97,6 +129,15 @@ public class Constants {
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
+  public static final String APPLICATION_ENTITY_NAME = "application";
+  public static final String METRIC_ENTITY_NAME = "metric";
+  public static final String METRIC_KEY_ASPECT_NAME = "metricKey";
+  public static final String METRIC_INFO_ASPECT_NAME = "metricInfo";
+  public static final String METRIC_RELATIONSHIPS_ASPECT_NAME = "metricRelationships";
+  public static final String METRIC_UPSTREAMS_ASPECT_NAME = "metricUpstreams";
+  public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
+  public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
+  public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
   public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
       UrnUtils.getUrn("urn:li:ownershipType:__system__none");
@@ -107,6 +148,7 @@ public class Constants {
   public static final String RESTRICTED_ENTITY_NAME = "restricted";
   public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
   public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
+  public static final String DOCUMENT_ENTITY_NAME = "document";
 
   /** Aspects */
   // Common
@@ -165,10 +207,13 @@ public class Constants {
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
+  public static final String DATASET_USAGE_STATISTICS_ASPECT_NAME = "datasetUsageStatistics";
+  public static final String DATASET_OPERATION_ASPECT_NAME = "operation";
 
   public static final String STRUCTURED_PROPERTIES_ASPECT_NAME = "structuredProperties";
   public static final String FORMS_ASPECT_NAME = "forms";
   // Aspect support
+  public static final String FINE_GRAINED_LINEAGE_ASPECT_NAME = "fineGrainedLineage";
   public static final String FINE_GRAINED_LINEAGE_DATASET_TYPE = "DATASET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_SET_TYPE = "FIELD_SET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_TYPE = "FIELD";
@@ -258,6 +303,7 @@ public class Constants {
       "editableMlPrimaryKeyProperties";
 
   // Policy
+  public static final String DATAHUB_POLICY_KEY_ASPECT_NAME = "dataHubPolicyKey";
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
   // Role
@@ -365,8 +411,13 @@ public class Constants {
   public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
 
   // DataProduct
+  public static final String DATA_PRODUCT_KEY_ASPECT_NAME = "dataProductKey";
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
   public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
+
+  // Application
+  public static final String APPLICATION_PROPERTIES_ASPECT_NAME = "applicationProperties";
+  public static final String APPLICATION_MEMBERSHIP_ASPECT_NAME = "applications";
 
   // Ownership Types
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
@@ -393,6 +444,10 @@ public class Constants {
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
   public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
+  public static final String ASSET_SETTINGS_ASPECT_NAME = "assetSettings";
+
+  // Timeseries
+  public static final String ES_FIELD_TIMESTAMP = "timestampMillis";
 
   // Connection
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
@@ -405,10 +460,14 @@ public class Constants {
   public static final String DATA_CONTRACT_STATUS_ASPECT_NAME = "dataContractStatus";
 
   // Relationships
+  public static final String IS_PART_OF_RELATIONSHIP_NAME = "IsPartOf";
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
+  public static final String IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME = "IsMemberOfRole";
 
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
+
+  public static final String RELATIONSHIP_PLATFORM_EVENT_NAME = "relationshipChangeEvent";
 
   /** Retention */
   public static final String DATAHUB_RETENTION_ENTITY = "dataHubRetention";
@@ -440,6 +499,12 @@ public class Constants {
   public static final String BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME = "businessAttributeInfo";
   public static final String BUSINESS_ATTRIBUTE_ASSOCIATION = "businessAttributeAssociation";
   public static final String BUSINESS_ATTRIBUTE_ASPECT = "businessAttributes";
+
+  // Knowledge Article
+  public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
+  public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
+  public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
+
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");
 
@@ -450,6 +515,20 @@ public class Constants {
   // Telemetry
   public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
   public static final String CLIENT_ID_ASPECT = "telemetryClientId";
+
+  // Template
+  public static final String DATAHUB_PAGE_TEMPLATE_ENTITY_NAME = "dataHubPageTemplate";
+  public static final String DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME =
+      "dataHubPageTemplateProperties";
+
+  // Module
+  public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";
+  public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
+      "dataHubPageModuleProperties";
+
+  // File
+  public static final String DATAHUB_FILE_ENTITY_NAME = "dataHubFile";
+  public static final String DATAHUB_FILE_INFO_ASPECT_NAME = "dataHubFileInfo";
 
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
@@ -488,6 +567,9 @@ public class Constants {
   public static final String VERSION_SET_FIELD_NAME = "versionSet";
   public static final String VERSION_LABEL_FIELD_NAME = "version";
 
+  // Logical
+  public static final String LOGICAL_PARENT_ASPECT_NAME = "logicalParent";
+
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 
   // Config
@@ -497,13 +579,27 @@ public class Constants {
   // DAO
   public static final long LATEST_VERSION = 0;
 
+  // Index names
+  public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
+
   // Logging MDC
   public static final String MDC_ENTITY_URN = "entityUrn";
   public static final String MDC_ASPECT_NAME = "aspectName";
   public static final String MDC_ENTITY_TYPE = "entityType";
   public static final String MDC_CHANGE_TYPE = "changeType";
 
+  // Log messages
+  public static final String READ_ONLY_LOG =
+      "DataHub is currently in read only mode and this write will be dropped.";
+
   public static final String RESTLI_SUCCESS = "success";
+
+  // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
+  // EntityPrivilegesResolver
+  public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
+
+  // AWS S3
+  public static final String S3_FILE_ID_NAME_SEPARATOR = "__";
 
   private Constants() {}
 }

@@ -9,6 +9,7 @@ query getContainer($urn: String!) {
         }
         properties {
             name
+            qualifiedName
             description
             externalUrl
             customProperties {
@@ -74,9 +75,6 @@ query getContainer($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         browsePathV2 {
             ...browsePathV2Fields
         }
@@ -91,7 +89,7 @@ query getContainerEntitySummary($urn: String!) {
             types: []
             query: "*"
             facets: ["_entityType␞typeNames", "_entityType"]
-            orFilters: [{ and: [{ field: "container", values: [$urn], value: $urn }] }]
+            orFilters: [{ and: [{ field: "container", values: [$urn] }] }]
         }
     ) {
         facets {

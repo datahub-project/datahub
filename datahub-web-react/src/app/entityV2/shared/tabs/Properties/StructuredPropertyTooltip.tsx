@@ -1,8 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import CardinalityLabel from './CardinalityLabel';
-import { PropertyRow } from './types';
-import PropertyTypeLabel from '../../../../entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
+
+import PropertyTypeLabel from '@app/entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
+import CardinalityLabel from '@app/entityV2/shared/tabs/Properties/CardinalityLabel';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 
 const ContentWrapper = styled.div`
     font-size: 12px;
@@ -32,13 +34,14 @@ interface Props {
 }
 
 export default function StructuredPropertyTooltip({ propertyRow }: Props) {
+    const { t } = useTranslation('entity.profile.tabs');
     const { structuredProperty } = propertyRow;
 
     if (!structuredProperty) return null;
 
     return (
         <ContentWrapper>
-            <Header>Structured Property</Header>
+            <Header>{t('properties.structuredProperty.title')}</Header>
             <NameLabelWrapper>
                 <NameWrapper>
                     {structuredProperty.definition.displayName || structuredProperty.definition.qualifiedName}{' '}

@@ -1,6 +1,7 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-describe("businessAttribute", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("businessAttribute", () => {
   let businessAttributeEntityEnabled;
 
   beforeEach(() => {
@@ -12,7 +13,8 @@ describe("businessAttribute", () => {
   const setBusinessAttributeFeatureFlag = () => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       if (hasOperationName(req, "appConfig")) {
-        req.reply((res) => {
+        req.alias = "gqlappConfigQuery";
+        req.on("response", (res) => {
           businessAttributeEntityEnabled =
             res.body.data.appConfig.featureFlags.businessAttributeEntityEnabled;
           return res;

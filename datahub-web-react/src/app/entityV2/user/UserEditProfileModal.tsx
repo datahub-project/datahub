@@ -1,16 +1,19 @@
 import { MoreOutlined } from '@ant-design/icons';
+import { Modal, Text, Tooltip } from '@components';
+import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { message, Button, Input, Modal, Typography, Form } from 'antd';
-import { Tooltip } from '@components';
-import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { useAppConfig } from '../../useAppConfig';
+
+import { useAppConfig } from '@app/useAppConfig';
+
+import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
 
 const StyledInput = styled(Input)`
     margin-bottom: 20px;
 `;
 
-const StyledText = styled(Typography.Text)`
+const StyledText = styled(Text)`
     display: block;
     position: absolute;
     bottom: 11.5rem;
@@ -34,9 +37,14 @@ type Props = {
     editModalData: PropsData;
 };
 /** Regex Validations */
-export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
+const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
+const PHONE_REGEX = new RegExp('^(?=.*[0-9])[- +()0-9]+$');
 
 export default function UserEditProfileModal({ visible, onClose, onSave, editModalData }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
+    const { t: tl } = useTranslation('common.labels');
     const { config } = useAppConfig();
     const { readOnlyModeEnabled } = config.featureFlags;
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
@@ -76,7 +84,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
         })
             .then(() => {
                 message.success({
-                    content: `Changes saved.`,
+                    content: tf('changesSaved'),
                     duration: 3,
                 });
                 onSave(); // call the refetch function once save
@@ -91,29 +99,36 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     phone: '',
                     urn: '',
                 });
+                onClose();
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('shared.saveChangesError', { error: e.message || '' }), duration: 3 });
+                // Reset form state to original values so the rejected input is discarded
+                setData({ ...editModalData });
+                form.setFieldsValue({ ...editModalData });
             });
-        onClose();
     };
 
     return (
         <Modal
-            title="Edit Profile"
+            title={t('shared.editProfileTitle')}
             open={visible}
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button type="primary" id="editUserButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
-                        Save Changes
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: tc('cancel'),
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: tc('saveChanges'),
+                    variant: 'filled',
+                    id: 'editUserButton',
+                    disabled: saveButtonEnabled,
+                    onClick: onSaveChanges,
+                },
+            ]}
         >
             <Form
                 form={form}
@@ -132,11 +147,11 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
             >
                 <Form.Item
                     name="name"
-                    label={<Typography.Text strong>Name</Typography.Text>}
+                    label={<Typography.Text strong>{tl('name')}</Typography.Text>}
                     rules={[
                         {
                             required: true,
-                            message: 'Enter a display name.',
+                            message: t('user.enterDisplayNameError'),
                         },
                         { whitespace: true },
                         { min: 2, max: 50 },
@@ -148,6 +163,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     hasFeedback
                 >
                     <Input
+                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) example-value placeholder, intentionally English
                         placeholder="John Smith"
                         value={data.name}
                         onChange={(event) => setData({ ...data, name: event.target.value })}
@@ -156,11 +172,12 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 </Form.Item>
                 <Form.Item
                     name="title"
-                    label={<Typography.Text strong>Title/Role</Typography.Text>}
+                    label={<Typography.Text strong>{t('user.titleRoleLabel')}</Typography.Text>}
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                     hasFeedback
                 >
                     <Input
+                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) example-value placeholder, intentionally English
                         placeholder="Data Analyst"
                         value={data.title}
                         onChange={(event) => setData({ ...data, title: event.target.value })}
@@ -168,17 +185,18 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     />
                 </Form.Item>
                 <Tooltip
-                    title="Editing image URL has been disabled."
+                    title={t('user.editImageUrlDisabledTooltip')}
                     overlayStyle={readOnlyModeEnabled ? {} : { display: 'none' }}
                     placement="bottom"
                 >
                     <Form.Item
                         name="image"
-                        label={<Typography.Text strong>Image URL</Typography.Text>}
-                        rules={[{ whitespace: true }, { type: 'url', message: 'not valid url' }]}
+                        label={<Typography.Text strong>{t('user.imageUrlLabel')}</Typography.Text>}
+                        rules={[{ whitespace: true }, { type: 'url', message: t('user.invalidUrlError') }]}
                         hasFeedback
                     >
                         <Input
+                            // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) example-value placeholder, intentionally English
                             placeholder="https://www.example.com/photo.png"
                             value={data.image}
                             onChange={(event) => setData({ ...data, image: event.target.value })}
@@ -188,10 +206,11 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 </Tooltip>
                 <Form.Item
                     name="team"
-                    label={<Typography.Text strong>Team</Typography.Text>}
+                    label={<Typography.Text strong>{t('user.teamLabel')}</Typography.Text>}
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                 >
                     <Input
+                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) example-value placeholder, intentionally English
                         placeholder="Product Engineering"
                         value={data.team}
                         onChange={(event) => setData({ ...data, team: event.target.value })}
@@ -200,15 +219,15 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                 </Form.Item>
                 <Form.Item
                     name="email"
-                    label={<Typography.Text strong>Email</Typography.Text>}
+                    label={<Typography.Text strong>{t('shared.emailLabel')}</Typography.Text>}
                     rules={[
                         {
                             required: true,
-                            message: 'Enter your email',
+                            message: t('user.enterEmailError'),
                         },
                         {
                             type: 'email',
-                            message: 'Please enter valid email',
+                            message: t('shared.invalidEmailError'),
                         },
                         { whitespace: true },
                         { min: 2, max: 50 },
@@ -216,6 +235,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     hasFeedback
                 >
                     <Input
+                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) example-value placeholder, intentionally English
                         placeholder="john.smith@example.com"
                         value={data.email}
                         onChange={(event) => setData({ ...data, email: event.target.value })}
@@ -226,7 +246,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     name="slack"
                     label={
                         <>
-                            <Typography.Text strong>Slack Member ID</Typography.Text>
+                            <Typography.Text strong>{t('user.slackMemberIdLabel')}</Typography.Text>
                         </>
                     }
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
@@ -239,23 +259,30 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         disabled={readOnlyModeEnabled}
                     />
                 </Form.Item>
-                <StyledText type="secondary">
-                    Find your member ID from the <MoreOutlined /> menu in your Slack profile. More info{' '}
-                    <a
-                        href="https://slack.com/intl/en-ca/help/articles/212906697-Where-can-I-find-my-Slack-member-ID-"
-                        target="_blank"
-                        rel="noreferrer"
-                    >
-                        here.
-                    </a>
+                <StyledText color="textSecondary">
+                    <Trans
+                        t={t}
+                        i18nKey="user.slackMemberIdHelp"
+                        components={{
+                            icon: <MoreOutlined />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    href="https://slack.com/intl/en-ca/help/articles/212906697-Where-can-I-find-my-Slack-member-ID-"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                />
+                            ),
+                        }}
+                    />
                 </StyledText>
                 <Form.Item
                     name="phone"
-                    label={<Typography.Text strong>Phone</Typography.Text>}
+                    label={<Typography.Text strong>{t('shared.phoneLabel')}</Typography.Text>}
                     rules={[
                         {
-                            pattern: new RegExp('^(?=.*[0-9])[- +()0-9]+$'),
-                            message: 'not valid phone number',
+                            pattern: PHONE_REGEX,
+                            message: t('user.invalidPhoneError'),
                         },
                         {
                             min: 5,
@@ -265,6 +292,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     hasFeedback
                 >
                     <Input
+                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) example-value placeholder, intentionally English
                         placeholder="444-999-9999"
                         value={data.phone}
                         onChange={(event) => setData({ ...data, phone: event.target.value })}

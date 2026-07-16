@@ -1,0 +1,16 @@
+namespace com.linkedin.metadata.search
+
+/**
+ * The path taken when doing search across lineage
+ */
+enum LineageSearchPath {
+
+  /**
+   * Designates the tortoise lineage code path
+   */
+  TORTOISE
+  /**
+   * Designates the lightning lineage code path
+   */
+  LIGHTNING
+}

@@ -1,17 +1,21 @@
-import React from 'react';
-import { Modal, Typography } from 'antd';
-import { DataContract } from '../../../../../../../../types.generated';
-import ClickOutside from '../../../../../../../shared/ClickOutside';
-import { DataContractBuilderState } from './types';
-import { DataContractBuilder } from './DataContractBuilder';
+import { Modal } from '@components';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { DataContractBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilder';
+import { DataContractBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import ClickOutside from '@app/shared/ClickOutside';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+
+import { DataContract } from '@types';
 
 const modalStyle = {};
 const modalBodyStyle = {
     paddingRight: 0,
     paddingLeft: 0,
-    paddingBottom: 20,
+    paddingBottom: 0,
     paddingTop: 0,
-    maxHeight: '70vh',
+    height: '70vh',
     'overflow-x': 'auto',
 };
 
@@ -26,34 +30,25 @@ type Props = {
  * This component is a modal used for constructing new Data Contracts
  */
 export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const isEditing = initialState !== undefined;
-    const titleText = isEditing ? 'Edit Data Contract' : 'New Data Contract';
+    const titleText = isEditing ? t('contractBuilder.titleEdit') : t('contractBuilder.newContractTitle');
 
-    const modalClosePopup = () => {
-        Modal.confirm({
-            title: 'Exit Editor',
-            content: `Are you sure you want to exit the editor? All changes will be lost`,
-            onOk() {
-                onCancel?.();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     return (
-        <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="data-contract-builder-modal">
+        <ClickOutside
+            onClickOutside={() => setShowConfirmationModal(true)}
+            wrapperClassName="data-contract-builder-modal"
+        >
             <Modal
                 wrapClassName="data-contract-builder-modal"
                 width={800}
-                footer={null}
-                title={<Typography.Text>{titleText}</Typography.Text>}
+                buttons={[]}
+                title={titleText}
                 style={modalStyle}
                 bodyStyle={modalBodyStyle}
-                visible
-                onCancel={onCancel}
+                onCancel={() => onCancel?.()}
             >
                 <DataContractBuilder
                     entityUrn={entityUrn}
@@ -62,6 +57,13 @@ export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, on
                     onCancel={onCancel}
                 />
             </Modal>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={() => onCancel?.()}
+                modalTitle={t('contractBuilder.exitEditor')}
+                modalText={t('contractBuilder.areYouSureExit')}
+            />
         </ClickOutside>
     );
 };

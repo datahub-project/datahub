@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import OptionsDropdownMenu from '../OptionsDropdownMenu';
-import { mapFilterOption } from '../mapFilterOption';
-import { EntityFilterField, FilterValue, FilterValueOption } from '../types';
-import { OptionMenu } from './styledComponents';
-import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadSearchOptions } from './utils';
+import { useTranslation } from 'react-i18next';
+
+import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
+import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
+import { EntityFilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import {
+    deduplicateOptions,
+    useFilterOptionsBySearchQuery,
+    useLoadSearchOptions,
+} from '@app/searchV2/filters/value/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 interface Props {
     field: EntityFilterField;
@@ -27,6 +33,7 @@ export default function EntityValueMenu({
     onApply,
     className,
 }: Props) {
+    const { t } = useTranslation('search');
     const entityRegistry = useEntityRegistry();
     const isSearchable = !!field.entityTypes?.length;
     const { displayName } = field;
@@ -77,7 +84,7 @@ export default function EntityValueMenu({
             searchQuery={searchQuery || ''}
             updateSearchQuery={setSearchQuery}
             isLoading={searchLoading}
-            searchPlaceholder={`Search for ${displayName}`}
+            searchPlaceholder={t('filters.searchFor', { name: displayName })}
             type={type}
             className={className}
         />

@@ -1,10 +1,12 @@
+import { Button, Text, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import { Button, Tooltip } from '@components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { SourceBuilderState, StepProps, StringMapEntryInput } from './types';
-import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
+
+import OwnersSection from '@app/domainV2/OwnersSection';
+import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingest/source/builder/types';
+import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -16,11 +18,24 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
+export const NameSourceStep = ({ state, updateState, prev, submit, selectedSource }: StepProps) => {
+    const existingOwnerUrns = (selectedSource?.ownership?.owners || []).map((o) => o.owner.urn);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(existingOwnerUrns);
+
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
             ...state,
             name: stagedName,
+        };
+        updateState(newState);
+    };
+
+    const handleOwnerUrnsChange = (urns: string[]) => {
+        setSelectedOwnerUrns(urns);
+        const newUrns = urns.filter((urn) => !existingOwnerUrns.includes(urn));
+        const newState: SourceBuilderState = {
+            ...state,
+            owners: newUrns,
         };
         updateState(newState);
     };
@@ -59,7 +74,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const retrieveExtraEnvs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -68,7 +83,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const setExtraEnvs = (envs: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfEnvVars: number = extraArgs.findIndex((entry) => entry.key === ExtraEnvKey) as number;
         const value = { key: ExtraEnvKey, value: envs };
         if (indxOfEnvVars > -1) {
@@ -87,7 +102,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const retrieveExtraDataHubPlugins = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -96,7 +111,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const setExtraDataHubPlugins = (plugins: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfPlugins: number = extraArgs.findIndex((entry) => entry.key === ExtraPluginKey) as number;
         const value = { key: ExtraPluginKey, value: plugins };
         if (indxOfPlugins > -1) {
@@ -115,7 +130,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const retrieveExtraReqs = () => {
-        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        const extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const index: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
         if (index > -1) {
             return extraArgs[index].value;
@@ -124,7 +139,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     };
 
     const setExtraReqs = (reqs: string) => {
-        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? state.config?.extraArgs : [];
+        let extraArgs: StringMapEntryInput[] = state.config?.extraArgs ? [...state.config?.extraArgs] : [];
         const indxOfReqs: number = extraArgs.findIndex((entry) => entry.key === ExtraReqKey) as number;
         const value = { key: ExtraReqKey, value: reqs };
         if (indxOfReqs > -1) {
@@ -145,6 +160,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     const onClickCreate = (shouldRun?: boolean) => {
         if (state.name !== undefined && state.name.length > 0) {
             submit(shouldRun);
+            setSelectedOwnerUrns([]);
         }
     };
 
@@ -156,15 +172,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     return (
         <>
             <RequiredFieldForm layout="vertical">
-                <Form.Item
-                    required
-                    label={
-                        <Typography.Text strong style={{ marginBottom: 0 }}>
-                            Name
-                        </Typography.Text>
-                    }
-                    style={{ marginBottom: 8 }}
-                >
+                <Form.Item required label={<Text>Name</Text>} style={{ marginBottom: 16 }}>
                     <Typography.Paragraph>Give this data source a name</Typography.Paragraph>
                     <Input
                         data-testid="source-name-input"
@@ -175,6 +183,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                         onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
+                <OwnersSection selectedOwnerUrns={selectedOwnerUrns} setSelectedOwnerUrns={handleOwnerUrnsChange} />
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         {/* NOTE: Executor ID is OSS-only, used by actions pod */}
@@ -270,6 +279,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                         <Button
                             disabled={!(state.name !== undefined && state.name.length > 0)}
                             onClick={() => onClickCreate(true)}
+                            data-testid="ingestion-source-save-and-run-button"
                         >
                             Save & Run
                         </Button>

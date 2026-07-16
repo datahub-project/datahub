@@ -1,9 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import { ViewSelectContent } from '@app/entityV2/view/select/ViewSelectContent';
+import { ViewSelectHeader } from '@app/entityV2/view/select/ViewSelectHeader';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { ViewSelectContent } from './ViewSelectContent';
-import { ViewSelectHeader } from './ViewSelectHeader';
-import { ANTD_GRAY } from '../../shared/constants';
 
 type Props = {
     children: React.ReactNode;
@@ -19,7 +19,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     width: 100%;
     padding: ${(props) => (props.$isShowNavBarRedesign ? '0 8px 8px 8px' : '0px 20px 0px 80px')};
-    color: ${ANTD_GRAY[1]};
+    color: ${(props) => props.theme.colors.bg};
     gap: ${(props) => (props.$isShowNavBarRedesign ? '4px' : '0.5rem')};
     flex-direction: column;
     position: relative;
@@ -41,7 +41,7 @@ export const ViewSelectDropdown = ({
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     return (
-        <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
+        <Container $isShowNavBarRedesign={isShowNavBarRedesign} data-testid="views-popover">
             <ViewSelectHeader
                 onClickViewTypeFilter={onClickViewTypeFilter}
                 publicView={publicView}

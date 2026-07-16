@@ -1,7 +1,9 @@
-import React from 'react';
-import styled from 'styled-components';
 import HeaderIcon from '@mui/icons-material/VisibilityOutlined';
-import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '../../shared/summary/HeaderComponents';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
 
 const Wrapper = styled.div`
     height: fit-content;
@@ -17,10 +19,11 @@ interface Props {
 }
 
 export default function EmbedPreview({ embedUrl }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     return (
         <Wrapper>
             <SummaryTabHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<HeaderIcon />} title="Preview" />
+                <SummaryTabHeaderTitle icon={<HeaderIcon />} title={tc('preview')} />
             </SummaryTabHeaderWrapper>
             <StyledIframe src={embedUrl} frameBorder={0} />
         </Wrapper>

@@ -1,7 +1,9 @@
-import React from 'react';
 import { FormOutlined } from '@ant-design/icons';
-import { IconItemTitle } from './IconItemTitle';
-import { MenuItemStyle } from './styledComponent';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 
 type Props = {
     key: string;
@@ -12,9 +14,11 @@ type Props = {
  * Edit View Menu Item
  */
 export const EditViewItem = ({ key, onClick }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <MenuItemStyle key={key} onClick={onClick} data-testid="view-dropdown-edit">
-            <IconItemTitle tip="Edit this View" title="Edit" icon={<FormOutlined />} />
+            <IconItemTitle tip={t('menu.editTooltip')} title={tc('edit')} icon={<FormOutlined />} />
         </MenuItemStyle>
     );
 };

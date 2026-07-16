@@ -4,20 +4,25 @@ import logging
 import re
 import typing
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
+from functools import cached_property
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Union, cast
 
 import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from pyathena.sqlalchemy_athena import AthenaRestDialect
+from pydantic import model_validator
 from sqlalchemy import create_engine, exc, inspect, text, types
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.types import TypeEngine
 from sqlalchemy_bigquery import STRUCT
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -29,26 +34,38 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.athena_properties_extractor import (
+    AthenaPropertiesExtractor,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
     gen_database_key,
 )
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
-from datahub.metadata.schema_classes import MapTypeClass, RecordTypeClass
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    MapTypeClass,
+    RecordTypeClass,
+)
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 from datahub.utilities.sqlalchemy_type_converter import (
     MapType,
     get_schema_fields_for_sqlalchemy_column,
 )
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 try:
     from typing_extensions import override
@@ -60,6 +77,21 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
+
+# Precompiled regex for SQL identifier validation
+# Athena identifiers can only contain lowercase letters, numbers, underscore, and period (for complex types)
+# Note: Athena automatically converts uppercase to lowercase, but we're being strict for security
+_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z0-9_.]+$")
+
+# Athena exposes S3 Tables catalogs as `s3tablescatalog/<bucket>`. They're
+# always Iceberg, invisible to ListDataCatalogs, and namespaced under the
+# catalog name in DataHub.
+_S3_TABLES_CATALOG_PREFIX = "s3tablescatalog/"
+
+
+def _is_s3_tables_catalog(catalog_name: str) -> bool:
+    return catalog_name.startswith(_S3_TABLES_CATALOG_PREFIX)
+
 
 assert STRUCT, "required type modules are not available"
 register_custom_type(STRUCT, RecordTypeClass)
@@ -86,6 +118,74 @@ class CustomAthenaRestDialect(AthenaRestDialect):
 
     # regex to identify complex types in DDL strings which are embedded in `<>`.
     _complex_type_pattern = re.compile(r"(<.+>)")
+
+    # PyAthena's base implementation omits "ICEBERG", which is the TableType for S3 Tables.
+    _ALLOWED_TABLE_TYPES = frozenset(
+        ["EXTERNAL_TABLE", "MANAGED_TABLE", "EXTERNAL", "ICEBERG"]
+    )
+
+    # Populated by AthenaSource.get_inspectors so the boto3 fallback below can
+    # surface failures through the ingestion UI. None when the dialect runs
+    # outside an AthenaSource (e.g. ad-hoc SQLAlchemy use).
+    _report: Optional[SQLSourceReport] = None
+
+    @typing.no_type_check
+    def get_table_names(self, connection, schema=None, **kw):
+        tables = self._get_tables(connection, schema, **kw)
+        table_names = [
+            t.name for t in tables if t.table_type in self._ALLOWED_TABLE_TYPES
+        ]
+
+        # S3 Tables catalogs are invisible to ListDataCatalogs, so PyAthena's
+        # internal path can return nothing.  Fall back to the boto3 client directly.
+        if not table_names:
+            raw_connection = self._raw_connection(connection)
+            catalog = raw_connection.catalog_name
+            if catalog and _is_s3_tables_catalog(catalog):
+                schema_name = schema if schema else raw_connection.schema_name
+                try:
+                    table_names = self._list_tables_via_boto3(
+                        raw_connection=raw_connection,
+                        catalog=catalog,
+                        schema_name=schema_name,
+                    )
+                except Exception as e:
+                    # Without surfacing this, missing IAM permissions, expired
+                    # credentials, etc. look identical to a legitimately empty
+                    # schema.
+                    logger.exception(
+                        "boto3 fallback for S3 Tables catalog %s/%s failed",
+                        catalog,
+                        schema_name,
+                    )
+                    if self._report is not None:
+                        self._report.warning(
+                            message="Failed to list S3 Tables via boto3 fallback. "
+                            "Tables in this schema will be missing from the "
+                            "DataHub catalog.",
+                            context=f"catalog={catalog}, schema={schema_name}",
+                            exc=e,
+                        )
+                    table_names = []
+
+        return table_names
+
+    @typing.no_type_check
+    def _list_tables_via_boto3(
+        self,
+        raw_connection: Any,
+        catalog: str,
+        schema_name: str,
+    ) -> List[str]:
+        boto3_client = raw_connection.client
+        paginator = boto3_client.get_paginator("list_table_metadata")
+        return [
+            t["Name"]
+            for page in paginator.paginate(
+                CatalogName=catalog, DatabaseName=schema_name
+            )
+            for t in page.get("TableMetadataList", [])
+        ]
 
     @typing.no_type_check
     @reflection.cache
@@ -134,7 +234,7 @@ class CustomAthenaRestDialect(AthenaRestDialect):
 
         args = []
 
-        if type_name in ["array"]:
+        if type_name in ["array", "list"]:
             detected_col_type = types.ARRAY
 
             # here we need to account again for two options how `type_` is passed to this method
@@ -228,13 +328,29 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             detected_col_type = types.DECIMAL
             precision, scale = type_meta_information.split(",")
             args = [int(precision), int(scale)]
+        elif type_name.endswith("dtype"):
+            # Pandas nullable dtypes (e.g. Int64Dtype, UInt32Dtype) leak through the profiling
+            # pipeline when great_expectations reflects column types from Athena result sets.
+            base = type_name[:-5]
+            if base in ("int8", "int16", "int32", "uint8", "uint16", "uint32"):
+                detected_col_type = types.INTEGER
+            elif base in ("int64", "uint64"):
+                detected_col_type = types.BIGINT
+            elif base in ("float32", "float64"):
+                detected_col_type = types.FLOAT
+            elif base == "boolean":
+                detected_col_type = types.BOOLEAN
+            elif base in ("string", "object"):
+                detected_col_type = types.String
+            else:
+                return super()._get_column_type(type_name)
         else:
             return super()._get_column_type(type_name)
         return detected_col_type(*args)
 
 
 class AthenaConfig(SQLCommonConfig):
-    scheme: str = "awsathena+rest"
+    scheme: HiddenFromDocs[str] = "awsathena+rest"
     username: Optional[str] = pydantic.Field(
         default=None,
         description="Username credential. If not specified, detected with boto3 rules. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
@@ -267,8 +383,42 @@ class AthenaConfig(SQLCommonConfig):
     )
     catalog_name: str = pydantic.Field(
         default="awsdatacatalog",
-        description="Athena Catalog Name",
+        description=(
+            "Athena Catalog Name. When set to an S3 Tables catalog "
+            "(i.e. a value starting with `s3tablescatalog/`), the catalog name is "
+            "automatically used as `platform_instance` if not explicitly set, so "
+            "datasets and containers are namespaced under the catalog in DataHub."
+        ),
+        min_length=1,
     )
+
+    glue_platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="Platform instance of the upstream Glue datasets that Athena "
+        "lineage points to. Set this if your Glue connector is configured with a "
+        "non-default platform_instance; leave unset otherwise.",
+    )
+
+    iceberg_platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="Platform instance of the upstream Iceberg datasets that Athena "
+        "lineage points to. Set this if your Iceberg connector is configured with a "
+        "non-default platform_instance; leave unset otherwise. For S3 Tables catalogs "
+        "this defaults to the catalog name so the Athena dataset URN and its upstream "
+        "Iceberg URN stitch correctly.",
+    )
+
+    @model_validator(mode="after")
+    def _derive_defaults_from_s3_catalog(self) -> "AthenaConfig":
+        # S3 Tables datasets are emitted under platform_instance=catalog_name;
+        # the upstream Iceberg URN must use the same namespace or lineage won't
+        # stitch.
+        if _is_s3_tables_catalog(self.catalog_name):
+            if self.platform_instance is None:
+                self.platform_instance = self.catalog_name
+            if self.iceberg_platform_instance is None:
+                self.iceberg_platform_instance = self.catalog_name
+        return self
 
     query_result_location: str = pydantic.Field(
         description="S3 path to the [query result bucket](https://docs.aws.amazon.com/athena/latest/ug/querying.html#query-results-specify-location) which should be used by AWS Athena to store results of the"
@@ -280,10 +430,20 @@ class AthenaConfig(SQLCommonConfig):
         description="Extract partitions for tables. Partition extraction needs to run a query (`select * from table$partitions`) on the table. Disable this if you don't want to grant select permission.",
     )
 
+    extract_partitions_using_create_statements: bool = pydantic.Field(
+        default=False,
+        description="Extract partitions using the `SHOW CREATE TABLE` statement instead of querying the table's partitions directly. This needs to be enabled to extract Iceberg partitions. If extraction fails it falls back to the default partition extraction. This is experimental.",
+    )
+
     _s3_staging_dir_population = pydantic_renamed_field(
         old_name="s3_staging_dir",
         new_name="query_result_location",
         print_warning=True,
+    )
+
+    emit_schema_fieldpaths_as_v1: bool = pydantic.Field(
+        default=False,
+        description="Convert simple field paths to DataHub field path v1 format. Simple column paths are those that do not contain any nested fields.",
     )
 
     profiling: AthenaProfilingConfig = AthenaProfilingConfig()
@@ -320,53 +480,164 @@ class Partitionitem:
 @capability(
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
+    subtype_modifier=[SourceCapabilityModifier.TABLE],
 )
-@capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
+)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
-    - Lineage for S3 tables.
+    - Upstream lineage to Glue entities (Glue catalog), Iceberg entities, or S3 locations.
     - Profiling when enabled.
     """
 
     config: AthenaConfig
     report: SQLSourceReport
 
-    def __init__(self, config, ctx):
+    def __init__(self, config: AthenaConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx, "athena")
         self.cursor: Optional[BaseCursor] = None
 
         self.table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
 
     @classmethod
-    def create(cls, config_dict, ctx):
-        config = AthenaConfig.parse_obj(config_dict)
+    def create(
+        cls, config_dict: Dict[str, Any], ctx: PipelineContext
+    ) -> "AthenaSource":
+        config = AthenaConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     # overwrite this method to allow to specify the usage of a custom dialect
     def get_inspectors(self) -> Iterable[Inspector]:
         url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
+        logger.debug("sql_alchemy_url=%s", url)
         engine = create_engine(url, **self.config.options)
 
         # set custom dialect to be used by the inspector
-        engine.dialect = CustomAthenaRestDialect()
+        dialect = CustomAthenaRestDialect()
+        # Wire up the report so S3 Tables fallback errors surface via report.warning.
+        dialect._report = self.report
+        engine.dialect = dialect
         with engine.connect() as conn:
             inspector = inspect(conn)
             yield inspector
 
+    @cached_property
+    def _catalog_type(
+        self,
+    ) -> Optional[Literal["GLUE", "LAMBDA", "HIVE", "FEDERATED"]]:
+        """Catalog Type from ListDataCatalogs, or None on lookup failure."""
+        if self.cursor is None:
+            raise RuntimeError(
+                "Cursor not initialized; call get_table_properties first"
+            )
+        catalog_name = self.config.catalog_name
+        try:
+            client = self.cursor.connection.client
+            paginator = client.get_paginator("list_data_catalogs")
+            target = catalog_name.lower()
+            for page in paginator.paginate():
+                for catalog in page.get("DataCatalogsSummary", []):
+                    if catalog.get("CatalogName", "").lower() == target:
+                        return catalog.get("Type")
+            logger.debug(
+                "Catalog %s not found in ListDataCatalogs response", catalog_name
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to determine Athena catalog type for %s", catalog_name
+            )
+            self.report.warning(
+                message="Failed to determine catalog type",
+                context=f"catalog={catalog_name}",
+                exc=e,
+            )
+        return None
+
+    @cached_property
+    def is_glue_catalog(self) -> Optional[bool]:
+        """True if Glue, False if not, None if undetermined (callers should skip Glue/Iceberg URN emission)."""
+        if self._catalog_type is not None:
+            return self._catalog_type == "GLUE"
+        if self.config.catalog_name.lower() == "awsdatacatalog":
+            return True
+        self.report.warning(
+            message="Could not determine catalog type via the Athena API and "
+            "catalog name is not AwsDataCatalog. Skipping upstream lineage to "
+            "Glue/Iceberg entities for tables in this catalog.",
+            context=f"catalog={self.config.catalog_name}",
+        )
+        return None
+
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
         schema, _view = dataset_identifier.split(".", 1)
         return None, schema
+
+    def _get_upstream_location(
+        self,
+        schema: str,
+        table: str,
+        metadata: AthenaTableMetadata,
+    ) -> Optional[str]:
+        # Every table in an S3 Tables catalog is Iceberg. The `s3://` location reported
+        # by Athena is internal storage, not a meaningful upstream — emit an Iceberg URN
+        # directly so lineage stitches to whatever Iceberg-side ingestion is configured.
+        if _is_s3_tables_catalog(self.config.catalog_name):
+            return make_dataset_urn_with_platform_instance(
+                platform="iceberg",
+                name=f"{schema}.{table}",
+                platform_instance=self.config.iceberg_platform_instance,
+                env=self.config.env,
+            )
+        if self.is_glue_catalog is None:
+            return None
+        if self.is_glue_catalog:
+            return make_dataset_urn_with_platform_instance(
+                platform="glue",
+                name=f"{schema}.{table}",
+                platform_instance=self.config.glue_platform_instance,
+                env=self.config.env,
+            )
+        parameters = metadata.parameters or {}
+        if parameters.get("table_type", "").upper() == "ICEBERG":
+            return make_dataset_urn_with_platform_instance(
+                platform="iceberg",
+                name=f"{schema}.{table}",
+                platform_instance=self.config.iceberg_platform_instance,
+                env=self.config.env,
+            )
+        s3_location = parameters.get("location")
+        if s3_location is None:
+            return None
+        if s3_location.startswith("s3://"):
+            return make_s3_urn(s3_location, self.config.env)
+        self.report.warning(
+            message="Skipping upstream lineage: only s3:// URLs are supported for non-Glue/non-Iceberg locations",
+            context=f"table={schema}.{table}, location={s3_location}",
+        )
+        return None
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         if not self.cursor:
             self.cursor = cast(BaseCursor, inspector.engine.raw_connection().cursor())
-            assert self.cursor
 
         metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
             table_name=table, schema_name=schema
@@ -383,7 +654,7 @@ class AthenaSource(SQLAlchemySource):
                 for partition in metadata.partition_keys
             ]
         )
-        for key, value in metadata.parameters.items():
+        for key, value in (metadata.parameters or {}).items():
             custom_properties[key] = value if value else ""
 
         custom_properties["create_time"] = (
@@ -396,16 +667,7 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        location: Optional[str] = custom_properties.get("location")
-        if location is not None:
-            if location.startswith("s3://"):
-                location = make_s3_urn(location, self.config.env)
-            else:
-                logging.debug(
-                    f"Only s3 url supported for location. Skipping {location}"
-                )
-                location = None
-
+        location = self._get_upstream_location(schema, table, metadata)
         return description, custom_properties, location
 
     def gen_database_containers(
@@ -473,10 +735,69 @@ class AthenaSource(SQLAlchemySource):
         return schemas
 
     @classmethod
+    def _sanitize_identifier(cls, identifier: str) -> str:
+        """Sanitize SQL identifiers to prevent injection attacks.
+
+        Args:
+            identifier: The SQL identifier to sanitize
+
+        Returns:
+            Sanitized identifier safe for SQL queries
+
+        Raises:
+            ValueError: If identifier contains unsafe characters
+        """
+        if not identifier:
+            raise ValueError("Identifier cannot be empty")
+
+        # Allow only alphanumeric characters, underscores, and periods for identifiers
+        # This matches Athena's identifier naming rules
+        if not _IDENTIFIER_PATTERN.match(identifier):
+            raise ValueError(
+                f"Identifier '{identifier}' contains unsafe characters. Only alphanumeric characters, underscores, and periods are allowed."
+            )
+
+        return identifier
+
+    @classmethod
     def _casted_partition_key(cls, key: str) -> str:
         # We need to cast the partition keys to a VARCHAR, since otherwise
         # Athena may throw an error during concatenation / comparison.
-        return f"CAST({key} as VARCHAR)"
+        sanitized_key = cls._sanitize_identifier(key)
+        return f"CAST({sanitized_key} as VARCHAR)"
+
+    @classmethod
+    def _build_max_partition_query(
+        cls, schema: str, table: str, partitions: List[str]
+    ) -> str:
+        """Build SQL query to find the row with maximum partition values.
+
+        Args:
+            schema: Database schema name
+            table: Table name
+            partitions: List of partition column names
+
+        Returns:
+            SQL query string to find the maximum partition
+
+        Raises:
+            ValueError: If any identifier contains unsafe characters
+        """
+        # Sanitize all identifiers to prevent SQL injection
+        sanitized_schema = cls._sanitize_identifier(schema)
+        sanitized_table = cls._sanitize_identifier(table)
+        sanitized_partitions = [
+            cls._sanitize_identifier(partition) for partition in partitions
+        ]
+
+        casted_keys = [cls._casted_partition_key(key) for key in partitions]
+        if len(casted_keys) == 1:
+            part_concat = casted_keys[0]
+        else:
+            separator = "CAST('-' AS VARCHAR)"
+            part_concat = f"CONCAT({f', {separator}, '.join(casted_keys)})"
+
+        return f'select {",".join(sanitized_partitions)} from "{sanitized_schema}"."{sanitized_table}$partitions" where {part_concat} = (select max({part_concat}) from "{sanitized_schema}"."{sanitized_table}$partitions")'
 
     @override
     def get_partitions(
@@ -488,27 +809,37 @@ class AthenaSource(SQLAlchemySource):
         if not self.cursor:
             return None
 
-        metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
-            table_name=table, schema_name=schema
-        )
+        if self.config.extract_partitions_using_create_statements:
+            try:
+                partitions = self._get_partitions_create_table(schema, table)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get partitions from create table statement for {schema}.{table} because of {e}. Falling back to SQLAlchemy.",
+                    exc_info=True,
+                )
 
-        partitions = []
-        for key in metadata.partition_keys:
-            if key.name:
-                partitions.append(key.name)
+                # If we can't get create table statement, we fall back to SQLAlchemy
+                partitions = self._get_partitions_sqlalchemy(schema, table)
+        else:
+            partitions = self._get_partitions_sqlalchemy(schema, table)
+
         if not partitions:
             return []
+
+        if (
+            not self.config.profiling.enabled
+            or not self.config.profiling.partition_profiling_enabled
+        ):
+            return partitions
 
         with self.report.report_exc(
             message="Failed to extract partition details",
             context=f"{schema}.{table}",
             level=StructuredLogLevel.WARN,
         ):
-            # We create an artifical concatenated partition key to be able to query max partition easier
-            part_concat = " || '-' || ".join(
-                self._casted_partition_key(key) for key in partitions
+            max_partition_query = self._build_max_partition_query(
+                schema, table, partitions
             )
-            max_partition_query = f'select {",".join(partitions)} from "{schema}"."{table}$partitions" where {part_concat} = (select max({part_concat}) from "{schema}"."{table}$partitions")'
             ret = self.cursor.execute(max_partition_query)
             max_partition: Dict[str, str] = {}
             if ret:
@@ -522,6 +853,56 @@ class AthenaSource(SQLAlchemySource):
                 max_partition=max_partition,
             )
 
+        return partitions
+
+    def _get_partitions_create_table(self, schema: str, table: str) -> List[str]:
+        assert self.cursor
+        try:
+            res = self.cursor.execute(f"SHOW CREATE TABLE `{schema}`.`{table}`")
+        except Exception as e:
+            # Athena does not support SHOW CREATE TABLE for views
+            # and will throw an error. We need to handle this case
+            # and caller needs to fallback to sqlalchemy's get partitions call.
+            logger.debug(
+                f"Failed to get table properties for {schema}.{table}: {e}",
+                exc_info=True,
+            )
+            raise e
+        rows = res.fetchall()
+
+        # Concatenate all rows into a single string with newlines
+        create_table_statement = "\n".join(row[0] for row in rows)
+
+        try:
+            athena_table_info = AthenaPropertiesExtractor.get_table_properties(
+                create_table_statement
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to parse table properties for {schema}.{table}: {e} and statement: {create_table_statement}",
+                exc_info=True,
+            )
+            raise e
+
+        partitions = []
+        if (
+            athena_table_info.partition_info
+            and athena_table_info.partition_info.simple_columns
+        ):
+            partitions = [
+                ci.name for ci in athena_table_info.partition_info.simple_columns
+            ]
+        return partitions
+
+    def _get_partitions_sqlalchemy(self, schema: str, table: str) -> List[str]:
+        assert self.cursor
+        metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
+            table_name=table, schema_name=schema
+        )
+        partitions = []
+        for key in metadata.partition_keys:
+            if key.name:
+                partitions.append(key.name)
         return partitions
 
     # Overwrite to modify the creation of schema fields
@@ -550,6 +931,18 @@ class AthenaSource(SQLAlchemySource):
             ),
         )
 
+        # Keeping it as individual check to make it more explicit and easier to understand
+        if not self.config.emit_schema_fieldpaths_as_v1:
+            return fields
+
+        if isinstance(
+            fields[0].type.type, (RecordTypeClass, MapTypeClass, ArrayTypeClass)
+        ):
+            return fields
+        else:
+            fields[0].fieldPath = get_simple_field_path_from_v2_field_path(
+                fields[0].fieldPath
+            )
         return fields
 
     def generate_partition_profiler_query(
@@ -563,16 +956,34 @@ class AthenaSource(SQLAlchemySource):
         ).get(table, None)
 
         if partition and partition.max_partition:
-            max_partition_filters = []
-            for key, value in partition.max_partition.items():
-                max_partition_filters.append(
-                    f"{self._casted_partition_key(key)} = '{value}'"
+            try:
+                # Sanitize identifiers to prevent SQL injection
+                sanitized_schema = self._sanitize_identifier(schema)
+                sanitized_table = self._sanitize_identifier(table)
+
+                max_partition_filters = []
+                for key, value in partition.max_partition.items():
+                    # Sanitize partition key and properly escape the value
+                    sanitized_key = self._sanitize_identifier(key)
+                    # Escape single quotes in the value to prevent injection
+                    escaped_value = value.replace("'", "''") if value else ""
+                    max_partition_filters.append(
+                        f"{self._casted_partition_key(sanitized_key)} = '{escaped_value}'"
+                    )
+                max_partition = str(partition.max_partition)
+                return (
+                    max_partition,
+                    f'SELECT * FROM "{sanitized_schema}"."{sanitized_table}" WHERE {" AND ".join(max_partition_filters)}',
                 )
-            max_partition = str(partition.max_partition)
-            return (
-                max_partition,
-                f'SELECT * FROM "{schema}"."{table}" WHERE {" AND ".join(max_partition_filters)}',
-            )
+            except ValueError as e:
+                # If sanitization fails due to malicious identifiers,
+                # return None to disable partition profiling for this table
+                # rather than crashing the entire ingestion
+                logger.warning(
+                    f"Failed to generate partition profiler query for {schema}.{table} due to unsafe identifiers: {e}. "
+                    f"Partition profiling disabled for this table."
+                )
+                return None, None
         return None, None
 
     def close(self):

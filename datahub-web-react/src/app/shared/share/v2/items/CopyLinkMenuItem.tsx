@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
-import styled from 'styled-components/macro';
 import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
 import { Text, Tooltip } from '@components';
-import { StyledMenuItem } from '../styledComponents';
-import { EntityType } from '../../../../../types.generated';
-import { useEntityRegistryV2 } from '../../../../useEntityRegistry';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components/macro';
+
+import { StyledMenuItem } from '@app/shared/share/v2/styledComponents';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
+import { EntityType } from '@types';
 
 interface CopyLinkMenuItemProps {
     key: string;
@@ -25,12 +29,14 @@ export default function CopyLinkMenuItem({ key, urn, entityType }: CopyLinkMenuI
     /**
      * Whether button has been clicked
      */
+    const { t } = useTranslation('shared.share');
+    const { t: tc } = useTranslation('common.actions');
     const { origin } = window.location;
     const entityRegistry = useEntityRegistryV2();
 
     const [isClicked, setIsClicked] = useState(false);
 
-    const copyUrl = `${origin}${entityRegistry.getEntityUrl(entityType, urn)}/`;
+    const copyUrl = `${origin}${resolveRuntimePath(`${entityRegistry.getEntityUrl(entityType, urn)}`)}/`;
 
     return (
         <StyledMenuItem
@@ -40,10 +46,10 @@ export default function CopyLinkMenuItem({ key, urn, entityType }: CopyLinkMenuI
                 setIsClicked(true);
             }}
         >
-            <Tooltip title="Copy a shareable link to this entity.">
+            <Tooltip title={t('copyLink.tooltip')}>
                 {isClicked ? <CheckOutlined /> : <StyledLinkOutlined />}
                 <TextSpan>
-                    <b>Copy Link</b>
+                    <b>{tc('copyLink')}</b>
                 </TextSpan>
             </Tooltip>
         </StyledMenuItem>
@@ -66,7 +72,7 @@ export function SimpleCopyLinkMenuItem({
 
     const [isClicked, setIsClicked] = useState(false);
 
-    const copyUrl = `${origin}${entityRegistry.getEntityUrl(entityType, urn)}/`;
+    const copyUrl = `${origin}${resolveRuntimePath(`${entityRegistry.getEntityUrl(entityType, urn)}`)}/`;
 
     return (
         <SimpleMenuItem

@@ -1,5 +1,6 @@
 ---
 title: "Deploying with Kubernetes"
+description: "Deploy DataHub on Kubernetes using the official Helm charts, including configuration for production-grade cluster setups."
 ---
 
 # Deploying DataHub with Kubernetes
@@ -8,8 +9,8 @@ title: "Deploying with Kubernetes"
 
 Helm charts for deploying DataHub on a kubernetes cluster is located in
 this [repository](https://github.com/acryldata/datahub-helm). We provide charts for
-deploying [Datahub](https://github.com/acryldata/datahub-helm/tree/master/charts/datahub) and
-it's [dependencies](https://github.com/acryldata/datahub-helm/tree/master/charts/prerequisites)
+deploying [DataHub](https://github.com/acryldata/datahub-helm/tree/master/charts/datahub) and
+its [dependencies](https://github.com/acryldata/datahub-helm/tree/master/charts/prerequisites)
 (Elasticsearch, optionally Neo4j, MySQL, and Kafka) on a Kubernetes cluster.
 
 This doc is a guide to deploy an instance of DataHub on a kubernetes cluster using the above charts from scratch.
@@ -17,24 +18,24 @@ This doc is a guide to deploy an instance of DataHub on a kubernetes cluster usi
 ## Setup
 
 1. Set up a kubernetes cluster
-    - In a cloud platform of choice like [Amazon EKS](https://aws.amazon.com/eks),
-      [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine),
-      and [Azure Kubernetes Service](https://azure.microsoft.com/en-us/services/kubernetes-service/) OR
-    - In local environment using [Minikube](https://minikube.sigs.k8s.io/docs/). Note, more than 7GB of RAM is required
-      to run Datahub and it's dependencies
+   - In a cloud platform of choice like [Amazon EKS](https://aws.amazon.com/eks),
+     [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine),
+     and [Azure Kubernetes Service](https://azure.microsoft.com/en-us/services/kubernetes-service/) OR
+   - In local environment using [Minikube](https://minikube.sigs.k8s.io/docs/). Note, more than 7GB of RAM is required
+     to run DataHub and its dependencies
 2. Install the following tools:
-    - [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage kubernetes resources
-    - [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support
-      Helm 3.
+   - [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage kubernetes resources
+   - [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support
+     Helm 3.
 
 ## Components
 
-Datahub consists of 4 main components: [GMS](https://datahubproject.io/docs/metadata-service),
-[MAE Consumer](https://datahubproject.io/docs/metadata-jobs/mae-consumer-job) (optional),
-[MCE Consumer](https://datahubproject.io/docs/metadata-jobs/mce-consumer-job) (optional), and
-[Frontend](https://datahubproject.io/docs/datahub-frontend). Kubernetes deployment for each of the components are
+DataHub consists of 4 main components: [GMS](https://docs.datahub.com/docs/metadata-service),
+[MAE Consumer](https://docs.datahub.com/docs/metadata-jobs/mae-consumer-job) (optional),
+[MCE Consumer](https://docs.datahub.com/docs/metadata-jobs/mce-consumer-job) (optional), and
+[Frontend](https://docs.datahub.com/docs/datahub-frontend). Kubernetes deployment for each of the components are
 defined as subcharts under the main
-[Datahub](https://github.com/acryldata/datahub-helm/tree/master/charts/datahub)
+[DataHub](https://github.com/acryldata/datahub-helm/tree/master/charts/datahub)
 helm chart.
 
 The main components are powered by 4 external dependencies:
@@ -44,7 +45,7 @@ The main components are powered by 4 external dependencies:
 - Search Index (Elasticsearch)
 - Graph Index (Supports either Neo4j or Elasticsearch)
 
-The dependencies must be deployed before deploying Datahub. We created a separate
+The dependencies must be deployed before deploying DataHub. We created a separate
 [chart](https://github.com/acryldata/datahub-helm/tree/master/charts/prerequisites)
 for deploying the dependencies with example configuration. They could also be deployed separately on-prem or leveraged
 as managed services. To remove your dependency on Neo4j, set enabled to false in
@@ -100,7 +101,7 @@ prerequisites-neo4j-community-0                    1/1     Running     0        
 prerequisites-zookeeper-0                          1/1     Running     0          62m
 ```
 
-deploy Datahub by running the following
+deploy DataHub by running the following
 
 ```(shell)
 helm install datahub datahub/datahub
@@ -112,7 +113,11 @@ the [prerequisites](https://github.com/acryldata/datahub-helm/tree/master/charts
 chart with release name "prerequisites". If you deployed the helm chart using a different release name, update the
 quickstart-values.yaml file accordingly before installing.
 
-Run `kubectl get pods` to check whether all the datahub pods are running. You should get a result similar to below.
+:::note
+The default values in [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml) auto generate secret values for the signing key and salt used for metadata_service_authentication. (To learn more about DataHub's backend authentication, check out [Introducing Metadata Service Authentication](../authentication/introducing-metadata-service-authentication.md). If you want to provide your own values refer to the `datahub.metadata_service_authentication` block in the [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml)
+:::
+
+Run `kubectl get pods` to check whether all the datahub pods are running. You should get a result similar to below. The Helm chart uses the system-update job (datahub-system-update) for database and search index setup; standalone `elasticsearchSetupJob` and `mysqlSetupJob` are disabled by default (`elasticsearchSetupJob.enabled: false`, `mysqlSetupJob.enabled: false`). SQL and index setup are controlled via `datahubSystemUpdate.sql.setup.enabled` and `datahubSystemUpdate.elasticsearch.setup.enabled` (default true).
 
 ```
 NAME                                               READY   STATUS      RESTARTS   AGE
@@ -120,9 +125,7 @@ datahub-datahub-frontend-84c58df9f7-5bgwx          1/1     Running     0        
 datahub-datahub-gms-58b676f77c-c6pfx               1/1     Running     0          4m2s
 datahub-datahub-mae-consumer-7b98bf65d-tjbwx       1/1     Running     0          4m3s
 datahub-datahub-mce-consumer-8c57d8587-vjv9m       1/1     Running     0          4m2s
-datahub-elasticsearch-setup-job-8dz6b              0/1     Completed   0          4m50s
-datahub-kafka-setup-job-6blcj                      0/1     Completed   0          4m40s
-datahub-mysql-setup-job-b57kc                      0/1     Completed   0          4m7s
+datahub-datahub-system-update-xxxxx                0/1     Completed   0          4m50s
 elasticsearch-master-0                             1/1     Running     0          97m
 elasticsearch-master-1                             1/1     Running     0          97m
 elasticsearch-master-2                             1/1     Running     0          97m
@@ -145,10 +148,14 @@ You should be able to access the frontend via http://localhost:9002.
 Once you confirm that the pods are running well, you can set up ingress for datahub-frontend to expose the 9002 port to
 the public.
 
+## System update and upgrades
+
+The DataHub Helm chart runs a **system-update** Job on upgrades to apply schema changes, reindex search indices when needed, and run other blocking or non-blocking upgrade steps. When scale-down is enabled (see [Environment variables](environment-vars.md#kubernetes-scale-down-system-update)), the job can temporarily scale down deployments by label selector (e.g. MAE/MCE) and set environment variables on other deployments by label selector (e.g. GMS) before blocking upgrades (e.g. reindex), then restore them afterward. Rollout and scale-down operations run in parallel. Scale-down is conditional: it only runs when a blocking upgrade (such as BuildIndices when reindex is required) requests it. For upgrade behavior and potential downtime, see [Updating DataHub](../how/updating-datahub.md).
+
 ## Other useful commands
 
-| Command | Description | 
-|-----|------|
-| helm uninstall datahub | Remove DataHub |
-| helm ls | List of Helm charts |
-| helm history | Fetch a release history | 
+| Command                | Description             |
+| ---------------------- | ----------------------- |
+| helm uninstall datahub | Remove DataHub          |
+| helm ls                | List of Helm charts     |
+| helm history           | Fetch a release history |

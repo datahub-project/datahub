@@ -1,10 +1,10 @@
-import React from 'react';
-
 import { Card, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
-import { Highlight as HighlightType } from '../../../types.generated';
-import { formatNumber } from '../../shared/formatNumber';
+import { formatNumber } from '@app/shared/formatNumber';
+
+import { Highlight as HighlightType } from '@types';
 
 type Props = {
     highlight: HighlightType;
@@ -20,7 +20,7 @@ const HighlightCard = styled(Card)`
     text-align: center;
     line-height: 0;
     margin: 10px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
 `;
 
 const TitleText = styled(Typography.Text)`

@@ -1,9 +1,12 @@
 import React from 'react';
-import { EditableSchemaMetadata, GlobalTags, SchemaField } from '../../../../../../../../types.generated';
-import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-import { SidebarSection } from '../../../../../containers/profile/sidebar/SidebarSection';
-import useTagsAndTermsRenderer from '../../utils/useTagsAndTermsRenderer';
-import { StyledDivider } from './components';
+import { useTranslation } from 'react-i18next';
+
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import useTagsAndTermsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useTagsAndTermsRenderer';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+
+import { EditableSchemaMetadata, GlobalTags, SchemaField } from '@types';
 
 interface Props {
     expandedField: SchemaField;
@@ -11,6 +14,7 @@ interface Props {
 }
 
 export default function FieldTags({ expandedField, editableSchemaMetadata }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -24,7 +28,10 @@ export default function FieldTags({ expandedField, editableSchemaMetadata }: Pro
 
     return (
         <>
-            <SidebarSection title="Tags" content={tagRenderer(expandedField.globalTags as GlobalTags, expandedField)} />
+            <SidebarSection
+                title={t('fieldTags.sectionTitle')}
+                content={tagRenderer(expandedField.globalTags as GlobalTags, expandedField)}
+            />
             <StyledDivider dashed />
         </>
     );

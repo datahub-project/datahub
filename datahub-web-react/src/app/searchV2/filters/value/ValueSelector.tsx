@@ -1,9 +1,10 @@
 /* eslint-disable import/no-cycle */
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
-import { FacetFilterInput } from '@src/types.generated';
-import { FilterField, FilterValue, FilterValueOption } from '../types';
-import ValueMenu from './ValueMenu';
+
+import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
+import { EntityType, FacetFilterInput } from '@src/types.generated';
 
 interface Props {
     field: FilterField;
@@ -13,6 +14,7 @@ interface Props {
     children?: any;
     className?: string;
     manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
+    aggregationsEntityTypes?: Array<EntityType>;
 }
 
 export default function ValueSelector({
@@ -23,6 +25,7 @@ export default function ValueSelector({
     children,
     className,
     manuallyUpdateFilters,
+    aggregationsEntityTypes,
 }: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -52,6 +55,7 @@ export default function ValueSelector({
                     includeCount
                     className={className}
                     manuallyUpdateFilters={onManuallyUpdateFilters}
+                    aggregationsEntityTypes={aggregationsEntityTypes}
                 />
             )}
         >

@@ -1,8 +1,7 @@
+import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
+import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
-import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
-import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 
 const ScrollButton = styled.button<{
     alwaysVisible: boolean;
@@ -27,14 +26,16 @@ const ScrollButton = styled.button<{
     width: ${({ size }) => size + 6}px;
     height: ${({ size }) => size + 6}px;
     border-radius: 50%;
-    color: ${REDESIGN_COLORS.BLACK};
-    background-color: ${REDESIGN_COLORS.WHITE};
-    transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
-    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
+    color: ${(props) => props.theme.colors.text};
+    background-color: ${(props) => props.theme.colors.bg};
+    transition:
+        background-color 0.3s ease-in-out,
+        color 0.3s ease-in-out;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 
     &:hover {
-        color: ${REDESIGN_COLORS.WHITE};
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => props.theme.colors.textBrandOnBgFill};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 `;
 

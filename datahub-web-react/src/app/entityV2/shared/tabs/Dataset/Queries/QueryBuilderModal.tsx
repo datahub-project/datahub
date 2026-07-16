@@ -1,14 +1,17 @@
+import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { message, Modal, Typography } from 'antd';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { useCreateQueryMutation, useUpdateQueryMutation } from '../../../../../../graphql/query.generated';
-import { QueryLanguage } from '../../../../../../types.generated';
-import { QueryBuilderState } from './types';
-import ClickOutside from '../../../../../shared/ClickOutside';
-import QueryBuilderForm from './QueryBuilderForm';
-import analytics, { EventType } from '../../../../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import QueryBuilderForm from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderForm';
+import { QueryBuilderState } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import ClickOutside from '@app/shared/ClickOutside';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { Modal } from '@src/alchemy-components';
+
+import { useCreateQueryMutation, useUpdateQueryMutation } from '@graphql/query.generated';
+import { QueryLanguage } from '@types';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -39,8 +42,11 @@ type Props = {
 };
 
 export default function QueryBuilderModal({ initialState, datasetUrn, onClose, onSubmit }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.actions');
     const isUpdating = initialState?.urn !== undefined;
 
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [builderState, setBuilderState] = useState<QueryBuilderState>(initialState || DEFAULT_STATE);
     const [createQueryMutation] = useCreateQueryMutation();
     const [updateQueryMutation] = useUpdateQueryMutation();
@@ -68,7 +74,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                             type: EventType.CreateQueryEvent,
                         });
                         message.success({
-                            content: `Created Query!`,
+                            content: t('queryBuilderModal.createSuccess'),
                             duration: 3,
                         });
                         onSubmit?.(data?.createQuery);
@@ -77,7 +83,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                 })
                 .catch(() => {
                     message.destroy();
-                    message.error({ content: 'Failed to create Query! An unexpected error occurred' });
+                    message.error({ content: t('queryBuilderModal.createError') });
                 });
         }
     };
@@ -105,7 +111,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                             type: EventType.UpdateQueryEvent,
                         });
                         message.success({
-                            content: `Edited Query!`,
+                            content: t('queryBuilderModal.editSuccess'),
                             duration: 3,
                         });
                         onSubmit?.(data?.updateQuery);
@@ -114,7 +120,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                 })
                 .catch(() => {
                     message.destroy();
-                    message.error({ content: 'Failed to edit Query! An unexpected error occurred' });
+                    message.error({ content: t('queryBuilderModal.editError') });
                 });
         }
     };
@@ -127,44 +133,44 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
         }
     };
 
-    const confirmClose = () => {
-        Modal.confirm({
-            title: `Exit Query Editor`,
-            content: `Are you sure you want to exit the editor? Any unsaved changes will be lost.`,
-            onOk() {
-                setBuilderState(DEFAULT_STATE);
-                onClose?.();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     return (
-        <ClickOutside onClickOutside={confirmClose} wrapperClassName="query-builder-modal">
+        <ClickOutside onClickOutside={() => setShowConfirmationModal(true)} wrapperClassName="query-builder-modal">
             <StyledModal
                 width={MODAL_WIDTH}
                 bodyStyle={MODAL_BODY_STYLE}
-                title={<Typography.Text>{isUpdating ? 'Edit' : 'New'} Query</Typography.Text>}
+                title={isUpdating ? t('queryBuilderModal.editTitle') : t('queryBuilderModal.newTitle')}
                 className="query-builder-modal"
-                visible
-                onCancel={confirmClose}
-                footer={
-                    <ModalButtonContainer>
-                        <Button onClick={onClose} data-testid="query-builder-cancel-button" variant="text" color="gray">
-                            Cancel
-                        </Button>
-                        <Button id="createQueryButton" data-testid="query-builder-save-button" onClick={saveQuery}>
-                            Save
-                        </Button>
-                    </ModalButtonContainer>
-                }
+                open
+                onCancel={() => setShowConfirmationModal(true)}
+                buttons={[
+                    {
+                        text: tc('cancel'),
+                        variant: 'text',
+                        onClick: () => onClose?.(),
+                        buttonDataTestId: 'query-builder-cancel-button',
+                    },
+                    {
+                        text: tc('save'),
+                        variant: 'filled',
+                        id: 'createQueryButton',
+                        buttonDataTestId: 'query-builder-save-button',
+                        onClick: saveQuery,
+                    },
+                ]}
                 data-testid="query-builder-modal"
             >
                 <QueryBuilderForm state={builderState} updateState={setBuilderState} />
             </StyledModal>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={() => {
+                    setBuilderState(DEFAULT_STATE);
+                    onClose?.();
+                }}
+                modalTitle={t('queryBuilderModal.exitConfirmTitle')}
+                modalText={t('queryBuilderModal.exitConfirmBody')}
+            />
         </ClickOutside>
     );
 }

@@ -1,14 +1,16 @@
-import { DatabaseOutlined, FileDoneOutlined } from '@ant-design/icons';
-import { VerticalDivider } from '@remirror/react';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { SearchResultFields_Domain_Fragment } from '../../../../graphql/search.generated';
-import { ANTD_GRAY_V2 } from '../../shared/constants';
-import DomainIcon from '../../../domain/DomainIcon';
-import { pluralize } from '../../../shared/textUtil';
+
+import { IconStyleType } from '@app/entityV2/Entity';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { SearchResultFields_Domain_Fragment } from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 const Wrapper = styled.div`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     display: flex;
     align-items: center;
@@ -18,10 +20,14 @@ const Wrapper = styled.div`
     }
 `;
 
-const StyledDivider = styled(VerticalDivider)`
-    &&& {
-        margin: 0 8px;
-    }
+const StyledDivider = styled.span`
+    display: inline-block;
+    width: 1px;
+    height: 12px;
+    background-color: currentColor;
+    opacity: 0.3;
+    margin: 0 8px;
+    vertical-align: middle;
 `;
 
 interface Props {
@@ -29,17 +35,21 @@ interface Props {
 }
 
 export default function DomainEntitiesSnippet({ domain }: Props) {
+    const { t } = useTranslation('entity.types');
+    const entityRegistry = useEntityRegistry();
     const entityCount = domain.entities?.total || 0;
     const subDomainCount = domain.children?.total || 0;
     const dataProductCount = domain.dataProducts?.total || 0;
 
     return (
         <Wrapper>
-            <DatabaseOutlined /> {entityCount} {entityCount === 1 ? 'entity' : 'entities'}
+            <Database size={12} color="currentColor" /> {t('domain.entitiesCount', { count: entityCount })}
             <StyledDivider />
-            <DomainIcon /> {subDomainCount} {pluralize(subDomainCount, 'sub-domain')}
+            {entityRegistry.getIcon(EntityType.Domain, 12, IconStyleType.ACCENT)}{' '}
+            {t('domain.subDomainsCount', { count: subDomainCount })}
             <StyledDivider />
-            <FileDoneOutlined /> {dataProductCount} {pluralize(dataProductCount, 'data product')}
+            {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT)}{' '}
+            {t('domain.dataProductsCount', { count: dataProductCount })}
         </Wrapper>
     );
 }

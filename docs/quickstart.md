@@ -5,11 +5,11 @@ import TabItem from '@theme/TabItem';
 
 :::tip DataHub Cloud
 
-This guide provides instructions on deploying the open source DataHub locally.
-If you're interested in a managed version, [Acryl Data](https://www.acryldata.io) provides a fully managed, premium version of DataHub. <br />
-**[Get Started with DataHub Cloud](./managed-datahub/welcome-acryl.md)**
+Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/free-trial/)**.
 
 :::
+
+> **Already running DataHub?** If you're upgrading an existing install, check [Managing Your Local Instance](#managing-your-local-instance) before running quickstart — some versions need upgrade steps first.
 
 ## Prerequisites
 
@@ -17,23 +17,37 @@ If you're interested in a managed version, [Acryl Data](https://www.acryldata.io
 
   | Platform | Application                                                                                                                                     |
   | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-  | Window   | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
+  | Windows  | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
   | Mac      | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 
 - **Launch the Docker engine** from command line or the desktop app.
-- Ensure you have **Python 3.8+** installed & configured. (Check using `python3 --version`).
+- Ensure you have **Python 3.10+** installed & configured. (Check using `python3 --version`).
 
 :::note Docker Resource Allocation
 
 Make sure to allocate enough hardware resources for Docker engine. <br />
-Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
+Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 13GB disk space.
 
 :::
 
 ## Install the DataHub CLI
 
 <Tabs>
+<TabItem value="brew" label="Homebrew">
+
+```bash
+brew install datahub-project/tap/datahub
+datahub version
+```
+
+Homebrew manages an isolated Python environment for `datahub`, so there's no venv to activate. The formula installs the **core CLI only** — to add ingestion connectors, install them into the brew-managed environment:
+
+```bash
+"$(brew --prefix datahub)/libexec/bin/pip" install 'acryl-datahub[snowflake,bigquery]'
+```
+
+</TabItem>
 <TabItem value="pip" label="pip">
 
 ```bash
@@ -50,15 +64,6 @@ Note that DataHub CLI does not support Python 2.x.
 :::
 
 </TabItem>
-<TabItem value="poetry" label="poetry">
-
-```bash
-poetry add acryl-datahub
-poetry shell
-datahub version
-```
-
-</TabItem>
 </Tabs>
 
 ## Start DataHub
@@ -70,41 +75,34 @@ datahub docker quickstart
 ```
 
 This will deploy a DataHub instance using [docker-compose](https://docs.docker.com/compose/).
-If you are curious, the `docker-compose.yaml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
+If you are curious, the `docker-compose.yml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
 
 If things go well, you should see messages like the ones below:
 
 ```shell-session
-Fetching docker-compose file https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml from GitHub
+Fetching docker-compose file https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose.quickstart-profile.yml from GitHub
 Pulling docker images...
 Finished pulling docker images!
 
-[+] Running 11/11
-⠿ Container zookeeper                  Running                                                                                                                                                         0.0s
-⠿ Container elasticsearch              Running                                                                                                                                                         0.0s
-⠿ Container broker                     Running                                                                                                                                                         0.0s
-⠿ Container schema-registry            Running                                                                                                                                                         0.0s
-⠿ Container elasticsearch-setup        Started                                                                                                                                                         0.7s
-⠿ Container kafka-setup                Started                                                                                                                                                         0.7s
-⠿ Container mysql                      Running                                                                                                                                                         0.0s
-⠿ Container datahub-gms                Running                                                                                                                                                         0.0s
-⠿ Container mysql-setup                Started                                                                                                                                                         0.7s
-⠿ Container datahub-datahub-actions-1  Running                                                                                                                                                         0.0s
-⠿ Container datahub-frontend-react     Running                                                                                                                                                         0.0s
-.......
+Starting up DataHub...
+[+] Running 14/14
+ ✔ Network datahub_network                         Created                                                                                              0.0s
+ ✔ Volume "datahub_broker"                         Created                                                                                              0.0s
+ ✔ Volume "datahub_mysqldata"                      Created                                                                                              0.0s
+ ✔ Volume "datahub_osdata"                         Created                                                                                              0.0s
+ ✔ Container datahub-mysql-1                       Healthy                                                                                             11.6s
+ ✔ Container datahub-opensearch-1                  Healthy                                                                                             11.6s
+ ✔ Container datahub-kafka-broker-1               Healthy                                                                                              6.0s
+ ✔ Container datahub-system-update-quickstart-1    Exited                                                                                              26.6s
+ ✔ Container datahub-datahub-gms-quickstart-1      Healthy                                                                                             42.1s
+ ✔ Container datahub-frontend-quickstart-1         Started                                                                                             26.6s
+ ✔ Container datahub-datahub-actions-quickstart-1  Started                                                                                             42.1s
+
 ✔ DataHub is now running
-Ingest some demo data using `datahub docker ingest-sample-data`,
+Load sample data: run `datahub init` then `datahub datapack load showcase-ecommerce`,
 or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.
-Need support? Get in touch on Slack: https://slack.datahubproject.io/
+Need support? Get in touch on Slack: https://datahub.com/slack/
 ```
-
-:::note Mac M1/M2
-
-On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`.
-This typically means that the datahub cli was not able to detect that you are running it on Apple Silicon.
-To resolve this issue, override the default architecture detection by issuing `datahub docker quickstart --arch m1`
-
-:::
 
 ### Sign In
 
@@ -118,28 +116,76 @@ password: datahub
 
 To change the default credentials, please refer to [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart).
 
-### Ingest Sample Data
+### Load Sample Data
 
-To ingest the sample metadata, run the following CLI command from your terminal
+First, configure the CLI to talk to your local DataHub instance:
 
 ```bash
-datahub docker ingest-sample-data
+datahub init --username datahub --password datahub
 ```
 
-:::note Token Authentication
+Then load the **showcase-ecommerce** data pack — a rich set of ~1,050 entities across Snowflake, Looker, PowerBI, and Tableau with lineage, governance, glossary terms, domains, and data products:
 
-If you've enabled [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token
-using the `--token <token>` parameter in the command.
+```bash
+datahub datapack load showcase-ecommerce
+```
+
+:::note
+
+The `datahub datapack` command is currently experimental — its command surface and behavior may change in future releases.
 
 :::
 
 That's it! Now feel free to play around with DataHub!
 
----
+## Next Steps
 
-## Common Operations
+- [Quickstart Debugging Guide](./troubleshooting/quickstart.md)
+- [Ingest metadata through the UI](./ui-ingestion.md)
+- [Ingest metadata through the CLI](../metadata-ingestion/README.md)
+- [Add Users to DataHub](authentication/guides/add-users.md)
+- [Configure OIDC Authentication](authentication/guides/sso/configure-oidc-react.md)
+- [Configure JaaS Authentication](authentication/guides/jaas.md)
+- [Configure authentication in DataHub's backend](authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication).
+- [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart)
 
-### Stop DataHub
+## Managing Your Local Instance
+
+Once DataHub is running, use the commands below to manage your local instance. These are for the local quickstart deployment only — for production operations, see [Deploying DataHub with Kubernetes](./deploy/kubernetes.md).
+
+:::note (Optional) Set a stable signing key
+
+By default, DataHub generates a random signing key and salt for authentication tokens on first run and reuses them on later runs (saved to `~/.datahub/quickstart/.local-secrets.env`). Most users don't need to change this.
+
+If you want tokens to stay stable across environments, set your own values **before** running `datahub docker quickstart`:
+
+```bash
+export DATAHUB_TOKEN_SERVICE_SIGNING_KEY=<value>
+export DATAHUB_TOKEN_SERVICE_SALT=<value>
+```
+
+Generate a value with `openssl rand -base64 32`.
+
+If upgrading from a CLI older than v1.5: the signing key is now generated randomly instead of using a hardcoded default, so any personal access tokens (PATs) created before upgrading are invalidated and must be regenerated.
+
+:::
+
+:::note Upgrading from a CLI older than v1.2
+
+From version 1.2 onwards, the `datahub docker quickstart` command uses a docker-compose file that is incompatible with DataHub installed using earlier versions of the CLI. If you already have DataHub installed with an older CLI, upgrade with these steps:
+
+1. Back up your data (recommended): `datahub docker quickstart --backup`. This can be skipped if the data does not need to be preserved.
+2. Remove the old installation: `datahub docker nuke`
+3. Start a fresh installation: `datahub docker quickstart`
+
+⚠️ Without a backup, all existing data will be lost.
+
+For the full list of breaking changes across versions, see [Updating DataHub](how/updating-datahub.md).
+
+:::
+
+<details>
+<summary><b>Stop DataHub</b></summary>
 
 To stop DataHub's quickstart, you can issue the following command.
 
@@ -147,7 +193,10 @@ To stop DataHub's quickstart, you can issue the following command.
 datahub docker quickstart --stop
 ```
 
-### Reset DataHub
+</details>
+
+<details>
+<summary><b>Reset DataHub</b></summary>
 
 To cleanse DataHub of all of its state (e.g. before ingesting your own), you can use the CLI `nuke` command.
 
@@ -155,7 +204,10 @@ To cleanse DataHub of all of its state (e.g. before ingesting your own), you can
 datahub docker nuke
 ```
 
-### Upgrade DataHub
+</details>
+
+<details>
+<summary><b>Upgrade DataHub</b></summary>
 
 If you have been testing DataHub locally, a new version of DataHub got released and you want to try the new version then you can just issue the quickstart command again. It will pull down newer images and restart your instance without losing any data.
 
@@ -163,21 +215,36 @@ If you have been testing DataHub locally, a new version of DataHub got released 
 datahub docker quickstart
 ```
 
-### Customize installation
+By default, quickstart will install the latest released version of datahub. You can pick a specific version by specifying a release explicitly.
 
-If you would like to customize the DataHub installation further, please download the [docker-compose.yaml](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml) used by the cli tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
+```bash
+datahub docker quickstart --version v1.6.0
+```
+
+You can see the releases available on the [github releases](https://github.com/datahub-project/datahub/releases) page
+You can also specify `head` or `quickstart` as the version to get the latest coordinated development images from `master` (compose from `master`, images tagged `quickstart`). For a specific commit build, use `sha-<short_sha>` (registry-only, not a git tag).
+
+If you pass an unrecognized `--version` that is not a release tag (for example a typo), the CLI prompts before falling back to the default quickstart configuration. Omitting `--version` uses the default without prompting. Release-like tags (`v1.2.0`) and `sha-*` tags are used as-is without prompting. For scripts, pass `--accept-version-default` to accept the suggested configuration without an interactive prompt.
+
+</details>
+
+<details>
+<summary><b>Customize installation</b></summary>
+
+If you would like to customize the DataHub installation further, please download the [docker-compose file](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose.quickstart-profile.yml) used by the CLI tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
 
 ```bash
 datahub docker quickstart --quickstart-compose-file <path to compose file>
 ```
 
+</details>
+
+<!-- Back up DataHub and Restore DataHub are intentionally plain headings, not <details> collapsibles like the sections above, because other docs (how/restore-indices.md) and the CLI source (docker_cli.py) link directly to their #back-up-datahub and #restore-datahub anchors. Plain headings give stable auto-generated anchors that reliably resolve and scroll. Do not convert these two to <details>. -->
+
 ### Back up DataHub
 
 The quickstart image is not recommended for use as a production instance. <br />
 However, in case you want to take a backup of your current quickstart state (e.g. you have a demo to your company coming up and you want to create a copy of the quickstart data so you can restore it at a future date), you can supply the `--backup` flag to quickstart.
-
-<Tabs>
-<TabItem value="backup" label="Back up (default)">
 
 ```bash
 datahub docker quickstart --backup
@@ -185,17 +252,11 @@ datahub docker quickstart --backup
 
 This will take a backup of your MySQL image and write it by default to your `~/.datahub/quickstart/` directory as the file `backup.sql`.
 
-</TabItem>
-<TabItem value="backup custom" label="Back up to custom directory">
+You can customize the backup file path by passing a `--backup-file` argument:
 
 ```bash
 datahub docker quickstart --backup --backup-file <path to backup file>
 ```
-
-You can customize the backup file path by passing a `--backup-file` argument.
-
-</TabItem>
-</Tabs>
 
 :::caution
 
@@ -207,8 +268,7 @@ Note that the Quickstart backup does not include any timeseries data (dataset st
 
 As you might imagine, these backups are restore-able. The following section describes a few different options you have to restore your backup.
 
-<Tabs>
-<TabItem value="General" label="General Restoring">
+#### General Restoring
 
 To restore a previous backup, run the following command:
 
@@ -224,8 +284,7 @@ To supply a specific backup file, use the `--restore-file` option.
 datahub docker quickstart --restore --restore-file /home/my_user/datahub_backups/quickstart_backup_2002_22_01.sql
 ```
 
-</TabItem>
-<TabItem value="Restoring Only Index" label="Restore Only Index">
+#### Restore Only Index
 
 Another situation that can come up is the index can get corrupt, or be missing some update. In order to re-bootstrap the index from the primary store, you can run this command to sync the index with the primary store.
 
@@ -233,9 +292,7 @@ Another situation that can come up is the index can get corrupt, or be missing s
 datahub docker quickstart --restore-indices
 ```
 
-</TabItem>
-
-<TabItem value="Restoring Only Primary" label="Restore Only Primary">
+#### Restore Only Primary
 
 Sometimes, you might want to just restore the state of your primary database (MySQL), but not re-index the data. To do this, you have to explicitly disable the restore-indices capability.
 
@@ -243,23 +300,7 @@ Sometimes, you might want to just restore the state of your primary database (My
 datahub docker quickstart --restore --no-restore-indices
 ```
 
-</TabItem>
-</Tabs>
-
----
-
-## Next Steps
-
-- [Quickstart Debugging Guide](./troubleshooting/quickstart.md)
-- [Ingest metadata through the UI](./ui-ingestion.md)
-- [Ingest metadata through the CLI](../metadata-ingestion/README.md)
-- [Add Users to DataHub](authentication/guides/add-users.md)
-- [Configure OIDC Authentication](authentication/guides/sso/configure-oidc-react.md)
-- [Configure JaaS Authentication](authentication/guides/jaas.md)
-- [Configure authentication in DataHub's backend](authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication).
-- [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart)
-
-### Move To Production
+## Move To Production
 
 :::caution
 
@@ -272,18 +313,18 @@ Check out [Deploying DataHub to Kubernetes](./deploy/kubernetes.md) for a step-b
 The `quickstart` method of running DataHub is intended for local development and a quick way to experience the features that DataHub has to offer.
 It is not intended for a production environment. This recommendation is based on the following points.
 
-#### Default Credentials
+### Default Credentials
 
 `quickstart` uses docker compose configuration which includes default credentials for both DataHub, and it's underlying
 prerequisite data stores, such as MySQL. Additionally, other components are unauthenticated out of the box. This is a
 design choice to make development easier and is not best practice for a production environment.
 
-#### Exposed Ports
+### Exposed Ports
 
 DataHub's services, and it's backend data stores use the docker default behavior of binding to all interface addresses.
 This makes it useful for development but is not recommended in a production environment.
 
-#### Performance & Management
+### Performance & Management
 
 `quickstart` is limited by the resources available on a single host, there is no ability to scale horizontally.
 Rollout of new versions often requires downtime and the configuration is largely pre-determined and not easily managed.

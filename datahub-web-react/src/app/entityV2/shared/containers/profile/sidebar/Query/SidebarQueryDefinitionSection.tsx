@@ -1,13 +1,16 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useBaseEntity } from '../../../../../../entity/shared/EntityContext';
-import { QueryEntity } from '../../../../../../../types.generated';
-import { SidebarSection } from '../SidebarSection';
-import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { REDESIGN_COLORS } from '../../../../constants';
 
-const DefinitionLink = styled.a`
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { QueryEntity } from '@types';
+
+const DefinitionLink = styled(Link)`
     align-items: center;
     display: flex;
     margin-bottom: 4px;
@@ -23,10 +26,11 @@ const DefinitionName = styled.span`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export default function SidebarQueryDefinitionSection() {
+    const { t } = useTranslation('entity.shared.containers');
     const query = useBaseEntity<{ entity: QueryEntity | null }>()?.entity;
     const entityRegistry = useEntityRegistry();
 
@@ -39,10 +43,10 @@ export default function SidebarQueryDefinitionSection() {
 
     return (
         <SidebarSection
-            title="Definition"
+            title={t('sidebar.query.definitionTitle')}
             content={
                 <>
-                    <DefinitionLink href={entityRegistry.getEntityUrl(origin.type, origin.urn)}>
+                    <DefinitionLink to={entityRegistry.getEntityUrl(origin.type, origin.urn)}>
                         {entity?.platform && (
                             <DefinitionIcon platform={entity?.platform} size={16} entityType={origin.type} />
                         )}

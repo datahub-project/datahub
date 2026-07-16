@@ -1,13 +1,10 @@
-import { MATERIAL_UI_ICONS, PHOSPHOR_ICONS } from '@components/components/Icon/constants';
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
-import type { Meta, StoryObj } from '@storybook/react';
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
-
 import { GridList } from '@components/.docs/mdx-components';
-import { AVAILABLE_ICONS } from '../Icon';
-
-import { Input, inputDefaults } from './Input';
+import { MATERIAL_UI_ICONS } from '@components/components/Icon/constants';
+import { Input, inputDefaults } from '@components/components/Input/Input';
 
 const meta = {
     title: 'Forms / Input',
@@ -54,11 +51,8 @@ const meta = {
         icon: {
             description: 'The icon to display in the Input.',
             type: 'string',
-            options: AVAILABLE_ICONS,
-            mapping: Object.fromEntries([
-                ...MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material' }]),
-                ...PHOSPHOR_ICONS.map((icon) => [icon, { icon, source: 'phosphor' }]),
-            ]),
+            options: MATERIAL_UI_ICONS,
+            mapping: Object.fromEntries(MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material' }])),
             table: {
                 defaultValue: { summary: 'undefined' },
             },

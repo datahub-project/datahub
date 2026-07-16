@@ -31,6 +31,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
                     ],
+                    "transformOperation": "COPY: \"bar\".\"a\" AS \"a\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:cbdb3e148ea7fdae81815da4dd64f57873fb9c3d7d4bfad4e83b3d1ebd3c45c2"
                 },
@@ -43,6 +44,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
                     ],
+                    "transformOperation": "COPY: \"bar\".\"b\" AS \"b\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:cbdb3e148ea7fdae81815da4dd64f57873fb9c3d7d4bfad4e83b3d1ebd3c45c2"
                 }
@@ -57,6 +59,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE TABLE foo AS\nSELECT\n  a,\n  b\nFROM bar",
                 "language": "SQL"

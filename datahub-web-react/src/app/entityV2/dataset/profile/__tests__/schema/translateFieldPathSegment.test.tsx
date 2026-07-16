@@ -1,4 +1,4 @@
-import translateFieldPathSegment from '../../schema/utils/translateFieldPathSegment';
+import translateFieldPathSegment from '@app/entityV2/dataset/profile/schema/utils/translateFieldPathSegment';
 
 describe('translateFieldPathSegment', () => {
     it('translates unions', () => {
@@ -6,7 +6,7 @@ describe('translateFieldPathSegment', () => {
     });
 
     it('translates arrays', () => {
-        expect(translateFieldPathSegment('MyArray', 1, ['[type=array]', 'MyArray'])).toEqual('MyArray[].');
+        expect(translateFieldPathSegment('MyArray', 1, ['[type=array]', 'MyArray'])).toEqual('MyArray.');
     });
 
     it('translates qualifying structs in the middle', () => {

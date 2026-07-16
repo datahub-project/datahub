@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { StyledMenuItem } from '../styledComponents';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { StyledMenuItem } from '@app/shared/share/v2/styledComponents';
 
 interface CopyUrnMenuItemProps {
     urn: string;
@@ -19,6 +21,7 @@ export default function CopyUrnMenuItem({ urn, key, type }: CopyUrnMenuItemProps
     /**
      * Whether button has been clicked
      */
+    const { t } = useTranslation('shared.share');
     const [isClicked, setIsClicked] = useState(false);
 
     return (
@@ -29,10 +32,10 @@ export default function CopyUrnMenuItem({ urn, key, type }: CopyUrnMenuItemProps
                 setIsClicked(true);
             }}
         >
-            <Tooltip title={`Copy the URN for this ${type}. An URN uniquely identifies an entity on DataHub.`}>
+            <Tooltip title={t('copyUrn.tooltip', { type })}>
                 {isClicked ? <CheckOutlined /> : <CopyOutlined />}
                 <TextSpan>
-                    <b>Copy URN</b>
+                    <b>{t('copyUrn.label')}</b>
                 </TextSpan>
             </Tooltip>
         </StyledMenuItem>

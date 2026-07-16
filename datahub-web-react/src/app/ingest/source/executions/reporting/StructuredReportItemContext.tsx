@@ -1,9 +1,9 @@
+import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
 
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { StructuredReportLogEntry } from '../../types';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { StructuredReportLogEntry } from '@app/ingest/source/types';
 
 const Container = styled.div`
     display: flex;
@@ -35,7 +35,7 @@ export function StructuredReportItemContext({ item }: Props) {
             <Tooltip showArrow={false} title="Additional context about the source of the issue" placement="left">
                 <Title>Context</Title>
             </Tooltip>
-            {item.context.length
+            {(item.context?.length || 0) > 0
                 ? // eslint-disable-next-line react/no-array-index-key
                   item.context.map((contextItem, index) => <Item key={`${contextItem}-${index}`}>{contextItem}</Item>)
                 : 'No additional context found.'}

@@ -1,8 +1,9 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import { Pagination } from './Pagination';
-import { paginationDefaults } from './types';
+
+import { Pagination } from '@components/components/Pagination/Pagination';
+import { paginationDefaults } from '@components/components/Pagination/types';
 
 // Auto Docs
 const meta = {
@@ -38,10 +39,10 @@ const meta = {
                 type: 'number',
             },
         },
-        totalPages: {
+        total: {
             description: 'Total number of pages',
             table: {
-                defaultValue: { summary: `${paginationDefaults.totalPages}` },
+                defaultValue: { summary: `${paginationDefaults.total}` },
             },
             control: {
                 type: 'number',
@@ -65,7 +66,7 @@ const meta = {
     args: {
         currentPage: paginationDefaults.currentPage,
         itemsPerPage: paginationDefaults.itemsPerPage,
-        totalPages: paginationDefaults.totalPages,
+        total: paginationDefaults.total,
         loading: paginationDefaults.loading,
     },
 } satisfies Meta<typeof Pagination>;
@@ -83,4 +84,7 @@ export const sandbox: Story = {
     render: (props) => <Pagination {...props} />,
 };
 
-export const withSizeChanger = () => <Pagination currentPage={3} itemsPerPage={1} totalPages={10} showSizeChanger />;
+export const WithSizeChanger = () => {
+    const [current, setCurrent] = React.useState(3);
+    return <Pagination currentPage={current} itemsPerPage={1} total={10} onPageChange={setCurrent} showSizeChanger />;
+};

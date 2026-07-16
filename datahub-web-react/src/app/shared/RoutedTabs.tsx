@@ -1,8 +1,8 @@
-import * as React from 'react';
-import { Route, Switch, useRouteMatch, useLocation } from 'react-router-dom';
-import { Redirect, useHistory } from 'react-router';
 import { Tabs } from 'antd';
 import { TabsProps } from 'antd/lib/tabs';
+import * as React from 'react';
+import { Redirect, useHistory } from 'react-router';
+import { Route, Switch, useLocation, useRouteMatch } from 'react-router-dom';
 import styled from 'styled-components';
 
 const { TabPane } = Tabs;
@@ -23,6 +23,7 @@ interface Props extends TabsProps {
 const RoutedTabsStyle = styled.div`
     display: flex;
     flex-direction: column;
+    height: 100%;
     overflow: auto;
 `;
 
@@ -51,7 +52,12 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
             >
                 {tabs.map((tab) => {
                     return (
-                        <TabPane tab={tab.name} key={tab.path.replace('/', '')} disabled={!tab.display?.enabled()} />
+                        <TabPane
+                            tab={tab.name}
+                            key={tab.path.replace('/', '')}
+                            disabled={!tab.display?.enabled()}
+                            data-testid={`tab-${tab.path.replace('/', '').toLowerCase()}`}
+                        />
                     );
                 })}
             </Tabs>

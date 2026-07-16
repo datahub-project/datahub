@@ -1,8 +1,9 @@
-import OptionalTooltip from '@app/sharedV2/ant/OptionalTooltip';
 import { TooltipProps } from 'antd';
 import React, { useEffect } from 'react';
-import styled from 'styled-components';
 import Highlight from 'react-highlighter';
+import styled from 'styled-components';
+
+import OptionalTooltip from '@app/sharedV2/ant/OptionalTooltip';
 
 const Wrapper = styled.div<{ scale: number; computedRatio: boolean }>`
     // Wrap up to two lines, shrinking text as needed
@@ -14,9 +15,10 @@ const Wrapper = styled.div<{ scale: number; computedRatio: boolean }>`
     word-break: break-all;
 
     // Position at start, vertically, as parent aligns center
+    // Makes it so overflow does not offset the text vertically
     display: flex;
     align-items: start;
-    height: 100%;
+    height: fit-content;
 
     mark {
         padding: 0;
@@ -24,7 +26,12 @@ const Wrapper = styled.div<{ scale: number; computedRatio: boolean }>`
 `;
 
 const ExtraWrapper = styled.span`
-    margin-left: 0.4em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+
+    margin-left: 4px;
 `;
 
 const MIN_SCALE = 2 / 3;
@@ -67,12 +74,12 @@ export default function OverflowTitle({
     }, []);
 
     return (
-        <OptionalTooltip tooltipProps={{ title, placement }} enabled={scale < TOOLTIP_THRESHOLD}>
+        <OptionalTooltip title={title} placement={placement} enabled={scale < TOOLTIP_THRESHOLD}>
             <Wrapper className={className} ref={ref} scale={scale} computedRatio={!!ratio}>
                 <Highlight search={highlightText} matchStyle={{ backgroundColor: highlightColor }}>
                     {title}
-                    {!!extra && <ExtraWrapper>{extra}</ExtraWrapper>}
                 </Highlight>
+                {!!extra && <ExtraWrapper>{extra}</ExtraWrapper>}
             </Wrapper>
         </OptionalTooltip>
     );

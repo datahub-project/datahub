@@ -1,65 +1,58 @@
-import { MutationFunctionOptions, FetchResult } from '@apollo/client';
+import { FetchResult, MutationFunctionOptions } from '@apollo/client';
 import React from 'react';
 
+import { FetchedEntity } from '@app/lineage/types';
+
 import {
+    ApplicationAssociation,
+    AssetSettings,
+    BrowsePathV2,
+    Container,
+    CustomPropertiesEntry,
+    DataJobInputOutput,
     DataPlatform,
+    DataPlatformInstance,
+    DataProcessInstance,
+    DataProcessRunEvent,
     DatasetEditableProperties,
     DatasetEditablePropertiesUpdate,
-    RawAspect,
+    Deprecation,
+    DisplayProperties,
+    Documentation,
+    DomainAssociation,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
+    Embed,
+    EntityLineageResult,
+    EntityPrivileges,
+    EntityRelationshipsResult,
     EntityType,
+    FabricType,
+    FineGrainedLineage,
+    Forms,
     GlobalTags,
     GlobalTagsUpdate,
     GlossaryTerms,
+    Health,
+    InputFields,
     InstitutionalMemory,
     InstitutionalMemoryUpdate,
     Maybe,
     Ownership,
     OwnershipUpdate,
-    SchemaMetadata,
-    EntityLineageResult,
-    SubTypes,
-    Container,
-    Health,
-    Status,
-    Deprecation,
-    DataPlatformInstance,
     ParentContainersResult,
-    EntityRelationshipsResult,
-    ParentNodesResult,
-    SiblingProperties,
-    CustomPropertiesEntry,
-    DomainAssociation,
-    InputFields,
-    FineGrainedLineage,
-    EntityPrivileges,
-    Embed,
-    FabricType,
-    BrowsePathV2,
-    DataJobInputOutput,
     ParentDomainsResult,
-    StructuredProperties,
-    Forms,
+    ParentNodesResult,
+    RawAspect,
+    ResolvedAuditStamp,
+    SchemaMetadata,
     ScrollResults,
-    Documentation,
-    DisplayProperties,
+    SiblingProperties,
+    Status,
+    StructuredProperties,
+    SubTypes,
     VersionProperties,
-    DataProcessRunEvent,
-} from '../../../types.generated';
-import { FetchedEntity } from '../../lineage/types';
-
-export type EntityTab = {
-    name: string;
-    component: React.FunctionComponent<{ properties?: any }>;
-    display?: {
-        visible: (GenericEntityProperties, T) => boolean; // Whether the tab is visible on the UI. Defaults to true.
-        enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
-    };
-    properties?: any;
-    id?: string;
-    getDynamicName?: (GenericEntityProperties, T) => string;
-};
+} from '@types';
 
 export type EntitySidebarSection = {
     component: React.FunctionComponent<{ properties?: any; readOnly?: boolean }>;
@@ -85,11 +78,13 @@ export type GenericEntityProperties = {
         sourceRef?: Maybe<string>;
         businessAttributeDataType?: Maybe<string>;
         externalUrl?: Maybe<string>;
+        createdOn?: Maybe<ResolvedAuditStamp>;
     }>;
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
     domain?: Maybe<DomainAssociation>;
+    applications?: Maybe<ApplicationAssociation[]>;
     dataProduct?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
@@ -136,8 +131,10 @@ export type GenericEntityProperties = {
     displayProperties?: Maybe<DisplayProperties>;
     notes?: Maybe<EntityRelationshipsResult>;
     versionProperties?: Maybe<VersionProperties>;
+    settings?: Maybe<AssetSettings>;
 
-    // Data process instance
+    // Data job / data process instance
+    lastRun?: Maybe<DataProcessInstance>;
     lastRunEvent?: Maybe<DataProcessRunEvent>;
 };
 
@@ -176,11 +173,13 @@ export type EntityContextType = {
     entityType: EntityType;
     dataNotCombinedWithSiblings: any;
     entityData: GenericEntityProperties | null;
+    rootEntityData?: GenericEntityProperties | null;
     loading: boolean;
     baseEntity: any;
     updateEntity?: UpdateEntityType<any> | null;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
+    refetchForms?: () => Promise<any>;
     lineage?: FetchedEntity | undefined;
     shouldRefetchEmbeddedListSearch?: boolean;
     setShouldRefetchEmbeddedListSearch?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -190,10 +189,6 @@ export type EntityContextType = {
 
 export type SchemaContextType = {
     refetch?: () => Promise<any>;
-};
-
-export type RequiredAndNotNull<T> = {
-    [P in keyof T]-?: Exclude<T[P], null | undefined>;
 };
 
 export type EntityAndType = {

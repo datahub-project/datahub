@@ -1,23 +1,23 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Popover } from '@components';
-import { percentileToColor, percentileToLabel } from './statsUtils';
-import { ANTD_GRAY } from '../constants';
+import React from 'react';
+import styled, { useTheme } from 'styled-components';
+
+import { percentileToColor, percentileToLabel } from '@app/entityV2/shared/stats/statsUtils';
 
 const Description = styled.div`
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     font-size: 14px;
 `;
 
 const Label = styled.span<{ color?: string }>`
     border-radius: 8px;
     padding: 2px 6px;
-    background-color: ${(props) => props.color || ANTD_GRAY[3]};
+    background-color: ${(props) => props.color || props.theme.colors.bgSurface};
     :hover {
         opacity: 0.7;
     }
     margin-left: 4px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type Props = {
@@ -26,15 +26,16 @@ type Props = {
 };
 
 export const PercentileLabel = ({ percentile, description }: Props) => {
+    const theme = useTheme();
     return (
         <Popover
-            color="#262626"
+            color={theme.colors.bgTooltip}
             overlayStyle={{ maxWidth: 260 }}
             placement="bottom"
             showArrow={false}
             content={<Description>{description}</Description>}
         >
-            <Label color={percentileToColor(percentile)}>{percentileToLabel(percentile)}</Label>
+            <Label color={percentileToColor(percentile, theme)}>{percentileToLabel(percentile)}</Label>
         </Popover>
     );
 };

@@ -1,9 +1,10 @@
-import React from 'react';
-import { Card, Row, Space, Typography } from 'antd';
-import { Link } from 'react-router-dom';
 import { ArrowRightOutlined, FolderOutlined } from '@ant-design/icons';
+import { Card, Row, Space, Typography } from 'antd';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { singularizeCollectionName } from '../entity/shared/utils';
+
+import { singularizeCollectionName } from '@app/entity/shared/utils';
 
 const styles = {
     row: { padding: 8 },
@@ -12,15 +13,15 @@ const styles = {
 
 const ResultCard = styled(Card)`
     && {
-        border-color: ${(props) => props.theme.styles['border-color-base']};
-        box-shadow: ${(props) => props.theme.styles['box-shadow']};
+        border-color: ${(props) => props.theme.colors.border};
+        box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
     &&:hover {
-        box-shadow: ${(props) => props.theme.styles['box-shadow-hover']};
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
 `;
 
-export interface BrowseResultProps {
+interface BrowseResultProps {
     url: string;
     name: string;
     count?: number | undefined;

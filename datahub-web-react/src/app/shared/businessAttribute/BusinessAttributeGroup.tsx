@@ -1,11 +1,15 @@
-import styled from 'styled-components';
-import { Button, Typography } from 'antd';
-import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
-import { EMPTY_MESSAGES } from '../../entity/shared/constants';
-import { BusinessAttributeAssociation, EntityType } from '../../../types.generated';
-import EditBusinessAttributeModal from './AddBusinessAttributeModal';
-import StyledAttribute from './StyledAttribute';
+import { Text } from '@components';
+import { Button } from 'antd';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import EditBusinessAttributeModal from '@app/shared/businessAttribute/AddBusinessAttributeModal';
+import StyledAttribute from '@app/shared/businessAttribute/StyledAttribute';
+
+import { BusinessAttributeAssociation, EntityType } from '@types';
 
 type Props = {
     businessAttribute?: BusinessAttributeAssociation;
@@ -20,7 +24,7 @@ type Props = {
     entitySubresource?: string;
     highlightText?: string;
     fontSize?: number;
-    refetch?: () => Promise<any>;
+    refetch?: () => void;
     readOnly?: boolean;
 };
 
@@ -45,6 +49,7 @@ export default function BusinessAttributeGroup({
     highlightText,
     fontSize,
 }: Props) {
+    const { t } = useTranslation('shared.business-attribute');
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.BusinessAttribute);
     const businessAttributeEmpty = !businessAttribute?.associatedUrn?.length;
@@ -64,9 +69,11 @@ export default function BusinessAttributeGroup({
                 />
             )}
             {showEmptyMessage && canAddAttribute && businessAttributeEmpty && (
-                <Typography.Paragraph type="secondary">
+                <Text color="textSecondary">
+                    {/* eslint-disable i18next/no-literal-string -- (untranslated-text) EMPTY_MESSAGES content from shared constants; only the punctuation separator is literal */}
                     {EMPTY_MESSAGES.businessAttributes.title}. {EMPTY_MESSAGES.businessAttributes.description}
-                </Typography.Paragraph>
+                    {/* eslint-enable i18next/no-literal-string */}
+                </Text>
             )}
             {canAddAttribute && !readOnly && businessAttributeEmpty && (
                 <NoElementButton
@@ -78,7 +85,7 @@ export default function BusinessAttributeGroup({
                     {...buttonProps}
                 >
                     <PlusOutlined />
-                    <span>Add Attribute</span>
+                    <span>{t('addAttribute')}</span>
                 </NoElementButton>
             )}
             {showAddModal && !!entityUrn && !!entityType && (

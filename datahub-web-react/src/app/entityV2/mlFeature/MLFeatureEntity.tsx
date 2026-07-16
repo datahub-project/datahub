@@ -1,31 +1,39 @@
-import { ListBullets, TreeStructure, ChartScatter, WarningCircle, FileText, Infinity } from '@phosphor-icons/react';
-import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
+import { ChartScatter } from '@phosphor-icons/react/dist/csr/ChartScatter';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Infinity } from '@phosphor-icons/react/dist/csr/Infinity';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import i18next from 'i18next';
 import * as React from 'react';
-import { useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
-import { EntityType, MlFeature, SearchResult } from '../../../types.generated';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { FeatureTableTab } from '../shared/tabs/ML/MlFeatureFeatureTableTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
-import { Preview } from './preview/Preview';
-import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+
+import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { Preview } from '@app/entityV2/mlFeature/preview/Preview';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
+import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
+import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
+import { FeatureTableTab } from '@app/entityV2/shared/tabs/ML/MlFeatureFeatureTableTab';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
+
+import { useGetMlFeatureQuery } from '@graphql/mlFeature.generated';
+import { EntityType, MlFeature, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.UPDATE_DEPRECATION,
@@ -40,28 +48,12 @@ export class MLFeatureEntity implements Entity<MlFeature> {
     type: EntityType = EntityType.Mlfeature;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ChartScatter className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} weight="regular" />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <ChartScatter
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#9633b9' }}
-                    weight="regular"
-                />
-            );
-        }
-
         return (
             <ChartScatter
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
-                weight="regular"
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -78,9 +70,9 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getPathName = () => 'features';
 
-    getEntityName = () => 'Feature';
+    getEntityName = () => i18next.t('entity.types:mlFeature.name');
 
-    getCollectionName = () => 'Features';
+    getCollectionName = () => i18next.t('entity.types:mlFeature.namePlural');
 
     getOverridePropertiesFromEntity = (feature?: MlFeature | null): GenericEntityProperties => {
         return {
@@ -101,32 +93,32 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Feature Tables',
+                    name: i18next.t('entity.types:tab.featureTables'),
                     component: FeatureTableTab,
                     icon: Infinity,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     icon: TreeStructure,
+                    supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
-                    name: 'Incidents',
+                    name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningCircle,
                     component: IncidentTab,
-                    getDynamicName: (_, mlFeature, loading) => {
-                        const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, mlFeature) => {
+                        return mlFeature?.mlFeature?.activeIncidents?.total;
                     },
                 },
             ]}
@@ -152,6 +144,9 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             component: SidebarDomainSection,
         },
         {
+            component: SidebarApplicationSection,
+        },
+        {
             component: DataProductSection,
         },
         {
@@ -170,18 +165,18 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -228,6 +223,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -266,6 +262,9 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

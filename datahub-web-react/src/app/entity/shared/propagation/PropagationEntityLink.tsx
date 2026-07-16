@@ -1,9 +1,12 @@
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { Entity, EntityType, SchemaFieldEntity } from '../../../../types.generated';
-import { GenericEntityProperties } from '../types';
+import styled from 'styled-components';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityType, SchemaFieldEntity } from '@types';
 
 const PreviewImage = styled.img<{ size: number }>`
     height: ${(props) => props.size}px;
@@ -28,6 +31,7 @@ interface Props {
 }
 
 export default function PropagationEntityLink({ entity }: Props) {
+    const { t: tc } = useTranslation('shared.misc');
     const entityRegistry = useEntityRegistry();
 
     const isSchemaField = entity.type === EntityType.SchemaField;
@@ -48,7 +52,7 @@ export default function PropagationEntityLink({ entity }: Props) {
     return (
         <>
             <StyledLink to={entityUrl}>
-                <PreviewImage src={logoUrl} alt="test" size={14} />
+                <PreviewImage src={logoUrl} alt={tc('platformIcon.alt')} size={14} />
                 {entityDisplayName}
             </StyledLink>
         </>

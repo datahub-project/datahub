@@ -1,7 +1,6 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { Button, Tooltip } from '@components';
+import React from 'react';
+import styled from 'styled-components';
 
 const Icon = styled.div`
     margin-right: 8px;

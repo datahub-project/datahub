@@ -7,7 +7,8 @@ import com.linkedin.common.FabricType
  * Key for an ML model
  */
 @Aspect = {
-  "name": "mlModelKey"
+  "name": "mlModelKey",
+  "schemaVersion": 2
 }
 record MLModelKey {
   /**
@@ -19,10 +20,13 @@ record MLModelKey {
   * Name of the MLModel
   */
   @Searchable = {
+    "fieldName": "id",
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   name: string
 

@@ -1,15 +1,23 @@
-import React from 'react';
 import { Menu, MenuItemProps, Tooltip } from 'antd';
+import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import { colors, Badge, Text } from '@src/alchemy-components';
-import { NavBarMenuBaseItem } from './types';
+
+import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
+import { Badge, Text } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     &&& {
         position: relative;
-        padding: 4px 8px;
-        margin: 8px 0;
+        padding: ${(props) => (props.isCollapsed ? '4px 0 !important' : '4px 8px')};
+        ${(props) =>
+            props.isCollapsed &&
+            `
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        `}
+        margin: 4px 0;
         margin-bottom: 0;
         height: 36px;
         min-height: 36px;
@@ -17,18 +25,29 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         border: 0;
         display: flex;
         align-items: center;
-        ${(props) => props.isCollapsed && 'width: 36px;'}
+        ${(props) =>
+            props.isCollapsed &&
+            `
+            width: 100%;
+            justify-content: center;
+        `}
+        @media (max-height: 970px) {
+            margin: 2px 0;
+        }
+        @media (max-height: 890px) {
+            margin: 0;
+        }
     }
 
     && svg {
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.icon};
         width: 20px;
         height: 20px;
     }
 
     && .ant-menu-title-content {
         width: 100%;
-        color: ${colors.gray[1700]};
+        color: ${(props) => props.theme.colors.textSecondary};
         font-family: Mulish;
         font-size: 14px;
         font-style: normal;
@@ -39,36 +58,37 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         align-items: center;
         height: 36px;
         line-height: 24px;
+        ${(props) =>
+            props.isCollapsed &&
+            `
+            justify-content: center;
+            gap: 0;
+            width: auto;
+        `}
     }
 
     &:hover,
     &.ant-menu-item-active {
-        background: linear-gradient(
-            180deg,
-            rgba(243, 244, 246, 0.5) -3.99%,
-            rgba(235, 236, 240, 0.5) 53.04%,
-            rgba(235, 236, 240, 0.5) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
+        background: ${(props) => props.theme.colors.bgHover};
+        box-shadow: ${(props) => props.theme.colors.shadowFocus};
     }
 
     &&.ant-menu-item-selected {
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+        background: ${(props) => props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${(props) => props.theme.colors.shadowFocusBrand};
     }
 `;
 
 const Icon = styled.div<{ $isSelected?: boolean; $size?: number }>`
     width: ${(props) => props.$size ?? 20}px;
     height: ${(props) => props.$size ?? 20}px;
+    flex: 0 0 auto;
 
     && svg {
-        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        ${(props) =>
+            props.$isSelected
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.textBrand};`
+                : `color: ${props.theme.colors.icon};`}
         width: ${(props) => props.$size ?? 20}px;
         height: ${(props) => props.$size ?? 20}px;
     }
@@ -78,7 +98,7 @@ const StyledText = styled(Text)<{ $isSelected?: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(#7565d6 20%, #5340cc 80%);
+        background: ${props.theme.colors.brandGradientSelected};
         background-clip: text;
         -webkit-text-fill-color: transparent;
     `}
@@ -94,9 +114,9 @@ const PillDot = styled.div<{ $isSelected?: boolean }>`
     position: absolute;
     width: 10px;
     height: 10px;
-    background: ${colors.violet[500]};
+    background: ${(props) => props.theme.colors.buttonFillBrand};
     border-radius: 6px;
-    border: 2px solid ${(props) => (props.$isSelected ? '#f9fafc' : '#f2f3fa')};
+    border: 2px solid ${(props) => props.theme.colors.bgSurfaceNewNav};
     top: 6px;
     left: 22px;
 `;
@@ -112,8 +132,9 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
     const history = useHistory();
 
     const onClick = () => {
+        analytics.event({ type: EventType.NavBarItemClick, label: item.title });
+        if (item.onClick) item.onClick();
         if (item.link) return history.push(item.link);
-        if (item.onClick) return item.onClick();
         return null;
     };
 
@@ -138,7 +159,7 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
                         <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
                             {item.title}
                         </StyledText>
-                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} color="violet" />}
+                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} color="primary" />}
                     </ItemTitleContentWrapper>
                 )}
             </StyledMenuItem>

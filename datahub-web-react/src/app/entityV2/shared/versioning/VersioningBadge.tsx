@@ -1,9 +1,12 @@
-import { VersionPill } from '@app/entityV2/shared/versioning/common';
-import VersionsPreview from '@app/entityV2/shared/versioning/VersionsPreview';
 import { Popover } from '@components';
-import { PillStyleProps } from '@components/components/Pills/types';
 import { Space } from 'antd';
 import React from 'react';
+
+import { PillStyleProps } from '@components/components/Pills/types';
+
+import VersionsPreview from '@app/entityV2/shared/versioning/VersionsPreview';
+import { VersionPill } from '@app/entityV2/shared/versioning/common';
+
 import { VersionProperties } from '@types';
 
 interface Props {

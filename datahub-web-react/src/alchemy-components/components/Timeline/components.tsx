@@ -1,4 +1,3 @@
-import { colors } from '@src/alchemy-components/theme';
 import { Timeline as AntdTimeline } from 'antd';
 import styled from 'styled-components';
 
@@ -9,6 +8,6 @@ export const StyledAntdTimeline = styled(AntdTimeline)`
 
     .ant-timeline-item-tail {
         border-width: 1px;
-        border-color: ${colors.gray[100]};
+        border-color: ${({ theme }) => theme.colors.border};
     }
 ` as typeof AntdTimeline;

@@ -1,9 +1,6 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { Tooltip } from '@components';
-
-import { ANTD_GRAY } from '../../../../../../../constants';
+import React from 'react';
+import styled from 'styled-components';
 
 const Pill = styled.div<{ selected: boolean }>`
     display: flex;
@@ -11,8 +8,9 @@ const Pill = styled.div<{ selected: boolean }>`
     align-items: center;
     border-radius: 20px;
     padding: 4px 12px;
-    background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : ANTD_GRAY[3])};
-    color: ${(props) => (props.selected ? '#fff' : ANTD_GRAY)};
+    background-color: ${(props) =>
+        props.selected ? props.theme.colors.buttonFillBrand : props.theme.colors.bgSurface};
+    color: ${(props) => (props.selected ? props.theme.colors.textOnFillBrand : props.theme.colors.text)};
     :hover {
         opacity: 0.6;
         cursor: pointer;

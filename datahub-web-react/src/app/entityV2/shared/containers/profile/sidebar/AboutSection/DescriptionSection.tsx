@@ -1,31 +1,27 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import CompactMarkdownViewer from '../../../../tabs/Documentation/components/CompactMarkdownViewer';
-import { REDESIGN_COLORS } from '../../../../constants';
+
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 const ContentWrapper = styled.div`
     font-size: 12px;
     font-weight: 500;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: 20px;
     white-space: break-spaces;
+    width: 100%;
 `;
 
 interface Props {
     description: string;
     isExpandable?: boolean;
     lineLimit?: number;
-    isShowMoreEnabled?: boolean;
 }
 
-export default function DescriptionSection({ description, isExpandable, lineLimit, isShowMoreEnabled }: Props) {
+export default function DescriptionSection({ description, isExpandable, lineLimit }: Props) {
     return (
         <ContentWrapper>
-            <CompactMarkdownViewer
-                lineLimit={isExpandable ? lineLimit : null}
-                content={description}
-                isShowMoreEnabled={isShowMoreEnabled}
-            />
+            <CompactMarkdownViewer lineLimit={isExpandable ? lineLimit : null} content={description} />
         </ContentWrapper>
     );
 }

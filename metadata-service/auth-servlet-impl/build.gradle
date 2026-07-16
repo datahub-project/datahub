@@ -17,6 +17,7 @@ dependencies {
   implementation externalDependency.springContext
   implementation externalDependency.guice
   implementation externalDependency.slf4jApi
+  implementation externalDependency.opentelemetryApi
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok

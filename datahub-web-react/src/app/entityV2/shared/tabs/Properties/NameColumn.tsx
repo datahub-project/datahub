@@ -1,13 +1,16 @@
-import { Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 import Highlight from 'react-highlighter';
-import { PropertyRow } from './types';
-import StructuredPropertyTooltip from './StructuredPropertyTooltip';
+import styled, { useTheme } from 'styled-components';
+
+import StructuredPropertyTooltip from '@app/entityV2/shared/tabs/Properties/StructuredPropertyTooltip';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+
+const MIN_CONTENT = 'min-content' as const;
 
 const ParentNameText = styled(Typography.Text)`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-family: Manrope;
     font-weight: 600;
@@ -20,23 +23,28 @@ const ParentNameText = styled(Typography.Text)`
 
 const ChildNameText = styled(Typography.Text)`
     align-self: stretch;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-family: Manrope;
     font-weight: 500;
     word-wrap: break-word;
-    display: flex;
-    align-items: center;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    min-width: 0;
 `;
 
 const NameLabelWrapper = styled.span`
     display: inline-flex;
     align-items: center;
     flex-wrap: wrap;
+    max-width: 80%;
 `;
 
 const ChildCountText = styled.span`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
 `;
 
@@ -46,6 +54,7 @@ interface Props {
 }
 
 export default function NameColumn({ propertyRow, filterText }: Props) {
+    const theme = useTheme();
     const { structuredProperty } = propertyRow;
 
     return (
@@ -64,9 +73,9 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
             ) : (
                 <NameLabelWrapper>
                     <Tooltip
-                        color="#373D44"
+                        color={theme.colors.bgTooltip}
                         placement="topRight"
-                        overlayStyle={{ minWidth: 'min-content' }}
+                        overlayStyle={{ minWidth: MIN_CONTENT }}
                         title={structuredProperty ? <StructuredPropertyTooltip propertyRow={propertyRow} /> : ''}
                     >
                         <ChildNameText>

@@ -1,15 +1,20 @@
 import { LoadingOutlined, SubnodeOutlined } from '@ant-design/icons';
 import { AutoComplete, Empty } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../graphql/search.generated';
-import { Entity, EntityType } from '../../../types.generated';
-import { Direction } from '../types';
-import { getValidEntityTypes } from '../utils/manageLineageUtils';
-import LineageEntityView from './LineageEntityView';
-import EntityRegistry from '../../entity/EntityRegistry';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+
+import EntityRegistry from '@app/entity/EntityRegistry';
+import LineageEntityView from '@app/lineage/manage/LineageEntityView';
+import { Direction } from '@app/lineage/types';
+import { getValidEntityTypes } from '@app/lineage/utils/manageLineageUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
+import { Entity, EntityType } from '@types';
+
+// AutoComplete option discriminator for the loading state — programmatic value, not user-visible.
+const LOADING_OPTION_VALUE = 'loading';
 
 const AddEdgeWrapper = styled.div`
     padding: 15px 20px;
@@ -42,15 +47,20 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
-function getPlaceholderText(validEntityTypes: EntityType[], entityRegistry: EntityRegistry) {
-    let placeholderText = 'Search for ';
+function getPlaceholderText(
+    validEntityTypes: EntityType[],
+    entityRegistry: EntityRegistry,
+    t: (key: string) => string,
+) {
     if (!validEntityTypes.length) {
-        placeholderText = `${placeholderText} entities to add...`;
-    } else if (validEntityTypes.length === 1) {
+        return t('add.searchPlaceholderDefault');
+    }
+    let placeholderText = 'Search for ';
+    if (validEntityTypes.length === 1) {
         placeholderText = `${placeholderText} ${entityRegistry.getCollectionName(validEntityTypes[0])}...`;
     } else {
         validEntityTypes.forEach((type, index) => {
@@ -62,7 +72,7 @@ function getPlaceholderText(validEntityTypes: EntityType[], entityRegistry: Enti
     return placeholderText;
 }
 
-export function existsInEntitiesToAdd(result: Entity, entitiesAlreadyAdded: Entity[]) {
+function existsInEntitiesToAdd(result: Entity, entitiesAlreadyAdded: Entity[]) {
     return !!entitiesAlreadyAdded.find((entity) => entity.urn === result.urn);
 }
 
@@ -81,6 +91,7 @@ export default function AddEntityEdge({
     entityUrn,
     entityType,
 }: Props) {
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
     const [getAutoCompleteResults, { data: autoCompleteResults, loading }] =
         useGetAutoCompleteMultipleResultsLazyQuery();
@@ -126,13 +137,13 @@ export default function AddEntityEdge({
         .filter((entity) => entity && !existsInEntitiesToAdd(entity, entitiesToAdd) && entity.urn !== entityUrn)
         .map((entity) => renderSearchResult(entity));
 
-    const placeholderText = getPlaceholderText(validEntityTypes, entityRegistry);
+    const placeholderText = getPlaceholderText(validEntityTypes, entityRegistry, t);
 
     return (
         <AddEdgeWrapper>
             <AddLabel>
                 <AddIcon />
-                Add {lineageDirection}
+                {lineageDirection === Direction.Upstream ? t('add.addUpstream') : t('add.addDownstream')}
             </AddLabel>
             <StyledAutoComplete
                 autoFocus
@@ -142,10 +153,10 @@ export default function AddEntityEdge({
                 onSearch={handleSearch}
                 onSelect={(urn: any) => selectEntity(urn)}
                 filterOption={false}
-                notFoundContent={(queryText.length > 3 && <Empty description="No Assets Found" />) || undefined}
+                notFoundContent={(queryText.length > 3 && <Empty description={t('add.noAssetsFound')} />) || undefined}
             >
                 {loading && (
-                    <AutoComplete.Option value="loading">
+                    <AutoComplete.Option value={LOADING_OPTION_VALUE}>
                         <LoadingWrapper>
                             <LoadingOutlined />
                         </LoadingWrapper>

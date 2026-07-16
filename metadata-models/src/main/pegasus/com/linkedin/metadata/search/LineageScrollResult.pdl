@@ -31,4 +31,9 @@ record LineageScrollResult {
    * The total number of entities directly under searched path
    */
   numEntities: int
+
+  /**
+   * Indicates whether the results are partial due to reaching the maxRelations limit or timeout
+   */
+  isPartial: optional boolean
 }

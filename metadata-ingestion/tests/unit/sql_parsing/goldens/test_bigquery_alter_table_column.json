@@ -7,6 +7,7 @@
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-project.covid_data.covid_deaths,PROD)"
     ],
     "column_lineage": null,
+    "joins": null,
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "ALTER TABLE `my-bq-project.covid_data.covid_deaths` DROP COLUMN patient_name"

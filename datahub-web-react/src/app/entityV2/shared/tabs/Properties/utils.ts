@@ -1,14 +1,5 @@
-import { CustomPropertiesEntry } from '../../../../../types.generated';
-import EntityRegistry from '../../../EntityRegistry';
-import { GenericEntityProperties } from '../../../../entity/shared/types';
-import { PropertyRow, ValueColumnData } from './types';
-
-export function mapCustomPropertiesToPropertyRows(customProperties: CustomPropertiesEntry[]) {
-    return (customProperties?.map((customProp) => ({
-        displayName: customProp.key,
-        values: [{ value: customProp.value || '' }],
-    })) || []) as PropertyRow[];
-}
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { PropertyRow, ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
 
 function matchesName(name: string, filterText: string) {
     return name.toLocaleLowerCase().includes(filterText.toLocaleLowerCase());
@@ -19,12 +10,6 @@ function matchesAnyFromValues(values: ValueColumnData[], filterText: string, ent
         (value) =>
             matchesName(value.value?.toString() || '', filterText) ||
             matchesName(value.entity ? entityRegistry.getDisplayName(value.entity.type, value.entity) : '', filterText),
-    );
-}
-
-export function getFilteredCustomProperties(filterText: string, entityData?: GenericEntityProperties | null) {
-    return entityData?.customProperties?.filter(
-        (property) => matchesName(property.key, filterText) || matchesName(property.value || '', filterText),
     );
 }
 

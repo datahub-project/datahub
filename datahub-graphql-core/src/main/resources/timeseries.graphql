@@ -1,0 +1,36 @@
+extend type Dataset {
+  """
+  Returns a set of capabilities regarding our timerseries indices
+  """
+  timeseriesCapabilities: TimeseriesCapabilitiesResult
+}
+
+"""
+A set of capabilities regarding our timerseries indices
+"""
+type TimeseriesCapabilitiesResult {
+  """
+  Information regarding asset stats
+  """
+  assetStats: AssetStatsResult
+}
+
+"""
+Information regarding asset stats
+"""
+type AssetStatsResult {
+  """
+  The oldest dataset operation in our index
+  """
+  oldestOperationTime: Long
+
+  """
+  The oldest dataset usage in our index
+  """
+  oldestDatasetUsageTime: Long
+
+  """
+  The oldest dataset profile in our index
+  """
+  oldestDatasetProfileTime: Long
+}

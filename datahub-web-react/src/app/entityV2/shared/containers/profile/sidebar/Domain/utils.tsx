@@ -1,25 +1,26 @@
+import i18next from 'i18next';
+import * as QueryString from 'query-string';
 import React from 'react';
 import styled from 'styled-components';
-import * as QueryString from 'query-string';
-import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '../../../../../../../types.generated';
-import filtersToQueryStringParams from '../../../../../../search/utils/filtersToQueryStringParams';
-import { pluralize } from '../../../../../../shared/textUtil';
-import { EntityRegistry } from '../../../../../../../entityRegistryContext';
-import { ANTD_GRAY } from '../../../../constants';
+
+import filtersToQueryStringParams from '@app/search/utils/filtersToQueryStringParams';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@types';
 
 const UNIT_SEPARATOR = '␞';
 
 const SummaryText = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
-export type ContentTypeSummary = {
+type ContentTypeSummary = {
     entityType: EntityType;
     type?: string;
     count: number;
 };
 
-export type ContentsSummary = {
+type ContentsSummary = {
     total: number;
     types: ContentTypeSummary[];
 };
@@ -91,13 +92,14 @@ export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry:
             {summary.types.map((type, idx) => {
                 return (
                     <SummaryText key={type.entityType}>
-                        {type.count}{' '}
-                        {pluralize(
-                            type.count,
-                            !type.type
-                                ? (entityRegistry.getEntityName(type.entityType as EntityType) as any)
-                                : type.type,
-                        ).toLocaleLowerCase()}
+                        {i18next.t('entity.shared.containers:sidebar.entityTypeCount', {
+                            count: type.count,
+                            type: (!type.type
+                                ? entityRegistry.getEntityName(type.entityType as EntityType)
+                                : type.type
+                            )?.toLocaleLowerCase(),
+                        })}
+                        {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>
                 );

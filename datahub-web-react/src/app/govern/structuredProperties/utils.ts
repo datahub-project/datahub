@@ -1,15 +1,27 @@
+import i18next from 'i18next';
+
+import {
+    DATE_TYPE_URN,
+    NUMBER_TYPE_URN,
+    RICH_TEXT_TYPE_URN,
+    STRING_TYPE_URN,
+    URN_TYPE_URN,
+} from '@app/shared/constants';
 import EntityRegistry from '@src/app/entity/EntityRegistry';
 import { mapStructuredPropertyToPropertyRow } from '@src/app/entity/shared/tabs/Properties/useStructuredProperties';
 import {
+    DISPLAY_NAME_FILTER_NAME,
     ENTITY_TYPES_FILTER_NAME,
     IS_HIDDEN_PROPERTY_FILTER_NAME,
-    SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
     SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
+    VALUE_TYPE_FIELD_NAME,
 } from '@src/app/search/utils/constants';
 import {
     AllowedValue,
+    Entity,
     EntityType,
     FacetFilterInput,
+    FilterOperator,
     Maybe,
     PropertyCardinality,
     SearchResult,
@@ -18,6 +30,27 @@ import {
     StructuredPropertySettings,
 } from '@src/types.generated';
 
+/**
+ * Returns true if the given structured property should be shown for an entity on the given platform.
+ * If the property has no allowedPlatforms restriction, it matches any platform.
+ * If platformUrn is not provided, only unrestricted properties match.
+ */
+export function matchesAllowedPlatforms(
+    property: StructuredPropertyEntity,
+    platformUrn: string | null | undefined,
+): boolean {
+    const allowedPlatforms = property.definition?.allowedPlatforms;
+    if (!allowedPlatforms || allowedPlatforms.length === 0) {
+        // No restriction — applies to all platforms
+        return true;
+    }
+    if (!platformUrn) {
+        // Property is platform-restricted but entity has no platform
+        return false;
+    }
+    return allowedPlatforms.some((p) => p.urn === platformUrn);
+}
+
 export type StructuredProp = {
     displayName?: string;
     qualifiedName?: string;
@@ -25,6 +58,7 @@ export type StructuredProp = {
     description?: string | null;
     valueType?: string;
     entityTypes?: string[];
+    allowedPlatforms?: string[];
     typeQualifier?: {
         allowedTypes?: string[];
     };
@@ -35,60 +69,92 @@ export type StructuredProp = {
 
 export const valueTypes = [
     {
-        urn: 'urn:li:dataType:datahub.string',
-        label: 'Text',
+        urn: STRING_TYPE_URN,
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.textLabel');
+        },
         value: 'string',
         cardinality: PropertyCardinality.Single,
-        description: 'A string value',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.textDescription');
+        },
     },
     {
-        urn: 'urn:li:dataType:datahub.string',
-        label: 'Text - List',
+        urn: STRING_TYPE_URN,
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.textListLabel');
+        },
         value: 'stringList',
         cardinality: PropertyCardinality.Multiple,
-        description: 'A list of string values',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.textListDescription');
+        },
     },
     {
-        urn: 'urn:li:dataType:datahub.number',
-        label: 'Number',
+        urn: NUMBER_TYPE_URN,
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.numberLabel');
+        },
         value: 'number',
         cardinality: PropertyCardinality.Single,
-        description: 'An integer or decimal',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.numberDescription');
+        },
     },
     {
-        urn: 'urn:li:dataType:datahub.number',
-        label: 'Number - List',
+        urn: NUMBER_TYPE_URN,
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.numberListLabel');
+        },
         value: 'numberList',
         cardinality: PropertyCardinality.Multiple,
-        description: 'A list of integers or decimals',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.numberListDescription');
+        },
     },
     {
-        urn: 'urn:li:dataType:datahub.urn',
-        label: 'Entity',
+        urn: URN_TYPE_URN,
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.entityLabel');
+        },
         value: 'entity',
         cardinality: PropertyCardinality.Single,
-        description: 'A reference to a DataHub asset',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.entityDescription');
+        },
     },
     {
-        urn: 'urn:li:dataType:datahub.urn',
-        label: 'Entity - List',
+        urn: URN_TYPE_URN,
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.entityListLabel');
+        },
         value: 'entityList',
         cardinality: PropertyCardinality.Multiple,
-        description: 'A reference to a list of DataHub assets',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.entityListDescription');
+        },
     },
     {
-        urn: 'urn:li:dataType:datahub.rich_text',
-        label: 'Rich Text',
+        urn: RICH_TEXT_TYPE_URN,
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.richTextLabel');
+        },
         value: 'richText',
         cardinality: PropertyCardinality.Single,
-        description: 'A freeform string of markdown text ',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.richTextDescription');
+        },
     },
     {
-        urn: 'urn:li:dataType:datahub.date',
-        label: 'Date',
+        urn: DATE_TYPE_URN,
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.dateLabel');
+        },
         value: 'date',
         cardinality: PropertyCardinality.Single,
-        description: 'A specific date',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.dateDescription');
+        },
     },
 ];
 
@@ -112,6 +178,7 @@ export const SEARCHABLE_ENTITY_TYPES = [
     EntityType.CorpGroup,
     EntityType.Tag,
     EntityType.Role,
+    EntityType.Application,
 ];
 
 export const APPLIES_TO_ENTITIES = [
@@ -131,6 +198,8 @@ export const APPLIES_TO_ENTITIES = [
     EntityType.MlprimaryKey,
     EntityType.DataProduct,
     EntityType.SchemaField,
+    EntityType.DataContract,
+    EntityType.Application,
 ];
 
 export const getEntityTypeUrn = (entityRegistry: EntityRegistry, entityType: EntityType) => {
@@ -151,12 +220,19 @@ export const getValueTypeLabel = (valueUrn: string, cardinality: PropertyCardina
 
 export const getNewAllowedTypes = (entity: StructuredPropertyEntity, values: StructuredProp) => {
     const currentTypeUrns = entity.definition.typeQualifier?.allowedTypes?.map((type) => type.urn);
-    return values.typeQualifier?.allowedTypes?.filter((type) => !currentTypeUrns?.includes(type));
+    const newAllowedTypes = values.typeQualifier?.allowedTypes?.filter((type) => !currentTypeUrns?.includes(type));
+    return (newAllowedTypes?.length || 0) > 0 ? newAllowedTypes : undefined;
 };
 
 export const getNewEntityTypes = (entity: StructuredPropertyEntity, values: StructuredProp) => {
     const currentTypeUrns = entity.definition.entityTypes?.map((type) => type.urn);
     return values.entityTypes?.filter((type) => !currentTypeUrns.includes(type));
+};
+
+export const getNewAllowedPlatforms = (entity: StructuredPropertyEntity, values: StructuredProp) => {
+    const currentPlatformUrns = entity.definition.allowedPlatforms?.map((platform) => platform.urn);
+    const newPlatforms = values.allowedPlatforms?.filter((urn) => !currentPlatformUrns?.includes(urn));
+    return (newPlatforms?.length || 0) > 0 ? newPlatforms : undefined;
 };
 
 export const getNewAllowedValues = (entity: StructuredPropertyEntity, values: StructuredProp) => {
@@ -226,14 +302,6 @@ export const getShowInColumnsTablePropertyFilter = () => {
     return columnsTableFilter;
 };
 
-export const getShowInAssetSummaryPropertyFilter = () => {
-    const assetSummaryFilter: FacetFilterInput = {
-        field: SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
-        values: ['true'],
-    };
-    return assetSummaryFilter;
-};
-
 export const getEntityTypesPropertyFilter = (
     entityRegistry: EntityRegistry,
     isSchemaField: boolean,
@@ -247,3 +315,48 @@ export const getEntityTypesPropertyFilter = (
     };
     return entityTypesFilter;
 };
+
+export const getValueTypeFilter = (valueTypeUrns: string[]) => {
+    const valueTypeFilter: FacetFilterInput = {
+        field: VALUE_TYPE_FIELD_NAME,
+        values: valueTypeUrns,
+    };
+    return valueTypeFilter;
+};
+
+export const getDisplayNameFilter = (displayNameQuery: string) => {
+    const displayNameFilter: FacetFilterInput = {
+        field: DISPLAY_NAME_FILTER_NAME,
+        condition: FilterOperator.Contain,
+        values: [displayNameQuery],
+    };
+    return displayNameFilter;
+};
+
+export function isStructuredProperty(entity?: Entity | null | undefined): entity is StructuredPropertyEntity {
+    return !!entity && entity.type === EntityType.StructuredProperty;
+}
+
+export function getStructuredPropertiesSearchInputs(
+    entityRegistry: EntityRegistry,
+    entityType: EntityType,
+    fieldUrn?: string,
+    nameQuery?: string,
+) {
+    return {
+        types: [EntityType.StructuredProperty],
+        query: '*',
+        start: 0,
+        count: 100,
+        searchFlags: { skipCache: true },
+        orFilters: [
+            {
+                and: [
+                    getEntityTypesPropertyFilter(entityRegistry, !!fieldUrn, entityType),
+                    getNotHiddenPropertyFilter(),
+                    ...(nameQuery ? [getDisplayNameFilter(nameQuery)] : []),
+                ],
+            },
+        ],
+    };
+}

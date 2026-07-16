@@ -1,4 +1,4 @@
-# see https://datahubproject.io/docs/generated/ingestion/sources/superset for complete documentation
+# see https://docs.datahub.com/docs/generated/ingestion/sources/superset for complete documentation
 source:
   type: "superset"
   config:
@@ -7,7 +7,7 @@ source:
     provider: db
     connect_uri: http://localhost:8088/
 
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:

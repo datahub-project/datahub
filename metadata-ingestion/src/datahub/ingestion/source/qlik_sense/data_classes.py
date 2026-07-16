@@ -1,8 +1,9 @@
+from copy import deepcopy
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.qlik_sense.config import QLIK_DATETIME_FORMAT, Constant
@@ -78,7 +79,11 @@ PERSONAL_SPACE_DICT = {
 }
 
 
-class Space(BaseModel):
+class _QlikBaseModel(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+
+class Space(_QlikBaseModel):
     id: str
     name: str
     description: str
@@ -87,8 +92,12 @@ class Space(BaseModel):
     updatedAt: datetime
     ownerId: Optional[str] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
+
         values[Constant.CREATEDAT] = datetime.strptime(
             values[Constant.CREATEDAT], QLIK_DATETIME_FORMAT
         )
@@ -98,7 +107,7 @@ class Space(BaseModel):
         return values
 
 
-class Item(BaseModel):
+class Item(_QlikBaseModel):
     id: str
     description: str = ""
     ownerId: str
@@ -107,14 +116,17 @@ class Item(BaseModel):
     updatedAt: datetime
 
 
-class SchemaField(BaseModel):
+class SchemaField(_QlikBaseModel):
     name: str
     dataType: Optional[str] = None
     primaryKey: Optional[bool] = None
     nullable: Optional[bool] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         values[Constant.DATATYPE] = values.get(Constant.DATATYPE, {}).get(Constant.TYPE)
         return values
 
@@ -128,8 +140,11 @@ class QlikDataset(Item):
     itemId: str
     datasetSchema: List[SchemaField]
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         # Update str time to datetime
         values[Constant.CREATEDAT] = datetime.strptime(
             values[Constant.CREATEDTIME], QLIK_DATETIME_FORMAT
@@ -148,13 +163,13 @@ class QlikDataset(Item):
         return values
 
 
-class AxisProperty(BaseModel):
+class AxisProperty(_QlikBaseModel):
     Title: str = Field(alias="qFallbackTitle")
     Min: str = Field(alias="qMin")
     Max: str = Field(alias="qMax")
 
 
-class Chart(BaseModel):
+class Chart(_QlikBaseModel):
     qId: str
     visualization: str
     title: str
@@ -162,15 +177,18 @@ class Chart(BaseModel):
     qDimension: List[AxisProperty]
     qMeasure: List[AxisProperty]
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         values[Constant.QID] = values[Constant.QINFO][Constant.QID]
         values["qDimension"] = values[Constant.HYPERCUBE]["qDimensionInfo"]
         values["qMeasure"] = values[Constant.HYPERCUBE]["qMeasureInfo"]
         return values
 
 
-class Sheet(BaseModel):
+class Sheet(_QlikBaseModel):
     id: str
     title: str
     description: str
@@ -179,8 +197,11 @@ class Sheet(BaseModel):
     updatedAt: datetime
     charts: List[Chart] = []
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         values[Constant.CREATEDAT] = datetime.strptime(
             values[Constant.CREATEDDATE], QLIK_DATETIME_FORMAT
         )
@@ -190,7 +211,7 @@ class Sheet(BaseModel):
         return values
 
 
-class QlikTable(BaseModel):
+class QlikTable(_QlikBaseModel):
     tableName: str
     type: BoxType = Field(alias="boxType")
     tableAlias: str
@@ -204,8 +225,11 @@ class QlikTable(BaseModel):
     databaseName: Optional[str] = None
     schemaName: Optional[str] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         values[Constant.DATACONNECTORID] = values[Constant.CONNECTIONINFO][Constant.ID]
         values[Constant.DATACONNECTORPLATFORM] = values[Constant.CONNECTIONINFO][
             Constant.SOURCECONNECTORID
@@ -221,8 +245,11 @@ class App(Item):
     sheets: List[Sheet] = []
     tables: List[QlikTable] = []
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         values[Constant.CREATEDAT] = datetime.strptime(
             values[Constant.CREATEDDATE], QLIK_DATETIME_FORMAT
         )

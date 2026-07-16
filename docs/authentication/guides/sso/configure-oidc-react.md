@@ -1,6 +1,3 @@
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
 # Configuring OIDC Authentication
 
 The DataHub React application supports OIDC authentication built on top of the [Pac4j Play](https://github.com/pac4j/play-pac4j) library.
@@ -9,6 +6,7 @@ This enables operators of DataHub to integrate with 3rd party identity providers
 ## 1. Get your credentials
 
 Before you do anything, you'll want to set up DataHub with your SSO provider, and get prerequisite credentials:
+
 1. _Client ID_ - A unique identifier for your application with the identity provider
 2. _Client Secret_ - A shared secret to use for exchange between you and your identity provider.
 3. _Discovery URL_ - A URL where the OIDC API of your identity provider can be discovered.
@@ -109,6 +107,20 @@ AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 | AUTH_OIDC_SCOPE                        | A string representing the scopes to be requested from the identity provider, granted by the end user. For more info, see [OpenID Connect Scopes](https://auth0.com/docs/scopes/openid-connect-scopes).                                                                                                                                                                                                                              |                     |
 | AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD | a string representing the token authentication method to use with the identity provider. Default value is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes the client_id and secret_id as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4) | client_secret_basic |
 | AUTH_OIDC_PREFERRED_JWS_ALGORITHM      | Can be used to select a preferred signing algorithm for id tokens. Examples include: `RS256` or `HS256`. If your IdP includes `none` before `RS256`/`HS256` in the list of signing algorithms, then this value **MUST** be set.                                                                                                                                                                                                     |                     |
+
+## SSO Group-Based Access Control and Custom Messaging
+
+DataHub's SSO (Single Sign-On) integration supports group-based access control and customizable access denied messages using the following environment variables:
+
+- `AUTH_OIDC_REQUIRED_GROUPS`: A comma-separated list of required groups, extracted from the OIDC groups claim, for login. If set, users must have ANY of the specified groups to access DataHub. If unset, group enforcement is disabled and any authenticated user can log in.
+- `AUTH_OIDC_ACCESS_DENIED_MESSAGE`: The message displayed to users who are denied access because they do not belong to the required groups. If not set, a default error message is shown.
+
+**Example usage:**
+
+```
+AUTH_OIDC_REQUIRED_GROUPS=engineering,admins
+AUTH_OIDC_ACCESS_DENIED_MESSAGE=Access Denied: You do not belong to the required groups to access this application. Please contact your administrator.
+```
 
 ### User & Group Provisioning (JIT Provisioning)
 

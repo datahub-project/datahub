@@ -1,7 +1,9 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import AutoComplete from './AutoComplete';
+
+import AutoComplete from '@components/components/AutoComplete/AutoComplete';
+import { Input } from '@components/components/Input';
 
 // Auto Docs
 const meta = {
@@ -93,6 +95,13 @@ const meta = {
                 'Determine whether the dropdown menu and the select input are the same width.' +
                 'Default set min-width same as input. Will ignore when value less than select width.',
         },
+        clickOutsideWidth: {
+            description:
+                'Customize width of the wrapper to handle outside clicks. This wrapper is fit-content by default',
+        },
+        shouldPreventOptionSelectingByMouseMove: {
+            description: 'When enabled it prepents selecting option by mouse move event',
+        },
     },
 
     // Define defaults
@@ -116,7 +125,7 @@ export const sandbox: Story = {
     tags: ['dev'],
     render: (props) => (
         <AutoComplete {...props}>
-            <input />
+            <Input label="" />
         </AutoComplete>
     ),
 };

@@ -1,14 +1,16 @@
-import React, { useMemo } from 'react';
-import styled from 'styled-components';
 import { AxisScaleOutput } from '@visx/axis';
-import { Axis, LineSeries, XYChart, Tooltip, GlyphSeries } from '@visx/xychart';
 import { curveMonotoneX } from '@visx/curve';
 import { ScaleConfig, scaleOrdinal } from '@visx/scale';
-import { TimeSeriesChart as TimeSeriesChartType, NumericDataPoint, NamedLine } from '../../../types.generated';
-import { lineColors } from './lineColors';
-import Legend from './Legend';
-import { addInterval } from '../../shared/time/timeUtils';
-import { formatNumber } from '../../shared/formatNumber';
+import { Axis, GlyphSeries, LineSeries, Tooltip, XYChart } from '@visx/xychart';
+import React, { useMemo } from 'react';
+import styled from 'styled-components';
+
+import Legend from '@app/analyticsDashboard/components/Legend';
+import { lineColors } from '@app/analyticsDashboard/components/lineColors';
+import { formatNumber } from '@app/shared/formatNumber';
+import { addInterval } from '@app/shared/time/timeUtils';
+
+import { NamedLine, NumericDataPoint, TimeSeriesChart as TimeSeriesChartType } from '@types';
 
 type AxisConfig = {
     formatter: (tick: number) => string;

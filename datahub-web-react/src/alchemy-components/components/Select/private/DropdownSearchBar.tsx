@@ -1,7 +1,10 @@
-import React from 'react';
 import { Input } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { SelectSizeOptions } from '../types';
+
+import { SelectSizeOptions } from '@components/components/Select/types';
 
 const SearchInputContainer = styled.div({
     position: 'relative',
@@ -15,19 +18,24 @@ interface DropdownSearchBarProps {
     value?: string;
     size?: SelectSizeOptions;
     onChange?: (value: string) => void;
+    onClear?: () => void;
 }
 
-export default function DropdownSearchBar({ placeholder, value, size, onChange }: DropdownSearchBarProps) {
+export default function DropdownSearchBar({ placeholder, value, size, onChange, onClear }: DropdownSearchBarProps) {
+    const { t } = useTranslation('alchemy');
     return (
         <SearchInputContainer>
             <Input
                 label=""
                 type="text"
-                icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
-                placeholder={placeholder || 'Search...'}
+                icon={{ icon: MagnifyingGlass }}
+                placeholder={placeholder || t('search.placeholder')}
                 value={value}
                 onChange={(e) => onChange?.(e.target.value)}
                 style={{ fontSize: size || 'md' }}
+                inputTestId="dropdown-search-input"
+                onClear={onClear}
+                data-testid="dropdown-search-bar"
             />
         </SearchInputContainer>
     );

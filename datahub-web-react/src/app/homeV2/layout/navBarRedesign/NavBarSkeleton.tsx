@@ -1,5 +1,5 @@
-import React from 'react';
 import SkeletonButton from 'antd/lib/skeleton/Button';
+import React from 'react';
 import styled from 'styled-components';
 
 const Spacer = styled.div`

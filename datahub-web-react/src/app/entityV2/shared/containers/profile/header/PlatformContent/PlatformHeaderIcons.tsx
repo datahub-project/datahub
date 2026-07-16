@@ -1,8 +1,10 @@
 import React from 'react';
-import styled, { CSSObject } from 'styled-components';
-import { DataPlatform } from '../../../../../../../types.generated';
-import StackPlatformImages from './StackPlatformImages';
-import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
+import styled, { CSSObject, useTheme } from 'styled-components';
+
+import StackPlatformImages from '@app/entityV2/shared/containers/profile/header/PlatformContent/StackPlatformImages';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+
+import { DataPlatform } from '@types';
 
 const LogoIcon = styled.span`
     display: flex;
@@ -16,12 +18,6 @@ const PlatformContentWrapper = styled.div`
     flex-wrap: nowrap;
 `;
 
-const iconStyles = {
-    borderRadius: '16px',
-    border: '1px solid #FFF',
-    padding: '10px',
-};
-
 interface Props {
     platform?: DataPlatform;
     platforms?: DataPlatform[];
@@ -31,6 +27,12 @@ interface Props {
 
 function PlatformHeaderIcons(props: Props) {
     const { platform, platforms, size = 28, styles } = props;
+    const theme = useTheme();
+    const iconStyles = {
+        borderRadius: '16px',
+        border: `1px solid ${theme.colors.borderWhite}`,
+        padding: '10px',
+    };
 
     return (
         <PlatformContentWrapper>
@@ -40,6 +42,7 @@ function PlatformHeaderIcons(props: Props) {
                         <PlatformIcon
                             platform={platform}
                             size={size}
+                            dataTestId={`platform-icon-${platform.name?.toLowerCase()}`}
                             styles={styles ? { ...iconStyles, ...styles } : iconStyles}
                         />
                     )}

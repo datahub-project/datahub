@@ -1,8 +1,8 @@
-import { spacing } from '@components/theme';
 import styled from 'styled-components';
-import { PillStyleProps } from './types';
 
-import { getPillStyle } from './utils';
+import { PillStyleProps } from '@components/components/Pills/types';
+import { getPillStyle } from '@components/components/Pills/utils';
+import { spacing } from '@components/theme';
 
 export const PillContainer = styled.div(
     {

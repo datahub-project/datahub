@@ -1,13 +1,13 @@
-import { FilterOperator } from '@src/types.generated';
-import { FrontendFilterOperator } from '../../filters/types';
+import { FrontendFilterOperator } from '@app/searchV2/filters/types';
 import {
     DOMAINS_FILTER_NAME,
-    ENTITY_SUB_TYPE_FILTER_NAME,
     ENTITY_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
     TAGS_FILTER_NAME,
     UnionType,
-} from '../constants';
-import { generateOrFilters } from '../generateOrFilters';
+} from '@app/searchV2/utils/constants';
+import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
+import { FilterOperator } from '@src/types.generated';
 
 describe('generateOrFilters', () => {
     it('should generate orFilters with UnionType.AND', () => {

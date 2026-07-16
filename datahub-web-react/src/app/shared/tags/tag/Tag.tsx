@@ -1,21 +1,22 @@
-import { message, Modal } from 'antd';
-import styled from 'styled-components';
+import { Modal, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import { useRemoveTagMutation } from '../../../../graphql/mutations.generated';
-import { EntityType, SubResourceType, TagAssociation } from '../../../../types.generated';
-import { StyledTag } from '../../../entity/shared/components/styled/StyledTag';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { TagProfileDrawer } from '../TagProfileDrawer';
-import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
+
+import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
+import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useRemoveTagMutation } from '@graphql/mutations.generated';
+import { EntityType, SubResourceType, TagAssociation } from '@types';
 
 const TagLink = styled.span`
     display: inline-block;
     margin-bottom: 8px;
 `;
-
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
 interface Props {
     tag: TagAssociation;
@@ -40,6 +41,10 @@ export default function Tag({
     refetch,
     fontSize,
 }: Props) {
+    const { t } = useTranslation('shared.tags');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const entityRegistry = useEntityRegistry();
     const [removeTagMutation] = useRemoveTagMutation();
     const highlightTag = useHasMatchedFieldByUrn(tag.tag.urn, 'tags');
@@ -62,8 +67,8 @@ export default function Tag({
         const tagToRemove = tagAssociationToRemove.tag;
         onOpenModal?.();
         Modal.confirm({
-            title: `Do you want to remove ${tagToRemove?.name} tag?`,
-            content: `Are you sure you want to remove the ${tagToRemove?.name} tag?`,
+            title: t('removeTagConfirmTitle', { name: tagToRemove?.name }),
+            content: t('removeTagConfirmContent', { name: tagToRemove?.name }),
             onOk() {
                 if (tagAssociationToRemove.associatedUrn || entityUrn) {
                     removeTagMutation({
@@ -78,18 +83,18 @@ export default function Tag({
                     })
                         .then(({ errors }) => {
                             if (!errors) {
-                                message.success({ content: 'Removed Tag!', duration: 2 });
+                                message.success({ content: t('removeTagSuccess'), duration: 2 });
                             }
                         })
                         .then(refetch)
                         .catch((e) => {
                             message.destroy();
-                            message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
+                            message.error({ content: t('removeTagError', { error: e.message || '' }), duration: 3 });
                         });
                 }
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });

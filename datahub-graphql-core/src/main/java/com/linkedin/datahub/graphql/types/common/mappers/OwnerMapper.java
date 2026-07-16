@@ -61,6 +61,9 @@ public class OwnerMapper {
     if (owner.hasSource()) {
       result.setSource(OwnershipSourceMapper.map(context, owner.getSource()));
     }
+    if (owner.getAttribution() != null) {
+      result.setAttribution(MetadataAttributionMapper.map(context, owner.getAttribution()));
+    }
     result.setAssociatedUrn(entityUrn.toString());
     return result;
   }

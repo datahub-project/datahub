@@ -1,10 +1,13 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { DataHubView } from '../../../../types.generated';
-import { ViewOptionName } from './ViewOptionName';
-import { ViewDropdownMenu } from '../menu/ViewDropdownMenu';
-import { UserDefaultViewIcon } from '../shared/UserDefaultViewIcon';
-import { GlobalDefaultViewIcon } from '../shared/GlobalDefaultViewIcon';
+
+import { ViewDropdownMenu } from '@app/entity/view/menu/ViewDropdownMenu';
+import { ViewOptionName } from '@app/entity/view/select/ViewOptionName';
+import { GlobalDefaultViewIcon } from '@app/entity/view/shared/GlobalDefaultViewIcon';
+import { UserDefaultViewIcon } from '@app/entity/view/shared/UserDefaultViewIcon';
+
+import { DataHubView } from '@types';
 
 const ICON_WIDTH = 30;
 
@@ -41,11 +44,12 @@ export const ViewOption = ({
     onClickEdit,
     onClickPreview,
 }: Props) => {
+    const { t } = useTranslation('entity.views');
     return (
         <Container>
             <IconPlaceholder>
-                {isUserDefault && <UserDefaultViewIcon title="Your default View." />}
-                {isGlobalDefault && <GlobalDefaultViewIcon title="Your organization's default View." />}
+                {isUserDefault && <UserDefaultViewIcon title={t('userDefaultTooltip')} />}
+                {isGlobalDefault && <GlobalDefaultViewIcon title={t('orgDefaultTooltip')} />}
             </IconPlaceholder>
             <ViewOptionName name={view.name} description={view.description} />
             <ViewDropdownMenu

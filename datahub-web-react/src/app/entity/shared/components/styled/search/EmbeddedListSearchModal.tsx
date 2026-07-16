@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
 import { Button, Modal } from 'antd';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { FacetFilterInput } from '../../../../../../types.generated';
-import { EmbeddedListSearch } from './EmbeddedListSearch';
-import { UnionType } from '../../../../../search/utils/constants';
-import { FilterSet } from './types';
-import { EntityActionProps } from './EntitySearchResults';
+
+import { EmbeddedListSearch } from '@app/entity/shared/components/styled/search/EmbeddedListSearch';
+import { EntityActionProps } from '@app/entity/shared/components/styled/search/EntitySearchResults';
+import { FilterSet } from '@app/entity/shared/components/styled/search/types';
+import { UnionType } from '@app/search/utils/constants';
+
+import { FacetFilterInput } from '@types';
 
 const SearchContainer = styled.div`
     height: 500px;
@@ -31,6 +34,8 @@ type Props = {
     searchBarInputStyle?: any;
     entityAction?: React.FC<EntityActionProps>;
     applyView?: boolean;
+    isViewAllMode?: boolean | false;
+    handleViewAllClickWarning?: () => void;
 };
 
 export const EmbeddedListSearchModal = ({
@@ -46,7 +51,10 @@ export const EmbeddedListSearchModal = ({
     searchBarInputStyle,
     entityAction,
     applyView,
+    isViewAllMode,
+    handleViewAllClickWarning,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     // Component state
     const [query, setQuery] = useState<string>('');
     const [page, setPage] = useState(1);
@@ -68,13 +76,13 @@ export const EmbeddedListSearchModal = ({
 
     return (
         <Modal
-            width={800}
+            width={1200}
             style={modalStyle}
             bodyStyle={modalBodyStyle}
             title={title}
             open
             onCancel={onClose}
-            footer={<Button onClick={onClose}>Close</Button>}
+            footer={<Button onClick={onClose}>{tc('close')}</Button>}
         >
             <SearchContainer>
                 <EmbeddedListSearch
@@ -96,6 +104,8 @@ export const EmbeddedListSearchModal = ({
                     searchBarInputStyle={searchBarInputStyle}
                     entityAction={entityAction}
                     applyView={applyView}
+                    isViewAllMode={isViewAllMode}
+                    handleViewAllClickWarning={handleViewAllClickWarning}
                 />
             </SearchContainer>
         </Modal>

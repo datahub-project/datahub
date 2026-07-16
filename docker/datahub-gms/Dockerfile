@@ -1,59 +1,34 @@
 # Defining environment
 ARG APP_ENV=prod
 
+ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
+FROM ${BASE_IMAGE} AS base
+
 # Defining custom repo urls for use in enterprise environments. Re-used between stages below.
-ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
+ARG APK_REPOSITORY_URL=https://apk.cgr.dev/chainguard
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM golang:1-alpine3.21 AS binary
+ENV JMX_VERSION=1.0.1
 
-# Re-declaring arg from above to make it available in this stage (will inherit default value)
-ARG ALPINE_REPO_URL
+RUN printf '%s\n' "${APK_REPOSITORY_URL}" > /etc/apk/repositories \
+    && apk update --no-cache \
+    && apk upgrade --no-cache
 
-ENV DOCKERIZE_VERSION=v0.9.1
-WORKDIR /go/src/github.com/jwilder
+COPY docker/snippets/setup_java_runtime.sh /tmp/setup_java_runtime.sh
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    chmod +x /tmp/setup_java_runtime.sh \
+    && INSTALL_JATTACH=1 OTEL_JMX_DIR=/ /tmp/setup_java_runtime.sh \
+    && rm -f /tmp/setup_java_runtime.sh
 
-# Optionally set corporate mirror for apk
-RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
-
-RUN apk --no-cache --update add openssl git tar curl
-
-WORKDIR /go/src/github.com/jwilder/dockerize
-
-RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
-
-FROM alpine:3.21 AS base
-
-ENV JMX_VERSION=0.20.0
-
-# Re-declaring args from above to make them available in this stage (will inherit default values)
-ARG ALPINE_REPO_URL
-ARG GITHUB_REPO_URL
-ARG MAVEN_CENTRAL_REPO_URL
-
-# Upgrade Alpine and base packages
-# Optionally set corporate mirror for apk
-RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
-
-# PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
-RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat snappy \
-    && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
-    && apk --no-cache add jattach --repository ${ALPINE_REPO_URL}/edge/community/ \
-    && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.11.0/opentelemetry-javaagent.jar \
-    && wget --no-verbose ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
-    && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
-COPY --from=binary /go/bin/dockerize /usr/local/bin
-
-ENV LD_LIBRARY_PATH="/lib:/lib64"
+COPY docker/snippets/wait_for_deps.sh /usr/local/lib/datahub/wait_for_deps.sh
 
 FROM base AS prod-install
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
-COPY war.war /datahub/datahub-gms/bin/war.war
+COPY metadata-service/war/build/libs/war.war /datahub/datahub-gms/bin/war.war
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -61,9 +36,9 @@ FROM base AS dev-install
 
 FROM ${APP_ENV}-install AS final
 
-RUN mkdir -p /etc/datahub/plugins/auth/resources
+RUN mkdir -p /etc/datahub/plugins/auth/resources /datahub
 
-RUN addgroup -S datahub && adduser -S datahub -G datahub
+RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 RUN chown -R datahub:datahub /etc/datahub /datahub
 USER datahub
 
@@ -76,6 +51,6 @@ ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
 
 EXPOSE 8080
 
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/health || exit 1
+HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:8080/${DATAHUB_GMS_BASE_PATH}health || exit 1
 
 CMD /datahub/datahub-gms/scripts/start.sh

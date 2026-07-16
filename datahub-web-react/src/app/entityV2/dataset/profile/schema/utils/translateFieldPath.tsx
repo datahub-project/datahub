@@ -1,5 +1,5 @@
-import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from './constants';
-import translateFieldPathSegment from './translateFieldPathSegment';
+import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '@app/entityV2/dataset/profile/schema/utils/constants';
+import translateFieldPathSegment from '@app/entityV2/dataset/profile/schema/utils/translateFieldPathSegment';
 
 export default function translateFieldPath(fieldPath: string) {
     // fields that are part of a key schema are prefixed with [key=true]

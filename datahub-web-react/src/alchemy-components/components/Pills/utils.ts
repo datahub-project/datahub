@@ -1,8 +1,11 @@
+import { CSSObject } from 'styled-components';
+
 import { PillStyleProps } from '@components/components/Pills/types';
 import { ColorOptions, PillVariantOptions, SizeOptions } from '@components/theme/config';
+
+import { Theme } from '@conf/theme/types';
 import { typography } from '@src/alchemy-components/theme';
 import { getColor, getFontSize } from '@src/alchemy-components/theme/utils';
-import { CSSObject } from 'styled-components';
 
 interface ColorStyles {
     primaryColor: string;
@@ -11,21 +14,82 @@ interface ColorStyles {
     hoverColor?: string;
 }
 
+function getSemanticPillColors(color: ColorOptions, themeColors: Record<string, string>): ColorStyles | null {
+    const map: Partial<Record<ColorOptions, ColorStyles>> = {
+        green: {
+            primaryColor: themeColors.textOnSurfaceSuccess || themeColors.textSuccess,
+            bgColor: themeColors.bgSurfaceSuccess,
+            hoverColor: themeColors.bgSurfaceSuccessHover,
+            borderColor: themeColors.borderSuccess,
+        },
+        red: {
+            primaryColor: themeColors.textOnSurfaceError || themeColors.textError,
+            bgColor: themeColors.bgSurfaceError,
+            hoverColor: themeColors.bgSurfaceErrorHover,
+            borderColor: themeColors.borderError,
+        },
+        blue: {
+            primaryColor: themeColors.textOnSurfaceInformation || themeColors.textInformation,
+            bgColor: themeColors.bgSurfaceInfo,
+            hoverColor: themeColors.bgSurfaceInformationHover,
+            borderColor: themeColors.borderInformation,
+        },
+        yellow: {
+            primaryColor: themeColors.textOnSurfaceWarning || themeColors.textWarning,
+            bgColor: themeColors.bgSurfaceWarning,
+            hoverColor: themeColors.bgSurfaceWarningHover,
+            borderColor: themeColors.borderWarning,
+        },
+        violet: {
+            primaryColor: themeColors.textBrand,
+            bgColor: themeColors.bgSurfaceBrand,
+            hoverColor: themeColors.bgSurfaceBrandHover,
+            borderColor: themeColors.borderBrand,
+        },
+        primary: {
+            primaryColor: themeColors.textBrand,
+            bgColor: themeColors.bgSurfaceBrand,
+            hoverColor: themeColors.bgSurfaceBrandHover,
+            borderColor: themeColors.borderBrand,
+        },
+        gray: {
+            primaryColor: themeColors.textSecondary,
+            bgColor: themeColors.bgSurface,
+            hoverColor: themeColors.bgHover,
+            borderColor: themeColors.border,
+        },
+        white: {
+            primaryColor: themeColors.textSecondary,
+            bgColor: themeColors.bgSurface,
+            hoverColor: themeColors.bgHover,
+            borderColor: themeColors.border,
+        },
+    };
+    return map[color] ?? null;
+}
+
 // Utility function to get color styles for pill - does not generate CSS
-function getPillColorStyles(variant: PillVariantOptions, color: ColorOptions): ColorStyles {
-    if (variant === 'version') {
+function getPillColorStyles(variant: PillVariantOptions, color: ColorOptions, theme?: Theme): ColorStyles {
+    const themeColors = theme?.colors as Record<string, string> | undefined;
+
+    if (variant === 'version' && themeColors) {
         return {
-            bgColor: getColor('gray', color === 'white' ? 1500 : 100),
-            borderColor: getColor('gray', 100),
-            primaryColor: getColor('gray', 1700),
+            bgColor: themeColors.bgSurface,
+            borderColor: themeColors.border,
+            primaryColor: themeColors.textSecondary,
         };
     }
 
+    if (themeColors) {
+        const semantic = getSemanticPillColors(color, themeColors);
+        if (semantic) return semantic;
+    }
+
     return {
-        primaryColor: getColor(color, 500),
-        bgColor: color === 'gray' ? getColor(color, 100) : getColor(color, 0),
-        hoverColor: color === 'gray' ? getColor(color, 100) : getColor(color, 1100),
-        borderColor: getColor('gray', 1400),
+        primaryColor: getColor(color, 700, theme),
+        bgColor: color === 'gray' ? getColor(color, 100, theme) : getColor(color, 0, theme),
+        hoverColor: color === 'gray' ? getColor(color, 100, theme) : getColor(color, 1100, theme),
+        borderColor: getColor('gray', 1800, theme),
     };
 }
 
@@ -42,7 +106,7 @@ const getPillVariantStyles = (variant: PillVariantOptions, colorStyles: ColorSty
         },
         outline: {
             backgroundColor: 'transparent',
-            border: `1px solid ${colorStyles.primaryColor}`,
+            border: `1px solid ${colorStyles.bgColor}`,
             color: colorStyles.primaryColor,
             '&:hover': {
                 backgroundColor: colorStyles.hoverColor,
@@ -64,7 +128,7 @@ const getPillVariantStyles = (variant: PillVariantOptions, colorStyles: ColorSty
             },
             borderRadius: '4px',
         },
-    }[variant]);
+    })[variant];
 
 const getPillFontStyles = (variant: PillVariantOptions, size: SizeOptions): CSSObject => {
     const baseFontStyles = {
@@ -101,10 +165,10 @@ const getPillActiveStyles = (variant: PillVariantOptions, colorStyles: ColorStyl
 });
 
 export function getPillStyle(props: PillStyleProps): CSSObject {
-    const { variant, color, size, clickable = true } = props;
+    const { variant, color, size, clickable = true, theme } = props;
 
     // Get map of colors
-    const colorStyles = getPillColorStyles(variant, color);
+    const colorStyles = getPillColorStyles(variant, color, theme);
 
     // Define styles for pill
     let styles = {

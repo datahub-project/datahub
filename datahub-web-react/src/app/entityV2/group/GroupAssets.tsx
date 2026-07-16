@@ -1,7 +1,9 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { UnionType } from '../../search/utils/constants';
-import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
+
+import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '@app/search/utils/constants';
 
 const GroupAssetsWrapper = styled.div`
     height: 100%;
@@ -12,6 +14,7 @@ type Props = {
 };
 
 export const GroupAssets = ({ urn }: Props) => {
+    const { t } = useTranslation('entity.types');
     return (
         <GroupAssetsWrapper>
             <EmbeddedListSearchSection
@@ -21,7 +24,7 @@ export const GroupAssets = ({ urn }: Props) => {
                     filters: [{ field: 'owners', values: [urn] }],
                 }}
                 emptySearchQuery="*"
-                placeholderText="Filter entities..."
+                placeholderText={t('shared.filterEntitiesPlaceholder')}
             />
         </GroupAssetsWrapper>
     );

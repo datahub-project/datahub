@@ -18,7 +18,7 @@ from datahub.ingestion.source.cassandra.cassandra_api import (
 )
 from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceConfig
 from datahub.ingestion.source.cassandra.cassandra_utils import CassandraSourceReport
-from datahub.ingestion.source_report.ingestion_stage import PROFILING
+from datahub.ingestion.source_report.ingestion_stage import IngestionHighStage
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -70,30 +70,32 @@ class CassandraProfiler:
     ) -> Iterable[MetadataWorkUnit]:
         for keyspace_name in cassandra_data.keyspaces:
             tables = cassandra_data.tables.get(keyspace_name, [])
-            with self.report.new_stage(f"{keyspace_name}: {PROFILING}"):
-                with ThreadPoolExecutor(
+            with (
+                self.report.new_high_stage(IngestionHighStage.PROFILING),
+                ThreadPoolExecutor(
                     max_workers=self.config.profiling.max_workers
-                ) as executor:
-                    future_to_dataset = {
-                        executor.submit(
-                            self.generate_profile,
-                            keyspace_name,
-                            table_name,
-                            cassandra_data.columns.get(table_name, []),
-                        ): table_name
-                        for table_name in tables
-                    }
-                    for future in as_completed(future_to_dataset):
-                        table_name = future_to_dataset[future]
-                        try:
-                            yield from future.result()
-                        except Exception as exc:
-                            self.report.profiling_skipped_other[table_name] += 1
-                            self.report.failure(
-                                message="Failed to profile for table",
-                                context=f"{keyspace_name}.{table_name}",
-                                exc=exc,
-                            )
+                ) as executor,
+            ):
+                future_to_dataset = {
+                    executor.submit(
+                        self.generate_profile,
+                        keyspace_name,
+                        table_name,
+                        cassandra_data.columns.get(table_name, []),
+                    ): table_name
+                    for table_name in tables
+                }
+                for future in as_completed(future_to_dataset):
+                    table_name = future_to_dataset[future]
+                    try:
+                        yield from future.result()
+                    except Exception as exc:
+                        self.report.profiling_skipped_other[table_name] += 1
+                        self.report.failure(
+                            message="Failed to profile for table",
+                            context=f"{keyspace_name}.{table_name}",
+                            exc=exc,
+                        )
 
     def generate_profile(
         self,

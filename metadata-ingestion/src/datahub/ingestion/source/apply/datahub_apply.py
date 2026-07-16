@@ -1,5 +1,4 @@
 import logging
-from functools import partial
 from typing import Any, Iterable, List, Optional, Union
 
 import progressbar
@@ -14,10 +13,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
 from datahub.metadata.schema_classes import (
     DomainsClass,
     GlossaryTermAssociationClass,
@@ -48,7 +50,7 @@ def apply_association_to_container(
     """
     urns: List[str] = [container_urn]
     if not graph:
-        graph = get_default_graph()
+        graph = get_default_graph(ClientMode.INGESTION)
     logger.info(f"Using {graph}")
     urns.extend(
         graph.get_urns_by_filter(
@@ -95,7 +97,7 @@ def apply_association_to_container(
 class DomainApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
-        description="List of assets to apply domain hierarchichaly. Currently only containers and datasets are supported",
+        description="List of assets to apply domain hierarchically. Currently only containers and datasets are supported",
     )
     domain_urn: str = Field(default="")
 
@@ -103,7 +105,7 @@ class DomainApplyConfig(ConfigModel):
 class TagApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
-        description="List of assets to apply tag hierarchichaly. Currently only containers and datasets are supported",
+        description="List of assets to apply tag hierarchically. Currently only containers and datasets are supported",
     )
     tag_urn: str = Field(default="")
 
@@ -111,7 +113,7 @@ class TagApplyConfig(ConfigModel):
 class TermApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
-        description="List of assets to apply term hierarchichaly. Currently only containers and datasets are supported",
+        description="List of assets to apply term hierarchically. Currently only containers and datasets are supported",
     )
     term_urn: str = Field(default="")
 
@@ -119,7 +121,7 @@ class TermApplyConfig(ConfigModel):
 class OwnerApplyConfig(ConfigModel):
     assets: List[str] = Field(
         default_factory=list,
-        description="List of assets to apply owner hierarchichaly. Currently only containers and datasets are supported",
+        description="List of assets to apply owner hierarchically. Currently only containers and datasets are supported",
     )
     owner_urn: str = Field(default="")
 
@@ -216,8 +218,8 @@ class DataHubApplySource(Source):
         yield from self._yield_term()
         yield from self._yield_owner()
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [partial(auto_workunit_reporter, self.get_report())]
+    def get_allowed_workunit_processors(self):
+        return [AutoWorkunitsReporterProcessor]
 
     def get_report(self) -> SourceReport:
         return self.report

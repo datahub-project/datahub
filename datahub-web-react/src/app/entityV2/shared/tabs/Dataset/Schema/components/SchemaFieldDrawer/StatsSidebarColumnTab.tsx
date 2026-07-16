@@ -1,23 +1,25 @@
-import React from 'react';
-import styled from 'styled-components';
 import Icon from '@ant-design/icons/lib/components/Icon';
-import StatChart, { ChartCard } from '../../../Stats/historical/charts/StatChart';
-import { getFixedLookbackWindow } from '../../../../../../../shared/time/timeUtils';
-import { LookbackWindow } from '../../../Stats/lookbackWindows';
-import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.generated';
-import NoStatsAvailble from '../../../../../../../../images/no-stats-available.svg?react';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import { computeChartTickInterval, extractChartValuesFromFieldProfiles } from '../../../../../utils';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
+
+import StatChart, { ChartCard } from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
+import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { computeChartTickInterval, extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
+import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
+
+import { DatasetFieldProfile, SchemaField } from '@types';
+
+import NoStatsAvailble from '@images/no-stats-available.svg?react';
 
 const CHART_WIDTH = 460;
 const CHART_HEIGHT = 170;
-const DEFAULT_LINE_COLOR = REDESIGN_COLORS.BACKGROUND_PURPLE;
 
 const StatSection = styled.div`
     padding: 12px 16px;
     // Temporary solution for chart circle color, as V1 theme colors are in place.
     circle {
-        fill: ${REDESIGN_COLORS.BACKGROUND_PRIMARY_1};
+        fill: ${(props) => props.theme.colors.buttonFillBrand};
     }
 `;
 
@@ -29,7 +31,7 @@ const ChartRow = styled.div`
     & > ${ChartCard} {
         box-shadow: none;
         border-radius: 9px;
-        border: 1px solid #eeeef3;
+        border: 1px solid ${(props) => props.theme.colors.border};
         .ant-card-body {
             padding: 5px;
         }
@@ -44,7 +46,7 @@ const NoDataContainer = styled.div`
 `;
 
 const Section = styled.div`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 700;
     font-size: 12px;
     line-height: 24px;
@@ -53,7 +55,7 @@ const Section = styled.div`
 const StyledIcon = styled(Icon)`
     font-size: 80px;
     margin-bottom: 6px;
-    color: ${REDESIGN_COLORS.WHITE};
+    color: ${(props) => props.theme.colors.bg};
 `;
 
 interface Props {
@@ -70,6 +72,9 @@ const getLookbackWindowSize = (window: LookbackWindow) => {
 };
 
 export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
+    const theme = useTheme();
+    const defaultLineColor = theme.colors.chartsBrandBase;
     const { fieldProfile, profiles } = properties;
     const selectedFieldPath = fieldProfile?.fieldPath || '';
 
@@ -108,7 +113,7 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
         return (
             <NoDataContainer>
                 <StyledIcon component={NoStatsAvailble} />
-                <Section>No column statistics found</Section>
+                <Section>{t('statsSidebar.noColumnStatsFound')}</Section>
             </NoDataContainer>
         );
     }
@@ -119,8 +124,8 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
-                    title="Null Count Over Time"
+                    lineColor={defaultLineColor}
+                    title={t('statsSidebar.nullCountOverTime')}
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
                     values={nullCountChartValues}
@@ -128,8 +133,8 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
-                    title="Null Percentage Over Time"
+                    lineColor={defaultLineColor}
+                    title={t('statsSidebar.nullPercentageOverTime')}
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
                     values={nullPercentageChartValues}
@@ -137,8 +142,8 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
-                    title="Distinct Count Over Time"
+                    lineColor={defaultLineColor}
+                    title={t('statsSidebar.distinctCountOverTime')}
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
                     values={distinctCountChartValues}
@@ -146,8 +151,8 @@ export default function StatsSidebarColumnTab({ properties, lookbackWindow }: Pr
                 <StatChart
                     width={CHART_WIDTH}
                     height={CHART_HEIGHT}
-                    lineColor={DEFAULT_LINE_COLOR}
-                    title="Distinct Percentage Over Time"
+                    lineColor={defaultLineColor}
+                    title={t('statsSidebar.distinctPercentageOverTime')}
                     tickInterval={graphTickInterval}
                     dateRange={graphDateRange}
                     values={distinctPercentageChartValues}

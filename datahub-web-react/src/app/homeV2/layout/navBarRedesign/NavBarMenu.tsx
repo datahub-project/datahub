@@ -1,10 +1,11 @@
-import React from 'react';
 import { Menu, MenuProps } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import NavBarMenuItem from './NavBarMenuItem';
-import NavBarMenuItemDropdown from './NavBarMenuItemDropdown';
-import { AnyMenuItem, NavBarMenuItems, NavBarMenuItemTypes } from './types';
-import NavBarMenuItemGroup from './NavBarMenuItemGroup';
+
+import NavBarMenuItem from '@app/homeV2/layout/navBarRedesign/NavBarMenuItem';
+import NavBarMenuItemDropdown from '@app/homeV2/layout/navBarRedesign/NavBarMenuItemDropdown';
+import NavBarMenuItemGroup from '@app/homeV2/layout/navBarRedesign/NavBarMenuItemGroup';
+import { AnyMenuItem, NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 
 const StyledMenu = styled(Menu)`
     && {
@@ -37,8 +38,9 @@ export default function NavBarMenu({ menu, selectedKey, isCollapsed, iconSize, s
         const isSelected = selectedKey === item.key;
 
         if (item.type === NavBarMenuItemTypes.Group && item.items?.filter((candidate) => !candidate.isHidden)?.length) {
+            const groupTitle = item.renderTitle ? item.renderTitle() : !isCollapsed && item.title;
             return (
-                <NavBarMenuItemGroup title={!isCollapsed && item.title} key={item.key}>
+                <NavBarMenuItemGroup title={groupTitle} key={item.key} $isCollapsed={isCollapsed}>
                     {item.items?.map((subItem) => renderMenuItem(subItem))}
                 </NavBarMenuItemGroup>
             );
@@ -71,7 +73,9 @@ export default function NavBarMenu({ menu, selectedKey, isCollapsed, iconSize, s
 
     return (
         <StyledMenu selectedKeys={selectedKey ? [selectedKey] : []} style={style} data-testid="nav-menu-links">
-            {menu.items.map((item) => renderMenuItem(item))}
+            {menu.items.map((item) => (
+                <React.Fragment key={item.key}>{renderMenuItem(item)}</React.Fragment>
+            ))}
         </StyledMenu>
     );
 }

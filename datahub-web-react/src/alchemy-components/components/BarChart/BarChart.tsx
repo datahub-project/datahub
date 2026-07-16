@@ -1,80 +1,110 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { colors } from '@src/alchemy-components/theme';
 import { LinearGradient } from '@visx/gradient';
+import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
-import { Axis, AxisScale, BarSeries, Grid, Tooltip, XYChart } from '@visx/xychart';
-import { Popover } from '../Popover';
-import { ChartWrapper, StyledBarSeries } from './components';
-import { AxisProps, BarChartProps, ColorAccessor, Datum, GridProps, XAccessor, YAccessor } from './types';
-import { getMockedProps } from './utils';
-import useMergedProps from './hooks/useMergedProps';
-import usePrepareScales from './hooks/usePrepareScales';
-import usePrepareAccessors from './hooks/usePrepareAccessors';
-import { COLOR_SCHEME_TO_PARAMS, DEFAULT_COLOR_SCHEME } from './constants';
-import TruncatableTick from './components/TruncatableTick';
-import { barChartDefault } from './defaults';
-import LeftAxisMarginSetter from './components/LeftAxisMarginSetter';
-import { abbreviateNumber } from '../dataviz/utils';
+import { Axis, AxisScale, BarSeries, Grid, Margin, Tooltip, XYChart } from '@visx/xychart';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useTheme } from 'styled-components';
+
+import { ChartWrapper, StyledBarSeries } from '@components/components/BarChart/components';
+import DynamicMarginSetter from '@components/components/BarChart/components/DynamicMarginSetter';
+import TruncatableTick from '@components/components/BarChart/components/TruncatableTick';
+import { DEFAULT_COLOR_SCHEME, getColorSchemeParams } from '@components/components/BarChart/constants';
+import { getBarChartDefaults } from '@components/components/BarChart/defaults';
+import useMergedProps from '@components/components/BarChart/hooks/useMergedProps';
+import usePrepareAccessors from '@components/components/BarChart/hooks/usePrepareAccessors';
+import usePreparedScales from '@components/components/BarChart/hooks/usePreparedScales';
+import {
+    AxisProps,
+    BarChartProps,
+    ColorAccessor,
+    Datum,
+    GridProps,
+    XAccessor,
+    YAccessor,
+} from '@components/components/BarChart/types';
+import { getMockedProps } from '@components/components/BarChart/utils';
+import { Popover } from '@components/components/Popover';
 
 export function BarChart({
     data,
     isEmpty,
     horizontal,
 
-    xScale = barChartDefault.xScale,
-    yScale = barChartDefault.yScale,
+    xScale,
+    yScale,
     maxYDomainForZeroData,
     minYForZeroData,
 
     margin,
 
-    leftAxisProps = barChartDefault.leftAxisProps,
-    maxLengthOfLeftAxisLabel = barChartDefault.maxLengthOfLeftAxisLabel,
-    showLeftAxisLine = barChartDefault.showLeftAxisLine,
-    bottomAxisProps = barChartDefault.bottomAxisProps,
-    gridProps = barChartDefault.gridProps,
+    leftAxisProps,
+    maxLengthOfLeftAxisLabel,
+    showLeftAxisLine,
+    bottomAxisProps,
+    gridProps,
 
     popoverRenderer,
+
+    dataTestId,
 }: BarChartProps) {
+    const theme = useTheme();
+    const defaults = useMemo(
+        () => getBarChartDefaults(theme.colors.textSecondary, theme.colors.border),
+        [theme.colors.textSecondary, theme.colors.border],
+    );
+
+    const resolvedXScale = xScale ?? defaults.xScale;
+    const resolvedYScale = yScale ?? defaults.yScale;
+    const resolvedLeftAxisProps = leftAxisProps ?? defaults.leftAxisProps;
+    const resolvedMaxLengthOfLeftAxisLabel = maxLengthOfLeftAxisLabel ?? defaults.maxLengthOfLeftAxisLabel;
+    const resolvedShowLeftAxisLine = showLeftAxisLine ?? defaults.showLeftAxisLine;
+    const resolvedBottomAxisProps = bottomAxisProps ?? defaults.bottomAxisProps;
+    const resolvedGridProps = gridProps ?? defaults.gridProps;
+
+    const wrapperRef = useRef<HTMLDivElement>(null);
     const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
     const [howeredBarIndex, setHoweredBarIndex] = useState<number | null>(null);
-    const [leftAxisMargin, setLeftAxisMargin] = useState<number>(0);
 
-    // FYI: additional margins to show left and bottom axises
-    const internalMargin = useMemo(
+    const defaultMargin = useMemo(
         () => ({
             top: (margin?.top ?? 0) + 30,
             right: (margin?.right ?? 0) + 0,
             bottom: (margin?.bottom ?? 0) + 35,
-            left: (margin?.left ?? 0) + leftAxisMargin + 6,
+            left: (margin?.left ?? 0) + 0,
         }),
-        [leftAxisMargin, margin],
+        [margin],
     );
+    const [dynamicMargin, setDynamicMargin] = useState<Margin>(defaultMargin);
 
     const xAccessor: XAccessor = (datum) => datum.x;
     const yAccessor: YAccessor = (datum) => datum.y;
     const accessors = usePrepareAccessors(data, !!horizontal, xAccessor, yAccessor, minYForZeroData);
-    const scales = usePrepareScales(data, !!horizontal, xScale, xAccessor, yScale, yAccessor, maxYDomainForZeroData);
+    const scales = usePreparedScales(data, resolvedXScale, xAccessor, resolvedYScale, yAccessor, {
+        horizontal,
+        maxDomainValueForZeroData: maxYDomainForZeroData,
+    });
 
     const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
-        leftAxisProps,
-        barChartDefault.leftAxisProps,
+        resolvedLeftAxisProps,
+        defaults.leftAxisProps,
     );
 
     const { computeNumTicks: computeBottomAxisNumTicks, ...mergedBottomAxisProps } = useMergedProps<AxisProps>(
-        bottomAxisProps,
-        barChartDefault.bottomAxisProps,
+        resolvedBottomAxisProps,
+        defaults.bottomAxisProps,
     );
 
-    const mergedGridProps = useMergedProps<GridProps>(gridProps, barChartDefault.gridProps);
+    const mergedGridProps = useMergedProps<GridProps>(resolvedGridProps, defaults.gridProps);
+
+    const colorSchemeMap = useMemo(() => getColorSchemeParams(theme.colors), [theme.colors]);
 
     const gradientIdSuffix = useMemo(() => `bar${horizontal ? `-horizontal` : ''}`, [horizontal]);
 
     const colorAccessor: ColorAccessor = useCallback(
         (datum, index) => {
-            if (isEmpty) return colors.transparent;
+            if (isEmpty) return 'transparent';
             const colorTheme = datum.colorScheme ?? DEFAULT_COLOR_SCHEME;
-            const colorThemeParams = COLOR_SCHEME_TO_PARAMS[colorTheme];
+            const colorThemeParams = colorSchemeMap[colorTheme];
             if (index === selectedBarIndex) return colorThemeParams.mainColor;
             if (index === howeredBarIndex) return colorThemeParams.mainColor;
 
@@ -82,7 +112,7 @@ export function BarChart({
 
             return `url(#${gradientIdSuffix}-${colorTheme}${isInversed ? '-inversed' : ''})`;
         },
-        [selectedBarIndex, howeredBarIndex, gradientIdSuffix, isEmpty, accessors, horizontal],
+        [selectedBarIndex, howeredBarIndex, gradientIdSuffix, isEmpty, accessors, horizontal, colorSchemeMap],
     );
 
     const renderGradients = () => {
@@ -96,7 +126,7 @@ export function BarChart({
         return (
             <>
                 {colorSchemes.map((colorScheme) => {
-                    const colorSchemeParams = COLOR_SCHEME_TO_PARAMS[colorScheme ?? DEFAULT_COLOR_SCHEME];
+                    const colorSchemeParams = colorSchemeMap[colorScheme ?? DEFAULT_COLOR_SCHEME];
                     const { mainColor } = colorSchemeParams;
                     const { alternativeColor } = colorSchemeParams;
                     const fromColor = horizontal ? alternativeColor : mainColor;
@@ -133,85 +163,96 @@ export function BarChart({
     // but they don't render at all without any data.
     // To handle this case we will render the same graph with fake data and hide bars
     if (!data.length) {
-        return <BarChart {...getMockedProps()} isEmpty />;
+        return (
+            <BarChart
+                {...getMockedProps()}
+                margin={margin}
+                isEmpty
+                dataTestId={dataTestId ? `${dataTestId}-empty` : undefined}
+            />
+        );
     }
 
     return (
-        <ChartWrapper>
+        <ChartWrapper ref={wrapperRef} data-testid={dataTestId}>
             <ParentSize>
                 {({ width, height }) => {
                     return (
                         <XYChart
                             width={width}
                             height={height}
-                            margin={internalMargin}
+                            margin={dynamicMargin}
                             captureEvents={false}
                             horizontal={horizontal}
                             {...scales}
                         >
                             {renderGradients()}
 
+                            <DynamicMarginSetter
+                                setMargin={setDynamicMargin}
+                                wrapperRef={wrapperRef}
+                                minimalMargin={defaultMargin}
+                            />
+
                             <Axis
                                 orientation="left"
-                                numTicks={computeLeftAxisNumTicks?.(width, height, internalMargin, data)}
+                                numTicks={computeLeftAxisNumTicks?.(width, height, dynamicMargin, data)}
                                 tickComponent={(props) => (
-                                    <TruncatableTick {...props} limit={maxLengthOfLeftAxisLabel} />
+                                    <TruncatableTick {...props} limit={resolvedMaxLengthOfLeftAxisLabel} />
                                 )}
+                                axisClassName="left-axis"
                                 {...mergedLeftAxisProps}
-                            />
-                            <LeftAxisMarginSetter
-                                setLeftMargin={setLeftAxisMargin}
-                                formatter={leftAxisProps?.tickFormat ?? abbreviateNumber}
-                                maxMargin={45}
-                                numOfTicks={computeLeftAxisNumTicks?.(width, height, internalMargin, data)}
                             />
 
                             <Axis
                                 orientation="bottom"
-                                numTicks={computeBottomAxisNumTicks?.(width, height, internalMargin, data)}
+                                numTicks={computeBottomAxisNumTicks?.(width, height, dynamicMargin, data)}
+                                tickClassName="bottom-axis-tick"
                                 {...mergedBottomAxisProps}
                             />
 
-                            <Grid {...mergedGridProps} />
+                            <Group className="content-group">
+                                <Grid {...mergedGridProps} />
 
-                            {/* hide the first (left) column line */}
-                            {mergedGridProps.columns && (
-                                <line
-                                    x1={internalMargin.left}
-                                    x2={internalMargin.left}
-                                    y1={0}
-                                    y2={height - internalMargin.bottom}
-                                    stroke="white"
-                                    strokeWidth={2}
+                                {/* hide the first (left) column line */}
+                                {mergedGridProps.columns && (
+                                    <line
+                                        x1={dynamicMargin.left}
+                                        x2={dynamicMargin.left}
+                                        y1={0}
+                                        y2={height - dynamicMargin.bottom}
+                                        stroke={theme.colors.bg}
+                                        strokeWidth={2}
+                                    />
+                                )}
+
+                                {resolvedShowLeftAxisLine && (
+                                    <line
+                                        x1={dynamicMargin.left}
+                                        x2={dynamicMargin.left}
+                                        y1={0}
+                                        y2={height - dynamicMargin.bottom}
+                                        stroke={mergedGridProps?.stroke}
+                                    />
+                                )}
+
+                                <StyledBarSeries
+                                    as={BarSeries<AxisScale, AxisScale, Datum>}
+                                    $hasSelectedItem={selectedBarIndex !== null}
+                                    $isEmpty={isEmpty}
+                                    dataKey="bar-seria-0"
+                                    data={data}
+                                    radius={4}
+                                    radiusTop
+                                    radiusBottom={horizontal}
+                                    onBlur={() => setSelectedBarIndex(null)}
+                                    onFocus={({ index }) => setSelectedBarIndex(index)}
+                                    colorAccessor={colorAccessor}
+                                    onPointerMove={({ index }) => setHoweredBarIndex(index)}
+                                    onPointerOut={() => setHoweredBarIndex(null)}
+                                    {...accessors}
                                 />
-                            )}
-
-                            {showLeftAxisLine && (
-                                <line
-                                    x1={internalMargin.left}
-                                    x2={internalMargin.left}
-                                    y1={0}
-                                    y2={height - internalMargin.bottom}
-                                    stroke={mergedGridProps?.stroke}
-                                />
-                            )}
-
-                            <StyledBarSeries
-                                as={BarSeries<AxisScale, AxisScale, Datum>}
-                                $hasSelectedItem={selectedBarIndex !== null}
-                                $isEmpty={isEmpty}
-                                dataKey="bar-seria-0"
-                                data={data}
-                                radius={4}
-                                radiusTop
-                                radiusBottom={horizontal}
-                                onBlur={() => setSelectedBarIndex(null)}
-                                onFocus={({ index }) => setSelectedBarIndex(index)}
-                                colorAccessor={colorAccessor}
-                                onPointerMove={({ index }) => setHoweredBarIndex(index)}
-                                onPointerOut={() => setHoweredBarIndex(null)}
-                                {...accessors}
-                            />
+                            </Group>
 
                             <Tooltip<Datum>
                                 // needed for bounds to update correctly (https://airbnb.io/visx/tooltip)

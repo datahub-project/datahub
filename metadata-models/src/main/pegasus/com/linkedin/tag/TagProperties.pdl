@@ -4,7 +4,8 @@ namespace com.linkedin.tag
  * Properties associated with a Tag
  */
 @Aspect = {
-  "name": "tagProperties"
+  "name": "tagProperties",
+  "schemaVersion": 2
 }
 record TagProperties {
   /**
@@ -14,7 +15,9 @@ record TagProperties {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   name: string
 

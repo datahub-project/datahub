@@ -1,17 +1,23 @@
-import React from 'react';
-import { Button, Typography } from 'antd';
-import { FilterOutlined } from '@ant-design/icons';
-import styled from 'styled-components/macro';
-import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
+import { ExclamationCircleFilled, FilterOutlined } from '@ant-design/icons';
+import { X } from '@phosphor-icons/react/dist/csr/X';
+import { Button as AntButton, Typography } from 'antd';
+import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components/macro';
+
+import { EntityAndType } from '@app/entity/shared/types';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { SearchBar } from '@app/search/SearchBar';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Button } from '@src/alchemy-components';
 import { useSearchContext } from '@src/app/search/context/SearchContext';
-import TabToolbar from '../TabToolbar';
-import { SearchBar } from '../../../../../search/SearchBar';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { AndFilterInput } from '../../../../../../types.generated';
-import { SearchSelectBar } from './SearchSelectBar';
-import { EntityAndType } from '../../../../../entity/shared/types';
-import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
-import SearchMenuItems from '../../../../../sharedV2/search/SearchMenuItems';
+import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
+
+import { AndFilterInput, LineageSearchPath } from '@types';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -29,6 +35,21 @@ const SearchAndDownloadContainer = styled.div`
 const SearchMenuContainer = styled.div`
     margin-left: 10px;
     display: flex;
+`;
+
+const ImpactAnalysisWarning = styled.div`
+    gap: 8px;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
+    z-index: 1;
+`;
+
+const StyledButton = styled(Button)`
+    margin-left: auto;
+    color: ${(props) => props.theme.colors.iconWarning};
+    padding: 0;
 `;
 
 type Props = {
@@ -68,22 +89,26 @@ export default function EmbeddedListSearchHeader({
     searchBarStyle,
     searchBarInputStyle,
 }: Props) {
+    const { t } = useTranslation('entity.shared.components');
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
+    const { lineageSearchPath } = useContext(LineageTabContext);
+    const [showLightningWarning, setShowLightningWarning] = useState(true);
 
     return (
         <>
             <TabToolbar>
                 <HeaderContainer>
-                    <Button type="text" onClick={onToggleFilters}>
+                    <AntButton type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
                         <FilterOutlined />
-                        <Typography.Text>Filters</Typography.Text>
-                    </Button>
+                        <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
+                    </AntButton>
                     <SearchAndDownloadContainer>
                         <SearchBar
                             data-testid="embedded-search-bar"
                             initialQuery=""
-                            placeholderText={placeholderText || 'Search entities...'}
+                            placeholderText={placeholderText || t('embeddedSearch.searchEntitiesPlaceholder')}
                             suggestions={[]}
                             style={
                                 searchBarStyle || {
@@ -131,6 +156,19 @@ export default function EmbeddedListSearchHeader({
                         refetch={refetch}
                     />
                 </TabToolbar>
+            )}
+            {showLightningWarning && lineageSearchPath === LineageSearchPath.Lightning && (
+                <ImpactAnalysisWarning data-testid="lightning-cache-warning">
+                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                    {t('embeddedSearch.impactWarning')}
+                    <StyledButton
+                        onClick={() => setShowLightningWarning(false)}
+                        variant="text"
+                        icon={{ icon: X }}
+                        size="xl"
+                        data-testid="close-lightning-cache-warning"
+                    />
+                </ImpactAnalysisWarning>
             )}
         </>
     );

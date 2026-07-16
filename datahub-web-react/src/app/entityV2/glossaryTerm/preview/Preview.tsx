@@ -1,13 +1,18 @@
+import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import React from 'react';
-import { BookmarkSimple } from '@phosphor-icons/react';
-import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
-import UrlButton from '../../shared/UrlButton';
-import { getRelatedAssetsUrl } from '../utils';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import UrlButton from '@app/entityV2/shared/UrlButton';
+import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { AttributionDetails } from '@app/sharedV2/propagation/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
+import { Deprecation, Domain, EntityType, GlossaryTerm, Owner, ParentNodesResult } from '@types';
 
 export const Preview = ({
     urn,
@@ -20,6 +25,7 @@ export const Preview = ({
     previewType,
     domain,
     headerDropdownItems,
+    propagationDetails,
 }: {
     urn: string;
     data: GenericEntityProperties | null;
@@ -31,8 +37,20 @@ export const Preview = ({
     previewType: PreviewType;
     domain?: Domain | undefined;
     headerDropdownItems?: Set<EntityMenuItems>;
+    propagationDetails?: AttributionDetails;
 }): JSX.Element => {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
+    const iconEntity = useMemo(
+        () =>
+            ({
+                urn,
+                type: EntityType.GlossaryTerm,
+                displayProperties: data?.displayProperties ?? undefined,
+                parentNodes: parentNodes ?? undefined,
+            }) as Pick<GlossaryTerm, 'urn' | 'type' | 'displayProperties' | 'parentNodes'>,
+        [urn, data?.displayProperties, parentNodes],
+    );
     return (
         <DefaultPreviewCard
             previewType={previewType}
@@ -42,16 +60,19 @@ export const Preview = ({
             data={data}
             description={description || ''}
             owners={owners}
-            logoComponent={<BookmarkSimple style={{ fontSize: '20px' }} />}
+            entityIcon={<GlossaryEntityIcon entity={iconEntity} size={32} iconSize={18} />}
             entityType={EntityType.GlossaryTerm}
             typeIcon={entityRegistry.getIcon(EntityType.GlossaryTerm, 14, IconStyleType.ACCENT)}
             deprecation={deprecation}
             parentEntities={parentNodes?.nodes}
             domain={domain}
             entityTitleSuffix={
-                <UrlButton href={getRelatedAssetsUrl(entityRegistry, urn)}>View Related Assets</UrlButton>
+                <UrlButton href={resolveRuntimePath(getRelatedAssetsUrl(entityRegistry, urn))}>
+                    {t('glossaryTerm.viewRelatedAssets')}
+                </UrlButton>
             }
             headerDropdownItems={headerDropdownItems}
+            propagationDetails={propagationDetails}
         />
     );
 };

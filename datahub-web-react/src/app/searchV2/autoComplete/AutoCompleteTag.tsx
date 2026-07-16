@@ -1,7 +1,9 @@
 import React from 'react';
-import { EntityType, Tag } from '../../../types.generated';
-import { StyledTag } from '../../entityV2/shared/components/styled/StyledTag';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import TagPill from '@app/sharedV2/tags/TagPill';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, Tag } from '@types';
 
 interface Props {
     tag: Tag;
@@ -9,10 +11,11 @@ interface Props {
 
 export default function AutoCompleteTag({ tag }: Props) {
     const entityRegistry = useEntityRegistry();
-
     return (
-        <StyledTag $colorHash={tag?.urn} $color={tag?.properties?.colorHex}>
-            {entityRegistry.getDisplayName(EntityType.Tag, tag)}
-        </StyledTag>
+        <TagPill
+            name={entityRegistry.getDisplayName(EntityType.Tag, tag)}
+            color={tag?.properties?.colorHex}
+            colorHash={tag?.urn}
+        />
     );
 }

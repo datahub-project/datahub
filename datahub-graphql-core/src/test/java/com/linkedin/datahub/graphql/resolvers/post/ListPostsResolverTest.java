@@ -40,11 +40,11 @@ public class ListPostsResolverTest {
   private static final String POST_URN_STRING = "urn:li:post:examplePost";
   private static final MediaType POST_MEDIA_TYPE = MediaType.IMAGE;
   private static final String POST_MEDIA_LOCATION =
-      "https://datahubproject.io/img/datahub-logo-color-light-horizontal.svg";
+      "https://docs.datahub.com/img/datahub-logo-color-light-horizontal.svg";
   private static final PostContentType POST_CONTENT_TYPE = PostContentType.LINK;
   private static final String POST_TITLE = "title";
   private static final String POST_DESCRIPTION = "description";
-  private static final String POST_LINK = "https://datahubproject.io";
+  private static final String POST_LINK = "https://docs.datahub.com";
   private static final Media MEDIA =
       new Media().setType(POST_MEDIA_TYPE).setLocation(new Url(POST_MEDIA_LOCATION));
   private static final PostContent POST_CONTENT =

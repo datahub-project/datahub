@@ -1,21 +1,20 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
-import { useAppConfig } from '@app/useAppConfig';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
-import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '../../types.generated';
-import EntityRegistry from '../entityV2/EntityRegistry';
-import { DBT_CLOUD_URN } from '../ingest/source/builder/constants';
-import { hashString } from '../shared/avatar/getAvatarColor';
-import { FineGrainedOperation } from '../sharedV2/EntitySidebarContext';
-import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from './lineageUtils';
-import { FetchedEntityV2 } from './types';
+
+import { hashString } from '@components/components/Avatar/utils';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
+import { getEntityTypeFromEntityUrn, getPlatformUrnFromEntityUrn } from '@app/lineageV2/lineageUtils';
+import { FetchedEntityV2 } from '@app/lineageV2/types';
+import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 
 export const TRANSITION_DURATION_MS = 200;
 export const LINEAGE_FILTER_PAGINATION = 4;
-
-export const HOVER_COLOR = LINEAGE_COLORS.BLUE_2;
-export const SELECT_COLOR = LINEAGE_COLORS.PURPLE_3;
 
 type Urn = string;
 
@@ -36,7 +35,7 @@ export interface Filters {
     searchUrns?: Set<string>;
 }
 
-export interface NodeBase {
+interface NodeBase {
     id: string;
     isExpanded: Record<LineageDirection, boolean>;
     direction?: LineageDirection; // Root node has no direction. One day can try to support cycles in the same way.
@@ -54,7 +53,7 @@ export interface LineageEntity extends NodeBase {
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
-export const LINEAGE_FILTER_ID_PREFIX = 'lf:';
+const LINEAGE_FILTER_ID_PREFIX = 'lf:';
 
 export function createLineageFilterNodeId(urn: Urn, direction: LineageDirection): string {
     const dir = direction === LineageDirection.Upstream ? 'u:' : 'd:';
@@ -115,7 +114,7 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>): boo
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
 
-export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
+function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
     const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
     return (
         (type === EntityType.Dataset || type === EntityType.SchemaField) &&
@@ -273,16 +272,6 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
-export function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjacencyList'>): void {
-    const { edges, adjacencyList } = context;
-    adjacencyList[LineageDirection.Upstream].get(urn)?.forEach((upstream) => edges.delete(createEdgeId(upstream, urn)));
-    adjacencyList[LineageDirection.Downstream]
-        .get(urn)
-        ?.forEach((downstream) => edges.delete(createEdgeId(urn, downstream)));
-    adjacencyList[LineageDirection.Upstream].delete(urn);
-    adjacencyList[LineageDirection.Downstream].delete(urn);
-}
-
 // Mapping fromRef -> toRef -> operationRef represents a column-level edge (fromRef -> toRef)
 // with an operationRef attached if this is an edge to that operation's query node
 export type FineGrainedLineageMap = Map<ColumnRef, Map<ColumnRef, FineGrainedOperationRef | null>>;
@@ -349,10 +338,13 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
     return true;
 }
 
+// Lineage entity-type category colors for graph visualization — no semantic equivalents
+/* eslint-disable rulesdir/no-hardcoded-colors */
 const DATA_STORE_COLOR = '#ffd279';
 const BI_TOOL_COLOR = '#8682a2';
 const ML_COLOR = '#206de8';
 const DEFAULT_COLOR = '#ff7979';
+/* eslint-enable rulesdir/no-hardcoded-colors */
 
 export function getNodeColor(type?: EntityType): [string, string] {
     if (type === EntityType.Chart || type === EntityType.Dashboard) {

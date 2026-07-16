@@ -15,7 +15,7 @@ from datahub.metadata.urns import (
     TagUrn,
 )
 from datahub.sdk.container import Container
-from tests.test_helpers.sdk_v2_helpers import assert_entity_golden
+from datahub.testing.sdk_v2_helpers import assert_entity_golden
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "container_golden"
 

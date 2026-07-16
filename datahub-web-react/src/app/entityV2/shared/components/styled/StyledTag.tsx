@@ -1,7 +1,6 @@
 import { Tag } from 'antd';
-import styled, { css } from 'styled-components';
 import ColorHash from 'color-hash';
-import { REDESIGN_COLORS } from '../../constants';
+import styled, { css } from 'styled-components';
 
 export const generateColor = new ColorHash({
     saturation: 0.9,
@@ -22,11 +21,17 @@ export const StyledTag = styled(Tag)<{
     overflow: hidden;
     text-overflow: ellipsis;
     &&& {
+        background-color: ${(props) => props.theme.colors.bg};
+        border-color: ${(props) => props.theme.colors.border};
+        color: ${(props) => props.theme.colors.textSecondary};
+        .ant-tag-close-icon {
+            color: ${(props) => props.theme.colors.icon};
+        }
         ${(props) =>
             props.$highlightTag &&
             `
-                background: ${props.theme.styles['highlight-color']};
-                border: 1px solid ${props.theme.styles['highlight-border-color']};
+                background: ${props.theme.colors.bgHighlight};
+                border: 1px solid ${props.theme.colors.borderHover};
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
@@ -45,7 +50,6 @@ export const StyledTag = styled(Tag)<{
                 margin-right: 4px;
             }
         `};
-    color: ${REDESIGN_COLORS.DARK_GREY};
     font-weight: 400;
     ${(props) =>
         props.$showOneAndCount &&

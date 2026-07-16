@@ -1,11 +1,12 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Select } from 'antd';
 import { findParentNodeOfType, isElementDomNode } from '@remirror/core';
-import { defaultAbsolutePosition, hasStateChanged, isPositionVisible, Positioner } from 'remirror/extensions';
 import { FloatingWrapper, useAttrs, useCommands } from '@remirror/react';
+import { Select } from 'antd';
+import React from 'react';
 import { listLanguages } from 'refractor';
-import { ToolbarContainer } from './FloatingToolbar';
+import { Positioner, defaultAbsolutePosition, hasStateChanged, isPositionVisible } from 'remirror/extensions';
+import styled from 'styled-components';
+
+import { ToolbarContainer } from '@components/components/Editor/toolbar/FloatingToolbar';
 
 const StyledSelect = styled(Select)`
     min-width: 120px;

@@ -3,11 +3,10 @@
 This example demonstrates how to emit lineage to DataHub within an Airflow DAG.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
 
 import datahub.emitter.mce_builder as builder
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
@@ -28,10 +27,9 @@ with DAG(
     "datahub_lineage_emission_example",
     default_args=default_args,
     description="An example DAG demonstrating lineage emission within an Airflow DAG.",
-    schedule_interval=timedelta(days=1),
-    start_date=days_ago(2),
+    schedule=timedelta(days=1),
+    start_date=datetime(2023, 1, 1),
     catchup=False,
-    default_view="tree",
 ) as dag:
     transformation_task = BashOperator(
         task_id="transformation_task",

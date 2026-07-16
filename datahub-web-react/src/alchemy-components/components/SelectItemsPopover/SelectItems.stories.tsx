@@ -1,10 +1,9 @@
-import React from 'react';
-import { Meta, StoryObj } from '@storybook/react';
-import { Entity, EntityType, Tag as TagType } from '@src/types.generated';
 import { MockedProvider } from '@apollo/client/testing';
-import Tag from '@src/app/sharedV2/tags/tag/Tag';
-import { EntityRegistryContext } from '@src/entityRegistryContext';
+import { Meta, StoryObj } from '@storybook/react';
 import { Button } from 'antd';
+import React from 'react';
+
+import { SelectItemPopover, SelectItemPopoverProps } from '@components/components/SelectItemsPopover/SelectItemPopover';
 import {
     defaultGlossaryTermEntities,
     defaultTagEntities,
@@ -13,8 +12,11 @@ import {
     mockTagEntityRegistry,
     mockTagSelectedEntities,
     tagMocks,
-} from './__mock.data';
-import { SelectItemPopoverProps, SelectItemPopover } from './SelectItemPopover';
+} from '@components/components/SelectItemsPopover/__mock.data';
+
+import Tag from '@src/app/sharedV2/tags/tag/Tag';
+import { EntityRegistryContext } from '@src/entityRegistryContext';
+import { Entity, EntityType, Tag as TagType } from '@src/types.generated';
 
 // Storybook meta configuration
 const meta: Meta<SelectItemPopoverProps> = {
@@ -80,16 +82,13 @@ const meta: Meta<SelectItemPopoverProps> = {
             },
             control: { type: 'object' },
         },
-        entityType: {
-            description: 'Type of entity being selected, e.g., Tag or GlossaryTerm.',
+        entityTypes: {
+            description: 'Types of entities being selected, e.g., [EntityType.Tag] or [EntityType.GlossaryTerm].',
             table: {
-                type: { summary: 'EntityType' },
-                defaultValue: { summary: 'EntityType.Tag' },
+                type: { summary: 'EntityType[]' },
+                defaultValue: { summary: '[EntityType.Tag]' },
             },
-            control: {
-                type: 'select',
-                options: Object.values(EntityType),
-            },
+            control: { type: 'object' },
         },
         renderOption: {
             description: 'Custom renderer function for each option in the select list.',
@@ -128,7 +127,7 @@ export const TagSelector: Story = {
     args: {
         entities: defaultTagEntities as unknown as Entity[],
         selectedItems: mockTagSelectedEntities,
-        entityType: EntityType.Tag,
+        entityTypes: [EntityType.Tag],
         renderOption: (option) => {
             return (
                 <Tag
@@ -155,6 +154,6 @@ export const GlossaryTermSelectorWithoutCustomizeRenderingOptions: Story = {
     args: {
         entities: defaultGlossaryTermEntities as unknown as Entity[],
         selectedItems: mockGlossaryTermSelectedEntities,
-        entityType: EntityType.GlossaryTerm,
+        entityTypes: [EntityType.GlossaryTerm],
     },
 };

@@ -1,5 +1,6 @@
-import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import React, { TableHTMLAttributes } from 'react';
+
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 
 export interface Column<T> {
     title: string | React.ReactNode;
@@ -7,10 +8,14 @@ export interface Column<T> {
     dataIndex?: string;
     render?: (record: T, index: number) => React.ReactNode;
     width?: string;
+    minWidth?: string;
     maxWidth?: string;
-    sorter?: (a: T, b: T) => number;
+    sorter?: ((a: T, b: T) => number) | boolean;
     alignment?: AlignmentOptions;
     tooltipTitle?: string;
+    onCellClick?: (record: T) => void;
+    isCellClickable?: (record: T) => boolean;
+    cellWrapper?: (content: React.ReactNode, record: T) => React.ReactNode;
 }
 
 export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
@@ -32,11 +37,16 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     rowSelection?: RowSelectionProps<T>;
     rowRefs?: React.MutableRefObject<HTMLTableRowElement[]>;
     headerRef?: React.RefObject<HTMLTableSectionElement>;
+    footer?: React.ReactNode;
+    renderScrollObserver?: () => React.ReactNode;
 }
 
 export interface RowSelectionProps<T> {
     selectedRowKeys: string[];
     onChange?: (selectedKeys: string[], selectedRows: T[]) => void;
+    getCheckboxProps?: (T) => {
+        disabled: boolean;
+    };
 }
 
 export interface ExpandableProps<T> {

@@ -1,6 +1,7 @@
-import { EditableSchemaMetadata, SchemaField, SchemaFieldDataType } from '@src/types.generated';
 import { renderHook } from '@testing-library/react-hooks';
-import useExtractFieldDescriptionInfo from '../useExtractFieldDescriptionInfo';
+
+import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
+import { EditableSchemaMetadata, SchemaField, SchemaFieldDataType } from '@src/types.generated';
 
 describe('useExtractDescriptionInfo', () => {
     const emptyEditableSchemaMetadata: EditableSchemaMetadata = { editableSchemaFieldInfo: [] };

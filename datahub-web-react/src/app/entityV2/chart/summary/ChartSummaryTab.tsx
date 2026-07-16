@@ -1,16 +1,18 @@
-import React from 'react';
-import styled from 'styled-components';
 import { Divider } from 'antd';
-import { SummaryTabWrapper } from '../../shared/summary/HeaderComponents';
-import TableauEmbed from './TableauEmbed';
-import ChartSummaryOverview from './ChartSummaryOverview';
-import { TABLEAU_URN, LOOKER_URN, MODE_URN } from '../../../ingest/source/builder/constants';
-import SummaryAboutSection from '../../shared/summary/SummaryAboutSection';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { useGetTagFields } from './useGetTagFields';
-import { SummaryColumns } from '../../shared/summary/ListComponents';
-import FieldTableByTag from './FieldTableByTag';
-import EmbedPreview from './EmbedPreview';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import ChartSummaryOverview from '@app/entityV2/chart/summary/ChartSummaryOverview';
+import EmbedPreview from '@app/entityV2/chart/summary/EmbedPreview';
+import FieldTableByTag from '@app/entityV2/chart/summary/FieldTableByTag';
+import TableauEmbed from '@app/entityV2/chart/summary/TableauEmbed';
+import { useGetTagFields } from '@app/entityV2/chart/summary/useGetTagFields';
+import { SummaryTabWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
+import { SummaryColumns } from '@app/entityV2/shared/summary/ListComponents';
+import SummaryAboutSection from '@app/entityV2/shared/summary/SummaryAboutSection';
+import { LOOKER_URN, MODE_URN, TABLEAU_URN } from '@app/ingest/source/builder/constants';
 
 const StyledDivider = styled(Divider)`
     width: 100%;
@@ -23,6 +25,7 @@ const DIMENSION_TAG = 'urn:li:tag:Dimension';
 const TEMPORAL_TAG = 'urn:li:tag:Temporal';
 
 export default function ChartSummaryTab(): JSX.Element | null {
+    const { t } = useTranslation('entity.types');
     const { entityData } = useEntityData();
 
     const measureFields = useGetTagFields(MEASURE_TAG);
@@ -43,9 +46,15 @@ export default function ChartSummaryTab(): JSX.Element | null {
                         <StyledDivider />
 
                         <SummaryColumns>
-                            {measureFields?.length && <FieldTableByTag title="Measures" fields={measureFields} />}
-                            {dimensionFields?.length && <FieldTableByTag title="Dimensions" fields={dimensionFields} />}
-                            {temporalFields?.length && <FieldTableByTag title="Temporals" fields={temporalFields} />}
+                            {measureFields?.length && (
+                                <FieldTableByTag title={t('chart.measuresTitle')} fields={measureFields} />
+                            )}
+                            {dimensionFields?.length && (
+                                <FieldTableByTag title={t('chart.dimensionsTitle')} fields={dimensionFields} />
+                            )}
+                            {temporalFields?.length && (
+                                <FieldTableByTag title={t('chart.temporalsTitle')} fields={temporalFields} />
+                            )}
                         </SummaryColumns>
                     </>
                 )}

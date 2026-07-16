@@ -1,6 +1,6 @@
 import { Tag } from 'antd';
-import styled, { css } from 'styled-components';
 import ColorHash from 'color-hash';
+import styled, { css } from 'styled-components';
 
 export const generateColor = new ColorHash({
     saturation: 0.9,
@@ -11,8 +11,8 @@ export const StyledTag = styled(Tag)<{ $color: any; $colorHash?: string; fontSiz
         ${(props) =>
             props.highlightTag &&
             `
-                background: ${props.theme.styles['highlight-color']};
-                border: 1px solid ${props.theme.styles['highlight-border-color']};
+                background: ${props.theme.colors.bgSurfaceBrand};
+                border: 1px solid ${props.theme.colors.borderBrand};
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}

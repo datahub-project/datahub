@@ -1,4 +1,4 @@
-import { Assertion, AssertionType } from '../../../../../../types.generated';
+import { Assertion, AssertionType } from '@types';
 
 export type AssertionStatusSummary = {
     passing: number;

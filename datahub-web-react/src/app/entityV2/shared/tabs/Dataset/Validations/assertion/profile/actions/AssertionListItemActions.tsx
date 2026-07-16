@@ -1,14 +1,16 @@
-import React from 'react';
-import styled from 'styled-components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown, Menu } from 'antd';
-import { Button, colors } from '@src/alchemy-components';
-import { DotsThreeVertical } from 'phosphor-react';
-import { Assertion, AssertionRunStatus, DataContract } from '../../../../../../../../../types.generated';
-import { ContractAction } from './ContractAction';
-import { CopyLinkAction } from './CopyLinkAction';
-import { CopyUrnAction } from './CopyUrnAction';
-import { ExternalUrlAction } from './ExternalUrlAction';
-import { useIsOnSiblingsView } from '../../../../../../useIsSeparateSiblingsMode';
+import React from 'react';
+import styled, { useTheme } from 'styled-components';
+
+import { ContractAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ContractAction';
+import { CopyLinkAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyLinkAction';
+import { CopyUrnAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyUrnAction';
+import { ExternalUrlAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ExternalUrlAction';
+import { useIsOnSiblingsView } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { Button } from '@src/alchemy-components';
+
+import { Assertion, AssertionRunStatus, DataContract } from '@types';
 
 const ActionList = styled.div<{ $shouldRightAlign?: boolean }>`
     display: flex;
@@ -34,6 +36,7 @@ export const AssertionListItemActions = ({
     refetch,
     shouldRightAlign,
 }: Props) => {
+    const theme = useTheme();
     const isSiblingsView = useIsOnSiblingsView();
     const mostRun = assertion.runEvents?.runEvents;
     const externalUrl =
@@ -70,7 +73,7 @@ export const AssertionListItemActions = ({
         <ActionList onClick={(e) => e.stopPropagation()} $shouldRightAlign={shouldRightAlign}>
             <Dropdown overlay={menu} trigger={['click']}>
                 <Button variant="text">
-                    <DotsThreeVertical size={20} color={colors.gray[500]} weight="bold" />
+                    <DotsThreeVertical size={20} color={theme.colors.icon} weight="bold" />
                 </Button>
             </Dropdown>
         </ActionList>

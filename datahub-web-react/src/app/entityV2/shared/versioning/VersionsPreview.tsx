@@ -1,13 +1,16 @@
+import { Pill, Text } from '@components';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import styled, { useTheme } from 'styled-components';
+
 import analytics, { EventType } from '@app/analytics';
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import { DrawerType } from '@app/entity/shared/types';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors, Pill, Text } from '@components';
+
 import { Entity, VersionSet } from '@types';
-import React from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components';
 
 const Wrapper = styled.div`
     display: flex;
@@ -24,7 +27,7 @@ const Header = styled(Text)`
     gap: 6px;
     margin-bottom: 8px;
 
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     line-height: 1.2;
 `;
@@ -53,6 +56,9 @@ interface Props {
 }
 
 export default function VersionsPreview({ versionSet }: Props) {
+    const { t } = useTranslation('entity.shared.versioning');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
     const { urn, entityType, setDrawer } = useEntityContext();
 
     const count = versionSet?.versionsSearch?.count;
@@ -60,7 +66,7 @@ export default function VersionsPreview({ versionSet }: Props) {
     return (
         <Wrapper>
             <Header size="xl" type="div">
-                <Text weight="semiBold">Versions</Text>
+                <Text weight="semiBold">{t('versionsTitle')}</Text>
                 {!!total && <VersionsCount label={total.toString()} size="sm" clickable={false} />}
             </Header>
             <VersionsWrapper>
@@ -72,8 +78,8 @@ export default function VersionsPreview({ versionSet }: Props) {
                 <Footer>
                     <ShowAllButton
                         size="md"
-                        color="gray"
                         weight="bold"
+                        style={{ color: theme.colors.textSecondary }}
                         onClick={() => {
                             analytics.event({
                                 type: EventType.ShowAllVersionsEvent,
@@ -86,7 +92,7 @@ export default function VersionsPreview({ versionSet }: Props) {
                             setDrawer(DrawerType.VERSIONS);
                         }}
                     >
-                        View all
+                        {tc('viewAll')}
                     </ShowAllButton>
                 </Footer>
             )}
@@ -101,9 +107,7 @@ const VersionPreviewEntry = styled.div<{ isViewing: boolean }>`
     gap: 8px;
     padding: 8px;
 
-    ${({ isViewing }) =>
-        isViewing &&
-        'background: linear-gradient(180deg, rgba(83, 63, 209, 0.04) -3.99%, rgba(112, 94, 228, 0.04) 53.04%, rgba(112, 94, 228, 0.04) 100%)'};
+    ${(props) => props.isViewing && `background: ${props.theme.colors.bgSelectedSubtle}`};
 `;
 
 const VersionPreviewHeader = styled.span`
@@ -117,6 +121,9 @@ interface VersionPreviewRowProps {
 }
 
 function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
+    const { t } = useTranslation('entity.shared.versioning');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { urn: entityProfileUrn } = useEntityData();
 
@@ -126,25 +133,27 @@ function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
     return (
         <VersionPreviewEntry isViewing={isViewing}>
             <VersionPreviewHeader>
+                {/* eslint-disable i18next/no-literal-string -- (untranslated-text) programmatic placeholder token, not natural-language UI */}
                 <VersionPill
                     label={versionProperties?.version?.versionTag ?? '<unlabeled>'}
                     isLatest={versionProperties?.isLatest}
                 />
+                {/* eslint-enable i18next/no-literal-string */}
                 {!!versionProperties?.isLatest && (
-                    <Text size="md" color="gray">
-                        Latest
+                    <Text size="md" style={{ color: theme.colors.textSecondary }}>
+                        {t('latest')}
                     </Text>
                 )}
             </VersionPreviewHeader>
             {isViewing && (
-                <Text size="md" color="gray" colorLevel={1800} weight="semiBold">
-                    Viewing
+                <Text size="md" weight="semiBold" style={{ color: theme.colors.textTertiary }}>
+                    {t('viewing')}
                 </Text>
             )}
             {!isViewing && (
                 <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
-                    <Text size="md" color="violet" weight="semiBold">
-                        View
+                    <Text size="md" color="primary" weight="semiBold">
+                        {tc('view')}
                     </Text>
                 </Link>
             )}

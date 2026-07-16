@@ -1,13 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { REDESIGN_COLORS } from '../../../constants';
 
-const EmptyContentMessage = styled(Typography.Text)`
+const EmptyContentMessage = styled.span`
     font-size: 12px;
     font-weight: 400;
-    color: ${REDESIGN_COLORS.DARK_GREY};
-    opacity: 0.5;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {
@@ -15,7 +12,8 @@ type Props = {
 };
 
 const EmptySectionText = ({ message }: Props) => {
-    return <EmptyContentMessage type="secondary">{message}.</EmptyContentMessage>;
+    // eslint-disable-next-line i18next/no-literal-string -- trailing punctuation appended uniformly to all empty-state messages
+    return <EmptyContentMessage>{message}.</EmptyContentMessage>;
 };
 
 export default EmptySectionText;

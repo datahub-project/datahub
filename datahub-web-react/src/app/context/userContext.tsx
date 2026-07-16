@@ -1,6 +1,8 @@
 import React from 'react';
-import { CorpUser, PlatformPrivileges } from '../../types.generated';
-import { CustomUserContextState, DEFAULT_CUSTOM_STATE } from './CustomUserContext';
+
+import { CustomUserContextState, DEFAULT_CUSTOM_STATE } from '@app/context/CustomUserContext';
+
+import { CorpUser, PlatformPrivileges } from '@types';
 
 /**
  * Local State is persisted to local storage.
@@ -41,7 +43,7 @@ export type UserContextType = {
     refetchUser: () => any;
 };
 
-export const DEFAULT_LOCAL_STATE: LocalState = {
+const DEFAULT_LOCAL_STATE: LocalState = {
     selectedViewUrn: undefined,
 };
 
@@ -56,7 +58,7 @@ export const DEFAULT_STATE: State = {
     customState: DEFAULT_CUSTOM_STATE,
 };
 
-export const DEFAULT_CONTEXT = {
+const DEFAULT_CONTEXT = {
     loaded: false,
     urn: undefined,
     user: undefined,

@@ -1,29 +1,31 @@
 import { HomeOutlined } from '@ant-design/icons';
-import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NodeProps } from 'reactflow';
 import styled from 'styled-components';
-import { EntityType, LineageDirection } from '../../../types.generated';
-import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
+
+import NodeContents from '@app/lineageV2/LineageEntityNode/NodeContents';
+import useDisplayedColumns from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
+import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import {
     LineageDisplayContext,
     LineageEntity,
     LineageNodesContext,
     TRANSITION_DURATION_MS,
     useIgnoreSchemaFieldStatus,
-} from '../common';
-import useSearchAcrossLineage from '../useSearchAcrossLineage';
-import NodeContents from './NodeContents';
-import useDisplayedColumns from './useDisplayedColumns';
+} from '@app/lineageV2/common';
+import useSearchAcrossLineage from '@app/lineageV2/useSearchAcrossLineage';
+
+import { EntityType, LineageDirection } from '@types';
 
 export const LINEAGE_ENTITY_NODE_NAME = 'lineage-entity';
 const MAX_NODES_FOR_TRANSITION = 50;
 
 const HomeNodeBubble = styled.div`
     align-items: center;
-    background-color: ${LINEAGE_COLORS.PURPLE_3};
+    background-color: ${(p) => p.theme.colors.buttonFillBrand};
     border-radius: 10px;
-    color: white;
+    color: ${(p) => p.theme.colors.textOnFillBrand};
     display: flex;
     font-size: 10px;
     font-weight: 600;
@@ -36,6 +38,7 @@ const HomeNodeBubble = styled.div`
 `;
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
+    const { t } = useTranslation('lineage');
     const { data, selected, dragging } = props;
     const { urn, type, entity, id, fetchStatus, isExpanded, filters } = data;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
@@ -71,7 +74,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             {urn === rootUrn && (
                 <HomeNodeBubble>
                     <HomeOutlined style={{ marginRight: 4 }} />
-                    Home
+                    {t('node.homePill.label')}
                 </HomeNodeBubble>
             )}
             <NodeContents

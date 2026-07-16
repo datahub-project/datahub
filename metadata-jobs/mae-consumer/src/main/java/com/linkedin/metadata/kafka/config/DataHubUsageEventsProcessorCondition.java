@@ -9,7 +9,8 @@ public class DataHubUsageEventsProcessorCondition implements Condition {
   @Override
   public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
     Environment env = context.getEnvironment();
-    return "true".equals(env.getProperty("MAE_CONSUMER_ENABLED"))
+    return ("true".equals(env.getProperty("MAE_CONSUMER_ENABLED"))
+            || "true".equals(env.getProperty("MCL_CONSUMER_ENABLED")))
         && (env.getProperty("DATAHUB_ANALYTICS_ENABLED") == null
             || "true".equals(env.getProperty("DATAHUB_ANALYTICS_ENABLED")));
   }

@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useQuickFiltersContext } from '../../../../providers/QuickFiltersContext';
-import QuickFilter from './QuickFilter';
+
+import QuickFilter from '@app/searchV2/autoComplete/quickFilters/QuickFilter';
+import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 
 const QuickFiltersWrapper = styled.div`
     display: flex;

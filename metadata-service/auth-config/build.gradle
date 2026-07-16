@@ -6,7 +6,7 @@ apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   implementation project(path: ':metadata-models')
-  implementation project(path: ':metadata-auth:auth-api')
+  implementation project(path: ':metadata-auth:auth-api', configuration: 'shadow')
   implementation externalDependency.guava
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok

@@ -1,14 +1,17 @@
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { Message } from '../../shared/Message';
-import TagStyleEntity from '../../shared/TagStyleEntity';
-import { useGetTagQuery } from '../../../graphql/tag.generated';
-import CompactContext from '../../shared/CompactContext';
-import CompactTagProfile from './CompactTagProfile';
+
+import CompactTagProfile from '@app/entityV2/tag/CompactTagProfile';
+import CompactContext from '@app/shared/CompactContext';
+import { Message } from '@app/shared/Message';
+import TagStyleEntity from '@app/shared/TagStyleEntity';
+
+import { useGetTagQuery } from '@graphql/tag.generated';
 
 const PageContainer = styled.div`
     padding: 32px 100px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
 `;
 
@@ -24,6 +27,7 @@ interface Props {
  * Responsible for displaying metadata about a tag
  */
 export default function TagProfile({ urn }: Props) {
+    const { t: tf } = useTranslation('common.feedback');
     const { loading } = useGetTagQuery({ variables: { urn } });
     const isCompact = useContext(CompactContext);
 
@@ -33,7 +37,7 @@ export default function TagProfile({ urn }: Props) {
 
     return (
         <PageContainer>
-            {loading && <LoadingMessage type="loading" content="Loading..." />}
+            {loading && <LoadingMessage type="loading" content={tf('loading')} />}
             <TagStyleEntity urn={urn} />
         </PageContainer>
     );

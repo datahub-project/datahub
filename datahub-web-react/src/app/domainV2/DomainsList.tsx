@@ -1,29 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Empty, Pagination, Typography } from 'antd';
-import { useLocation } from 'react-router';
-import styled from 'styled-components';
-import * as QueryString from 'query-string';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button, Empty, Pagination, Typography } from 'antd';
+import * as QueryString from 'query-string';
 import { AlignType } from 'rc-table/lib/interface';
-import { EntityType } from '../../types.generated';
-import { useListDomainsQuery } from '../../graphql/domain.generated';
-import CreateDomainModal from './CreateDomainModal';
-import { Message } from '../shared/Message';
-import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import { SearchBar } from '../search/SearchBar';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { scrollToTop } from '../shared/searchUtils';
-import { addToListDomainsCache, removeFromListDomainsCache } from './utils';
-import { OnboardingTour } from '../onboarding/OnboardingTour';
-import { DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID } from '../onboarding/config/DomainsOnboardingConfig';
-import { getElasticCappedTotalValueText } from '../entity/shared/constants';
-import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-import { DomainOwnersColumn, DomainListMenuColumn, DomainNameColumn } from './DomainListColumns';
-import DomainIcon from './DomainIcon';
+import React, { useEffect, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router';
+import styled, { useTheme } from 'styled-components';
+
+import CreateDomainModal from '@app/domainV2/CreateDomainModal';
+import DomainIcon from '@app/domainV2/DomainIcon';
+import { DomainListMenuColumn, DomainNameColumn, DomainOwnersColumn } from '@app/domainV2/DomainListColumns';
+import { addToListDomainsCache, removeFromListDomainsCache } from '@app/domainV2/utils';
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { getElasticCappedTotalValueText } from '@app/entity/shared/constants';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListDomainsQuery } from '@graphql/domain.generated';
+import { EntityType } from '@types';
 
 const DomainsContainer = styled.div``;
 
-export const DomainsPaginationContainer = styled.div`
+const DomainsPaginationContainer = styled.div`
     display: flex;
     justify-content: center;
     padding: 12px;
@@ -41,7 +44,10 @@ const PaginationInfo = styled(Typography.Text)`
 const DEFAULT_PAGE_SIZE = 25;
 
 export const DomainsList = () => {
+    const { t } = useTranslation('governance.domain');
+    const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -83,7 +89,7 @@ export const DomainsList = () => {
 
     const allColumns = [
         {
-            title: 'Name',
+            title: tl('name'),
             dataIndex: '',
             key: 'name',
             sorter: (sourceA, sourceB) => {
@@ -93,13 +99,14 @@ export const DomainsList = () => {
                 <DomainIcon
                     style={{
                         fontSize: 12,
-                        color: '#BFBFBF',
+                        color: theme.colors.icon,
                     }}
                 />,
+                t,
             ),
         },
         {
-            title: 'Owners',
+            title: tl('owners'),
             dataIndex: 'ownership',
             width: '10%',
             key: 'ownership',
@@ -131,17 +138,17 @@ export const DomainsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading domains..." />}
-            {error && <Message type="error" content="Failed to load domains! An unexpected error occurred." />}
+            {!data && loading && <Message type="loading" content={t('list.loading')} />}
+            {error && <Message type="error" content={t('list.loadError')} />}
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <DomainsContainer>
                 <TabToolbar>
                     <Button id={DOMAINS_CREATE_DOMAIN_ID} type="text" onClick={() => setIsCreatingDomain(true)}>
-                        <PlusOutlined /> New Domain
+                        <PlusOutlined /> {t('list.newDomain')}
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search domains..."
+                        placeholderText={t('list.searchPlaceholder')}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -162,14 +169,20 @@ export const DomainsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     pagination={false}
-                    locale={{ emptyText: <Empty description="No Domains!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                    locale={{ emptyText: <Empty description={t('list.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
                 />
                 <DomainsPaginationContainer>
                     <PaginationInfo>
-                        <b>
-                            {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                        </b>
-                        of <b>{totalDomains}</b>
+                        <Trans
+                            t={t}
+                            i18nKey="list.paginationRange"
+                            values={{
+                                startIndex: lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0,
+                                lastResultIndex,
+                                totalDomains,
+                            }}
+                            components={{ bold: <b /> }}
+                        />
                     </PaginationInfo>
                     <Pagination
                         current={page}
@@ -195,6 +208,7 @@ export const DomainsList = () => {
                                     },
                                     ownership: null,
                                     entities: null,
+                                    institutionalMemory: null,
                                 },
                                 pageSize,
                             );

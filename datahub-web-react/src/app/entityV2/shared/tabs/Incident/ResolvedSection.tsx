@@ -1,8 +1,6 @@
 import React from 'react';
-import { Avatar } from '@src/alchemy-components';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import { EntityType } from '@src/types.generated';
 
 import {
     ResolverDetails,
@@ -11,8 +9,11 @@ import {
     ResolverSubTitle,
     ResolverSubTitleContainer,
     ResolverTitleContainer,
-} from './styledComponents';
-import { getFormattedDateForResolver } from './utils';
+} from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { getFormattedDateForResolver } from '@app/entityV2/shared/tabs/Incident/utils';
+import { Avatar } from '@src/alchemy-components';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { EntityType } from '@src/types.generated';
 
 type ResolvedSectionProps = {
     resolverUrn: string;
@@ -29,6 +30,7 @@ export const ResolvedSection = ({
     resolvedDateAndTime,
     resolverImageUrl,
 }: ResolvedSectionProps) => {
+    const { t } = useTranslation('entity.profile.incident');
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
 
@@ -38,10 +40,10 @@ export const ResolvedSection = ({
 
     return (
         <ResolverInfoContainer>
-            <ResolverTitleContainer>Incident Resolved</ResolverTitleContainer>
+            <ResolverTitleContainer>{t('resolution.sectionTitle')}</ResolverTitleContainer>
             <ResolverDetailsContainer>
                 <ResolverSubTitleContainer>
-                    <ResolverSubTitle>Resolved By</ResolverSubTitle>
+                    <ResolverSubTitle>{t('resolution.resolvedBy')}</ResolverSubTitle>
                     <ResolverDetails>
                         <Avatar
                             name={resolverName}
@@ -52,11 +54,11 @@ export const ResolvedSection = ({
                     </ResolverDetails>
                 </ResolverSubTitleContainer>
                 <ResolverSubTitleContainer>
-                    <ResolverSubTitle>Note</ResolverSubTitle>
+                    <ResolverSubTitle>{t('resolution.noteLabel')}</ResolverSubTitle>
                     <ResolverDetails>{resolverMessage || '-'}</ResolverDetails>
                 </ResolverSubTitleContainer>
                 <ResolverSubTitleContainer>
-                    <ResolverSubTitle>Resolved Date and Time</ResolverSubTitle>
+                    <ResolverSubTitle>{t('resolution.resolvedDateTime')}</ResolverSubTitle>
                     <ResolverDetails>{getFormattedDateForResolver(resolvedDateAndTime)}</ResolverDetails>
                 </ResolverSubTitleContainer>
             </ResolverDetailsContainer>

@@ -1,19 +1,24 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
 import { Checkbox, Empty, Table, TableProps } from 'antd';
-import { Assertion, AssertionRunStatus, DataContract } from '../../../../../../types.generated';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { ActionsColumn, DetailsColumn } from './AcrylAssertionsTableColumns';
-import { AssertionProfileDrawer } from './assertion/profile/AssertionProfileDrawer';
-import { ANTD_GRAY } from '../../../constants';
-import { useOpenAssertionDetailModal } from './assertion/builder/hooks';
-import { getEntityUrnForAssertion, getSiblingWithUrn } from './acrylUtils';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import {
+    ActionsColumn,
+    DetailsColumn,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
+import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
+
+import { Assertion, AssertionRunStatus, DataContract } from '@types';
 
 type StyledTableProps = {
     showSelect?: boolean;
 } & TableProps<any>;
 
-export const StyledTable = styled(Table)<StyledTableProps>`
+const BaseStyledTable = styled(Table)<StyledTableProps>`
     ${(props) => !props.showSelect && `margin-left: -50px;`}
     max-width: none;
     overflow: inherit;
@@ -21,7 +26,10 @@ export const StyledTable = styled(Table)<StyledTableProps>`
     &&& .ant-table-thead .ant-table-cell {
         font-weight: 600;
         font-size: 12px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.textTertiary};
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     &&
         .ant-table-thead
@@ -29,12 +37,15 @@ export const StyledTable = styled(Table)<StyledTableProps>`
         > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
             [colspan]
         )::before {
-        border: 1px solid ${ANTD_GRAY[4]};
+        border: 1px solid ${(props) => props.theme.colors.bgHover};
     }
     && {
         .ant-table-tbody > tr > td {
             border: none;
             ${(props) => props.showSelect && `padding: 16px 20px;`}
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     }
     &&& .ant-table-cell {
@@ -42,15 +53,26 @@ export const StyledTable = styled(Table)<StyledTableProps>`
     }
     &&& .acryl-assertions-table-row {
         cursor: pointer;
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
         :hover {
-            background-color: ${ANTD_GRAY[3]};
+            background-color: ${(props) => props.theme.colors.bgSurface};
         }
     }
     &&& .acryl-selected-assertions-table-row {
-        background-color: ${ANTD_GRAY[4]};
+        background-color: ${(props) => props.theme.colors.bgHover};
+    }
+    &&& .ant-table-fixed-right {
+        background-color: inherit;
+    }
+    &&& .ant-table-tbody > tr > td.ant-table-cell-fix-right {
+        background-color: inherit;
+    }
+    &&& .ant-table-thead > tr > th.ant-table-cell-fix-right {
+        background-color: inherit;
     }
 `;
+
+export const StyledTable = BaseStyledTable as <T = any>(props: StyledTableProps & TableProps<T>) => JSX.Element;
 
 const DetailsColumnWrapper = styled.div`
     display: flex;
@@ -85,6 +107,7 @@ export const AcrylAssertionsTable = ({
     onSelect,
     refetch,
 }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const { entityData } = useEntityData();
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
 
@@ -187,7 +210,12 @@ export const AcrylAssertionsTable = ({
                 dataSource={assertionsTableData}
                 rowKey="urn"
                 locale={{
-                    emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    emptyText: (
+                        <Empty
+                            description={t('assertionList.noAssertionsTitle')}
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        />
+                    ),
                 }}
                 onRow={(record) => {
                     return {

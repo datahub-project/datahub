@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Key for an MLPrimaryKey
  */
 @Aspect = {
-  "name": "mlPrimaryKeyKey"
+  "name": "mlPrimaryKeyKey",
+  "schemaVersion": 2
 }
 record MLPrimaryKeyKey {
   /**
@@ -24,7 +25,9 @@ record MLPrimaryKeyKey {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 8.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
   }
   name: string
 }

@@ -1,7 +1,10 @@
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
+
+import { LabelsWrapper, Placeholder } from '@components/components/Select/components';
+import { SelectLabelVariantProps, SelectOption } from '@components/components/Select/types';
+
 import { Pill } from '@src/alchemy-components/components/Pills';
-import { LabelsWrapper, Placeholder } from '../../../components';
-import { SelectLabelVariantProps, SelectOption } from '../../../types';
 
 export default function MultiSelectCustom<OptionType extends SelectOption>({
     selectedOptions,
@@ -11,9 +14,10 @@ export default function MultiSelectCustom<OptionType extends SelectOption>({
     placeholder,
     isMultiSelect,
     renderCustomSelectedValue,
+    selectedOptionListStyle,
 }: SelectLabelVariantProps<OptionType>) {
     return (
-        <LabelsWrapper shouldShowGap={selectedOptions.length > 1}>
+        <LabelsWrapper shouldShowGap={selectedOptions.length > 1} style={selectedOptionListStyle}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
             {!!selectedOptions.length &&
                 isMultiSelect &&
@@ -24,7 +28,7 @@ export default function MultiSelectCustom<OptionType extends SelectOption>({
                     ) : (
                         <Pill
                             label={o?.label}
-                            rightIcon={!isDisabled ? 'Close' : ''}
+                            rightIcon={!isDisabled ? X : undefined}
                             size="sm"
                             key={o?.value}
                             onClickRightIcon={(e) => {

@@ -1,10 +1,12 @@
+import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Image } from 'antd';
-import { Entity } from '../../../types.generated';
-import { getPlatformName } from '../../entity/shared/utils';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { IconStyleType } from '../../entity/Entity';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { getPlatformName } from '@app/entity/shared/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity } from '@types';
 
 const PreviewImage = styled(Image)`
     height: 16px;

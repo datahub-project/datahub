@@ -1,12 +1,14 @@
-import React from 'react';
-import { Empty, Typography } from 'antd';
-import { Popover } from '@components';
-import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { Popover } from '@components';
+import { Empty, Typography } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
-import NoDocs from '../../../../../../images/no-docs.svg';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
-import AddButton from './AddButton';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import AddButton from '@app/entityV2/shared/tabs/Dataset/Queries/AddButton';
+
+import NoDocs from '@images/no-docs.svg';
 
 const StyledEmpty = styled(Empty)`
     display: flex;
@@ -21,9 +23,9 @@ const StyledEmpty = styled(Empty)`
 
 const SectionWrapper = styled.div`
     border-radius: 0 0 10px 10px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 24px;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     height: 100%;
 `;
 
@@ -46,19 +48,19 @@ const RightContainer = styled.div`
 const SectionTitle = styled(Typography.Text)`
     font-size: 16px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const Description = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.GREY_500};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const StyledInfoOutlined = styled(InfoCircleOutlined)`
     margin-left: 8px;
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface Props {
@@ -80,6 +82,7 @@ export default function EmptyQueriesSection({
     tooltip,
     tooltipPosition,
 }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
     return (
         <SectionWrapper>
             <div>
@@ -92,7 +95,10 @@ export default function EmptyQueriesSection({
             </div>
             <ContentContainer>
                 <LeftContainer>
-                    <StyledEmpty description={<Description>No highlighted queries yet</Description>} image={NoDocs} />
+                    <StyledEmpty
+                        description={<Description>{t('emptyQueries.noHighlightedQueries')}</Description>}
+                        image={NoDocs}
+                    />
                 </LeftContainer>
                 <RightContainer>
                     {showButton && (

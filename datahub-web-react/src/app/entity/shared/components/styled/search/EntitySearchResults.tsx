@@ -1,10 +1,12 @@
-import React from 'react';
 import { Checkbox, Radio } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { EntityPath, EntityType, SearchResult } from '../../../../../../types.generated';
-import { EntityAndType } from '../../../types';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { ListItem, StyledList, ThinDivider } from '../../../../../recommendations/renderer/component/EntityNameList';
+
+import { EntityAndType } from '@app/entity/shared/types';
+import { ListItem, StyledList, ThinDivider } from '@app/recommendations/renderer/component/EntityNameList';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityPath, EntityType, SearchResult } from '@types';
 
 const StyledCheckbox = styled(Checkbox)`
     margin-right: 12px;
@@ -102,6 +104,7 @@ export const EntitySearchResults = ({
                                   )
                                 : isSelectMode && (
                                       <StyledCheckbox
+                                          data-testid={`checkbox-${entity.urn}`}
                                           checked={selectedEntityUrns.indexOf(entity.urn) >= 0}
                                           onChange={(e) =>
                                               onSelectEntity({ urn: entity.urn, type: entity.type }, e.target.checked)

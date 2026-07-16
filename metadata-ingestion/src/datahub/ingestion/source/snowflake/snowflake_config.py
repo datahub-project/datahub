@@ -1,12 +1,15 @@
 import logging
+import re
 from collections import defaultdict
 from dataclasses import dataclass
+from enum import Enum
+from functools import cached_property
 from typing import Dict, List, Optional, Set
 
 import pydantic
-from pydantic import Field, SecretStr, root_validator, validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -16,12 +19,14 @@ from datahub.configuration.source_common import (
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
@@ -29,6 +34,7 @@ from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterCo
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
+    StatefulTimeWindowConfigMixin,
     StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -48,7 +54,13 @@ DEFAULT_TEMP_TABLES_PATTERNS = [
     rf".*\.SEGMENT_{UUID_REGEX}",  # segment
     rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
     r".*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}",  # great expectations
+    r".*\.SNOWPARK_TEMP_TABLE_.+",  # snowpark
 ]
+
+
+class QueryDedupStrategyType(Enum):
+    STANDARD = "STANDARD"
+    NONE = "NONE"
 
 
 class TagOption(StrEnum):
@@ -57,15 +69,18 @@ class TagOption(StrEnum):
     skip = "skip"
 
 
+class MarketplaceMode(StrEnum):
+    consumer = "consumer"
+    provider = "provider"
+    both = "both"
+
+
 @dataclass(frozen=True)
 class DatabaseId:
-    database: str = Field(
-        description="Database created from share in consumer account."
-    )
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance of consumer snowflake account.",
-    )
+    # Database created from share in consumer account
+    database: str
+    # Platform instance of consumer snowflake account
+    platform_instance: Optional[str] = None
 
 
 class SnowflakeShareConfig(ConfigModel):
@@ -82,6 +97,60 @@ class SnowflakeShareConfig(ConfigModel):
     @property
     def source_database(self) -> DatabaseId:
         return DatabaseId(self.database, self.platform_instance)
+
+
+class SemanticViewsConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="If enabled, semantic views will be ingested as datasets. Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+    )
+
+    column_lineage: bool = Field(
+        default=False,
+        description="If enabled, column-level lineage will be generated for semantic views, mapping dimensions, facts, and metrics to their source columns in base tables. Only applicable when enabled is True.",
+    )
+
+    include_usage: bool = Field(
+        default=False,
+        description="If enabled, usage statistics will be extracted for semantic views. "
+        "This scans QUERY_HISTORY which can be slow on accounts with high query volume.",
+    )
+
+    include_queries: bool = Field(
+        default=False,
+        description="If enabled, generate query entities for queries against semantic views.",
+    )
+
+    max_queries_per_view: int = Field(
+        default=100,
+        ge=1,
+        le=10000,
+        description="Maximum number of query entities to emit per semantic view. "
+        "Only applicable when include_queries is True.",
+    )
+
+    @model_validator(mode="after")
+    def validate_column_lineage_requires_enabled(self) -> "SemanticViewsConfig":
+        if self.column_lineage and not self.enabled:
+            logger.warning(
+                "semantic_views.column_lineage is set to True but semantic_views.enabled is False. "
+                "Column lineage will not be generated. Set semantic_views.enabled to True to enable column lineage."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_usage_requires_enabled(self) -> "SemanticViewsConfig":
+        if self.include_usage and not self.enabled:
+            logger.warning(
+                "semantic_views.include_usage is set to True but semantic_views.enabled is False. "
+                "Usage statistics will not be extracted. Set semantic_views.enabled to True to enable usage tracking."
+            )
+        if self.include_queries and not self.enabled:
+            logger.warning(
+                "semantic_views.include_queries is set to True but semantic_views.enabled is False. "
+                "Query entities will not be generated. Set semantic_views.enabled to True to enable query tracking."
+            )
+        return self
 
 
 class SnowflakeFilterConfig(SQLFilterConfig):
@@ -111,15 +180,64 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         " use the regex 'Customer.public.customer.*'",
     )
 
+    streamlit_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for Streamlit app to filter in ingestion. "
+        "Specify regex to match the entire Streamlit app name in database.schema.streamlit format. "
+        "e.g. to match all Streamlit apps starting with dashboard in Analytics database and public schema,"
+        " use the regex 'Analytics.public.dashboard.*'",
+    )
+
+    semantic_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for semantic views to filter in ingestion. "
+        "Specify regex to match the entire semantic view name in database.schema.semantic_view format. "
+        "e.g. to match all semantic views starting with sales in Analytics database and public schema,"
+        " use the regex 'Analytics.public.sales.*'",
+    )
+
+    stage_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stages to filter in ingestion. "
+        "Specify regex to match the entire stage name in database.schema.stage format.",
+    )
+
+    task_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for tasks to filter in ingestion. "
+        "Specify regex to match the entire task name in database.schema.task format.",
+    )
+
+    pipe_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for pipes to filter in ingestion. "
+        "Specify regex to match the entire pipe name in database.schema.pipe format.",
+    )
+
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_legacy_schema_pattern(cls, values: Dict) -> Dict:
-        schema_pattern: Optional[AllowDenyPattern] = values.get("schema_pattern")
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
+    push_down_metadata_patterns: bool = Field(
+        default=False,
+        description="If enabled, pushes down database_pattern, schema_pattern, table_pattern, and view_pattern "
+        "filtering to Snowflake information_schema metadata queries using the RLIKE operator for improved performance. "
+        "This applies only to metadata extraction queries (information_schema.databases, schemata, tables, views) — "
+        "NOT to lineage/usage queries (for those, see push_down_database_pattern_access_history). "
+        "NOTE: view_pattern pushdown only works when fetch_views_from_information_schema is also enabled. "
+        "With the default SHOW VIEWS, view_pattern filtering falls back to Python re.match(). "
+        "IMPORTANT: Snowflake RLIKE requires FULL STRING match, unlike Python re.match() which matches prefixes. "
+        "For prefix matching use 'PATTERN.*', for suffix use '.*PATTERN$', for contains use '.*PATTERN.*'. "
+        "If the composed filter would exceed Snowflake's per-query size limit, that filter is automatically skipped and applied client-side instead (slower). "
+        "See the [Metadata Pattern Pushdown](#metadata-pattern-pushdown) section for detailed usage and examples, "
+        "and the [Snowflake RLIKE documentation](https://docs.snowflake.com/en/sql-reference/functions/rlike) for regex syntax details.",
+    )
+
+    @model_validator(mode="after")
+    def validate_legacy_schema_pattern(self) -> "SnowflakeFilterConfig":
+        schema_pattern: Optional[AllowDenyPattern] = self.schema_pattern
+        match_fully_qualified_names = self.match_fully_qualified_names
 
         if (
             schema_pattern is not None
@@ -139,7 +257,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             assert isinstance(schema_pattern, AllowDenyPattern)
             schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
 
-        return values
+        return self
 
 
 class SnowflakeIdentifierConfig(
@@ -153,14 +271,13 @@ class SnowflakeIdentifierConfig(
 
     email_domain: Optional[str] = pydantic.Field(
         default=None,
-        description="Email domain of your organization so users can be displayed on UI appropriately.",
+        description="Email domain of your organization so users can be displayed on UI appropriately. This is used only if we cannot infer email ID.",
     )
 
-    email_as_user_identifier: bool = Field(
-        default=True,
-        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
-        "provided, generates email addresses for snowflake users with unset emails, based on their "
-        "username.",
+    _email_as_user_identifier = pydantic_removed_field(
+        "email_as_user_identifier",
+        month="June",
+        year=2025,
     )
 
 
@@ -168,6 +285,114 @@ class SnowflakeUsageConfig(BaseUsageConfig):
     apply_view_usage_to_tables: bool = pydantic.Field(
         default=False,
         description="Whether to apply view's usage to its base tables. If set to True, usage is applied to base tables only.",
+    )
+
+
+class SnowflakeMarketplaceConfig(ConfigModel):
+    """
+    Configuration for Snowflake Internal Marketplace (Private Data Sharing).
+
+    IMPORTANT: This is for the INTERNAL Snowflake Marketplace where organizations privately share
+    data within their account using Data Exchange. This is NOT for the public Snowflake Marketplace
+    (Snowflake Data Marketplace) where external providers publicly list datasets.
+
+    Use this when you want to track:
+    - Internal marketplace listings (from SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE)
+    - Databases purchased/imported from internal listings (IMPORTED DATABASE type - consumer mode)
+    - Databases you're sharing via OUTBOUND shares (provider mode)
+    - Usage of internal marketplace data products
+
+    The usage time window and bucket duration come from the parent connector's
+    ``start_time`` / ``end_time`` / ``bucket_duration`` (and from the same
+    ``RedundantUsageRunSkipHandler`` as the main usage extractor when stateful
+    usage ingestion is enabled), so marketplace usage follows the connector's
+    overall schedule.
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest Snowflake INTERNAL marketplace (private data exchange) listings as Data Products. "
+            "When enabled, also ingests databases and usage statistics based on the marketplace_mode setting. "
+            "NOTE: This is for INTERNAL marketplace only (IS_ORGANIZATION = TRUE), not the public Snowflake Data Marketplace."
+        ),
+    )
+
+    marketplace_mode: MarketplaceMode = Field(
+        default=MarketplaceMode.consumer,
+        description=(
+            "Mode for marketplace ingestion: "
+            "'consumer' (default) - Track purchased/imported databases (IMPORTED DATABASE type), "
+            "'provider' - Track databases you're sharing via OUTBOUND shares and marketplace listings, "
+            "'both' - Track both consumer and provider perspectives. "
+            "Consumer mode requires shares config to link imported databases to listings. "
+            "Provider mode works with OUTBOUND shares without requiring imported databases. "
+            "IMPORTANT: For 'provider' or 'both' modes, you MUST grant 'imported privileges on database snowflake' "
+            "to the USER (not just the role), as share access is granted at the user level in Snowflake."
+        ),
+    )
+
+    listing_to_share_overrides: Dict[str, str] = Field(
+        default={},
+        description=(
+            "Map of `listing_global_name` -> share name (top-level key in `shares`) "
+            "to explicitly link a marketplace listing to a share. Useful when "
+            "`SHOW SHARES` doesn't return `listing_global_name` or when "
+            "automatic name-based matching fails."
+        ),
+    )
+
+    listing_to_schemas_overrides: Dict[str, List[str]] = Field(
+        default={},
+        description=(
+            "Map of `listing_global_name` -> list of schema names to enumerate "
+            "when falling back to database-level asset discovery. Used in provider "
+            "mode when `DESC SHARE` is not permitted (Snowflake requires share "
+            "ownership for that command). Without this override the fallback enumerates "
+            "all schemas in the source database, which may include schemas not exposed "
+            "by the share. Example: `{GZSTZGQTPEW: [TPCH]}`."
+        ),
+    )
+
+    internal_marketplace_listing_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for INTERNAL marketplace listings to include in ingestion",
+    )
+
+    internal_marketplace_owner_patterns: Dict[str, List[str]] = Field(
+        default={},
+        description=(
+            "Map regex patterns (matched against INTERNAL listing title or provider) to owner identifiers. "
+            "Owners can be usernames, group names, or full URNs. "
+            "Example: {'^Finance.*': ['finance-team'], '^.*Analytics.*': ['analytics-lead', 'urn:li:corpGroup:data']}"
+        ),
+    )
+
+    fetch_internal_marketplace_listing_details: bool = Field(
+        default=False,
+        description=(
+            "If enabled, fetches additional details for each INTERNAL marketplace listing via DESCRIBE AVAILABLE LISTING. "
+            "WARNING: This executes one additional query per listing and may impact performance for many listings."
+        ),
+    )
+
+    marketplace_properties_as_structured_properties: bool = Field(
+        default=False,
+        description=(
+            "If enabled, ingests INTERNAL marketplace custom properties (provider, category, listing_created_on, etc.) "
+            "as DataHub structured properties instead of simple custom properties. This makes marketplace metadata "
+            "searchable and filterable in the DataHub UI."
+        ),
+    )
+
+    organization_to_domain: Dict[str, str] = Field(
+        default={},
+        description=(
+            "Map of Snowflake ``ORGANIZATION_PROFILE_NAME`` to an existing DataHub "
+            "domain (URN, GUID, or name resolvable via ``DomainRegistry``). "
+            "Unmapped organizations get no domain; marketplace never auto-creates "
+            "domain entities."
+        ),
     )
 
 
@@ -185,8 +410,12 @@ class SnowflakeConfig(
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
     )
 
-    _include_view_lineage = pydantic_removed_field("include_view_lineage")
-    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
+    _include_view_lineage = pydantic_removed_field(
+        "include_view_lineage", month="December", year=2024
+    )
+    _include_view_column_lineage = pydantic_removed_field(
+        "include_view_column_lineage", month="December", year=2024
+    )
 
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
@@ -197,6 +426,7 @@ class SnowflakeV2Config(
     SnowflakeUsageConfig,
     StatefulLineageConfigMixin,
     StatefulUsageConfigMixin,
+    StatefulTimeWindowConfigMixin,
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
     IncrementalPropertiesConfigMixin,
@@ -209,6 +439,16 @@ class SnowflakeV2Config(
     include_view_definitions: bool = Field(
         default=True,
         description="If enabled, populates the ingested views' definitions.",
+    )
+
+    fetch_views_from_information_schema: bool = Field(
+        default=False,
+        description="If enabled, uses information_schema.views to fetch view definitions instead of SHOW VIEWS command. "
+        "This alternative method can be more reliable for databases with large numbers of views (> 10K views), as the "
+        "SHOW VIEWS approach has proven unreliable and can lead to missing views in such scenarios. However, this method "
+        "requires OWNERSHIP privileges on views to retrieve their definitions. For views without ownership permissions "
+        "(where VIEW_DEFINITION is null/empty), the system will automatically fall back to using batched SHOW VIEWS queries "
+        "to populate the missing definitions.",
     )
 
     include_technical_schema: bool = Field(
@@ -231,7 +471,7 @@ class SnowflakeV2Config(
     )
 
     use_queries_v2: bool = Field(
-        default=False,
+        default=True,
         description="If enabled, uses the new queries extractor to extract queries from snowflake.",
     )
     include_queries: bool = Field(
@@ -249,8 +489,17 @@ class SnowflakeV2Config(
         "This is useful if you have a large number of schemas and want to avoid bulk fetching the schema for each table/view.",
     )
 
-    _check_role_grants_removed = pydantic_removed_field("check_role_grants")
-    _provision_role_removed = pydantic_removed_field("provision_role")
+    query_dedup_strategy: QueryDedupStrategyType = Field(
+        default=QueryDedupStrategyType.STANDARD,
+        description=f"Experimental: Choose the strategy for query deduplication (default value is appropriate for most use-cases; make sure you understand performance implications before changing it). Allowed values are: {', '.join([s.name for s in QueryDedupStrategyType])}",
+    )
+
+    _check_role_grants_removed = pydantic_removed_field(
+        "check_role_grants", month="April", year=2023
+    )
+    _provision_role_removed = pydantic_removed_field(
+        "provision_role", month="April", year=2023
+    )
 
     extract_tags: TagOption = Field(
         default=TagOption.skip,
@@ -262,10 +511,22 @@ class SnowflakeV2Config(
         description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
     )
 
-    structured_properties_template_cache_invalidation_interval: int = Field(
-        hidden_from_docs=True,
-        default=60,
-        description="Interval in seconds to invalidate the structured properties template cache.",
+    structured_properties_write_mode: StructuredPropertyWriteMode = Field(
+        default=StructuredPropertyWriteMode.UPSERT,
+        description=(
+            "How to write structured properties extracted from Snowflake tags. "
+            "`upsert` (default) replaces the aspect each run — recipe is source of truth. "
+            "`patch` adds each property individually so user/UI edits survive, "
+            "but properties removed from the recipe no longer propagate to DataHub "
+            "(clean those up via the UI or API)."
+        ),
+    )
+
+    structured_properties_template_cache_invalidation_interval: HiddenFromDocs[int] = (
+        Field(
+            default=60,
+            description="Interval in seconds to invalidate the structured properties template cache.",
+        )
     )
 
     include_external_url: bool = Field(
@@ -273,8 +534,24 @@ class SnowflakeV2Config(
         description="Whether to populate Snowsight url for Snowflake Objects",
     )
 
+    snowsight_base_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Override for the Snowsight base URL used when generating external URLs "
+            "for Snowflake assets. Set this when Snowsight is only reachable via "
+            "private link (for example "
+            "`https://app.<region>.privatelink.snowflakecomputing.com/` or "
+            "`https://app-<org>-<account>.privatelink.snowflakecomputing.com/`). "
+            "If unset, defaults to the public `app.snowflake.com` URL. The value "
+            "can be obtained by running "
+            "`SELECT SYSTEM$GET_PRIVATELINK_CONFIG()` in Snowflake as ACCOUNTADMIN."
+        ),
+    )
+
     _use_legacy_lineage_method_removed = pydantic_removed_field(
-        "use_legacy_lineage_method"
+        "use_legacy_lineage_method",
+        month="August",
+        year=2023,
     )
 
     validate_upstreams_against_patterns: bool = Field(
@@ -292,15 +569,59 @@ class SnowflakeV2Config(
         description="If enabled, streams will be ingested as separate entities from tables/views.",
     )
 
+    table_types: Set[str] = Field(
+        default={"BASE TABLE", "EXTERNAL TABLE"},
+        description="Set of Snowflake TABLE_TYPE values to include in ingestion. "
+        "Currently Supported values: 'BASE TABLE', 'EXTERNAL TABLE'. "
+        "Remove 'EXTERNAL TABLE' to exclude external tables from ingestion.",
+    )
+
+    exclude_dynamic_tables: bool = Field(
+        default=False,
+        description="If enabled, dynamic tables will be excluded from ingestion. "
+        "Use this to speed up ingestion if you don't need dynamic tables in DataHub.",
+    )
+
     include_procedures: bool = Field(
         default=True,
         description="If enabled, procedures will be ingested as pipelines/tasks.",
+    )
+
+    include_streamlits: bool = Field(
+        default=False,
+        description="If enabled, Streamlit apps will be ingested as dashboards.",
+    )
+
+    semantic_views: SemanticViewsConfig = Field(
+        default_factory=SemanticViewsConfig,
+        description="Configuration for semantic views ingestion.",
+    )
+
+    include_stages: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Stages will be ingested as containers with associated metadata.",
+    )
+
+    include_tasks: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Tasks will be ingested as DataJobs with DAG dependencies and SQL lineage.",
+    )
+
+    include_pipes: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Snowpipe objects will be ingested as DataJobs with COPY INTO lineage.",
+    )
+
+    marketplace: SnowflakeMarketplaceConfig = Field(
+        default_factory=SnowflakeMarketplaceConfig,
+        description="Configuration for Snowflake Internal Marketplace (private data exchange) ingestion.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "List of regex patterns for structured properties to include in ingestion."
+            " Applied to tags with form `<database>.<schema>.<tag_name>`."
             " Only used if `extract_tags` and `extract_tags_as_structured_properties` are enabled."
         ),
     )
@@ -313,7 +634,7 @@ class SnowflakeV2Config(
         "to ignore the temporary staging tables created by known ETL tools.",
     )
 
-    rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
+    rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(  # type: ignore[pydantic-field]
         "upstreams_deny_pattern", "temporary_tables_pattern"
     )
 
@@ -325,20 +646,72 @@ class SnowflakeV2Config(
         " Map of share name -> details of share.",
     )
 
+    known_snowflake_edition: Optional[SnowflakeEdition] = Field(
+        default=None,
+        description="Explicitly specify the Snowflake edition (STANDARD or ENTERPRISE). If unset, the edition will be inferred automatically using 'SHOW TAGS'.",
+    )
+
+    # Allows empty containers to be ingested before datasets are added, avoiding permission errors
+    warn_no_datasets: HiddenFromDocs[bool] = Field(
+        default=False,
+        description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
+    )
+
     include_assertion_results: bool = Field(
         default=False,
-        description="Whether to ingest assertion run results for assertions created using Datahub"
-        " assertions CLI in snowflake",
+        description="Whether to ingest assertion run results for assertions "
+        "[created using DataHub assertions CLI](/docs/assertions/snowflake/snowflake_dmfs) "
+        "in Snowflake. Also required for external DMF ingestion.",
+    )
+
+    include_externally_managed_dmfs: bool = Field(
+        default=False,
+        description="Ingest user-created Snowflake DMFs (not created via DataHub) "
+        "as external assertions. Requires `include_assertion_results: true`. "
+        "When enabled, all DMFs (not just datahub__* prefixed) "
+        "will be ingested with their execution results. "
+        "IMPORTANT: External DMFs must return 1 for SUCCESS and 0 for FAILURE. "
+        "DataHub interprets VALUE=1 as passed, VALUE=0 as failed. "
+        "See [Snowflake DMF Assertions](/docs/assertions/snowflake/snowflake_dmfs) for details.",
     )
 
     pushdown_deny_usernames: List[str] = Field(
         default=[],
-        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'SERVICE_%', '%_PROD', 'TEST_USER') which will NOT be considered for lineage/usage/queries extraction. "
         "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
         "Only applicable if `use_queries_v2` is enabled.",
     )
 
-    @validator("convert_urns_to_lowercase")
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'ANALYST_%', '%_USER', 'MAIN_ACCOUNT') which WILL be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering in only specific users. "
+        "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
+    )
+
+    push_down_database_pattern_access_history: bool = Field(
+        default=False,
+        description="If enabled, pushes down database pattern filtering to the access_history table for improved performance. "
+        "This filters on the accessed objects in access_history.",
+    )
+
+    additional_database_names_allowlist: List[str] = Field(
+        default=[],
+        description="Additional database names (no pattern matching) to be included in the access_history filter. "
+        "Only applies if push_down_database_pattern_access_history=True. "
+        "These databases will be included in the filter being pushed down regardless of database_pattern settings."
+        "This may be required in the case of _eg_ temporary tables being created in a different database than the ones in the database_name patterns.",
+    )
+
+    @cached_property
+    def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
+        return [
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in self.temporary_tables_pattern
+        ]
+
+    @field_validator("convert_urns_to_lowercase", mode="after")
+    @classmethod
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:
             add_global_warning(
@@ -347,30 +720,49 @@ class SnowflakeV2Config(
 
         return v
 
-    @validator("include_column_lineage")
-    def validate_include_column_lineage(cls, v, values):
-        if not values.get("include_table_lineage") and v:
+    @field_validator("include_column_lineage", mode="after")
+    @classmethod
+    def validate_include_column_lineage(cls, v, info):
+        if not info.data.get("include_table_lineage") and v:
             raise ValueError(
                 "include_table_lineage must be True for include_column_lineage to be set."
             )
         return v
 
-    @root_validator(pre=False, skip_on_failure=True)
-    def validate_unsupported_configs(cls, values: Dict) -> Dict:
-        value = values.get("include_read_operational_stats")
-        if value is not None and value:
+    @field_validator("include_externally_managed_dmfs", mode="after")
+    @classmethod
+    def validate_include_externally_managed_dmfs(cls, v, info):
+        if not info.data.get("include_assertion_results") and v:
+            raise ValueError(
+                "include_assertion_results must be True for include_externally_managed_dmfs to be set."
+            )
+        return v
+
+    @field_validator("snowsight_base_url", mode="after")
+    @classmethod
+    def validate_snowsight_base_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("snowsight_base_url must start with http:// or https://")
+        return v
+
+    @model_validator(mode="after")
+    def validate_unsupported_configs(self) -> "SnowflakeV2Config":
+        if (
+            hasattr(self, "include_read_operational_stats")
+            and self.include_read_operational_stats
+        ):
             raise ValueError(
                 "include_read_operational_stats is not supported. Set `include_read_operational_stats` to False.",
             )
 
-        include_technical_schema = values.get("include_technical_schema")
-        include_profiles = (
-            values.get("profiling") is not None and values["profiling"].enabled
-        )
+        include_technical_schema = self.include_technical_schema
+        include_profiles = self.profiling is not None and self.profiling.enabled
         delete_detection_enabled = (
-            values.get("stateful_ingestion") is not None
-            and values["stateful_ingestion"].enabled
-            and values["stateful_ingestion"].remove_stale_metadata
+            self.stateful_ingestion is not None
+            and self.stateful_ingestion.enabled
+            and self.stateful_ingestion.remove_stale_metadata
         )
 
         # TODO: Allow profiling irrespective of basic schema extraction,
@@ -382,24 +774,14 @@ class SnowflakeV2Config(
                 "Cannot perform Deletion Detection or Profiling without extracting snowflake technical schema. Set `include_technical_schema` to True or disable Deletion Detection and Profiling."
             )
 
-        return values
+        return self
 
-    def get_sql_alchemy_url(
-        self,
-        database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[SecretStr] = None,
-        role: Optional[str] = None,
-    ) -> str:
-        return SnowflakeConnectionConfig.get_sql_alchemy_url(
-            self, database=database, username=username, password=password, role=role
-        )
-
-    @validator("shares")
+    @field_validator("shares", mode="after")
+    @classmethod
     def validate_shares(
-        cls, shares: Optional[Dict[str, SnowflakeShareConfig]], values: Dict
+        cls, shares: Optional[Dict[str, SnowflakeShareConfig]], info: ValidationInfo
     ) -> Optional[Dict[str, SnowflakeShareConfig]]:
-        current_platform_instance = values.get("platform_instance")
+        current_platform_instance = info.data.get("platform_instance")
 
         if shares:
             # Check: platform_instance should be present
@@ -436,6 +818,50 @@ class SnowflakeV2Config(
                 )
 
         return shares
+
+    @model_validator(mode="after")
+    def validate_view_pattern_pushdown(self) -> "SnowflakeV2Config":
+        if (
+            self.push_down_metadata_patterns
+            and not self.fetch_views_from_information_schema
+        ):
+            logger.warning(
+                "push_down_metadata_patterns is enabled but fetch_views_from_information_schema is not. "
+                "view_pattern will NOT be pushed down to Snowflake and will fall back to Python re.match() filtering. "
+                "Enable fetch_views_from_information_schema to ensure consistent pushdown behavior for view patterns."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_queries_v2_stateful_ingestion(self) -> "SnowflakeV2Config":
+        if self.use_queries_v2:
+            if (
+                self.enable_stateful_lineage_ingestion
+                or self.enable_stateful_usage_ingestion
+            ):
+                logger.warning(
+                    "enable_stateful_lineage_ingestion and enable_stateful_usage_ingestion are deprecated "
+                    "when using use_queries_v2=True. These configs only work with the legacy (non-queries v2) extraction path. "
+                    "For queries v2, use enable_stateful_time_window instead to enable stateful ingestion "
+                    "for the unified time window extraction (lineage + usage + operations + queries)."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def validate_semantic_views_edition(self) -> "SnowflakeV2Config":
+        if self.semantic_views.enabled:
+            if (
+                self.known_snowflake_edition is not None
+                and self.known_snowflake_edition == SnowflakeEdition.STANDARD
+            ):
+                logger.warning(
+                    "semantic_views.enabled is set to True, but known_snowflake_edition is set to STANDARD. "
+                    "Semantic views require Snowflake Enterprise Edition or above (they are part of Cortex Analyst). "
+                    "Automatically disabling semantic_views.enabled and semantic_views.column_lineage."
+                )
+                self.semantic_views.enabled = False
+                self.semantic_views.column_lineage = False
+        return self
 
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:
         """

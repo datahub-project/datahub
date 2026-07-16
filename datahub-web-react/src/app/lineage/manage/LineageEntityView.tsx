@@ -1,14 +1,18 @@
 import { Divider } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { Entity } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { getPlatformName } from '../../entity/shared/utils';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { getPlatformName } from '@app/entity/shared/utils';
+import { ContainerView } from '@app/lineage/manage/ContainerView';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity } from '@types';
 
 const EntityWrapper = styled.div<{ shrinkPadding?: boolean }>`
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
     padding: ${(props) => (props.shrinkPadding ? '4px 6px' : '12px 20px')};
 `;
 
@@ -16,7 +20,7 @@ const PlatformContent = styled.div<{ removeMargin?: boolean }>`
     display: flex;
     align-items: center;
     font-size: 10px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '5px')};
 `;
 
@@ -29,7 +33,7 @@ const PlatformLogo = styled.img`
     margin-right: 5px;
 `;
 
-export const EntityName = styled.span<{ shrinkSize?: boolean }>`
+const EntityName = styled.span<{ shrinkSize?: boolean }>`
     font-size: ${(props) => (props.shrinkSize ? '12px' : '14px')};
     font-weight: bold;
 `;
@@ -40,24 +44,34 @@ interface Props {
 }
 
 export default function LineageEntityView({ entity, displaySearchResult }: Props) {
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
     const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+    const { entityData } = useEntityData();
 
     const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
     const platformName = getPlatformName(genericProps);
+    const containers = entityData?.parentContainers?.containers;
+    const remainingContainers = containers?.slice(1);
+    const directContainer = containers ? containers[0] : null;
 
     return (
         <EntityWrapper shrinkPadding={displaySearchResult}>
             <PlatformContent removeMargin={displaySearchResult}>
-                {platformLogoUrl && (
-                    <PlatformLogo src={platformLogoUrl} alt="platform logo" data-testid="platform-logo" />
-                )}
-                <span>{platformName}</span>
-                {platformName && <StyledDivider type="vertical" data-testid="divider" />}
                 <span>
                     {capitalizeFirstLetterOnly(genericProps?.subTypes?.typeNames?.[0]) ||
                         entityRegistry.getEntityName(entity.type)}
                 </span>
+                {platformName && <StyledDivider type="vertical" data-testid="divider" />}
+                {platformLogoUrl && (
+                    <PlatformLogo
+                        src={platformLogoUrl}
+                        alt={t('manualLineage.platformLogoAlt')}
+                        data-testid="platform-logo"
+                    />
+                )}
+                <span>{platformName}</span>
+                <ContainerView remainingContainers={remainingContainers} directContainer={directContainer} />
             </PlatformContent>
             <EntityName shrinkSize={displaySearchResult}>
                 {entityRegistry.getDisplayName(entity.type, entity)}

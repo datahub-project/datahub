@@ -6,7 +6,7 @@ If you started using Neo4j as your graph service backend, here is how you can mi
 
 ## Docker-compose
 
-If you are running your instance through docker locally, you will want to spin up your Datahub instance with
+If you are running your instance through docker locally, you will want to spin up your DataHub instance with
 elasticsearch as the backend. On a clean start, this happens by default. However, if you've written data to
 Neo4j you need to explicitly ask DataHub to start in Elastic mode.
 
@@ -41,11 +41,10 @@ in this [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/char
 Then, set `graph_service_impl` to `elasticsearch` in the
 [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml#L63) of datahub.
 
-
 See the [deployment helm guide](../deploy/kubernetes.md#components) for more details on how to
 set up your helm deployment.
 
 Finally, follow the [restore-indices helm guide](./restore-indices.md) to re-build
 your graph index.
 
-Once the job completes, your data will be migrated. 
+Once the job completes, your data will be migrated.

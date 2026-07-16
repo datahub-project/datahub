@@ -3,8 +3,7 @@ from abc import abstractmethod
 from typing import Any, Dict, Optional
 
 import pydantic
-from pydantic import Field
-from sqlalchemy.engine import URL
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -20,6 +19,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -49,7 +49,8 @@ class SQLFilterConfig(ConfigModel):
         description="Regex patterns for views to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
-    @pydantic.root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def view_pattern_is_table_pattern_unless_specified(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -120,11 +121,9 @@ class SQLCommonConfig(
             self.profiling.operation_config
         )
 
-    @pydantic.root_validator(skip_on_failure=True)
-    def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        profiling: Optional[GEProfilingConfig] = values.get("profiling")
+    @model_validator(mode="after")
+    def ensure_profiling_pattern_is_passed_to_profiling(self):
+        profiling = self.profiling
         # Note: isinstance() check is required here as unity-catalog source reuses
         # SQLCommonConfig with different profiling config than GEProfilingConfig
         if (
@@ -132,8 +131,8 @@ class SQLCommonConfig(
             and isinstance(profiling, GEProfilingConfig)
             and profiling.enabled
         ):
-            profiling._allow_deny_patterns = values["profile_pattern"]
-        return values
+            profiling._allow_deny_patterns = self.profile_pattern
+        return self
 
     @abstractmethod
     def get_sql_alchemy_url(self):
@@ -164,7 +163,9 @@ class SQLAlchemyConnectionConfig(ConfigModel):
         ),
     )
 
-    _database_alias_removed = pydantic_removed_field("database_alias")
+    _database_alias_removed = pydantic_removed_field(
+        "database_alias", month="November", year=2023
+    )
 
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
@@ -184,36 +185,3 @@ class SQLAlchemyConnectionConfig(ConfigModel):
 
 class BasicSQLAlchemyConfig(SQLAlchemyConnectionConfig, SQLCommonConfig):
     pass
-
-
-def make_sqlalchemy_uri(
-    scheme: str,
-    username: Optional[str],
-    password: Optional[str],
-    at: Optional[str],
-    db: Optional[str],
-    uri_opts: Optional[Dict[str, Any]] = None,
-) -> str:
-    host: Optional[str] = None
-    port: Optional[int] = None
-    if at:
-        try:
-            host, port_str = at.rsplit(":", 1)
-            port = int(port_str)
-        except ValueError:
-            host = at
-            port = None
-    if uri_opts:
-        uri_opts = {k: v for k, v in uri_opts.items() if v is not None}
-
-    return str(
-        URL.create(
-            drivername=scheme,
-            username=username,
-            password=password,
-            host=host,
-            port=port,
-            database=db,
-            query=uri_opts or {},
-        )
-    )

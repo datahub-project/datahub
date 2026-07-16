@@ -1,0 +1,111 @@
+entity_analyzer_config:
+  settings:
+    index:
+      analysis:
+        filter:
+          stemmer_en:
+            type: stemmer
+            language: english
+          word_separator_filter:
+            split_on_numerics: false
+            generate_word_parts: false
+            preserve_original: false
+            generate_number_parts: false
+            catenate_all: true
+            split_on_case_change: false
+            type: word_delimiter_graph
+            stem_english_possessive: true
+          synonyms:
+            synonym_analyzer: standard
+            type: synonym_graph
+            lenient: false
+            synonyms:
+              - stg, staging
+              - dev, development
+              - prod, production
+              - API, Application Programming Interface
+              - CDK, Cloud Development Kit
+              - DoS, Denial of Service
+              - ECR, Elastic Container Registry
+              - EFS, Elastic File System
+              - EKS, Elastic Kubernetes Service
+              - NAT, Network Address Translation
+              - PII, Personally Identifiable Information
+              - QoS, Quality of Service
+              - SSL, Secure Sockets Layer
+              - TCP, Transmission Control Protocol
+              - TLS, Transport Layer Security
+              - UDM, Unified Data Management
+              - VPC, Virtual Private Cloud
+              - AWS, Amazon Web Services
+        normalizer:
+          keyword_normalizer:
+            filter:
+              - trim
+              - lowercase
+              - asciifolding
+            type: custom
+            char_filter: []
+        analyzer:
+          full_removed_sep:
+            filter:
+              - lowercase
+              - asciifolding
+              - word_separator_filter
+            type: custom
+            tokenizer: alphanumeric_tokenizer
+          full_stemmer:
+            filter:
+              - lowercase
+              - asciifolding
+              - stemmer_en
+            type: custom
+            tokenizer: alphanumeric_tokenizer_full
+          full_removed_sep_syn:
+            filter:
+              - lowercase
+              - asciifolding
+              - word_separator_filter
+            type: custom
+            tokenizer: alphanumeric_tokenizer
+          full_syn:
+            filter:
+              - lowercase
+              - asciifolding
+            type: custom
+            tokenizer: alphanumeric_tokenizer_full
+          full:
+            filter:
+              - lowercase
+              - asciifolding
+            type: custom
+            index_prefixes:
+              min_chars: 3
+              max_chars: 16
+            tokenizer: alphanumeric_tokenizer_full
+          full_syn_stemmer:
+            filter:
+              - lowercase
+              - asciifolding
+              - stemmer_en
+            type: custom
+            tokenizer: alphanumeric_tokenizer_full
+          browse_path_v2_hierarchy:
+            tokenizer: unit_separator_path_tokenizer
+          unit_separator_pattern:
+            tokenizer: unit_separator_pattern_tokenizer
+        tokenizer:
+          alphanumeric_tokenizer_full:
+            lowercase: true
+            pattern: "[^a-zA-Z0-9]+"
+            type: pattern
+          alphanumeric_tokenizer:
+            lowercase: true
+            pattern: "[^a-zA-Z0-9_-]+"
+            type: pattern
+          unit_separator_path_tokenizer:
+            type: path_hierarchy
+            delimiter: "␟"
+          unit_separator_pattern_tokenizer:
+            type: pattern
+            pattern: "␟"

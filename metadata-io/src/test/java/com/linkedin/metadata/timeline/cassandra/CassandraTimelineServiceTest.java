@@ -7,13 +7,16 @@ import com.linkedin.metadata.CassandraTestUtils;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.timeline.TimelineServiceImpl;
 import com.linkedin.metadata.timeline.TimelineServiceTest;
-import org.testcontainers.containers.CassandraContainer;
+import java.util.List;
+import org.testcontainers.cassandra.CassandraContainer;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -29,12 +32,19 @@ import org.testng.annotations.Test;
 public class CassandraTimelineServiceTest extends TimelineServiceTest<CassandraAspectDao> {
 
   private CassandraContainer _cassandraContainer;
+  private CqlSession _currentSession;
 
   public CassandraTimelineServiceTest() throws EntityRegistryException {}
 
   @BeforeClass
   public void setupContainer() {
     _cassandraContainer = CassandraTestUtils.setupContainer();
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    CassandraTestUtils.closeSession(_currentSession);
+    _currentSession = null;
   }
 
   @AfterClass
@@ -49,8 +59,10 @@ public class CassandraTimelineServiceTest extends TimelineServiceTest<CassandraA
   }
 
   private void configureComponents() {
-    CqlSession session = CassandraTestUtils.createTestSession(_cassandraContainer);
-    _aspectDao = new CassandraAspectDao(session);
+    _currentSession = CassandraTestUtils.createTestSession(_cassandraContainer);
+    _aspectDao =
+        new CassandraAspectDao(
+            PrimaryStorageTestUtils.cassandraResolver(_currentSession), List.of(), null);
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);

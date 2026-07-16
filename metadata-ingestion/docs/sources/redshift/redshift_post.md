@@ -1,0 +1,300 @@
+### Capabilities
+
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
+
+#### Ingestion of multiple redshift databases, namespaces
+
+- If multiple databases are present in the Redshift namespace (or provisioned cluster),
+  you would need to set up a separate ingestion per database.
+
+- Ingestion recipes of all databases in a particular redshift namespace should use same platform instance.
+
+- If you've multiple redshift namespaces that you want to ingest within DataHub, it is highly recommended that
+  you specify a platform_instance equivalent to namespace in recipe. It can be same as namespace id or other
+  human readable name however it should be unique across all your redshift namespaces.
+
+#### Lineage
+
+There are multiple lineage collector implementations as Redshift does not support table lineage out of the box.
+
+#### stl_scan_based
+
+The stl_scan based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) and [stl_scan](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_SCAN.html) system tables to
+discover lineage between tables.
+
+**Pros:**
+
+- Fast
+- Reliable
+
+**Cons:**
+
+- Does not work with Spectrum/external tables because those scans do not show up in stl_scan table.
+- If a table is depending on a view then the view won't be listed as dependency. Instead the table will be connected with the view's dependencies.
+
+#### sql_based
+
+The sql_based based collector uses Redshift's [stl_insert](https://docs.aws.amazon.com/redshift/latest/dg/r_STL_INSERT.html) to discover all the insert queries
+and uses sql parsing to discover the dependencies.
+
+**Pros:**
+
+- Works with Spectrum tables
+- Views are connected properly if a table depends on it
+
+**Cons:**
+
+- Slow.
+- Less reliable as the query parser can fail on certain queries
+
+#### mixed
+
+Using both collector above and first applying the sql based and then the stl_scan based one.
+
+**Pros:**
+
+- Works with Spectrum tables
+- Views are connected properly if a table depends on it
+- A bit more reliable than the sql_based one only
+
+**Cons:**
+
+- Slow
+- May be incorrect at times as the query parser can fail on certain queries
+
+:::note
+
+The redshift stl redshift tables which are used for getting data lineage retain at most seven days of log history, and sometimes closer to 2-5 days. This means you cannot extract lineage from queries issued outside that window.
+
+:::
+
+#### Datashares Lineage
+
+This is enabled by default, can be disabled via setting `include_share_lineage: False`
+
+It is mandatory to run redshift ingestion of datashare producer namespace at least once so that lineage
+shows up correctly after datashare consumer namespace is ingested.
+
+#### Usage Statistics
+
+Usage extraction is controlled by `include_usage_statistics` (disabled by default). It is the master flag for all usage statistics; `email_domain` must be set when it is enabled so user URNs can be constructed. It has two independent sub-flags that only take effect when `include_usage_statistics: true`:
+
+- `include_column_usage_stats` (default `false`): generates column-level usage (`fieldCounts`) on datasets by parsing the SQL query text instead of attributing reads via Redshift's `stl_scan` system table. This is slower (every read query is parsed) but adds per-column usage.
+- `include_query_usage_statistics` (default `true`): generates per-query popularity statistics (`queryUsageStatistics`) on the Query entities emitted by the SQL-based lineage collector. This requires `lineage_generate_queries: true` (the default) so that Query entities exist to attach the statistics to.
+
+```yaml
+include_usage_statistics: true
+email_domain: example.com
+include_query_usage_statistics: true # per-query popularity (default true)
+include_column_usage_stats: false # column-level usage (default false)
+```
+
+Enabling either sub-flag causes read queries to be parsed by the lineage aggregator, which is heavier than the default `stl_scan` table-usage path.
+
+#### Profiling
+
+Profiling runs sql queries on the redshift cluster to get statistics about the tables. To be able to do that, the user needs to have read access to the tables that should be profiled.
+
+If you don't want to grant read access to the tables you can enable table level profiling which will get table statistics without reading the data.
+
+```yaml
+profiling:
+  profile_table_level_only: true
+```
+
+#### Ownership
+
+Enable ownership extraction by setting `extract_ownership: true` in your recipe:
+
+```yaml
+extract_ownership: true
+```
+
+This extracts owners for tables, views, and schemas from the Redshift catalog and emits them as `TECHNICAL_OWNER` in DataHub. If `email_domain` is configured, owner usernames are suffixed with `@{email_domain}` to produce consistent URNs with usage statistics. **Note:** ownership is applied in overwrite mode — any manually-set owners in DataHub will be replaced on each ingestion run.
+
+### Limitations
+
+Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+### Troubleshooting
+
+:::note System table access
+
+The `SYSLOG ACCESS UNRESTRICTED` privilege gives the user visibility to data generated by other users. For example, STL_QUERY and STL_QUERYTEXT contain the full text of INSERT, UPDATE, and DELETE statements.
+:::
+
+:::note Datashare lineage
+
+For cross-cluster lineage through datashares, the `datahub` user requires `SHARE` privileges on datashares in both producer and consumer namespaces. See the [Amazon Redshift datashare documentation](https://docs.aws.amazon.com/redshift/latest/dg/r_SVV_DATASHARES.html) for more information.
+:::
+
+#### Schema Discovery Issues
+
+If you're not seeing all schemas or tables after following the setup steps, check the following:
+
+##### Missing Schemas
+
+**1. Check schema filtering configuration:**
+
+```yaml
+# In your recipe, ensure schema patterns are correct
+schema_pattern:
+  allow:
+    - "your_schema_name"
+    - "public"
+  # Remove deny patterns that might be blocking schemas
+```
+
+**2. Verify permissions on specific schemas:**
+
+```sql
+-- Test if you can see schemas
+SELECT schema_name, schema_type
+FROM svv_redshift_schemas
+WHERE database_name = 'your_database';
+
+-- Test external schemas
+SELECT schemaname, eskind, databasename
+FROM SVV_EXTERNAL_SCHEMAS;
+```
+
+**3. Check for external schemas:**
+External schemas (Redshift Spectrum) require both permissions:
+
+```sql
+GRANT SELECT ON pg_catalog.svv_external_schemas TO datahub_user;
+GRANT SELECT ON pg_catalog.svv_external_tables TO datahub_user;
+GRANT SELECT ON pg_catalog.svv_external_columns TO datahub_user;
+```
+
+##### Missing Tables Within Schemas
+
+**1. Check table filtering:**
+
+```yaml
+table_pattern:
+  allow:
+    - "your_schema.your_table"
+  # Ensure no overly restrictive deny patterns
+```
+
+**2. Test table visibility:**
+
+```sql
+-- For regular tables
+SELECT schemaname, tablename, tabletype
+FROM pg_tables
+WHERE schemaname = 'your_schema';
+
+-- For views
+SELECT schemaname, viewname
+FROM pg_views
+WHERE schemaname = 'your_schema';
+
+-- For external tables
+SELECT schemaname, tablename
+FROM SVV_EXTERNAL_TABLES
+WHERE schemaname = 'your_schema';
+```
+
+##### Configuration Issues
+
+**1. Database specification:**
+Ensure you're connecting to the correct database - Redshift ingestion works per database:
+
+```yaml
+database: "your_actual_database_name" # Not the cluster name
+```
+
+**2. Schema access permissions:**
+Ensure you have USAGE permissions on the schemas you want to discover:
+
+```sql
+-- Check if you have USAGE on schemas
+SELECT n.nspname as schema_name,
+       has_schema_privilege('datahub_user', n.nspname, 'USAGE') as has_usage
+FROM pg_catalog.pg_namespace n
+WHERE n.nspname NOT LIKE 'pg_%'
+  AND n.nspname != 'information_schema';
+
+-- Grant USAGE if missing
+GRANT USAGE ON SCHEMA your_schema_name TO datahub_user;
+```
+
+**3. Shared database configuration:**
+If using datashare consumers, add:
+
+```yaml
+is_shared_database: true
+```
+
+##### Permission Test Queries
+
+Run these to verify your permissions are working:
+
+```sql
+-- Test core permissions
+SELECT COUNT(*) FROM svv_redshift_schemas WHERE database_name = 'your_database';
+SELECT COUNT(*) FROM svv_table_info WHERE database = 'your_database';
+
+-- Test external permissions
+SELECT COUNT(*) FROM svv_external_schemas;
+SELECT COUNT(*) FROM svv_external_tables;
+```
+
+#### Data Profiling Issues
+
+##### Profile Data Not Appearing
+
+**1. Check data access permissions:**
+Ensure you have `USAGE` on schemas and `SELECT` on tables:
+
+```sql
+-- Test schema access
+SELECT has_schema_privilege('datahub_user', 'your_schema', 'USAGE');
+
+-- Test table access
+SELECT has_table_privilege('datahub_user', 'your_schema.your_table', 'SELECT');
+```
+
+**2. Enable table-level profiling only:**
+If you cannot grant `SELECT` on tables, use table-level profiling:
+
+```yaml
+profiling:
+  profile_table_level_only: true
+```
+
+#### Lineage Issues
+
+##### Missing Lineage Information
+
+**1. Check lineage configuration:**
+
+```yaml
+table_lineage_mode: stl_scan_based # or sql_based, mixed
+include_usage_statistics: true
+```
+
+**2. Verify SYSLOG ACCESS:**
+
+```sql
+-- Check if user has SYSLOG ACCESS
+SELECT usename, usesyslog
+FROM pg_user
+WHERE usename = 'datahub_user';
+-- usesyslog should be 't' (true)
+```
+
+##### Cross-Cluster Lineage (Datashares)
+
+For lineage across datashares, ensure:
+
+1. DataHub user has `SHARE` privileges on datashares
+2. Both producer and consumer clusters are ingested
+3. `include_share_lineage: true` in configuration
+
+```sql
+-- Check datashare access
+SELECT * FROM svv_datashares WHERE share_name = 'your_share';
+```

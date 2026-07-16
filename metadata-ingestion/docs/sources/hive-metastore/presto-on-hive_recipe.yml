@@ -1,0 +1,8 @@
+source:
+  type: presto-on-hive
+  config:
+    host_port: "localhost:8080"
+    database: "hive"
+
+sink:
+  # sink configs

@@ -1,15 +1,17 @@
 import { Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components/macro';
-import { CorpUser, Entity, EntityType, Tag } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import AutoCompleteEntity from './AutoCompleteEntity';
-import AutoCompleteTag from './AutoCompleteTag';
-import AutoCompleteTooltipContent from './AutoCompleteTooltipContent';
-import AutoCompleteUser from './AutoCompleteUser';
-import { getShouldDisplayTooltip } from './utils';
+import styled, { useTheme } from 'styled-components/macro';
 
-export const SuggestionContainer = styled.div`
+import AutoCompleteEntity from '@app/searchV2/autoComplete/AutoCompleteEntity';
+import AutoCompleteTag from '@app/searchV2/autoComplete/AutoCompleteTag';
+import AutoCompleteTooltipContent from '@app/searchV2/autoComplete/AutoCompleteTooltipContent';
+import AutoCompleteUser from '@app/searchV2/autoComplete/AutoCompleteUser';
+import { getShouldDisplayTooltip } from '@app/searchV2/autoComplete/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, Entity, EntityType, Tag } from '@types';
+
+const SuggestionContainer = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
@@ -22,6 +24,7 @@ interface Props {
 }
 
 export default function AutoCompleteItem({ query, entity, siblings }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const displayTooltip = getShouldDisplayTooltip(entity, entityRegistry);
     let componentToRender: React.ReactNode = null;
@@ -51,7 +54,7 @@ export default function AutoCompleteItem({ query, entity, siblings }: Props) {
             style={{ width: '100%' }}
             title={<AutoCompleteTooltipContent entity={entity} />}
             placement="top"
-            color="rgba(0, 0, 0, 0.9)"
+            color={theme.colors.text}
         >
             <SuggestionContainer data-testid="auto-complete-option">{componentToRender}</SuggestionContainer>
         </Tooltip>

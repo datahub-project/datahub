@@ -1,0 +1,95 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "d3a61082bdf0b16add3e9c7d20f91e7dd2b416b91fffa72a12e353ade56246f3",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"t1\".\"id\" AS \"id\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "name",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)",
+                    "column": "name"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"t1\".\"name\" AS \"name\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "value",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)",
+                    "column": "value"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"t2\".\"value\" AS \"value\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "NATURAL JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)"
+            ],
+            "on_clause": null,
+            "columns_involved": []
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT t1.id, t1.name, t2.value FROM my_table1 AS t1 NATURAL JOIN my_table2 AS t2"
+    }
+}

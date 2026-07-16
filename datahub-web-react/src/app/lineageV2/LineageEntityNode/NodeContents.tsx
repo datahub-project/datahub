@@ -1,35 +1,42 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
-import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
-import GhostEntityMenu from '@app/lineageV2/LineageEntityNode/GhostEntityMenu';
-import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
-import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import { Tooltip } from '@components';
-import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
-import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
-import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Skeleton, Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
-import { EntityType, LineageDirection } from '../../../types.generated';
-import { EventType } from '../../analytics';
-import analytics from '../../analytics/analytics';
-import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import HealthIcon from '../../previewV2/HealthIcon';
-import getTypeIcon from '../../sharedV2/icons/getTypeIcon';
-import OverflowTitle from '../../sharedV2/text/OverflowTitle';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { FetchStatus, getNodeColor, isGhostEntity, LineageEntity, onClickPreventSelect } from '../common';
-import { NUM_COLUMNS_PER_PAGE } from '../constants';
-import { FetchedEntityV2 } from '../types';
-import Columns from './Columns';
-import { ContractLineageButton } from './ContractLineageButton';
-import { ExpandLineageButton } from './ExpandLineageButton';
-import ManageLineageMenu from './ManageLineageMenu';
-import NodeSkeleton from './NodeSkeleton';
-import useAvoidIntersections from './useAvoidIntersections';
-import { DisplayedColumns, LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './useDisplayedColumns';
+import styled, { useTheme } from 'styled-components';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
+import Columns from '@app/lineageV2/LineageEntityNode/Columns';
+import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
+import { ContractLineageButton } from '@app/lineageV2/LineageEntityNode/ContractLineageButton';
+import { ExpandLineageButton } from '@app/lineageV2/LineageEntityNode/ExpandLineageButton';
+import GhostEntityMenu from '@app/lineageV2/LineageEntityNode/GhostEntityMenu';
+import ManageLineageMenu from '@app/lineageV2/LineageEntityNode/ManageLineageMenu';
+import NodeSkeleton from '@app/lineageV2/LineageEntityNode/NodeSkeleton';
+import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
+import useAvoidIntersections from '@app/lineageV2/LineageEntityNode/useAvoidIntersections';
+import {
+    DisplayedColumns,
+    LINEAGE_NODE_HEIGHT,
+    LINEAGE_NODE_WIDTH,
+} from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
+import { FetchStatus, LineageEntity, getNodeColor, isGhostEntity, onClickPreventSelect } from '@app/lineageV2/common';
+import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV2/constants';
+import { FetchedEntityV2 } from '@app/lineageV2/types';
+import HealthIcon from '@app/previewV2/HealthIcon';
+import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
+import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
+import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
+import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+
+import { EntityType, LineageDirection } from '@types';
 
 const NodeWrapper = styled.div<{
     selected: boolean;
@@ -41,15 +48,15 @@ const NodeWrapper = styled.div<{
     isSearchedEntity: boolean;
 }>`
     align-items: center;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border: 1px solid
-        ${({ color, selected, isGhost }) => {
+        ${({ color, selected, isGhost, theme }) => {
             if (selected) return color;
-            if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
-            return LINEAGE_COLORS.NODE_BORDER;
+            if (isGhost) return `${theme.colors.border}50`;
+            return theme.colors.border;
         }};
-    box-shadow: ${({ isSearchedEntity }) =>
-        isSearchedEntity ? `0 0 4px 4px ${REDESIGN_COLORS.TITLE_PURPLE}95` : 'none'};
+    box-shadow: ${({ isSearchedEntity, theme }) =>
+        isSearchedEntity ? `0 0 4px 4px ${theme.colors.borderBrand}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -102,7 +109,7 @@ const EntityTypeShadow = styled.div<{ color: string; isGhost: boolean }>`
 `;
 
 export const LoadingWrapper = styled.div`
-    color: ${LINEAGE_COLORS.PURPLE_3};
+    color: ${(props) => props.theme.colors.iconBrand};
     font-size: 32px;
     line-height: 0;
     pointer-events: none;
@@ -120,7 +127,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 
 const IconsWrapper = styled.div`
     align-items: center;
-    color: ${ANTD_GRAY[10]};
+    color: ${(props) => props.theme.colors.icon};
     display: flex;
     flex-direction: column;
     font-size: 24px;
@@ -196,9 +203,9 @@ const TitleLine = styled.span`
 
 const ExpandColumnsWrapper = styled(MatchTextSizeWrapper)`
     align-items: center;
-    border: 0.5px solid ${LINEAGE_COLORS.BLUE_1}50;
+    border: ${(props) => `0.5px solid ${props.theme.colors.borderBrand}50`};
     border-radius: 10px;
-    color: ${LINEAGE_COLORS.BLUE_1};
+    color: ${(props) => props.theme.colors.textBrand};
     display: flex;
     justify-content: center;
     width: 100%;
@@ -208,7 +215,7 @@ const ExpandColumnsWrapper = styled(MatchTextSizeWrapper)`
     max-height: 16px;
 
     :hover {
-        background-color: ${LINEAGE_COLORS.BLUE_1}20;
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
         cursor: pointer;
     }
 `;
@@ -286,7 +293,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         ignoreSchemaFieldStatus,
     } = props;
 
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
 
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
 
@@ -303,7 +312,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
 
     const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, entity?.platform);
     const [nodeColor] = getNodeColor(type);
-    const highlightColor = isSearchedEntity ? REDESIGN_COLORS.YELLOW_500 : REDESIGN_COLORS.YELLOW_200;
+    const highlightColor = isSearchedEntity ? theme.colors.textWarning : theme.colors.bgSurfaceWarning;
     const hasUpstreamChildren = !!entity?.numUpstreamChildren;
     const hasDownstreamChildren = !!entity?.numDownstreamChildren;
     const isExpandedDownstream = isExpanded[LineageDirection.Downstream];
@@ -429,7 +438,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         </>
                     )}
                     {entity?.icon && !entity.lineageSiblingIcon && (
-                        <PlatformIcon src={entity.icon} alt={platformName || 'platform'} title={platformName} />
+                        <PlatformIcon
+                            src={entity.icon}
+                            alt={platformName || t('node.platformAlt')}
+                            title={platformName}
+                        />
                     )}
                     {!entity && <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />}
                     {entity ? (
@@ -445,7 +458,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         <TitleWrapper>
                             <TitleLine>
                                 <OverflowTitle
-                                    title={entity?.name}
+                                    title={entity?.name ?? entity?.urn}
                                     highlightText={searchQuery}
                                     highlightColor={highlightColor}
                                     extra={
@@ -476,10 +489,14 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             </TitleLine>
                         </TitleWrapper>
                         {!!numColumnsTotal && !isGhost && (
-                            <ExpandColumnsWrapper onClick={showHideColumns} defaultHeight={10}>
-                                {numColumnsTotal} columns
-                                {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
-                                {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
+                            <ExpandColumnsWrapper
+                                onClick={showHideColumns}
+                                defaultHeight={10}
+                                data-testid="expand-contract-columns"
+                            >
+                                {t('node.columnsCount', { count: numColumnsTotal })}
+                                {showColumns && <CaretUp size="1em" style={{ marginLeft: 3 }} />}
+                                {!showColumns && <CaretDown size="1em" style={{ marginLeft: 3 }} />}
                             </ExpandColumnsWrapper>
                         )}
                         {isGhost ? (
@@ -489,7 +506,10 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         )}
                         {entity && (
                             <PropertyBadgeWrapper>
-                                <StructuredPropertyBadge structuredProperties={entity.structuredProperties} />
+                                <StructuredPropertyBadge
+                                    structuredProperties={entity.structuredProperties}
+                                    platformUrn={entity?.platform?.urn}
+                                />
                             </PropertyBadgeWrapper>
                         )}
                     </MainTextWrapper>
@@ -520,9 +540,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     );
 
     if (isGhost) {
-        const message = entity?.status?.removed ? 'has been deleted' : 'does not exist in DataHub';
+        const ghostTitle = entity?.status?.removed ? t('node.ghost.deleted') : t('node.ghost.notFound');
         return (
-            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3}>
+            <Tooltip title={ghostTitle} mouseEnterDelay={0.3}>
                 {contents}
             </Tooltip>
         );

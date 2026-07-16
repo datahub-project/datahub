@@ -2,7 +2,10 @@ import os
 from unittest.mock import patch
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.snowflake.snowflake_queries import SnowflakeQueriesSource
+from datahub.ingestion.source.snowflake.snowflake_queries import (
+    SnowflakeQueriesExtractor,
+    SnowflakeQueriesSource,
+)
 
 
 @patch("snowflake.connector.connect")
@@ -33,7 +36,6 @@ def test_user_identifiers_email_as_identifier(snowflake_connect, tmp_path):
                 "username": "TST_USR",
                 "password": "TST_PWD",
             },
-            "email_as_user_identifier": True,
             "email_domain": "example.com",
         },
         PipelineContext("run-id"),
@@ -60,7 +62,7 @@ def test_user_identifiers_email_as_identifier(snowflake_connect, tmp_path):
 
 
 @patch("snowflake.connector.connect")
-def test_user_identifiers_username_as_identifier(snowflake_connect, tmp_path):
+def test_user_identifiers_user_email_as_identifier(snowflake_connect, tmp_path):
     source = SnowflakeQueriesSource.create(
         {
             "connection": {
@@ -68,12 +70,36 @@ def test_user_identifiers_username_as_identifier(snowflake_connect, tmp_path):
                 "username": "TST_USR",
                 "password": "TST_PWD",
             },
-            "email_as_user_identifier": False,
         },
         PipelineContext("run-id"),
     )
     assert (
         source.identifiers.get_user_identifier("username", "username@example.com")
-        == "username"
+        == "username@example.com"
     )
     assert source.identifiers.get_user_identifier("username", None) == "username"
+
+
+def test_snowflake_has_temp_keyword():
+    cases = [
+        ("CREATE TEMP VIEW my_table__dbt_tmp ...", True),
+        ("CREATE TEMPORARY VIEW my_table__dbt_tmp ...", True),
+        ("CREATE VIEW my_table__dbt_tmp ...", False),
+        # Test case sensitivity
+        ("create TEMP view test", True),
+        ("CREATE temporary VIEW test", True),
+        ("create temp view test", True),
+        # Test with whitespace variations
+        ("CREATE\nTEMP\tVIEW test", True),
+        ("CREATE  TEMPORARY    VIEW test", True),
+        # Test with partial matches that should be false
+        ("SELECT * FROM my_template_table", False),
+        ("CREATE TEMPERATURE VIEW test", False),
+        ("SELECT * FROM TEMPDB.table", False),
+        ("CREATE VIEW temporary_table", False),
+        # Note that this method has some edge cases that don't quite work.
+        # But it's good enough for our purposes.
+        # ("SELECT 'TEMPORARY' FROM table", False),
+    ]
+    for query, expected in cases:
+        assert SnowflakeQueriesExtractor._has_temp_keyword(query) == expected

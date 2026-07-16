@@ -1,13 +1,16 @@
 package com.linkedin.gms.factory.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_BATCH_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_EVENT_CONSUMER_NAME;
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_BATCH_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.PE_EVENT_CONSUMER_NAME;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -15,9 +18,10 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -32,6 +36,7 @@ import org.springframework.kafka.support.serializer.DeserializationException;
 @Configuration
 public class KafkaEventConsumerFactory {
   private int kafkaEventConsumerConcurrency;
+  private int authExceptionRetryIntervalSeconds;
 
   @Bean(name = "kafkaConsumerFactory")
   protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerFactory(
@@ -40,10 +45,31 @@ public class KafkaEventConsumerFactory {
       @Qualifier("schemaRegistryConfig")
           KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
+    authExceptionRetryIntervalSeconds =
+        provider.getKafka().getConsumer().getAuthExceptionRetryIntervalSeconds();
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Map<String, Object> customizedProperties =
-        buildCustomizedProperties(baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig);
+        buildCustomizedProperties(
+            baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, true);
+
+    return new DefaultKafkaConsumerFactory<>(customizedProperties);
+  }
+
+  @Bean(name = "kafkaConsumerPoolConsumerFactory")
+  protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerPoolConsumerFactory(
+      @Qualifier("configurationProvider") ConfigurationProvider provider,
+      KafkaProperties baseKafkaProperties,
+      @Qualifier("schemaRegistryConfig")
+          KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
+    kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
+    authExceptionRetryIntervalSeconds =
+        provider.getKafka().getConsumer().getAuthExceptionRetryIntervalSeconds();
+
+    KafkaConfiguration kafkaConfiguration = provider.getKafka();
+    Map<String, Object> customizedProperties =
+        buildCustomizedProperties(
+            baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, false);
 
     return new DefaultKafkaConsumerFactory<>(customizedProperties);
   }
@@ -56,8 +82,10 @@ public class KafkaEventConsumerFactory {
           KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
+    // Bootstrap is shared for DUHE since it does not need to preserve history in migrations
     Map<String, Object> customizedProperties =
-        buildCustomizedProperties(baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig);
+        buildCustomizedProperties(
+            baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, true, true);
 
     return new DefaultKafkaConsumerFactory<>(customizedProperties);
   }
@@ -65,27 +93,74 @@ public class KafkaEventConsumerFactory {
   private static Map<String, Object> buildCustomizedProperties(
       KafkaProperties baseKafkaProperties,
       KafkaConfiguration kafkaConfiguration,
-      KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
+      KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig,
+      boolean enableAutoCommit) {
+    return buildCustomizedProperties(
+        baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, enableAutoCommit, false);
+  }
+
+  /**
+   * @param shareBootstrap Indicates that Bootstrap Server should be shared between producer and
+   *     consumer, this is done on the Consumer Factory since we only really want to use this split
+   *     for migrating and the producer side is the one we'd be migrating to. Only should share for
+   *     topics like Upgrade History which do not need historical data to drain.
+   */
+  @com.google.common.annotations.VisibleForTesting
+  static Map<String, Object> buildCustomizedProperties(
+      KafkaProperties baseKafkaProperties,
+      KafkaConfiguration kafkaConfiguration,
+      KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig,
+      boolean enableAutoCommit,
+      boolean shareBootstrap) {
     KafkaProperties.Consumer consumerProps = baseKafkaProperties.getConsumer();
 
-    // Records will be flushed every 10 seconds.
-    consumerProps.setEnableAutoCommit(true);
-    consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
+    if (enableAutoCommit) {
+      // Records will be flushed every 10 seconds.
+      consumerProps.setEnableAutoCommit(true);
+      consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
+    } else {
+      consumerProps.setEnableAutoCommit(false);
+    }
 
+    String bootstrapOverride =
+        shareBootstrap
+            ? kafkaConfiguration.getProducer().getBootstrapServers()
+            : kafkaConfiguration.getConsumer().getBootstrapServers();
+    String bootstrapServers =
+        StringUtils.isNotBlank(bootstrapOverride)
+            ? bootstrapOverride
+            : kafkaConfiguration.getBootstrapServers();
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaConfiguration.getBootstrapServers() != null
-        && kafkaConfiguration.getBootstrapServers().length() > 0) {
-      consumerProps.setBootstrapServers(
-          Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
+    if (StringUtils.isNotBlank(bootstrapServers)) {
+      consumerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties(null);
+    String securityProtocolOverride =
+        shareBootstrap
+            ? kafkaConfiguration.getProducer().getSecurityProtocol()
+            : kafkaConfiguration.getConsumer().getSecurityProtocol();
+    String securityProtocol =
+        StringUtils.isNotBlank(securityProtocolOverride) ? securityProtocolOverride : null;
+    if (StringUtils.isNotBlank(securityProtocol)) {
+      consumerProps.getSecurity().setProtocol(securityProtocol);
+    }
+
+    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties();
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getConsumerProperties(schemaRegistryConfig));
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getProperties(schemaRegistryConfig));
+
+    String schemaRegistryUrlOverride =
+        shareBootstrap
+            ? kafkaConfiguration.getProducer().getSchemaRegistryUrl()
+            : kafkaConfiguration.getConsumer().getSchemaRegistryUrl();
+    if (StringUtils.isNotBlank(schemaRegistryUrlOverride)) {
+      customizedProperties.put(
+          AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrlOverride);
+    }
 
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
@@ -120,6 +195,20 @@ public class KafkaEventConsumerFactory {
         configurationProvider.getKafka().getConsumer().getMcp());
   }
 
+  @Bean(name = MCP_BATCH_EVENT_CONSUMER_NAME)
+  protected KafkaListenerContainerFactory<?> mcpBatchEventConsumer(
+      @Qualifier("kafkaConsumerFactory")
+          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      @Qualifier("configurationProvider") ConfigurationProvider configurationProvider) {
+
+    return buildDefaultKafkaListenerContainerFactory(
+        MCP_BATCH_EVENT_CONSUMER_NAME,
+        kafkaConsumerFactory,
+        configurationProvider.getKafka().getConsumer().isStopOnDeserializationError(),
+        configurationProvider.getKafka().getConsumer().getMcp(),
+        true);
+  }
+
   @Bean(name = MCL_EVENT_CONSUMER_NAME)
   protected KafkaListenerContainerFactory<?> mclEventConsumer(
       @Qualifier("kafkaConsumerFactory")
@@ -131,6 +220,20 @@ public class KafkaEventConsumerFactory {
         kafkaConsumerFactory,
         configurationProvider.getKafka().getConsumer().isStopOnDeserializationError(),
         configurationProvider.getKafka().getConsumer().getMcl());
+  }
+
+  @Bean(name = MCL_BATCH_EVENT_CONSUMER_NAME)
+  protected KafkaListenerContainerFactory<?> mclBatchEventConsumer(
+      @Qualifier("kafkaConsumerFactory")
+          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      @Qualifier("configurationProvider") ConfigurationProvider configurationProvider) {
+
+    return buildDefaultKafkaListenerContainerFactory(
+        MCL_BATCH_EVENT_CONSUMER_NAME,
+        kafkaConsumerFactory,
+        configurationProvider.getKafka().getConsumer().isStopOnDeserializationError(),
+        configurationProvider.getKafka().getConsumer().getMcl(),
+        true);
   }
 
   @Bean(name = DEFAULT_EVENT_CONSUMER_NAME)
@@ -151,12 +254,24 @@ public class KafkaEventConsumerFactory {
       DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
       boolean isStopOnDeserializationError,
       @Nullable ConsumerConfiguration.ConsumerOptions consumerOptions) {
+    return buildDefaultKafkaListenerContainerFactory(
+        consumerFactoryName,
+        kafkaConsumerFactory,
+        isStopOnDeserializationError,
+        consumerOptions,
+        false);
+  }
+
+  private KafkaListenerContainerFactory<?> buildDefaultKafkaListenerContainerFactory(
+      String consumerFactoryName,
+      DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      boolean isStopOnDeserializationError,
+      @Nullable ConsumerConfiguration.ConsumerOptions consumerOptions,
+      boolean batchListener) {
 
     final DefaultKafkaConsumerFactory<String, GenericRecord> factoryWithOverrides;
     if (consumerOptions != null) {
-      // Copy the base config
       Map<String, Object> props = new HashMap<>(kafkaConsumerFactory.getConfigurationProperties());
-      // Override just the auto.offset.reset
       props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, consumerOptions.getAutoOffsetReset());
       factoryWithOverrides =
           new DefaultKafkaConsumerFactory<>(
@@ -173,11 +288,20 @@ public class KafkaEventConsumerFactory {
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(kafkaEventConsumerConcurrency);
     factory.setAutoStartup(false);
+    if (batchListener) {
+      factory.setBatchListener(true);
+    }
 
-    /* Sets up a delegating error handler for Deserialization errors, if disabled will
-     use DefaultErrorHandler (does back-off retry and then logs) rather than stopping the container. Stopping the container
-     prevents lost messages until the error can be examined, disabling this will allow progress, but may lose data
-    */
+    // Allow consumer containers to survive transient authentication failures (e.g.,
+    // MSK IAM credential rotation with EKS Pod Identity) instead of stopping fatally.
+    // The Kafka client's NetworkClient automatically reconnects with fresh credentials
+    // on the next poll — the same self-healing that the producer side already has.
+    if (authExceptionRetryIntervalSeconds > 0) {
+      factory
+          .getContainerProperties()
+          .setAuthExceptionRetryInterval(Duration.ofSeconds(authExceptionRetryIntervalSeconds));
+    }
+
     if (isStopOnDeserializationError) {
       CommonDelegatingErrorHandler delegatingErrorHandler =
           new CommonDelegatingErrorHandler(new DefaultErrorHandler());
@@ -186,8 +310,9 @@ public class KafkaEventConsumerFactory {
       factory.setCommonErrorHandler(delegatingErrorHandler);
     }
     log.info(
-        "Event-based {} KafkaListenerContainerFactory built successfully. Consumer concurrency = {}",
+        "Event-based {}{} KafkaListenerContainerFactory built successfully. Consumer concurrency = {}",
         consumerFactoryName,
+        batchListener ? " (batch)" : "",
         kafkaEventConsumerConcurrency);
 
     return factory;
@@ -204,6 +329,11 @@ public class KafkaEventConsumerFactory {
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(1);
     factory.setAutoStartup(false);
+    if (authExceptionRetryIntervalSeconds > 0) {
+      factory
+          .getContainerProperties()
+          .setAuthExceptionRetryInterval(Duration.ofSeconds(authExceptionRetryIntervalSeconds));
+    }
 
     log.info(
         "Event-based DUHE KafkaListenerContainerFactory built successfully. Consumer concurrency = 1");

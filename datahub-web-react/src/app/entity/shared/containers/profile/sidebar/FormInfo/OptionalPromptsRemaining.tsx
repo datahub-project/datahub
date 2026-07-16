@@ -1,10 +1,9 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { pluralize } from '../../../../../../shared/textUtil';
-import { ANTD_GRAY_V2 } from '../../../../constants';
 
 const OptionalPromptsWrapper = styled.div`
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     margin-top: 4px;
 `;
 
@@ -13,11 +12,12 @@ interface Props {
 }
 
 export default function OptionalPromptsRemaining({ numRemaining }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     if (numRemaining <= 0) return null;
 
     return (
         <OptionalPromptsWrapper>
-            {numRemaining} additional {pluralize(numRemaining, 'question', 's')} remaining
+            {t('formInfo.optionalQuestionsRemainingCount', { count: numRemaining })}
         </OptionalPromptsWrapper>
     );
 }

@@ -1,24 +1,25 @@
-import React, { useState } from 'react';
-import { Typography, Table, TablePaginationConfig } from 'antd';
-import { Popover } from '@components';
-import { TooltipPlacement } from 'antd/es/tooltip';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { Popover } from '@components';
+import { Table, TablePaginationConfig, Typography } from 'antd';
+import { TooltipPlacement } from 'antd/es/tooltip';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import AddButton from '@app/entityV2/shared/tabs/Dataset/Queries/AddButton';
+import QueryFilters from '@app/entityV2/shared/tabs/Dataset/Queries/QueryFilters/QueryFilters';
+import { QueriesTabSection, Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import useQueryTableColumns from '@app/entityV2/shared/tabs/Dataset/Queries/useQueryTableColumns';
+import { DEFAULT_PAGE_SIZE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
+import Loading from '@app/shared/Loading';
+import usePagination, { Pagination } from '@app/sharedV2/pagination/usePagination';
+import { Sorting } from '@app/sharedV2/sorting/useSorting';
 import { FacetFilterInput } from '@src/types.generated';
-import { QueriesTabSection, Query } from './types';
-import { DEFAULT_PAGE_SIZE } from './utils/constants';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../../../constants';
-import useQueryTableColumns from './useQueryTableColumns';
-import Loading from '../../../../../shared/Loading';
-import usePagination, { Pagination } from '../../../../../sharedV2/pagination/usePagination';
-import { Sorting } from '../../../../../sharedV2/sorting/useSorting';
-import AddButton from './AddButton';
-import QueryFilters from './QueryFilters/QueryFilters';
 
 const SectionWrapper = styled.div<{ $borderRadiusBottom?: boolean }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     padding: 24px;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     ${(props) => (props.$borderRadiusBottom ? `border-radius: 0 0 10px 10px;` : `border-radius: 10px;`)}
     height: fit-content;
 `;
@@ -40,14 +41,14 @@ const QueriesTitle = styled(Typography.Text)`
         margin: 0px;
         font-size: 16px;
         font-weight: 700;
-        color: ${REDESIGN_COLORS.TEXT_HEADING};
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
 const StyledInfoOutlined = styled(InfoCircleOutlined)`
     margin-left: 8px;
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledTable = styled(Table)`
@@ -55,7 +56,7 @@ const StyledTable = styled(Table)`
         font-weight: 700;
         font-size: 14px;
         line-height: 16px;
-        color: ${ANTD_GRAY_V2[12]};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 
     .lastRun {
@@ -125,6 +126,7 @@ export default function QueriesListSection({
     onAddQuery,
     isTopSection,
 }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
     /**
      * Table state
      */
@@ -140,10 +142,8 @@ export default function QueriesListSection({
         createdByColumn,
         createdDateColumn,
         powersColumn,
-        usedByColumn,
-        popularityColumn,
+        topUsersColumn,
         columnsColumn,
-        lastRunColumn,
         editColumn,
     } = useQueryTableColumns({
         queries,
@@ -166,11 +166,11 @@ export default function QueriesListSection({
         editColumn,
     ];
 
-    const popularQueriesColumns = [queryTextColumn(), usedByColumn, lastRunColumn, columnsColumn, popularityColumn];
+    const popularQueriesColumns = [queryTextColumn(), topUsersColumn, columnsColumn];
 
-    const downstreamQueriesColumns = [queryTextColumn(550), powersColumn, lastRunColumn];
+    const downstreamQueriesColumns = [queryTextColumn(550), powersColumn];
 
-    const recentQueriesColumns = [queryTextColumn(550), lastRunColumn];
+    const recentQueriesColumns = [queryTextColumn(550)];
 
     const pagionationOptions: false | TablePaginationConfig = showPagination
         ? ({
@@ -235,7 +235,7 @@ export default function QueriesListSection({
                 {section === QueriesTabSection.Highlighted && (
                     <AddButton
                         dataTestId="add-query-button"
-                        buttonLabel="Add Highlighted Query"
+                        buttonLabel={t('queriesTab.addHighlightedQueryButton')}
                         isButtonDisabled={addQueryDisabled}
                         onButtonClick={onAddQuery}
                     />

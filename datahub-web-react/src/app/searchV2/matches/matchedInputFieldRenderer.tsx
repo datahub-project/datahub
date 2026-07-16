@@ -1,7 +1,8 @@
 import React from 'react';
 
-import { Chart, Dashboard, EntityType, GlossaryTerm, MatchedField } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Chart, Dashboard, EntityType, GlossaryTerm, MatchedField } from '@types';
 
 const LABEL_INDEX_NAME = 'fieldLabels';
 const TYPE_PROPERTY_KEY_NAME = 'type';
@@ -21,6 +22,9 @@ export const matchedInputFieldRenderer = (matchedField: MatchedField, entity: Ch
         );
 
         if (matchedGlossaryTerm) {
+            /* untranslated-text -- termType is a dynamic value from the backend (custom property on a glossary term);
+               the fallback 'term' is part of a sentence fragment {termType} <TermName/> that requires a Trans
+               rewrite and backend-driven translation to localise properly */
             let termType = 'term';
             const typeProperty = matchedGlossaryTerm.term.properties?.customProperties?.find(
                 (property) => property.key === TYPE_PROPERTY_KEY_NAME,

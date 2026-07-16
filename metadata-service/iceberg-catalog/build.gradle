@@ -2,6 +2,7 @@ plugins {
     id 'java'
 }
 apply from: '../../gradle/coverage/java-coverage.gradle'
+apply from: '../../gradle/coverage/python-coverage.gradle'
 
 ext {
     python_executable = 'python3'
@@ -15,8 +16,8 @@ dependencies {
     implementation project(':metadata-operation-context')
     implementation project(':metadata-io')
     implementation project(':metadata-integration:java:datahub-schematron:lib')
-    implementation 'org.apache.iceberg:iceberg-core:1.6.1'
-    implementation 'org.apache.iceberg:iceberg-aws:1.6.1'
+    implementation 'org.apache.iceberg:iceberg-core:1.7.1'
+    implementation 'org.apache.iceberg:iceberg-aws:1.7.1'
     implementation 'software.amazon.awssdk:sts:2.26.12'
     implementation 'software.amazon.awssdk:iam-policy-builder:2.26.12'
     implementation externalDependency.awsS3
@@ -70,18 +71,14 @@ task installDev(type: Exec) {
             "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
-task integrationTestQuick(type: Exec, dependsOn: installDev) {
+task pyIntegrationTest(type: Exec, dependsOn: installDev) {
     workingDir = project.projectDir
+    inputs.file file('pyproject.toml')
+    inputs.file file('requirements.txt')
+    inputs.files(project.fileTree(dir: "src/integrationTest/", include: "**/*.py"))
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +
-            "pytest -m quick"
-}
-
-task integrationTest(type: Exec, dependsOn: installDev) {
-    workingDir = project.projectDir
-    commandLine 'bash', '-c',
-        "source ${venv_name}/bin/activate && set -x && " +
-            "pytest"
+            "pytest ${get_coverage_args('full')}"
 }
 
 

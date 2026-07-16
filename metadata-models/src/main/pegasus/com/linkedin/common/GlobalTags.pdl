@@ -4,7 +4,8 @@ namespace com.linkedin.common
  * Tag aspect used for applying tags to an entity
  */
 @Aspect = {
-  "name": "globalTags"
+  "name": "globalTags",
+  "schemaVersion": 2
 }
 record GlobalTags {
 
@@ -25,7 +26,8 @@ record GlobalTags {
       "queryByDefault": true,
       "addToFilters": true,
       "hasValuesFieldName": "hasTags",
-      "filterNameOverride": "Tag"
+      "filterNameOverride": "Tagged With",
+      "searchTier": 2
     }
   }
   tags: array[TagAssociation]

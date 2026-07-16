@@ -1,7 +1,8 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { dataPlatform } from '@src/Mocks';
-import { EntityType } from '@types';
-import { getContextPath } from './getContextPath';
+
+import { DataProduct, EntityType } from '@types';
 
 const PARENT_CONTAINERS: GenericEntityProperties['parentContainers'] = {
     containers: [
@@ -44,11 +45,25 @@ const PARENT: GenericEntityProperties = {
     platform: dataPlatform,
 };
 
+const dataProduct: DataProduct = {
+    urn: 'urn:li:dataProduct:test',
+    type: EntityType.DataProduct,
+    domain: {
+        associatedUrn: '',
+        domain: {
+            urn: 'urn:li:domain:bebdad41-c523-469f-9b62-de94f938f603',
+            id: 'bebdad41-c523-469f-9b62-de94f938f603',
+            type: EntityType.Domain,
+            parentDomains: PARENT_DOMAINS,
+        },
+    },
+};
+
 describe('getContextPath', () => {
     it('returns empty array by default', () => {
         const entityData = {};
 
-        const contextPath = getContextPath(entityData);
+        const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual([]);
     });
 
@@ -60,7 +75,7 @@ describe('getContextPath', () => {
             parent: PARENT,
         };
 
-        const contextPath = getContextPath(entityData);
+        const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual(PARENT_CONTAINERS.containers);
     });
 
@@ -72,7 +87,7 @@ describe('getContextPath', () => {
             parent: PARENT,
         };
 
-        const contextPath = getContextPath(entityData);
+        const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual(PARENT_DOMAINS.domains);
     });
 
@@ -84,7 +99,7 @@ describe('getContextPath', () => {
             parent: PARENT,
         };
 
-        const contextPath = getContextPath(entityData);
+        const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual(PARENT_NODES.nodes);
     });
 
@@ -96,7 +111,17 @@ describe('getContextPath', () => {
             parent: PARENT,
         };
 
-        const contextPath = getContextPath(entityData);
+        const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual([PARENT]);
+    });
+
+    it('returns correct context path for data products', () => {
+        const entityData = dataProduct;
+
+        const contextPath = getParentEntities(entityData, EntityType.DataProduct);
+        expect(contextPath).toEqual([
+            dataProduct.domain?.domain,
+            ...(dataProduct.domain?.domain?.parentDomains?.domains || []),
+        ]);
     });
 });

@@ -1,4 +1,7 @@
 import { Dispatch, SetStateAction } from 'react';
+
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
 import {
     AuditStamp,
     CorpUser,
@@ -13,8 +16,6 @@ import {
     IncidentType,
     OwnerType,
 } from '@src/types.generated';
-import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
-import { IncidentAction } from './constant';
 
 export type IncidentListFilter = {
     sortBy: string;
@@ -94,21 +95,23 @@ export type IncidentTableRow = {
 };
 
 export type IncidentEditorProps = {
+    entity: EntityStagedForIncident;
     incidentUrn?: string;
     refetch?: () => void;
     onSubmit?: (incident?: Incident) => void;
     onClose?: () => void;
     data?: IncidentTableRow;
     mode?: IncidentAction;
-    entity?: EntityStagedForIncident;
 };
 
 export type IncidentLinkedAssetsListProps = {
+    initialUrn?: string;
     form: any;
     data?: IncidentTableRow;
     mode: IncidentAction;
     setCachedLinkedAssets: React.Dispatch<React.SetStateAction<any[]>>;
     setIsLinkedAssetsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+    urn?: string;
 };
 
 export interface TimelineContentDetails extends BaseItemType {
@@ -120,15 +123,13 @@ export interface TimelineContentDetails extends BaseItemType {
 
 export enum IncidentConstant {
     PRIORITY = 'priority',
-    STAGE = 'stage',
     CATEGORY = 'category',
-    STATE = 'state',
 }
 
 export type EntityStagedForIncident = {
     urn: string;
-    platform: DataPlatform;
-    entityType: EntityType;
+    platform?: DataPlatform;
+    entityType?: EntityType; // TODO remove this.
 };
 
 export type IncidentBuilderSiblingOptions = {
@@ -139,5 +140,5 @@ export type IncidentBuilderSiblingOptions = {
 export type CreateIncidentButtonProps = {
     privileges: EntityPrivileges;
     setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
-    setEntity: Dispatch<SetStateAction<EntityStagedForIncident | undefined>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident>>;
 };

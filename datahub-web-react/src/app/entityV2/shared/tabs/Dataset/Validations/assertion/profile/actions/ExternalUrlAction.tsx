@@ -1,16 +1,15 @@
+import { ArrowUpRight } from '@phosphor-icons/react/dist/csr/ArrowUpRight';
 import React from 'react';
-
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { LaunchOutlined } from '@mui/icons-material';
-import analytics, { EntityActionType, EventType } from '../../../../../../../../analytics';
-import { ActionItem } from './ActionItem';
-import { Assertion, AssertionRunStatus, EntityType } from '../../../../../../../../../types.generated';
 
-const StyledLaunchOutlined = styled(LaunchOutlined)`
-    && {
-        display: flex;
-        font-size: 16px;
-    }
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+
+import { Assertion, AssertionRunStatus, EntityType } from '@types';
+
+const StyledArrowUpRight = styled(ArrowUpRight)`
+    display: flex;
 `;
 
 type Props = {
@@ -19,6 +18,7 @@ type Props = {
 };
 
 export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const platformName =
         assertion?.platform?.properties?.displayName || assertion?.platform?.name || 'external platform';
     const externalUrl =
@@ -47,11 +47,11 @@ export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) 
     return (
         <ActionItem
             key="external-url"
-            tip={`View in ${platformName}.`}
+            tip={t('action.viewInPlatform', { platformName })}
             onClick={handleRedirect}
-            icon={<StyledLaunchOutlined />}
+            icon={<StyledArrowUpRight size={16} />}
             isExpandedView={isExpandedView}
-            actionName="View External platform"
+            actionName={t('action.viewExternalPlatform')}
         />
     );
 };

@@ -1,5 +1,6 @@
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
+---
+description: "Provision new user accounts in DataHub via invite links, JIT SSO provisioning, or direct creation through the metadata APIs."
+---
 
 # Onboarding Users to DataHub
 
@@ -87,7 +88,7 @@ perform authentication, check out [OIDC Authentication](sso/configure-oidc-react
 > `urn:li:corpuser:<extracted-username>`
 >
 > By default, the email address will be the username extracted from the Identity Provider. For information about customizing
-> the claim should be treated as the username in Datahub, check out the [OIDC Authentication](sso/configure-oidc-react.md) documentation.
+> the claim should be treated as the username in DataHub, check out the [OIDC Authentication](sso/configure-oidc-react.md) documentation.
 
 # Static Credential Configuration File (Self-Hosted Only)
 
@@ -97,7 +98,7 @@ using this mechanism. It is highly recommended that admins change or remove the 
 
 ## Adding new users using a user.props file
 
-:::NOTE
+:::note
 Adding users via the `user.props` will require disabling existence checks on GMS using the `METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED=false` environment variable or using the API to enable the user prior to login.
 The directions below demonstrate using the API to enable the user.
 :::
@@ -117,10 +118,7 @@ johndoe:johnspassword
 
 In order to enable the user access with the credential defined in `user.props`, set the `status` aspect on the user with an Admin user. This can be done using an API call or via the [OpenAPI UI interface](/docs/api/openapi/openapi-usage-guide.md).
 
-<Tabs>
-<TabItem value="openapi" label="OpenAPI" default>
-
-Example enabling login for the `janesmith` user from the example above. Make sure to update the example with your access token.
+OpenAPI example enabling login for the `janesmith` user from the example above. Make sure to update the example with your access token.
 
 ```shell
 curl -X 'POST' \
@@ -134,8 +132,6 @@ curl -X 'POST' \
   }
 }'
 ```
-</TabItem>
-</Tabs>
 
 Once you've saved the file, simply start the DataHub containers & navigate to `http://localhost:9002/login`
 to verify that your new credentials work.
@@ -164,7 +160,7 @@ For example, to mount a user.props file that is stored on my local filesystem at
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
-    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: acryldata/datahub-frontend-react:${DATAHUB_VERSION:-quickstart}
     .....
     # The new stuff
     volumes:

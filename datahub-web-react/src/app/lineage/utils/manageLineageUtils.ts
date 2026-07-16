@@ -1,7 +1,8 @@
-import { Entity, EntityType, LineageEdge } from '../../../types.generated';
-import analytics, { EventType } from '../../analytics';
-import EntityRegistry from '../../entity/EntityRegistry';
-import { Direction } from '../types';
+import analytics, { EventType } from '@app/analytics';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { Direction } from '@app/lineage/types';
+
+import { Entity, EntityType, LineageEdge } from '@types';
 
 interface AnalyticsEventsProps {
     lineageDirection: Direction;

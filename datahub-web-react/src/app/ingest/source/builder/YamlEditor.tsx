@@ -1,12 +1,7 @@
+import Editor from '@monaco-editor/react';
 import React from 'react';
-import Editor, { loader } from '@monaco-editor/react';
 
-const baseUrl = import.meta.env.BASE_URL;
-loader.config({
-    paths: {
-        vs: `${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}node_modules/monaco-editor/min/vs`,
-    },
-});
+import '@conf/monaco';
 
 type Props = {
     initialText: string;

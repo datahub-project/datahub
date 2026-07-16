@@ -1,15 +1,22 @@
-import React from 'react';
-import { DeleteOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect } from 'react-router';
-import { useUserContext } from '../../../context/useUserContext';
-import { isDeleteDisabled, shouldDisplayChildDeletionWarning } from './utils';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import useDeleteEntity from './useDeleteEntity';
-import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
-import { EntityType } from '../../../../types.generated';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { ActionMenuItem } from './styledComponents';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import {
+    ActionMenuItem,
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
+import { isDeleteDisabled, shouldDisplayChildDeletionWarning } from '@app/entityV2/shared/EntityDropdown/utils';
+import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 interface Props {
     options?: any;
@@ -17,6 +24,7 @@ interface Props {
 }
 
 export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const { urn, entityData, entityType } = useEntityData();
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
@@ -41,13 +49,15 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
     return (
         <Tooltip
             placement="bottom"
-            title={
-                shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
-                    ? `Can't delete ${entityRegistry.getEntityName(entityType)} with ${
-                          isDomainEntity ? 'sub-domain' : 'child'
-                      } entities.`
-                    : `Delete this ${entityRegistry.getEntityName(entityType)}`
-            }
+            title={(() => {
+                const entityName = entityRegistry.getEntityName(entityType);
+                if (shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)) {
+                    return isDomainEntity
+                        ? t('delete.cantDeleteSubDomain', { entityName })
+                        : t('delete.cantDeleteChild', { entityName });
+                }
+                return t('delete.tooltip', { entityName });
+            })()}
         >
             <ActionMenuItem
                 key="delete"
@@ -55,7 +65,7 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
                 onClick={onDeleteEntity}
                 data-testid="entity-menu-delete-button"
             >
-                <DeleteOutlined style={{ display: 'flex' }} />
+                <Trash size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </ActionMenuItem>
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
         </Tooltip>

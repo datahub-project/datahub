@@ -1,6 +1,12 @@
-import { EntityType } from '../../../types.generated';
+// Disabling no hardcoded colors rule right now
+// TO-DO: Remove these colors once their usage in other files is migrated to semantic tokens
+/* eslint-disable rulesdir/no-hardcoded-colors */
+import i18next from 'i18next';
+
+import { EntityType } from '@types';
 
 // TODO(Gabe): integrate this w/ the theme
+// These colors are deprecated, use the colors in @components/theme/foundations/colors
 export const REDESIGN_COLORS = {
     BACKGROUND: '#F4F5F7',
     GREY: '#e5e5e5',
@@ -15,15 +21,7 @@ export const REDESIGN_COLORS = {
     WHITE: '#FFF',
     BLACK: '#000',
     SIDE_BAR: '#E8E6EB',
-    PRIMARY_PURPLE: '#736BA4',
-    BACKGROUND_PURPLE: '#8D76E9',
     TEXT_HEADING: '#374066',
-    TITLE_PURPLE: '#533FD1',
-    TITLE_PURPLE_2: '#4232A7',
-    HOVER_PURPLE: '#3e2f9d',
-    HOVER_PURPLE_2: '#4b39bc',
-    PLACEHOLDER_PURPLE: '#9AA4BB',
-    HIGHLIGHT_PURPLE: '#F9F8FF',
     LINK_HOVER_BLUE: '#5280E2',
     RED_ERROR_BORDER: '#FFA39E',
     BACKGROUND_SECONDARY_GRAY: '#AAA2CB0F',
@@ -32,28 +30,19 @@ export const REDESIGN_COLORS = {
     BACKGROUND_GRAY_4: '#F8F7FE',
     BACKGROUND_OVERLAY_BLACK: '#171723',
     BACKGROUND_OVERLAY_BLACK_SEARCH: '#404053',
-    BACKGROUND_PRIMARY_1: '#533fd1',
-    BACKGROUND_PRIMARY_2: '#4232a7',
-    VIEW_PURPLE: '#9178f6',
     BOX_SHADOW: '#E0E0E025',
     BORDER_1: '#4b4b54',
     BORDER_2: '#E6E6E6',
     BORDER_3: '#EFEFEF',
-    BORDER_4: '#533FD1',
-    BORDER_5: '#8C7EE0',
     SECONDARY_LIGHT_GREY: '#9DA7C0',
     ACTION_ICON_GREY: '#676b75',
     AVATAR_STYLE_WHITE_BACKGROUND: '#ffffff66',
-    GROUP_AVATAR_STYLE_GRADIENT: 'linear-gradient(0deg, #705EE4 0%, #533FD1 100%), #4C39BE',
-    PROFILE_AVATAR_STYLE_GRADIENT: 'linear-gradient(93deg, #705EE4 5.11%, #533FD1 112.87%), #4C39BE',
     SIDE_BAR_BORDER_RIGHT: '#e8e8e8',
-    DARK_PURPLE: '#6C6B88',
     LINK_GREY: '#586287',
     TEXT_GREY: '#8D95B1',
     WARNING_RED: '#d07b7b',
     SUBTITLE: '#434863',
     LIGHT_GREY_BORDER: '#ededed',
-    BACKGROUND_PURPLE_2: '#887fae',
     FOUNDATION_BLUE_2: '#CFD1DA',
     FOUNDATION_BLUE_4: '#81879F',
     FOUNDATION_BLUE_5: '#5B6282',
@@ -88,13 +77,9 @@ export const REDESIGN_COLORS = {
     ICON_ON_DARK: '#F9FAFC',
     SILVER_GREY: '#E9EAEE',
     GREY_100: '#C1C4D0',
-    PURPLE_LIGHT: '#CAC3F1',
 };
 
 export const SEARCH_COLORS = {
-    TITLE_PURPLE: '#533FD1',
-    SUBTEXT_PURPPLE: '#3F54D1',
-    BACKGROUND_PURPLE: '#ece9f8',
     PLATFORM_TEXT: '#56668E',
     MATCH_BACKGROUND_GREY: '#5A617110',
     MATCH_TEXT_GREY: '#8894A9',
@@ -134,73 +119,116 @@ export const ANTD_GRAY_V2 = {
 export const LINEAGE_COLORS = {
     BLUE_1: '#0958D9',
     BLUE_2: '#1890FF',
-    PURPLE_1: '#5280E2',
-    PURPLE_2: '#324473',
-    PURPLE_3: SEARCH_COLORS.TITLE_PURPLE,
     NODE_BORDER: ANTD_GRAY[6],
 };
 
 export const EMPTY_MESSAGES = {
     documentation: {
-        title: 'No documentation yet',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.documentation.title');
+        },
     },
     tags: {
-        title: 'No tags yet',
-        description: 'Tag entities to help make them more discoverable and call out their most important attributes.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.tags.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.tags.description');
+        },
     },
     terms: {
-        title: 'No terms yet',
-        description: 'Apply glossary terms to entities to classify their data.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.terms.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.terms.description');
+        },
     },
     owners: {
-        title: 'No owners yet',
-        description: 'Adding owners helps you keep track of who is responsible for this data.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.owners.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.owners.description');
+        },
     },
     properties: {
-        title: 'No properties',
-        description: 'Properties will appear here if they exist in your data source.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.properties.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.properties.description');
+        },
     },
     queries: {
-        title: 'No queries yet',
-        description: 'Create, view, and share commonly used queries for this dataset.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.queries.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.queries.description');
+        },
     },
     domain: {
-        title: 'No domain yet',
-        description: 'Group related entities based on your organizational structure using by adding them to a Domain.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.domain.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.domain.description');
+        },
     },
     dataProduct: {
-        title: 'No product yet',
-        description: 'Group related entities based on shared characteristics by adding them to a Data Product.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.dataProduct.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.dataProduct.description');
+        },
+    },
+    application: {
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.application.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.application.description');
+        },
     },
     contains: {
-        title: 'Does not Contain any Glossary Terms',
-        description: 'Terms can contain other terms to represent a "Has A" style relationship.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.contains.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.contains.description');
+        },
     },
     inherits: {
-        title: 'Does not Inherit any Glossary Terms',
-        description: 'Terms can inherit from other terms to represent an "Is A" style relationship.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.inherits.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.inherits.description');
+        },
     },
     'contained by': {
-        title: 'Is not Contained by any Glossary Terms',
-        description: 'Terms can be contained by other terms to represent a "Has A" style relationship.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.containedBy.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.containedBy.description');
+        },
     },
     'inherited by': {
-        title: 'Is not Inherited by any Glossary Terms',
-        description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.inheritedBy.title');
+        },
+        get description() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.inheritedBy.description');
+        },
     },
     structuredProps: {
-        title: 'No value set',
+        get title() {
+            return i18next.t('entity.shared.emptyStates:emptyMessages.structuredProps.title');
+        },
     },
-};
-
-export const ELASTIC_MAX_COUNT = 10000;
-
-export const getElasticCappedTotalValueText = (count: number) => {
-    if (count === ELASTIC_MAX_COUNT) {
-        return `${ELASTIC_MAX_COUNT}+`;
-    }
-
-    return `${count}`;
 };
 
 export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
@@ -211,8 +239,6 @@ export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
 ]);
 
 export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode];
-
-export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];
 
 export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';
 
@@ -228,6 +254,13 @@ export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';
 
 export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
-export const SMART_ASSERTION_STALE_IN_DAYS = 3;
+export const RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES = 'RecentlyViewedEntities';
+export const RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES = 'RecentlyEditedEntities';
+export const RECOMMENDATION_MODULE_ID_RECENT_SEARCHES = 'RecentSearches';
 
-export const TITLE_CASE_EXCEPTION_WORDS = ['of', 'the', 'in', 'on', 'and', 'a', 'an', 'to', 'for', 'at', 'by'];
+export const ENTITY_TYPES_WITH_NEW_SUMMARY_TAB = [
+    EntityType.GlossaryNode,
+    EntityType.GlossaryTerm,
+    EntityType.DataProduct,
+    EntityType.Domain,
+];

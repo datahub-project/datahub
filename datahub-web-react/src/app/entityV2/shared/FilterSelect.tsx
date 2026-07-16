@@ -1,7 +1,9 @@
-import React, { useMemo, useCallback } from 'react';
+import capitalize from 'lodash/capitalize';
+import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import capitalize from 'lodash/capitalize';
 
 interface FilterOption {
     name: string;
@@ -27,6 +29,7 @@ export const FilterSelect = ({
     excludedCategories,
     initialSelectedOptions,
 }: FilterSelectProps) => {
+    const { t: tc } = useTranslation('common.actions');
     const handleFilterChange = useCallback(
         (selectedValues: NestedSelectOption[]) => {
             const updatedFilters = selectedValues.map((option: NestedSelectOption) => {
@@ -67,14 +70,15 @@ export const FilterSelect = ({
 
     return (
         <NestedSelect
-            placeholder="Filter"
+            placeholder={tc('filter')}
             options={options}
             initialValues={initialSelectedOptions}
             onUpdate={handleFilterChange}
             isMultiSelect
             areParentsSelectable={false}
             width={100}
-            selectLabelProps={{ variant: 'labeled', label: 'Filter' }}
+            selectLabelProps={{ variant: 'labeled', label: tc('filter') }}
+            dataTestId="filter"
             shouldAlwaysSyncParentValues
             hideParentCheckbox
         />

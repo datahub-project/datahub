@@ -2,18 +2,18 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { Domain, EntityType } from '../../../../types.generated';
-import { DomainColoredIcon } from './DomainColoredIcon';
-import EntityCount from '../containers/profile/header/EntityCount';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain, EntityType } from '@types';
 
 const DomainLinkContainer = styled.div`
     display: flex;
     flex-direction: row;
     :hover {
-        background-color: #f5f7fa;
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
     border-radius: 12px;
     cursor: pointer;
@@ -29,7 +29,7 @@ const DomainInfoContainer = styled.div`
 const DomainTitle = styled.div`
     font-size: 12px;
     font-weight: 400;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     font-family: Mulish;
     overflow: hidden;
     white-space: nowrap;
@@ -40,7 +40,7 @@ const DomainTitle = styled.div`
 const DomainContents = styled.div`
     font-size: 12px;
     font-weight: 400;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-family: Mulish;
     overflow: hidden;
     white-space: nowrap;

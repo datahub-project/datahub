@@ -1,6 +1,7 @@
 import React from 'react';
-import { ANTD_GRAY } from '../../shared/constants';
-import { DefaultViewIcon } from './DefaultViewIcon';
+import { useTheme } from 'styled-components';
+
+import { DefaultViewIcon } from '@app/entityV2/view/shared/DefaultViewIcon';
 
 type Props = {
     title?: React.ReactNode;
@@ -9,5 +10,6 @@ type Props = {
 };
 
 export const GlobalDefaultViewIcon = ({ title, color, size }: Props) => {
-    return <DefaultViewIcon title={title} color={color || ANTD_GRAY[6]} size={size} />;
+    const theme = useTheme();
+    return <DefaultViewIcon title={title} color={color || theme.colors.icon} size={size} />;
 };

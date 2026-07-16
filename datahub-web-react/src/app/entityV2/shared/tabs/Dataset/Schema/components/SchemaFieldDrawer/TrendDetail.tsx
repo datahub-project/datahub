@@ -1,10 +1,11 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { decimalToPercentStr } from '../../utils/statsUtil';
-import { REDESIGN_COLORS } from '../../../../../constants';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
+
+import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 
 interface TrendDetailProps {
     tooltipTitle: string;
@@ -36,7 +37,7 @@ const StatSummarySubtitle = styled.div`
 `;
 
 const Headline = styled.div`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-family: Mulish;
     font-size: 12px;
     font-weight: 700;
@@ -44,7 +45,7 @@ const Headline = styled.div`
 `;
 
 const SubtitleText = styled(Typography.Text)<{ color?: string }>`
-    color: ${(props) => (props.color ? props.color : REDESIGN_COLORS.DARK_GREY)};
+    color: ${(props) => (props.color ? props.color : props.theme.colors.textSecondary)};
     font-family: Mulish;
     font-size: 13px;
     line-height: 14px;
@@ -52,15 +53,17 @@ const SubtitleText = styled(Typography.Text)<{ color?: string }>`
 `;
 
 const TrendDetail = ({ tooltipTitle, headline, proportion, showCount = false, count = 0 }: TrendDetailProps) => {
+    const { t } = useTranslation('entity.profile.schema');
+    const theme = useTheme();
     let displayText;
     if (showCount && count > 0) {
-        if (headline === 'Numerical stats') {
-            displayText = `${count} stats`;
+        if (headline === t('statsSummary.numericalStats')) {
+            displayText = t('statsSidebar.statsCount', { count });
         } else {
-            displayText = `${count} values`;
+            displayText = t('statsSidebar.valuesCount', { count });
         }
     } else if (count < 1) {
-        displayText = 'None';
+        displayText = t('statsSidebar.none');
     } else {
         displayText = decimalToPercentStr(proportion, 2);
     }
@@ -70,7 +73,7 @@ const TrendDetail = ({ tooltipTitle, headline, proportion, showCount = false, co
                 <TitleContainer>
                     <Headline>{headline}</Headline>
                     <StatSummarySubtitle>
-                        <SubtitleText color={showCount && count < 1 ? REDESIGN_COLORS.SECONDARY_LIGHT_GREY : undefined}>
+                        <SubtitleText color={showCount && count < 1 ? theme.colors.textTertiary : undefined}>
                             {displayText}
                         </SubtitleText>
                     </StatSummarySubtitle>

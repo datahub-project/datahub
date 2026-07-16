@@ -1,8 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import MDEditor from '@uiw/react-md-editor';
-import styled from 'styled-components';
+import { Button } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
+
+// String flag passed to styled-components as a DOM attribute marker; not user-visible text.
+const TRUE_ATTRIBUTE_VALUE = 'true';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -31,7 +35,7 @@ const MarkdownContainer = styled.div<{ editable?: string }>`
 
 const CustomButton = styled(Button)`
     padding: 0;
-    color: #6a737d;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const MarkdownViewContainer = styled.div<{
@@ -54,7 +58,7 @@ const MarkdownViewContainer = styled.div<{
             `
             &::after {
                 content: '...';
-                color: #6a737d;
+                color: ${props.theme.colors.textSecondary};
                 position: absolute;
                 bottom: 2rem;
             }
@@ -63,7 +67,7 @@ const MarkdownViewContainer = styled.div<{
         `}
 `;
 
-export const MarkdownView = styled(MDEditor.Markdown)`
+const MarkdownView = styled(MDEditor.Markdown)`
     display: block;
     overflow-wrap: break-word;
     word-wrap: break-word;
@@ -73,7 +77,7 @@ export const MarkdownView = styled(MDEditor.Markdown)`
     font-weight: 400;
 `;
 
-export type Props = {
+type Props = {
     source: string;
     limit?: number;
     // eslint-disable-next-line react/no-unused-prop-types
@@ -84,6 +88,9 @@ export type Props = {
 };
 
 export default function MarkdownViewer({ source, limit = 150, editable, onEditClicked, ignoreLimit }: Props) {
+    const { t } = useTranslation('entityV1.shared.components');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
     const [height, setHeight] = useState(0);
     const [showAll, setShowAll] = useState(false);
     const ref = useRef(null);
@@ -100,20 +107,20 @@ export default function MarkdownViewer({ source, limit = 150, editable, onEditCl
     }, [ref, source]);
 
     return (
-        <MarkdownContainer editable={editable ? 'true' : undefined}>
+        <MarkdownContainer editable={editable ? TRUE_ATTRIBUTE_VALUE : undefined}>
             <MarkdownViewContainer
-                showall={height >= limit && showAll ? 'true' : undefined}
+                showall={height >= limit && showAll ? TRUE_ATTRIBUTE_VALUE : undefined}
                 limit={ignoreLimit ? undefined : `${limit}`}
-                over={height >= limit && !ignoreLimit ? 'true' : undefined}
+                over={height >= limit && !ignoreLimit ? TRUE_ATTRIBUTE_VALUE : undefined}
             >
                 <MarkdownView ref={ref} source={source} />
             </MarkdownViewContainer>
             {height >= limit && !ignoreLimit && (
                 <CustomButton type="link" onClick={() => setShowAll(!showAll)}>
-                    {showAll ? 'show less' : 'show more'}
+                    {showAll ? t('markdownViewer.showLess') : tc('showMore')}
                 </CustomButton>
             )}
-            {editable && <EditIcon twoToneColor="#52c41a" onClick={onEditClicked} />}
+            {editable && <EditIcon twoToneColor={theme.colors.iconSuccess} onClick={onEditClicked} />}
         </MarkdownContainer>
     );
 }

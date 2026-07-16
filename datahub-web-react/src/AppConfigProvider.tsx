@@ -1,9 +1,14 @@
+import '@src/App.less';
+
 import React, { useEffect } from 'react';
-import './App.less';
-import { THIRD_PARTY_LOGGING_KEY } from './app/analytics/analytics';
-import { checkAuthStatus } from './app/auth/checkAuthStatus';
-import { AppConfigContext, DEFAULT_APP_CONFIG } from './appConfigContext';
-import { useAppConfigQuery } from './graphql/app.generated';
+
+import { SERVER_VERSION_KEY, THIRD_PARTY_LOGGING_KEY } from '@app/analytics/analytics';
+import UpdateGlobalFlags from '@app/appConfig/UpdateGlobalFlags';
+import { checkAuthStatus } from '@app/auth/checkAuthStatus';
+import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+import { initOtel } from '@src/otel';
+
+import { useAppConfigQuery } from '@graphql/app.generated';
 
 function changeFavicon(src) {
     const links = document.querySelectorAll("link[rel~='icon']") as any;
@@ -12,6 +17,7 @@ function changeFavicon(src) {
         link.rel = 'icon';
         document.getElementsByTagName('head')[0].appendChild(link);
     }
+
     links.forEach((link) => {
         // eslint-disable-next-line no-param-reassign
         link.href = src;
@@ -33,7 +39,28 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
             } else {
                 localStorage.setItem(THIRD_PARTY_LOGGING_KEY, 'false');
             }
+            if (appConfigData.appConfig.appVersion) {
+                localStorage.setItem(SERVER_VERSION_KEY, appConfigData.appConfig.appVersion);
+            }
+            // Start browser (RUM) OpenTelemetry tracing when the feature flag is on. No-op otherwise.
+            initOtel({
+                enabled: !!appConfigData.appConfig.featureFlags.browserTracingEnabled,
+                webVitalsEnabled: !!appConfigData.appConfig.featureFlags.browserWebVitalsEnabled,
+                serviceName: 'datahub-frontend-browser',
+                serviceVersion: appConfigData.appConfig.appVersion ?? undefined,
+            });
             changeFavicon(appConfigData.appConfig.visualConfig.faviconUrl);
+
+            // Expose feature flags to window object for debugging and external access
+            if (!window.datahub) {
+                window.datahub = { appConfig: appConfigData.appConfig };
+            }
+            window.datahub.features = {
+                ...appConfigData.appConfig.featureFlags,
+                // Add metadata about when flags were loaded
+                _loaded: new Date().toISOString(),
+                _version: appConfigData.appConfig.appVersion || undefined,
+            };
         }
     }, [appConfigData]);
 
@@ -45,6 +72,7 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
                 refreshContext: refreshAppConfig,
             }}
         >
+            <UpdateGlobalFlags />
             {children}
         </AppConfigContext.Provider>
     );

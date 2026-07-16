@@ -1,24 +1,27 @@
 import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import MoreFilterOption from '@app/searchV2/filters/MoreFilterOption';
+import { FilterScenarioType } from '@app/searchV2/filters/render/types';
+import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
+import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
+import { FilterPredicate } from '@app/searchV2/filters/types';
+import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
+import { getNumActiveFiltersForGroupOfFilters } from '@app/searchV2/filters/utils';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import MoreFilterOption from './MoreFilterOption';
-import { getNumActiveFiltersForGroupOfFilters } from './utils';
-import { SearchFilterLabel } from './styledComponents';
-import useSearchFilterAnalytics from './useSearchFilterAnalytics';
-import { useFilterRendererRegistry } from './render/useFilterRenderer';
-import { FilterScenarioType } from './render/types';
-import { FilterPredicate } from './types';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const DropdownMenu = styled.div<{ padding?: string }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     overflow: hidden;
     min-width: 200px;
-    max-width: 240px;
+    max-width: 400px;
 
     ${(props) => props.padding !== undefined && `padding: ${props.padding};`}
 `;
@@ -31,6 +34,7 @@ interface Props {
 }
 
 export default function MoreFilters({ filters, filterPredicates, activeFilters, onChangeFilters }: Props) {
+    const { t } = useTranslation('search');
     const { trackShowMoreEvent } = useSearchFilterAnalytics();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
@@ -77,7 +81,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
             onOpenChange={onOpenChange}
         >
             <SearchFilterLabel data-testid="more-filters-dropdown" $isActive={!!numActiveFilters}>
-                More {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                {t('filters.moreCount', { count: numActiveFilters })}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </SearchFilterLabel>
         </Dropdown>

@@ -1,8 +1,9 @@
 import { AxisScaleOutput } from '@visx/axis';
 import { ScaleConfig } from '@visx/scale';
-import { GlyphProps as VisxGlyphProps, Margin } from '@visx/xychart';
+import { Margin, GlyphProps as VisxGlyphProps } from '@visx/xychart';
 import React from 'react';
-import { AxisProps, BaseDatum, GridProps } from '../BarChart/types';
+
+import { AxisProps, BaseDatum, GridProps } from '@components/components/BarChart/types';
 
 export type Datum = BaseDatum;
 
@@ -13,6 +14,8 @@ export type LineChartProps = {
     xScale?: ScaleConfig<AxisScaleOutput, any, any>;
     yScale?: ScaleConfig<AxisScaleOutput, any, any>;
     maxYDomainForZeroData?: number;
+    shouldAdjustYZeroPoint?: boolean;
+    yZeroPointThreshold?: number;
 
     lineColor?: string;
     areaColor?: string;
@@ -30,6 +33,8 @@ export type LineChartProps = {
     renderTooltipGlyph?: (props: GlyphProps) => React.ReactElement | null;
     showGlyphOnSingleDataPoint?: boolean;
     renderGlyphOnSingleDataPoint?: React.FC<GlyphProps>;
+
+    dataTestId?: string;
 };
 
 export type GlyphProps = VisxGlyphProps<Datum>;

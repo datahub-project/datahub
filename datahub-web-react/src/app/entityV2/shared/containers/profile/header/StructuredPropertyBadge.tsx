@@ -1,18 +1,21 @@
-import { colors, Pill, Text, Tooltip } from '@src/alchemy-components';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { filterForAssetBadge } from '@app/entityV2/shared/containers/profile/header/utils';
+import { mapStructuredPropertyToPropertyRow } from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
+import { Pill, Text, Tooltip } from '@src/alchemy-components';
 import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
 import { StructuredProperties } from '@src/types.generated';
-import React from 'react';
-import styled from 'styled-components';
-import { mapStructuredPropertyToPropertyRow } from '../../../tabs/Properties/useStructuredProperties';
-import { filterForAssetBadge } from './utils';
 
-export const MAX_PROP_BADGE_WIDTH = 150;
+const MAX_PROP_BADGE_WIDTH = 150;
 
 const StyledTooltip = styled(Tooltip)`
     .ant-tooltip-inner {
         border-radius: 8px;
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+        box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
 `;
 
@@ -33,15 +36,20 @@ const BadgeContainer = styled.div`
 
 interface Props {
     structuredProperties?: StructuredProperties | null;
+    platformUrn?: string | null;
 }
 
-const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
-    const badgeStructuredProperty = structuredProperties?.properties?.find(filterForAssetBadge);
+const StructuredPropertyBadge = ({ structuredProperties, platformUrn }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const badgeStructuredProperty = structuredProperties?.properties?.find((prop) =>
+        filterForAssetBadge(prop, platformUrn),
+    );
 
     const propRow = badgeStructuredProperty ? mapStructuredPropertyToPropertyRow(badgeStructuredProperty) : undefined;
 
     if (!badgeStructuredProperty) return null;
 
+    const attribution = propRow?.attribution;
     const propertyValue = propRow?.values[0]?.value;
     const relatedDescription = propRow?.structuredProperty?.definition?.allowedValues?.find(
         (v) => getStructuredPropertyValue(v.value) === propertyValue,
@@ -55,31 +63,27 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
                 </Text>
                 <ValueContainer>
                     <Text color="gray" size="sm" weight="bold">
-                        Value
+                        {t('structuredPropertyBadge.valueLabel')}
                     </Text>
-                    <Text color="gray">{propRow?.values[0]?.value}</Text>
+                    <Text color="gray">{propertyValue}</Text>
                 </ValueContainer>
                 {relatedDescription && (
                     <ValueContainer>
                         <Text color="gray" size="sm" weight="bold">
-                            Description
+                            {t('structuredPropertyBadge.descriptionLabel')}
                         </Text>
                         <Text color="gray">{relatedDescription}</Text>
                     </ValueContainer>
                 )}
+                {attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
             </TooltipContainer>
         );
     };
 
     return (
-        <StyledTooltip
-            showArrow={false}
-            title={<BadgeTooltip />}
-            color={colors.white}
-            overlayInnerStyle={{ width: 250, padding: 16 }}
-        >
+        <StyledTooltip showArrow={false} title={<BadgeTooltip />} overlayInnerStyle={{ width: 250, padding: 16 }}>
             <BadgeContainer>
-                <Pill label={propRow?.values[0]?.value?.toString() || ''} size="sm" color="violet" clickable={false} />
+                <Pill label={propRow?.values[0]?.value?.toString() || ''} size="sm" color="primary" clickable={false} />
             </BadgeContainer>
         </StyledTooltip>
     );

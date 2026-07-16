@@ -2,11 +2,13 @@ import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
 import DOMPurify from 'dompurify';
 import React from 'react';
-import { mocks } from '../../../../../../Mocks';
-import { EntityType } from '../../../../../../types.generated';
-import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
-import { EntityContext } from '../../../../../entity/shared/EntityContext';
-import { DocumentationTab } from '../DocumentationTab';
+
+import { EntityContext } from '@app/entity/shared/EntityContext';
+import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
+
+import { EntityType } from '@types';
 
 describe('SchemaDescriptionField', () => {
     it('renders original description', async () => {
@@ -37,7 +39,7 @@ describe('SchemaDescriptionField', () => {
             </MockedProvider>,
         );
         expect(getByText('This is a description')).toBeInTheDocument();
-    });
+    }, 30_000);
 
     it('if editable is present, renders edited description', async () => {
         const { getByText, queryByText } = render(

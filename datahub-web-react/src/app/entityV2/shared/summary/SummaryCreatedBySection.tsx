@@ -1,15 +1,19 @@
+import { Avatar } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { HeaderTitle } from './HeaderComponents';
-import { CorpGroup, CorpUser, EntityType } from '../../../../types.generated';
-import { useEntityRegistryV2 } from '../../../useEntityRegistry';
-import { REDESIGN_COLORS } from '../constants';
-import CustomAvatar from '../../../shared/avatar/CustomAvatar';
+
+import { AvatarType } from '@components/components/AvatarStack/types';
+
+import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { CorpGroup, CorpUser, EntityType } from '@types';
 
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
     font-size: 14px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
 `;
 
@@ -17,7 +21,7 @@ const Details = styled.div`
     display: flex;
     align-items: center;
     gap: 5px;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     font-weight: 500;
 `;
@@ -32,6 +36,7 @@ interface Props {
 }
 
 export default function SummaryCreatedBySection({ owner }: Props) {
+    const { t } = useTranslation('entity.shared.profile');
     const entityRegistry = useEntityRegistryV2();
 
     let ownerName;
@@ -43,14 +48,15 @@ export default function SummaryCreatedBySection({ owner }: Props) {
     }
     const ownerPictureLink =
         (owner && owner.__typename === 'CorpUser' && owner.editableProperties?.pictureLink) || undefined;
+    const avatarType = owner?.__typename === 'CorpGroup' ? AvatarType.group : AvatarType.user;
 
     return (
         <>
             {!!ownerName && (
                 <SectionContainer>
-                    <StyledTitle>Created By</StyledTitle>
+                    <StyledTitle>{t('summary.createdByTitle')}</StyledTitle>
                     <Details>
-                        {!!ownerPictureLink && <CustomAvatar photoUrl={ownerPictureLink} size={28} useDefaultAvatar />}
+                        <Avatar name={ownerName} imageUrl={ownerPictureLink} type={avatarType} />
                         {ownerName}
                     </Details>
                 </SectionContainer>

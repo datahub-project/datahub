@@ -22,6 +22,9 @@
   platform: hive
   urn: urn:li:dataset:(urn:li:dataPlatform:hive,user.clicksv3,PROD) # use urn instead of id and platform
   subtype: View
+  name: clicks v3
+  description: clicks v3 description
+  external_url: http://foo.bar
   schema:
     # file: examples/structured_properties/click_event.avsc
     fields:

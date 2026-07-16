@@ -1,10 +1,15 @@
-import React from 'react';
+import { ShareNetwork } from '@phosphor-icons/react/dist/csr/ShareNetwork';
 import { Dropdown } from 'antd';
-import { ShareAltOutlined } from '@ant-design/icons';
-import { ActionMenuItem } from '../../../entityV2/shared/EntityDropdown/styledComponents';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import ShareButtonMenu from './ShareButtonMenu';
-import { StyledMenu } from './styledComponents';
+import React from 'react';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import {
+    ActionMenuItem,
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import ShareButtonMenu from '@app/shared/share/v2/ShareButtonMenu';
+import { StyledMenu } from '@app/shared/share/v2/styledComponents';
 
 export default function ShareMenuAction() {
     const { urn, entityType, entityData } = useEntityData();
@@ -17,11 +22,17 @@ export default function ShareMenuAction() {
                 trigger={['hover']}
                 overlay={
                     <StyledMenu selectable={false}>
-                        <ShareButtonMenu urn={urn} entityType={entityType} subType={subType} name={name} />
+                        <ShareButtonMenu
+                            urn={urn}
+                            entityType={entityType}
+                            subType={subType}
+                            name={name}
+                            qualifiedName={entityData?.properties?.qualifiedName}
+                        />
                     </StyledMenu>
                 }
             >
-                <ShareAltOutlined style={{ display: 'flex' }} />
+                <ShareNetwork size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </Dropdown>
         </ActionMenuItem>
     );

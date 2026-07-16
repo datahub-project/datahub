@@ -1,18 +1,26 @@
-import LineageGraph from '@app/lineageV2/LineageGraph';
-import { colors } from '@components';
-import React, { useContext } from 'react';
+import { Icon } from '@components';
+import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import React, { useCallback, useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { LineageDirection } from '../../../../../types.generated';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import LineageExplorer from '../../../../lineage/LineageExplorer';
-import { useLineageV2 } from '../../../../lineageV2/useLineageV2';
-import TabFullsizedContext from '../../../../shared/TabFullsizedContext';
-import { TabRenderType } from '../../types';
-import { CompactLineageTab } from './CompactLineageTab';
-import { useLineageViewState } from './hooks';
-import { LineageColumnView } from './LineageColumnView';
 
-const LINEAGE_SWITCH_WIDTH = 90;
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { CompactLineageTab } from '@app/entityV2/shared/tabs/Lineage/CompactLineageTab';
+import { LineageColumnView } from '@app/entityV2/shared/tabs/Lineage/LineageColumnView';
+import { useLineageViewState } from '@app/entityV2/shared/tabs/Lineage/hooks';
+import { TabRenderType } from '@app/entityV2/shared/types';
+import { TabButtons } from '@app/homeV3/modules/shared/ButtonTabs/TabButtons';
+import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
+import LineageExplorer from '@app/lineage/LineageExplorer';
+import LineageGraph from '@app/lineageV2/LineageGraph';
+import { useLineageV2 } from '@app/lineageV2/useLineageV2';
+import TabFullsizedContext from '@app/shared/TabFullsizedContext';
+
+import { LineageDirection } from '@types';
+
+const LINEAGE_VIEW_EXPLORER = 'explorer';
+const LINEAGE_VIEW_IMPACT = 'impact';
 
 const LineageTabWrapper = styled.div`
     display: flex;
@@ -20,35 +28,19 @@ const LineageTabWrapper = styled.div`
     height: 100%;
 `;
 
-const LineageSwitchWrapper = styled.div`
-    border: 1px solid ${colors.violet[600]};
-    border-radius: 4.5px;
-    display: flex;
-    margin: 13px 11px;
-    width: ${LINEAGE_SWITCH_WIDTH * 2}px;
+const TabBarWrapper = styled.div`
+    padding: 0 8px 8px;
 `;
 
-const LineageViewSwitch = styled.div<{ selected: boolean }>`
-    background: ${({ selected }) => (selected ? colors.violet[600] : '#fff')};
-    border-radius: 3px;
-    color: ${({ selected }) => (selected ? '#fff' : colors.violet[600])};
-    cursor: pointer;
-    display: flex;
-    font-size: 10px;
-    justify-content: center;
-    line-height: 24px;
-    height: 24px;
-    width: ${LINEAGE_SWITCH_WIDTH}px;
+const TabLabel = styled.span`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 `;
 
 const VisualizationWrapper = styled.div`
     display: flex;
     height: 100%;
-`;
-
-const LineageTabHeader = styled.div`
-    display: flex;
-    justify-content: space-between;
 `;
 
 interface Props {
@@ -66,37 +58,70 @@ export function LineageTab({ properties, renderType }: Props) {
 }
 
 function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirection }) {
+    const { t } = useTranslation('lineage');
     const { isTabFullsize } = useContext(TabFullsizedContext);
     const { urn, entityType } = useEntityData();
     const isLineageV2 = useLineageV2();
     const { isVisualizeView, setVisualizeView, setVisualizeViewInEditMode } = useLineageViewState();
 
+    const activeKey = isVisualizeView ? LINEAGE_VIEW_EXPLORER : LINEAGE_VIEW_IMPACT;
+
+    const lineageViewTabs: Tab[] = useMemo(
+        () => [
+            {
+                key: LINEAGE_VIEW_EXPLORER,
+                label: (
+                    <TabLabel>
+                        <Icon icon={TreeStructure} size="lg" color="inherit" />
+                        {t('viewSwitch.explorer')}
+                    </TabLabel>
+                ),
+                dataTestId: 'lineage-view-explorer',
+                content: isLineageV2 ? (
+                    <VisualizationWrapper>
+                        <LineageGraph />
+                    </VisualizationWrapper>
+                ) : (
+                    <LineageExplorer urn={urn} type={entityType} />
+                ),
+            },
+            {
+                key: LINEAGE_VIEW_IMPACT,
+                label: (
+                    <TabLabel>
+                        <Icon icon={Rows} size="lg" color="inherit" />
+                        {t('viewSwitch.impactAnalysis')}
+                    </TabLabel>
+                ),
+                dataTestId: 'lineage-view-impact-analysis',
+                content: (
+                    <LineageColumnView
+                        defaultDirection={defaultDirection}
+                        setVisualizeViewInEditMode={setVisualizeViewInEditMode}
+                    />
+                ),
+            },
+        ],
+        [t, isLineageV2, urn, entityType, defaultDirection, setVisualizeViewInEditMode],
+    );
+
+    const onLineageViewTabClick = useCallback(
+        (key: string) => {
+            setVisualizeView(key === LINEAGE_VIEW_EXPLORER);
+        },
+        [setVisualizeView],
+    );
+
+    const activeContent = lineageViewTabs.find((tab) => tab.key === activeKey)?.content;
+
     return (
         <LineageTabWrapper>
             {!isTabFullsize && (
-                <LineageTabHeader>
-                    <LineageSwitchWrapper>
-                        <LineageViewSwitch selected={isVisualizeView} onClick={() => setVisualizeView(true)}>
-                            Explorer
-                        </LineageViewSwitch>
-                        <LineageViewSwitch selected={!isVisualizeView} onClick={() => setVisualizeView(false)}>
-                            Impact Analysis
-                        </LineageViewSwitch>
-                    </LineageSwitchWrapper>
-                </LineageTabHeader>
+                <TabBarWrapper>
+                    <TabButtons tabs={lineageViewTabs} activeTab={activeKey} onTabClick={onLineageViewTabClick} />
+                </TabBarWrapper>
             )}
-            {!isVisualizeView && (
-                <LineageColumnView
-                    defaultDirection={defaultDirection}
-                    setVisualizeViewInEditMode={setVisualizeViewInEditMode}
-                />
-            )}
-            {isVisualizeView && !isLineageV2 && <LineageExplorer urn={urn} type={entityType} />}
-            {isVisualizeView && isLineageV2 && (
-                <VisualizationWrapper>
-                    <LineageGraph />
-                </VisualizationWrapper>
-            )}
+            {activeContent}
         </LineageTabWrapper>
     );
 }

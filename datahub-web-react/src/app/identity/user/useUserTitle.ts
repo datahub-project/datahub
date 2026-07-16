@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { useUserContext } from '../../context/useUserContext';
 
-export const useUserTitle = () => {
+import { useUserContext } from '@app/context/useUserContext';
+
+const useUserTitle = () => {
     const user = useUserContext();
     return user.user?.editableProperties?.title || user.user?.info?.title || '';
 };

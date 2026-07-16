@@ -1,19 +1,21 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { TYPE_ICON_CLASS_NAME, getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
+
 import { Container } from '@types';
-import { getSubTypeIcon, TYPE_ICON_CLASS_NAME } from '../../../../components/subtypes';
+
+const CONTAINER_ICON_SIZE = 14;
 
 const IconWrapper = styled.span`
     line-height: 0;
-    .${TYPE_ICON_CLASS_NAME} {
-        font-size: 14px;
-    }
+    display: inline-flex;
+    align-items: center;
 `;
-
-const DefaultIcon = styled(FolderOpenOutlined)``;
 
 interface Props {
     container: Maybe<Container | GenericEntityProperties>;
@@ -28,6 +30,10 @@ export default function ContainerIcon({ container }: Props): JSX.Element {
 }
 
 export function ContainerIconBase({ container }: Props): JSX.Element {
-    const subtype = container?.subTypes?.typeNames?.[0].toLowerCase();
-    return (subtype && getSubTypeIcon(subtype)) || <DefaultIcon />;
+    const subtype = getFirstSubType(container)?.toLowerCase();
+    return (
+        (subtype && getSubTypeIcon(subtype, CONTAINER_ICON_SIZE)) || (
+            <FolderOpen className={TYPE_ICON_CLASS_NAME} size={CONTAINER_ICON_SIZE} color="currentColor" />
+        )
+    );
 }

@@ -1,13 +1,15 @@
 import { ApolloClient } from '@apollo/client';
-import { useEffect } from 'react';
 import { isEqual } from 'lodash';
-import { ListDomainsDocument, ListDomainsQuery } from '../../graphql/domain.generated';
-import { Entity, EntityType } from '../../types.generated';
-import { GenericEntityProperties } from '../entity/shared/types';
-import usePrevious from '../shared/usePrevious';
-import { useDomainsContext } from './DomainsContext';
-import { useEntityRegistry } from '../useEntityRegistry';
-import EntityRegistry from '../entity/EntityRegistry';
+import { useEffect } from 'react';
+
+import { useDomainsContext } from '@app/domainV2/DomainsContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import usePrevious from '@app/shared/usePrevious';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { ListDomainsDocument, ListDomainsQuery } from '@graphql/domain.generated';
+import { Entity, EntityType } from '@types';
 
 /**
  * Add an entry to the list domains cache.
@@ -73,6 +75,7 @@ export const updateListDomainsCache = (
             dataProducts: null,
             parentDomains: null,
             displayProperties: null,
+            institutionalMemory: null,
         },
         1000,
         parentDomain,
@@ -133,11 +136,13 @@ export function useUpdateDomainEntityDataOnChange(entityData: GenericEntityPrope
 export function useSortedDomains<T extends Entity>(domains?: Array<T>, sortBy?: 'displayName') {
     const entityRegistry = useEntityRegistry();
     if (!domains || !sortBy) return domains;
-    return [...domains].sort((a, b) => {
-        const nameA = entityRegistry.getDisplayName(EntityType.Domain, a) || '';
-        const nameB = entityRegistry.getDisplayName(EntityType.Domain, b) || '';
-        return nameA.localeCompare(nameB);
-    });
+    return [...domains].sort((a, b) => compareDomainsByDisplayName(a, b, entityRegistry));
+}
+
+export function compareDomainsByDisplayName<T extends Entity>(domainA: T, domainB: T, entityRegistry: EntityRegistry) {
+    const nameA = entityRegistry.getDisplayName(EntityType.Domain, domainA) || '';
+    const nameB = entityRegistry.getDisplayName(EntityType.Domain, domainB) || '';
+    return nameA.localeCompare(nameB);
 }
 
 export function getParentDomains<T extends Entity>(domain: T, entityRegistry: EntityRegistry) {

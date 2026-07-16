@@ -1,13 +1,16 @@
+import { Button, Form, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { message, Button, Modal, Typography, Form } from 'antd';
-import { useRefetch } from '../EntityContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useMoveDomainMutation } from '../../../../graphql/domain.generated';
-import DomainParentSelect from './DomainParentSelect';
-import { useHandleMoveDomainComplete } from './useHandleMoveDomainComplete';
-import { useDomainsContext } from '../../../domain/DomainsContext';
-import { EntityType } from '../../../../types.generated';
+
+import { useDomainsContext } from '@app/domain/DomainsContext';
+import { useRefetch } from '@app/entity/shared/EntityContext';
+import DomainParentSelect from '@app/entity/shared/EntityDropdown/DomainParentSelect';
+import { useHandleMoveDomainComplete } from '@app/entity/shared/EntityDropdown/useHandleMoveDomainComplete';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useMoveDomainMutation } from '@graphql/domain.generated';
+import { EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -23,6 +26,9 @@ interface Props {
 
 function MoveDomainModal(props: Props) {
     const { onClose } = props;
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const { entityData } = useDomainsContext();
     const domainUrn = entityData?.urn;
     const [form] = Form.useForm();
@@ -46,12 +52,14 @@ function MoveDomainModal(props: Props) {
             },
         })
             .then(() => {
-                message.loading({ content: 'Updating...', duration: 2 });
+                message.loading({ content: tf('updating'), duration: 2 });
                 const newParentToUpdate = selectedParentUrn || undefined;
                 handleMoveDomainComplete(domainUrn, newParentToUpdate);
                 setTimeout(() => {
                     message.success({
-                        content: `Moved ${entityRegistry.getEntityName(EntityType.Domain)}!`,
+                        content: t('move.success', {
+                            entityName: entityRegistry.getEntityName(EntityType.Domain),
+                        }),
                         duration: 2,
                     });
                     refetch();
@@ -59,24 +67,24 @@ function MoveDomainModal(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to move: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('move.error', { errorMessage: e.message || '' }), duration: 3 });
             });
         onClose();
     }
 
     return (
         <Modal
-            title="Move"
+            title={tc('move')}
             data-testid="move-domain-modal"
             open
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        {tc('cancel')}
                     </Button>
                     <Button onClick={moveDomain} data-testid="move-domain-modal-move-button">
-                        Move
+                        {tc('move')}
                     </Button>
                 </>
             }
@@ -85,7 +93,7 @@ function MoveDomainModal(props: Props) {
                 <Form.Item
                     label={
                         <Typography.Text strong>
-                            Move To <OptionalWrapper>(optional)</OptionalWrapper>
+                            <Trans t={t} i18nKey="move.toLabel" components={{ optional: <OptionalWrapper /> }} />
                         </Typography.Text>
                     }
                 >

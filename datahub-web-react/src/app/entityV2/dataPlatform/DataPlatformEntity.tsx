@@ -1,9 +1,12 @@
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import i18next from 'i18next';
 import * as React from 'react';
-import { DatabaseOutlined } from '@ant-design/icons';
-import { DataPlatform, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
-import { GenericEntityProperties } from '../../entity/shared/types';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+
+import { DataPlatform, EntityType, SearchResult } from '@types';
 
 const getDisplayName = (data?: DataPlatform): string => {
     return data?.properties?.displayName || data?.name || '';
@@ -15,14 +18,13 @@ const getDisplayName = (data?: DataPlatform): string => {
 export class DataPlatformEntity implements Entity<DataPlatform> {
     type: EntityType = EntityType.DataPlatform;
 
-    icon = (fontSize?: number, _styleType?: IconStyleType, color?: string) => {
+    icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         return (
-            <DatabaseOutlined
+            <Database
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -40,10 +42,10 @@ export class DataPlatformEntity implements Entity<DataPlatform> {
     getPathName = () => 'platform';
 
     // Currently unused.
-    getEntityName = () => 'Data Platform';
+    getEntityName = () => i18next.t('entity.types:dataPlatform.name');
 
     // Currently unused.
-    getCollectionName = () => 'Data Platforms';
+    getCollectionName = () => i18next.t('entity.types:dataPlatform.namePlural');
 
     // Currently unused.
     renderProfile = (_: string) => <></>;

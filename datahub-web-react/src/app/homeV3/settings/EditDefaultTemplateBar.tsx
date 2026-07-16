@@ -1,0 +1,49 @@
+import { Button, Icon } from '@components';
+import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
+import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { ActionsBar } from '@components/components/ActionsBar/ActionsBar';
+
+import analytics, { EventType } from '@app/analytics';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+
+const Warning = styled.div`
+    padding: 8px;
+    background-color: ${(props) => props.theme.colors.bgSurfaceError};
+    color: ${(props) => props.theme.colors.textError};
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 8px;
+`;
+
+export default function EditDefaultTemplateBar() {
+    const { t } = useTranslation('home.v3');
+    const { t: tc } = useTranslation('common.actions');
+    const { setIsEditingGlobalTemplate, isEditingGlobalTemplate } = usePageTemplateContext();
+
+    const onClick = useCallback(() => {
+        setIsEditingGlobalTemplate(false);
+        analytics.event({
+            type: EventType.HomePageTemplateGlobalTemplateEditingDone,
+        });
+    }, [setIsEditingGlobalTemplate]);
+
+    if (!isEditingGlobalTemplate) return null;
+
+    return (
+        <ActionsBar dataTestId="editing-default-template-bar">
+            <Warning>
+                <Icon icon={ExclamationMark} color="red" weight="fill" />
+                <span>{t('defaultTemplateBar.editingWarning')}</span>
+            </Warning>
+            <Button onClick={onClick} data-testid="finish-editing-default-template">
+                {tc('done')}
+            </Button>
+        </ActionsBar>
+    );
+}

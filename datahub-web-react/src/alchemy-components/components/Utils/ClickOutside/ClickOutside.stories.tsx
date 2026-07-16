@@ -1,7 +1,8 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import ClickOutside from './ClickOutside';
+
+import ClickOutside from '@components/components/Utils/ClickOutside/ClickOutside';
 
 // Auto Docs
 const meta = {
@@ -26,10 +27,18 @@ const meta = {
             description: 'Optional CSS-selector to ignore handling of clicks as outside clicks',
         },
         outsideSelector: {
-            description: 'Optional CSS-selector to cosider clicked element as outside click',
+            description: 'Optional CSS-selector to consider clicked element as outside click',
         },
         ignoreWrapper: {
             description: 'Enable to ignore clicking outside of wrapper',
+        },
+        width: {
+            description: 'Customize the width of the wrapper',
+            table: {
+                defaultValue: {
+                    summary: 'fit-content',
+                },
+            },
         },
     },
 

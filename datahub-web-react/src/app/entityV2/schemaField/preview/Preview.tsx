@@ -1,11 +1,13 @@
+import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import React from 'react';
-import { PicCenterOutlined } from '@ant-design/icons';
+
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
-import { EntityType, Owner } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
+
+import { EntityType, Owner } from '@types';
 
 export const Preview = ({
     data,
@@ -42,7 +44,7 @@ export const Preview = ({
             urn={datasetUrn}
             description={description ?? ''}
             owners={owners}
-            logoComponent={<PicCenterOutlined style={{ fontSize: '20px' }} />}
+            logoComponent={<Rows size={20} color="currentColor" />}
             type="Column"
             typeIcon={entityRegistry.getIcon(EntityType.SchemaField, 14, IconStyleType.ACCENT)}
         />

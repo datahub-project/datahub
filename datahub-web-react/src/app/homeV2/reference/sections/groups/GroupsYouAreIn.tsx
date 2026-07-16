@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import { useUserContext } from '../../../../context/useUserContext';
-import { EntityLinkList } from '../EntityLinkList';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { EntityType } from '../../../../../types.generated';
-import { useGetGroupsYouAreIn } from './useGetGroupsYouAreIn';
-import { EmptyGroupsYouAreIn } from './EmptyGroupsYouAreIn';
-import { ReferenceSectionProps } from '../../types';
-import { ReferenceSection } from '../../../layout/shared/styledComponents';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ReferenceSection } from '@app/homeV2/layout/shared/styledComponents';
+import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import { EmptyGroupsYouAreIn } from '@app/homeV2/reference/sections/groups/EmptyGroupsYouAreIn';
+import { useGetGroupsYouAreIn } from '@app/homeV2/reference/sections/groups/useGetGroupsYouAreIn';
+import { ReferenceSectionProps } from '@app/homeV2/reference/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
-export const GroupsYouAreIn = ({ hideIfEmpty }: ReferenceSectionProps) => {
+export const GroupsYouAreIn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
+    const { t } = useTranslation('home.v2');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
@@ -32,8 +36,8 @@ export const GroupsYouAreIn = ({ hideIfEmpty }: ReferenceSectionProps) => {
             <EntityLinkList
                 loading={loading || !user}
                 entities={entities.slice(0, entityCount)}
-                title="Your groups"
-                tip="The groups or teams you are part of"
+                title={t('yourGroups.title')}
+                tip={t('yourGroups.tip')}
                 showMore={entities.length > entityCount}
                 showMoreCount={
                     entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW > entities.length
@@ -43,6 +47,7 @@ export const GroupsYouAreIn = ({ hideIfEmpty }: ReferenceSectionProps) => {
                 onClickMore={() => setEntityCount(entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW)}
                 onClickTitle={navigateToUserGroupsTab}
                 empty={<EmptyGroupsYouAreIn />}
+                onClickEntity={trackClickInSection}
             />
         </ReferenceSection>
     );

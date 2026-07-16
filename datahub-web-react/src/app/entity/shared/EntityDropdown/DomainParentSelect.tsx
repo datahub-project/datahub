@@ -1,16 +1,19 @@
-import React, { MouseEvent } from 'react';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { Select } from 'antd';
-import { CloseCircleFilled } from '@ant-design/icons';
+import React, { MouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { Domain, EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import ClickOutside from '../../../shared/ClickOutside';
-import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
-import useParentSelector from './useParentSelector';
-import DomainNavigator from '../../../domain/nestedDomains/domainNavigator/DomainNavigator';
-import { useDomainsContext } from '../../../domain/DomainsContext';
-import ParentEntities from '../../../search/filters/ParentEntities';
-import { getParentDomains } from '../../../domain/utils';
+
+import { useDomainsContext } from '@app/domain/DomainsContext';
+import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
+import { getParentDomains } from '@app/domain/utils';
+import useParentSelector from '@app/entity/shared/EntityDropdown/useParentSelector';
+import ParentEntities from '@app/search/filters/ParentEntities';
+import ClickOutside from '@app/shared/ClickOutside';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain, EntityType } from '@types';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -19,7 +22,7 @@ const SearchResultContainer = styled.div`
 `;
 
 // filter out entity itself and its children
-export function filterResultsForMove(entity: Domain, entityUrn: string) {
+function filterResultsForMove(entity: Domain, entityUrn: string) {
     return (
         entity.urn !== entityUrn &&
         entity.__typename === 'Domain' &&
@@ -34,6 +37,7 @@ interface Props {
 }
 
 export default function DomainParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving }: Props) {
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
     const domainUrn = entityData?.urn;
@@ -79,8 +83,8 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
             <Select
                 showSearch
                 allowClear
-                clearIcon={<CloseCircleFilled onClick={handleClear} />}
-                placeholder="Select"
+                clearIcon={<XCircle weight="fill" onClick={handleClear} />}
+                placeholder={t('domainSelect.placeholder')}
                 filterOption={false}
                 value={selectedParentName}
                 onSelect={onSelectParent}

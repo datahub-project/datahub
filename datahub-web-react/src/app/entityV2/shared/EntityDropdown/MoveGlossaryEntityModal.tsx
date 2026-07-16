@@ -1,16 +1,18 @@
+import { Form, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { message, Modal, Typography, Form } from 'antd';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { Button } from '@src/alchemy-components';
-import { useRefetch } from '../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
-import NodeParentSelect from './NodeParentSelect';
-import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
-import { GenericEntityProperties } from '../../../entity/shared/types';
-import { EntityType } from '../../../../types.generated';
+
+import { useRefetch } from '@app/entity/shared/EntityContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Modal } from '@src/alchemy-components';
+
+import { useUpdateParentNodeMutation } from '@graphql/glossary.generated';
+import { Entity, EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -28,7 +30,11 @@ interface Props {
 }
 
 function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props) {
-    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tcf } = useTranslation('common.feedback');
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn, setNodeToNewEntity } =
+        useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
@@ -46,23 +52,36 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
             },
         })
             .then(() => {
-                message.loading({ content: 'Updating...', duration: 2 });
+                message.loading({ content: tcf('updating'), duration: 2 });
                 setTimeout(() => {
                     message.success({
-                        content: `Moved ${entityRegistry.getEntityName(entityType)}!`,
+                        content: t('move.success', {
+                            entityName: entityRegistry.getEntityName(entityType),
+                        }),
                         duration: 2,
                     });
                     refetch();
                     if (isInGlossaryContext) {
                         const oldParentToUpdate = getParentNodeToUpdate(entityData, entityType);
                         const newParentToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
+                        if (oldParentToUpdate === newParentToUpdate) return;
                         updateGlossarySidebar([oldParentToUpdate, newParentToUpdate], urnsToUpdate, setUrnsToUpdate);
+                        setNodeToDeletedUrn((currData) => ({
+                            ...currData,
+                            [oldParentToUpdate]: urn,
+                        }));
+                        if (selectedParentUrn) {
+                            setNodeToNewEntity((currData) => ({
+                                ...currData,
+                                [selectedParentUrn]: entityData as Entity,
+                            }));
+                        }
                     }
                 }, 2000);
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to move: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('move.error', { errorMessage: e.message || '' }), duration: 3 });
             });
         onClose();
     }
@@ -70,25 +89,30 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
     return (
         <Modal
             data-testid="move-glossary-entity-modal"
-            title={`Move ${entityType === EntityType.GlossaryNode ? 'Term Group' : 'Term'}`}
-            visible
-            onCancel={onClose}
-            footer={
-                <ModalButtonContainer>
-                    <Button onClick={onClose} variant="outline">
-                        Cancel
-                    </Button>
-                    <Button onClick={moveGlossaryEntity} data-testid="glossary-entity-modal-move-button">
-                        Move
-                    </Button>
-                </ModalButtonContainer>
+            title={
+                entityType === EntityType.GlossaryNode ? t('moveGlossary.titleTermGroup') : t('moveGlossary.titleTerm')
             }
+            open
+            onCancel={onClose}
+            buttons={[
+                {
+                    text: tc('cancel'),
+                    variant: 'outline',
+                    onClick: onClose,
+                },
+                {
+                    text: tc('move'),
+                    variant: 'filled',
+                    onClick: moveGlossaryEntity,
+                    buttonDataTestId: 'glossary-entity-modal-move-button',
+                },
+            ]}
         >
             <Form form={form} initialValues={{}} layout="vertical">
                 <Form.Item
                     label={
                         <Typography.Text strong>
-                            Move To <OptionalWrapper>(optional)</OptionalWrapper>
+                            <Trans t={t} i18nKey="move.toLabel" components={{ optional: <OptionalWrapper /> }} />
                         </Typography.Text>
                     }
                 >

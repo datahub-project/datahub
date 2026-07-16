@@ -2,11 +2,17 @@ import { LoadingOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
-const LoadingWrapper = styled.div`
+const LoadingWrapper = styled.div<{
+    $marginTop?: number;
+    $width?: number;
+    $justifyContent: 'center' | 'flex-start';
+    $alignItems: 'center' | 'flex-start' | 'none';
+}>`
     display: flex;
-    justify-content: center;
-    margin-top: 25%;
-    width: 100%;
+    justify-content: ${(props) => props.$justifyContent};
+    align-items: ${(props) => props.$alignItems};
+    margin-top: ${(props) => (typeof props.$marginTop === 'number' ? `${props.$marginTop}px` : '25%')};
+    width: ${({ $width }) => ($width !== undefined ? `${$width}px` : '100%')};
 `;
 
 const StyledLoading = styled(LoadingOutlined)<{ $height: number }>`
@@ -16,11 +22,21 @@ const StyledLoading = styled(LoadingOutlined)<{ $height: number }>`
 
 interface Props {
     height?: number;
+    width?: number;
+    marginTop?: number;
+    justifyContent?: 'center' | 'flex-start';
+    alignItems?: 'center' | 'flex-start' | 'none';
 }
 
-export default function Loading({ height = 32 }: Props) {
+export default function Loading({
+    height = 32,
+    width,
+    justifyContent = 'center',
+    alignItems = 'none',
+    marginTop,
+}: Props) {
     return (
-        <LoadingWrapper>
+        <LoadingWrapper $marginTop={marginTop} $width={width} $justifyContent={justifyContent} $alignItems={alignItems}>
             <StyledLoading $height={height} />
         </LoadingWrapper>
     );

@@ -1,7 +1,10 @@
 import React from 'react';
-import { TestResult } from '../../../../../../types.generated';
-import { TestResultsList } from './TestResultsList';
-import { TestResultsSummary } from './TestResultsSummary';
+import { useTranslation } from 'react-i18next';
+
+import { TestResultsList } from '@app/entity/shared/tabs/Dataset/Governance/TestResultsList';
+import { TestResultsSummary } from '@app/entity/shared/tabs/Dataset/Governance/TestResultsSummary';
+
+import { TestResult } from '@types';
 
 type Props = {
     passing: Array<TestResult>;
@@ -9,6 +12,7 @@ type Props = {
 };
 
 export const TestResults = ({ passing, failing }: Props) => {
+    const { t } = useTranslation('entity.profile.tests');
     const filteredPassing = passing.filter((testResult) => testResult.test !== null);
     const filteredFailing = failing.filter((testResult) => testResult.test !== null);
     const totalTests = filteredPassing.length + filteredFailing.length;
@@ -23,7 +27,7 @@ export const TestResults = ({ passing, failing }: Props) => {
                 }}
             />
             {totalTests > 0 && (
-                <TestResultsList title="Test Results" results={[...filteredFailing, ...filteredPassing]} />
+                <TestResultsList title={t('testResults.title')} results={[...filteredFailing, ...filteredPassing]} />
             )}
         </>
     );

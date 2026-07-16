@@ -9,10 +9,10 @@ import com.linkedin.restli.client.AbstractRequestBuilder;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.Request;
 import com.linkedin.restli.client.Response;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpHeaders;
 
@@ -42,8 +42,9 @@ public abstract class BaseClient implements AutoCloseable {
    */
   protected <T> Response<T> sendClientRequest(
       final AbstractRequestBuilder<?, ?, ? extends Request<T>> requestBuilder,
-      @Nullable final Authentication authentication)
+      @Nonnull OperationContext opContext)
       throws RemoteInvocationException {
+    Authentication authentication = opContext.getAuthentication();
     if (authentication != null) {
       requestBuilder.addHeader(HttpHeaders.AUTHORIZATION, authentication.getCredentials());
     }
@@ -54,10 +55,14 @@ public abstract class BaseClient implements AutoCloseable {
       try {
         return client.sendRequest(requestBuilder.build()).getResponse();
       } catch (Throwable ex) {
-        MetricUtils.counter(
-                BaseClient.class,
-                "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase())
-            .inc();
+        opContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils ->
+                    metricUtils.increment(
+                        BaseClient.class,
+                        "exception" + MetricUtils.DELIMITER + ex.getClass().getName().toLowerCase(),
+                        1));
 
         final boolean skipRetry =
             NON_RETRYABLE.contains(ex.getClass().getCanonicalName())

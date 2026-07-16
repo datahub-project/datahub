@@ -1,14 +1,64 @@
+import json
 import shlex
-from typing import List, Optional, Union
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Union
 
 import requests
 from requests.auth import HTTPBasicAuth
+
+from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
+    MetadataChangeProposal,
+)
+from datahub.metadata.schema_classes import ChangeTypeClass
+
+# The emit-mode marker is a per-MCP, string-valued system-metadata property that
+# pins a write to a stronger synchronicity than the caller's emit_mode. It is a
+# string value rather than a boolean so the supported value set can grow without
+# a format change; "sync" is the only value today. Crucially, every value is an
+# upgrade toward synchronicity (a pin) — there is deliberately no async value, so
+# a producer can only ever force a write more synchronous, never downgrade the
+# caller's intent. Unrecognized values are ignored (treated as no marker), which
+# keeps adding future values backward-compatible.
+EMIT_MODE_MARKER_KEY = "emitModeMarker"
+EMIT_MODE_MARKER_SYNC = "sync"
+
+
+def is_sync_marker_value(value: object) -> bool:
+    """True if an emit-mode marker value requests synchronous routing. Tolerant
+    of casing/whitespace so an externally-generated MCP that passes e.g. "Sync"
+    is still honored; the marker is always written canonically as "sync"."""
+    return isinstance(value, str) and value.strip().lower() == EMIT_MODE_MARKER_SYNC
+
+
+def has_sync_emit_marker(
+    mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+) -> bool:
+    """True if the MCP carries an emit-mode marker requesting synchronous routing
+    (emitModeMarker=sync in its system metadata). Producers populate this marker
+    on MCPs that must remain synchronous; it is read here, not set."""
+    return (
+        mcp.systemMetadata is not None
+        and mcp.systemMetadata.properties is not None
+        and is_sync_marker_value(
+            mcp.systemMetadata.properties.get(EMIT_MODE_MARKER_KEY)
+        )
+    )
+
+
+def _decode_bytes(value: Union[str, bytes]) -> str:
+    """Decode bytes to string, if necessary."""
+    if isinstance(value, bytes):
+        return value.decode()
+    return value
 
 
 def _format_header(name: str, value: Union[str, bytes]) -> str:
     if name == "Authorization":
         return f"{name!s}: <redacted>"
-    return f"{name!s}: {value!s}"
+    return f"{name!s}: {_decode_bytes(value)}"
 
 
 def make_curl_command(
@@ -21,7 +71,9 @@ def make_curl_command(
 
     if session.auth:
         if isinstance(session.auth, HTTPBasicAuth):
-            fragments.extend(["-u", f"{session.auth.username}:<redacted>"])
+            fragments.extend(
+                ["-u", f"{_decode_bytes(session.auth.username)}:<redacted>"]
+            )
         else:
             # For other auth types, they should be handled via headers
             fragments.extend(["-H", "<unknown auth type>"])
@@ -31,3 +83,103 @@ def make_curl_command(
 
     fragments.append(url)
     return shlex.join(fragments)
+
+
+@dataclass
+class OpenApiRequest:
+    """Represents an OpenAPI request for entity operations."""
+
+    method: str
+    url: str
+    payload: List[Dict[str, Any]]
+
+    @classmethod
+    def from_mcp(
+        cls,
+        mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
+        gms_server: str,
+        async_flag: bool = False,
+        search_sync_flag: bool = False,
+    ) -> Optional["OpenApiRequest"]:
+        """Factory method to create an OpenApiRequest from a MetadataChangeProposal."""
+        if not mcp.aspectName or (
+            mcp.changeType != ChangeTypeClass.DELETE and not mcp.aspect
+        ):
+            return None
+
+        method = "post"
+        url = f"{gms_server}/openapi/v3/entity/{mcp.entityType}?async={'true' if async_flag else 'false'}"
+        payload = []
+
+        if mcp.changeType == ChangeTypeClass.DELETE:
+            method = "delete"
+            url = f"{gms_server}/openapi/v3/entity/{mcp.entityType}/{mcp.entityUrn}"
+        else:
+            if mcp.aspect:
+                headers = getattr(mcp, "headers", None)
+                mcp_headers = dict(headers) if headers else {}
+
+                if not async_flag and search_sync_flag:
+                    mcp_headers["X-DataHub-Sync-Index-Update"] = "true"
+
+                if mcp.changeType == ChangeTypeClass.PATCH:
+                    method = "patch"
+                    obj = mcp.aspect.to_obj()
+                    content_type = obj.get("contentType")
+                    if obj.get("value") and content_type == JSON_PATCH_CONTENT_TYPE:
+                        # Undo double serialization.
+                        obj = json.loads(obj["value"])
+                        patch_value = obj
+                    else:
+                        raise NotImplementedError(
+                            f"ChangeType {mcp.changeType} only supports context type {JSON_PATCH_CONTENT_TYPE}, found {content_type}."
+                        )
+
+                    if isinstance(patch_value, list):
+                        patch_value = {"patch": patch_value}
+
+                    payload = [
+                        {
+                            "urn": mcp.entityUrn,
+                            mcp.aspectName: {
+                                "value": patch_value,
+                                "systemMetadata": mcp.systemMetadata.to_obj()
+                                if mcp.systemMetadata
+                                else None,
+                                "headers": mcp_headers,
+                            },
+                        }
+                    ]
+                else:
+                    if isinstance(mcp, MetadataChangeProposalWrapper):
+                        aspect_value = pre_json_transform(
+                            mcp.to_obj(simplified_structure=True)
+                        )["aspect"]["json"]
+                    else:
+                        obj = mcp.aspect.to_obj()
+                        content_type = obj.get("contentType")
+                        if obj.get("value") and content_type == JSON_CONTENT_TYPE:
+                            # Undo double serialization.
+                            obj = json.loads(obj["value"])
+                        elif content_type == JSON_PATCH_CONTENT_TYPE:
+                            raise NotImplementedError(
+                                f"ChangeType {mcp.changeType} does not support patch."
+                            )
+                        aspect_value = pre_json_transform(obj)
+
+                    payload = [
+                        {
+                            "urn": mcp.entityUrn,
+                            mcp.aspectName: {
+                                "value": aspect_value,
+                                "systemMetadata": mcp.systemMetadata.to_obj()
+                                if mcp.systemMetadata
+                                else None,
+                                "headers": mcp_headers,
+                            },
+                        }
+                    ]
+            else:
+                raise ValueError(f"ChangeType {mcp.changeType} requires a value.")
+
+        return cls(method=method, url=url, payload=payload)

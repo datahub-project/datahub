@@ -1,18 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
-import Form from './Form';
-import { ANTD_GRAY_V2 } from '../constants';
-import ProfileSidebar from '../containers/profile/sidebar/ProfileSidebar';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityContext, useEntityContext } from '../EntityContext';
-import EntityInfo from '../containers/profile/sidebar/EntityInfo/EntityInfo';
-import { useEntityFormContext } from './EntityFormContext';
-import ProgressBar from './ProgressBar';
 
-import { useIsThemeV2 } from '../../../useIsThemeV2';
+import { EntityContext, useEntityContext } from '@app/entity/shared/EntityContext';
+import EntityInfo from '@app/entity/shared/containers/profile/sidebar/EntityInfo/EntityInfo';
+import ProfileSidebar from '@app/entity/shared/containers/profile/sidebar/ProfileSidebar';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import Form from '@app/entity/shared/entityForm/Form';
+import ProgressBar from '@app/entity/shared/entityForm/ProgressBar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const ContentWrapper = styled.div`
-    background-color: ${ANTD_GRAY_V2[1]};
+    background-color: ${(props) => props.theme.colors.bg};
     max-height: 100%;
     display: flex;
     flex-direction: column;
@@ -36,15 +34,13 @@ export default function FormByEntity({ formUrn }: Props) {
     const { entityType } = useEntityContext();
     const entityRegistry = useEntityRegistry();
     const sidebarSections = entityRegistry.getSidebarSections(selectedEntity?.type || entityType);
-    const isV2 = useIsThemeV2();
 
-    // Used for v2 - removes repeated entity header (we use EntityInfo in this component)
+    // Removes repeated entity header (we use EntityInfo in this component)
     // SidebarEntityHeader is always the first index in sidebarSections, so remove it here
     // TODO (OBS-677): remove this logic once we get form info into V2 sidebar
     const cleanedSidebarSections = sidebarSections.slice(1);
 
-    // Conditional sections based on theme version
-    const sections = isV2 ? cleanedSidebarSections : sidebarSections;
+    const sections = cleanedSidebarSections;
 
     return (
         <EntityContext.Provider

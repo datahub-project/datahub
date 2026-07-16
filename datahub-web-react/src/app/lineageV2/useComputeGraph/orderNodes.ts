@@ -1,5 +1,6 @@
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
-import { isUrnTransformational, LineageEntity, NodeContext } from '@app/lineageV2/common';
+import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
+import { LineageEntity, NodeContext, isUrnTransformational } from '@app/lineageV2/common';
+
 import { LineageDirection } from '@types';
 
 /**

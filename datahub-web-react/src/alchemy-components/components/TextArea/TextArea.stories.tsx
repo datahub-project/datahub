@@ -1,12 +1,9 @@
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
-import type { Meta, StoryObj } from '@storybook/react';
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
-
 import { GridList } from '@components/.docs/mdx-components';
-
-import { TextArea, textAreaDefaults } from './TextArea';
-import { AVAILABLE_ICONS } from '../Icon';
+import { TextArea, textAreaDefaults } from '@components/components/TextArea/TextArea';
 
 // Auto Docs
 const meta = {
@@ -45,7 +42,7 @@ const meta = {
         icon: {
             description: 'The icon to display in the Text Area.',
             type: 'string',
-            options: AVAILABLE_ICONS,
+            options: ['Info', 'Star', 'Globe'],
             table: {
                 defaultValue: { summary: 'undefined' },
             },

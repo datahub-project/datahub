@@ -1,18 +1,23 @@
-import React, { CSSProperties, useEffect, useRef, useState } from 'react';
-import { useHistory } from 'react-router';
 import { Select } from 'antd';
-import styled from 'styled-components';
+import React, { CSSProperties, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { VscTriangleDown } from 'react-icons/vsc';
-import { useListMyViewsQuery, useListGlobalViewsQuery } from '../../../../graphql/view.generated';
-import { useUserContext } from '../../../context/useUserContext';
-import { DataHubView, DataHubViewType } from '../../../../types.generated';
-import { ViewBuilder } from '../builder/ViewBuilder';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
-import { PageRoutes } from '../../../../conf/Global';
-import { ViewBuilderMode } from '../builder/types';
-import { ViewSelectDropdown } from './ViewSelectDropdown';
-import { renderViewOptionGroup } from './renderViewOptionGroup';
-import { ANTD_GRAY_V2 } from '../../shared/constants';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
+import { ViewBuilderMode } from '@app/entity/view/builder/types';
+import { ViewSelectDropdown } from '@app/entity/view/select/ViewSelectDropdown';
+import { renderViewOptionGroup } from '@app/entity/view/select/renderViewOptionGroup';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
+import { PageRoutes } from '@conf/Global';
+
+import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
+import { DataHubView, DataHubViewType } from '@types';
+
+// antd Select prop: name of the DataHubView option field used as the selected display value.
+const SELECT_OPTION_LABEL_PROP = 'label';
 
 type ViewBuilderDisplayState = {
     mode: ViewBuilderMode;
@@ -21,7 +26,7 @@ type ViewBuilderDisplayState = {
 };
 
 const TriangleIcon = styled(VscTriangleDown)<{ isOpen: boolean }>`
-    color: ${(props) => (props.isOpen ? props.theme.styles['primary-color'] : ANTD_GRAY_V2[10])};
+    color: ${(props) => (props.isOpen ? props.theme.colors.textBrand : props.theme.colors.text)};
 `;
 
 const DEFAULT_VIEW_BUILDER_DISPLAY_STATE = {
@@ -42,13 +47,13 @@ const ViewSelectContainer = styled.div`
             &.ant-select-open {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
-                    color: ${(props) => props.theme.styles['primary-color']};
+                    color: ${(props) => props.theme.colors.textBrand};
                 }
             }
             &:not(.ant-select-open) {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
-                    color: ${ANTD_GRAY_V2[10]};
+                    color: ${(props) => props.theme.colors.text};
                 }
             }
             .ant-select-selection-placeholder,
@@ -80,6 +85,8 @@ type Props = {
  * In the event that a user refreshes their browser, the state of the view should be saved as well.
  */
 export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const userContext = useUserContext();
     const [isOpen, setIsOpen] = useState(false);
@@ -202,11 +209,11 @@ export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
                 data-testid="view-select"
                 onChange={() => (selectRef?.current as any)?.blur()}
                 value={(foundSelectedUrn && selectedUrn) || undefined}
-                placeholder="View all"
+                placeholder={tc('viewAll')}
                 onSelect={onSelectView}
                 onClear={onClear}
                 ref={selectRef}
-                optionLabelProp="label"
+                optionLabelProp={SELECT_OPTION_LABEL_PROP}
                 bordered={false}
                 dropdownMatchSelectWidth={false}
                 suffixIcon={<TriangleIcon isOpen={isOpen} />}
@@ -228,7 +235,7 @@ export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
                 {privateViewCount > 0 &&
                     renderViewOptionGroup({
                         views: privateViews,
-                        label: 'Private',
+                        label: t('typePrivate'),
                         isOwnedByUser: true,
                         userContext,
                         hoverViewUrn,
@@ -239,7 +246,7 @@ export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
                 {publicViewCount > 0 &&
                     renderViewOptionGroup({
                         views: publicViews,
-                        label: 'Public',
+                        label: t('typePublic'),
                         userContext,
                         hoverViewUrn,
                         setHoverViewUrn,

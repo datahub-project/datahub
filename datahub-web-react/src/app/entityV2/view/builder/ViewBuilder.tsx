@@ -1,16 +1,19 @@
-import React from 'react';
-import { message } from 'antd';
 import { useApolloClient } from '@apollo/client';
-import { useCreateViewMutation, useUpdateViewMutation } from '../../../../graphql/view.generated';
-import { ViewBuilderState } from '../types';
-import { ViewBuilderModal } from './ViewBuilderModal';
-import { updateViewSelectCache, updateListMyViewsCache } from '../cacheUtils';
-import { convertStateToUpdateInput, DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
-import { useUserContext } from '../../../context/useUserContext';
-import { ViewBuilderMode } from './types';
-import analytics, { EventType } from '../../../analytics';
-import { DataHubView } from '../../../../types.generated';
-import { useSearchVersion } from '../../../search/useSearchAndBrowseVersion';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { ViewBuilderModal } from '@app/entityV2/view/builder/ViewBuilderModal';
+import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
+import { updateListMyViewsCache, updateViewSelectCache } from '@app/entityV2/view/cacheUtils';
+import { ViewBuilderState } from '@app/entityV2/view/types';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertStateToUpdateInput } from '@app/entityV2/view/utils';
+import { useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
+import { notification } from '@src/alchemy-components';
+
+import { useCreateViewMutation, useUpdateViewMutation } from '@graphql/view.generated';
+import { DataHubView } from '@types';
 
 type Props = {
     mode: ViewBuilderMode;
@@ -24,6 +27,7 @@ type Props = {
  * This component handles creating and editing DataHub Views.
  */
 export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.views');
     const searchVersion = useSearchVersion();
     const userContext = useUserContext();
 
@@ -107,9 +111,9 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
                 onSubmit?.(state);
             })
             .catch((_) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to save View! An unexpected error occurred.`,
+                notification.error({
+                    message: t('builder.saveError'),
+                    description: t('errorDescription'),
                     duration: 3,
                 });
             });

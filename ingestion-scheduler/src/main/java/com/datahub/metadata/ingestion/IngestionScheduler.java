@@ -17,6 +17,9 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.IngestionCliVersionResolutionLogger;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -87,6 +90,7 @@ public class IngestionScheduler {
   private final ScheduledExecutorService scheduledExecutorService =
       Executors.newScheduledThreadPool(1);
   private final IngestionConfiguration ingestionConfiguration;
+  private final IngestionCliVersionMatrixService versionMatrixService;
   private final int batchGetDelayIntervalSeconds;
   private final int batchGetRefreshIntervalSeconds;
 
@@ -96,7 +100,8 @@ public class IngestionScheduler {
             systemOpContext,
             entityClient,
             this::scheduleNextIngestionSourceExecution,
-            this::unscheduleAll);
+            this::unscheduleAll,
+            ingestionConfiguration.getBatchRefreshCount());
 
     // Schedule a recurring batch-reload task.
     scheduledExecutorService.scheduleAtFixedRate(
@@ -176,6 +181,7 @@ public class IngestionScheduler {
                 systemOpContext,
                 entityClient,
                 ingestionConfiguration,
+                versionMatrixService,
                 ingestionSourceUrn,
                 newInfo,
                 () -> nextIngestionSourceExecutionCache.remove(ingestionSourceUrn),
@@ -220,18 +226,22 @@ public class IngestionScheduler {
     private final EntityClient entityClient;
     private final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextIngestionSourceExecution;
     private final Runnable unscheduleAll;
+    private final Integer batchRefreshCount;
 
     public BatchRefreshSchedulesRunnable(
         @Nonnull final OperationContext systemOpContext,
         @Nonnull final EntityClient entityClient,
         @Nonnull
             final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextIngestionSourceExecution,
-        @Nonnull final Runnable unscheduleAll) {
+        @Nonnull final Runnable unscheduleAll,
+        @Nonnull final Integer batchRefreshCount) {
       this.systemOpContext = systemOpContext;
       this.entityClient = Objects.requireNonNull(entityClient);
       this.scheduleNextIngestionSourceExecution =
           Objects.requireNonNull(scheduleNextIngestionSourceExecution);
       this.unscheduleAll = unscheduleAll;
+      this.batchRefreshCount =
+          Objects.requireNonNull(batchRefreshCount, "batchRefreshCount must not be null");
     }
 
     @Override
@@ -242,8 +252,8 @@ public class IngestionScheduler {
         unscheduleAll.run();
 
         int start = 0;
-        int count = 30;
-        int total = 30;
+        int count = batchRefreshCount;
+        int total = batchRefreshCount;
 
         while (start < total) {
           try {
@@ -333,6 +343,7 @@ public class IngestionScheduler {
     private final OperationContext systemOpContext;
     private final EntityClient entityClient;
     private final IngestionConfiguration ingestionConfiguration;
+    private final IngestionCliVersionMatrixService versionMatrixService;
 
     // Information about the ingestion source being executed
     private final Urn ingestionSourceUrn;
@@ -349,6 +360,7 @@ public class IngestionScheduler {
         @Nonnull final OperationContext systemOpContext,
         @Nonnull final EntityClient entityClient,
         @Nonnull final IngestionConfiguration ingestionConfiguration,
+        @Nonnull final IngestionCliVersionMatrixService versionMatrixService,
         @Nonnull final Urn ingestionSourceUrn,
         @Nonnull final DataHubIngestionSourceInfo ingestionSourceInfo,
         @Nonnull final Runnable deleteNextIngestionSourceExecution,
@@ -358,6 +370,7 @@ public class IngestionScheduler {
       this.systemOpContext = systemOpContext;
       this.entityClient = Objects.requireNonNull(entityClient);
       this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
+      this.versionMatrixService = Objects.requireNonNull(versionMatrixService);
       this.ingestionSourceUrn = Objects.requireNonNull(ingestionSourceUrn);
       this.ingestionSourceInfo = Objects.requireNonNull(ingestionSourceInfo);
       this.deleteNextIngestionSourceExecution =
@@ -404,11 +417,25 @@ public class IngestionScheduler {
             IngestionUtils.injectPipelineName(
                 ingestionSourceInfo.getConfig().getRecipe(), ingestionSourceUrn.toString());
         arguments.put(RECIPE_ARGUMENT_NAME, recipe);
-        arguments.put(
-            VERSION_ARGUMENT_NAME,
-            ingestionSourceInfo.getConfig().hasVersion()
-                ? ingestionSourceInfo.getConfig().getVersion()
-                : ingestionConfiguration.getDefaultCliVersion());
+        // getVersion() returns null for an unset optional field, so no hasVersion() guard is
+        // needed. The helper normalizes null / empty / whitespace-only (bootstrap YAML can render
+        // `version: "{{ config.version }}"` as 3 spaces) to "unset" so resolution falls through to
+        // the matrix / application default rather than pinning the executor's bundled CLI.
+        final IngestionCliVersionResolutionHelper.Result resolution =
+            IngestionCliVersionResolutionHelper.resolve(
+                ingestionSourceInfo.getConfig().getVersion(),
+                ingestionSourceInfo.getType(),
+                versionMatrixService,
+                ingestionConfiguration.getDefaultCliVersion());
+        arguments.put(VERSION_ARGUMENT_NAME, resolution.getVersion());
+        input.setCliVersionAudit(resolution.getStamp());
+        IngestionCliVersionResolutionLogger.log(
+            log,
+            IngestionCliVersionResolutionLogger.TRIGGER_SCHEDULED,
+            resolution,
+            ingestionSourceInfo.getType(),
+            IngestionCliVersionResolutionLogger.IDENTIFIER_INGESTION_SOURCE,
+            ingestionSourceUrn.toString());
         String debugMode = "false";
         if (ingestionSourceInfo.getConfig().hasDebugMode()) {
           debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";

@@ -1,17 +1,21 @@
-import React, { useContext } from 'react';
-import styled from 'styled-components';
-import { Link } from 'react-router-dom';
+import { Avatar } from '@components';
 import { Skeleton } from 'antd';
+import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 
-import { NavLinks } from './NavLinks';
-import { useAppConfig } from '../../useAppConfig';
-import { useUserContext } from '../../context/useUserContext';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { EntityType } from '../../../types.generated';
+import { AvatarType } from '@components/components/AvatarStack/types';
 
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
-import AcrylIcon from '../../../images/acryl-light-mark.svg?react';
-import OnboardingContext from '../../onboarding/OnboardingContext';
+import { useUserContext } from '@app/context/useUserContext';
+import { NavLinks } from '@app/homeV2/layout/NavLinks';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
+
+import AcrylIcon from '@images/acryl-light-mark.svg?react';
 
 const Container = styled.div`
     height: 100vh;
@@ -24,7 +28,7 @@ const Content = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    background-color: #3b2d94;
+    background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
     border-radius: 32px;
     height: 100%;
     width: 52px;
@@ -38,9 +42,9 @@ const Icon = styled.div`
     width: 44px;
     height: 44px;
     border-radius: 38px;
-    border: 1px solid #32267d;
-    background: #4c39be;
-    box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+    border: 1px solid ${(props) => props.theme.colors.borderBrand};
+    background: ${(props) => props.theme.colors.buttonFillBrand};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     margin-bottom: 10px;
 
     & svg {
@@ -69,11 +73,7 @@ const UserIcon = styled.div`
     border-radius: 38px;
     overflow: hidden;
     margin-bottom: 3px;
-    box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
-
-    .ant-avatar {
-        margin: 0;
-    }
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const SkeletonButton = styled(Skeleton.Button)`
@@ -85,7 +85,7 @@ const SkeletonButton = styled(Skeleton.Button)`
     }
 `;
 
-const DEFAULT_LOGO = '/assets/logos/acryl-dark-mark.svg';
+const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
 
 const NavSkeleton = () => {
     return (
@@ -101,6 +101,7 @@ const NavSkeleton = () => {
 };
 
 export const NavSidebar = () => {
+    const { t } = useTranslation('home.v2');
     const appConfig = useAppConfig();
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
@@ -110,7 +111,7 @@ export const NavSidebar = () => {
     const customLogoUrl = appConfig.config.visualConfig.logoUrl;
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
 
-    const logoComponent = hasCustomLogo ? <CustomLogo alt="logo" src={customLogoUrl} /> : <AcrylIcon />;
+    const logoComponent = hasCustomLogo ? <CustomLogo alt={t('navBar.logoAlt')} src={customLogoUrl} /> : <AcrylIcon />;
 
     return (
         <Container>
@@ -120,17 +121,17 @@ export const NavSidebar = () => {
                 ) : (
                     <>
                         <Link to="/">
-                            <Icon>{appConfig.loaded ? logoComponent : undefined}</Icon>
+                            <Icon data-testid="datahub-logo-svg">{appConfig.loaded ? logoComponent : undefined}</Icon>
                         </Link>
                         <NavLinks />
                         <Spacer />
                         <UserIcon>
                             <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${urn}`}>
-                                <CustomAvatar
-                                    photoUrl={user?.editableProperties?.pictureLink || undefined}
+                                <Avatar
                                     name={user?.editableProperties?.displayName || ''}
-                                    size={44}
-                                    hideTooltip
+                                    imageUrl={user?.editableProperties?.pictureLink || undefined}
+                                    type={AvatarType.user}
+                                    size="xl"
                                 />
                             </Link>
                         </UserIcon>

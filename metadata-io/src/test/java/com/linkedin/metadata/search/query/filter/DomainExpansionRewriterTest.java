@@ -4,12 +4,15 @@ import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
@@ -21,6 +24,13 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.config.search.QueryFilterRewriterConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.graph.cache.EntityGraphBinding;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
+import com.linkedin.metadata.graph.cache.GraphReadResult;
+import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
+import com.linkedin.metadata.graph.cache.KnownEntityGraph;
+import com.linkedin.metadata.graph.cache.ReadMode;
+import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
@@ -34,6 +44,8 @@ import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermsQueryBuilder;
@@ -110,6 +122,118 @@ public class DomainExpansionRewriterTest
   }
 
   @Test
+  public void testTermsQueryRewriteUsesEntityGraphCacheWhenAvailable() {
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("domain").source(GraphSnapshotSource.SEARCH).build();
+    when(entityGraphCache.bindingForFilterField("domains.keyword"))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.DOMAIN))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.expand(
+            eq("domain"),
+            eq(GraphSnapshotSource.SEARCH),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of(parentUrn)),
+            anyInt(),
+            eq(EntityGraphCache.USE_DEFINITION_MAX_DEPTH),
+            eq(ReadMode.CACHED)))
+        .thenReturn(GraphReadResult.fromVertices(Set.of(parentUrn, childUrn)));
+
+    EntityRegistry entityRegistry = new TestEntityRegistry();
+    CachingAspectRetriever mockAspectRetriever = mock(CachingAspectRetriever.class);
+    when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+
+    OperationContext cacheOpContext =
+        opContext.toBuilder()
+            .retrieverContext(
+                io.datahubproject.metadata.context.RetrieverContext.builder()
+                    .aspectRetriever(mockAspectRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(() -> entityRegistry))
+                    .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .entityGraphCache(entityGraphCache)
+                    .build())
+            .build(opContext.getSessionAuthentication(), false);
+
+    DomainExpansionRewriter test = getTestRewriter();
+    TermsQueryBuilder testQuery = QueryBuilders.termsQuery(FIELD_NAME, parentUrn);
+    TermsQueryBuilder expectedRewrite = QueryBuilders.termsQuery(FIELD_NAME, childUrn, parentUrn);
+
+    assertEquals(
+        test.rewrite(
+            cacheOpContext,
+            QueryFilterRewriterContext.builder()
+                .condition(Condition.DESCENDANTS_INCL)
+                .searchType(QueryFilterRewriterSearchType.FULLTEXT_SEARCH)
+                .queryFilterRewriteChain(mock(QueryFilterRewriteChain.class))
+                .build(false),
+            testQuery),
+        expectedRewrite);
+
+    verify(mockGraphRetriever, never())
+        .scrollRelatedEntities(
+            any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), any(), any());
+  }
+
+  @Test
+  public void testTermsQueryRewriteUsesEntityGraphCacheEmptyHitPreservesSeedUrn() {
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("domain").source(GraphSnapshotSource.SEARCH).build();
+    when(entityGraphCache.bindingForFilterField("domains.keyword"))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.DOMAIN))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.expand(
+            eq("domain"),
+            eq(GraphSnapshotSource.SEARCH),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of(parentUrn)),
+            anyInt(),
+            eq(EntityGraphCache.USE_DEFINITION_MAX_DEPTH),
+            eq(ReadMode.CACHED)))
+        .thenReturn(new GraphReadResult.EmptyHit(Set.of()));
+
+    EntityRegistry entityRegistry = new TestEntityRegistry();
+    CachingAspectRetriever mockAspectRetriever = mock(CachingAspectRetriever.class);
+    when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+
+    OperationContext cacheOpContext =
+        opContext.toBuilder()
+            .retrieverContext(
+                io.datahubproject.metadata.context.RetrieverContext.builder()
+                    .aspectRetriever(mockAspectRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(() -> entityRegistry))
+                    .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .entityGraphCache(entityGraphCache)
+                    .build())
+            .build(opContext.getSessionAuthentication(), false);
+
+    DomainExpansionRewriter test = getTestRewriter();
+    TermsQueryBuilder testQuery = QueryBuilders.termsQuery(FIELD_NAME, parentUrn);
+    TermsQueryBuilder expectedRewrite = QueryBuilders.termsQuery(FIELD_NAME, parentUrn);
+
+    assertEquals(
+        test.rewrite(
+            cacheOpContext,
+            QueryFilterRewriterContext.builder()
+                .condition(Condition.DESCENDANTS_INCL)
+                .searchType(QueryFilterRewriterSearchType.FULLTEXT_SEARCH)
+                .queryFilterRewriteChain(mock(QueryFilterRewriteChain.class))
+                .build(false),
+            testQuery),
+        expectedRewrite);
+
+    verify(mockGraphRetriever, never())
+        .scrollRelatedEntities(
+            any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), any(), any());
+  }
+
+  @Test
   public void testTermsQueryRewrite() {
     DomainExpansionRewriter test = getTestRewriter();
 
@@ -142,13 +266,13 @@ public class DomainExpansionRewriterTest
 
     // Setup nested
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(parentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),
@@ -191,13 +315,13 @@ public class DomainExpansionRewriterTest
     // Setup nested
     // Page 1
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(grandParentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),
@@ -219,13 +343,13 @@ public class DomainExpansionRewriterTest
 
     // Page 2
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(grandParentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             eq("page2"),
@@ -246,13 +370,13 @@ public class DomainExpansionRewriterTest
                         null))));
 
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(parentUrn2, parentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),
@@ -269,13 +393,13 @@ public class DomainExpansionRewriterTest
                         "IsPartOf", childUrn, parentUrn, RelationshipDirection.INCOMING, null))));
 
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(parentUrn2, parentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             eq("page2"),
@@ -319,13 +443,13 @@ public class DomainExpansionRewriterTest
 
     // Setup nested
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(parentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),

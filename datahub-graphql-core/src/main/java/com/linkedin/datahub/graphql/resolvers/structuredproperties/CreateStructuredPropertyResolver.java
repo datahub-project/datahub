@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.applyProposalUiSource;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildMetadataChangeProposalWithUrn;
 import static com.linkedin.metadata.Constants.*;
 
@@ -10,6 +11,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateStructuredPropertyInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
@@ -51,7 +53,7 @@ public class CreateStructuredPropertyResolver
     final CreateStructuredPropertyInput input =
         bindArgument(environment.getArgument("input"), CreateStructuredPropertyInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (!AuthorizationUtils.canManageStructuredProperties(context)) {
@@ -93,7 +95,9 @@ public class CreateStructuredPropertyResolver
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private MetadataChangeProposal createPropertySettings(
@@ -111,6 +115,13 @@ public class CreateStructuredPropertyResolver
     }
     if (settingsInput.getShowInAssetSummary() != null) {
       settings.setShowInAssetSummary(settingsInput.getShowInAssetSummary());
+    }
+    if (settingsInput.getShowInAssetSummary() != null && !settingsInput.getShowInAssetSummary()) {
+      // FYI: when `showInAssetSummary` is false, `hideInAssetSummaryWhenEmpty` should be false too
+      // as it is dependent property
+      settings.setHideInAssetSummaryWhenEmpty(false);
+    } else if (settingsInput.getHideInAssetSummaryWhenEmpty() != null) {
+      settings.setHideInAssetSummaryWhenEmpty(settingsInput.getHideInAssetSummaryWhenEmpty());
     }
     if (settingsInput.getShowAsAssetBadge() != null) {
       settings.setShowAsAssetBadge(settingsInput.getShowAsAssetBadge());
@@ -156,10 +167,13 @@ public class CreateStructuredPropertyResolver
     if (input.getCardinality() != null) {
       builder.setCardinality(PropertyCardinality.valueOf(input.getCardinality().toString()));
     }
+    if (input.getAllowedPlatforms() != null) {
+      input.getAllowedPlatforms().forEach(builder::addAllowedPlatform);
+    }
     builder.setCreated(context.getOperationContext().getAuditStamp());
     builder.setLastModified(context.getOperationContext().getAuditStamp());
 
-    return builder.build();
+    return applyProposalUiSource(builder.build());
   }
 
   private void buildTypeQualifier(

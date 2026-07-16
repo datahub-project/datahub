@@ -1,19 +1,18 @@
-import { blue } from '@ant-design/colors';
 import { CodeOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Button, Image, Typography } from 'antd';
 import { Tooltip } from '@components';
-import cronstrue from 'cronstrue';
+import { Button, Image, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { capitalizeFirstLetter } from '../../shared/textUtil';
-import useGetSourceLogoUrl from './builder/useGetSourceLogoUrl';
+import styled, { useTheme } from 'styled-components/macro';
+
+import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
 import {
+    RUNNING,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
-    RUNNING,
-} from './utils';
+} from '@app/ingest/source/utils';
+import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { cronToString } from '@utils/cronstrue';
 
 const PreviewImage = styled(Image)`
     max-height: 28px;
@@ -52,15 +51,15 @@ const TypeWrapper = styled.div`
 const CliBadge = styled.span`
     margin-left: 20px;
     border-radius: 15px;
-    border: 1px solid ${ANTD_GRAY[8]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     padding: 1px 4px;
     font-size: 10px;
 
     font-size: 8px;
     font-weight: bold;
     letter-spacing: 0.5px;
-    border: 1px solid ${blue[6]};
-    color: ${blue[6]};
+    border: 1px solid ${(props) => props.theme.colors.borderBrand};
+    color: ${(props) => props.theme.colors.textBrand};
 
     svg {
         display: none;
@@ -105,7 +104,7 @@ export function TypeColumn({ type, record }: TypeColumnProps) {
     );
 }
 
-export function LastExecutionColumn({ time }: { time: number }) {
+function LastExecutionColumn({ time }: { time: number }) {
     const executionDate = time && new Date(time);
     const localTime = executionDate && `${executionDate.toLocaleDateString()} at ${executionDate.toLocaleTimeString()}`;
     return <Typography.Text type="secondary">{localTime ? `Last run ${localTime}` : 'Never run'}</Typography.Text>;
@@ -114,7 +113,7 @@ export function LastExecutionColumn({ time }: { time: number }) {
 export function ScheduleColumn(schedule: any, record: any) {
     let tooltip: string;
     try {
-        tooltip = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${record.timezone})`;
+        tooltip = schedule && `Runs ${cronToString(schedule).toLowerCase()} (${record.timezone})`;
     } catch (e) {
         tooltip = 'Invalid cron schedule';
         console.debug('Error parsing cron schedule', e);
@@ -133,9 +132,10 @@ interface LastStatusProps {
 }
 
 export function LastStatusColumn({ status, record, setFocusExecutionUrn }: LastStatusProps) {
+    const theme = useTheme();
     const Icon = getExecutionRequestStatusIcon(status);
     const text = getExecutionRequestStatusDisplayText(status);
-    const color = getExecutionRequestStatusDisplayColor(status);
+    const color = getExecutionRequestStatusDisplayColor(theme, status);
     const { lastExecTime, lastExecUrn } = record;
     return (
         <AllStatusWrapper>

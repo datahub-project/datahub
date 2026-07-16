@@ -1,9 +1,14 @@
-import React from 'react';
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message, Modal } from 'antd';
-import { MenuIcon } from '../../entity/shared/EntityDropdown/EntityDropdown';
-import { useDeletePostMutation } from '../../../graphql/post.generated';
-import handleGraphQLError from '../../shared/handleGraphQLError';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { Button, Menu, toast } from '@src/alchemy-components';
+
+import { useDeletePostMutation } from '@graphql/post.generated';
 
 type Props = {
     urn: string;
@@ -13,7 +18,10 @@ type Props = {
 };
 
 export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
+    const { t } = useTranslation('settings.posts');
+    const { t: tc } = useTranslation('common.actions');
     const [deletePostMutation] = useDeletePostMutation();
+    const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
     const deletePost = () => {
         deletePostMutation({
@@ -23,48 +31,55 @@ export default function PostItemMenu({ title, urn, onDelete, onEdit }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success('Deleted Post!');
+                    toast.success(t('deleteSuccess'));
                     onDelete?.();
                 }
             })
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to delete Post! An unexpected error occurred',
-                    permissionMessage: 'Unauthorized to delete Post. Please contact your DataHub administrator.',
+                    defaultMessage: t('deleteError'),
+                    permissionMessage: t('deleteUnauthorized'),
                 });
             });
     };
 
-    const onConfirmDelete = () => {
-        Modal.confirm({
-            title: `Delete Post '${title}'`,
-            content: `Are you sure you want to remove this Post?`,
-            onOk() {
-                deletePost();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     return (
-        <Dropdown
-            trigger={['click']}
-            overlay={
-                <Menu>
-                    <Menu.Item onClick={onConfirmDelete} key="delete">
-                        <DeleteOutlined /> &nbsp;Delete
-                    </Menu.Item>
-                    <Menu.Item onClick={onEdit} key="edit">
-                        <EditOutlined /> &nbsp;Edit
-                    </Menu.Item>
-                </Menu>
-            }
-        >
-            <MenuIcon data-testid={`dropdown-menu-${urn}`} fontSize={20} />
-        </Dropdown>
+        <>
+            <Menu
+                items={[
+                    {
+                        type: 'item',
+                        key: 'edit',
+                        title: tc('edit'),
+                        icon: PencilSimple,
+                        onClick: () => onEdit?.(),
+                    },
+                    {
+                        type: 'item',
+                        key: 'delete',
+                        title: tc('delete'),
+                        icon: Trash,
+                        danger: true,
+                        onClick: () => setShowConfirmDelete(true),
+                    },
+                ]}
+            >
+                <Button
+                    variant="text"
+                    isCircle
+                    size="lg"
+                    icon={{ icon: DotsThreeVertical, size: 'xl', weight: 'bold' }}
+                    data-testid="dropdown-menu-item"
+                />
+            </Menu>
+            <ConfirmationModal
+                isOpen={showConfirmDelete}
+                handleClose={() => setShowConfirmDelete(false)}
+                handleConfirm={deletePost}
+                modalTitle={t('deleteConfirmTitle', { title })}
+                modalText={t('deleteConfirmText')}
+            />
+        </>
     );
 }

@@ -8,12 +8,13 @@ ext {
 
 task checkPythonVersion(type: Exec) {
   commandLine python_executable, '-c',
-    'import sys; sys.version_info >= (3, 8), f"Python version {sys.version_info} is too old"'
+    'import sys; sys.version_info >= (3, 9), f"Python version {sys.version_info} is too old"'
 }
 
 task buildWheels(type: Exec, dependsOn: [
   checkPythonVersion,
   ':metadata-ingestion:buildWheel',
+  ':datahub-actions:buildWheel',
   ':metadata-ingestion-modules:airflow-plugin:buildWheel',
   ':metadata-ingestion-modules:dagster-plugin:buildWheel',
   ':metadata-ingestion-modules:prefect-plugin:buildWheel',

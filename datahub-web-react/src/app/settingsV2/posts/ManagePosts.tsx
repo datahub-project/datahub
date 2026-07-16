@@ -1,26 +1,24 @@
-import { Typography } from 'antd';
-import React from 'react';
+import { Button, PageTitle } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
-import { PostList } from './PostsList';
 
-export const PageContainer = styled.div`
-    padding-top: 20px;
+import { PostList } from '@app/settingsV2/posts/PostsList';
+
+const PageContainer = styled.div`
+    padding: 16px 20px;
     width: 100%;
     display: flex;
     flex-direction: column;
     overflow: auto;
+    gap: 16px;
 `;
 
-export const PageHeaderContainer = styled.div`
-    && {
-        padding-left: 24px;
-    }
-`;
-
-export const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
-    }
+const PageHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 `;
 
 const ListContainer = styled.div`
@@ -30,16 +28,24 @@ const ListContainer = styled.div`
 `;
 
 export default function ManagePosts() {
+    const { t } = useTranslation('settings.posts');
+    const [isCreatingPost, setIsCreatingPost] = useState(false);
+
     return (
-        <PageContainer>
-            <PageHeaderContainer data-testid="managePostsV2">
-                <PageTitle level={3}>Home Page</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    View and manage pinned announcements and links that appear to all users on the landing page.
-                </Typography.Paragraph>
-            </PageHeaderContainer>
+        <PageContainer data-testid="managePostsV2">
+            <PageHeader>
+                <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
+                <Button
+                    variant="filled"
+                    data-testid="posts-create-post-v2"
+                    icon={{ icon: Plus }}
+                    onClick={() => setIsCreatingPost(true)}
+                >
+                    {t('createNewPost')}
+                </Button>
+            </PageHeader>
             <ListContainer>
-                <PostList />
+                <PostList isCreatingPost={isCreatingPost} setIsCreatingPost={setIsCreatingPost} />
             </ListContainer>
         </PageContainer>
     );

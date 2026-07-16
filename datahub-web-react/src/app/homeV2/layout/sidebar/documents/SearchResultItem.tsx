@@ -1,0 +1,291 @@
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import Loading from '@app/shared/Loading';
+import { Button, Checkbox, Tooltip } from '@src/alchemy-components';
+
+import { Document } from '@types';
+
+interface DocumentChild {
+    urn: string;
+    title: string;
+}
+
+const SearchResultItemContainer = styled.div<{ $isSelected: boolean; $level: number }>`
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
+    min-height: 38px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background-color 0.15s ease;
+    margin-bottom: 2px;
+    margin-left: 2px;
+    margin-right: 2px;
+
+    ${(props) =>
+        props.$isSelected
+            ? `
+background: ${props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${props.theme.colors.shadowFocusBrand};
+ `
+            : `
+ &:hover {
+background-color: ${props.theme.colors.bg};
+ }
+ `}
+
+    &:hover .search-result-actions {
+        opacity: 1;
+    }
+`;
+
+const LeftContent = styled.div`
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+`;
+
+const Actions = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    margin-left: 8px;
+`;
+
+const ActionButton = styled(Button)`
+    &:hover {
+        background-color: ${(props) => props.theme.colors.bgHover};
+    }
+`;
+
+const SearchResultContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+`;
+
+const SearchResultTitle = styled.span<{ $isSelected: boolean }>`
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    line-height: 20px;
+    color: ${(props) => props.theme.colors.textSecondary};
+
+    ${(props) =>
+        props.$isSelected &&
+        `
+background: ${props.theme.colors.brandGradientSelected};
+ background-clip: text;
+ -webkit-text-fill-color: transparent;
+ font-weight: 600;
+ `}
+`;
+
+const SearchResultBreadcrumb = styled.div`
+    font-size: 12px;
+    color: ${(props) => props.theme.colors.textSecondary};
+    line-height: 16px;
+    margin-top: 2px;
+`;
+
+const IconWrapper = styled.div<{ $isSelected: boolean }>`
+    display: flex;
+    align-items: center;
+    margin-right: 8px;
+    flex-shrink: 0;
+
+    && svg {
+        ${(props) =>
+            props.$isSelected
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
+                : `color: ${props.theme.colors.icon};`}
+    }
+`;
+
+const ExpandButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 4px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    flex-shrink: 0;
+
+    &:hover {
+        opacity: 0.7;
+    }
+`;
+
+const CheckboxSlot = styled.div`
+    display: flex;
+    align-items: center;
+    margin-left: 8px;
+    flex-shrink: 0;
+`;
+
+interface SearchResultItemProps {
+    /** Document or child document to render */
+    doc: Document | DocumentChild;
+    /** Nesting level for indentation */
+    level: number;
+    /** Whether this item is currently selected */
+    isSelected: boolean;
+    /** Whether this document has children */
+    hasChildren: boolean;
+    /** Whether this document is currently expanded */
+    isExpanded: boolean;
+    /** Whether children are currently loading */
+    isLoading: boolean;
+    /** Breadcrumb text to show (parent path) */
+    breadcrumb?: string | null;
+    /** Children nodes to render when expanded */
+    children?: React.ReactNode;
+    /** Callback when item is clicked */
+    onSelect: () => void;
+    /** Callback when expand button is clicked */
+    onToggleExpand: () => void;
+    /** Optional callback for creating a child document */
+    onCreateChild?: (parentUrn: string) => void;
+    /**
+     * When true, renders a leading checkbox driven by `isSelected`, and hides
+     * per-row actions (create-child) so the picker stays focused on selection.
+     * Clicks on the row and the checkbox both fire `onSelect`.
+     */
+    multiSelect?: boolean;
+}
+
+/**
+ * Component for rendering a single search result item in the move document popover.
+ * Supports:
+ * - Nested display with indentation
+ * - Expand/collapse for documents with children
+ * - Hover state management
+ * - Icon display (folder for parents, file for children)
+ * - Breadcrumb display for context
+ *
+ * Extracted from MoveDocumentPopover to improve reusability and performance.
+ */
+export const SearchResultItem: React.FC<SearchResultItemProps> = ({
+    doc,
+    level,
+    isSelected,
+    hasChildren,
+    isExpanded,
+    isLoading,
+    breadcrumb,
+    children,
+    onSelect,
+    onToggleExpand,
+    onCreateChild,
+    multiSelect = false,
+}) => {
+    const { t } = useTranslation('home.v2');
+    const [isHovered, setIsHovered] = useState(false);
+
+    // Determine document title and URN
+    const isDocument = 'info' in doc;
+    const title = isDocument ? doc.info?.title || 'Untitled' : (doc as DocumentChild).title;
+    const docUrn = isDocument ? doc.urn : (doc as DocumentChild).urn;
+
+    // Match DocumentTreeItem behavior: show expand button on hover or when expanded
+    const showExpandButton = hasChildren && (isExpanded || isHovered);
+    const showIcon = !showExpandButton;
+
+    const handleAddChildClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onCreateChild && docUrn) {
+            onCreateChild(docUrn);
+        }
+    };
+
+    const handleItemClick = (e: React.MouseEvent) => {
+        // Don't navigate if clicking on actions
+        if ((e.target as HTMLElement).closest('.search-result-actions')) {
+            return;
+        }
+        onSelect();
+    };
+
+    return (
+        <>
+            <SearchResultItemContainer
+                $isSelected={isSelected}
+                $level={level}
+                onClick={handleItemClick}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
+                <LeftContent>
+                    {showExpandButton && (
+                        <ExpandButton
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleExpand();
+                            }}
+                        >
+                            {isLoading && <Loading height={16} marginTop={0} alignItems="center" />}
+                            {!isLoading && isExpanded && <CaretDown size={16} weight="bold" />}
+                            {!isLoading && !isExpanded && <CaretRight size={16} weight="bold" />}
+                        </ExpandButton>
+                    )}
+                    {showIcon && (
+                        <IconWrapper $isSelected={isSelected}>
+                            {hasChildren ? (
+                                <Folder size={16} weight={isSelected ? 'fill' : 'regular'} />
+                            ) : (
+                                <FileText size={16} weight={isSelected ? 'fill' : 'regular'} />
+                            )}
+                        </IconWrapper>
+                    )}
+                    <SearchResultContent>
+                        <SearchResultTitle
+                            $isSelected={isSelected}
+                            data-testid="move-popover-search-result-title"
+                            title={title}
+                        >
+                            {title}
+                        </SearchResultTitle>
+                        {level === 0 && breadcrumb && <SearchResultBreadcrumb>{breadcrumb}</SearchResultBreadcrumb>}
+                    </SearchResultContent>
+                </LeftContent>
+                {!multiSelect && onCreateChild && (
+                    <Actions className="search-result-actions">
+                        <Tooltip title={t('documents.newDocumentTooltip')} placement="bottom" showArrow={false}>
+                            <ActionButton icon={{ icon: Plus }} variant="text" onClick={handleAddChildClick} />
+                        </Tooltip>
+                    </Actions>
+                )}
+                {multiSelect && (
+                    <CheckboxSlot>
+                        <Checkbox
+                            isChecked={isSelected}
+                            setIsChecked={() => onSelect()}
+                            dataTestId={`search-result-checkbox-${docUrn}`}
+                        />
+                    </CheckboxSlot>
+                )}
+            </SearchResultItemContainer>
+            {isExpanded && children}
+        </>
+    );
+};

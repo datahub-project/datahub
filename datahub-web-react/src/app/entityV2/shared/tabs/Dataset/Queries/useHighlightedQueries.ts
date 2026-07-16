@@ -1,10 +1,11 @@
-import { useListQueriesQuery } from '../../../../../../graphql/query.generated';
-import { QueryEntity, QuerySource } from '../../../../../../types.generated';
-import usePagination from '../../../../../sharedV2/pagination/usePagination';
-import useSorting from '../../../../../sharedV2/sorting/useSorting';
-import { DEFAULT_PAGE_SIZE } from './utils/constants';
-import { filterQueries, getQueryEntitiesFilter } from './utils/filterQueries';
-import { mapQuery } from './utils/mapQuery';
+import { DEFAULT_PAGE_SIZE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
+import { filterQueries, getQueryEntitiesFilter } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
+import { mapQuery } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/mapQuery';
+import usePagination from '@app/sharedV2/pagination/usePagination';
+import useSorting from '@app/sharedV2/sorting/useSorting';
+
+import { useListQueriesQuery } from '@graphql/query.generated';
+import { QueryEntity, QuerySource } from '@types';
 
 interface Props {
     entityUrn?: string;

@@ -1,21 +1,22 @@
 import { Button } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 import { useHistory } from 'react-router';
-import { useQuickFiltersContext } from '../../../../providers/QuickFiltersContext';
-import { QuickFilter as QuickFilterType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getQuickFilterDetails } from './utils';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import analytics, { Event, EventType } from '../../../analytics';
-import { navigateToSearchUrl } from '../../utils/navigateToSearchUrl';
+import styled, { useTheme } from 'styled-components';
+
+import analytics, { Event, EventType } from '@app/analytics';
+import { getQuickFilterDetails } from '@app/searchV2/autoComplete/quickFilters/utils';
+import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
+
+import { QuickFilter as QuickFilterType } from '@types';
 
 const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.bgSurface};
     border-radius: 16px;
     box-shadow: none;
     font-weight: 400;
-    color: black;
+    color: ${(props) => props.theme.colors.text};
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -24,16 +25,16 @@ const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
     margin: 4px;
 
     &:hover {
-        color: black;
+        color: ${(props) => props.theme.colors.text};
     }
 
     ${(props) =>
         props.selected &&
         `
-        border: 1px solid ${props.theme.styles['primary-color-dark']};
-        background-color: ${props.theme.styles['primary-color-light']};
+        border: 1px solid ${props.theme.colors.borderBrand};
+        background-color: ${props.theme.colors.bgSurfaceBrand};
         &:hover {
-            background-color: ${props.theme.styles['primary-color-light']};
+            background-color: ${props.theme.colors.bgSurfaceBrand};
         }
     `}
 `;
@@ -52,9 +53,10 @@ export default function QuickFilter({ quickFilter, searchQuery, setIsDropdownVis
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const { selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
+    const theme = useTheme();
 
     const isSelected = selectedQuickFilter?.value === quickFilter.value;
-    const { label, icon } = getQuickFilterDetails(quickFilter, entityRegistry);
+    const { label, icon } = getQuickFilterDetails(quickFilter, entityRegistry, theme.colors.icon);
 
     function emitTrackingEvent(isSelecting: boolean) {
         analytics.event({

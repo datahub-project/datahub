@@ -1,4 +1,4 @@
-import { useAppConfig } from '../useAppConfig';
+import { useAppConfig } from '@app/useAppConfig';
 
 export function useLineageV2(): boolean {
     const appConfig = useAppConfig();

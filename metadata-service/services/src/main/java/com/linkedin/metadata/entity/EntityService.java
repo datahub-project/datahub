@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
@@ -367,7 +369,7 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
-      final int count);
+      @Nullable Integer count);
 
   List<UpdateAspectResult> ingestAspects(
       @Nonnull OperationContext opContext,
@@ -421,6 +423,11 @@ public interface EntityService<U extends ChangeMCP> {
   Integer getCountAspect(
       @Nonnull OperationContext opContext, @Nonnull String aspectName, @Nullable String urnLike);
 
+  Integer countAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull RestoreIndicesArgs args,
+      @Nonnull Consumer<String> logger);
+
   // TODO: Extract this to a different service, doesn't need to be here
   List<RestoreIndicesResult> restoreIndices(
       @Nonnull OperationContext opContext,
@@ -440,7 +447,7 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count);
+      @Nullable Integer count);
 
   @Deprecated
   Entity getEntity(
@@ -462,25 +469,7 @@ public interface EntityService<U extends ChangeMCP> {
       AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog);
 
-  /**
-   * Generally should not be necessary, created for delete flow which does not have System Metadata,
-   * so it lacks a way to force through index updates synchronously.
-   *
-   * @param opContext the current operation context
-   * @param urn urn to produce event for
-   * @param aspectSpec aspect of the entity
-   * @param metadataChangeLog the MCL to produce
-   * @return list of the mcl produce future along with a boolean indicating if the event was
-   *     pre-processed
-   */
-  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
-      @Nonnull OperationContext opContext,
-      @Nonnull final Urn urn,
-      AspectSpec aspectSpec,
-      @Nonnull final MetadataChangeLog metadataChangeLog,
-      boolean forcePreProcessHooks);
-
-  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
+  default Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull String entityName,
@@ -491,23 +480,26 @@ public interface EntityService<U extends ChangeMCP> {
       @Nullable final SystemMetadata oldSystemMetadata,
       @Nullable final SystemMetadata newSystemMetadata,
       @Nonnull AuditStamp auditStamp,
-      @Nonnull final ChangeType changeType,
-      boolean forcePreProcessHooks);
+      @Nonnull final ChangeType changeType) {
+    final MetadataChangeLog metadataChangeLog =
+        constructMCL(
+            null,
+            entityName,
+            urn,
+            changeType,
+            aspectName,
+            auditStamp,
+            newAspectValue,
+            newSystemMetadata,
+            oldAspectValue,
+            oldSystemMetadata);
+    return alwaysProduceMCLAsync(opContext, urn, aspectSpec, metadataChangeLog);
+  }
 
-  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
-      @Nonnull OperationContext opContext,
-      @Nonnull final Urn urn,
-      @Nonnull String entityName,
-      @Nonnull String aspectName,
-      @Nonnull final AspectSpec aspectSpec,
-      @Nullable final RecordTemplate oldAspectValue,
-      @Nullable final RecordTemplate newAspectValue,
-      @Nullable final SystemMetadata oldSystemMetadata,
-      @Nullable final SystemMetadata newSystemMetadata,
-      @Nonnull AuditStamp auditStamp,
-      @Nonnull final ChangeType changeType);
-
-  // RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
+  // Conditionally produce MCL Async based on whether MCL should be generated for this aspect and
+  // also execute
+  // sideEffects if relevant for the MCL.
+  MCLEmitResult produceMCLAsync(@Nonnull OperationContext opContext, MetadataChangeLog mcl);
 
   @Deprecated
   void ingestEntities(
@@ -596,4 +588,7 @@ public interface EntityService<U extends ChangeMCP> {
   SearchIndicesService getUpdateIndicesService();
 
   void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService);
+
+  /** Flush the Kafka event producer to release buffered messages. */
+  void flushEventProducer();
 }

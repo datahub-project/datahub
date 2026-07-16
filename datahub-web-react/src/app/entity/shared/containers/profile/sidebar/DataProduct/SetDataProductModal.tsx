@@ -1,16 +1,19 @@
-import Modal from 'antd/lib/modal/Modal';
 import { Button, Select, message } from 'antd';
+import Modal from 'antd/lib/modal/Modal';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { useGetSearchResultsForMultipleQuery } from '../../../../../../../graphql/search.generated';
-import { DataProduct, EntityType } from '../../../../../../../types.generated';
-import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { IconStyleType } from '../../../../../Entity';
-import { tagRender } from '../tagRenderer';
-import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
-import { handleBatchError } from '../../../../utils';
-import { getModalDomContainer } from '../../../../../../../utils/focus';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { tagRender } from '@app/entity/shared/containers/profile/sidebar/tagRenderer';
+import { handleBatchError } from '@app/entity/shared/utils';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getModalDomContainer } from '@utils/focus';
+
+import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { DataProduct, EntityType } from '@types';
 
 const OptionWrapper = styled.div`
     padding: 2px 0;
@@ -19,6 +22,9 @@ const OptionWrapper = styled.div`
         margin-right: 8px;
     }
 `;
+
+// Color argument passed to entityRegistry.getIcon — a programmatic value, not display copy.
+const ICON_COLOR = 'black';
 
 interface Props {
     urns: string[];
@@ -39,6 +45,8 @@ export default function SetDataProductModal({
     setDataProduct,
     refetch,
 }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
@@ -68,7 +76,7 @@ export default function SetDataProductModal({
             variables: { input: { resourceUrns: urns, dataProductUrn: selectedDataProduct.urn } },
         })
             .then(() => {
-                message.success({ content: 'Updated Data Product!', duration: 3 });
+                message.success({ content: t('sidebar.dataProduct.updatedSuccess'), duration: 3 });
                 setDataProduct?.(selectedDataProduct);
                 onModalClose();
                 setSelectedDataProduct(null);
@@ -81,7 +89,7 @@ export default function SetDataProductModal({
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to add assets to Data Product: \n ${e.message || ''}`,
+                        content: t('dataProductModal.addError', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -114,16 +122,16 @@ export default function SetDataProductModal({
 
     return (
         <Modal
-            title={titleOverride || 'Set Data Product'}
+            title={titleOverride || t('sidebar.dataProduct.setModalTitle')}
             open
             onCancel={onModalClose}
             footer={
                 <>
                     <Button onClick={onModalClose} type="text">
-                        Cancel
+                        {tc('cancel')}
                     </Button>
                     <Button id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
-                        Add
+                        {tc('add')}
                     </Button>
                 </>
             }
@@ -136,7 +144,7 @@ export default function SetDataProductModal({
                 showSearch
                 mode="multiple"
                 defaultActiveFirstOption={false}
-                placeholder="Search for Data Products..."
+                placeholder={t('sidebar.dataProduct.searchPlaceholder')}
                 onSelect={(urn: string) => onSelectDataProduct(urn)}
                 onDeselect={onDeselect}
                 onSearch={(value: string) => setQuery(value.trim())}
@@ -149,7 +157,7 @@ export default function SetDataProductModal({
                 {data?.searchAcrossEntities?.searchResults?.map((result) => (
                     <Select.Option value={result.entity.urn} key={result.entity.urn}>
                         <OptionWrapper>
-                            {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, 'black')}
+                            {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, ICON_COLOR)}
                             {entityRegistry.getDisplayName(EntityType.DataProduct, result.entity)}
                         </OptionWrapper>
                     </Select.Option>

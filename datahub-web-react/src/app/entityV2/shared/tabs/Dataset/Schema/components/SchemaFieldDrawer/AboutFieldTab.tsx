@@ -1,24 +1,30 @@
-import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import moment from 'moment';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+
+import { useMutationUrn } from '@app/entity/shared/EntityContext';
+import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import NotesSection from '@app/entityV2/shared/notes/NotesSection';
+import FieldBusinessAttribute from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldBusinessAttribute';
+import FieldDescription from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDescription';
+import { FieldDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDetails';
+import FieldTags from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTags';
+import FieldTerms from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTerms';
+import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
+import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import useFileUpload from '@app/shared/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import dayjs from '@utils/dayjs';
+
 import {
     DatasetFieldProfile,
+    DatasetProfile,
     EditableSchemaMetadata,
     Post,
     SchemaField,
+    UploadDownloadScenario,
     UsageQueryResult,
-} from '../../../../../../../../types.generated';
-import { useMutationUrn } from '../../../../../../../entity/shared/EntityContext';
-import { pathMatchesExact } from '../../../../../../dataset/profile/schema/utils/utils';
-import NotesSection from '../../../../../notes/NotesSection';
-import FieldDescription from './FieldDescription';
-import { FieldDetails } from './FieldDetails';
-import FieldTags from './FieldTags';
-import FieldTerms from './FieldTerms';
-import SampleValuesSection from './SampleValuesSection';
-import StatsSection from './StatsSection';
-import { StyledDivider } from './components';
+} from '@types';
 
 const MetadataSections = styled.div`
     padding: 16px 12px;
@@ -32,18 +38,33 @@ interface AboutFieldTabProps {
         editableSchemaMetadata?: EditableSchemaMetadata | null;
         usageStats?: UsageQueryResult | null;
         fieldProfile: DatasetFieldProfile | undefined;
-        profiles: any[];
+        profiles: DatasetProfile[];
+        fetchDataWithLookbackWindow: (lookbackWindow: any) => void;
+        profilesDataLoading: boolean;
         notes: Post[];
         setSelectedTabName: any;
-        isShowMoreEnabled?: boolean;
         refetch?: () => void;
         refetchNotes?: () => void;
+        fieldUrn?: string;
+        assetUrn?: string;
     };
 }
 
 export function AboutFieldTab({ properties }: AboutFieldTabProps) {
     const datasetUrn = useMutationUrn();
     const { refetch, refetchNotes } = properties;
+
+    const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn: properties.assetUrn,
+        schemaField: properties.fieldUrn,
+    });
+
+    const { uploadFile } = useFileUpload({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn: properties.assetUrn,
+        schemaField: properties.fieldUrn,
+    });
 
     const expandedFieldIndex = useMemo(
         () => properties.schemaFields.findIndex((row) => row.fieldPath === properties.expandedDrawerFieldPath),
@@ -58,7 +79,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
     );
 
-    const notes = properties.notes?.sort((a, b) => moment(b.lastModified.time).diff(moment(a.lastModified.time))) || [];
+    const notes = properties.notes?.sort((a, b) => dayjs(b.lastModified.time).diff(dayjs(a.lastModified.time))) || [];
 
     const delayedRefetchNotes = () =>
         setTimeout(() => refetchNotes?.(), 2000) && setTimeout(() => refetchNotes?.(), 5000);
@@ -81,11 +102,16 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             notes={notes}
                             refetch={delayedRefetchNotes}
                         />
-                        {!!notes?.length && <StyledDivider dashed />}
+                        {!!notes?.length && <StyledDivider />}
                         <FieldDescription
                             expandedField={expandedField}
                             editableFieldInfo={editableFieldInfo}
-                            isShowMoreEnabled={properties.isShowMoreEnabled}
+                            editorProps={{
+                                uploadFileProps: {
+                                    onFileUpload: uploadFile,
+                                    ...uploadFileAnalyticsCallbacks,
+                                },
+                            }}
                         />
                         <FieldTags
                             expandedField={expandedField}
@@ -95,6 +121,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             expandedField={expandedField}
                             editableSchemaMetadata={properties.editableSchemaMetadata}
                         />
+                        <FieldBusinessAttribute expandedField={expandedField} refetch={refetch} />
                         <SidebarStructuredProperties
                             properties={{
                                 isSchemaSidebar: true,
@@ -102,12 +129,16 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                                 fieldEntity: expandedField.schemaFieldEntity,
                             }}
                         />
-                        <StatsSection
-                            fieldProfile={properties.fieldProfile}
-                            setSelectedTabName={properties.setSelectedTabName}
-                        />
-                        <SampleValuesSection fieldProfile={properties.fieldProfile} />
                     </MetadataSections>
+                    <StatsTabWrapper
+                        properties={{
+                            expandedField,
+                            fieldProfile: properties.fieldProfile,
+                            profiles: properties.profiles,
+                            fetchDataWithLookbackWindow: properties.fetchDataWithLookbackWindow,
+                            profilesDataLoading: properties.profilesDataLoading,
+                        }}
+                    />
                 </>
             )}
         </>

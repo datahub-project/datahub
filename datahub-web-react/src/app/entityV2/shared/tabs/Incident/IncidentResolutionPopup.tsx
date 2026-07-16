@@ -1,21 +1,19 @@
+import { Form, Input, Modal, message } from 'antd';
 import React from 'react';
-import { Modal, Form, Input, message } from 'antd';
-import { IncidentStage, IncidentState } from '@src/types.generated';
-import { Button, colors } from '@src/alchemy-components';
-import { useUpdateIncidentStatusMutation } from '@src/graphql/mutations.generated';
-import { useApolloClient } from '@apollo/client';
-import { useUserContext } from '@src/app/context/useUserContext';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { IncidentSelectField } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentSelectedField';
+import { INCIDENT_OPTION_LABEL_MAPPING, INCIDENT_RESOLUTION_STAGES } from '@app/entityV2/shared/tabs/Incident/constant';
+import { FormItem, ModalHeading, ModalTitleContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
+import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
+import { Button } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { IncidentTableRow } from './types';
-import { IncidentSelectField } from './AcrylComponents/IncidentSelectedField';
-import { INCIDENT_OPTION_LABEL_MAPPING, INCIDENT_RESOLUTION_STAGES } from './constant';
-import { FormItem, ModalHeading, ModalTitleContainer } from './styledComponents';
-import { getCacheIncident } from './AcrylComponents/hooks/useIncidentHandler';
-import { PAGE_SIZE, updateActiveIncidentInCache } from './incidentUtils';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { useUpdateIncidentStatusMutation } from '@src/graphql/mutations.generated';
+import { IncidentStage, IncidentState } from '@src/types.generated';
 
 type IncidentResolutionPopupProps = {
     incident: IncidentTableRow;
@@ -27,15 +25,20 @@ const { TextArea } = Input;
 
 const modalBodyStyle = { fontFamily: 'Mulish, sans-serif' };
 
-const ModalTitle = () => (
-    <ModalTitleContainer>
-        <ModalHeading>Resolve Incident</ModalHeading>
-    </ModalTitleContainer>
-);
+const ModalTitle = () => {
+    const { t } = useTranslation('entity.profile.incident');
+    return (
+        <ModalTitleContainer>
+            <ModalHeading>{t('resolution.title')}</ModalHeading>
+        </ModalTitleContainer>
+    );
+};
 
 export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: IncidentResolutionPopupProps) => {
-    const client = useApolloClient();
-    const { user } = useUserContext();
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
+    const theme = useTheme();
     const { urn, entityType } = useEntityData();
     const [updateIncidentStatusMutation] = useUpdateIncidentStatusMutation();
     const [form] = Form.useForm();
@@ -46,7 +49,7 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
     };
 
     const handleResolveIncident = (formData: any) => {
-        message.loading({ content: 'Updating...' });
+        message.loading({ content: tf('updating') });
 
         updateIncidentStatusMutation({
             variables: {
@@ -59,40 +62,19 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
                 analytics.event({
                     type: EventType.EntityActionEvent,
                     entityType,
-                    entityUrn: incident.urn,
+                    entityUrn: urn,
                     actionType: EntityActionType.ResolvedIncident,
                 });
-
-                const values = {
-                    title: incident.title,
-                    description: incident.description,
-                    type: incident.type,
-                    priority: incident.priority,
-                    state: IncidentState.Resolved,
-                    customType: incident.customType,
-                    stage: formData?.status || IncidentStage.Fixed,
-                    message: formData?.note,
-                    linkedAssets: incident.linkedAssets,
-                    assignees: incident.assignees,
-                    created: incident.created,
-                };
-
-                const updatedIncident = getCacheIncident({
-                    values,
-                    incidentUrn: incident.urn,
-                    user,
-                });
-                updateActiveIncidentInCache(client, urn, updatedIncident, PAGE_SIZE);
-                message.success({ content: 'Incident updated!', duration: 2 });
+                message.success({ content: t('resolution.success'), duration: 2 });
+                refetch();
                 handleClose?.();
-                setTimeout(() => refetch(), 3000);
             })
             .catch((error) => {
+                console.log(error);
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to update incident! An unexpected error occurred',
-                    permissionMessage:
-                        'Unauthorized to update incident for this asset. Please contact your DataHub administrator.',
+                    defaultMessage: t('resolution.updateFailed'),
+                    permissionMessage: t('resolution.updateUnauthorizedAsset'),
                 });
             });
     };
@@ -109,10 +91,10 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
             footer={
                 <ModalButtonContainer>
                     <Button key="cancel" variant="text" onClick={handleClose}>
-                        Cancel
+                        {tc('cancel')}
                     </Button>
                     <Button form="resolveIncident" key="submit" type="submit" data-testid="incident-save-button">
-                        Save
+                        {tc('save')}
                     </Button>
                 </ModalButtonContainer>
             }
@@ -137,18 +119,18 @@ export const IncidentResolutionPopup = ({ incident, refetch, handleClose }: Inci
                 />
                 <FormItem
                     name="note"
-                    label="Note"
+                    label={t('resolution.noteLabel')}
                     rules={[
                         {
                             required: false,
-                            message: 'A note is required.',
+                            message: t('resolution.noteRequired'),
                         },
                     ]}
-                    style={{ color: colors.gray[600] }}
+                    style={{ color: theme.colors.text }}
                 >
                     <TextArea
                         rows={4}
-                        placeholder="Add a resolved note - optional"
+                        placeholder={t('resolution.notePlaceholder')}
                         data-testid="incident-resolve-note-input"
                     />
                 </FormItem>

@@ -1,8 +1,11 @@
+import { Heading, Text } from '@components';
+import { Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Empty, Typography } from 'antd';
-import { EMPTY_MESSAGES } from '../../constants';
-import NoDocs from '../../../../../images/no-docs.svg';
+
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+
+import NoDocs from '@images/no-docs.svg';
 
 const StyledEmpty = styled(Empty)<{ $hideImage?: boolean }>`
     padding: 40px;
@@ -39,8 +42,10 @@ export const EmptyTab = ({ tab, hideImage, children }: Props) => {
         <StyledEmpty
             description={
                 <EmptyDescription data-testid="empty-tab-description">
-                    <Typography.Title level={4}>{EMPTY_MESSAGES[tab]?.title}</Typography.Title>
-                    <Typography.Text type="secondary">{EMPTY_MESSAGES[tab]?.description}</Typography.Text>
+                    <Heading type="h4">{EMPTY_MESSAGES[tab]?.title}</Heading>
+                    <Text type="span" color="textSecondary">
+                        {EMPTY_MESSAGES[tab]?.description}
+                    </Text>
                 </EmptyDescription>
             }
             $hideImage={hideImage}

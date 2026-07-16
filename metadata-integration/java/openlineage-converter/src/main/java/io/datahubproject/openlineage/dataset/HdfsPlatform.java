@@ -7,7 +7,8 @@ import java.util.List;
 public enum HdfsPlatform {
   S3(Arrays.asList("s3", "s3a", "s3n"), "s3"),
   GCS(Arrays.asList("gs", "gcs"), "gcs"),
-  ABFS(Arrays.asList("abfs", "abfss"), "abfs"),
+  ABFS(Arrays.asList("abfs", "abfss"), "abs"),
+  WASB(Arrays.asList("wasb", "wasbs"), "abs"),
   DBFS(Collections.singletonList("dbfs"), "dbfs"),
   FILE(Collections.singletonList("file"), "file"),
   // default platform

@@ -1,15 +1,16 @@
+import { Icon, Pill, Tooltip } from '@components';
+import { ArrowsLeftRight } from '@phosphor-icons/react/dist/csr/ArrowsLeftRight';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
-import { Typography } from 'antd';
-import { Tooltip } from '@components';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { toLocalDateString, toRelativeTimeString } from '../../../../../../shared/time/timeUtils';
-import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
-import { ContentText, LabelText, RelativeTime } from './styledComponents';
-import { DataPlatform, Maybe } from '../../../../../../../types.generated';
-import { ActionType, getRelativeTimeColor } from './utils';
-import SyncedOrSharedTooltip from './SyncedOrSharedTooltip';
+
+import SyncedOrSharedTooltip from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrSharedTooltip';
+import { LabelText } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
+import { ActionType, getRelativeTimeStatus } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+
+import { DataPlatform, Maybe } from '@types';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -17,14 +18,15 @@ const DetailsContainer = styled.div`
     flex-direction: column;
     justify-content: center;
     padding: 5px 8px;
-    background-color: ${REDESIGN_COLORS.SECTION_BACKGROUND};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 8px;
 `;
 
 const SyncIcon = styled.div`
-    color: ${REDESIGN_COLORS.DARK_DIVIDER};
-    height: 24px;
-    width: 24px;
+    color: ${(props) => props.theme.colors.icon};
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 const DetailRow = styled.div`
@@ -34,15 +36,10 @@ const DetailRow = styled.div`
     flex-wrap: wrap;
 `;
 
-const SyncedSharedText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
+const SyncedSharedText = styled.span`
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
-`;
-
-const StyledTooltip = styled(Tooltip)`
-    .ant-tooltip-inner {
-        border-radius: 4px;
-    }
+    font-size: 12px;
 `;
 
 interface Props {
@@ -54,33 +51,34 @@ interface Props {
 }
 
 const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const pillColor = getRelativeTimeStatus(time);
+
     return (
         <DetailsContainer>
             <DetailRow>
-                <StyledTooltip
-                    showArrow={false}
-                    title={<SyncedOrSharedTooltip type={type} />}
-                    color={REDESIGN_COLORS.TOOLTIP_BACKGROUND}
-                    overlayInnerStyle={{ width: 300, padding: 10 }}
-                    placement="bottomLeft"
-                >
+                <Tooltip showArrow={false} title={<SyncedOrSharedTooltip type={type} />} placement="bottomLeft">
                     <SyncIcon>
-                        <SwapHorizOutlinedIcon />
+                        <Icon icon={ArrowsLeftRight} size="lg" color="inherit" />
                     </SyncIcon>
-                </StyledTooltip>
+                </Tooltip>
 
-                <SyncedSharedText>{labelText} </SyncedSharedText>
+                <SyncedSharedText>{labelText}</SyncedSharedText>
                 <Tooltip showArrow={false} title={toLocalDateString(time)}>
-                    <RelativeTime relativeTimeColor={getRelativeTimeColor(time)}>
-                        {toRelativeTimeString(time)}
-                    </RelativeTime>
+                    <span>
+                        <Pill label={toRelativeTimeString(time) || ''} variant="filled" color={pillColor} size="sm" />
+                    </span>
                 </Tooltip>
                 {!!platform && (
-                    <>
-                        <LabelText>from</LabelText>
-                        <PlatformIcon platform={platform} size={16} />
-                        <ContentText color={REDESIGN_COLORS.BODY_TEXT}>{platformName}</ContentText>
-                    </>
+                    <Trans
+                        t={t}
+                        i18nKey="sidebar.syncedOrShared.fromPlatform"
+                        values={{ platformName }}
+                        components={{
+                            icon: <PlatformIcon platform={platform} size={16} />,
+                            text: <LabelText />,
+                        }}
+                    />
                 )}
             </DetailRow>
         </DetailsContainer>

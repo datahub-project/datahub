@@ -1,11 +1,14 @@
+import functools
 from textwrap import dedent
-from typing import Optional
+from typing import Dict, Optional
 
 from pydantic.fields import Field
 from pyhive.sqlalchemy_presto import PrestoDialect
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
+from sqlalchemy.engine.base import Engine
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -85,7 +88,7 @@ PrestoDialect._get_full_table = _get_full_table
 
 class PrestoConfig(TrinoConfig):
     # defaults
-    scheme: str = Field(default="presto", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="presto")
 
 
 @platform_name("Presto", doc_order=1)
@@ -112,5 +115,20 @@ class PrestoSource(TrinoSource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = PrestoConfig.parse_obj(config_dict)
+        config = PrestoConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+
+# Unfortunately, the Presto dialect provide catalog_name as a column
+# therefore we we need some workaround to not fail.
+# This is a workaround to not fail which casuses to only get the table comment as property which is still better than to fail.
+@functools.lru_cache
+def gen_catalog_connector_dict(engine: Engine) -> Dict[str, str]:
+    query = dedent(
+        """
+        SELECT *
+        FROM "system"."metadata"."catalogs"
+        """
+    ).strip()
+    res = engine.execute(sql.text(query))
+    return {row.catalog_name: "" for row in res}

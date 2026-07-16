@@ -1,7 +1,8 @@
-import { FacetFilterInput, AndFilterInput, QuickFilter, EntityType } from '../../../types.generated';
-import { FilterSet } from '../../entity/shared/components/styled/search/types';
-import { QuickFilterField } from '../autoComplete/quickFilters/utils';
-import { UnionType } from './constants';
+import { FilterSet } from '@app/entity/shared/components/styled/search/types';
+import { QuickFilterField } from '@app/searchV2/autoComplete/quickFilters/utils';
+import { UnionType } from '@app/searchV2/utils/constants';
+
+import { AndFilterInput, EntityType, FacetFilterInput, QuickFilter } from '@types';
 
 /**
  * Combines 2 sets of conjunctive filters in Disjunctive Normal Form
@@ -212,4 +213,8 @@ export function combineOrFilters(orFilter1: AndFilterInput[], orFilter2: AndFilt
     });
 
     return mergedFilter;
+}
+
+export function excludeEmptyAndFilters(filters: AndFilterInput[] | undefined): AndFilterInput[] | undefined {
+    return filters?.filter((filter) => filter.and?.length);
 }
