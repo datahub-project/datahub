@@ -13,7 +13,9 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.odcs.odcs_config import (
+    LOWERCASE_BY_DEFAULT_PLATFORMS,
     ODCS_PLATFORM,
+    SERVER_TYPE_TO_PLATFORM,
     ODCSSourceConfig,
     ServerMapping,
 )
@@ -22,6 +24,7 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSProperty,
     ODCSQualityRule,
     ODCSSchemaObject,
+    ODCSServer,
 )
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -157,29 +160,21 @@ _LOGICAL_TYPE_MAP: Dict[str, Type] = {
 
 
 @dataclass
-class UnmappedSchema:
-    """A schema[] entry that could not be bound to a physical Dataset URN.
-
-    Unlike the prior model, an unmapped schema entry is NOT skipped — the
-    logical ODCS dataset is still emitted. This record only signals that no
-    physical binding (and therefore no `logicalParent` link or assertions) was
-    produced for the entry.
-    """
-
-    index: int
-    schema_entry: ODCSSchemaObject
-    reason: str
-
-
-@dataclass
 class PhysicalBinding:
-    """Resolution result for one `schema[]` entry's physical dataset."""
+    """Resolution result for one `schema[]` entry's physical dataset.
+
+    An unbound entry is never skipped — the logical ODCS dataset and its
+    assertions are still emitted; only the `logicalParent` link is affected.
+    `name_passthrough` marks a physical name taken verbatim from a dotted
+    `physicalName` rather than composed from server fields.
+    """
 
     index: int
     schema_entry: ODCSSchemaObject
     logical_urn: str
     physical_urn: Optional[str]
     unmapped_reason: Optional[str] = None
+    name_passthrough: bool = False
 
 
 @dataclass
@@ -267,18 +262,114 @@ def odcs_to_logical_dataset_urn(
     )
 
 
-def _select_server_mapping(
-    contract: ODCSContract, mappings: List[ServerMapping]
+@dataclass
+class ResolvedServer:
+    """The contract server chosen for physical binding, plus its platform."""
+
+    server: ODCSServer
+    platform: str
+    mapping: Optional[ServerMapping]
+
+
+# DataHub platform id -> the ODCSServer fields (in order) that qualify a table
+# name, matching each platform connector's URN naming convention. `schema_` is
+# the pydantic-safe name of the ODCS `schema` server field. Platforms absent
+# here (e.g. oracle, whose ODCS server entry carries only host/port/serviceName)
+# cannot be composed — a dotted physicalName or an explicit override is needed.
+_PLATFORM_NAME_PARTS: Dict[str, Tuple[str, ...]] = {
+    "postgres": ("database", "schema_"),
+    "redshift": ("database", "schema_"),
+    "mssql": ("database", "schema_"),
+    "snowflake": ("database", "schema_"),
+    "trino": ("catalog", "schema_"),
+    "databricks": ("catalog", "schema_"),
+    "bigquery": ("project", "dataset"),
+    "mysql": ("database",),
+}
+
+
+def _override_for_server(
+    server_name: str, overrides: List[ServerMapping]
 ) -> Optional[ServerMapping]:
+    named = next(
+        (m for m in overrides if not m.match_any and m.server == server_name), None
+    )
+    if named is not None:
+        return named
+    return next((m for m in overrides if m.match_any), None)
+
+
+def _resolve_server(
+    contract: ODCSContract, config: ODCSSourceConfig
+) -> Tuple[Optional[ResolvedServer], Optional[str]]:
+    """Pick the first contract server that maps to a DataHub platform.
+
+    The platform comes from a matching `server_overrides` entry when it sets
+    one, else from the spec-required `servers[].type` via
+    SERVER_TYPE_TO_PLATFORM. Returns `(resolved, None)` on success or
+    `(None, reason)` when no server is mappable.
+    """
     if not contract.servers:
-        return next((m for m in mappings if m.match_any), None)
+        return None, "contract declares no servers[]"
+    unmappable: List[str] = []
     for server in contract.servers:
-        for mapping in mappings:
-            if mapping.match_any:
-                continue
-            if mapping.server == server.server:
-                return mapping
-    return next((m for m in mappings if m.match_any), None)
+        mapping = _override_for_server(server.server, config.server_overrides)
+        platform = (
+            mapping.platform if mapping is not None and mapping.platform else None
+        ) or SERVER_TYPE_TO_PLATFORM.get((server.type or "").strip().lower())
+        if platform:
+            return ResolvedServer(server=server, platform=platform, mapping=mapping), None
+        unmappable.append(f"{server.server} (type={server.type or 'missing'})")
+    return None, (
+        "no servers[] entry maps to a DataHub platform; "
+        f"unmappable: {', '.join(unmappable)}"
+    )
+
+
+def _compose_physical_name(
+    platform: str,
+    server: ODCSServer,
+    table: str,
+    convert_to_lowercase: bool,
+) -> Tuple[Optional[str], Optional[str], bool]:
+    """Compose the fully-qualified physical dataset name for a platform.
+
+    Follows each platform connector's URN naming convention (postgres:
+    `database.schema.table`, bigquery: `project.dataset.table`, ...). A `table`
+    that already contains a dot is passed through as-is, on the assumption the
+    contract author supplied a pre-qualified physicalName. Returns
+    `(name, None, passthrough)` on success or `(None, reason, False)` when the
+    name cannot be composed. Lowercasing applies only to platforms whose
+    connectors lowercase by default (see LOWERCASE_BY_DEFAULT_PLATFORMS).
+    """
+    lowercase = convert_to_lowercase and platform in LOWERCASE_BY_DEFAULT_PLATFORMS
+    if "." in table:
+        return table.lower() if lowercase else table, None, True
+    parts_spec = _PLATFORM_NAME_PARTS.get(platform)
+    if parts_spec is None:
+        return (
+            None,
+            f"platform '{platform}' has no name-composition rule; supply a "
+            "fully-qualified dotted physicalName or a physical_urn_overrides entry",
+            False,
+        )
+    values: List[str] = []
+    missing: List[str] = []
+    for attr in parts_spec:
+        value = getattr(server, attr)
+        if value:
+            values.append(str(value))
+        else:
+            missing.append(attr.rstrip("_"))
+    if missing:
+        return (
+            None,
+            f"server '{server.server}' is missing {'/'.join(missing)} needed to "
+            f"qualify a {platform} table name",
+            False,
+        )
+    name = ".".join([*values, table])
+    return name.lower() if lowercase else name, None, False
 
 
 def odcs_to_physical_bindings(
@@ -286,57 +377,45 @@ def odcs_to_physical_bindings(
 ) -> List[PhysicalBinding]:
     """Resolve a PhysicalBinding per `schema[]` entry.
 
-    Every entry yields a logical ODCS dataset URN. The physical URN is resolved
-    via, in priority order:
-      1. `physical_urn_overrides[contract.id][index]` (empty string = unbound).
-      2. `servers_to_platform` + the entry's `physicalName` (or `name`).
-    When neither resolves, `physical_urn` is None and `unmapped_reason` explains
-    why; the logical dataset is still emitted.
+    Every entry yields a logical ODCS dataset URN. The physical URN — used only
+    for the `logicalParent` link — is resolved via, in priority order:
+      1. `physical_urn_overrides[contract.id][schema_entry.name]`
+         (empty string = deliberately unbound; absent = fall through).
+      2. The contract's first mappable `servers[]` entry (platform from
+         `server_overrides` or the spec-required server `type`), with the
+         table name qualified per the platform's naming convention.
+    When neither resolves, `physical_urn` is None and `unmapped_reason`
+    explains why; the logical dataset and its assertions are unaffected.
     """
     bindings: List[PhysicalBinding] = []
     if not contract.schema_:
         return bindings
 
     overrides = config.physical_urn_overrides.get(contract.id)
-    mapping = _select_server_mapping(contract, config.servers_to_platform)
+    resolved, server_reason = _resolve_server(contract, config)
 
     for index, schema_entry in enumerate(contract.schema_):
         logical_urn = odcs_to_logical_dataset_urn(contract, schema_entry, config)
 
-        # When an override list is supplied for this contract, it is
-        # authoritative: it must have one entry per schema[] entry. An empty
-        # string — or an index past the end of a too-short list — means the
-        # author deliberately left this entry unbound, NOT "fall back to
-        # servers_to_platform" (that would silently re-bind entries the author
-        # excluded).
-        if overrides is not None:
-            override = (overrides[index] if index < len(overrides) else "") or None
-            if override:
-                bindings.append(
-                    PhysicalBinding(
-                        index=index,
-                        schema_entry=schema_entry,
-                        logical_urn=logical_urn,
-                        physical_urn=override,
-                    )
+        if overrides is not None and schema_entry.name in overrides:
+            override_urn = (overrides[schema_entry.name] or "").strip()
+            bindings.append(
+                PhysicalBinding(
+                    index=index,
+                    schema_entry=schema_entry,
+                    logical_urn=logical_urn,
+                    physical_urn=override_urn or None,
+                    unmapped_reason=(
+                        None
+                        if override_urn
+                        else "explicitly unbound by physical_urn_overrides"
+                    ),
                 )
-            else:
-                bindings.append(
-                    PhysicalBinding(
-                        index=index,
-                        schema_entry=schema_entry,
-                        logical_urn=logical_urn,
-                        physical_urn=None,
-                        unmapped_reason=(
-                            "physical_urn_overrides entry is empty or the override "
-                            "list is shorter than schema[]; left unbound by config"
-                        ),
-                    )
-                )
+            )
             continue
 
-        physical_name = schema_entry.physicalName or schema_entry.name
-        if not physical_name:
+        table = schema_entry.physicalName or schema_entry.name
+        if not table:
             bindings.append(
                 PhysicalBinding(
                     index=index,
@@ -347,26 +426,45 @@ def odcs_to_physical_bindings(
                 )
             )
             continue
-        if mapping is None:
+        if resolved is None:
             bindings.append(
                 PhysicalBinding(
                     index=index,
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=None,
-                    unmapped_reason=(
-                        "no `physical_urn_overrides` entry and no matching "
-                        "`servers_to_platform` mapping for the contract's servers"
-                    ),
+                    unmapped_reason=server_reason,
+                )
+            )
+            continue
+
+        physical_name, compose_reason, passthrough = _compose_physical_name(
+            platform=resolved.platform,
+            server=resolved.server,
+            table=table,
+            convert_to_lowercase=config.convert_urns_to_lowercase,
+        )
+        if physical_name is None:
+            bindings.append(
+                PhysicalBinding(
+                    index=index,
+                    schema_entry=schema_entry,
+                    logical_urn=logical_urn,
+                    physical_urn=None,
+                    unmapped_reason=compose_reason,
                 )
             )
             continue
 
         physical_urn = make_dataset_urn_with_platform_instance(
-            platform=mapping.platform,
+            platform=resolved.platform,
             name=physical_name,
-            platform_instance=mapping.platform_instance,
-            env=mapping.env,
+            platform_instance=(
+                resolved.mapping.platform_instance
+                if resolved.mapping is not None
+                else None
+            ),
+            env=resolved.mapping.env if resolved.mapping is not None else config.env,
         )
         bindings.append(
             PhysicalBinding(
@@ -374,6 +472,7 @@ def odcs_to_physical_bindings(
                 schema_entry=schema_entry,
                 logical_urn=logical_urn,
                 physical_urn=physical_urn,
+                name_passthrough=passthrough,
             )
         )
     return bindings
