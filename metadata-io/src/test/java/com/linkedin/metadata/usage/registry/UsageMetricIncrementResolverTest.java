@@ -24,7 +24,7 @@ public class UsageMetricIncrementResolverTest {
         new UsageMetricRegistryLoader(yamlMapper), java.util.List.of());
   }
 
-  private static RequestContext requestContextWithQuantity(int usageQuantity) {
+  private static RequestContext requestContextWithQuantity(long usageQuantity) {
     return RequestContext.builder()
         .actorUrn("urn:li:corpuser:test")
         .sourceIP("127.0.0.1")
@@ -40,6 +40,19 @@ public class UsageMetricIncrementResolverTest {
     for (UsageMetricRegistry.MetricDefinition metric : ossRegistry().apiUsageMetrics().values()) {
       Assert.assertTrue(UsageMetricIncrementResolver.isSupported(metric), metric.metricName());
     }
+  }
+
+  @Test
+  public void testReportedMcpQueriesExportsDedicatedMicrometerName() {
+    UsageMetricRegistry.MetricDefinition metric =
+        ossRegistry().apiUsageMetrics().get("mcp_queries");
+    Assert.assertTrue(UsageMetricIncrementResolver.isReportDrivenMetric(metric));
+    Assert.assertEquals(
+        UsageMetricIncrementResolver.micrometerCounterName(metric),
+        Optional.of("datahub.usage.mcp_queries"));
+    Assert.assertNotEquals(
+        UsageMetricIncrementResolver.micrometerCounterName(metric),
+        Optional.of(MetricUtils.DATAHUB_REQUEST_COUNT));
   }
 
   @Test
@@ -140,7 +153,6 @@ public class UsageMetricIncrementResolverTest {
             UsageMetricRegistry.MergeKind.ADDITIVE,
             null,
             com.linkedin.metadata.usage.registry.metrics.ValueUnit.COST_UNITS,
-            false,
             UsageMetricRegistry.EmitWhen.COST_PROFILE);
     UsageOperationsRegistry ossOps =
         UsageOperationsRegistry.loadOssOnly(new UsageOperationsLoader(yamlMapper()));
@@ -158,7 +170,6 @@ public class UsageMetricIncrementResolverTest {
             UsageMetricRegistry.MergeKind.ADDITIVE,
             null,
             com.linkedin.metadata.usage.registry.metrics.ValueUnit.OUTPUT_BYTES,
-            false,
             UsageMetricRegistry.EmitWhen.ALWAYS);
     Assert.assertEquals(
         UsageMetricIncrementResolver.micrometerCounterName(metric),
@@ -173,7 +184,6 @@ public class UsageMetricIncrementResolverTest {
             UsageMetricRegistry.MergeKind.DISTINCT,
             "usage_identity",
             com.linkedin.metadata.usage.registry.metrics.ValueUnit.COUNT,
-            false,
             UsageMetricRegistry.EmitWhen.ALWAYS);
     Assert.assertFalse(UsageMetricIncrementResolver.isSupported(metric));
   }
@@ -187,20 +197,6 @@ public class UsageMetricIncrementResolverTest {
   }
 
   @Test
-  public void testMetronomeBatchMetricHasNoMicrometerCounter() {
-    UsageMetricRegistry.MetricDefinition metric =
-        new UsageMetricRegistry.MetricDefinition(
-            "metronome_only",
-            UsageMetricRegistry.MergeKind.ADDITIVE,
-            null,
-            com.linkedin.metadata.usage.registry.metrics.ValueUnit.COUNT,
-            true,
-            UsageMetricRegistry.EmitWhen.ALWAYS);
-    Assert.assertEquals(
-        UsageMetricIncrementResolver.micrometerCounterName(metric), Optional.empty());
-  }
-
-  @Test
   public void testIngestionRequestInputBytesRequiresIngestionEndpoint() {
     UsageMetricRegistry.MetricDefinition metric =
         new UsageMetricRegistry.MetricDefinition(
@@ -208,7 +204,6 @@ public class UsageMetricIncrementResolverTest {
             UsageMetricRegistry.MergeKind.ADDITIVE,
             null,
             com.linkedin.metadata.usage.registry.metrics.ValueUnit.INPUT_BYTES,
-            false,
             UsageMetricRegistry.EmitWhen.INGESTION_REQUEST);
     UsageOperationsRegistry ossOps =
         UsageOperationsRegistry.loadOssOnly(new UsageOperationsLoader(yamlMapper()));

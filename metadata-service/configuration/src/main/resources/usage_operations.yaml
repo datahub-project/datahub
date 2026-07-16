@@ -11,7 +11,7 @@ usage_operations:
     description: >
       Entity, aspect, relationship, and Iceberg catalog reads — single/batch get,
       exists, versioned batch get, single-aspect GET, relationship graph reads,
-      Iceberg namespace/table/view GET (including /iceberg and billable
+      Iceberg namespace/table/view GET (including /iceberg and
       /public-iceberg/v1 public read), dataHubFile download (GET /openapi/v1/files,
       presigned redirect), and async-write trace polling (POST
       /openapi/v1/trace/write/{traceId}) (OpenAPI, Rest.li, GraphQL).
@@ -160,8 +160,8 @@ usage_operations:
     description: >
       Zero-cost reads — entity/lineage registry, schema registry GET/HEAD,
       auth session introspection (POST /auth/getSsoSettings, POST
-      /auth/verifyNativeUserCredentials), OAuth client GET (/auth/oauth2/clients), usage
-      credits query, system info / configuration introspection, rate limit
+      /auth/verifyNativeUserCredentials), OAuth client GET (/auth/oauth2/clients),
+      system info / configuration introspection, rate limit
       status, identity debug (GET /openapi/operations/identity/user/urn), internal
       messaging queue lag/transport GETs (/openapi/operations/messaging), ingestion
       run list/describe (Rest.li BatchIngestionRunResource), Kubernetes GET
@@ -195,8 +195,8 @@ usage_operations:
       /auth/signUp, /auth/resetNativeUserCredentials, /auth/generateSessionTokenForUser),
       OAuth client POST/DELETE and DCR registration
       token (/auth/oauth2/clients, /auth/oauth2/registration-token), product analytics
-      tracking (POST /openapi/v1/tracking/track and POST /auth/track), internal usage
-      fan-in endpoint, Elasticsearch index config mutations (POST
+      tracking (POST /openapi/v1/tracking/track and POST /auth/track), Elasticsearch index
+      config mutations (POST
       /openapi/operations/elasticSearch/incrementalReindex/*/dualWrite/disable), AI
       conversation create/update/delete and streaming chat (OpenAPI
       DataHubAiConversationController, GraphQL ai.graphql; bytes omitted v1), and GraphQL
@@ -260,7 +260,11 @@ usage_operations:
         - revokeAccessToken
 
   mcp_query:
-    description: MCP request reported by integrations-service usage fan-in API.
+    description: >
+      Model Context Protocol server request (RequestAPI.MCP), reported into usage
+      aggregation via recordReportedUsage. Distinct from metadata_ingest /
+      RequestAPI.MESSAGING (MetadataChangeProposal queue consumption).
+    request_apis: [mcp]
     activity_class: read
     default_cost_units: 1
     ingestion_endpoint: false

@@ -1,6 +1,4 @@
 {
-    "entityType.dataFlow": "Data Flow (Pipeline)",
-    "entityType.dataJob": "Data Job (Task)",
     "entityType.mlFeature": "ML Feature",
     "entityType.mlFeatureTable": "ML Feature Table",
     "entityType.mlModelGroup": "ML-modellcsoport",
