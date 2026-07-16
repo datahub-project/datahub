@@ -25,8 +25,6 @@ export class DatasetPage extends BasePage {
   readonly tagTermInput: Locator;
   readonly addTagFromModalButton: Locator;
   readonly tagUnassignConfirmButton: Locator;
-  readonly tagAddedToast: Locator;
-  readonly tagRemovedToast: Locator;
 
   // ── Close ─────────────────────────────────────────────────────────────────
   readonly modalCloseButton: Locator;
@@ -38,8 +36,6 @@ export class DatasetPage extends BasePage {
   readonly ownerDropdownSearchInput: Locator;
   readonly addOwnersSelectDropdown: Locator;
   readonly ownersDoneButton: Locator;
-  readonly ownersAddedToast: Locator;
-  readonly ownerRemovedToast: Locator;
   readonly ownerRemoveConfirmButton: Locator;
 
   // ── Business Attribute ────────────────────────────────────────────────────
@@ -77,8 +73,6 @@ export class DatasetPage extends BasePage {
     this.tagTermInput = page.getByTestId('dropdown-search-input');
     this.addTagFromModalButton = page.getByTestId('add-tag-term-from-modal-btn');
     this.tagUnassignConfirmButton = page.getByTestId('modal-confirm-button');
-    this.tagAddedToast = page.getByText('Added Tags!');
-    this.tagRemovedToast = page.getByText('Removed Tag!');
 
     this.modalCloseButton = page.getByRole('button', { name: 'Close' });
 
@@ -88,8 +82,6 @@ export class DatasetPage extends BasePage {
     this.ownerDropdownSearchInput = page.getByTestId('dropdown-search-input');
     this.addOwnersSelectDropdown = page.getByTestId('add-owners-select-dropdown');
     this.ownersDoneButton = page.getByRole('dialog').getByText('Done');
-    this.ownersAddedToast = page.getByText('Owners Added');
-    this.ownerRemovedToast = page.getByText('Owner Removed');
     this.ownerRemoveConfirmButton = page.getByRole('dialog').getByText('Yes');
 
     this.businessAttributeSection = page.getByTestId('sidebar-section-content-Business Attribute');
@@ -307,7 +299,7 @@ export class DatasetPage extends BasePage {
     await this.page.getByRole('listbox').locator('..').getByText(ownerType).click();
     await expect(this.page.getByRole('dialog').getByText(ownerType)).toBeVisible();
     await this.ownersDoneButton.click();
-    await expect(this.ownersAddedToast).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Owners Added', { timeout: 15000 });
     await expect(this.page.getByText(ownerType)).toBeVisible();
     await expect(this.page.getByText(owner)).toBeVisible();
   }
@@ -318,7 +310,7 @@ export class DatasetPage extends BasePage {
     // eslint-disable-next-line playwright/no-raw-locators -- dynamic href/id selector passed from test; no semantic equivalent
     await this.page.locator(elementId).locator('xpath=following-sibling::*[1]').click();
     await this.ownerRemoveConfirmButton.click();
-    await expect(this.ownerRemovedToast).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Owner Removed', { timeout: 15000 });
     await expect(this.page.getByText(owner)).not.toBeVisible({ timeout: 10000 });
   }
 
@@ -351,7 +343,7 @@ export class DatasetPage extends BasePage {
     await expect(this.addTagFromModalButton).toBeEnabled();
     await this.addTagFromModalButton.click();
 
-    await expect(this.tagAddedToast).toBeVisible();
+    await this.toast.expectVisible('Added Tags!');
   }
 
   async unassignTag(tagName: string): Promise<void> {
@@ -360,7 +352,7 @@ export class DatasetPage extends BasePage {
     await this.getTagRemoveIcon(tagName).click();
     await expect(this.tagUnassignConfirmButton).toBeVisible();
     await this.tagUnassignConfirmButton.click();
-    await expect(this.tagRemovedToast).toBeVisible();
+    await this.toast.expectVisible('Removed Tag!');
   }
 
   async expectTagAssigned(tagName: string): Promise<void> {

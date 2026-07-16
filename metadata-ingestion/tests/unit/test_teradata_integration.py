@@ -102,6 +102,9 @@ class TestEndToEndWorkflow:
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
         ) as mock_aggregator_class:
             mock_aggregator = MagicMock()
+            # The source registers the aggregator via ExitStack.enter_context(), which
+            # returns __enter__()'s value; real Closeables return self, so mirror that.
+            mock_aggregator.__enter__.return_value = mock_aggregator
             mock_aggregator_class.return_value = mock_aggregator
 
             with patch(
@@ -619,6 +622,9 @@ class TestResourceManagement:
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
         ) as mock_aggregator_class:
             mock_aggregator = MagicMock()
+            # The source registers the aggregator via ExitStack.enter_context(), which
+            # returns __enter__()'s value; real Closeables return self, so mirror that.
+            mock_aggregator.__enter__.return_value = mock_aggregator
             mock_aggregator_class.return_value = mock_aggregator
 
             with patch(
@@ -635,8 +641,9 @@ class TestResourceManagement:
             ):
                 source.close()
 
-                # Should close aggregator
-                mock_aggregator.close.assert_called_once()
+                # close() unwinds the ExitStack, which exits the aggregator's context
+                # manager; a real Closeable.__exit__ calls close().
+                mock_aggregator.__exit__.assert_called_once()
 
     def test_connection_cleanup_in_error_scenarios(self):
         """Test that connections are cleaned up even when errors occur."""

@@ -22,7 +22,10 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    FIELD_TYPE_MAPPING,
+    Column,
     PowerBIDataset,
+    Table,
     Tile,
     Workspace,
     new_powerbi_dashboards,
@@ -32,6 +35,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     new_powerbi_user,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 
 def _mock_msal_cca(*args, **kwargs):
@@ -341,6 +345,100 @@ def test_fill_metadata_dataset_registry_accumulates_across_batches():
     )
 
 
+def test_dataset_registry_survives_eviction_round_trip():
+    """PowerBIDataset (nested avro Table/Column plus the circular Table.dataset
+    back-reference) must survive the pickle->SQLite->unpickle cycle the OOM fix
+    depends on. cache_max_size=1 forces eviction so the disk path is exercised."""
+    registry: FileBackedDict[PowerBIDataset] = FileBackedDict(cache_max_size=1)
+    try:
+        for i in range(3):
+            dataset = PowerBIDataset(
+                id=f"ds-{i}",
+                name=f"n{i}",
+                description="",
+                webUrl=None,
+                workspace_id="w",
+                workspace_name="wn",
+                parameters={},
+                tables=[],
+                tags=[],
+            )
+            table = Table(
+                name="t",
+                full_name="n.t",
+                columns=[
+                    Column(
+                        name="c",
+                        dataType="Int64",
+                        isHidden=False,
+                        datahubDataType=FIELD_TYPE_MAPPING["Int64"],
+                    )
+                ],
+                measures=[],
+                dataset=dataset,  # circular ref back to the parent dataset
+            )
+            dataset.tables.append(table)
+            registry[dataset.id] = dataset
+
+        restored = registry["ds-0"]
+        assert restored.id == "ds-0"
+        columns = restored.tables[0].columns
+        assert columns is not None
+        assert columns[0].datahubDataType.__class__.__name__ == "NumberTypeClass"
+        # The circular reference must survive as an identity, not a copy.
+        assert restored.tables[0].dataset is restored
+        assert set(registry.keys()) == {"ds-0", "ds-1", "ds-2"}
+    finally:
+        registry.close()
+
+
+def test_workspace_survives_eviction_round_trip():
+    """The workspaces dict is the dominant memory consumer; a Workspace carries
+    the raw scan_result plus nested PowerBIDataset objects with circular
+    Table.dataset refs. All of it must survive the pickle->SQLite->unpickle
+    cycle. cache_max_size=1 forces eviction so the disk path is exercised."""
+    with FileBackedDict[Workspace](cache_max_size=1) as workspaces:
+        for i in range(3):
+            ws = _make_workspace(f"WS-{i}", name=f"ws-{i}")
+            ws.scan_result = {"id": f"WS-{i}", "datasets": [{"id": f"ds-{i}"}]}
+            dataset = PowerBIDataset(
+                id=f"ds-{i}",
+                name=f"n{i}",
+                description="",
+                webUrl=None,
+                workspace_id=f"WS-{i}",
+                workspace_name=f"ws-{i}",
+                parameters={},
+                tables=[],
+                tags=[],
+            )
+            table = Table(
+                name="t",
+                full_name="n.t",
+                columns=[
+                    Column(
+                        name="c",
+                        dataType="Int64",
+                        isHidden=False,
+                        datahubDataType=FIELD_TYPE_MAPPING["Int64"],
+                    )
+                ],
+                measures=[],
+                dataset=dataset,
+            )
+            dataset.tables.append(table)
+            ws.datasets = {dataset.id: dataset}
+            workspaces[ws.id] = ws
+
+        restored = workspaces["WS-0"]
+        assert restored.name == "ws-0"
+        assert restored.scan_result == {"id": "WS-0", "datasets": [{"id": "ds-0"}]}
+        ds = restored.datasets["ds-0"]
+        # Circular ref preserved within the unpickled dataset graph.
+        assert ds.tables[0].dataset is ds
+        assert set(workspaces.keys()) == {"WS-0", "WS-1", "WS-2"}
+
+
 def test_fill_metadata_handles_active_scan_entry_without_id():
     """Defensive: if the scan API returns an Active workspace entry missing
     the id field (malformed response), the loop must not raise KeyError —
@@ -538,6 +636,44 @@ def test_get_workunits_internal_batches_phase_1_by_scan_batch_size():
     processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
     assert processed == ["WS-1", "WS-2", "WS-4"], (
         f"Excluded IDs from any batch must be skipped in Phase 2; got {processed}"
+    )
+
+
+def test_get_workunits_internal_phase1_mutations_survive_eviction():
+    """Phase 1 mutates each workspace's scan_result in place, and the write-back
+    to the file-backed dict is what makes those mutations visible in Phase 2
+    once an entry has been evicted and reloaded from disk. With 15 workspaces
+    the cache (~10 entries) evicts the earliest ones, so this regresses if the
+    write-back loop is dropped: Phase 2 would then read the stale pre-scan copy."""
+    workspaces = [_make_workspace(f"WS-{i}") for i in range(15)]
+    source = _make_source(
+        workspaces_to_return=workspaces,
+        excluded_ids=set(),
+        scan_batch_size=1,
+    )
+
+    def _mutate_scan(batch: List[Workspace]) -> Set[str]:
+        for ws in batch:
+            ws.scan_result = {"mutated": ws.id}
+        return set()
+
+    source.powerbi_client.fill_metadata_from_scan_result = mock.MagicMock(  # type: ignore[method-assign]
+        side_effect=_mutate_scan
+    )
+
+    observed: Dict[str, Any] = {}
+
+    def _record(workspace: Workspace) -> None:
+        observed[workspace.id] = workspace.scan_result
+
+    source.powerbi_client.fill_regular_metadata_detail = mock.MagicMock(  # type: ignore[method-assign]
+        side_effect=_record
+    )
+
+    list(source.get_workunits_internal())
+
+    assert observed == {f"WS-{i}": {"mutated": f"WS-{i}"} for i in range(15)}, (
+        "Phase 1 scan_result mutations must survive eviction and be visible in Phase 2"
     )
 
 

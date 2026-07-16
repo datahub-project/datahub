@@ -63,3 +63,7 @@ Note that these utilities are not officially part of the DataHub SDK and hence d
 - We sometimes trip over BigQuery queries that use the `_partitiontime` and `_partitiondate` pseudo-columns with a table name prefix e.g. `my_table._partitiontime` fails. However, unqualified references like `_partitiontime` and `_partitiondate` will be fine.
 - We do not consider columns referenced in filtering or organizational clauses such as `WHERE`, `GROUP BY`, `ORDER BY`, `JOIN`, `HAVING`, or `PARTITION BY` to be part of lineage. For example, `SELECT col1, col2 FROM upstream_table WHERE col3 = 3` will not generate any lineage related to `col3`.
 - We generally only analyze static table references. For example, this Snowflake query will not generate any lineage: `SELECT * FROM identifier('my_db.my_schema.my_table')`, since the `identifier` function is resolved at SQL runtime.
+
+### Disabling the native sqlglot extensions
+
+By default DataHub ships sqlglot with its mypyc-compiled C extensions (`sqlglot[c]`) for faster parsing. If you hit memory or stability issues that you suspect are caused by these compiled extensions, set `DATAHUB_SQLGLOT_DISABLE_C=1` to force sqlglot to load its pure-Python implementation instead. This is applied per process and takes effect without changing any installed packages; DataHub logs a warning when the toggle is active so it's visible in your logs.
