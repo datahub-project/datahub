@@ -91,6 +91,26 @@ import {
     CSV_WRITE_SEMANTICS,
 } from '@app/ingestV2/source/builder/RecipeForm/csv';
 import {
+    DATAPLEX_CLIENT_EMAIL,
+    DATAPLEX_CLIENT_ID,
+    DATAPLEX_ENTRIES_LOCATIONS,
+    DATAPLEX_ENTRY_ALLOW,
+    DATAPLEX_ENTRY_DENY,
+    DATAPLEX_ENTRY_GROUP_ALLOW,
+    DATAPLEX_ENTRY_GROUP_DENY,
+    DATAPLEX_GLOSSARY_LOCATIONS,
+    DATAPLEX_INCLUDE_GLOSSARIES,
+    DATAPLEX_INCLUDE_GLOSSARY_TERM_ASSOCIATIONS,
+    DATAPLEX_INCLUDE_LINEAGE,
+    DATAPLEX_INCLUDE_SCHEMA,
+    DATAPLEX_LINEAGE_LOCATIONS,
+    DATAPLEX_PRIVATE_KEY,
+    DATAPLEX_PRIVATE_KEY_ID,
+    DATAPLEX_PROJECT_ALLOW,
+    DATAPLEX_PROJECT_DENY,
+    DATAPLEX_PROJECT_IDS,
+} from '@app/ingestV2/source/builder/RecipeForm/dataplex';
+import {
     DBT_CLOUD_ACCOUNT_ID,
     DBT_CLOUD_JOB_ID,
     DBT_CLOUD_PROJECT_ID,
@@ -432,6 +452,7 @@ import {
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { DATAPLEX } from '@app/ingestV2/source/conf/dataplex/dataplex';
 import { HEX } from '@app/ingestV2/source/conf/hex/hex';
 import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
 import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
@@ -520,6 +541,35 @@ export const RECIPE_FIELDS: RecipeFields = {
             VIEW_DENY,
         ],
         filterSectionTooltip: 'Include or exclude specific Projects, Datasets, Tables and Views from ingestion.',
+    },
+    [DATAPLEX]: {
+        fields: [
+            DATAPLEX_PROJECT_IDS,
+            DATAPLEX_PRIVATE_KEY,
+            DATAPLEX_PRIVATE_KEY_ID,
+            DATAPLEX_CLIENT_EMAIL,
+            DATAPLEX_CLIENT_ID,
+        ],
+        filterFields: [
+            DATAPLEX_PROJECT_ALLOW,
+            DATAPLEX_PROJECT_DENY,
+            DATAPLEX_ENTRY_ALLOW,
+            DATAPLEX_ENTRY_DENY,
+            DATAPLEX_ENTRY_GROUP_ALLOW,
+            DATAPLEX_ENTRY_GROUP_DENY,
+        ],
+        advancedFields: [
+            DATAPLEX_ENTRIES_LOCATIONS,
+            DATAPLEX_INCLUDE_SCHEMA,
+            DATAPLEX_INCLUDE_LINEAGE,
+            DATAPLEX_INCLUDE_GLOSSARIES,
+            DATAPLEX_INCLUDE_GLOSSARY_TERM_ASSOCIATIONS,
+            DATAPLEX_LINEAGE_LOCATIONS,
+            DATAPLEX_GLOSSARY_LOCATIONS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip:
+            'Include or exclude specific Projects, Entries, and Entry Groups from ingestion.',
     },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
