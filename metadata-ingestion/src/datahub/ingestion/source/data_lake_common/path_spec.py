@@ -150,11 +150,11 @@ class PathSpec(ConfigModel):
 
     emit_folders_only: bool = Field(
         False,
-        description="If set, this path_spec emits folder Containers only, down to the "
-        "depth defined by the wildcards in `include`, and never scans or ingests files "
-        "as datasets. Use to catalog storage paths (e.g. unstructured media) without "
-        "reading file content. `include` must end at a folder and must not contain "
-        "`{table}` or `**`.",
+        description="If set, this path_spec emits folder Containers only and does not scan "
+        "or ingest any files as datasets. Folder depth is set by the number of wildcard "
+        "levels in `include` (e.g. `.../*/` catalogs folders one level deep, `.../*/*/` two "
+        "levels deep). Use to catalog storage paths (e.g. unstructured media) without reading "
+        "file content. `include` must end at a folder and must not contain `{table}` or `**`.",
     )
 
     def is_path_hidden(self, path: str) -> bool:
