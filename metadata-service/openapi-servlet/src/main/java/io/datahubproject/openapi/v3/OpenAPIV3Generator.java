@@ -2282,8 +2282,7 @@ public class OpenAPIV3Generator {
       String memberType = member.getType().getUnionMemberKey();
       Schema<?> memberSchema = newSchema().type(TYPE_OBJECT).additionalProperties(false);
       if ("double".equals(memberType)) {
-        memberSchema.addProperty(
-            memberType, newSchema().type("number").format("double"));
+        memberSchema.addProperty(memberType, newSchema().type("number").format("double"));
       } else {
         memberSchema.addProperty(memberType, newSchema().type(memberType));
       }

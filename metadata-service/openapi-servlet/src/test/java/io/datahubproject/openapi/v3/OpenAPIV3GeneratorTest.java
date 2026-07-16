@@ -812,8 +812,7 @@ public class OpenAPIV3GeneratorTest {
 
   @Test
   public void testStructuredPropertyValueAssignmentUnionType() {
-    Schema schema =
-        openAPI.getComponents().getSchemas().get("StructuredPropertyValueAssignment");
+    Schema schema = openAPI.getComponents().getSchemas().get("StructuredPropertyValueAssignment");
     assertNotNull(schema, "StructuredPropertyValueAssignment schema must exist");
 
     Map<String, Schema> properties = schema.getProperties();
