@@ -1263,6 +1263,98 @@ public class PolicyEngineTest {
   }
 
   @Test
+  public void testEvaluatePolicyResourceFilterResourceUrnNotEqualsMatch() throws Exception {
+    // Resource-filter NOT_EQUALS (the "Exclude" resource condition): the policy
+    // applies to every resource except the excluded URN. A resource whose URN is
+    // not the excluded one must match.
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    PolicyMatchCriterion policyMatchCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList("urn:li:dataset:other"),
+            PolicyMatchCondition.NOT_EQUALS);
+
+    resourceFilter.setFilter(
+        new PolicyMatchFilter()
+            .setCriteria(
+                new PolicyMatchCriterionArray(Collections.singleton(policyMatchCriterion))));
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+    assertTrue(result.isGranted());
+
+    // Verify no network calls
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testEvaluatePolicyResourceFilterResourceUrnNotEqualsNoMatch() throws Exception {
+    // The excluded URN itself must not match a NOT_EQUALS resource filter.
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    PolicyMatchCriterion policyMatchCriterion =
+        FilterUtils.newCriterion(
+            EntityFieldType.URN,
+            Collections.singletonList(RESOURCE_URN),
+            PolicyMatchCondition.NOT_EQUALS);
+
+    resourceFilter.setFilter(
+        new PolicyMatchFilter()
+            .setCriteria(
+                new PolicyMatchCriterionArray(Collections.singleton(policyMatchCriterion))));
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+    assertFalse(result.isGranted());
+
+    // Verify no network calls
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
+  }
+
+  @Test
   public void testEvaluatePolicyResourceFilterSpecificResourceMatchDomain() throws Exception {
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
     dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
@@ -2458,13 +2550,30 @@ public class PolicyEngineTest {
     final DataHubActorFilter actorFilter = new DataHubActorFilter();
     actorFilter.setAllUsers(true);
     actorFilter.setAllGroups(false);
-    actorFilter.setExcludedUsers(
-        new UrnArray(ImmutableList.of(Urn.createFromString(AUTHORIZED_PRINCIPAL))));
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
     resourceFilter.setAllResources(true);
     dataHubPolicyInfo.setResources(resourceFilter);
+
+    // A matching resource so the actor filter is the deciding factor.
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Positive control: without the exclusion, the all-users policy grants access.
+    PolicyEngine.PolicyEvaluationResult baseline =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+    assertTrue(baseline.isGranted());
+
+    // Excluding the actor by URN removes the grant.
+    actorFilter.setExcludedUsers(
+        new UrnArray(ImmutableList.of(Urn.createFromString(AUTHORIZED_PRINCIPAL))));
+    dataHubPolicyInfo.setActors(actorFilter);
 
     PolicyEngine.PolicyEvaluationResult result =
         _policyEngine.evaluatePolicy(
@@ -2472,7 +2581,7 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.empty(),
+            Optional.of(resourceSpec),
             Collections.emptyList());
     assertFalse(result.isGranted());
   }
@@ -2490,13 +2599,31 @@ public class PolicyEngineTest {
     final DataHubActorFilter actorFilter = new DataHubActorFilter();
     actorFilter.setAllUsers(false);
     actorFilter.setAllGroups(true);
-    actorFilter.setExcludedGroups(
-        new UrnArray(ImmutableList.of(Urn.createFromString(AUTHORIZED_GROUP))));
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
     resourceFilter.setAllResources(true);
     dataHubPolicyInfo.setResources(resourceFilter);
+
+    // A matching resource so the actor filter is the deciding factor.
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Positive control: the actor is a member of AUTHORIZED_GROUP, so the
+    // all-groups policy grants access before the exclusion is applied.
+    PolicyEngine.PolicyEvaluationResult baseline =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+    assertTrue(baseline.isGranted());
+
+    // Excluding the actor's group removes the grant.
+    actorFilter.setExcludedGroups(
+        new UrnArray(ImmutableList.of(Urn.createFromString(AUTHORIZED_GROUP))));
+    dataHubPolicyInfo.setActors(actorFilter);
 
     PolicyEngine.PolicyEvaluationResult result =
         _policyEngine.evaluatePolicy(
@@ -2504,7 +2631,7 @@ public class PolicyEngineTest {
             dataHubPolicyInfo,
             resolvedAuthorizedUserSpec,
             "EDIT_ENTITY_TAGS",
-            Optional.empty(),
+            Optional.of(resourceSpec),
             Collections.emptyList());
     assertFalse(result.isGranted());
   }
@@ -2524,8 +2651,6 @@ public class PolicyEngineTest {
     actorFilter.setAllUsers(false);
     actorFilter.setAllGroups(false);
     actorFilter.setResourceOwnersTypes(
-        new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
-    actorFilter.setExcludedResourceOwnersTypes(
         new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
     dataHubPolicyInfo.setActors(actorFilter);
 
@@ -2557,6 +2682,23 @@ public class PolicyEngineTest {
             Collections.emptySet(),
             Collections.emptySet(),
             Collections.emptySet());
+
+    // Positive control: the actor owns the resource under OWNERSHIP_TYPE_URN, so
+    // the owner policy grants access before the ownership-type exclusion applies.
+    PolicyEngine.PolicyEvaluationResult baseline =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList());
+    assertTrue(baseline.isGranted());
+
+    // Excluding that ownership type removes the grant.
+    actorFilter.setExcludedResourceOwnersTypes(
+        new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
+    dataHubPolicyInfo.setActors(actorFilter);
 
     PolicyEngine.PolicyEvaluationResult result =
         _policyEngine.evaluatePolicy(

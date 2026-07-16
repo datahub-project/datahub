@@ -318,23 +318,16 @@ public class PolicyEngine {
       final Optional<ResolvedEntitySpec> resourceSpec,
       final PolicyEvaluationContext context) {
 
-    if (isUserMatch(resolvedActorSpec, actorFilter)) {
-      return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
-    }
+    // A policy applies to an actor if they match any positive criterion (user,
+    // group, owner, or role) AND are not explicitly excluded. Exclusion always
+    // wins over an inclusion match.
+    final boolean positiveMatch =
+        isUserMatch(resolvedActorSpec, actorFilter)
+            || isGroupMatch(resolvedActorSpec, actorFilter, context)
+            || isOwnerMatch(opContext, resolvedActorSpec, actorFilter, resourceSpec, context)
+            || isRoleMatch(opContext, resolvedActorSpec, actorFilter, context);
 
-    if (isGroupMatch(resolvedActorSpec, actorFilter, context)) {
-      return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
-    }
-
-    if (isOwnerMatch(opContext, resolvedActorSpec, actorFilter, resourceSpec, context)) {
-      return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
-    }
-
-    if (isRoleMatch(opContext, resolvedActorSpec, actorFilter, context)) {
-      return !isExcludedMatch(resolvedActorSpec, actorFilter, context);
-    }
-
-    return false;
+    return positiveMatch && !isExcludedMatch(resolvedActorSpec, actorFilter, context);
   }
 
   private boolean isExcludedMatch(

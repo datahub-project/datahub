@@ -436,7 +436,9 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                             <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                         ))}
                         {userCondition === 'include' && (
-                            <Select.Option value={ALL_ACTORS_VALUE}>{t('allUsers')}</Select.Option>
+                            <Select.Option data-testid="option-all-users" value={ALL_ACTORS_VALUE}>
+                                {t('allUsers')}
+                            </Select.Option>
                         )}
                     </Select>
                 </SelectRow>
@@ -475,7 +477,9 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                             <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                         ))}
                         {groupCondition === 'include' && (
-                            <Select.Option value={ALL_ACTORS_VALUE}>{t('allGroups')}</Select.Option>
+                            <Select.Option data-testid="option-all-groups" value={ALL_ACTORS_VALUE}>
+                                {t('allGroups')}
+                            </Select.Option>
                         )}
                     </Select>
                 </SelectRow>
