@@ -109,6 +109,16 @@ export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ig
     overflow: 'auto',
     width: '100%',
     maxHeight: ignoreMaxHeight ? undefined : '360px',
+    // Force a persistent scrollbar so overflowing options (e.g. the language list)
+    // are discoverable; WebKit overlay scrollbars otherwise auto-hide on macOS.
+    '&::-webkit-scrollbar': {
+        width: '6px',
+        background: theme?.colors?.scrollbarTrack,
+    },
+    '&::-webkit-scrollbar-thumb': {
+        background: theme?.colors?.scrollbarThumb,
+        borderRadius: radius.lg,
+    },
 }));
 
 // Styled components for SelectValue (Selected value display)
@@ -181,11 +191,12 @@ export const OptionLabel = styled.label<{
     ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, applyHoverWidth, theme),
 }));
 
-export const SelectLabel = styled.label({
+export const SelectLabel = styled.label(({ theme }) => ({
     ...formLabelTextStyles,
+    color: theme.colors.text,
     marginBottom: spacing.xxsm,
     textAlign: 'left',
-});
+}));
 
 export const StyledIcon = styled(Icon)(({ theme }) => ({
     flexShrink: 0,

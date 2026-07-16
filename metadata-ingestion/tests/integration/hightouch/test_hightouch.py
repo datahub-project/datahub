@@ -48,6 +48,12 @@ def get_mock_api_responses():
                 "description": "Unified customer view from multiple sources",
                 "isSchema": False,
                 "tags": {"team": "growth", "priority": "high"},
+                "raw": {"sql": "SELECT customer_id, email, first_name FROM customers"},
+                "querySchema": [
+                    {"name": "customer_id", "type": "INTEGER"},
+                    {"name": "email", "type": "STRING"},
+                    {"name": "first_name", "type": "STRING"},
+                ],
             },
             {
                 "id": "model_2",
@@ -181,15 +187,15 @@ def test_hightouch_source_basic(pytestconfig, tmp_path):
         mock_api_instance = mock_api_class.return_value
 
         mock_api_instance._parse_model = lambda d: HightouchModel(**d) if d else None
-        mock_api_instance._parse_source = (
-            lambda d: HightouchSourceConnection(**d) if d else None
+        mock_api_instance._parse_source = lambda d: (
+            HightouchSourceConnection(**d) if d else None
         )
-        mock_api_instance._parse_destination = (
-            lambda d: HightouchDestination(**d) if d else None
+        mock_api_instance._parse_destination = lambda d: (
+            HightouchDestination(**d) if d else None
         )
         mock_api_instance._parse_sync = lambda d: HightouchSync(**d) if d else None
-        mock_api_instance._parse_sync_run = (
-            lambda d: HightouchSyncRun(**d) if d else None
+        mock_api_instance._parse_sync_run = lambda d: (
+            HightouchSyncRun(**d) if d else None
         )
 
         # NOW use the parsers to set return values
@@ -332,11 +338,11 @@ def test_hightouch_source_with_patterns(pytestconfig, tmp_path):
         mock_api_instance = mock_api_class.return_value
 
         mock_api_instance._parse_model = lambda d: HightouchModel(**d) if d else None
-        mock_api_instance._parse_source = (
-            lambda d: HightouchSourceConnection(**d) if d else None
+        mock_api_instance._parse_source = lambda d: (
+            HightouchSourceConnection(**d) if d else None
         )
-        mock_api_instance._parse_destination = (
-            lambda d: HightouchDestination(**d) if d else None
+        mock_api_instance._parse_destination = lambda d: (
+            HightouchDestination(**d) if d else None
         )
         mock_api_instance._parse_sync = lambda d: HightouchSync(**d) if d else None
 

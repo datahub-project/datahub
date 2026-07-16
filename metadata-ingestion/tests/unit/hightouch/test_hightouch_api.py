@@ -2,13 +2,18 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 import requests
+from requests.adapters import HTTPAdapter
 
-from datahub.ingestion.source.hightouch.config import HightouchAPIConfig
-from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
-from datahub.ingestion.source.hightouch.models import (
-    HightouchFieldMapping,
-    HightouchSync,
+from datahub.ingestion.source.hightouch.config import (
+    HightouchAPIConfig,
+    HightouchSourceReport,
 )
+from datahub.ingestion.source.hightouch.constants import (
+    HTTP_RETRY_MAX_ATTEMPTS,
+    HTTP_RETRY_STATUS_CODES,
+)
+from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
+from datahub.ingestion.source.hightouch.models import HightouchSync
 
 
 def test_api_client_initialization():
@@ -138,71 +143,6 @@ def test_extract_field_mappings_from_field_mappings():
     assert mappings[1].is_primary_key is False
 
 
-def test_extract_field_mappings_from_column_mappings():
-    sync = HightouchSync(
-        id="sync_1",
-        slug="test-sync",
-        workspace_id="workspace_1",
-        model_id="model_1",
-        destination_id="dest_1",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        configuration={
-            "mappings": [
-                {"from": "id", "to": "user_id"},
-                {"from": "email", "to": "user_email"},
-                {"from": "name", "to": "user_name"},
-            ]
-        },
-    )
-
-    config = HightouchAPIConfig(api_key="test")
-    client = HightouchAPIClient(config)
-
-    mappings = client.extract_field_mappings(sync)
-
-    assert len(mappings) == 3
-    assert any(
-        m.source_field == "id" and m.destination_field == "user_id" for m in mappings
-    )
-    assert any(
-        m.source_field == "email" and m.destination_field == "user_email"
-        for m in mappings
-    )
-    assert any(
-        m.source_field == "name" and m.destination_field == "user_name"
-        for m in mappings
-    )
-
-
-def test_extract_field_mappings_from_columns():
-    sync = HightouchSync(
-        id="sync_1",
-        slug="test-sync",
-        workspace_id="workspace_1",
-        model_id="model_1",
-        destination_id="dest_1",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        configuration={
-            "mappings": [
-                {"from": "user_id", "to": "UserId", "isPrimaryKey": True},
-                {"from": "email", "to": "Email"},
-            ]
-        },
-    )
-
-    config = HightouchAPIConfig(api_key="test")
-    client = HightouchAPIClient(config)
-
-    mappings = client.extract_field_mappings(sync)
-
-    assert len(mappings) == 2
-    assert mappings[0].source_field == "user_id"
-    assert mappings[0].destination_field == "UserId"
-    assert mappings[0].is_primary_key is True
-
-
 def test_extract_field_mappings_empty_configuration():
     sync = HightouchSync(
         id="sync_1",
@@ -240,32 +180,6 @@ def test_extract_field_mappings_no_configuration():
     mappings = client.extract_field_mappings(sync)
 
     assert len(mappings) == 0
-
-
-def test_extract_field_mappings_with_snake_case_keys():
-    sync = HightouchSync(
-        id="sync_1",
-        slug="test-sync",
-        workspace_id="workspace_1",
-        model_id="model_1",
-        destination_id="dest_1",
-        created_at=datetime(2023, 1, 1),
-        updated_at=datetime(2023, 1, 2),
-        configuration={
-            "mappings": [
-                {"from": "user_id", "to": "UserId"},
-            ]
-        },
-    )
-
-    config = HightouchAPIConfig(api_key="test")
-    client = HightouchAPIClient(config)
-
-    mappings = client.extract_field_mappings(sync)
-
-    assert len(mappings) == 1
-    assert mappings[0].source_field == "user_id"
-    assert mappings[0].destination_field == "UserId"
 
 
 def test_extract_field_mappings_skips_incomplete_mappings():
@@ -316,24 +230,33 @@ def test_get_contracts_404_handling(mock_request):
     assert contracts == []
 
 
-def test_field_mapping_model():
-    mapping = HightouchFieldMapping(
-        source_field="user_id",
-        destination_field="UserId",
-        is_primary_key=True,
-    )
+def test_session_retry_adapter_configured():
+    """The session mounts an HTTPAdapter whose Retry policy matches our constants.
+    Previous pagination tests patched Session.request and never touched the adapter,
+    so the retry wiring itself was untested."""
+    client = HightouchAPIClient(HightouchAPIConfig(api_key="test"))
 
-    assert mapping.source_field == "user_id"
-    assert mapping.destination_field == "UserId"
-    assert mapping.is_primary_key is True
+    adapter = client.session.get_adapter("https://api.hightouch.com/api/v1")
+    assert isinstance(adapter, HTTPAdapter)
+
+    retry = adapter.max_retries
+    assert retry.total == HTTP_RETRY_MAX_ATTEMPTS
+    assert list(retry.status_forcelist) == HTTP_RETRY_STATUS_CODES
 
 
-def test_field_mapping_model_defaults():
-    mapping = HightouchFieldMapping(
-        source_field="email",
-        destination_field="Email",
-    )
+def test_pagination_cap_truncates_and_warns(monkeypatch):
+    """When the API never reports hasMore=false, pagination stops at the page cap
+    and surfaces a truncation warning to the operator."""
+    from datahub.ingestion.source.hightouch import hightouch_api
 
-    assert mapping.source_field == "email"
-    assert mapping.destination_field == "Email"
-    assert mapping.is_primary_key is False
+    monkeypatch.setattr(hightouch_api, "API_PAGINATION_MAX_PAGES", 3)
+
+    report = HightouchSourceReport()
+    client = HightouchAPIClient(HightouchAPIConfig(api_key="test"), report)
+
+    full_page = {"data": [{"id": "1"}], "hasMore": True}
+    with patch.object(client, "_make_request", return_value=full_page):
+        results = client._make_paginated_request("/test")
+
+    assert len(results) == 3
+    assert len(report.warnings) >= 1

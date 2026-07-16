@@ -18,6 +18,18 @@ HTTP_RETRY_ALLOWED_METHODS = [HTTP_METHOD_GET]
 # API pagination configuration
 API_PAGINATION_DEFAULT_LIMIT = 100
 API_PAGINATION_INITIAL_OFFSET = 0
+# Safety cap on paginated requests. ponytail: a fixed page ceiling guards against
+# an API that never returns hasMore=false; raise it if a workspace legitimately
+# exceeds this many pages.
+API_PAGINATION_MAX_PAGES = 10_000
+
+# Model query types (Hightouch "queryType" field values)
+QUERY_TYPE_TABLE = "table"
+QUERY_TYPE_RAW_SQL = "raw_sql"
+
+# Keys read from a source connection's `configuration` blob
+SOURCE_CONFIG_KEY_DATABASE = "database"
+SOURCE_CONFIG_KEY_SCHEMA = "schema"
 
 # API response field names
 API_RESPONSE_FIELD_DATA = "data"

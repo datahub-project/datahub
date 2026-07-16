@@ -185,8 +185,8 @@ class TestHightouchLargeDatasets:
         mock_client_instance.get_source_by_id.side_effect = lambda sid: sources_map.get(
             sid
         )
-        mock_client_instance.get_destination_by_id.side_effect = (
-            lambda did: dests_map.get(did)
+        mock_client_instance.get_destination_by_id.side_effect = lambda did: (
+            dests_map.get(did)
         )
 
         with patch(

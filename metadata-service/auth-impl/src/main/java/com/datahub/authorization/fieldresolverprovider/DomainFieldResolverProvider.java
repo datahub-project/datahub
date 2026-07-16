@@ -7,28 +7,30 @@ import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.graph.cache.client.BoundHierarchyAccess;
+import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /** Provides field resolver for domain given entitySpec */
 @Slf4j
-@RequiredArgsConstructor
 public class DomainFieldResolverProvider implements EntityFieldResolverProvider {
 
   private final SystemEntityClient _entityClient;
+
+  public DomainFieldResolverProvider(SystemEntityClient entityClient) {
+    this._entityClient = entityClient;
+  }
 
   @Override
   public List<EntityFieldType> getFieldTypes() {
@@ -41,64 +43,6 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
     return FieldResolver.getResolverFromFunction(entitySpec, spec -> getDomains(opContext, spec));
   }
 
-  private Set<Urn> getBatchedParentDomains(
-      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> urns) {
-    final Set<Urn> parentUrns = new HashSet<>();
-
-    try {
-      final Map<Urn, EntityResponse> batchResponse =
-          _entityClient.batchGetV2(
-              opContext,
-              DOMAIN_ENTITY_NAME,
-              urns,
-              Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME));
-
-      batchResponse.forEach(
-          (urn, entityResponse) -> {
-            if (entityResponse.getAspects().containsKey(DOMAIN_PROPERTIES_ASPECT_NAME)) {
-              final DomainProperties properties =
-                  new DomainProperties(
-                      entityResponse
-                          .getAspects()
-                          .get(DOMAIN_PROPERTIES_ASPECT_NAME)
-                          .getValue()
-                          .data());
-              if (properties.hasParentDomain()) {
-                parentUrns.add(properties.getParentDomain());
-              }
-            }
-          });
-
-    } catch (Exception e) {
-      log.error(
-          "Error while retrieving parent domains for {} urns including \"{}\"",
-          urns.size(),
-          urns.stream().findFirst().map(Urn::toString).orElse(""),
-          e);
-    }
-
-    return parentUrns;
-  }
-
-  /**
-   * Given a set of initial domain URNs, recursively resolve all parent domains. Returns the initial
-   * domains plus all their ancestors in the domain hierarchy.
-   */
-  private Set<Urn> resolveDomainsWithParents(
-      @Nonnull OperationContext opContext, @Nonnull final Set<Urn> initialDomains) {
-    final Set<Urn> domainUrns = new HashSet<>(initialDomains);
-    Set<Urn> batchedParentUrns = getBatchedParentDomains(opContext, domainUrns);
-    batchedParentUrns.removeAll(domainUrns);
-
-    while (!batchedParentUrns.isEmpty()) {
-      domainUrns.addAll(batchedParentUrns);
-      batchedParentUrns = getBatchedParentDomains(opContext, batchedParentUrns);
-      batchedParentUrns.removeAll(domainUrns);
-    }
-
-    return domainUrns;
-  }
-
   private FieldResolver.FieldValue getDomains(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
 
@@ -109,17 +53,17 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
 
       final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
 
-      // In the case that the entity is a domain, the associated domain is the domain itself
-      // plus all parent domains
       if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
         final Set<Urn> domainsWithParents =
-            resolveDomainsWithParents(opContext, Collections.singleton(entityUrn));
+            BoundHierarchyAccess.expandAncestors(
+                opContext,
+                HierarchyBindings.domainSpec(opContext),
+                Collections.singleton(entityUrn));
         return FieldResolver.FieldValue.builder()
             .values(domainsWithParents.stream().map(Object::toString).collect(Collectors.toSet()))
             .build();
       }
 
-      // For non-domain entities, fetch the Domains aspect
       EntityResponse response =
           _entityClient.getV2(
               opContext,
@@ -134,8 +78,9 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
       final Set<Urn> initialDomains =
           new HashSet<>(new Domains(domainsAspect.getValue().data()).getDomains());
 
-      // Resolve all parent domains recursively
-      final Set<Urn> domainsWithParents = resolveDomainsWithParents(opContext, initialDomains);
+      final Set<Urn> domainsWithParents =
+          BoundHierarchyAccess.expandAncestors(
+              opContext, HierarchyBindings.domainSpec(opContext), initialDomains);
 
       return FieldResolver.FieldValue.builder()
           .values(domainsWithParents.stream().map(Object::toString).collect(Collectors.toSet()))

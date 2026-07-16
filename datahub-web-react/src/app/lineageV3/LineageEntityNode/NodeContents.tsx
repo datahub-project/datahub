@@ -480,7 +480,10 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     )}
                     {entity && (
                         <PropertyBadgeWrapper>
-                            <StructuredPropertyBadge structuredProperties={entity.structuredProperties} />
+                            <StructuredPropertyBadge
+                                structuredProperties={entity.structuredProperties}
+                                platformUrn={entity?.platform?.urn}
+                            />
                         </PropertyBadgeWrapper>
                     )}
                 </ColumnsWrapper>

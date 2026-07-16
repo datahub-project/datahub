@@ -1,21 +1,30 @@
 import logging
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Union
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.hightouch.config import (
+    HightouchSourceConfig,
     HightouchSourceReport,
-    PlatformDetail,
+)
+from datahub.ingestion.source.hightouch.constants import (
+    QUERY_TYPE_RAW_SQL,
+    QUERY_TYPE_TABLE,
 )
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
+from datahub.ingestion.source.hightouch.hightouch_utils import normalize_column_name
 from datahub.ingestion.source.hightouch.models import (
     HightouchColumnPair,
     HightouchDestinationLineageInfo,
     HightouchModel,
     HightouchSourceConnection,
     HightouchSync,
+)
+from datahub.ingestion.source.hightouch.protocols import (
+    GetAggregatorForPlatform,
+    GetPlatformForSource,
 )
 from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
 from datahub.metadata.schema_classes import (
@@ -34,14 +43,10 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 logger = logging.getLogger(__name__)
 
 
-def normalize_column_name(name: str) -> str:
-    """Normalize column name for fuzzy matching (lowercase, remove underscores/hyphens)."""
-    return name.lower().replace("_", "").replace("-", "")
-
-
 class HightouchLineageHandler:
     def __init__(
         self,
+        config: HightouchSourceConfig,
         api_client: HightouchAPIClient,
         report: HightouchSourceReport,
         urn_builder: HightouchUrnBuilder,
@@ -51,6 +56,7 @@ class HightouchLineageHandler:
         destination_lineage: Dict[str, HightouchDestinationLineageInfo],
         sql_aggregators: Dict[str, Optional[SqlParsingAggregator]],
     ) -> None:
+        self.config = config
         self.api_client = api_client
         self.report = report
         self.urn_builder = urn_builder
@@ -80,17 +86,8 @@ class HightouchLineageHandler:
 
         upstream_urn = None
 
-        if model.query_type == "table" and model.name:
-            table_name = model.name
-            if source.configuration:
-                database = source.configuration.get("database", "")
-                schema = source.configuration.get("schema", "")
-                source_details = self.urn_builder._get_cached_source_details(source)
-                if source_details.include_schema_in_urn and schema:
-                    table_name = f"{database}.{schema}.{table_name}"
-                elif database and "." not in table_name:
-                    table_name = f"{database}.{table_name}"
-
+        if model.query_type == QUERY_TYPE_TABLE and model.name:
+            table_name = self.urn_builder.qualified_table_name(model, source)
             upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
             if not upstream_urn:
                 return {}
@@ -201,12 +198,8 @@ class HightouchLineageHandler:
         model: HightouchModel,
         model_urn: str,
         source: HightouchSourceConnection,
-        get_platform_for_source_fn: Callable[
-            [HightouchSourceConnection], PlatformDetail
-        ],
-        get_aggregator_for_platform_fn: Callable[
-            [PlatformDetail], Optional[SqlParsingAggregator]
-        ],
+        get_platform_for_source_fn: GetPlatformForSource,
+        get_aggregator_for_platform_fn: GetAggregatorForPlatform,
     ) -> None:
         source_platform = get_platform_for_source_fn(source)
         if not source_platform.platform:
@@ -216,17 +209,8 @@ class HightouchLineageHandler:
         if not aggregator:
             return
 
-        if model.query_type == "table" and model.name:
-            table_name = model.name
-            if source.configuration:
-                database = source.configuration.get("database", "")
-                schema = source.configuration.get("schema", "")
-                source_details = self.urn_builder._get_cached_source_details(source)
-                if source_details.include_schema_in_urn and schema:
-                    table_name = f"{database}.{schema}.{table_name}"
-                elif database and "." not in table_name:
-                    table_name = f"{database}.{table_name}"
-
+        if model.query_type == QUERY_TYPE_TABLE and model.name:
+            table_name = self.urn_builder.qualified_table_name(model, source)
             upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
 
             try:
@@ -250,10 +234,12 @@ class HightouchLineageHandler:
                     f"Failed to register known lineage for model {model.id} (optional SQL parsing feature): {e}"
                 )
 
-        # For raw_sql models, register view definition for SQL parsing
+        # For raw_sql models, register view definition for SQL parsing (skipped when
+        # SQL parsing is disabled so no lineage is derived from the model's SQL).
         elif (
-            model.raw_sql
-            and model.query_type == "raw_sql"
+            self.config.parse_model_sql
+            and model.raw_sql
+            and model.query_type == QUERY_TYPE_RAW_SQL
             and hasattr(aggregator, "add_view_definition")
         ):
             self.report.sql_parsing_attempts += 1

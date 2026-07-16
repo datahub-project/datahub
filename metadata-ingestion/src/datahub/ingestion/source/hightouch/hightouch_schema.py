@@ -1,14 +1,27 @@
 import json
 import logging
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.hightouch.config import HightouchSourceReport
+from datahub.ingestion.source.hightouch.constants import (
+    QUERY_TYPE_RAW_SQL,
+    QUERY_TYPE_TABLE,
+)
 from datahub.ingestion.source.hightouch.models import (
     HightouchModel,
     HightouchSchemaField,
     HightouchSourceConnection,
     HightouchSync,
+)
+from datahub.ingestion.source.hightouch.protocols import (
+    ExtractTableUrns,
+    GetAggregatorForPlatform,
+    GetDestination,
+    GetModel,
+    GetOutletUrnForSync,
+    GetPlatformForSource,
+    GetSource,
 )
 from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
@@ -206,20 +219,8 @@ class HightouchSchemaHandler:
         try:
             upstream_urn = None
 
-            if model.query_type == "table" and model.name:
-                table_name = model.name
-
-                if source.configuration:
-                    database = source.configuration.get("database", "")
-                    schema = source.configuration.get("schema", "")
-
-                    source_details = self.urn_builder._get_cached_source_details(source)
-
-                    if source_details.include_schema_in_urn and schema:
-                        table_name = f"{database}.{schema}.{table_name}"
-                    elif database and "." not in table_name:
-                        table_name = f"{database}.{table_name}"
-
+            if model.query_type == QUERY_TYPE_TABLE and model.name:
+                table_name = self.urn_builder.qualified_table_name(model, source)
                 upstream_urn = self.urn_builder.make_upstream_table_urn(
                     table_name, source
                 )
@@ -296,25 +297,16 @@ class HightouchSchemaHandler:
         source: HightouchSourceConnection,
         aggregator: SqlParsingAggregator,
         registered_urns: Set[str],
-        extract_table_urns_fn: Callable,
+        extract_table_urns_fn: ExtractTableUrns,
     ) -> None:
-        if model.query_type == "table" and model.name:
-            table_name = model.name
-            if source.configuration:
-                database = source.configuration.get("database", "")
-                schema = source.configuration.get("schema", "")
-                source_details = self.urn_builder._get_cached_source_details(source)
-                if source_details.include_schema_in_urn and schema:
-                    table_name = f"{database}.{schema}.{table_name}"
-                elif database and "." not in table_name:
-                    table_name = f"{database}.{table_name}"
-
+        if model.query_type == QUERY_TYPE_TABLE and model.name:
+            table_name = self.urn_builder.qualified_table_name(model, source)
             upstream_urn = str(
                 self.urn_builder.make_upstream_table_urn(table_name, source)
             )
             self.fetch_and_register_schema(upstream_urn, aggregator, registered_urns)
 
-        if model.raw_sql and model.query_type == "raw_sql":
+        if model.raw_sql and model.query_type == QUERY_TYPE_RAW_SQL:
             sql_table_urns = extract_table_urns_fn(model, source)
             for table_urn in sql_table_urns:
                 self.fetch_and_register_schema(table_urn, aggregator, registered_urns)
@@ -323,12 +315,12 @@ class HightouchSchemaHandler:
         self,
         sync: HightouchSync,
         registered_urns: Set[str],
-        get_model: Callable,
-        get_source: Callable,
-        get_destination: Callable,
-        get_platform_for_source: Callable,
-        get_aggregator_for_platform: Callable,
-        get_outlet_urn_for_sync: Callable,
+        get_model: GetModel,
+        get_source: GetSource,
+        get_destination: GetDestination,
+        get_platform_for_source: GetPlatformForSource,
+        get_aggregator_for_platform: GetAggregatorForPlatform,
+        get_outlet_urn_for_sync: GetOutletUrnForSync,
     ) -> None:
         model = get_model(sync.model_id)
         if not model:
@@ -362,13 +354,13 @@ class HightouchSchemaHandler:
         models: List[HightouchModel],
         syncs: List[HightouchSync],
         registered_urns: Set[str],
-        get_source: Callable,
-        get_model: Callable,
-        get_destination: Callable,
-        get_platform_for_source: Callable,
-        get_aggregator_for_platform: Callable,
-        extract_table_urns_fn: Callable,
-        get_outlet_urn_for_sync: Callable,
+        get_source: GetSource,
+        get_model: GetModel,
+        get_destination: GetDestination,
+        get_platform_for_source: GetPlatformForSource,
+        get_aggregator_for_platform: GetAggregatorForPlatform,
+        extract_table_urns_fn: ExtractTableUrns,
+        get_outlet_urn_for_sync: GetOutletUrnForSync,
     ) -> None:
         if not self.graph:
             return

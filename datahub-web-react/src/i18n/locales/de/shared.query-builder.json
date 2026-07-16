@@ -1,4 +1,7 @@
 {
+    "entityType.mlFeature": "ML Feature",
+    "entityType.mlFeatureTable": "ML Feature Table",
+    "entityType.mlModelGroup": "ML-Modellgruppe",
     "group.addCondition": "Bedingung hinzufügen",
     "group.addGroup": "Gruppe hinzufügen",
     "group.allLabel": "Alle",

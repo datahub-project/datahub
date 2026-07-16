@@ -35,9 +35,11 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.confluence.confluence_config import ConfluenceSourceConfig
 from datahub.ingestion.source.confluence.confluence_hierarchy import (
     ConfluenceHierarchyExtractor,
+    FolderNode,
 )
 from datahub.ingestion.source.confluence.confluence_html import html_storage_to_markdown
 from datahub.ingestion.source.confluence.confluence_report import ConfluenceSourceReport
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -58,6 +60,10 @@ logger = logging.getLogger(__name__)
 # conversion, macro stripping, text normalization) to force re-ingestion of
 # all pages on the next run regardless of whether the raw Confluence body changed.
 EXTRACTION_ALGO_VERSION = "2"
+
+# Subtype applied to documents that represent Confluence folders, matching the
+# value DataHub uses for natively-created folders.
+FOLDER_SUBTYPE = "Folder"
 
 
 @platform_name("Confluence")
@@ -425,27 +431,28 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
         return True
 
-    def _is_page_allowed(self, page_id: str) -> bool:
+    def _is_page_denied(self, page_id: str) -> bool:
         """
-        Check if page is allowed by pages.allow/pages.deny lists.
+        Check if a page is explicitly excluded by the pages.deny list.
+
+        pages.allow is intentionally NOT consulted here. It is a list of *root*
+        pages that seed the crawl (see _get_pages_from_page_allow); when
+        recursive=true the crawler walks the descendants of those roots, so
+        every page that reaches this point is in scope by construction.
+        Re-checking membership in pages.allow at emission time would drop those
+        legitimately-discovered child pages and silently defeat recursive
+        ingestion (only the seed/root pages would survive).
 
         Args:
             page_id: Confluence page ID
 
         Returns:
-            True if page should be ingested, False otherwise
+            True if the page is denied and should be skipped, False otherwise
         """
-        # If pages.allow is specified, page must be in the list
-        if self.config._parsed_page_allow is not None:
-            if page_id not in self.config._parsed_page_allow:
-                return False
-
-        # If pages.deny is specified, page must NOT be in the list
         if self.config._parsed_page_deny is not None:
-            if page_id in self.config._parsed_page_deny:
-                return False
+            return page_id in self.config._parsed_page_deny
 
-        return True
+        return False
 
     def _get_spaces(self) -> List[str]:
         """
@@ -768,6 +775,137 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             parent_id, platform=self.platform, instance_id=instance_id
         )
 
+    def _build_imported_document(
+        self,
+        doc_id: str,
+        title: str,
+        text: str,
+        url: str,
+        page_id: str,
+        custom_properties: Dict[str, str],
+        parent_urn: Optional[str],
+        created_time: Any,
+        last_modified_time: Any,
+    ) -> Document:
+        if self.config.document_import_mode == DocumentImportMode.NATIVE:
+            return Document.create_document(
+                id=doc_id,
+                title=title,
+                text=text,
+                status=DocumentStateClass.PUBLISHED,
+                custom_properties=custom_properties,
+                parent_document=parent_urn,
+                created_time=created_time,
+                last_modified_time=last_modified_time,
+            )
+
+        return Document.create_external_document(
+            id=doc_id,
+            title=title,
+            platform=self.platform,
+            external_url=url,
+            external_id=page_id,
+            text=text,
+            status=DocumentStateClass.PUBLISHED,
+            custom_properties=custom_properties,
+            parent_document=parent_urn,
+            created_time=created_time,
+            last_modified_time=last_modified_time,
+        )
+
+    def _add_platform_instance(self, doc: Document) -> None:
+        """Attach the dataPlatformInstance aspect so the UI can render the
+        "View in Confluence" link. Uses the URL subdomain as the instance id.
+
+        TODO: promote this to an official Document SDK parameter instead of the
+        _set_aspect backdoor.
+        """
+        if not self.config.url:
+            return
+        from urllib.parse import urlparse
+
+        parsed_url = urlparse(self.config.url)
+        instance_id = (
+            parsed_url.netloc.split(".")[0] if parsed_url.netloc else self.config.url
+        )
+        doc._set_aspect(
+            DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(self.platform, instance_id),
+            )
+        )
+
+    def _create_folder_entity(
+        self, folder: FolderNode, ingested_page_ids: Set[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a document entity for a Confluence folder so pages nested under it
+        keep their hierarchy. Folders have no content, so they carry the "Folder"
+        subtype and skip the chunking/embedding step that pages go through."""
+        instance_id = self._get_instance_id()
+        doc_id = f"confluence-{instance_id}-{folder.id}"
+
+        # Link to the folder's parent (a page or another folder) when it is also
+        # ingested; otherwise the folder is a root document under the space.
+        parent_urn = None
+        if folder.parent_id and folder.parent_id in ingested_page_ids:
+            parent_urn = ConfluenceHierarchyExtractor.build_parent_urn(
+                parent_id=folder.parent_id,
+                platform=self.platform,
+                instance_id=instance_id,
+            )
+
+        custom_properties = {
+            "space_key": folder.space_key or "",
+            "folder_id": folder.id,
+        }
+        if self.config.document_import_mode == DocumentImportMode.NATIVE:
+            doc = Document.create_document(
+                id=doc_id,
+                title=folder.title,
+                text="",
+                status=DocumentStateClass.PUBLISHED,
+                subtype=FOLDER_SUBTYPE,
+                custom_properties=custom_properties,
+                parent_document=parent_urn,
+            )
+        else:
+            base_url = self.config.url.rstrip("/").removesuffix("/wiki")
+            url = (
+                f"{base_url}/wiki/spaces/{folder.space_key}/folder/{folder.id}"
+                if folder.space_key
+                else f"{base_url}/wiki/folder/{folder.id}"
+            )
+            doc = Document.create_external_document(
+                id=doc_id,
+                title=folder.title,
+                platform=self.platform,
+                external_url=url,
+                external_id=folder.id,
+                text="",
+                status=DocumentStateClass.PUBLISHED,
+                subtype=FOLDER_SUBTYPE,
+                custom_properties=custom_properties,
+                parent_document=parent_urn,
+            )
+        self._add_platform_instance(doc)
+
+        # Reuse the page browse-path builder by passing the ancestors that
+        # precede this folder as a synthetic page metadata payload.
+        browse_path_v2 = ConfluenceHierarchyExtractor.build_browse_path_v2(
+            page_metadata={
+                "space": {"name": folder.space_name, "key": folder.space_key},
+                "ancestors": folder.ancestor_prefix,
+            },
+            platform=self.platform,
+            instance_id=instance_id,
+            ingested_page_ids=ingested_page_ids,
+        )
+        if browse_path_v2:
+            doc._set_aspect(browse_path_v2)
+
+        yield from doc.as_workunits()
+        self.report.folders_ingested += 1
+
     def _create_document_entity(
         self,
         page: Dict[str, Any],
@@ -792,8 +930,10 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning("Page missing ID, skipping")
             return
 
-        # Apply pages.deny filter
-        if not self._is_page_allowed(page_id):
+        # Apply pages.deny filter. pages.allow is a crawl seed list, not an
+        # emission whitelist, so it is deliberately not re-checked here -
+        # otherwise recursively-discovered child pages would be dropped.
+        if self._is_page_denied(page_id):
             logger.info(f"Page {page_id} filtered by pages.deny, skipping")
             self.report.report_page_skipped(page_id, "Filtered by pages.deny")
             return
@@ -889,40 +1029,19 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             f"Creating document: doc_id={doc_id}, parent_urn={parent_urn}, url={url}"
         )
 
-        doc = Document.create_external_document(
-            id=doc_id,
+        doc = self._build_imported_document(
+            doc_id=doc_id,
             title=title,
-            platform=self.platform,
-            external_url=url,
-            external_id=page_id,
             text=text,
-            status=DocumentStateClass.PUBLISHED,
+            url=url,
+            page_id=page_id,
             custom_properties=custom_properties,
-            parent_document=parent_urn,
+            parent_urn=parent_urn,
             created_time=created_time,
             last_modified_time=last_modified_time,
         )
 
-        # Add dataPlatformInstance aspect for UI features (e.g., "View in Confluence" button)
-        # TODO: This should be added to the Document SDK as an official parameter
-        # instead of using the backdoor _set_aspect() method
-        if self.config.url:
-            # Extract instance identifier from URL (e.g., "datahub-integration-testing" from the domain)
-            from urllib.parse import urlparse
-
-            parsed_url = urlparse(self.config.url)
-            # Use the domain as the instance identifier
-            instance_id = (
-                parsed_url.netloc.split(".")[0]
-                if parsed_url.netloc
-                else self.config.url
-            )
-
-            platform_instance = DataPlatformInstanceClass(
-                platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(self.platform, instance_id),
-            )
-            doc._set_aspect(platform_instance)
+        self._add_platform_instance(doc)
 
         # Add BrowsePathsV2 for hierarchical navigation
         browse_path_v2 = ConfluenceHierarchyExtractor.build_browse_path_v2(
@@ -1055,6 +1174,27 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             f"Ingesting {len(ingested_page_ids)} pages: {sorted(list(ingested_page_ids))}"
         )
 
+        # Folders are a separate Confluence content type the page APIs never
+        # return, so a page nested under a folder loses its parent link unless we
+        # materialise the folder. Register folder URNs up front so child pages
+        # (and nested folders) resolve their parent against an entity we emit.
+        folder_nodes: Dict[str, FolderNode] = {}
+        if self.config.ingest_folders:
+            try:
+                folder_nodes = ConfluenceHierarchyExtractor.collect_folder_nodes(
+                    all_pages
+                )
+                ingested_page_ids |= set(folder_nodes.keys())
+                logger.info(
+                    f"Discovered {len(folder_nodes)} folder(s) in page ancestry"
+                )
+            except Exception as e:
+                # Folder discovery is best-effort enrichment of the hierarchy;
+                # never let it abort the ingestion of the pages themselves.
+                logger.warning(f"Failed to discover folders from page ancestry: {e}")
+                self.report.report_folder_failed("<discovery>", str(e))
+                folder_nodes = {}
+
         # Build set of parent page IDs (pages that have children)
         parent_page_ids: Set[str] = set()
         for page in all_pages:
@@ -1064,6 +1204,21 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 parent_id = str(ancestors[-1].get("id", ""))
                 if parent_id:
                     parent_page_ids.add(parent_id)
+
+        # Emit folder entities first so the parent documents exist before the
+        # child pages (and nested folders) that reference them.
+        for folder_node in folder_nodes.values():
+            try:
+                yield from self._create_folder_entity(folder_node, ingested_page_ids)
+            except Exception as e:
+                # Folders are best-effort hierarchy reconstruction; a folder that
+                # fails to materialise is logged as a warning but must never abort
+                # the ingestion of the actual pages, regardless of
+                # continue_on_failure.
+                logger.warning(
+                    f"Failed to create entity for folder {folder_node.id}: {e}"
+                )
+                self.report.report_folder_failed(folder_node.id, str(e))
 
         # Second pass: create document entities
         for page in all_pages:

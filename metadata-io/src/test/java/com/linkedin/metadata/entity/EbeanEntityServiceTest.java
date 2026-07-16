@@ -31,7 +31,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -845,7 +844,7 @@ public class EbeanEntityServiceTest
             break;
           }
           final AuditStamp auditStamp = new AuditStamp();
-          auditStamp.setActor(Urn.createFromString(Constants.DATAHUB_ACTOR));
+          auditStamp.setActor(Urn.createFromString("urn:li:corpuser:datahub"));
           auditStamp.setTime(System.currentTimeMillis());
           AspectsBatchImpl batch =
               AspectsBatchImpl.builder()

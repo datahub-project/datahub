@@ -75,8 +75,44 @@ def test_init(mock_api_client_class, hightouch_config, pipeline_context):
     source = HightouchIngestionSource(hightouch_config, pipeline_context)
 
     assert source.config == hightouch_config
-    assert isinstance(source.report, type(source.report))
-    mock_api_client_class.assert_called_once_with(hightouch_config.api_config)
+    mock_api_client_class.assert_called_once_with(
+        hightouch_config.api_config, source.report
+    )
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_test_connection_success(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+    mock_client.get_workspaces.return_value = []
+
+    source = HightouchIngestionSource(hightouch_config, pipeline_context)
+    report = source.test_connection()
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is True
+    mock_client.get_workspaces.assert_called_once()
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_test_connection_failure(
+    mock_api_client_class, hightouch_config, pipeline_context
+):
+    mock_client = MagicMock()
+    mock_api_client_class.return_value = mock_client
+    mock_client.get_workspaces.side_effect = requests.exceptions.ConnectionError(
+        "unreachable"
+    )
+
+    source = HightouchIngestionSource(hightouch_config, pipeline_context)
+    report = source.test_connection()
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is False
+    assert report.basic_connectivity.failure_reason is not None
+    assert "unreachable" in report.basic_connectivity.failure_reason
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -584,18 +620,8 @@ def test_sql_parsing_with_cte(
     # SQL parsing now happens in SqlParsingAggregator via _register_model_lineage()
 
 
-@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_sql_parsing_disabled(mock_api_client_class, pipeline_context):
-    """Test that SQL parsing can be disabled via config."""
-    config = HightouchSourceConfig(
-        api_config=HightouchAPIConfig(api_key="test"),
-        parse_model_sql=False,
-    )
-
-    mock_client = MagicMock()
-    mock_api_client_class.return_value = mock_client
-
-    mock_model = HightouchModel(
+def _raw_sql_model():
+    return HightouchModel(
         id="10",
         name="Test Model",
         slug="test-model",
@@ -607,7 +633,9 @@ def test_sql_parsing_disabled(mock_api_client_class, pipeline_context):
         updated_at=datetime(2023, 1, 2),
     )
 
-    mock_source = HightouchSourceConnection(
+
+def _snowflake_source():
+    return HightouchSourceConnection(
         id="1",
         name="Snowflake Prod",
         slug="snowflake-prod",
@@ -617,15 +645,75 @@ def test_sql_parsing_disabled(mock_api_client_class, pipeline_context):
         updated_at=datetime(2023, 1, 2),
     )
 
-    source_instance = HightouchIngestionSource(config, pipeline_context)
-    source_instance._sources_cache = {"1": mock_source}
 
-    result = source_instance._model_handler.generate_model_dataset(
-        mock_model, mock_source
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_raw_sql_lineage_registered_when_enabled(
+    mock_api_client_class, pipeline_context
+):
+    """With parse_model_sql on, a raw_sql model registers its SQL as a view
+    definition so the aggregator can derive lineage."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        parse_model_sql=True,
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    aggregator = MagicMock()
+    platform = PlatformDetail(platform="snowflake", database="analytics", env="PROD")
+
+    source_instance._lineage_handler.register_model_lineage(
+        _raw_sql_model(),
+        "urn:li:dataset:(urn:li:dataPlatform:hightouch,test-model,PROD)",
+        _snowflake_source(),
+        lambda _source: platform,
+        lambda _platform: aggregator,
     )
 
-    assert result.dataset.urn.name == "test-model"
+    aggregator.add_view_definition.assert_called_once()
+    assert source_instance.report.sql_parsing_attempts == 1
+    assert source_instance.report.sql_parsing_successes == 1
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_raw_sql_lineage_skipped_when_disabled(mock_api_client_class, pipeline_context):
+    """With parse_model_sql off, a raw_sql model derives no lineage from its SQL:
+    no view definition is registered and no parse is attempted."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        parse_model_sql=False,
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    aggregator = MagicMock()
+    platform = PlatformDetail(platform="snowflake", database="analytics", env="PROD")
+
+    source_instance._lineage_handler.register_model_lineage(
+        _raw_sql_model(),
+        "urn:li:dataset:(urn:li:dataPlatform:hightouch,test-model,PROD)",
+        _snowflake_source(),
+        lambda _source: platform,
+        lambda _platform: aggregator,
+    )
+
+    aggregator.add_view_definition.assert_not_called()
     assert source_instance.report.sql_parsing_attempts == 0
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_extract_table_urns_skipped_when_disabled(
+    mock_api_client_class, pipeline_context
+):
+    """parse_model_sql off also short-circuits table-URN extraction from SQL."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        parse_model_sql=False,
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    urns = source_instance._model_handler.extract_table_urns_from_sql(
+        _raw_sql_model(), _snowflake_source()
+    )
+    assert urns == []
 
 
 # Tests for Event Contracts Feature

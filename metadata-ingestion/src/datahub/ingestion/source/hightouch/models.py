@@ -3,7 +3,10 @@ from typing import Any, Dict, List, Optional, Set, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from datahub.metadata.schema_classes import SchemaFieldClass
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    SchemaFieldClass,
+)
 from datahub.sdk.dataset import Dataset
 
 
@@ -128,13 +131,13 @@ class HightouchUser(_HightouchBaseModel):
     created_at: Optional[datetime] = Field(default=None, alias="createdAt")
 
 
-class HightouchFieldMapping(BaseModel):
+class HightouchFieldMapping(_HightouchBaseModel):
     source_field: str
     destination_field: str
     is_primary_key: bool = False
 
 
-class HightouchColumnPair(BaseModel):
+class HightouchColumnPair(_HightouchBaseModel):
     source_field: str
     destination_field: str
 
@@ -172,8 +175,10 @@ class HightouchContract(_HightouchBaseModel):
 
 
 class HightouchDestinationLineageInfo(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     upstreams: Set[str] = Field(default_factory=set)
-    fine_grained_lineages: List = Field(default_factory=list)
+    fine_grained_lineages: List[FineGrainedLineageClass] = Field(default_factory=list)
 
 
 class HightouchModelDatasetResult(BaseModel):

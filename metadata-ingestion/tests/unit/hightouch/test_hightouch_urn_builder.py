@@ -356,7 +356,7 @@ def test_urn_builder_caching_source_details(mock_api_client_class, pipeline_cont
     _ = urn_builder.make_upstream_table_urn("table1", source_connection)
     _ = urn_builder.make_upstream_table_urn("table2", source_connection)
 
-    assert "source_1" in urn_builder._platform_detail_cache
+    assert "source_source_1" in urn_builder._platform_detail_cache
     assert len(urn_builder._platform_detail_cache) == 1
 
 

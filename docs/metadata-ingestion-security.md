@@ -34,19 +34,23 @@ graph LR
 
 Credentials are encrypted with an encryption key and stored in the DataHub database. DataHub manages the encryption and uses these credentials when connecting to your data sources.
 
+**Secure by default:** GMS defaults to `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`, which blocks browser sessions and user PATs from reading plaintext secret values via the GraphQL API. Administrators can still manage secrets through the UI; only programmatic plaintext retrieval from human-facing sessions is denied unless the guard is relaxed. Scheduled UI ingestion resolves secrets via [**datahub-actions**](actions/actions/executor.md) (OSS, system client credentials) or an **embedded executor** (DataHub Cloud).
+
 ### CLI Ingestion
 
 Credentials are stored in your infrastructure via recipe files. **Best practice: Always use environment variables** rather than hardcoding credentials in recipe files. You can also integrate with local secret managers.
 
 ### Remote Executor
 
-Integrates with enterprise secret management systems in your infrastructure, such as:
+**Recommended:** Integrate with enterprise secret management in your infrastructure:
 
-- AWS Secrets Manager
-- Kubernetes Secrets
+- AWS Secrets Manager (runtime or ECS deploy-time)
+- Kubernetes Secrets mounted at `/mnt/secrets/`
 - External Secrets Operator
 - HashiCorp Vault
-- Other secret management solutions
+- Environment variables on the executor container
+
+**Discouraged for strict security:** DataHub UI Secrets. These store credentials in DataHub and are sent to the Remote Executor in plaintext over the DataHub API when a job runs (TLS in transit). Use [local secret backends](managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md#secret-security-considerations) instead.
 
 ## Network Patterns
 
@@ -91,7 +95,7 @@ Most organizations use a mix of all three approaches based on their specific nee
 ### Remote Executor - Best For:
 
 - **Databases inside your network**: On-premise databases, internal data warehouses
-- **Strict security requirements**: When credentials cannot leave your infrastructure
+- **Strict security requirements**: When credentials cannot leave your infrastructure — use local secret backends, not DataHub UI Secrets. GMS defaults to `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`, which blocks browser and user-PAT access to secret values; **embedded executors** (DataHub Cloud) can still resolve UI secrets at job time.
 - **Sources behind firewalls**: When you cannot or prefer not to configure external access
 - **Enterprise secret management**: When you need integration with existing secret management systems
 

@@ -1,14 +1,22 @@
-from typing import Callable, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 from datahub.ingestion.source.hightouch.config import (
     HightouchSourceConfig,
     PlatformDetail,
 )
-from datahub.ingestion.source.hightouch.constants import HIGHTOUCH_PLATFORM
+from datahub.ingestion.source.hightouch.constants import (
+    HIGHTOUCH_PLATFORM,
+    SOURCE_CONFIG_KEY_DATABASE,
+    SOURCE_CONFIG_KEY_SCHEMA,
+)
 from datahub.ingestion.source.hightouch.models import (
     HightouchDestination,
     HightouchModel,
     HightouchSourceConnection,
+)
+from datahub.ingestion.source.hightouch.protocols import (
+    GetPlatformForDestination,
+    GetPlatformForSource,
 )
 from datahub.metadata.urns import DatasetUrn
 
@@ -17,8 +25,8 @@ class HightouchUrnBuilder:
     def __init__(
         self,
         config: HightouchSourceConfig,
-        get_platform_for_source: Callable,
-        get_platform_for_destination: Callable,
+        get_platform_for_source: GetPlatformForSource,
+        get_platform_for_destination: GetPlatformForDestination,
     ):
         self.config = config
         self.get_platform_for_source = get_platform_for_source
@@ -28,11 +36,12 @@ class HightouchUrnBuilder:
     def _get_cached_source_details(
         self, source: HightouchSourceConnection
     ) -> PlatformDetail:
-        if source.id not in self._platform_detail_cache:
-            self._platform_detail_cache[source.id] = self.get_platform_for_source(
+        cache_key = f"source_{source.id}"
+        if cache_key not in self._platform_detail_cache:
+            self._platform_detail_cache[cache_key] = self.get_platform_for_source(
                 source
             )
-        return self._platform_detail_cache[source.id]
+        return self._platform_detail_cache[cache_key]
 
     def _get_cached_destination_details(
         self, destination: HightouchDestination
@@ -43,6 +52,27 @@ class HightouchUrnBuilder:
                 destination
             )
         return self._platform_detail_cache[cache_key]
+
+    def qualified_table_name(
+        self, model: HightouchModel, source: HightouchSourceConnection
+    ) -> str:
+        """Build the fully-qualified upstream table name for a table-type model.
+
+        Honors the source connection's database/schema and the resolved
+        ``include_schema_in_urn`` setting so that the resulting name lines up with
+        the URN produced by the upstream platform's own connector.
+        """
+        table_name = model.name
+        configuration = source.configuration or {}
+        database = configuration.get(SOURCE_CONFIG_KEY_DATABASE, "")
+        schema = configuration.get(SOURCE_CONFIG_KEY_SCHEMA, "")
+
+        source_details = self._get_cached_source_details(source)
+        if source_details.include_schema_in_urn and schema:
+            return f"{database}.{schema}.{table_name}"
+        if database and "." not in table_name:
+            return f"{database}.{table_name}"
+        return table_name
 
     def make_model_urn(
         self,

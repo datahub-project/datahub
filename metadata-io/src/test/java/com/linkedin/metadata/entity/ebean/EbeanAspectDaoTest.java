@@ -5,8 +5,14 @@ import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -35,11 +41,14 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.test.LoggedSql;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -213,6 +222,73 @@ public class EbeanAspectDaoTest {
       assertFalse(
           sql.get(0).contains("FOR UPDATE;"), String.format("Found `for update` in %s ", sql));
     }
+  }
+
+  @Test
+  public void testGetLatestAspectsPassesSortedKeysToQuery() {
+    // Regression guard (#17206): batchGet must deliver keys in (urn, aspect, version) order
+    // regardless of input order, so concurrent FOR UPDATE writers avoid lock-order deadlocks.
+    Map<String, Set<String>> urnAspects = new HashMap<>();
+    urnAspects.put("urn:li:corpuser:c", Set.of(STATUS_ASPECT_NAME));
+    urnAspects.put("urn:li:corpuser:a", Set.of(STATUS_ASPECT_NAME, "ownership"));
+    urnAspects.put("urn:li:corpuser:b", Set.of(STATUS_ASPECT_NAME));
+
+    List<String> actual =
+        captureKeysHandedToQuery(dao -> dao.getLatestAspects(opContext, urnAspects, true));
+
+    assertEquals(
+        actual,
+        List.of(
+            "urn:li:corpuser:a|ownership|0",
+            "urn:li:corpuser:a|status|0",
+            "urn:li:corpuser:b|status|0",
+            "urn:li:corpuser:c|status|0"));
+  }
+
+  @Test
+  public void testBatchGetPassesSortedKeysToQuery() {
+    // The public batchGet(Set, forUpdate) path takes an unordered Set and must also lock in sorted
+    // order (it was never sorted, even before #17206).
+    Set<EntityAspectIdentifier> ids =
+        Set.of(
+            new EntityAspectIdentifier(
+                "urn:li:corpuser:c", STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION),
+            new EntityAspectIdentifier(
+                "urn:li:corpuser:a", STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION),
+            new EntityAspectIdentifier(
+                "urn:li:corpuser:b", STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION));
+
+    List<String> actual = captureKeysHandedToQuery(dao -> dao.batchGet(opContext, ids, true));
+
+    assertEquals(
+        actual,
+        List.of(
+            "urn:li:corpuser:a|status|0",
+            "urn:li:corpuser:b|status|0",
+            "urn:li:corpuser:c|status|0"));
+  }
+
+  /**
+   * Spies the DAO, stubs the query builder so no real DB round-trip happens, runs the given locking
+   * read, and returns the (urn, aspect, version) tuples in the order they reached the query
+   * builder.
+   */
+  private List<String> captureKeysHandedToQuery(Consumer<EbeanAspectDao> lockingRead) {
+    EbeanAspectDao spyDao = spy(testDao);
+    // Mutable list: batchGet may addAll into the first page's result during pagination.
+    doReturn(new ArrayList<EbeanAspectV2>())
+        .when(spyDao)
+        .batchGetSelectString(any(), anyList(), anyInt(), anyInt(), anyBoolean());
+
+    lockingRead.accept(spyDao);
+
+    ArgumentCaptor<List<EbeanAspectV2.PrimaryKey>> captor = ArgumentCaptor.captor();
+    verify(spyDao).batchGetSelectString(any(), captor.capture(), anyInt(), anyInt(), anyBoolean());
+    return captor.getValue().stream().map(EbeanAspectDaoTest::keyTuple).toList();
+  }
+
+  private static String keyTuple(EbeanAspectV2.PrimaryKey key) {
+    return key.getUrn() + "|" + key.getAspect() + "|" + key.getVersion();
   }
 
   @Test
@@ -547,5 +623,15 @@ public class EbeanAspectDaoTest {
         testDao.getAspect(
             opContext, "urn:li:corpuser:postMigration", "status", ASPECT_LATEST_VERSION);
     assertTrue(aspect != null, "Writes work after migration");
+  }
+
+  @Test
+  public void getVersionRangeReturnsSentinelWhenAspectMissing() {
+    com.linkedin.util.Pair<Long, Long> range =
+        testDao.getVersionRange(
+            opContext, "urn:li:container:missing-aspect-range-test", "containerKey");
+
+    assertEquals(range.getFirst(), Long.valueOf(-1L));
+    assertEquals(range.getSecond(), Long.valueOf(-1L));
   }
 }

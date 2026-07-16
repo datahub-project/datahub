@@ -12,7 +12,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400818,
+        "lastObserved": 1704110400814,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -30,7 +30,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400820,
+        "lastObserved": 1704110400814,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -46,7 +46,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400822,
+        "lastObserved": 1704110400814,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -64,7 +64,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400827,
+        "lastObserved": 1704110400943,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400829,
+        "lastObserved": 1704110400943,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400830,
+        "lastObserved": 1704110400943,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -114,7 +114,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400842,
+        "lastObserved": 1704110400946,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -135,7 +135,8 @@
                 "source_name": "Production Snowflake",
                 "source_type": "snowflake",
                 "tag_team": "growth",
-                "tag_priority": "high"
+                "tag_priority": "high",
+                "raw_sql": "SELECT customer_id, email, first_name FROM customers"
             },
             "name": "Customer 360 Model",
             "description": "Unified customer view from multiple sources",
@@ -149,7 +150,75 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400843,
+        "lastObserved": 1704110400946,
+        "runId": "hightouch-test-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:hightouch",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "customer_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "email",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "first_name",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400946,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -168,7 +237,25 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400844,
+        "lastObserved": 1704110400947,
+        "runId": "hightouch-test-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT customer_id, email, first_name FROM customers",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400947,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -191,7 +278,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400845,
+        "lastObserved": 1704110400947,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -207,7 +294,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400845,
+        "lastObserved": 1704110400947,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -227,7 +314,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400846,
+        "lastObserved": 1704110400947,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -243,7 +330,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400847,
+        "lastObserved": 1704110400948,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -261,7 +348,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400848,
+        "lastObserved": 1704110400948,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -277,7 +364,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400848,
+        "lastObserved": 1704110400948,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -297,7 +384,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400849,
+        "lastObserved": 1704110400948,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -313,7 +400,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400850,
+        "lastObserved": 1704110400948,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -346,7 +433,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400850,
+        "lastObserved": 1704110400948,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -402,7 +489,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400851,
+        "lastObserved": 1704110400948,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -426,7 +513,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400851,
+        "lastObserved": 1704110400949,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -466,7 +553,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400852,
+        "lastObserved": 1704110400949,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -483,7 +570,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400853,
+        "lastObserved": 1704110400950,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -501,7 +588,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400853,
+        "lastObserved": 1704110400950,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -519,7 +606,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400854,
+        "lastObserved": 1704110400950,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -540,7 +627,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400854,
+        "lastObserved": 1704110400950,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -565,7 +652,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400855,
+        "lastObserved": 1704110400950,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -581,7 +668,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400857,
+        "lastObserved": 1704110400951,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -617,7 +704,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400857,
+        "lastObserved": 1704110400951,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -642,7 +729,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400858,
+        "lastObserved": 1704110400951,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -661,7 +748,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400858,
+        "lastObserved": 1704110400951,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -677,7 +764,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400859,
+        "lastObserved": 1704110400951,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -697,7 +784,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400859,
+        "lastObserved": 1704110400951,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -713,7 +800,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400861,
+        "lastObserved": 1704110400952,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -731,7 +818,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400861,
+        "lastObserved": 1704110400952,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -747,7 +834,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400861,
+        "lastObserved": 1704110400952,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -767,7 +854,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400862,
+        "lastObserved": 1704110400952,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -783,7 +870,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400864,
+        "lastObserved": 1704110400952,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -816,7 +903,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400864,
+        "lastObserved": 1704110400952,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -861,7 +948,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400865,
+        "lastObserved": 1704110400952,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -885,7 +972,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400866,
+        "lastObserved": 1704110400953,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -945,7 +1032,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400867,
+        "lastObserved": 1704110400953,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -994,7 +1081,74 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400871,
+        "lastObserved": 1704110400956,
+        "runId": "hightouch-test-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1704110400956,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.customers,PROD)",
+                    "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.customers,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),customer_id)"
+                    ],
+                    "transformOperation": "COPY: \"CUSTOMERS\".\"CUSTOMER_ID\" AS \"CUSTOMER_ID\"",
+                    "confidenceScore": 0.2
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.customers,PROD),email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),email)"
+                    ],
+                    "transformOperation": "COPY: \"CUSTOMERS\".\"EMAIL\" AS \"EMAIL\"",
+                    "confidenceScore": 0.2
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod-snowflake.analytics.customers,PROD),first_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD),first_name)"
+                    ],
+                    "transformOperation": "COPY: \"CUSTOMERS\".\"FIRST_NAME\" AS \"FIRST_NAME\"",
+                    "confidenceScore": 0.2
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400956,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1009,7 +1163,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1704110400870,
+                        "time": 1704110400956,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -1023,7 +1177,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400877,
+        "lastObserved": 1704110400959,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1039,7 +1193,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400877,
+        "lastObserved": 1704110400959,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1055,7 +1209,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400878,
+        "lastObserved": 1704110400959,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1071,7 +1225,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400878,
+        "lastObserved": 1704110400959,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1087,7 +1241,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400879,
+        "lastObserved": 1704110400960,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1103,7 +1257,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400880,
+        "lastObserved": 1704110400960,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1119,7 +1273,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400880,
+        "lastObserved": 1704110400960,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1135,7 +1289,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400881,
+        "lastObserved": 1704110400960,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1151,7 +1305,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400882,
+        "lastObserved": 1704110400960,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1167,7 +1321,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400882,
+        "lastObserved": 1704110400960,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1183,7 +1337,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400883,
+        "lastObserved": 1704110400960,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1199,7 +1353,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400883,
+        "lastObserved": 1704110400960,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1215,7 +1369,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400884,
+        "lastObserved": 1704110400961,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }
@@ -1231,7 +1385,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110400884,
+        "lastObserved": 1704110400961,
         "runId": "hightouch-test-run",
         "lastRunId": "no-run-id-provided"
     }

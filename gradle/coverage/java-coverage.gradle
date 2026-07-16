@@ -5,27 +5,54 @@ jacoco {
 }
 
 /*
+Generated code (e.g. io.datahubproject.openapi.generated, com.linkedin.datahub.graphql.generated)
+carries no meaningful coverage signal and dominates report size — the two generated packages alone
+account for ~22MB of the ~29MB backend coverage. Excluding them shrinks both the per-module reports
+and the aggregated report and makes the coverage percentage reflect hand-written code only.
+Keep this list in sync with java-coverage-aggregation.gradle.
+*/
+def jacocoCoverageExcludes = ['**/generated/**']
+
+/*
+Opt out of coverage for a run: ./gradlew :module:test -PskipCoverage
+Disables the JaCoCo agent (so tests run without instrumentation overhead) and skips report
+generation entirely. Coverage is on by default so CI is unaffected.
+*/
+def coverageDisabled = project.hasProperty('skipCoverage')
+
+/*
 These need to run after evaluation since jacoco plugin alters the test task based on the included test
 lib dependencies defined in each subproject (junit or testNG)
 */
 afterEvaluate {
-  test {
-    finalizedBy jacocoTestReport
-  }
-
-  jacocoTestReport {
-    dependsOn test
-    reports {
-      xml {
-        required = true
-        /*
-        Tools that aggregate and analyse coverage tools search for the coverage result files. Keeping them under one
-        folder will minimize the time spent searching through the full source tree.
-        */
-        outputLocation = rootProject.layout.buildDirectory.file("coverage-reports/${rootProject.relativePath(project.projectDir)}/jacoco-${project.name}.xml")
+  if (coverageDisabled) {
+    tasks.withType(Test).configureEach {
+      jacoco {
+        enabled = false
       }
-      csv.required = false
-      html.required = false
+    }
+  } else {
+    test {
+      finalizedBy jacocoTestReport
+    }
+
+    jacocoTestReport {
+      dependsOn test
+      classDirectories.setFrom(files(sourceSets.main.output.collect { dir ->
+        fileTree(dir: dir, excludes: jacocoCoverageExcludes)
+      }))
+      reports {
+        xml {
+          required = true
+          /*
+          Tools that aggregate and analyse coverage tools search for the coverage result files. Keeping them under one
+          folder will minimize the time spent searching through the full source tree.
+          */
+          outputLocation = rootProject.layout.buildDirectory.file("coverage-reports/${rootProject.relativePath(project.projectDir)}/jacoco-${project.name}.xml")
+        }
+        csv.required = false
+        html.required = false
+      }
     }
   }
 }

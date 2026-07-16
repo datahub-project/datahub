@@ -40,6 +40,7 @@ export enum PageRoutes {
     MANAGE_APPLICATIONS = '/applications',
     CONTEXT = '/context',
     CONTEXT_DOCUMENTS = '/context/documents',
+    METRICS = '/metrics',
 }
 
 export enum HelpLinkRoutes {

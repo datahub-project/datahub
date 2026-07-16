@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Collection, Dict, Iterable, List, Optional, Set, TypedDict
 
 from google.cloud.bigquery import Client
-from pydantic import Field, PositiveInt
+from pydantic import Field, PositiveInt, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.time_window_config import (
@@ -43,7 +43,11 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantQueriesRunSkipHandler,
 )
-from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source.usage.usage_common import (
+    DEFAULT_QUERIES_CHARACTER_LIMIT,
+    BaseUsageConfig,
+    validate_top_n_queries_character_budget,
+)
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -122,6 +126,21 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         default=10, description="Number of top queries to save to each table."
     )
 
+    format_sql_queries: bool = Field(
+        default=False, description="Whether to format the SQL queries."
+    )
+
+    include_top_n_queries: bool = Field(
+        default=True, description="Whether to ingest the top_n_queries."
+    )
+
+    queries_character_limit: HiddenFromDocs[int] = Field(
+        default=DEFAULT_QUERIES_CHARACTER_LIMIT,
+        description="Total character limit for all queries in a single database call. This is a "
+        "low-level config property which should be touched with care. "
+        "Queries will be truncated to length `queries_character_limit / top_n_queries`.",
+    )
+
     include_lineage: bool = True
     include_queries: bool = True
     include_usage_statistics: bool = True
@@ -141,6 +160,19 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         "Defaults to False to avoid unexpected query cost increases. "
         "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
     )
+
+    @model_validator(mode="after")
+    def check_top_n_queries_character_budget(self) -> "BigQueryQueriesExtractorConfig":
+        # The main BigQuery source builds this config from an already-validated
+        # BigQueryUsageConfig (which shares this check via BaseUsageConfig), but the
+        # standalone bigquery-queries source constructs this class directly, so it
+        # needs its own copy of the check to fail at recipe parse time rather than
+        # mid-ingestion inside BaseUsageConfig(...).
+        validate_top_n_queries_character_budget(
+            top_n_queries=self.top_n_queries,
+            queries_character_limit=self.queries_character_limit,
+        )
+        return self
 
 
 class BigQueryQueriesExtractor(Closeable):
@@ -216,11 +248,14 @@ class BigQueryQueriesExtractor(Closeable):
                 end_time=self.end_time,
                 user_email_pattern=self.config.user_email_pattern,
                 top_n_queries=self.config.top_n_queries,
+                format_sql_queries=self.config.format_sql_queries,
+                include_top_n_queries=self.config.include_top_n_queries,
+                queries_character_limit=self.config.queries_character_limit,
             ),
             generate_operations=self.config.include_operations,
             is_temp_table=self.is_temp_table,
             is_allowed_table=self.is_allowed_table,
-            format_queries=False,
+            format_queries=self.config.format_sql_queries,
         )
 
         self.report.sql_aggregator = self.aggregator.report

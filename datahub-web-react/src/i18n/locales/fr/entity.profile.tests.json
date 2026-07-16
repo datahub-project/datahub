@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Échoué",
+    "resultText.passing": "Réussi",
+    "summary.allFailing": "Tous les tests échouent",
+    "summary.allPassing": "Tous les tests réussissent",
+    "summary.countsSubtitle": "{{passing}} tests réussis, {{failing}} tests échoués",
+    "summary.noTestsRun": "Aucun test n'a été exécuté",
+    "summary.someFailing": "Certains tests échouent",
+    "summary.statusTooltip": "Ce statut est basé sur le Run le plus récent de chaque test.",
+    "testResults.empty": "Aucun test trouvé :(",
+    "testResults.noEvaluations": "Aucune évaluation",
+    "testResults.title": "Résultats des tests de gouvernance"
+}

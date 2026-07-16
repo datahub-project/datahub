@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.IngestProposalExceptionUtils;
 import com.linkedin.datahub.graphql.generated.BatchSetDataProductInput;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
@@ -33,23 +34,24 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          DataProductResolverUtils.verifyResources(resources, context, _dataProductService);
-          DataProductResolverUtils.verifyDataProduct(
-              maybeDataProductUrn, context, _dataProductService);
-
           try {
             List<Urn> resourceUrns =
                 resources.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
             if (maybeDataProductUrn != null) {
+              DataProductResolverUtils.verifyProductSideMembershipChange(
+                  maybeDataProductUrn, context, _dataProductService);
+              DataProductResolverUtils.verifyResourcesExist(
+                  resources, context, _dataProductService);
               batchSetDataProduct(maybeDataProductUrn, resourceUrns, context);
             } else {
+              DataProductResolverUtils.verifyResources(resources, context, _dataProductService);
               batchUnsetDataProduct(resourceUrns, context);
             }
             return true;
           } catch (Exception e) {
             log.error(
                 "Failed to perform update against input {}, {}", input.toString(), e.getMessage());
-            throw new RuntimeException(
+            throw IngestProposalExceptionUtils.toGraphQLException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
         },
@@ -69,7 +71,7 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
       _dataProductService.batchSetDataProduct(
           context.getOperationContext(), UrnUtils.getUrn(dataProductUrn), resourceUrns);
     } catch (Exception e) {
-      throw new RuntimeException(
+      throw IngestProposalExceptionUtils.toGraphQLException(
           String.format(
               "Failed to batch set Data Product %s to resources with urns %s!",
               dataProductUrn, resourceUrns),
@@ -83,7 +85,7 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
     try {
       _dataProductService.batchUnsetDataProduct(context.getOperationContext(), resourceUrns);
     } catch (Exception e) {
-      throw new RuntimeException(
+      throw IngestProposalExceptionUtils.toGraphQLException(
           String.format(
               "Failed to batch unset data product for resources with urns %s!", resourceUrns),
           e);

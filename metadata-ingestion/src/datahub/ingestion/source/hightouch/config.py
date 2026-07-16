@@ -7,6 +7,7 @@ from pydantic import ConfigDict, Field, SecretStr, field_validator
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.ingestion.source.hightouch.constants import HIGHTOUCH_PLATFORM
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -20,19 +21,27 @@ logger = logging.getLogger(__name__)
 
 
 class Constant:
-    ORCHESTRATOR = "hightouch"
+    # The DataHub platform/orchestrator identifier for Hightouch entities. Kept as a
+    # single source of truth shared with the rest of the connector.
+    ORCHESTRATOR = HIGHTOUCH_PLATFORM
     # Threshold for warning about excessive sync run ingestion
     MAX_SYNC_RUNS_WARNING_THRESHOLD = 100
 
 
 class HightouchAPIConfig(ConfigModel):
-    api_key: SecretStr = Field(description="Hightouch API key for authentication")
+    api_key: SecretStr = Field(
+        description="Hightouch API key (a workspace API key with read access) used "
+        "as a Bearer token on every request.",
+    )
     base_url: str = Field(
         default="https://api.hightouch.com/api/v1",
-        description="Hightouch API base URL",
+        description="Base URL of the Hightouch REST API. Override for EU or "
+        "self-hosted deployments. A trailing slash is stripped automatically.",
     )
     request_timeout_sec: int = Field(
-        default=30, description="Request timeout in seconds"
+        default=30,
+        description="Per-request timeout in seconds for calls to the Hightouch API. "
+        "Increase this if large workspaces time out on listing endpoints.",
     )
 
     @field_validator("base_url")
@@ -112,6 +121,16 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
     schemas_from_referenced_columns: int = 0
     column_lineage_emitted: int = 0
     tags_emitted: int = 0
+    entity_parse_failures: LossyDict[str, int] = dataclasses.field(
+        default_factory=LossyDict
+    )
+    referenced_entities_inaccessible: LossyList[str] = dataclasses.field(
+        default_factory=LossyList
+    )
+    unknown_sync_run_statuses: LossyDict[str, int] = dataclasses.field(
+        default_factory=LossyDict
+    )
+    field_mappings_dropped: int = 0
 
     def report_syncs_scanned(self, count: int = 1) -> None:
         self.syncs_scanned += count
@@ -175,6 +194,22 @@ class HightouchSourceReport(StaleEntityRemovalSourceReport):
 
     def report_destinations_emitted(self, count: int = 1) -> None:
         self.destinations_emitted += count
+
+    def report_entity_parse_failure(self, entity_name: str) -> None:
+        self.entity_parse_failures[entity_name] = (
+            self.entity_parse_failures.get(entity_name, 0) + 1
+        )
+
+    def report_referenced_entity_inaccessible(self, reference: str) -> None:
+        self.referenced_entities_inaccessible.append(reference)
+
+    def report_unknown_sync_run_status(self, status: str) -> None:
+        self.unknown_sync_run_statuses[status] = (
+            self.unknown_sync_run_statuses.get(status, 0) + 1
+        )
+
+    def report_field_mappings_dropped(self, count: int = 1) -> None:
+        self.field_mappings_dropped += count
 
 
 class HightouchSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):

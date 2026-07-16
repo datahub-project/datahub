@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, Iterable, List, Union
+from typing import Dict, Iterable, List, Union
 
 from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -12,6 +12,7 @@ from datahub.ingestion.source.hightouch.config import (
     HightouchSourceConfig,
     HightouchSourceReport,
 )
+from datahub.ingestion.source.hightouch.constants import QUERY_TYPE_TABLE
 from datahub.ingestion.source.hightouch.hightouch_api import HightouchAPIClient
 from datahub.ingestion.source.hightouch.hightouch_container import (
     HightouchContainerHandler,
@@ -26,6 +27,11 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchSync,
     HightouchSyncRun,
 )
+from datahub.ingestion.source.hightouch.protocols import (
+    GetDestination,
+    GetModel,
+    GetSource,
+)
 from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
 from datahub.metadata.schema_classes import SchemaFieldClass
 from datahub.metadata.urns import DataFlowUrn, DatasetUrn
@@ -34,6 +40,17 @@ from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity
 
 logger = logging.getLogger(__name__)
+
+# Maps a Hightouch sync-run status to a DataHub run result. Unknown statuses are
+# intentionally absent so they can be mapped to a neutral result instead of a
+# misleading SUCCESS.
+_SYNC_RUN_STATUS_MAP = {
+    "success": InstanceRunResult.SUCCESS,
+    "failed": InstanceRunResult.FAILURE,
+    "cancelled": InstanceRunResult.SKIPPED,
+    "interrupted": InstanceRunResult.SKIPPED,
+    "warning": InstanceRunResult.SUCCESS,
+}
 
 
 class HightouchSyncHandler:
@@ -47,9 +64,9 @@ class HightouchSyncHandler:
         container_handler: "HightouchContainerHandler",
         model_handler: "HightouchModelHandler",
         model_schema_fields_cache: Dict[str, List[SchemaFieldClass]],
-        get_model: Callable,
-        get_source: Callable,
-        get_destination: Callable,
+        get_model: GetModel,
+        get_source: GetSource,
+        get_destination: GetDestination,
     ):
         self.config = config
         self.report = report
@@ -85,17 +102,8 @@ class HightouchSyncHandler:
             return None
 
         if not self.config.emit_models_as_datasets:
-            if model.query_type == "table" and model.name:
-                table_name = model.name
-                if source.configuration:
-                    database = source.configuration.get("database", "")
-                    schema = source.configuration.get("schema", "")
-                    source_details = self.urn_builder._get_cached_source_details(source)
-                    if source_details.include_schema_in_urn and schema:
-                        table_name = f"{database}.{schema}.{table_name}"
-                    elif database and "." not in table_name:
-                        table_name = f"{database}.{table_name}"
-
+            if model.query_type == QUERY_TYPE_TABLE and model.name:
+                table_name = self.urn_builder.qualified_table_name(model, source)
                 return self.urn_builder.make_upstream_table_urn(table_name, source)
             else:
                 logger.warning(
@@ -307,15 +315,18 @@ class HightouchSyncHandler:
     def get_dpi_workunits(
         self, sync_run: HightouchSyncRun, dpi: DataProcessInstance
     ) -> Iterable[MetadataWorkUnit]:
-        status_map = {
-            "success": InstanceRunResult.SUCCESS,
-            "failed": InstanceRunResult.FAILURE,
-            "cancelled": InstanceRunResult.SKIPPED,
-            "interrupted": InstanceRunResult.SKIPPED,
-            "warning": InstanceRunResult.SUCCESS,
-        }
-
-        status = status_map.get(sync_run.status.lower(), InstanceRunResult.SUCCESS)
+        status = _SYNC_RUN_STATUS_MAP.get(sync_run.status.lower())
+        if status is None:
+            # Never coerce an unrecognized status to SUCCESS — that would silently
+            # record a failed/aborted run as a success. Fall back to a neutral result.
+            self.report.report_unknown_sync_run_status(sync_run.status)
+            self.report.warning(
+                title="Unknown sync run status",
+                message="Encountered a sync-run status that is not recognized; "
+                "recording it as SKIPPED rather than assuming success.",
+                context=f"sync_run_id: {sync_run.id}, status: {sync_run.status}",
+            )
+            status = InstanceRunResult.SKIPPED
 
         start_timestamp_millis = int(sync_run.started_at.timestamp() * 1000)
 
@@ -350,28 +361,9 @@ class HightouchSyncHandler:
             model = self.get_model(sync.model_id)
             if model and self.config.model_patterns.allowed(model.name):
                 source = self.get_source(model.source_id)
-                # Delegate to model handler for model workunits
-                result = self.model_handler.generate_model_dataset(
+                yield from self.model_handler.emit_model(
                     model, source, referenced_columns=sync.referenced_columns
                 )
-                self.report.report_models_emitted()
-                yield result.dataset
-                yield from self.model_handler.emit_model_aspects(
-                    model, result.dataset, source, result.schema_fields
-                )
-
-                yield from self.container_handler.add_model_to_container(
-                    result.dataset.urn
-                )
-
-                if source:
-                    self.lineage_handler.register_model_lineage(
-                        model,
-                        str(result.dataset.urn),
-                        source,
-                        self.model_handler.get_platform_for_source,
-                        self.model_handler.get_aggregator_for_platform,
-                    )
 
         destination = self.get_destination(sync.destination_id)
         outlet_urn = None

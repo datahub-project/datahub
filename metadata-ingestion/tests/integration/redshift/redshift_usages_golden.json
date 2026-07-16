@@ -8,8 +8,8 @@
         "json": {
             "timestampMillis": 1631696400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:test-name",
             "operationType": "INSERT",
@@ -26,8 +26,8 @@
         "json": {
             "timestampMillis": 1631696400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:real_shirshanka",
             "operationType": "INSERT",
@@ -44,8 +44,8 @@
         "json": {
             "timestampMillis": 1631696400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:real_shirshanka",
             "operationType": "DELETE",
@@ -66,8 +66,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "uniqueUserCount": 1,
             "totalSqlQueries": 1,
@@ -77,8 +77,7 @@
             "userCounts": [
                 {
                     "user": "urn:li:corpuser:test-name",
-                    "count": 1,
-                    "userEmail": "test-name@acryl.io"
+                    "count": 1
                 }
             ],
             "fieldCounts": []
@@ -98,8 +97,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "uniqueUserCount": 1,
             "totalSqlQueries": 1,
@@ -109,8 +108,7 @@
             "userCounts": [
                 {
                     "user": "urn:li:corpuser:real_shirshanka",
-                    "count": 1,
-                    "userEmail": "real_shirshanka@acryl.io"
+                    "count": 1
                 }
             ],
             "fieldCounts": []
@@ -130,8 +128,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "uniqueUserCount": 1,
             "totalSqlQueries": 1,
@@ -141,8 +139,7 @@
             "userCounts": [
                 {
                     "user": "urn:li:corpuser:real_shirshanka",
-                    "count": 1,
-                    "userEmail": "real_shirshanka@acryl.io"
+                    "count": 1
                 }
             ],
             "fieldCounts": []

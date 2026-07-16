@@ -13,6 +13,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
@@ -20,7 +21,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.policy.DataHubPolicyInfo;
+import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEnricher;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.exception.OperationContextException;
 import io.datahubproject.metadata.exception.TraceException;
@@ -94,19 +95,28 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
       boolean allowSystemAuthentication,
       boolean skipCache)
       throws ActorAccessException {
-    return systemOperationContext.toBuilder()
-        .operationContextConfig(
-            // update allowed system authentication
-            systemOperationContext.getOperationContextConfig().toBuilder()
-                .allowSystemAuthentication(allowSystemAuthentication)
-                .build())
-        .authorizationContext(AuthorizationContext.builder().authorizer(authorizer).build())
-        .requestContext(
-            requestContext
-                .metricUtils(systemOperationContext.getMetricUtils().orElse(null))
-                .build())
-        .validationContext(systemOperationContext.getValidationContext())
-        .build(sessionAuthentication, skipCache);
+    OperationContextConfig sessionConfig =
+        systemOperationContext.getOperationContextConfig().toBuilder()
+            .allowSystemAuthentication(allowSystemAuthentication)
+            .build();
+    SessionContextEnricher enricher = sessionConfig.getSessionContextEnricher();
+    RequestContext.RequestContextBuilder sessionRequestBuilder =
+        requestContext.metricUtils(systemOperationContext.getMetricUtils().orElse(null));
+    if (enricher != null) {
+      enricher.enrichBeforeBuild(sessionRequestBuilder, sessionAuthentication);
+    }
+    RequestContext builtRequestContext = sessionRequestBuilder.build();
+    OperationContext sessionContext =
+        systemOperationContext.toBuilder()
+            .operationContextConfig(sessionConfig)
+            .authorizationContext(AuthorizationContext.builder().authorizer(authorizer).build())
+            .requestContext(builtRequestContext)
+            .validationContext(systemOperationContext.getValidationContext())
+            .build(sessionAuthentication, skipCache);
+    if (enricher != null) {
+      enricher.onSessionReady(sessionContext);
+    }
+    return sessionContext;
   }
 
   /**
@@ -411,6 +421,11 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     return retrieverContext.getAspectRetriever();
   }
 
+  @Nonnull
+  public EntityGraphCache getEntityGraphCache() {
+    return retrieverContext.getEntityGraphCache();
+  }
+
   /**
    * Provides a cached authorizer interface in the context of the session user
    *
@@ -421,7 +436,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   @Override
   public AuthorizationResult authorize(
       @Nonnull String privilege, @Nullable EntitySpec resourceSpec) {
-    return authorizationContext.authorize(getSessionActorContext(), privilege, resourceSpec);
+    return authorizationContext.authorize(this, getSessionActorContext(), privilege, resourceSpec);
   }
 
   public AuthorizationResult authorize(
@@ -429,7 +444,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
       @Nullable EntitySpec resourceSpec,
       @Nonnull Collection<EntitySpec> subResources) {
     return authorizationContext.authorize(
-        getSessionActorContext(), privilege, resourceSpec, subResources);
+        this, getSessionActorContext(), privilege, resourceSpec, subResources);
   }
 
   @Nullable
@@ -688,24 +703,26 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
         @Nonnull Authentication sessionAuthentication,
         boolean skipCache,
         boolean enforceExistenceEnabled) {
-      final Urn actorUrn = UrnUtils.getUrn(sessionAuthentication.getActor().toUrnStr());
-      final Set<DataHubPolicyInfo> policyInfoSet =
-          this.authorizationContext.getAuthorizer().getActorPolicies(actorUrn);
-      final ActorContext sessionActor =
+      final Authentication systemAuthentication = systemAuthenticationOrNull();
+      final ActorContext provisionalActor =
           ActorContext.builder()
               .authentication(sessionAuthentication)
-              .systemAuth(
-                  this.systemActorContext != null
-                      && this.systemActorContext
-                          .getAuthentication()
-                          .getActor()
-                          .equals(sessionAuthentication.getActor()))
-              .policyInfoSet(policyInfoSet)
-              .actorPoliciesByPrivilege(ActorContext.indexPoliciesByPrivilege(policyInfoSet))
-              .groupMembership(this.authorizationContext.getAuthorizer().getActorGroups(actorUrn))
+              .systemAuth(ActorContext.isSystemSession(sessionAuthentication, systemAuthentication))
               .enforceExistenceEnabled(enforceExistenceEnabled)
               .build();
+      final OperationContext provisionalContext = build(provisionalActor, skipCache);
+      final ActorContext sessionActor =
+          this.authorizationContext.buildSessionActor(
+              provisionalContext,
+              sessionAuthentication,
+              systemAuthentication,
+              enforceExistenceEnabled);
       return build(sessionActor, skipCache);
+    }
+
+    @Nullable
+    private Authentication systemAuthenticationOrNull() {
+      return this.systemActorContext != null ? this.systemActorContext.getAuthentication() : null;
     }
 
     @Nonnull

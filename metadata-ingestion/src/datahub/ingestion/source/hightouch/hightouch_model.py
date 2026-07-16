@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -7,7 +7,10 @@ from datahub.ingestion.source.hightouch.config import (
     HightouchSourceConfig,
     HightouchSourceReport,
 )
-from datahub.ingestion.source.hightouch.constants import HIGHTOUCH_PLATFORM
+from datahub.ingestion.source.hightouch.constants import (
+    HIGHTOUCH_PLATFORM,
+    QUERY_TYPE_TABLE,
+)
 from datahub.ingestion.source.hightouch.hightouch_container import (
     HightouchContainerHandler,
 )
@@ -22,6 +25,10 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchModel,
     HightouchModelDatasetResult,
     HightouchSourceConnection,
+)
+from datahub.ingestion.source.hightouch.protocols import (
+    GetAggregatorForPlatform,
+    GetPlatformForSource,
 )
 from datahub.ingestion.source.hightouch.urn_builder import HightouchUrnBuilder
 from datahub.metadata.schema_classes import (
@@ -55,8 +62,8 @@ class HightouchModelHandler:
         schema_handler: "HightouchSchemaHandler",
         lineage_handler: "HightouchLineageHandler",
         container_handler: "HightouchContainerHandler",
-        get_platform_for_source: Callable,
-        get_aggregator_for_platform: Callable,
+        get_platform_for_source: GetPlatformForSource,
+        get_aggregator_for_platform: GetAggregatorForPlatform,
         model_schema_fields_cache: Dict[str, List[SchemaFieldClass]],
     ):
         self.config = config
@@ -186,21 +193,10 @@ class HightouchModelHandler:
         source: Optional[HightouchSourceConnection],
         custom_properties: Dict[str, str],
     ) -> Optional[Union[str, DatasetUrn]]:
-        if not source or model.query_type != "table" or not model.name:
+        if not source or model.query_type != QUERY_TYPE_TABLE or not model.name:
             return None
 
-        table_name = model.name
-
-        if source.configuration:
-            database = source.configuration.get("database", "")
-            schema = source.configuration.get("schema", "")
-            source_details = self.urn_builder._get_cached_source_details(source)
-
-            if source_details.include_schema_in_urn and schema:
-                table_name = f"{database}.{schema}.{table_name}"
-            elif database and "." not in table_name:
-                table_name = f"{database}.{table_name}"
-
+        table_name = self.urn_builder.qualified_table_name(model, source)
         upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
         custom_properties["table_lineage"] = "true"
         custom_properties["upstream_table"] = table_name
@@ -264,7 +260,7 @@ class HightouchModelHandler:
         subtypes: List[str] = [str(DatasetSubTypes.HIGHTOUCH_MODEL)]
         if model.raw_sql:
             subtypes.append(str(DatasetSubTypes.VIEW))
-        elif model.query_type == "table":
+        elif model.query_type == QUERY_TYPE_TABLE:
             subtypes.append(str(DatasetSubTypes.TABLE))
         else:
             subtypes.append(str(DatasetSubTypes.VIEW))
@@ -299,17 +295,8 @@ class HightouchModelHandler:
 
         source_table_urn = None
 
-        if model.query_type == "table" and model.name and source:
-            table_name = model.name
-            if source.configuration:
-                database = source.configuration.get("database", "")
-                schema = source.configuration.get("schema", "")
-                source_details = self.urn_builder._get_cached_source_details(source)
-                if source_details.include_schema_in_urn and schema:
-                    table_name = f"{database}.{schema}.{table_name}"
-                elif database and "." not in table_name:
-                    table_name = f"{database}.{table_name}"
-
+        if model.query_type == QUERY_TYPE_TABLE and model.name and source:
+            table_name = self.urn_builder.qualified_table_name(model, source)
             source_table_urn = self.urn_builder.make_upstream_table_urn(
                 table_name, source
             )
@@ -324,7 +311,7 @@ class HightouchModelHandler:
                     dataset_urn, str(source_table_urn)
                 )
 
-            if model.query_type == "table":
+            if model.query_type == QUERY_TYPE_TABLE:
                 fine_grained_lineages = (
                     self.lineage_handler.generate_table_model_column_lineage(
                         model, dataset_urn, str(source_table_urn), schema_fields or []
@@ -345,12 +332,17 @@ class HightouchModelHandler:
                     ).as_workunit()
                     self.report.column_lineage_emitted += len(fine_grained_lineages)
 
-    def get_model_workunits(
-        self, model: HightouchModel, source: Optional[HightouchSourceConnection]
+    def emit_model(
+        self,
+        model: HightouchModel,
+        source: Optional[HightouchSourceConnection],
+        referenced_columns: Optional[List[str]] = None,
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        self.report.report_models_scanned()
-
-        result = self.generate_model_dataset(model, source)
+        # Shared by the standalone-model path and the sync path so both emit an
+        # identical dataset/aspects/lineage sequence.
+        result = self.generate_model_dataset(
+            model, source, referenced_columns=referenced_columns
+        )
         self.report.report_models_emitted()
         yield result.dataset
 
@@ -369,12 +361,21 @@ class HightouchModelHandler:
                 self.get_aggregator_for_platform,
             )
 
+    def get_model_workunits(
+        self, model: HightouchModel, source: Optional[HightouchSourceConnection]
+    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+        self.report.report_models_scanned()
+        yield from self.emit_model(model, source)
+
     def extract_table_urns_from_sql(
         self,
         model: HightouchModel,
         source: HightouchSourceConnection,
     ) -> List[str]:
         """Extract table URNs from SQL query using SQL parser."""
+        if not self.config.parse_model_sql:
+            return []
+
         if not model.raw_sql:
             return []
 

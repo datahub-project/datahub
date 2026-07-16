@@ -21,7 +21,10 @@ from datahub.ingestion.source.hightouch.models import (
 )
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SiblingsClass,
+    StringTypeClass,
     SubTypesClass,
     ViewPropertiesClass,
 )
@@ -738,6 +741,98 @@ def test_column_lineage_with_fuzzy_matching_integration(
         ]
         assert "user_id" in upstream_fields
         assert "email_address" in upstream_fields
+
+
+def _schema_field(path: str) -> SchemaFieldClass:
+    return SchemaFieldClass(
+        fieldPath=path,
+        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        nativeDataType="STRING",
+    )
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_table_model_column_lineage_matches_case_insensitively(
+    mock_api_client_class, pipeline_context
+):
+    """generate_table_model_column_lineage maps each model column to its upstream
+    column, matching across casing differences (e.g. Snowflake uppercasing)."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+        emit_models_as_datasets=True,
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+
+    mock_graph = Mock()
+    source_instance._lineage_handler.graph = mock_graph
+    upstream_schema = Mock()
+    upstream_schema.fields = [
+        Mock(fieldPath="CUSTOMER_ID"),
+        Mock(fieldPath="EMAIL"),
+        Mock(fieldPath="UNMAPPED_COL"),
+    ]
+    mock_graph.get_schema_metadata.return_value = upstream_schema
+
+    model = HightouchModel(
+        id="model_1",
+        name="customers",
+        slug="customers-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="table",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.customers,PROD)"
+    model_urn = "urn:li:dataset:(urn:li:dataPlatform:hightouch,customers-model,PROD)"
+
+    lineages = source_instance._lineage_handler.generate_table_model_column_lineage(
+        model,
+        model_urn,
+        upstream_urn,
+        [_schema_field("customer_id"), _schema_field("email")],
+    )
+
+    assert len(lineages) == 2
+    upstream_field_urns = [
+        lineage.upstreams[0] for lineage in lineages if lineage.upstreams
+    ]
+    assert any("CUSTOMER_ID" in urn for urn in upstream_field_urns)
+    assert any("EMAIL" in urn for urn in upstream_field_urns)
+
+
+@patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
+def test_table_model_column_lineage_empty_without_graph(
+    mock_api_client_class, pipeline_context
+):
+    """Without a graph the CLL resolver returns nothing rather than guessing."""
+    config = HightouchSourceConfig(
+        api_config=HightouchAPIConfig(api_key="test"),
+        env="PROD",
+    )
+    source_instance = HightouchIngestionSource(config, pipeline_context)
+    source_instance._lineage_handler.graph = None
+
+    model = HightouchModel(
+        id="model_1",
+        name="customers",
+        slug="customers-model",
+        workspace_id="workspace_1",
+        source_id="source_1",
+        query_type="table",
+        created_at=datetime(2023, 1, 1),
+        updated_at=datetime(2023, 1, 2),
+    )
+
+    lineages = source_instance._lineage_handler.generate_table_model_column_lineage(
+        model,
+        "urn:li:dataset:(urn:li:dataPlatform:hightouch,customers-model,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.customers,PROD)",
+        [_schema_field("customer_id")],
+    )
+
+    assert lineages == []
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")

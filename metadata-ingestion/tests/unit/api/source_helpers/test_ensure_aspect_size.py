@@ -1,5 +1,6 @@
 import json
 import time
+import unittest
 from typing import Callable, Dict
 from unittest.mock import MagicMock, patch
 
@@ -13,8 +14,10 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+    QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES,
     EnsureAspectSizeProcessor,
     EnsureAspectSizeProcessorReport,
+    _largest_fitting_prefix,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
@@ -45,6 +48,7 @@ from datahub.metadata.schema_classes import (
     QueryStatementClass,
     QuerySubjectClass,
     QuerySubjectsClass,
+    RecordTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemalessClass,
@@ -112,6 +116,58 @@ def too_big_schema_metadata() -> SchemaMetadataClass:
     )
     return SchemaMetadataClass(
         schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(rawSchema="aaa"),
+        fields=fields,
+    )
+
+
+def nested_schema_metadata() -> SchemaMetadataClass:
+    fields = [
+        # ---- level 4: array of structs with a leaf inside ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=array].[type=struct].items.[type=struct].meta.[type=string].array_leaf",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        # ---- level 2: a struct field and its child ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct",
+            nativeDataType="struct",
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct.[type=string].child_string",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        # ---- level 1: flat top-level fields ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=string].flat_string",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=int].flat_int",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+        # ---- level 3: struct -> struct -> leaf ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct.[type=struct].level2_struct",
+            nativeDataType="struct",
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct.[type=struct].level2_struct.[type=int].deep_int",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+    ]
+    return SchemaMetadataClass(
+        schemaName="nested_example",
         version=1,
         platform="s3",
         hash="ABCDE1234567890",
@@ -395,7 +451,6 @@ def test_schema_metadata_trims_fields_when_fields_are_too_large(processor):
         "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
     )
     assert len(schema.fields) < 1004, "Schema has not been properly truncated"
-    assert schema.fields[-1].fieldPath == "dddd", "Small field was not added at the end"
     assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
     )
@@ -410,6 +465,33 @@ def test_schema_metadata_trims_fields_when_fields_are_too_large(processor):
     assert len(field_drop_warnings) == 1
     assert len(field_drop_warnings[0].context) == 1
     assert "fields from schema" in field_drop_warnings[0].context[0]
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_schema_metadata_trims_deep_fields_first(processor):
+    processor.schema_size_constraint = 1000
+    schema = nested_schema_metadata()
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+    expected_fields = [
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct",
+            nativeDataType="struct",
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=string].flat_string",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=int].flat_int",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+    ]
+    unittest.TestCase().assertCountEqual(schema.fields, expected_fields)
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
@@ -997,6 +1079,39 @@ def test_ensure_size_of_proper_query_properties(processor):
     assert len(processor.ctx.source_report.warnings) == 0
 
 
+def test_largest_fitting_prefix_returns_maximal_boundary():
+    # Predicate "prefix length <= budget" is monotonic; the helper must return
+    # exactly the budget, not budget-1 (stops short) or budget+1 (overshoots).
+    def at_most(bound: int) -> Callable[[int], bool]:
+        return lambda n: n <= bound
+
+    text = "x" * 100
+    for budget in (0, 1, 37, 99, 100):
+        assert _largest_fitting_prefix(text, at_most(budget)) == budget
+
+
+def test_largest_fitting_prefix_caps_at_text_length():
+    # If everything fits, the answer is the full length (never longer).
+    text = "abc"
+    assert _largest_fitting_prefix(text, lambda n: True) == len(text)
+
+
+def test_largest_fitting_prefix_returns_zero_when_nothing_fits():
+    assert _largest_fitting_prefix("abc", lambda n: False) == 0
+
+
+def test_largest_fitting_prefix_accounts_for_variable_byte_cost():
+    # Astral characters cost far more JSON bytes than raw chars (e.g. an emoji
+    # encodes to a \uXXXX\uXXXX surrogate pair). A byte-budget predicate must
+    # yield fewer retained chars than a naive char-count would suggest.
+    text = "\U0001f600" * 50  # each is 12 JSON bytes ("\ud83d\ude00")
+    byte_budget = 120  # room for exactly 10 chars
+    retained = _largest_fitting_prefix(
+        text, lambda n: len(json.dumps(text[:n])) - len(json.dumps("")) <= byte_budget
+    )
+    assert retained == 10
+
+
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_query_properties(processor):
     query_properties = too_big_query_properties()
@@ -1032,6 +1147,107 @@ def test_ensure_size_of_too_big_query_properties(processor):
 
     # Should have logged a warning
     assert len(processor.ctx.source_report.warnings) == 1
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_query_properties_truncates_heavily_escaped_statement(processor):
+    # Regression for the unit-mismatch bug: chars that inflate under JSON encoding
+    # (\n -> 2 bytes) used to defeat the guard, which compared raw chars against
+    # a byte target; the guard then emitted an oversized aspect and GMS 400'd.
+    statement = "\n" * (6 * 1024 * 1024)
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(value=statement, language=QueryLanguageClass.SQL),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+    )
+    # The aspect really is oversized before the guard runs.
+    assert (
+        len(json.dumps(query_properties.to_obj()))
+        > QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES
+    )
+
+    processor.ensure_query_properties_size(
+        "urn:li:query:heavy_escape", query_properties
+    )
+
+    final_size = len(json.dumps(query_properties.to_obj()))
+    assert final_size < QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES, (
+        "Guard must trim heavily-escaped statements so the aspect fits under the limit"
+    )
+    assert "... [original value was" in query_properties.statement.value
+    assert len(processor.ctx.source_report.warnings) == 1
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+    # Tightness: the retained prefix must be maximal. The final aspect is under
+    # the limit, but appending one more encoded char (a newline is 2 JSON bytes)
+    # must tip it over — otherwise the search stopped short.
+    assert (
+        final_size + len(json.dumps("\n")) - len(json.dumps(""))
+        >= QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES
+    )
+
+
+def test_ensure_query_properties_drops_fields_when_overhead_exceeds_limit(
+    processor_ctx,
+):
+    # When non-statement fields (name/description) alone push the aspect over the
+    # limit, trimming the statement can't make it fit, so those fields are shed
+    # as a last resort rather than emitting an oversized aspect.
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    # Force a tiny budget so a modest description overflows it.
+    processor.payload_constraint = 2000
+
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(
+            value="SELECT 1", language=QueryLanguageClass.SQL
+        ),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        name="my query",
+        description="d" * 5000,
+    )
+
+    processor.ensure_query_properties_size("urn:li:query:overhead", query_properties)
+
+    assert query_properties.description is None
+    assert len(json.dumps(query_properties.to_obj())) < processor.payload_constraint
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+
+
+def test_ensure_query_properties_reports_when_untruncatable(processor_ctx):
+    # A field other than statement/name/description (here customProperties) can
+    # dominate the budget. Dropping name/description then doesn't make the aspect
+    # fit, so we must NOT claim a successful truncation — instead surface a
+    # distinct warning so the (likely GMS 400) failure is visible, not silent.
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    processor.payload_constraint = 2000
+
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(
+            value="SELECT 1", language=QueryLanguageClass.SQL
+        ),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        name="my query",
+        description="short",
+        customProperties={"blob": "x" * 5000},
+    )
+
+    processor.ensure_query_properties_size("urn:li:query:stuck", query_properties)
+
+    # Not recorded as a successful truncation.
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 0
+    assert len(processor.ctx.source_report.warnings) == 1
+    warning = next(iter(processor.ctx.source_report.warnings))
+    assert warning.title is not None
+    assert "could not be truncated" in warning.title.lower()
+    # context carries structured key=value pairs (not prose sentences).
+    context = next(iter(warning.context))
+    assert "entity_urn=urn:li:query:stuck" in context
+    assert "serialized_size=" in context
+    assert "budget=2000" in context
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
@@ -1209,6 +1425,33 @@ def test_ensure_size_of_view_properties_viewlogic_only(processor):
     # Final size should be within constraints
     final_size = len(json.dumps(view_properties.to_obj()))
     assert final_size < INGEST_MAX_PAYLOAD_BYTES
+
+
+def test_ensure_view_properties_truncates_heavily_escaped_logic(processor):
+    # Same regression class as the queryProperties escape test: raw-vs-byte
+    # size math used to leave viewLogic aspects oversized.
+    view_properties = ViewPropertiesClass(
+        materialized=False,
+        viewLogic="\n" * (INGEST_MAX_PAYLOAD_BYTES),
+        viewLanguage="SQL",
+    )
+    assert len(json.dumps(view_properties.to_obj())) > INGEST_MAX_PAYLOAD_BYTES
+
+    processor.ensure_view_properties_size(
+        "urn:li:dataset:(urn:li:dataPlatform:dbt, escaped_model, PROD)",
+        view_properties,
+    )
+
+    final_size = len(json.dumps(view_properties.to_obj()))
+    assert final_size < INGEST_MAX_PAYLOAD_BYTES, (
+        "Guard must trim heavily-escaped viewLogic so the aspect fits under the limit"
+    )
+    assert view_properties.viewLogic is not None
+    assert (
+        "truncated from" in view_properties.viewLogic
+        or "removed due to size" in view_properties.viewLogic
+    )
+    assert processor.report.num_truncations_by_aspect.get("viewProperties", 0) == 1
 
 
 @patch(

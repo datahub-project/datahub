@@ -24,6 +24,7 @@ from datahub.ingestion.source.hightouch.config import (
     PlatformDetail,
 )
 from datahub.ingestion.source.hightouch.constants import (
+    HIGHTOUCH_PLATFORM,
     KNOWN_DESTINATION_PLATFORM_MAPPING,
     KNOWN_SOURCE_PLATFORM_MAPPING,
 )
@@ -80,13 +81,13 @@ logger = logging.getLogger(__name__)
 class HightouchSource(StatefulIngestionSourceBase):
     config: HightouchSourceConfig
     report: HightouchSourceReport
-    platform: str = "hightouch"
+    platform: str = HIGHTOUCH_PLATFORM
 
     def __init__(self, config: HightouchSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
         self.report = HightouchSourceReport()
-        self.api_client = HightouchAPIClient(self.config.api_config)
+        self.api_client = HightouchAPIClient(self.config.api_config, self.report)
 
         self.graph: Optional[DataHubGraph] = ctx.graph
 
@@ -112,6 +113,7 @@ class HightouchSource(StatefulIngestionSourceBase):
         )
 
         self._lineage_handler = HightouchLineageHandler(
+            config=self.config,
             api_client=self.api_client,
             report=self.report,
             urn_builder=self._urn_builder,

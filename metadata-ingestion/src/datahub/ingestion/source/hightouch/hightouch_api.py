@@ -6,7 +6,10 @@ from pydantic import BaseModel, ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from datahub.ingestion.source.hightouch.config import HightouchAPIConfig
+from datahub.ingestion.source.hightouch.config import (
+    HightouchAPIConfig,
+    HightouchSourceReport,
+)
 from datahub.ingestion.source.hightouch.constants import (
     API_ENDPOINT_CONTRACTS,
     API_ENDPOINT_DESTINATIONS,
@@ -17,6 +20,7 @@ from datahub.ingestion.source.hightouch.constants import (
     API_ENDPOINT_WORKSPACES,
     API_PAGINATION_DEFAULT_LIMIT,
     API_PAGINATION_INITIAL_OFFSET,
+    API_PAGINATION_MAX_PAGES,
     API_RESPONSE_FIELD_DATA,
     API_RESPONSE_FIELD_HAS_MORE,
     ENTITY_NAME_CONTRACT,
@@ -54,11 +58,32 @@ T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
+HTTP_STATUS_NOT_FOUND = 404
+
 
 class HightouchAPIClient:
-    def __init__(self, config: HightouchAPIConfig):
+    def __init__(
+        self,
+        config: HightouchAPIConfig,
+        report: Optional[HightouchSourceReport] = None,
+    ):
         self.config = config
+        # The report is optional so the client can be constructed standalone (e.g. in
+        # unit tests); when present, skips and parse failures are surfaced to operators.
+        self.report = report
         self.session = self._create_session()
+
+    def _report_parse_failure(self, entity_name: str, detail: str) -> None:
+        if self.report is not None:
+            self.report.report_entity_parse_failure(entity_name)
+            self.report.warning(
+                title="Failed to parse Hightouch entity",
+                message="An entity returned by the Hightouch API could not be parsed "
+                "and was skipped.",
+                context=f"{entity_name}: {detail}",
+            )
+        else:
+            logger.warning(f"Failed to parse {entity_name}: {detail}")
 
     def _create_session(self) -> requests.Session:
         session = requests.Session()
@@ -100,7 +125,7 @@ class HightouchAPIClient:
     def _make_paginated_request(
         self, endpoint: str, params: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
-        all_items = []
+        all_items: List[Dict[str, Any]] = []
         offset = API_PAGINATION_INITIAL_OFFSET
         limit = (
             params.get("limit", API_PAGINATION_DEFAULT_LIMIT)
@@ -111,6 +136,7 @@ class HightouchAPIClient:
         request_params = params.copy() if params else {}
         request_params["limit"] = limit
 
+        page = 0
         while True:
             request_params["offset"] = offset
 
@@ -120,15 +146,57 @@ class HightouchAPIClient:
 
             items = response.get(API_RESPONSE_FIELD_DATA, [])
             all_items.extend(items)
+            page += 1
+            logger.debug(
+                f"{endpoint}: fetched page {page} (offset={offset}, "
+                f"items={len(items)}, total_so_far={len(all_items)})"
+            )
 
-            has_more = response.get(API_RESPONSE_FIELD_HAS_MORE, False)
+            # Distinguish an explicit hasMore=false from an omitted field: if the
+            # field is missing but the page came back full, the API may have more
+            # data that we would otherwise silently drop.
+            has_more = response.get(API_RESPONSE_FIELD_HAS_MORE)
+            if has_more is None and len(items) == limit:
+                self._warn_pagination(
+                    f"{endpoint}: response omitted '{API_RESPONSE_FIELD_HAS_MORE}' "
+                    f"on a full page (limit={limit}); results may be truncated."
+                )
 
             if not has_more or len(items) == 0:
                 break
 
             offset += len(items)
 
+            if page >= API_PAGINATION_MAX_PAGES:
+                self._warn_pagination(
+                    f"{endpoint}: hit the pagination cap of "
+                    f"{API_PAGINATION_MAX_PAGES} pages; results are truncated at "
+                    f"{len(all_items)} items."
+                )
+                break
+
         return all_items
+
+    def _warn_pagination(self, message: str) -> None:
+        if self.report is not None:
+            self.report.warning(
+                title="Paginated response may be truncated",
+                message=message,
+            )
+        else:
+            logger.warning(message)
+
+    def _report_field_mappings_dropped(self, message: str) -> None:
+        if self.report is not None:
+            self.report.report_field_mappings_dropped()
+            self.report.warning(
+                title="Dropped sync field mappings",
+                message="Some field mappings could not be interpreted and were "
+                "skipped, so column-level lineage may be incomplete.",
+                context=message,
+            )
+        else:
+            logger.warning(message)
 
     def _fetch_entities(
         self, endpoint: str, model_class: Type[T], entity_name: str
@@ -141,7 +209,7 @@ class HightouchAPIClient:
                 entity = model_class.model_validate(item_data)
                 entities.append(entity)
             except ValidationError as e:
-                logger.warning(f"Failed to parse {entity_name}: {e}, data: {item_data}")
+                self._report_parse_failure(entity_name, str(e))
                 continue
 
         return entities
@@ -152,8 +220,29 @@ class HightouchAPIClient:
         try:
             response = self._make_request(HTTP_METHOD_GET, f"{endpoint}/{entity_id}")
             return model_class.model_validate(response)
+        except requests.exceptions.HTTPError as e:
+            # A referenced entity may have been deleted after the sync/model that
+            # points at it was read; a 404 must not abort the whole run.
+            if (
+                e.response is not None
+                and e.response.status_code == HTTP_STATUS_NOT_FOUND
+            ):
+                reference = f"{entity_name} {entity_id}"
+                if self.report is not None:
+                    self.report.report_referenced_entity_inaccessible(reference)
+                    self.report.warning(
+                        title="Referenced Hightouch entity not found",
+                        message="A referenced entity could not be fetched (404) and "
+                        "was skipped. Lineage or metadata that depends on it may be "
+                        "incomplete.",
+                        context=reference,
+                    )
+                else:
+                    logger.warning(f"{reference} not found (404); skipping.")
+                return None
+            raise
         except ValidationError as e:
-            logger.warning(f"Failed to parse {entity_name} {entity_id}: {e}")
+            self._report_parse_failure(f"{entity_name} {entity_id}", str(e))
             return None
 
     def get_workspaces(self) -> List[HightouchWorkspace]:
@@ -228,9 +317,7 @@ class HightouchAPIClient:
                 run = HightouchSyncRun.model_validate(run_data)
                 runs.append(run)
             except ValidationError as e:
-                logger.warning(
-                    f"Failed to parse {ENTITY_NAME_SYNC_RUN}: {e}, data: {run_data}"
-                )
+                self._report_parse_failure(ENTITY_NAME_SYNC_RUN, str(e))
                 continue
 
         return runs
@@ -241,18 +328,34 @@ class HightouchAPIClient:
         )
 
     def get_contracts(self) -> List[HightouchContract]:
+        # Contracts are optional (plan-gated) and a failure here must never abort the
+        # rest of the run, so all HTTP errors are downgraded to a warning + empty list.
         try:
             return self._fetch_entities(
                 API_ENDPOINT_CONTRACTS, HightouchContract, ENTITY_NAME_CONTRACT
             )
         except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                logger.warning(
-                    "Contracts endpoint not found (404). Event Contracts may not be enabled "
-                    "for your Hightouch account/plan. Skipping contract ingestion."
+            status_code = e.response.status_code if e.response is not None else None
+            if status_code == HTTP_STATUS_NOT_FOUND:
+                message = (
+                    "Contracts endpoint not found (404). Event Contracts may not be "
+                    "enabled for your Hightouch account/plan. Skipping contract "
+                    "ingestion."
                 )
-                return []
-            raise
+            else:
+                message = (
+                    f"Failed to fetch Event Contracts (HTTP {status_code}). Skipping "
+                    "contract ingestion; the rest of the run is unaffected."
+                )
+            if self.report is not None:
+                self.report.warning(
+                    title="Could not fetch Event Contracts",
+                    message=message,
+                    exc=e,
+                )
+            else:
+                logger.warning(message)
+            return []
 
     def extract_field_mappings(
         self, sync: HightouchSync
@@ -265,15 +368,17 @@ class HightouchAPIClient:
 
         mappings = config.get("mappings", [])
         if not isinstance(mappings, list):
-            logger.warning(
-                f"Sync {sync.id}: Expected mappings to be a list, got {type(mappings).__name__}"
+            self._report_field_mappings_dropped(
+                f"Sync {sync.id}: expected mappings to be a list, got "
+                f"{type(mappings).__name__}; column-level lineage will be missing."
             )
             return field_mappings
 
         for i, mapping in enumerate(mappings):
             if not isinstance(mapping, dict):
-                logger.warning(
-                    f"Sync {sync.id}: Skipping non-dict mapping at index {i}: {type(mapping).__name__}"
+                self._report_field_mappings_dropped(
+                    f"Sync {sync.id}: skipping non-dict mapping at index {i} "
+                    f"({type(mapping).__name__}); column-level lineage will be missing."
                 )
                 continue
 
