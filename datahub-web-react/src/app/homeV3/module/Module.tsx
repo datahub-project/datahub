@@ -42,10 +42,10 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.Lineage) return LineageModule;
         if (module.properties.type === DataHubPageModuleType.Columns) return ColumnsModule;
         if (module.properties.type === DataHubPageModuleType.AiContext) return AiContextModule;
-        if (module.properties.type === DataHubPageModuleType.ModelDatasets) return SampleLargeModule;
-        if (module.properties.type === DataHubPageModuleType.MetricsInModel) return SampleLargeModule;
-        if (module.properties.type === DataHubPageModuleType.Relationships) return SampleLargeModule;
-        if (module.properties.type === DataHubPageModuleType.Dimensions) return SampleLargeModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelDatasets) return SampleLargeModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelMetrics) return SampleLargeModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelRelationships) return SampleLargeModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelDimensions) return SampleLargeModule;
         if (module.properties.type === DataHubPageModuleType.MetricSql) return SampleLargeModule;
         if (module.properties.type === DataHubPageModuleType.RelatedMetrics) return SampleLargeModule;
 

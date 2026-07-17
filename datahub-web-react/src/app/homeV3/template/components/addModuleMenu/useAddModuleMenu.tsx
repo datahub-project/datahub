@@ -155,53 +155,53 @@ export const COLUMNS_MODULE: PageModuleFragment = {
     },
 };
 
-export const MODEL_DATASETS_MODULE: PageModuleFragment = {
-    urn: 'urn:li:dataHubPageModule:model_datasets',
+export const SEMANTIC_MODEL_DATASETS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:semantic_model_datasets',
     type: EntityType.DatahubPageModule,
     properties: {
         get name() {
-            return i18next.t('modules:modelDatasets.moduleName');
+            return i18next.t('modules:semanticModelDatasets.moduleName');
         },
-        type: DataHubPageModuleType.ModelDatasets,
+        type: DataHubPageModuleType.SemanticModelDatasets,
         visibility: { scope: PageModuleScope.Global },
         params: {},
     },
 };
 
-export const METRICS_IN_MODEL_MODULE: PageModuleFragment = {
-    urn: 'urn:li:dataHubPageModule:metrics_in_model',
+export const SEMANTIC_MODEL_METRICS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:semantic_model_metrics',
     type: EntityType.DatahubPageModule,
     properties: {
         get name() {
-            return i18next.t('modules:metricsInModel.moduleName');
+            return i18next.t('modules:semanticModelMetrics.moduleName');
         },
-        type: DataHubPageModuleType.MetricsInModel,
+        type: DataHubPageModuleType.SemanticModelMetrics,
         visibility: { scope: PageModuleScope.Global },
         params: {},
     },
 };
 
-export const RELATIONSHIPS_MODULE: PageModuleFragment = {
-    urn: 'urn:li:dataHubPageModule:relationships',
+export const SEMANTIC_MODEL_RELATIONSHIPS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:semantic_model_relationships',
     type: EntityType.DatahubPageModule,
     properties: {
         get name() {
-            return i18next.t('modules:relationships.moduleName');
+            return i18next.t('modules:semanticModelRelationships.moduleName');
         },
-        type: DataHubPageModuleType.Relationships,
+        type: DataHubPageModuleType.SemanticModelRelationships,
         visibility: { scope: PageModuleScope.Global },
         params: {},
     },
 };
 
-export const DIMENSIONS_MODULE: PageModuleFragment = {
-    urn: 'urn:li:dataHubPageModule:dimensions',
+export const SEMANTIC_MODEL_DIMENSIONS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:semantic_model_dimensions',
     type: EntityType.DatahubPageModule,
     properties: {
         get name() {
-            return i18next.t('modules:dimensions.moduleName');
+            return i18next.t('modules:semanticModelDimensions.moduleName');
         },
-        type: DataHubPageModuleType.Dimensions,
+        type: DataHubPageModuleType.SemanticModelDimensions,
         visibility: { scope: PageModuleScope.Global },
         params: {},
     },
