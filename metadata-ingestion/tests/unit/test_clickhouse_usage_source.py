@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+import pytest
+
 import datahub.ingestion.source.usage.clickhouse_usage as clickhouse_usage
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
@@ -195,6 +197,19 @@ def test_create_builds_source_from_config_dict():
     assert isinstance(source, ClickHouseUsageSource)
     assert isinstance(source.get_report(), SourceReport)
     source.close()
+
+
+def test_query_log_table_rejects_injection():
+    # query_log_table is interpolated into the fetch SQL as an identifier, so a value
+    # carrying SQL punctuation must be rejected rather than concatenated into the query.
+    with pytest.raises(ValueError):
+        ClickHouseUsageConfig.model_validate(
+            {
+                "host_port": "localhost:8123",
+                "email_domain": "example.com",
+                "query_log_table": "system.query_log; DROP TABLE users --",
+            }
+        )
 
 
 def test_make_sql_engine_uses_config_url(monkeypatch):

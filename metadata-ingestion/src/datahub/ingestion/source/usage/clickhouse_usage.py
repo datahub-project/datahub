@@ -1,7 +1,9 @@
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Optional
 
+from pydantic import field_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -33,6 +35,12 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 
 logger = logging.getLogger(__name__)
 
+# A ClickHouse table identifier is at most `database.table`; restrict to characters
+# valid in an (optionally qualified) identifier. query_log_table is interpolated into
+# the fetch SQL as an identifier (identifiers cannot be bound as query parameters), so
+# validating it here is what prevents SQL injection through that config value.
+_QUERY_LOG_TABLE_PATTERN = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?$")
+
 # SELECT queries recorded in system.query_log. Each row's raw query text is fed
 # to the SqlParsingAggregator as an observed query; the aggregator does the SQL
 # parsing and usage aggregation (buckets, top users/queries), so this query only
@@ -61,6 +69,18 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
     )
     options: dict = Field(default={}, description="")
     query_log_table: str = Field(default="system.query_log", exclude=True)
+
+    @field_validator("query_log_table")
+    @classmethod
+    def validate_query_log_table(cls, v: str) -> str:
+        """Validate the query log table identifier to prevent SQL injection."""
+        if not _QUERY_LOG_TABLE_PATTERN.match(v):
+            raise ValueError(
+                f"Invalid query_log_table '{v}'. It must be an (optionally "
+                "database-qualified) identifier containing only alphanumeric "
+                "characters and underscores, e.g. 'system.query_log'."
+            )
+        return v
 
     def get_sql_alchemy_url(
         self,
@@ -139,6 +159,9 @@ class ClickHouseUsageSource(Source):
         start_time = get_time_bucket(
             self.config.start_time, self.config.bucket_duration
         )
+        # Security: the interpolated values are not injectable. start_time/end_time are
+        # datetime objects rendered via strftime (fixed numeric format, no user text),
+        # and query_log_table is validated to a safe identifier by validate_query_log_table.
         return CLICKHOUSE_USAGE_SQL.format(
             query_log_table=self.config.query_log_table,
             start_time=start_time.strftime(clickhouse_datetime_format),
