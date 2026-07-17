@@ -32,7 +32,16 @@ export default function LineageDisplay({
     const [hoveredNode, setHoveredNode] = useState<string | null>(null);
     const [displayedMenuNode, setDisplayedMenuNode] = useState<string | null>(null);
 
-    const { fineGrainedLineage, flowNodes, flowEdges, resetPositions, levelsInfo, levelsMap } = useComputeGraph();
+    const {
+        fineGrainedLineage,
+        flowNodes,
+        flowEdges,
+        resetPositions,
+        levelsInfo,
+        levelsMap,
+        lineageFilters,
+        adjacencyList: displayedAdjacencyList,
+    } = useComputeGraph();
 
     const addAnnotationNodes = useAddAnnotationNodes();
 
@@ -44,7 +53,7 @@ export default function LineageDisplay({
     );
     const refetchUrn = useBulkEntityLineage(shownUrns);
 
-    const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode);
+    const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);
     const { cllHighlightedNodes, highlightedColumns } = useColumnHighlighting(
         selectedColumn,
         hoveredColumn,
@@ -107,6 +116,7 @@ export default function LineageDisplay({
             value={{
                 hoveredNode,
                 setHoveredNode,
+                lineageFilters,
                 displayedMenuNode,
                 setDisplayedMenuNode,
                 selectedColumn,
