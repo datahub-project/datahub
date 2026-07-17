@@ -302,9 +302,17 @@ jobs:
     runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.playwright-e2e == 'true'
+    env:
+      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Restore yarn cache
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./e2e-test/ui/playwright/yarn.lock') }}"
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -318,3 +326,9 @@ jobs:
       - name: ESLint
         working-directory: e2e-test/ui/playwright
         run: yarn lint
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Save yarn cache
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./e2e-test/ui/playwright/yarn.lock') }}"
