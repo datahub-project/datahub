@@ -10,6 +10,7 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SemanticViewColumnMetadata,
     SnowflakeSemanticView,
+    SnowflakeSemanticViewRelationship,
     SnowflakeTag,
 )
 from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
@@ -68,6 +69,7 @@ def _make_semantic_view(
     primary_key_columns: Optional[set] = None,
     tags: Optional[list] = None,
     column_tags: Optional[dict] = None,
+    relationships: Optional[List[SnowflakeSemanticViewRelationship]] = None,
 ) -> SnowflakeSemanticView:
     return SnowflakeSemanticView(
         name="Sales_Analytics",
@@ -85,6 +87,7 @@ def _make_semantic_view(
         primary_key_columns=primary_key_columns or set(),
         tags=tags,
         column_tags=column_tags or {},
+        relationships=relationships or [],
     )
 
 
@@ -1328,3 +1331,166 @@ def test_semantic_field_expression_falls_back_to_column_name_when_missing():
     info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
     field = _fields_by_path(info.datasets[0])["order_date"]
     assert field.expression.dialects[0].expression == "order_date"
+
+
+def test_relationships_populated_with_datasets_matching_model_dataset_names():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "CUSTOMER_ID": [
+                _col(
+                    "customer_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="CUSTOMERS",
+                )
+            ],
+            "ORDER_ID": [
+                _col(
+                    "order_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                )
+            ],
+        },
+        relationships=[
+            SnowflakeSemanticViewRelationship(
+                name="orders_to_customers",
+                from_table="orders",
+                from_columns=["customer_id"],
+                to_table="customers",
+                to_columns=["customer_id"],
+            ),
+        ],
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+
+    assert info.relationships is not None
+    assert len(info.relationships) == 1
+    relationship = info.relationships[0]
+    assert relationship.name == "orders_to_customers"
+    # from/to must be normalized to match the ModelDataset.name values (the
+    # uppercased logical-table keys) so relationship references resolve.
+    dataset_names = {d.name for d in info.datasets}
+    assert relationship.from_ in dataset_names
+    assert relationship.to in dataset_names
+    assert relationship.from_ == "ORDERS"
+    assert relationship.to == "CUSTOMERS"
+    assert relationship.fromColumns == ["customer_id"]
+    assert relationship.toColumns == ["customer_id"]
+
+
+def test_relationships_omitted_when_none_defined():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(column_occurrences={})
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    assert info.relationships is None
+
+
+def test_join_key_column_collision_does_not_warn():
+    # ORDER_ID is a join key (declared as a relationship's from/to column) that is
+    # legitimately defined on both logical tables - this must not trigger the
+    # field-path-collision warning, unlike a genuine unrelated same-name collision.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_ID": [
+                _col(
+                    "order_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                ),
+                _col(
+                    "order_id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="CUSTOMERS",
+                ),
+            ],
+        },
+        relationships=[
+            SnowflakeSemanticViewRelationship(
+                name="orders_to_customers",
+                from_table="orders",
+                from_columns=["order_id"],
+                to_table="customers",
+                to_columns=["order_id"],
+            ),
+        ],
+    )
+
+    list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    messages = [w.title for w in mapper.report.warnings]
+    assert not any("multiple logical tables" in (m or "") for m in messages)
+
+
+def test_primary_key_column_collision_does_not_warn():
+    # Same as above, but suppressed via primary_key_columns rather than a
+    # relationship - the fallback the task calls out for views with no
+    # relationships metadata.
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ID": [
+                _col(
+                    "id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                ),
+                _col(
+                    "id",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="CUSTOMERS",
+                ),
+            ],
+        },
+        primary_key_columns={"ID"},
+    )
+
+    list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    messages = [w.title for w in mapper.report.warnings]
+    assert not any("multiple logical tables" in (m or "") for m in messages)

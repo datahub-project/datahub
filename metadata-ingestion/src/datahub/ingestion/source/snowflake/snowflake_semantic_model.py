@@ -55,6 +55,7 @@ from datahub.metadata.schema_classes import (
     SemanticFieldClass,
     SemanticFieldTypeClass,
     SemanticModelInfoClass,
+    SemanticModelRelationshipClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
@@ -187,7 +188,28 @@ class SnowflakeSemanticModelMapper:
                 else None
             ),
             datasets=self._build_model_datasets(semantic_view, metric_occurrences),
+            relationships=self._build_relationships(semantic_view),
         )
+
+    def _build_relationships(
+        self, semantic_view: SnowflakeSemanticView
+    ) -> Optional[List[SemanticModelRelationshipClass]]:
+        if not semantic_view.relationships:
+            return None
+        return [
+            SemanticModelRelationshipClass(
+                name=relationship.name,
+                # from_table/to_table are normalized to match the ModelDataset.name
+                # values built in _build_model_datasets (uppercased logical-table
+                # keys from logical_to_physical_table), so relationship references
+                # resolve to real datasets in the model.
+                from_=relationship.from_table.upper(),
+                fromColumns=relationship.from_columns,
+                to=relationship.to_table.upper(),
+                toColumns=relationship.to_columns,
+            )
+            for relationship in semantic_view.relationships
+        ]
 
     def _build_model_datasets(
         self,
@@ -266,7 +288,17 @@ class SnowflakeSemanticModelMapper:
         # a single schemaField URN - ambiguous for lineage anchoring and
         # structured-property tags. We don't change the URN scheme here (a
         # separate design decision); just surface it so operators know.
+        join_key_columns = self._relationship_key_columns(semantic_view)
         for col_name_upper, occurrences in semantic_view.column_occurrences.items():
+            # A same-name column on multiple logical tables is expected - and not a
+            # collision worth warning about - when it's a join key (declared as a
+            # from/to column of a relationship, or part of the view's primary key):
+            # that's exactly what makes the join possible.
+            if (
+                col_name_upper in join_key_columns
+                or col_name_upper in semantic_view.primary_key_columns
+            ):
+                continue
             table_names = {
                 occurrence.table_name
                 for occurrence in occurrences
@@ -283,6 +315,14 @@ class SnowflakeSemanticModelMapper:
                     "tags.",
                     context=f"{semantic_view.name}.{col_name_upper}: tables={sorted(table_names)}",
                 )
+
+    @staticmethod
+    def _relationship_key_columns(semantic_view: SnowflakeSemanticView) -> Set[str]:
+        keys: Set[str] = set()
+        for relationship in semantic_view.relationships:
+            keys.update(col.upper() for col in relationship.from_columns)
+            keys.update(col.upper() for col in relationship.to_columns)
+        return keys
 
     def _build_semantic_field(
         self,

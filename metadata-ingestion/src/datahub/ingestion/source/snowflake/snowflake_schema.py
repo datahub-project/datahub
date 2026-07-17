@@ -135,6 +135,18 @@ class SemanticViewColumnMetadata:
 
 
 @dataclass
+class SnowflakeSemanticViewRelationship:
+    """A single relationship (join) between two logical tables in a semantic view,
+    as reported by INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS."""
+
+    name: Optional[str]
+    from_table: str
+    from_columns: List[str]
+    to_table: str
+    to_columns: List[str]
+
+
+@dataclass
 class SemanticViewColumnCollection:
     """Collection of column metadata for a semantic view, organized by column name."""
 
@@ -271,6 +283,13 @@ class SnowflakeSemanticView(BaseView):
     # group fields per logical dataset.
     column_occurrences: Dict[str, List["SemanticViewColumnMetadata"]] = field(
         default_factory=dict
+    )
+    # Join relationships between logical tables, from INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS.
+    # Only populated when semantic_views.emit_semantic_model_entities is enabled - see
+    # SnowflakeDataDictionary._populate_semantic_view_relationships - since it is only
+    # consumed by the semanticModel mapper, not the legacy dataset-mode path.
+    relationships: List["SnowflakeSemanticViewRelationship"] = field(
+        default_factory=list
     )
 
     def get_subtype(self) -> DatasetSubTypes:
@@ -669,10 +688,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
         connection: SnowflakeConnection,
         report: SnowflakeV2Report,
         fetch_views_from_information_schema: bool = False,
+        emit_semantic_model_entities: bool = False,
     ) -> None:
         self.connection = connection
         self.report = report
         self._fetch_views_from_information_schema = fetch_views_from_information_schema
+        # Relationships are only consumed by the semanticModel mapper (new mode), so
+        # gate the extra INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS query behind this
+        # flag to keep the legacy dataset-mode path's cost unchanged.
+        self._emit_semantic_model_entities = emit_semantic_model_entities
 
     def as_obj(self) -> Dict[str, Any]:
         # TODO: Move this into a proper report type that gets computed.
@@ -1167,6 +1191,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
         self._populate_semantic_view_definitions(db_name, semantic_views)
         self._populate_semantic_view_base_tables(db_name, semantic_views)
         self._populate_semantic_view_columns(db_name, semantic_views)
+        if self._emit_semantic_model_entities:
+            self._populate_semantic_view_relationships(db_name, semantic_views)
 
         return semantic_views
 
@@ -1589,6 +1615,84 @@ class SnowflakeDataDictionary(SupportsAsObj):
         except Exception as e:
             logger.warning(
                 f"Failed to fetch semantic view columns for database {db_name}: {e}"
+            )
+
+    def _populate_semantic_view_relationships(
+        self, db_name: str, semantic_views: Dict[str, List[SnowflakeSemanticView]]
+    ) -> None:
+        """Fetch and populate join relationships for semantic views using
+        INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS."""
+        try:
+            query = SnowflakeQuery.get_semantic_relationships_for_database(db_name)
+            logger.debug(f"Fetching semantic relationships for database {db_name}")
+
+            semantic_view_map: Dict[Tuple[str, str], SnowflakeSemanticView] = {}
+            for schema_name, views in semantic_views.items():
+                for semantic_view in views:
+                    semantic_view_map[(schema_name, semantic_view.name)] = semantic_view
+
+            cur = self.connection.query(query)
+            row_count = 0
+            for row in cur:
+                row_count += 1
+                schema_name = row["SEMANTIC_VIEW_SCHEMA"]
+                view_name = row["SEMANTIC_VIEW_NAME"]
+                semantic_view_obj = semantic_view_map.get((schema_name, view_name))
+                if not semantic_view_obj:
+                    continue
+
+                relationship_name = row.get("NAME")
+                from_table = row.get("TABLE_NAME")
+                to_table = row.get("REF_TABLE_NAME")
+                context = (
+                    f"{schema_name}.{view_name}.{relationship_name or '<unnamed>'}"
+                )
+
+                if not from_table or not to_table:
+                    self.report.warning(
+                        title="Semantic view relationship missing table reference",
+                        message="A relationship is missing its from/to logical table "
+                        "name and was skipped.",
+                        context=context,
+                    )
+                    continue
+
+                from_columns = self._parse_json_array(
+                    row.get("FOREIGN_KEYS"), "FOREIGN_KEYS", context
+                )
+                to_columns = self._parse_json_array(
+                    row.get("REF_KEYS"), "REF_KEYS", context
+                )
+                if not from_columns or not to_columns:
+                    # Range/ASOF joins report ref_keys as JSON objects rather than a
+                    # simple column list, which _parse_json_array can't represent as
+                    # a flat fromColumns/toColumns pair - skip rather than emit a
+                    # relationship with misleading (empty) join keys.
+                    self.report.warning(
+                        title="Semantic view relationship has non-standard or missing join keys",
+                        message="A relationship's join keys could not be parsed as a "
+                        "simple column list (e.g. a range or ASOF join) and was skipped.",
+                        context=context,
+                    )
+                    continue
+
+                semantic_view_obj.relationships.append(
+                    SnowflakeSemanticViewRelationship(
+                        name=relationship_name,
+                        from_table=from_table,
+                        from_columns=from_columns,
+                        to_table=to_table,
+                        to_columns=to_columns,
+                    )
+                )
+
+            logger.info(
+                f"Populated relationships for semantic views in database {db_name} "
+                f"({row_count} relationship rows)"
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch semantic relationships for database {db_name}: {e}"
             )
 
     def get_semantic_views_for_schema_using_information_schema(
