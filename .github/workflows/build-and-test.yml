@@ -302,8 +302,9 @@ jobs:
           timezoneLinux: ${{ matrix.timezone }}
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
+      # No free-disk-space here: this job only downloads a small codegen artifact, runs
+      # yarn install + vitest (no Docker builds). GitHub runners ship 14–22GB free — plenty.
+      # The cleanup action itself costs ~2min/leg, so removing it is a net speedup.
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"

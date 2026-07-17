@@ -255,38 +255,36 @@ export default defineConfig(async ({ mode }) => {
         },
         test: {
             globals: true,
-            // happy-dom is 2–4× faster than jsdom. It has DOM-spec gaps (SVG, ranges,
-            // layout, some events) — Monaco / chart / syntax-highlighter tests are the
-            // likely breakers. Override per-file with `// @vitest-environment jsdom` at
-            // the top of any file that needs full jsdom (jsdom stays a devDependency).
-            environment: 'happy-dom',
-            // threads pool + no per-file isolation: test files share a worker (module
-            // registry, globals, DOM, vi.mock state). Big speedup, but leaked state
-            // bleeds across files — requires clean afterEach/teardown in every suite.
-            pool: 'threads',
-            isolate: false,
+            environment: 'jsdom',
+            // NOTE: isolate:false (share a worker across files) is the biggest lever but is
+            // deferred to its own PR — this suite has multiple cross-file state-bleed sources
+            // (unrestored fake timers stub performance.now → vitest worker crash, plus others)
+            // that need a per-suite cleanup audit before it's safe.
             setupFiles: './src/setupTests.ts',
             // Skip CSS processing in tests. Re-enable (or use `// @vitest-environment`
             // tricks) only if a suite asserts computed styles / styled-components output.
             css: false,
             // Pre-bundle heavy dependencies once instead of transforming their many small
-            // modules on every test file. If a lib mis-bundles (import/interop error),
-            // drop it from this list — surfaces on the first CI run.
+            // modules on every test file. monaco-editor is intentionally absent — the
+            // Monaco Editor is globally mocked in setupTests.ts, so it never loads here.
+            // If a lib mis-bundles (import/interop error), drop it — surfaces on first run.
             deps: {
                 optimizer: {
                     web: {
                         include: [
                             'antd',
                             '@ant-design/icons',
-                            'monaco-editor',
-                            '@monaco-editor/react',
+                            '@apollo/client',
+                            'styled-components',
                             'react-syntax-highlighter',
                             '@react-spring/web',
                         ],
                     },
                 },
             },
-            // reporters: ['verbose'],
+            // CI uses the minimal 'dot' reporter (much less stdout across 442 files);
+            // local runs keep the readable default. process.env.CI is set by GitHub Actions.
+            reporters: process.env.CI ? ['dot'] : ['default'],
             onConsoleLog(log) {
                 // Suppress noisy Apollo Client / GraphQL mock warnings that produce
                 // thousands of lines of output and make CI logs unreadable.
@@ -304,7 +302,10 @@ export default defineConfig(async ({ mode }) => {
                 return undefined;
             },
             coverage: {
-                enabled: true,
+                // CI-only: v8 coverage instruments every loaded module and is the biggest
+                // per-run tax. CI needs it (Codecov 'frontend' flag); local/watch runs skip
+                // it for a faster dev loop. Run locally with `CI=1 yarn test` to force it on.
+                enabled: !!process.env.CI,
                 provider: 'v8',
                 reporter: ['text', 'json', 'html'],
                 include: ['src/**/*.ts'],
