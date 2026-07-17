@@ -119,7 +119,7 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
 
     const groups: DimensionGroup[] = useMemo(() => {
         return (typedData?.info?.datasets ?? [])
-            .map((dataset) => {
+            .map((dataset): DimensionGroup | null => {
                 const fields = (dataset.fields ?? []).filter((field) => field.type === SemanticFieldType.Dimension);
                 if (!fields.length) {
                     return null;
@@ -128,7 +128,7 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
                 return {
                     datasetName: dataset.name,
                     platform: source?.platform ?? fallbackPlatform,
-                    source,
+                    source: source ?? null,
                     fields,
                 };
             })
