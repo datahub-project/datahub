@@ -26,7 +26,7 @@ import possibleTypesResult from '@src/possibleTypes.generated';
 import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
 /*
-    Construct Apollo 
+    Construct Apollo Client
 */
 const httpLink = createHttpLink({
     uri: resolveRuntimePath(`/api/v2/graphql`),
