@@ -4,14 +4,14 @@ import AiContextModule from '@app/entityV2/summary/modules/aiContext/AiContextMo
 import AssetsModule from '@app/entityV2/summary/modules/assets/AssetsModule';
 import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/ChildHierarchyModule';
 import DataProductsModule from '@app/entityV2/summary/modules/dataProducts/DataProductsModule';
-import DimensionsModule from '@app/entityV2/summary/modules/dimensions/DimensionsModule';
 import LineageModule from '@app/entityV2/summary/modules/lineage/LineageModule';
-import MetricsInModelModule from '@app/entityV2/summary/modules/metricsInModel/MetricsInModelModule';
-import ModelDatasetsModule from '@app/entityV2/summary/modules/modelDatasets/ModelDatasetsModule';
 import OutputPortsModule from '@app/entityV2/summary/modules/outputPorts/OutputPortsModule';
 import RelatedTermsModule from '@app/entityV2/summary/modules/relatedTerms/RelatedTermsModule';
-import RelationshipsModule from '@app/entityV2/summary/modules/relationships/RelationshipsModule';
 import ColumnsModule from '@app/entityV2/summary/modules/schemaTable/ColumnsModule';
+import SemanticModelDatasetsModule from '@app/entityV2/summary/modules/semanticModelDatasets/SemanticModelDatasetsModule';
+import SemanticModelDimensionsModule from '@app/entityV2/summary/modules/semanticModelDimensions/SemanticModelDimensionsModule';
+import SemanticModelMetricsModule from '@app/entityV2/summary/modules/semanticModelMetrics/SemanticModelMetricsModule';
+import SemanticModelRelationshipsModule from '@app/entityV2/summary/modules/semanticModelRelationships/SemanticModelRelationshipsModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
 import { ModuleProvider } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -46,10 +46,12 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.Lineage) return LineageModule;
         if (module.properties.type === DataHubPageModuleType.Columns) return ColumnsModule;
         if (module.properties.type === DataHubPageModuleType.AiContext) return AiContextModule;
-        if (module.properties.type === DataHubPageModuleType.SemanticModelDatasets) return ModelDatasetsModule;
-        if (module.properties.type === DataHubPageModuleType.SemanticModelMetrics) return MetricsInModelModule;
-        if (module.properties.type === DataHubPageModuleType.SemanticModelRelationships) return RelationshipsModule;
-        if (module.properties.type === DataHubPageModuleType.SemanticModelDimensions) return DimensionsModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelDatasets) return SemanticModelDatasetsModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelMetrics) return SemanticModelMetricsModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelRelationships)
+            return SemanticModelRelationshipsModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelDimensions)
+            return SemanticModelDimensionsModule;
         if (module.properties.type === DataHubPageModuleType.MetricSql) return SampleLargeModule;
         if (module.properties.type === DataHubPageModuleType.RelatedMetrics) return SampleLargeModule;
 

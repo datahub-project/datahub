@@ -161,7 +161,7 @@ function RelationshipEndpoint({ datasetName, columns, platform, source, align }:
     return content;
 }
 
-export default function RelationshipsModule(props: ModuleProps) {
+export default function SemanticModelRelationshipsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
 
@@ -177,7 +177,7 @@ export default function RelationshipsModule(props: ModuleProps) {
 
     if (!relationships.length) {
         return (
-            <LargeModule {...props} dataTestId="relationships-module">
+            <LargeModule {...props} dataTestId="semantic-model-relationships-module">
                 <EmptyContent
                     icon={ArrowsLeftRight}
                     title={t('semanticModelRelationships.emptyTitle')}
@@ -188,7 +188,7 @@ export default function RelationshipsModule(props: ModuleProps) {
     }
 
     return (
-        <LargeModule {...props} dataTestId="relationships-module">
+        <LargeModule {...props} dataTestId="semantic-model-relationships-module">
             {relationships.map((rel, idx) => {
                 const fromDataset = datasetsByName.get(rel.from);
                 const toDataset = datasetsByName.get(rel.to);

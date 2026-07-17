@@ -115,7 +115,7 @@ function getDimensionPillProps(field: SemanticField): {
     return { color: 'gray' };
 }
 
-export default function DimensionsModule(props: ModuleProps) {
+export default function SemanticModelDimensionsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
@@ -143,7 +143,7 @@ export default function DimensionsModule(props: ModuleProps) {
 
     if (!groups.length) {
         return (
-            <LargeModule {...props} dataTestId="dimensions-module">
+            <LargeModule {...props} dataTestId="semantic-model-dimensions-module">
                 <EmptyContent
                     icon={Cube}
                     title={t('semanticModelDimensions.emptyTitle')}
@@ -154,7 +154,7 @@ export default function DimensionsModule(props: ModuleProps) {
     }
 
     return (
-        <LargeModule {...props} dataTestId="dimensions-module">
+        <LargeModule {...props} dataTestId="semantic-model-dimensions-module">
             {groups.map((group) => {
                 const headerContent = (
                     <DatasetHeader>

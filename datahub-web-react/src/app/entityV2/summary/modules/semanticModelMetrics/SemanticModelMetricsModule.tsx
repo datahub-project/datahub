@@ -44,7 +44,7 @@ function MetricSigmaIcon() {
     );
 }
 
-export default function MetricsInModelModule(props: ModuleProps) {
+export default function SemanticModelMetricsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
 
@@ -85,7 +85,7 @@ export default function MetricsInModelModule(props: ModuleProps) {
     );
 
     return (
-        <LargeModule {...props} dataTestId="metrics-in-model-module">
+        <LargeModule {...props} dataTestId="semantic-model-metrics-module">
             <InfiniteScrollList<Entity>
                 fetchData={fetchMetrics}
                 renderItem={(entity) => (

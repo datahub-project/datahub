@@ -18,7 +18,7 @@ type EntityDataWithDatasets = {
     } | null;
 };
 
-export default function ModelDatasetsModule(props: ModuleProps) {
+export default function SemanticModelDatasetsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
@@ -27,7 +27,7 @@ export default function ModelDatasetsModule(props: ModuleProps) {
 
     if (!datasets.length) {
         return (
-            <LargeModule {...props} dataTestId="model-datasets-module">
+            <LargeModule {...props} dataTestId="semantic-model-datasets-module">
                 <EmptyContent
                     icon={Database}
                     title={t('semanticModelDatasets.emptyTitle')}
@@ -38,7 +38,7 @@ export default function ModelDatasetsModule(props: ModuleProps) {
     }
 
     return (
-        <LargeModule {...props} dataTestId="model-datasets-module">
+        <LargeModule {...props} dataTestId="semantic-model-datasets-module">
             {datasets.map((dataset) => {
                 const source = dataset.source as Entity;
                 const typeName = entityRegistry.getEntityName(source.type) ?? source.type;
