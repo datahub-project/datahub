@@ -657,6 +657,376 @@ def update_schema_version(content: str, new_version: int) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Backward-compatibility detection
+#
+# A schemaVersion bump signals that aspect data stored at the old version may
+# need migration before it can be read at the new version. A change that only
+# *adds optional fields* to a record (or *adds symbols* to an enum, or adds an
+# entirely new type definition) leaves every previously-serialized aspect valid
+# and complete — no migration is required — so it must NOT trigger a bump.
+#
+# The detector is deliberately conservative and fails closed: anything it
+# cannot prove to be additive-only is treated as a real, bump-worthy change. A
+# false "compatible" verdict would silently skip a needed version hop (and any
+# migration keyed on it), whereas a false "incompatible" verdict merely bumps a
+# version that did not strictly need bumping. Only the former is dangerous, so
+# every parse ambiguity resolves toward bumping.
+# ---------------------------------------------------------------------------
+
+_IDENT_RE = re.compile(r"[A-Za-z_]\w*")
+_SCALAR_VALUE_RE = re.compile(r"[-+\w.]+")
+
+
+def _skip_ws(content: str, i: int) -> int:
+    n = len(content)
+    while i < n and content[i].isspace():
+        i += 1
+    return i
+
+
+def _skip_string_literal(content: str, i: int) -> int:
+    """Given content[i] == '"', return the index just past the closing quote."""
+    n = len(content)
+    j = i + 1
+    while j < n:
+        if content[j] == "\\":
+            j += 2
+            continue
+        if content[j] == '"':
+            return j + 1
+        j += 1
+    return n
+
+
+def _skip_balanced(content: str, i: int) -> int | None:
+    """Given content[i] is an opening '{' or '[', return the index just past
+    the matching close, honoring nesting and string literals. None on imbalance.
+    """
+    pairs = {"}": "{", "]": "["}
+    stack: list[str] = []
+    n = len(content)
+    while i < n:
+        c = content[i]
+        if c == '"':
+            i = _skip_string_literal(content, i)
+            continue
+        if c in "{[":
+            stack.append(c)
+            i += 1
+            continue
+        if c in "}]":
+            if not stack or stack[-1] != pairs[c]:
+                return None
+            stack.pop()
+            i += 1
+            if not stack:
+                return i
+            continue
+        i += 1
+    return None
+
+
+def _skip_value(content: str, i: int) -> int | None:
+    """Skip a PDL annotation value (JSON object/array/string/scalar)."""
+    i = _skip_ws(content, i)
+    if i >= len(content):
+        return None
+    ch = content[i]
+    if ch == '"':
+        return _skip_string_literal(content, i)
+    if ch in "{[":
+        return _skip_balanced(content, i)
+    m = _SCALAR_VALUE_RE.match(content, i)
+    return m.end() if m else None
+
+
+def _read_field_type(body: str, i: int) -> int | None:
+    """Scan a field's type/default expression from i, returning the index of the
+    next field/annotation boundary (or end of body). Boundaries at brace depth 0
+    are a leading '@' (next field's annotation) or an identifier immediately
+    followed by ':' (next field's name). Nested braces/brackets and string
+    literals are skipped wholesale so their contents never look like boundaries.
+    """
+    n = len(body)
+    while i < n:
+        c = body[i]
+        if c.isspace():
+            i += 1
+            continue
+        if c == '"':
+            i = _skip_string_literal(body, i)
+            continue
+        if c == "@" or c == ",":
+            return i
+        if c in "{[":
+            j = _skip_balanced(body, i)
+            if j is None:
+                return None
+            i = j
+            continue
+        if c in "}]":
+            return None
+        m = _IDENT_RE.match(body, i)
+        if m:
+            k = _skip_ws(body, m.end())
+            if k < n and body[k] == ":":
+                return i
+            i = m.end()
+            continue
+        i += 1
+    return i
+
+
+def _type_is_optional(type_text: str) -> bool:
+    """True if a field's type expression is declared `optional` (PDL places the
+    keyword at the start of the type, e.g. `field: optional string`)."""
+    return bool(re.match(r"\s*optional\b", type_text))
+
+
+def _parse_record_fields(body: str) -> dict[str, tuple[str, bool]] | None:
+    """Parse the top-level fields of a record body (comments already stripped).
+
+    Returns {field name: (normalized signature, is_optional)}, or None if the
+    body cannot be parsed unambiguously. The signature covers the field's
+    annotations, type, and default — everything but its doc comment — so any
+    change to those is detected as a diff.
+    """
+    fields: dict[str, tuple[str, bool]] = {}
+    n = len(body)
+    i = _skip_ws(body, 0)
+    pending: list[str] = []
+    while i < n:
+        if body[i] == ",":
+            i = _skip_ws(body, i + 1)
+            continue
+        if body[i] == "@":
+            start = i
+            i += 1
+            m = _IDENT_RE.match(body, i)
+            if not m:
+                return None
+            i = m.end()
+            while i < n and body[i] == ".":
+                m = _IDENT_RE.match(body, i + 1)
+                if not m:
+                    return None
+                i = m.end()
+            j = _skip_ws(body, i)
+            if j < n and body[j] == "=":
+                nxt = _skip_value(body, j + 1)
+                if nxt is None:
+                    return None
+                i = nxt
+            pending.append(body[start:i])
+            i = _skip_ws(body, i)
+            continue
+        m = _IDENT_RE.match(body, i)
+        if not m:
+            return None
+        name = m.group(0)
+        k = _skip_ws(body, m.end())
+        if k >= n or body[k] != ":":
+            return None
+        type_start = _skip_ws(body, k + 1)
+        end = _read_field_type(body, type_start)
+        if end is None:
+            return None
+        type_text = body[type_start:end]
+        sig = normalize_pdl_for_compare(" ".join(pending) + " " + type_text)
+        if name in fields:
+            return None
+        fields[name] = (sig, _type_is_optional(type_text))
+        pending = []
+        i = _skip_ws(body, end)
+    return fields
+
+
+def _parse_enum_symbols(body: str) -> set[str] | None:
+    """Return the set of symbol names in an enum body (comments stripped),
+    ignoring per-symbol annotations. None if it cannot be parsed."""
+    symbols: set[str] = set()
+    n = len(body)
+    i = 0
+    while i < n:
+        ch = body[i]
+        if ch.isspace() or ch == ",":
+            i += 1
+            continue
+        if ch == '"':
+            i = _skip_string_literal(body, i)
+            continue
+        if ch == "@":
+            i += 1
+            m = _IDENT_RE.match(body, i)
+            if not m:
+                return None
+            i = m.end()
+            j = _skip_ws(body, i)
+            if j < n and body[j] == "=":
+                nxt = _skip_value(body, j + 1)
+                if nxt is None:
+                    return None
+                i = nxt
+            continue
+        if ch in "{[":
+            j = _skip_balanced(body, i)
+            if j is None:
+                return None
+            i = j
+            continue
+        m = _IDENT_RE.match(body, i)
+        if m:
+            symbols.add(m.group(0))
+            i = m.end()
+            continue
+        i += 1
+    return symbols
+
+
+def _parse_includes_from_header(header: str) -> set[str]:
+    m = re.search(r"\bincludes\b(.*)", header, re.DOTALL)
+    if not m:
+        return set()
+    return {x.strip() for x in m.group(1).split(",") if x.strip()}
+
+
+def parse_top_level_defs(content: str) -> dict[str, dict] | None:
+    """Parse the top-level record/enum definitions in a PDL file.
+
+    Returns {name: {"kind": "record", "includes": set, "fields": {...}}} or
+    {name: {"kind": "enum", "symbols": set}}. Returns None when the file uses a
+    construct this conservative parser does not model (typeref/fixed) or cannot
+    parse — callers then treat the change as bump-worthy.
+    """
+    c = strip_pdl_comments(content)
+    n = len(c)
+    defs: dict[str, dict] = {}
+    i = 0
+    while i < n:
+        ch = c[i]
+        if ch == '"':
+            i = _skip_string_literal(c, i)
+            continue
+        if ch in "{[":
+            j = _skip_balanced(c, i)
+            if j is None:
+                return None
+            i = j
+            continue
+        m = _IDENT_RE.match(c, i)
+        if not m:
+            i += 1
+            continue
+        word = m.group(0)
+        if word in ("typeref", "fixed"):
+            return None
+        if word not in ("record", "enum"):
+            i = m.end()
+            continue
+        nm = _IDENT_RE.match(c, _skip_ws(c, m.end()))
+        if not nm:
+            return None
+        name = nm.group(0)
+        p = nm.end()
+        while p < n and c[p] != "{":
+            if c[p] == '"':
+                p = _skip_string_literal(c, p)
+                continue
+            p += 1
+        if p >= n:
+            return None
+        header = c[nm.end() : p]
+        body_end = _skip_balanced(c, p)
+        if body_end is None:
+            return None
+        body = c[p + 1 : body_end - 1]
+        if word == "record":
+            fields = _parse_record_fields(body)
+            if fields is None:
+                return None
+            defs[name] = {
+                "kind": "record",
+                "includes": _parse_includes_from_header(header),
+                "fields": fields,
+            }
+        else:
+            symbols = _parse_enum_symbols(body)
+            if symbols is None:
+                return None
+            defs[name] = {"kind": "enum", "symbols": symbols}
+        i = body_end
+    return defs
+
+
+def _aspect_annotation_without_version(content: str) -> dict | None:
+    """Return the parsed @Aspect annotation with schemaVersion removed, or None
+    when the file has no @Aspect annotation (e.g. a shared non-aspect record)."""
+    bounds = find_aspect_annotation_bounds(content)
+    if bounds is None:
+        return None
+    try:
+        data = parse_annotation(content[bounds[0] : bounds[1]])
+    except ValueError:
+        return {"__unparseable__": content[bounds[0] : bounds[1]]}
+    data.pop("schemaVersion", None)
+    return data
+
+
+def _defs_backward_compatible(
+    base_defs: dict[str, dict], cur_defs: dict[str, dict]
+) -> bool:
+    """True iff cur_defs differs from base_defs only by additive, migration-free
+    changes: added optional fields, added enum symbols, and entirely new type
+    definitions. Any removal, type/annotation change, or added non-optional
+    field is treated as incompatible.
+    """
+    for name, bdef in base_defs.items():
+        cdef = cur_defs.get(name)
+        if cdef is None or cdef["kind"] != bdef["kind"]:
+            return False
+        if bdef["kind"] == "record":
+            if bdef["includes"] != cdef["includes"]:
+                return False
+            base_fields = bdef["fields"]
+            cur_fields = cdef["fields"]
+            for fname, (bsig, _bopt) in base_fields.items():
+                cur_field = cur_fields.get(fname)
+                if cur_field is None or cur_field[0] != bsig:
+                    return False
+            for fname, (_csig, copt) in cur_fields.items():
+                if fname not in base_fields and not copt:
+                    return False
+        elif not bdef["symbols"].issubset(cdef["symbols"]):
+            return False
+    return True
+
+
+def is_backward_compatible_change(filepath: str, base_ref: str) -> bool:
+    """Return True if filepath's only diff vs base_ref is backward-compatible
+    (additive optional fields / enum symbols / new type defs), meaning no
+    schemaVersion bump is warranted. Fails closed (returns False) on new files,
+    unreadable files, @Aspect changes beyond schemaVersion, or any parse
+    ambiguity.
+    """
+    base_content = get_file_at_branch(filepath, base_ref)
+    if base_content is None:
+        return False
+    try:
+        current_content = Path(filepath).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    if _aspect_annotation_without_version(
+        base_content
+    ) != _aspect_annotation_without_version(current_content):
+        return False
+    base_defs = parse_top_level_defs(base_content)
+    cur_defs = parse_top_level_defs(current_content)
+    if base_defs is None or cur_defs is None:
+        return False
+    return _defs_backward_compatible(base_defs, cur_defs)
+
+
+# ---------------------------------------------------------------------------
 # Include graph
 # ---------------------------------------------------------------------------
 
@@ -831,6 +1201,26 @@ def main() -> int:
         if args.verbose:
             print(f"Ignoring {len(comment_only)} comment-only PDL change(s):")
             for f in comment_only:
+                print(f"  {f}")
+            print()
+
+    # Drop files whose only diff vs the merge-base is backward-compatible —
+    # additive optional fields, added enum symbols, or new type definitions.
+    # Such changes need no migration, so they must neither bump the edited file
+    # nor cascade a bump into aspects that reference it.
+    backward_compatible = [
+        f for f in directly_changed if is_backward_compatible_change(f, merge_base)
+    ]
+    if backward_compatible:
+        directly_changed = [
+            f for f in directly_changed if f not in set(backward_compatible)
+        ]
+        if args.verbose:
+            print(
+                f"Ignoring {len(backward_compatible)} backward-compatible PDL "
+                "change(s) (additive optional fields / enum symbols only):"
+            )
+            for f in backward_compatible:
                 print(f"  {f}")
             print()
 
