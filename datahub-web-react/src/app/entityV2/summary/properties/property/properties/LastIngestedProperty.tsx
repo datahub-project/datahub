@@ -27,8 +27,7 @@ export default function LastIngestedProperty(props: PropertyComponentProps) {
 
     // Suppress for Documents created natively in DataHub (not ingested from an external source).
     // Native Documents have a lastIngested timestamp from creation that would be misleading to display.
-    const isNativeDocument =
-        (entityData as Document)?.info?.source?.sourceType === DocumentSourceType.Native;
+    const isNativeDocument = (entityData as Document)?.info?.source?.sourceType === DocumentSourceType.Native;
     const lastIngested = isNativeDocument ? undefined : (entityData?.lastIngested ?? undefined);
 
     const renderLastIngested = (timestamp: number) => {

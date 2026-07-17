@@ -1,7 +1,7 @@
 import React, { memo, useMemo } from 'react';
 
-import AssetsModule from '@app/entityV2/summary/modules/assets/AssetsModule';
 import AiContextModule from '@app/entityV2/summary/modules/aiContext/AiContextModule';
+import AssetsModule from '@app/entityV2/summary/modules/assets/AssetsModule';
 import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/ChildHierarchyModule';
 import DataProductsModule from '@app/entityV2/summary/modules/dataProducts/DataProductsModule';
 import LineageModule from '@app/entityV2/summary/modules/lineage/LineageModule';
