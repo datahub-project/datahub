@@ -23,6 +23,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -55,7 +56,7 @@ public class Utils {
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), resourceContext,
-                    "restoreIndices", List.of()), authorizer, auth, true);
+                    "restoreIndices", List.of()).withUsageOperation(UsageOperation.OTHER_OPERATIONS), authorizer, auth, true);
 
     if (!isAPIAuthorized(
             opContext,

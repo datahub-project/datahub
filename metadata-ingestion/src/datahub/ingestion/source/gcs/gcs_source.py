@@ -6,9 +6,8 @@ import google.auth
 import google.auth.exceptions
 from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
-from pydantic import Field, PrivateAttr, SecretStr, field_validator, model_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 
-from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -35,6 +34,7 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
+from datahub.ingestion.source.gcs.gcs_utils import GCS_ENDPOINT_URL, HMACKey
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import S3Source
@@ -51,8 +51,6 @@ if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client, S3ServiceResource
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-GCS_ENDPOINT_URL = "https://storage.googleapis.com"
 
 _GCS_OAUTH_S3_OPERATIONS = (
     "ListBuckets",
@@ -125,11 +123,6 @@ class GCSAuthType(StrEnum):
     HMAC = "hmac"
     WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
     WORKLOAD_IDENTITY = "workload_identity"
-
-
-class HMACKey(ConfigModel):
-    hmac_access_id: str = Field(description="Access ID")
-    hmac_access_secret: SecretStr = Field(description="Secret")
 
 
 class GCSSourceConfig(
@@ -360,6 +353,7 @@ class GCSSource(StatefulIngestionSourceBase):
                     include_hidden_folders=path_spec.include_hidden_folders,
                     tables_filter_pattern=path_spec.tables_filter_pattern,
                     traversal_method=path_spec.traversal_method,
+                    emit_folders_only=path_spec.emit_folders_only,
                 )
             )
 

@@ -66,6 +66,7 @@ from datahub.ingestion.source.thoughtspot.client import (
     ThoughtSpotAuthenticationError,
     ThoughtSpotClient,
     ThoughtSpotPermissionError,
+    normalize_ts_table_type,
 )
 from datahub.ingestion.source.thoughtspot.config import (
     ExternalConnectionConfig,
@@ -1792,11 +1793,15 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         fine_grained: List[FineGrainedLineageClass] = []
         if not parsed.debug_info.column_error:
             for cl in parsed.column_lineage or []:
+                if not cl.downstream.column:
+                    continue
                 downstream_col_urn = make_schema_field_urn(
                     downstream_urn, cl.downstream.column
                 )
                 upstream_col_urns: List[str] = []
                 for u in cl.upstreams:
+                    if not u.column:
+                        continue
                     candidate_urn = make_schema_field_urn(u.table, u.column)
                     # Dedup against existing TS-pre-resolved edges so
                     # we don't emit a duplicate column-level edge that
@@ -2159,16 +2164,12 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         # Fallback: connection not in lookup. Read data_source_type
-        # off the table directly. Strip the ``RDBMS_`` / ``NOSQL_``
-        # prefix TS applies on the LogicalTableResponse so the map
-        # (keyed by bare warehouse names) resolves.
-        ts_type = (table.data_source_type or "").upper()
+        # off the table directly, normalizing the TS category prefix
+        # (``RDBMS_`` / ``NOSQL_`` / ``FILE_``) so the map (keyed by
+        # bare warehouse names) resolves.
+        ts_type = normalize_ts_table_type(table.data_source_type)
         if not ts_type:
             return None
-        for prefix in ("RDBMS_", "NOSQL_", "FILE_"):
-            if ts_type.startswith(prefix):
-                ts_type = ts_type[len(prefix) :]
-                break
         platform = _TS_TO_DATAHUB_PLATFORM.get(ts_type)
         if not platform:
             return None
@@ -2207,7 +2208,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         # entry isn't a real failure to warn about. Without this guard,
         # every TS-internal table on a tenant triggers a false-positive
         # "External Lineage Resolution Failed" warning.
-        ts_type = (table.data_source_type or "").upper()
+        ts_type = normalize_ts_table_type(table.data_source_type)
         if ts_type not in _TS_TO_DATAHUB_PLATFORM:
             return None
         conn = self._get_connection_lookup().get(table.data_source_id)

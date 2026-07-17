@@ -133,7 +133,7 @@ function LargeModule({
             <Content $hasViewAll={hasViewAll} data-testid="module-content">
                 {loading ? (
                     <LoaderContainer>
-                        <Loader />
+                        <Loader alignItems="center" />
                     </LoaderContainer>
                 ) : (
                     children

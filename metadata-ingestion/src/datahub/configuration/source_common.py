@@ -50,7 +50,13 @@ class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):
 class LowerCaseDatasetUrnConfigMixin(ConfigModel):
     convert_urns_to_lowercase: bool = Field(
         default=False,
-        description="Whether to convert dataset urns to lowercase.",
+        description="Whether to convert dataset urns to lowercase. "
+        "This value is part of each dataset's URN identity, so it must stay fixed for "
+        "the life of a deployment. Changing it after data has been ingested re-keys "
+        "every dataset (e.g. `MyDb.MyTable` becomes `mydb.mytable`); with stateful "
+        "ingestion enabled the old-cased URNs are then soft-deleted as stale while the "
+        "new-cased ones are created, producing duplicate or orphaned entities. Pick one "
+        "value before the first run and leave it unchanged.",
     )
 
 

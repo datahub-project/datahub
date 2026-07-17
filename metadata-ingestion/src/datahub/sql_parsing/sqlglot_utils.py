@@ -342,6 +342,20 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
         if isinstance(node, (sqlglot.exp.In, sqlglot.exp.Values)):
             _simplify_node_expressions(node)
         elif isinstance(node, sqlglot.exp.Literal):
+            # A Redshift `COPY ... CREDENTIALS '<secret>'` parses the credentials
+            # as a Literal directly under a Credentials node. sqlglot's
+            # credentials_sql generator dispatches on isinstance(child, Literal)
+            # to choose the Redshift scalar form over the Snowflake key=value
+            # list; a Placeholder there routes into the list path that iterates
+            # the node and raises "TypeError: 'Placeholder' object is not
+            # iterable". Redact to a constant literal instead: serialization
+            # stays on the scalar path, the secret never lands in the generalized
+            # query text, and fingerprints stay independent of the credentials.
+            if (
+                isinstance(node.parent, sqlglot.exp.Credentials)
+                and node.arg_key == "credentials"
+            ):
+                return sqlglot.exp.Literal.string("**REDACTED**")
             return sqlglot.exp.Placeholder()
 
         return node
@@ -367,7 +381,11 @@ def get_query_fingerprint_debug(
             )
         else:
             expression_sql = generalize_query_fast(expression, dialect=platform)
-    except (ValueError, sqlglot.errors.SqlglotError) as e:
+    except (ValueError, TypeError, sqlglot.errors.SqlglotError) as e:
+        # TypeError guards against sqlglot generator bugs that fail to serialize
+        # an otherwise-parseable statement (e.g. exotic COPY / credentials
+        # forms). Fingerprinting is best-effort with a raw-text fallback, so it
+        # must never propagate and abort ingestion.
         if not isinstance(expression, str):
             raise
 

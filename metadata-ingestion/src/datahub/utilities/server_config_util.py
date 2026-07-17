@@ -107,7 +107,7 @@ class RestServiceConfig:
         if version_str is None:
             version_str = self.service_version
 
-        if not version_str:
+        if not version_str or version_str.lower() == "null":
             return (0, 0, 0, 0)
 
         # Remove 'v' prefix if present

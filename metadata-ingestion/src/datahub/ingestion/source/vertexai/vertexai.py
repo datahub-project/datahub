@@ -14,6 +14,7 @@ from google.cloud import aiplatform, aiplatform_v1
 from google.cloud.aiplatform.base import VertexAiResourceNoun
 from google.cloud.aiplatform.models import Model
 from google.cloud.aiplatform_v1 import MetadataServiceClient
+from google.cloud.resourcemanager_v3 import ProjectsClient
 from google.oauth2 import service_account
 
 from datahub.configuration.env_vars import get_vertexai_disable_parallelism
@@ -177,7 +178,15 @@ class VertexAISource(StatefulIngestionSourceBase):
             project_labels=self.config.project_labels,
             project_id_pattern=self.config.project_id_pattern,
         )
-        resolved_projects = resolve_gcp_projects(filter_cfg, self.report)
+        resolved_projects = resolve_gcp_projects(
+            filter_cfg,
+            self.report,
+            projects_client=(
+                ProjectsClient(credentials=self._credentials)
+                if not self.config.project_ids
+                else None
+            ),
+        )
         return [p.id for p in resolved_projects]
 
     def _resolve_project_regions(self) -> Dict[str, List[str]]:
@@ -251,6 +260,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             yield_common_aspects_fn=self._yield_common_aspects,
             model_usage_tracker=self.model_usage_tracker,
             platform=self.platform,
+            report=self.report,
             state_handler=self.state_handler,
             rate_limiter=self._rate_limiter,
         )

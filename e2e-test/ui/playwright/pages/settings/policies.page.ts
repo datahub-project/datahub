@@ -153,7 +153,7 @@ export class PoliciesPage extends BaseSettingsPage {
     await this.saveButton.waitFor({ state: 'visible' });
     await this.saveButton.click();
 
-    await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_SAVED_POLICY);
+    await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.SUCCESSFULLY_SAVED_POLICY);
     await this.searchForPolicy(policyName);
     await expect(this.getPolicyRow(policyName)).toBeVisible();
   }
@@ -179,7 +179,7 @@ export class PoliciesPage extends BaseSettingsPage {
     await this.saveButton.waitFor({ state: 'visible' });
     await this.saveButton.click();
 
-    await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_SAVED_POLICY);
+    await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.SUCCESSFULLY_SAVED_POLICY);
     await this.searchForPolicy(newName);
     await this.getPolicyRow(newName).waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
   }
@@ -195,18 +195,18 @@ export class PoliciesPage extends BaseSettingsPage {
     await this.searchForPolicy(name);
     await this.openRowMenu(name);
     await this.clickMenuAction('Deactivate');
-    await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_DEACTIVATED_POLICY);
+    await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.SUCCESSFULLY_DEACTIVATED_POLICY);
 
     await this.searchForPolicy(name);
     await this.openRowMenu(name);
     await this.clickMenuAction('Activate');
-    await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_ACTIVATED_POLICY);
+    await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.SUCCESSFULLY_ACTIVATED_POLICY);
 
     await this.openRowMenu(name);
     await this.clickMenuAction('Delete');
     await expect(this.page.getByText(deleteDialogTitle)).toBeVisible();
     await this.confirmButton.click();
-    await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_REMOVED_POLICY);
+    await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.SUCCESSFULLY_REMOVED_POLICY);
     await expect(this.getPolicyRow(name)).toBeHidden();
   }
 
@@ -219,7 +219,7 @@ export class PoliciesPage extends BaseSettingsPage {
       const deactivateItem = this.getMenuItems().getByText('Deactivate');
       if ((await deactivateItem.count()) > 0) {
         await deactivateItem.click();
-        await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_DEACTIVATED_POLICY);
+        await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.SUCCESSFULLY_DEACTIVATED_POLICY);
       }
     }
   }

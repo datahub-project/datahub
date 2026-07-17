@@ -1,0 +1,487 @@
+extend type Query {
+  """
+  Fetch a Metric by URN.
+  """
+  metric(urn: String!): Metric
+
+  """
+  Fetch a SemanticModel by URN.
+  """
+  semanticModel(urn: String!): SemanticModel
+
+  """
+  List root-level Metrics (paginated).
+  """
+  getRootMetrics(input: GetRootEntitiesInput!): GetRootMetricsResult
+
+  """
+  List SemanticModels (paginated).
+  """
+  getSemanticModels(input: GetRootEntitiesInput!): GetSemanticModelsResult
+}
+
+"""
+Shared pagination input for root-entity listing queries.
+"""
+input GetRootEntitiesInput {
+  start: Int = 0
+  count: Int = 25
+  query: String = "*"
+}
+
+type GetRootMetricsResult {
+  metrics: [Metric!]!
+  start: Int!
+  count: Int!
+  total: Int!
+}
+
+type GetSemanticModelsResult {
+  semanticModels: [SemanticModel!]!
+  start: Int!
+  count: Int!
+  total: Int!
+}
+
+"""
+A Metric entity from a semantic layer or metric store.
+"""
+type Metric implements Entity {
+  """
+  The primary key of the Metric.
+  """
+  urn: String!
+
+  """
+  A standard Entity Type.
+  """
+  type: EntityType!
+
+  """
+  The timestamp of the last time this Metric was ingested.
+  """
+  lastIngested: Long
+
+  """
+  The platform that this Metric originates in.
+  """
+  platform: DataPlatform!
+
+  """
+  The path component of the three-part key (platform, path, id).
+  """
+  path: String!
+
+  """
+  The id component of the three-part key (platform, path, id).
+  """
+  id: String!
+
+  """
+  Core information about the Metric.
+  """
+  info: MetricInfo
+
+  """
+  Relationships to other Metrics.
+  """
+  metricRelationships: MetricRelationships
+
+  """
+  Upstream datasets and schema fields consumed by this Metric.
+  """
+  metricUpstreams: MetricUpstreams
+
+  """
+  The SemanticModel that defines this Metric.
+  """
+  semanticModel: SemanticModel
+
+  """
+  The direct parent metric in the sidebar hierarchy. Null for root metrics.
+  For deeper ancestor chains, use nested selection: parentMetric { parentMetric { ... } }.
+  """
+  parentMetric: Metric
+
+  """
+  Child metrics in the metric hierarchy.
+  """
+  childMetrics(input: ScrollAcrossEntitiesInput!): ScrollResults
+
+  """
+  Ownership metadata of the Metric.
+  """
+  ownership: Ownership
+
+  """
+  The browse path V2 corresponding to this entity.
+  """
+  browsePathV2: BrowsePathV2
+
+  """
+  Tags applied to the Metric.
+  """
+  tags: GlobalTags
+
+  """
+  Glossary terms associated with the Metric.
+  """
+  glossaryTerms: GlossaryTerms
+
+  """
+  The Domain associated with the Metric.
+  """
+  domain: DomainAssociation
+
+  """
+  References to internal resources related to the Metric.
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
+  Structured properties about this asset.
+  """
+  structuredProperties: StructuredProperties
+
+  """
+  Status of this Metric (soft-deleted, etc.).
+  """
+  status: Status
+
+  """
+  Deprecation metadata for this Metric.
+  """
+  deprecation: Deprecation
+
+  """
+  Data Platform Instance associated with the Metric.
+  """
+  dataPlatformInstance: DataPlatformInstance
+
+  """
+  Sub-types associated with this entity.
+  """
+  subTypes: SubTypes
+
+  """
+  Documentation aspect containing editable description for this Metric.
+  """
+  documentation: Documentation
+
+  """
+  Applications associated with this Metric.
+  """
+  applications: EntityRelationshipsResult
+
+  """
+  Privileges given to a user relevant to this entity.
+  """
+  privileges: EntityPrivileges
+
+  """
+  Whether or not this entity exists on DataHub.
+  """
+  exists: Boolean
+
+  """
+  Edges extending from this entity.
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+A Semantic Model entity that groups datasets and defines metrics context.
+"""
+type SemanticModel implements Entity {
+  """
+  The primary key of the SemanticModel.
+  """
+  urn: String!
+
+  """
+  A standard Entity Type.
+  """
+  type: EntityType!
+
+  """
+  The timestamp of the last time this SemanticModel was ingested.
+  """
+  lastIngested: Long
+
+  """
+  The platform that this SemanticModel originates in.
+  """
+  platform: DataPlatform!
+
+  """
+  The path component of the three-part key (platform, path, id).
+  """
+  path: String!
+
+  """
+  The id component of the three-part key (platform, path, id).
+  """
+  id: String!
+
+  """
+  Core information about the SemanticModel.
+  """
+  info: SemanticModelInfo
+
+  """
+  Column-level lineage from the upstreamLineage aspect.
+  Table-level lineage is surfaced via the standard relationships field.
+  """
+  fineGrainedLineages: [FineGrainedLineage!]
+
+  """
+  Metrics defined within this SemanticModel (field-resolver in CAT-2566).
+  """
+  metrics(input: ScrollAcrossEntitiesInput!): ScrollResults
+
+  """
+  Ownership metadata of the SemanticModel.
+  """
+  ownership: Ownership
+
+  """
+  The browse path V2 corresponding to this entity.
+  """
+  browsePathV2: BrowsePathV2
+
+  """
+  Tags applied to the SemanticModel.
+  """
+  tags: GlobalTags
+
+  """
+  Glossary terms associated with the SemanticModel.
+  """
+  glossaryTerms: GlossaryTerms
+
+  """
+  The Domain associated with the SemanticModel.
+  """
+  domain: DomainAssociation
+
+  """
+  References to internal resources related to the SemanticModel.
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
+  Structured properties about this asset.
+  """
+  structuredProperties: StructuredProperties
+
+  """
+  Status of this SemanticModel (soft-deleted, etc.).
+  """
+  status: Status
+
+  """
+  Deprecation metadata for this SemanticModel.
+  """
+  deprecation: Deprecation
+
+  """
+  Data Platform Instance associated with the SemanticModel.
+  """
+  dataPlatformInstance: DataPlatformInstance
+
+  """
+  Sub-types associated with this entity.
+  """
+  subTypes: SubTypes
+
+  """
+  Documentation aspect containing editable description for this SemanticModel.
+  """
+  documentation: Documentation
+
+  """
+  Applications associated with this SemanticModel.
+  """
+  applications: EntityRelationshipsResult
+
+  """
+  Privileges given to a user relevant to this entity.
+  """
+  privileges: EntityPrivileges
+
+  """
+  Whether or not this entity exists on DataHub.
+  """
+  exists: Boolean
+
+  """
+  Edges extending from this entity.
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Core information about a Metric.
+"""
+type MetricInfo {
+  name: String!
+  description: String
+  created: ResolvedAuditStamp
+  lastModified: ResolvedAuditStamp
+  expression: MetricExpression
+  aiContext: AiContext
+  """
+  URL of the metric in its native platform (e.g., link to the metric in dbt Cloud or Cube).
+  """
+  externalUrl: String
+}
+
+"""
+Relationship edges from a Metric to other Metrics.
+"""
+type MetricRelationships {
+  """
+  Edges to metrics that this metric is derived from.
+  """
+  derivedFrom: [EntityEdge!]!
+
+  """
+  Edges to metrics that are related to this metric.
+  """
+  relatedMetrics: [EntityEdge!]!
+}
+
+"""
+Upstream lineage for a Metric: datasets and schema fields it consumes.
+"""
+type MetricUpstreams {
+  """
+  Dataset-level upstream edges.
+  """
+  datasetUpstreams: [EntityEdge!]
+
+  """
+  Schema-field-level upstream edges.
+  """
+  fieldUpstreams: [EntityEdge!]
+}
+
+"""
+Core information about a SemanticModel.
+"""
+type SemanticModelInfo {
+  name: String!
+  description: String
+  created: ResolvedAuditStamp
+  lastModified: ResolvedAuditStamp
+  """
+  The native definition of the semantic model (e.g., YAML config, SQL DDL).
+  """
+  nativeDefinition: String
+  aiContext: AiContext
+  datasets: [ModelDataset!]!
+  relationships: [SemanticModelRelationship!]
+  """
+  URL of the semantic model in its native platform (e.g., link to the Snowflake semantic view).
+  """
+  externalUrl: String
+}
+
+"""
+A logical dataset referenced by a SemanticModel. `source` may be a Dataset
+(the common case) or a Query (inline SQL with no backing table).
+"""
+type ModelDataset {
+  name: String!
+  """
+  The backing entity — a Dataset or a Query — resolved via UrnToEntityMapper.
+  """
+  source: Entity!
+  fields: [SemanticField!]
+}
+
+"""
+A field (dimension, measure, filter, or other) exposed by a semantic model dataset.
+The `type` discriminator is required and determines whether `dimension` is populated.
+Identity and governance surface (fieldPath, description, tags, glossaryTerms, etc.)
+live on the inline `schemaField`.
+"""
+type SemanticField {
+  schemaField: SchemaField!
+  type: SemanticFieldType!
+  expression: MetricExpression!
+  dimension: Dimension
+  aiContext: AiContext
+}
+
+"""
+Discriminator for a SemanticField indicating its role in the semantic model.
+"""
+enum SemanticFieldType {
+  DIMENSION
+  MEASURE
+  FILTER
+  OTHER
+}
+
+"""
+Additional metadata for a dimension-type SemanticField.
+"""
+type Dimension {
+  isTime: Boolean!
+}
+
+"""
+A join relationship between two datasets within a SemanticModel.
+"""
+type SemanticModelRelationship {
+  name: String
+  from: String!
+  fromColumns: [String!]!
+  to: String!
+  toColumns: [String!]!
+  """
+  Reuses the ERModelRelationshipCardinality enum defined in entity.graphql.
+  """
+  cardinality: ERModelRelationshipCardinality
+  aiContext: AiContext
+}
+
+"""
+A SQL or dialect-specific expression backing a Metric or SemanticField.
+"""
+type MetricExpression {
+  dialects: [DialectExpression!]!
+}
+
+"""
+A dialect-specific expression string.
+"""
+type DialectExpression {
+  dialect: Dialect!
+  expression: String!
+}
+
+"""
+SQL dialects supported for metric and field expressions.
+"""
+enum Dialect {
+  ANSI_SQL
+  SNOWFLAKE
+  MDX
+  TABLEAU
+  DATABRICKS
+  MAQL
+  OTHER
+}
+
+"""
+AI/LLM context attached to a Metric, SemanticField, or SemanticModelRelationship
+to improve natural-language understanding and query generation.
+"""
+type AiContext {
+  synonyms: [String!]
+  instructions: String
+  examples: [String!]
+  customInstructions: String
+}

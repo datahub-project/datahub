@@ -167,6 +167,9 @@ public class CreateStructuredPropertyResolver
     if (input.getCardinality() != null) {
       builder.setCardinality(PropertyCardinality.valueOf(input.getCardinality().toString()));
     }
+    if (input.getAllowedPlatforms() != null) {
+      input.getAllowedPlatforms().forEach(builder::addAllowedPlatform);
+    }
     builder.setCreated(context.getOperationContext().getAuditStamp());
     builder.setLastModified(context.getOperationContext().getAuditStamp());
 
