@@ -1,5 +1,6 @@
 package com.linkedin.metadata.structuredproperties.validation;
 
+import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getValueTypeId;
@@ -7,7 +8,9 @@ import static com.linkedin.metadata.structuredproperties.validation.PropertyDefi
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.entity.Aspect;
@@ -23,6 +26,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
+import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.PropertyCardinality;
@@ -40,6 +44,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -125,6 +130,24 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
         fetchPropertyAspects(operationContext, mcpItems, aspectRetriever, exceptions, false);
 
+    // Only fetch dataPlatformInstance aspects when at least one property definition restricts by
+    // platform — avoids a DB round-trip for the common case where no properties use
+    // allowedPlatforms
+    boolean anyPropertyHasAllowedPlatforms =
+        allStructuredPropertiesAspects.values().stream()
+            .map(aspectMap -> aspectMap.get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+            .filter(Objects::nonNull)
+            .map(aspect -> new StructuredPropertyDefinition(aspect.data()))
+            .anyMatch(def -> def.hasAllowedPlatforms() && !def.getAllowedPlatforms().isEmpty());
+
+    Map<Urn, Urn> entityPlatformUrns;
+    if (anyPropertyHasAllowedPlatforms) {
+      Set<Urn> entityUrns = mcpItems.stream().map(BatchItem::getUrn).collect(Collectors.toSet());
+      entityPlatformUrns = fetchEntityPlatformUrns(operationContext, entityUrns, aspectRetriever);
+    } else {
+      entityPlatformUrns = Collections.emptyMap();
+    }
+
     // Validate assignments
     for (BatchItem i : exceptions.successful(mcpItems)) {
       StructuredProperties structuredProperties = i.getAspect(StructuredProperties.class);
@@ -204,6 +227,10 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
           validateAllowedValues(i, propertyUrn, structuredPropertyDefinition, value)
               .ifPresent(exceptions::addException);
         }
+
+        // Check allowed platforms
+        validateAllowedPlatforms(i, propertyUrn, structuredPropertyDefinition, entityPlatformUrns)
+            .ifPresent(exceptions::addException);
       }
     }
 
@@ -497,5 +524,101 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     return structuredPropertyDefinitionAspect == null
         ? null
         : new StructuredPropertyDefinition(structuredPropertyDefinitionAspect.data());
+  }
+
+  /**
+   * Batch-fetches data platform URNs for all entity URNs and returns a map of entity URN to data
+   * platform URN.
+   *
+   * <p>SchemaField entities don't have their own {@code dataPlatformInstance} aspect — the platform
+   * is encoded in the embedded dataset URN inside the schemaField URN. For all other entity types,
+   * the platform is read from the stored {@code dataPlatformInstance} aspect.
+   */
+  private static Map<Urn, Urn> fetchEntityPlatformUrns(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull AspectRetriever aspectRetriever) {
+    if (entityUrns.isEmpty()) {
+      return Collections.emptyMap();
+    }
+    Map<Urn, Urn> result = new HashMap<>();
+    Set<Urn> nonSchemaFieldUrns = new HashSet<>();
+
+    for (Urn entityUrn : entityUrns) {
+      if (Constants.SCHEMA_FIELD_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+        // schemaField URNs embed the parent dataset URN as their id, e.g.:
+        //   urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,...),fieldPath)
+        // Recover the dataset URN via getId(), then delegate to DataPlatformInstanceUtils.
+        try {
+          Urn datasetUrn = UrnUtils.getUrn(entityUrn.getId());
+          result.put(entityUrn, DataPlatformInstanceUtils.getDataPlatform(datasetUrn));
+        } catch (Exception e) {
+          log.warn("Failed to extract platform URN from schemaField URN: {}", entityUrn, e);
+        }
+      } else {
+        nonSchemaFieldUrns.add(entityUrn);
+      }
+    }
+
+    if (!nonSchemaFieldUrns.isEmpty()) {
+      Map<Urn, Map<String, Aspect>> platformInstanceAspects =
+          aspectRetriever.getLatestAspectObjects(
+              operationContext,
+              nonSchemaFieldUrns,
+              ImmutableSet.of(DATA_PLATFORM_INSTANCE_ASPECT_NAME));
+      platformInstanceAspects.forEach(
+          (entityUrn, aspectMap) -> {
+            Aspect platformInstanceAspect = aspectMap.get(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+            if (platformInstanceAspect != null) {
+              DataPlatformInstance dataPlatformInstance =
+                  new DataPlatformInstance(platformInstanceAspect.data());
+              if (dataPlatformInstance.hasPlatform()) {
+                result.put(entityUrn, dataPlatformInstance.getPlatform());
+              }
+            }
+          });
+    }
+
+    return result;
+  }
+
+  /**
+   * Validates that the entity's data platform is in the structured property's allowedPlatforms
+   * list. If allowedPlatforms is empty or null, the check passes (applies to all platforms).
+   */
+  private static Optional<AspectValidationException> validateAllowedPlatforms(
+      @Nonnull BatchItem item,
+      @Nonnull Urn propertyUrn,
+      @Nonnull StructuredPropertyDefinition definition,
+      @Nonnull Map<Urn, Urn> entityPlatformUrns) {
+    if (!definition.hasAllowedPlatforms() || definition.getAllowedPlatforms().isEmpty()) {
+      return Optional.empty();
+    }
+    Urn entityPlatformUrn = entityPlatformUrns.get(item.getUrn());
+    if (entityPlatformUrn == null) {
+      return Optional.of(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "Property: %s is restricted to specific data platforms %s, but the entity %s"
+                      + " does not have a data platform.",
+                  propertyUrn, definition.getAllowedPlatforms(), item.getUrn())));
+    }
+    boolean platformAllowed =
+        definition.getAllowedPlatforms().stream()
+            .anyMatch(allowedPlatform -> allowedPlatform.equals(entityPlatformUrn));
+    if (!platformAllowed) {
+      return Optional.of(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "Property: %s is restricted to data platforms %s, but the entity %s belongs to"
+                      + " platform %s.",
+                  propertyUrn,
+                  definition.getAllowedPlatforms(),
+                  item.getUrn(),
+                  entityPlatformUrn)));
+    }
+    return Optional.empty();
   }
 }

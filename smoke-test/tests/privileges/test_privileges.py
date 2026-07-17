@@ -31,7 +31,7 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.global_policy_mutator]
 
 # Valid email for auth.native.signUp.enforceValidEmail (Play EmailValidator).
 TEST_PRIVILEGES_USER_EMAIL = "privileges.user@smoke.datahub.test"
@@ -47,7 +47,7 @@ def admin_session(auth_session):
 def privileges_and_test_user_setup(admin_session):
     """Fixture to execute setup before and tear down after all tests are run"""
     # Clean up any leftover test policies from previous failed runs
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefix="Test Policy")
 
     # Disable 'All users' privileges
     set_base_platform_privileges_policy_status("INACTIVE", admin_session)
@@ -93,7 +93,7 @@ def privileges_and_test_user_setup(admin_session):
     remove_secret(admin_session, "urn:li:dataHubSecret:TestSecretName")
 
     # Remove test policies
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefix="Test Policy")
 
     # Restore All users privileges
     set_base_platform_privileges_policy_status("ACTIVE", admin_session)

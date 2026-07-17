@@ -4,8 +4,11 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.domain.DomainAssociation;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -13,12 +16,14 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import com.linkedin.metadata.timeline.data.entity.ChangeEventParameterUtils;
 import com.linkedin.metadata.timeline.data.entity.DomainChangeEvent;
 import jakarta.json.JsonPatch;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -98,7 +103,11 @@ public class SingleDomainChangeEventGenerator extends EntityChangeEventGenerator
               .operation(ChangeOperation.ADD)
               .entityUrn(entityUrn)
               .modifier(domainUrn.toString())
-              .domainUrn(domainUrn)
+              .parameters(
+                  buildParameters(
+                      domainUrn,
+                      getContext(targetDomains, domainUrn),
+                      getAttribution(targetDomains, domainUrn)))
               .description(String.format(DOMAIN_ADDED_FORMAT, domainUrn.getId(), entityUrn))
               .auditStamp(auditStamp)
               .build());
@@ -113,7 +122,11 @@ public class SingleDomainChangeEventGenerator extends EntityChangeEventGenerator
               .operation(ChangeOperation.REMOVE)
               .entityUrn(entityUrn)
               .modifier(domainUrn.toString())
-              .domainUrn(domainUrn)
+              .parameters(
+                  buildParameters(
+                      domainUrn,
+                      getContext(baseDomains, domainUrn),
+                      getAttribution(baseDomains, domainUrn)))
               .description(String.format(DOMAIN_REMOVED_FORMAT, domainUrn.getId(), entityUrn))
               .auditStamp(auditStamp)
               .build());
@@ -130,7 +143,11 @@ public class SingleDomainChangeEventGenerator extends EntityChangeEventGenerator
               .operation(ChangeOperation.REMOVE)
               .entityUrn(entityUrn)
               .modifier(removedDomainUrn.toString())
-              .domainUrn(removedDomainUrn)
+              .parameters(
+                  buildParameters(
+                      removedDomainUrn,
+                      getContext(baseDomains, removedDomainUrn),
+                      getAttribution(baseDomains, removedDomainUrn)))
               .description(
                   String.format(DOMAIN_REMOVED_FORMAT, removedDomainUrn.getId(), entityUrn))
               .auditStamp(auditStamp)
@@ -141,7 +158,11 @@ public class SingleDomainChangeEventGenerator extends EntityChangeEventGenerator
               .operation(ChangeOperation.ADD)
               .entityUrn(entityUrn)
               .modifier(addedDomainUrn.toString())
-              .domainUrn(addedDomainUrn)
+              .parameters(
+                  buildParameters(
+                      addedDomainUrn,
+                      getContext(targetDomains, addedDomainUrn),
+                      getAttribution(targetDomains, addedDomainUrn)))
               .description(String.format(DOMAIN_ADDED_FORMAT, addedDomainUrn.getId(), entityUrn))
               .auditStamp(auditStamp)
               .build());
@@ -166,5 +187,41 @@ public class SingleDomainChangeEventGenerator extends EntityChangeEventGenerator
 
   private boolean isDomainEmpty(@Nullable final Domains domains) {
     return domains == null || domains.getDomains().size() == 0;
+  }
+
+  private static Map<String, Object> buildParameters(
+      @Nonnull Urn domainUrn, @Nullable String context, @Nullable MetadataAttribution attribution) {
+    return ImmutableMap.of(
+        "domainUrn",
+        domainUrn.toString(),
+        "context",
+        context != null ? context : "{}",
+        "sourceDetails",
+        ChangeEventParameterUtils.serializeSourceDetail(attribution));
+  }
+
+  @Nullable
+  private static String getContext(@Nonnull final Domains domains, @Nonnull final Urn domainUrn) {
+    if (!domains.hasDomainAssociations()) {
+      return null;
+    }
+    return domains.getDomainAssociations().stream()
+        .filter(da -> da.getDomain().equals(domainUrn) && da.hasContext())
+        .findFirst()
+        .map(DomainAssociation::getContext)
+        .orElse(null);
+  }
+
+  @Nullable
+  private static MetadataAttribution getAttribution(
+      @Nonnull final Domains domains, @Nonnull final Urn domainUrn) {
+    if (!domains.hasDomainAssociations()) {
+      return null;
+    }
+    return domains.getDomainAssociations().stream()
+        .filter(da -> da.getDomain().equals(domainUrn) && da.hasAttribution())
+        .findFirst()
+        .map(DomainAssociation::getAttribution)
+        .orElse(null);
   }
 }

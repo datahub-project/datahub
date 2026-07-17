@@ -1,6 +1,5 @@
 import contextlib
 import datetime
-import functools
 import logging
 import traceback
 from dataclasses import dataclass, field
@@ -39,10 +38,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import capability
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -82,9 +79,6 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
     generate_procedure_container_workunits,
     generate_procedure_workunits,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -293,11 +287,6 @@ class ProfileMetadata:
     dataset_name_to_storage_bytes: Dict[str, int] = field(default_factory=dict)
 
 
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
-    supported=True,
-)
 @capability(
     SourceCapability.SCHEMA_METADATA,
     "Enabled by default",
@@ -564,17 +553,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
@@ -761,7 +739,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         continue
 
                     self.report.report_entity_scanned(dataset_name, ent_type="table")
+                    logger.debug(f"Scanning table: {dataset_name}")
                     if not sql_config.table_pattern.allowed(dataset_name):
+                        logger.debug(f"Dropped table by table_pattern: {dataset_name}")
                         self.report.report_dropped(dataset_name)
                         continue
 
@@ -1164,8 +1144,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     schema=schema, entity=view, inspector=inspector
                 )
                 self.report.report_entity_scanned(dataset_name, ent_type="view")
+                logger.debug(f"Scanning view: {dataset_name}")
 
                 if not sql_config.view_pattern.allowed(dataset_name):
+                    logger.debug(f"Dropped view by view_pattern: {dataset_name}")
                     self.report.report_dropped(dataset_name)
                     continue
 
@@ -1251,6 +1233,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 context=f"{dataset_name}",
             )
             schema_metadata = None
+            # The view is still emitted as a real dataset below. Record it as
+            # discovered even without a schema so query-history consumers (e.g.
+            # usage temp-table detection) don't treat it as a phantom/temp table.
+            if self._save_schema_to_resolver():
+                self.discovered_datasets.add(dataset_name)
         else:
             schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
             schema_metadata = get_schema_metadata(

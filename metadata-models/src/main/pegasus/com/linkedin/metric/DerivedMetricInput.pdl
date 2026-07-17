@@ -1,0 +1,12 @@
+namespace com.linkedin.metric
+
+import com.linkedin.common.Edge
+
+/**
+ * An input metric to a derived metric's calculation.
+ *
+ * Wraps the standard Edge as a dedicated type so the field type on
+ * MetricRelationships.derivedFrom is stable while the derivation model
+ * matures.
+ */
+record DerivedMetricInput includes Edge {}

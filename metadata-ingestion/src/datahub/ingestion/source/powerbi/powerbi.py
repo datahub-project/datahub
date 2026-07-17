@@ -25,7 +25,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
-    auto_incremental_lineage,
     convert_dashboard_info_to_patch,
 )
 from datahub.ingestion.api.source import (
@@ -43,6 +42,10 @@ from datahub.ingestion.source.common.subtypes import (
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
+from datahub.ingestion.source.identity.corp_user_status import (
+    CORP_USER_STATUS_ACTIVE,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.powerbi.config import (
     POWERBI_TYPE_TO_DATA_PLATFORM_PAIR,
     Constant,
@@ -60,9 +63,13 @@ from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
+    auto_stale_entity_removal,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -104,6 +111,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import ChartUrn, DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 
 # Logger instance
@@ -191,19 +199,22 @@ class Mapper:
         for cll_info in cll:
             downstream = (
                 [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
-                if cll_info.downstream is not None
-                and cll_info.downstream.column is not None
+                if cll_info.downstream is not None and cll_info.downstream.column
                 else []
             )
 
             upstreams = [
                 builder.make_schema_field_urn(
+                    # convert_lineage_urns_to_lowercase lowercases only the dataset
+                    # portion of the upstream schemaField URN — matching sources'
+                    # lowercase_dataset_urns, which never touches the field path.
+                    # Lowercasing the column too would drop the column-level edge
+                    # against warehouses that store columns in their original casing.
                     self.lineage_urn_to_lowercase(column_ref.table),
-                    column_ref.column.lower()
-                    if self.__config.convert_lineage_urns_to_lowercase
-                    else column_ref.column,
+                    column_ref.column,
                 )
                 for column_ref in cll_info.upstreams
+                if column_ref.column
             ]
 
             fine_grained_lineages.append(
@@ -1128,15 +1139,19 @@ class Mapper:
         user_key = CorpUserKeyClass(username=user_id)
 
         user_info = CorpUserInfoClass(
+            active=True,
             displayName=user.displayName or user_id,  # Fallback to user_id if null
             email=user.emailAddress
             or None,  # PowerBI API may return "" for missing email
-            active=True,
         )
 
         return [
             MetadataChangeProposalWrapper(entityUrn=user_urn, aspect=user_key),
             MetadataChangeProposalWrapper(entityUrn=user_urn, aspect=user_info),
+            MetadataChangeProposalWrapper(
+                entityUrn=user_urn,
+                aspect=make_corp_user_status_aspect(CORP_USER_STATUS_ACTIVE),
+            ),
         ]
 
     def _get_qualified_owners(
@@ -1723,10 +1738,26 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 "Note: This may overwrite existing user profiles from LDAP/Okta/SCIM."
             )
 
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.source_config, self.ctx
-        )
+        # For modified_since, stale removal is handled per-workspace in get_workunits_internal().
+        # For the default path, AutoStaleEntityRemovalProcessor handles it automatically via get_workunit_processors().
+        if self.source_config.modified_since:
+            from datahub.ingestion.source.state.entity_removal_state import (
+                GenericCheckpointState,
+            )
+
+            self.stale_entity_removal_handler: Optional[StaleEntityRemovalHandler] = (
+                StaleEntityRemovalHandler(
+                    state_provider=self.state_provider,
+                    report=self.reporter,
+                    config=self.source_config,
+                    state_type_class=GenericCheckpointState,
+                    pipeline_name=ctx.pipeline_name,
+                    run_id=ctx.run_id,
+                    platform=self.platform,
+                )
+            )
+        else:
+            self.stale_entity_removal_handler = None
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -1981,19 +2012,18 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         else:
             return work_unit
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # As modified_workspaces is not idempotent, hence workunit processors are run later for each workspace_id
-        # This will result in creating a checkpoint for each workspace_id
+    def get_excluded_workunit_processors(self):
+        # For modified_since, stale removal is handled per-workspace in get_workunits_internal()
         if self.source_config.modified_since:
-            return []  # Handle these in get_workunits_internal
-        else:
-            return [
-                *super().get_workunit_processors(),
-                functools.partial(
-                    auto_incremental_lineage, self.source_config.incremental_lineage
-                ),
-                self.stale_entity_removal_handler.workunit_processor,
-            ]
+            return [AutoStaleEntityRemovalProcessor]
+        return []
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # As modified_workspaces is not idempotent, workunit processors are run per workspace_id
+        # to create a separate checkpoint for each workspace.
+        if self.source_config.modified_since:
+            return []  # All processing handled per-workspace in get_workunits_internal
+        return super().get_workunit_processors()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -2005,78 +2035,121 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         # Fetch PowerBi workspace for given workspace identifier
 
         allowed_workspaces = self.get_allowed_workspaces()
+        workspace_ids: List[str] = [w.id for w in allowed_workspaces]
 
-        # First get scan results for all workspaces, and fill out self.powerbi_client.dataset_registry
-        # so cross-workspace references work.
-        batches = more_itertools.chunked(
-            allowed_workspaces, self.source_config.scan_batch_size
-        )
-        excluded_workspace_ids: Set[str] = set()
-        for batch_workspaces in batches:
-            logger.info(
-                f"Fetching initial metadata for workspaces: {[w.format_name_for_logger() for w in batch_workspaces]}"
-            )
-            try:
-                excluded_workspace_ids.update(
-                    self.powerbi_client.fill_metadata_from_scan_result(batch_workspaces)
+        # Workspaces (their raw scan_result payloads especially) are the dominant
+        # memory consumer and must stay available between Phase 1 (scan) and
+        # Phase 2 (per-workspace detail). Spilling them to a file-backed dict
+        # instead of holding them all resident is what prevents OOMs on large
+        # tenants. Cache size holds a scan batch plus buffer to avoid thrashing.
+        ws_cache_size = min(max(self.source_config.scan_batch_size * 2, 10), 200)
+        with FileBackedDict[powerbi_data_classes.Workspace](
+            tablename="workspaces",
+            cache_max_size=ws_cache_size,
+            cache_eviction_batch_size=max(ws_cache_size // 2, 1),
+        ) as workspaces:
+            for workspace in allowed_workspaces:
+                workspaces[workspace.id] = workspace
+            del allowed_workspaces
+
+            # Phase 1: fetch scan results per batch, filling out
+            # self.powerbi_client.dataset_registry so cross-workspace references
+            # resolve in Phase 2.
+            excluded_workspace_ids: Set[str] = set()
+            for batch_ids in more_itertools.chunked(
+                workspace_ids, self.source_config.scan_batch_size
+            ):
+                batch_workspaces = [workspaces[wid] for wid in batch_ids]
+                logger.info(
+                    f"Fetching initial metadata for workspaces: {[w.format_name_for_logger() for w in batch_workspaces]}"
                 )
-            except Exception as e:
-                # Phase 1 must not abort the whole ingestion: an unhandled
-                # exception here would mean zero workunits emitted from any
-                # batch. Record one "Incomplete Scan Metadata" warning per
-                # affected workspace (reporter.warning includes the traceback
-                # via exc=) so the gap is discoverable in the source report,
-                # then fall through to Phase 2 with empty scan_result.
+                try:
+                    excluded_workspace_ids.update(
+                        self.powerbi_client.fill_metadata_from_scan_result(
+                            batch_workspaces
+                        )
+                    )
+                except Exception as e:
+                    # Phase 1 must not abort the whole ingestion: an unhandled
+                    # exception here would mean zero workunits emitted from any
+                    # batch. Record one "Incomplete Scan Metadata" warning per
+                    # affected workspace (reporter.warning includes the traceback
+                    # via exc=) so the gap is discoverable in the source report,
+                    # then fall through to Phase 2 with empty scan_result.
+                    for ws in batch_workspaces:
+                        self.reporter.warning(
+                            title="Incomplete Scan Metadata",
+                            message=(
+                                "Phase 1 scan batch failed; this workspace "
+                                "will be ingested with empty scan metadata."
+                            ),
+                            context=f"workspace={ws.name} id={ws.id}",
+                            exc=e,
+                        )
+                # fill_metadata_from_scan_result mutates the workspaces in place;
+                # write them back or the mutations are lost on cache eviction.
                 for ws in batch_workspaces:
+                    workspaces[ws.id] = ws
+
+            # Phase 2: fetch the rest of the metadata per workspace. We skip
+            # workspaces the scan excluded (inactive or wrong type) to avoid
+            # redundant per-workspace API calls.
+            for workspace_id in workspace_ids:
+                if workspace_id in excluded_workspace_ids:
+                    continue
+                workspace = workspaces[workspace_id]
+                logger.info(f"Processing workspace id: {workspace.id}")
+                try:
+                    self.powerbi_client.fill_regular_metadata_detail(
+                        workspace=workspace
+                    )
+                except Exception as e:
                     self.reporter.warning(
-                        title="Incomplete Scan Metadata",
-                        message=(
-                            "Phase 1 scan batch failed; this workspace "
-                            "will be ingested with empty scan metadata."
-                        ),
-                        context=f"workspace={ws.name} id={ws.id}",
+                        title="Failed to Fetch Workspace Metadata",
+                        message="Phase 2 metadata fetch failed for this workspace; it will be skipped.",
+                        context=f"workspace={workspace.name} id={workspace.id}",
                         exc=e,
                     )
+                    continue
 
-        # Skip Phase 2 for workspaces the scan excluded (inactive or wrong
-        # type) so we don't issue redundant per-workspace API calls.
-        allowed_workspaces = [
-            w for w in allowed_workspaces if w.id not in excluded_workspace_ids
-        ]
+                if self.source_config.modified_since:
+                    # Per-workspace checkpointing: each workspace gets its own checkpoint job_id.
+                    # Because job_id is used as a dictionary key, we have to set a new job_id.
+                    # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
+                    assert self.stale_entity_removal_handler is not None
+                    self.stale_entity_removal_handler.set_job_id(workspace.id)
+                    self.state_provider.register_stateful_ingestion_usecase_handler(
+                        self.stale_entity_removal_handler
+                    )
 
-        # Then get the rest of the metadata per workspace.
-        for workspace in allowed_workspaces:
-            logger.info(f"Processing workspace id: {workspace.id}")
-            try:
-                self.powerbi_client.fill_regular_metadata_detail(workspace=workspace)
-            except Exception as e:
-                self.reporter.warning(
-                    title="Failed to Fetch Workspace Metadata",
-                    message="Phase 2 metadata fetch failed for this workspace; it will be skipped.",
-                    context=f"workspace={workspace.name} id={workspace.id}",
-                    exc=e,
-                )
-                continue
+                    yield from self._apply_workunit_processors(
+                        [
+                            *super().get_workunit_processors(),
+                            # stale_entity_removal is excluded from super() via get_excluded_workunit_processors(),
+                            # so we apply it manually here for per-workspace checkpointing.
+                            functools.partial(
+                                auto_stale_entity_removal,
+                                self.stale_entity_removal_handler,
+                            ),
+                        ],
+                        self.get_workspace_workunit(workspace),
+                    )
+                else:
+                    # Maintain backward compatibility
+                    yield from self.get_workspace_workunit(workspace)
 
-            if self.source_config.modified_since:
-                # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
-                # Because job_id is used as a dictionary key, we have to set a new job_id
-                # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
-                self.stale_entity_removal_handler.set_job_id(workspace.id)
-                self.state_provider.register_stateful_ingestion_usecase_handler(
-                    self.stale_entity_removal_handler
-                )
-
-                yield from self._apply_workunit_processors(
-                    [
-                        *super().get_workunit_processors(),
-                        self.stale_entity_removal_handler.workunit_processor,
-                    ],
-                    self.get_workspace_workunit(workspace),
-                )
-            else:
-                # Maintain backward compatibility
-                yield from self.get_workspace_workunit(workspace)
+                # Fully emitted and never revisited; drop it to free its
+                # scan_result and parsed children.
+                del workspaces[workspace_id]
 
     def get_report(self) -> SourceReport:
         return self.reporter
+
+    def close(self) -> None:
+        # Best-effort temp-file cleanup must not skip the stateful-ingestion
+        # commit in super().close(); a cleanup failure would otherwise corrupt
+        # incremental state on the next run.
+        try:
+            self.powerbi_client.close()
+        finally:
+            super().close()

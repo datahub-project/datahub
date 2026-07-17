@@ -200,6 +200,57 @@ def test_merge_refs_comment_is_deduplicated():
     assert "<!--" not in second
 
 
+def test_merge_refs_comment_accumulates_multiple_refs():
+    body = utils.merge_refs_comment(
+        None, "tag", "v1.0.0", "aaa1111", "https://github.com/acryldata/datahub/actions/runs/1"
+    )
+    body = utils.merge_refs_comment(
+        body, "tag", "v1.0.1", "bbb2222", "https://github.com/acryldata/datahub/actions/runs/2"
+    )
+    body = utils.merge_refs_comment(
+        body, "branch", "acryl-main", "ccc3333", "https://github.com/acryldata/datahub/actions/runs/3"
+    )
+    assert "v1.0.0" in body
+    assert "v1.0.1" in body
+    assert "acryl-main" in body
+    assert body.count("**Tag**") == 2
+    assert body.count("**Branch**") == 1
+
+
+def test_merge_refs_comment_preserves_foreign_section_when_adding_new_ref():
+    # Other automation sharing this Linear issue appended a section this codebase doesn't
+    # know about after the refs block.
+    body_with_section = utils.merge_refs_comment(
+        None, "tag", "v1.0.0", "abc1234", "https://github.com/o/r/actions/runs/1"
+    )
+    body_with_section = (
+        body_with_section.rstrip() + "\n\n" + utils.SLACK_NOTIFIED_SECTION_HEADER
+        + "\n\n- notified 2026-01-01T00:00:00Z\n"
+    )
+
+    updated = utils.merge_refs_comment(
+        body_with_section, "tag", "v1.0.1", "def5678", "https://github.com/o/r/actions/runs/2"
+    )
+    assert utils.SLACK_NOTIFIED_SECTION_HEADER in updated, "foreign section was dropped when a new ref was added"
+    assert "v1.0.0" in updated
+    assert "v1.0.1" in updated
+
+
+def test_merge_refs_comment_preserves_foreign_section_on_dedup():
+    # Same ref scanned again (dedup path) — foreign section must also survive.
+    body_with_section = utils.merge_refs_comment(
+        None, "branch", "acryl-main", "abc1234", "https://github.com/o/r/actions/runs/1"
+    )
+    body_with_section = (
+        body_with_section.rstrip() + "\n\n" + utils.SLACK_NOTIFIED_SECTION_HEADER + "\n\n- notified\n"
+    )
+
+    updated = utils.merge_refs_comment(
+        body_with_section, "branch", "acryl-main", "abc1234", "https://github.com/o/r/actions/runs/2"
+    )
+    assert utils.SLACK_NOTIFIED_SECTION_HEADER in updated, "foreign section was dropped on dedup path"
+
+
 def test_comment_has_refs_anchor_still_finds_legacy_html_block():
     body = "<!-- datahub-security-scan-refs\n### Git branch/tag scan history\n-->\n"
     assert utils.comment_has_refs_anchor(body)

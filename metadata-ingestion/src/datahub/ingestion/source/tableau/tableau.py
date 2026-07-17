@@ -76,7 +76,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
@@ -88,7 +87,6 @@ from datahub.ingestion.source.common.subtypes import (
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -321,13 +319,7 @@ class TableauConnectionConfig(ConfigModel):
                 self.connect_uri,
                 use_server_version=True,
                 http_options={
-                    # As per https://community.tableau.com/s/question/0D54T00000F33bdSAB/tableauserverclient-signin-with-ssl-certificate
-                    "verify": bool(self.ssl_verify),
-                    **(
-                        {"cert": self.ssl_verify}
-                        if isinstance(self.ssl_verify, str)
-                        else {}
-                    ),
+                    "verify": self.ssl_verify,
                 },
             )
 
@@ -1098,14 +1090,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
     def get_report(self) -> TableauSourceReport:
         return self.report
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.server is None or not self.server.is_signed_in():
             return
@@ -1487,10 +1471,10 @@ class TableauSiteSource:
                 continue
             self.workbook_project_map[wb.id] = wb.project_id
 
-    def _populate_projects_registry(self) -> None:
+    def _populate_projects_registry(self) -> Dict[str, TableauProject]:
         if self.server is None:
             logger.warning("server is None. Can not initialize the project registry")
-            return
+            return {}
 
         logger.info("Initializing site project registry")
 
@@ -1508,6 +1492,8 @@ class TableauSiteSource:
         logger.debug(
             f"Tableau workbooks {self.workbook_project_map}",
         )
+
+        return all_project_map
 
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
@@ -2371,14 +2357,10 @@ class TableauSiteSource:
                         datasource_urn, cll_info.downstream.column
                     )
                 ]
-                if cll_info.downstream is not None
-                and cll_info.downstream.column is not None
+                if cll_info.downstream is not None and cll_info.downstream.column
                 else []
             )
-            upstreams = [
-                builder.make_schema_field_urn(column_ref.table, column_ref.column)
-                for column_ref in cll_info.upstreams
-            ]
+            upstreams = cll_info.upstream_schema_field_urns()
             fine_grained_lineages.append(
                 FineGrainedLineage(
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
@@ -4228,7 +4210,9 @@ class TableauSiteSource:
 
         return None
 
-    def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
+    def emit_project_containers(
+        self, all_project_map: Dict[str, TableauProject]
+    ) -> Iterable[MetadataWorkUnit]:
         generated_project_keys: Set[str] = set()
 
         def emit_project_in_topological_order(
@@ -4257,23 +4241,16 @@ class TableauSiteSource:
                 # Go to the parent project as we need to generate container first for parent
                 parent_project_key = self.gen_project_key(project_.parent_id)
 
-                parent_tableau_project: Optional[TableauProject] = (
-                    self.tableau_project_registry.get(project_.parent_id)
-                )
-
-                if (
-                    parent_tableau_project is None
-                ):  # It is not in project registry because of project_pattern
-                    assert project_.parent_name, (
-                        f"project {project_.name} should not be null"
-                    )
-                    parent_tableau_project = TableauProject(
-                        id=project_.parent_id,
-                        name=project_.parent_name,
-                        description=None,
-                        parent_id=None,
-                        parent_name=None,
-                        path=[],
+                # Resolve from the full project map so we recurse to the root even
+                # through filtered-out ancestors. _get_all_project nulls out any
+                # parent_id absent from the map, so this always resolves; guard it so a
+                # future regression fails with context, not a bare KeyError.
+                parent_tableau_project = all_project_map.get(project_.parent_id)
+                if parent_tableau_project is None:
+                    raise ValueError(
+                        f"parent_id {project_.parent_id!r} of project "
+                        f"{project_.name!r} ({project_.id!r}) is missing from the "
+                        f"project map; expected _get_all_project to have nulled it out."
                     )
 
                 yield from emit_project_in_topological_order(parent_tableau_project)
@@ -4550,7 +4527,7 @@ class TableauSiteSource:
                     ] = timer.elapsed_seconds(digits=2)
 
             with PerfTimer() as timer:
-                self._populate_projects_registry()
+                all_project_map = self._populate_projects_registry()
                 self.report.populate_projects_registry_timer[self.site_content_url] = (
                     timer.elapsed_seconds(digits=2)
                 )
@@ -4560,7 +4537,7 @@ class TableauSiteSource:
 
             if self.config.add_site_container:
                 yield from self.emit_site_container()
-            yield from self.emit_project_containers()
+            yield from self.emit_project_containers(all_project_map)
 
             with PerfTimer() as timer:
                 yield from self.emit_workbooks()

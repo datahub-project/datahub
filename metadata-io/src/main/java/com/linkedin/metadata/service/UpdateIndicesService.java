@@ -102,15 +102,13 @@ public class UpdateIndicesService implements SearchIndicesService {
         AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext())
             .collect(Collectors.toList());
 
-    // Group events by URN for batch processing while preserving order
+    // Group events by URN for batch processing while preserving order. Cross-routing-key mixing
+    // is segregated upstream in the Kafka batch listener (see MCLBatchKafkaListener.consumeBatch),
+    // so every call to this method already arrives under a single routing identity — grouping by
+    // URN alone is sufficient here.
     LinkedHashMap<Urn, List<MCLItem>> groupedEvents =
         UpdateIndicesUtil.groupEventsByUrn(Stream.concat(mclItems.stream(), sideEffects.stream()));
 
-    // TODO(opcontext-batch-followup): per event ES routing is a follow-up — once the inbound
-    // enricher exposes a stable routing key, group by (Urn, routingKey) and thread the per-event
-    // OperationContext through to the strategy contract. URNs are not tenant-scoped (two tenants
-    // can legitimately produce the same URN string), so grouping by URN alone is not safe for
-    // cross-tenant batches in the multi-tenant target deployment.
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
         strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
@@ -135,7 +133,7 @@ public class UpdateIndicesService implements SearchIndicesService {
           updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
         }
 
-        handleSystemMetadataUpdateChangeEvents(updateEvents);
+        handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
       }
 
       // Process delete events
@@ -152,7 +150,8 @@ public class UpdateIndicesService implements SearchIndicesService {
         updateGraphIndicesService.handleChangeEvent(opContext, deleteEvent.getMetadataChangeLog());
 
         // system metadata is last for tracing
-        handleSystemMetadataDeleteChangeEvent(deleteEvent.getUrn(), specPair, isDeletingKey);
+        handleSystemMetadataDeleteChangeEvent(
+            opContext, deleteEvent.getUrn(), specPair, isDeletingKey);
       }
     }
   }
@@ -163,7 +162,8 @@ public class UpdateIndicesService implements SearchIndicesService {
    *
    * @param events the collection of update events
    */
-  private void handleSystemMetadataUpdateChangeEvents(@Nonnull final Collection<MCLItem> events) {
+  private void handleSystemMetadataUpdateChangeEvents(
+      @Nonnull OperationContext opContext, @Nonnull final Collection<MCLItem> events) {
     if (events.isEmpty()) {
       return;
     }
@@ -174,14 +174,17 @@ public class UpdateIndicesService implements SearchIndicesService {
         SystemMetadata systemMetadata = event.getSystemMetadata();
         if (systemMetadata != null) {
           systemMetadataService.insert(
-              systemMetadata, event.getUrn().toString(), event.getAspectSpec().getName());
+              opContext,
+              systemMetadata,
+              event.getUrn().toString(),
+              event.getAspectSpec().getName());
 
           // If processing status aspect update all aspects for this urn to removed
           if (event.getAspectSpec().getName().equals(Constants.STATUS_ASPECT_NAME)) {
             RecordTemplate aspect = event.getRecordTemplate();
             if (aspect instanceof Status) {
               systemMetadataService.setDocStatus(
-                  event.getUrn().toString(), ((Status) aspect).isRemoved());
+                  opContext, event.getUrn().toString(), ((Status) aspect).isRemoved());
             }
           }
         }
@@ -197,19 +200,23 @@ public class UpdateIndicesService implements SearchIndicesService {
    * @param isDeletingKey whether the key aspect is being deleted
    */
   private void handleSystemMetadataDeleteChangeEvent(
-      @Nonnull Urn urn, Pair<EntitySpec, AspectSpec> specPair, boolean isDeletingKey) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      Pair<EntitySpec, AspectSpec> specPair,
+      boolean isDeletingKey) {
     if (!specPair.getSecond().isTimeseries()) {
       if (isDeletingKey) {
         // Delete all aspects
         log.debug(String.format("Deleting all system metadata for urn: %s", urn));
-        systemMetadataService.deleteUrn(urn.toString());
+        systemMetadataService.deleteUrn(opContext, urn.toString());
       } else {
         // Delete all aspects from system metadata service
         log.debug(
             String.format(
                 "Deleting system metadata for urn: %s, aspect: %s",
                 urn, specPair.getSecond().getName()));
-        systemMetadataService.deleteAspect(urn.toString(), specPair.getSecond().getName());
+        systemMetadataService.deleteAspect(
+            opContext, urn.toString(), specPair.getSecond().getName());
       }
     }
   }

@@ -7,11 +7,12 @@ import pytest
 from pydantic import SecretStr
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
 from datahub.ingestion.source.notion.notion_source import NotionSource
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 
 
@@ -319,12 +320,29 @@ def test_should_skip_file_text_long_enough():
 # Stateful Ingestion Tests
 
 
-def test_stateful_ingestion_handler_initialized(notion_source):
-    """Verify that StaleEntityRemovalHandler is initialized."""
-    assert hasattr(notion_source, "stale_entity_removal_handler")
-    assert isinstance(
-        notion_source.stale_entity_removal_handler, StaleEntityRemovalHandler
+def test_stateful_ingestion_processor_wired_up():
+    """Verify that AutoStaleEntityRemovalProcessor is in the workunit processor chain."""
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+        stateful_ingestion={"enabled": True, "remove_stale_metadata": True},
     )
+    ctx = PipelineContext(run_id="test_run", pipeline_name="test_run")
+    ctx.graph = MagicMock()
+    source = NotionSource(config=config, ctx=ctx)
+
+    processors = source.get_workunit_processors()
+    assert any(
+        isinstance(getattr(p, "__self__", None), AutoStaleEntityRemovalProcessor)
+        for p in processors
+        if p
+    ), "AutoStaleEntityRemovalProcessor must be in the workunit processor chain"
 
 
 def test_report_is_notion_source_report(notion_source):
@@ -391,6 +409,110 @@ def test_extract_notion_parent_urn_with_ingested_pages():
         [], metadata, ingested_page_ids_without_parent
     )
     assert parent_urn is None
+
+
+def _make_notion_source() -> NotionSource:
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+    )
+    return NotionSource(config=config, ctx=PipelineContext(run_id="test"))
+
+
+def test_browse_path_failure_reports_warning_and_still_emits():
+    """A browse-path failure surfaces as a report warning but never drops the doc."""
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    source = _make_notion_source()
+    source.notion_parent_metadata = {
+        "child": {"parent": {"type": "page_id", "page_id": "root"}},
+        "root": {"parent": {"type": "workspace", "workspace": True}},
+    }
+    source._should_process_document = MagicMock(return_value=True)  # type: ignore[method-assign]
+    source.chunking_source.process_elements_inline = MagicMock(return_value=[])  # type: ignore[method-assign]
+
+    data = {
+        "elements": [{"type": "Title", "text": "Child", "metadata": {}}],
+        "metadata": {"data_source": {"record_locator": {"page_id": "child"}}},
+    }
+
+    with patch(
+        "datahub.ingestion.source.notion.notion_source.NotionHierarchyExtractor.build_browse_path_v2",
+        side_effect=RuntimeError("boom"),
+    ):
+        workunits = list(source._create_document_entity(data, {"child", "root"}))
+
+    # Document still emitted despite the browse-path failure.
+    assert any(
+        isinstance(wu, MetadataWorkUnit)
+        and wu.get_aspect_of_type(DocumentInfoClass) is not None
+        for wu in workunits
+    )
+    # Failure surfaces as a structured warning -> "succeeded with warnings".
+    assert any(
+        warning.title == "Browse path generation failed"
+        for warning in source.report.warnings
+    )
+
+
+def test_build_notion_document_urn_matches_parent_urn():
+    """Browse-path URNs must match the URN derived for parent references."""
+    source = _make_notion_source()
+    source.notion_parent_metadata = {
+        "child-page-id": {"parent": {"type": "page_id", "page_id": "parent-page-id"}}
+    }
+    metadata = {"data_source": {"record_locator": {"page_id": "child-page-id"}}}
+
+    parent_urn = source._extract_notion_parent_urn(
+        [], metadata, {"child-page-id", "parent-page-id"}
+    )
+    assert parent_urn == source._build_notion_document_urn("parent-page-id")
+
+
+def test_notion_title_for_page_falls_back_to_page_id():
+    source = _make_notion_source()
+    source.notion_page_titles = {"known": "Known Title"}
+
+    assert source._notion_title_for_page("known") == "Known Title"
+    assert source._notion_title_for_page("unknown") == "unknown"
+
+
+def test_source_emits_hierarchical_browse_path():
+    """The source wiring should produce a BrowsePathsV2 with ancestor URNs/titles."""
+    from datahub.ingestion.source.notion.notion_hierarchy import (
+        NotionHierarchyExtractor,
+    )
+
+    source = _make_notion_source()
+    source.notion_parent_metadata = {
+        "child": {"parent": {"type": "page_id", "page_id": "parent"}},
+        "parent": {"parent": {"type": "page_id", "page_id": "root"}},
+        "root": {"parent": {"type": "workspace", "workspace": True}},
+    }
+    source.notion_page_titles = {
+        "parent": "Parent Page",
+        "root": "Root Page",
+    }
+    ingested = {"child", "parent", "root"}
+
+    browse_path = NotionHierarchyExtractor.build_browse_path_v2(
+        page_id="child",
+        parent_metadata=source.notion_parent_metadata,
+        urn_builder=source._build_notion_document_urn,
+        title_resolver=source._notion_title_for_page,
+        ingested_page_ids=ingested,
+    )
+
+    assert browse_path is not None
+    assert [e.id for e in browse_path.path] == ["Root Page", "Parent Page"]
+    assert browse_path.path[0].urn == source._build_notion_document_urn("root")
+    assert browse_path.path[1].urn == source._build_notion_document_urn("parent")
 
 
 def test_stateful_ingestion_config_disabled_by_default():

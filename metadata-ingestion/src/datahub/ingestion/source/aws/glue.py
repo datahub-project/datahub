@@ -1,5 +1,4 @@
 import datetime
-import functools
 import json
 import logging
 import re
@@ -60,10 +59,8 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
-    auto_incremental_properties,
 )
 from datahub.ingestion.api.report import EntityFilterReport
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
@@ -78,6 +75,10 @@ from datahub.ingestion.source.aws.s3_util import (
 from datahub.ingestion.source.aws.tag_entities import (
     LakeFormationTagPlatformResourceId,
 )
+from datahub.ingestion.source.common.presto_view_decoder import (
+    decode_presto_view,
+    is_presto_view,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -86,7 +87,6 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -139,6 +139,11 @@ from datahub.metadata.schema_classes import (
     TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
+)
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    SqlAggregatorReport,
+    SqlParsingAggregator,
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.delta import delta_type_to_hive_type
@@ -297,6 +302,16 @@ class GlueSourceConfig(
         description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
     )
 
+    include_view_lineage: bool = Field(
+        default=True,
+        description=(
+            "When enabled, the SQL definition of each Glue view (TableType "
+            "VIRTUAL_VIEW, e.g. Athena/Presto views) is parsed to extract upstream "
+            "table/view lineage, including column-level lineage. Referenced tables "
+            "must also be ingested for the lineage to resolve to DataHub entities."
+        ),
+    )
+
     extract_column_parameters: bool = Field(
         default=False,
         description=(
@@ -367,8 +382,13 @@ class GlueSourceConfig(
 class GlueSourceReport(StaleEntityRemovalSourceReport):
     catalog_id: Optional[str] = None
     tables_scanned = 0
+    views_scanned = 0
     filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
     databases: EntityFilterReport = EntityFilterReport.field(type="database")
+
+    # Surfaces SQL-parsing metrics/warnings (e.g. view definitions that failed to
+    # parse) when view lineage is enabled; None otherwise.
+    sql_aggregator: Optional[SqlAggregatorReport] = None
 
     num_job_script_location_missing: int = 0
     num_job_script_location_invalid: int = 0
@@ -381,6 +401,9 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
+
+    def report_view_scanned(self) -> None:
+        self.views_scanned += 1
 
     def report_table_dropped(self, table: str) -> None:
         self.filtered.append(table)
@@ -412,6 +435,19 @@ class ResolvedLakeFormationTags:
 
     direct: List[LakeFormationTag]
     propagated: List[LakeFormationTag]
+
+
+@dataclass
+class GlueViewDefinition:
+    """SQL definition of a Glue view and the SQL dialect it is written in.
+
+    Glue catalogs hold views from two engines: Athena/Presto views (base64-encoded
+    Trino SQL) and raw Spark/Hive views (Spark SQL). Lineage parsing must use the
+    matching dialect, so we carry it alongside the SQL.
+    """
+
+    sql: str
+    dialect: str
 
 
 @platform_name("Glue")
@@ -454,6 +490,17 @@ class GlueSource(StatefulIngestionSourceBase):
 
     lf_tag_cache: Dict[str, Dict[str, List[str]]] = {}
 
+    # Glue marks views (Athena/Presto or Spark/Hive views registered in the
+    # catalog) with this TableType. Everything else is a table.
+    _VIRTUAL_VIEW_TABLE_TYPE = "VIRTUAL_VIEW"
+
+    # sqlglot dialects for the two kinds of Glue view SQL. Presto/Athena views are
+    # Trino SQL; raw views are authored by Spark (Glue ETL/EMR) or Hive. sqlglot's
+    # "spark" dialect extends "hive", so it parses both Spark and Hive SQL — the
+    # safer default for raw views than "hive" alone.
+    _PRESTO_VIEW_DIALECT = "trino"
+    _RAW_VIEW_DIALECT = "spark"
+
     def __init__(self, config: GlueSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.ctx = ctx
@@ -481,6 +528,26 @@ class GlueSource(StatefulIngestionSourceBase):
                 platform_instance=self.source_config.platform_instance,
                 catalog=self.source_config.catalog_id,
             )
+
+        # Parses VIRTUAL_VIEW SQL definitions into view->upstream lineage. View
+        # parsing is deferred to gen_metadata(), by which point every table and
+        # view schema has been registered.
+        self.aggregator: Optional[SqlParsingAggregator] = None
+        if self.source_config.include_view_lineage:
+            self.aggregator = SqlParsingAggregator(
+                platform=self.platform,
+                platform_instance=self.source_config.platform_instance,
+                env=self.env,
+                graph=self.ctx.graph,
+                eager_graph_load=False,
+            )
+            # Surface the aggregator's parse metrics/warnings in the source report.
+            self.report.sql_aggregator = self.aggregator.report
+
+    def close(self) -> None:
+        if self.aggregator:
+            self.aggregator.close()
+        super().close()
 
     def get_database_lf_tags(
         self,
@@ -1711,18 +1778,6 @@ class GlueSource(StatefulIngestionSourceBase):
                 domain_urn=domain_urn,
             )
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_properties,
-                self.source_config.incremental_properties,
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         databases, tables = self.get_all_databases_and_tables()
 
@@ -1741,6 +1796,21 @@ class GlueSource(StatefulIngestionSourceBase):
                 )
         if self.extract_transforms:
             yield from self._transform_extraction()
+
+        # Flush view lineage parsed from VIRTUAL_VIEW definitions. Deferred to here
+        # so all table/view schemas are registered before the SQL is parsed.
+        # This is the single funnel for view lineage, so a failure here must be
+        # reported rather than aborting the run after tables/views were emitted.
+        if self.aggregator:
+            try:
+                for mcp in self.aggregator.gen_metadata():
+                    yield mcp.as_workunit()
+            except Exception as e:
+                self.report.report_failure(
+                    message="Failed to generate view lineage from SQL parsing",
+                    context="SqlParsingAggregator.gen_metadata",
+                    exc=e,
+                )
 
     def _gen_table_wu(self, table: Dict) -> Iterable[MetadataWorkUnit]:
         database_name = table["DatabaseName"]
@@ -1761,13 +1831,42 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
         yield from self._extract_record(dataset_urn, table, full_table_name)
-        # generate a Dataset snapshot
-        # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
-        # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
+
+        is_view = table.get("TableType") == self._VIRTUAL_VIEW_TABLE_TYPE
+
+        # We assign the "Table"/"View" subType to the dataset representing the glue
+        # table - unfortunately it is not possible via the Dataset snapshot embedded
+        # in an mce, so we have to generate a separate mcp.
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=SubTypes(typeNames=[DatasetSubTypes.TABLE]),
+            aspect=SubTypes(
+                typeNames=[DatasetSubTypes.VIEW if is_view else DatasetSubTypes.TABLE]
+            ),
         ).as_workunit()
+
+        if is_view:
+            self.report.report_view_scanned()
+            view_definition = self._get_view_definition(table, full_table_name)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=ViewPropertiesClass(
+                    materialized=False,
+                    viewLanguage="SQL",
+                    viewLogic=view_definition.sql if view_definition else "",
+                ),
+            ).as_workunit()
+            if view_definition and self.aggregator:
+                # Glue is a two-level namespace (database.table); the view's Glue
+                # database is the default schema for resolving unqualified tables.
+                # Parse with the view's own dialect (Trino for Athena/Presto views,
+                # Spark for raw Spark/Hive views) rather than the platform default.
+                self.aggregator.add_view_definition(
+                    view_urn=dataset_urn,
+                    view_definition=view_definition.sql,
+                    default_db=None,
+                    default_schema=database_name,
+                    override_dialect=view_definition.dialect,
+                )
 
         yield from self._get_domain_wu(
             dataset_name=full_table_name,
@@ -1776,6 +1875,48 @@ class GlueSource(StatefulIngestionSourceBase):
         yield from self.add_table_to_database_container(
             dataset_urn=dataset_urn, db_name=database_name
         )
+
+    def _get_view_definition(
+        self, table: Dict, full_table_name: str
+    ) -> Optional[GlueViewDefinition]:
+        """Extract the SQL definition (and dialect) of a Glue VIRTUAL_VIEW table.
+
+        Decodes the Presto/Athena base64 encoding when present (Trino dialect),
+        otherwise returns the raw text as a Spark view, falling back to
+        ViewExpandedText. Returns ``None`` (and reports a warning) when no usable
+        SQL can be extracted, so the caller never persists an unusable encoded blob
+        as the view definition.
+        """
+        view_text = table.get("ViewOriginalText") or table.get("ViewExpandedText")
+        if not isinstance(view_text, str) or not view_text:
+            self.report.report_warning(
+                message="View has no SQL definition",
+                context=f"table={full_table_name}",
+            )
+            return None
+
+        if is_presto_view(view_text):
+            # A failed decode leaves only the encoded marker, which is not usable
+            # SQL, so we return None rather than store the raw blob as viewLogic.
+            try:
+                original_sql = decode_presto_view(view_text).get("originalSql")
+            except Exception as e:
+                self.report.report_warning(
+                    message="Failed to decode Presto view definition",
+                    context=f"table={full_table_name}: {e}",
+                )
+                return None
+            if isinstance(original_sql, str) and original_sql:
+                return GlueViewDefinition(
+                    sql=original_sql, dialect=self._PRESTO_VIEW_DIALECT
+                )
+            self.report.report_warning(
+                message="Presto view definition missing 'originalSql'",
+                context=f"table={full_table_name}",
+            )
+            return None
+
+        return GlueViewDefinition(sql=view_text, dialect=self._RAW_VIEW_DIALECT)
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         for job in self.get_all_jobs():
@@ -1898,6 +2039,10 @@ class GlueSource(StatefulIngestionSourceBase):
         )
         if schema_metadata:
             dataset_snapshot.aspects.append(schema_metadata)
+            # Register every table/view schema so the aggregator can resolve
+            # column-level lineage when it parses view definitions.
+            if self.aggregator:
+                self.aggregator.register_schema(dataset_urn, schema_metadata)
 
         # Add platform instance
         dataset_snapshot.aspects.append(self._get_data_platform_instance())

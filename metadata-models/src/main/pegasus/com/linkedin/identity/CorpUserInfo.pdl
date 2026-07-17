@@ -9,7 +9,8 @@ import com.linkedin.common.Urn
  * Linkedin corp user information
  */
 @Aspect = {
-  "name": "corpUserInfo"
+  "name": "corpUserInfo",
+  "schemaVersion": 2
 }
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
 record CorpUserInfo includes CustomProperties {
@@ -114,5 +115,14 @@ record CorpUserInfo includes CustomProperties {
     "queryByDefault": false
   }
   system: optional boolean = false
+
+  /**
+   * Whether the corpUser is a support user authenticated through the support OIDC flow.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "queryByDefault": false
+  }
+  isSupportUser: optional boolean
 
 }

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.authorization.PoliciesConfig.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -20,9 +21,11 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.policy.*;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -45,7 +48,8 @@ public class PolicyEngineTest {
   private static final String OTHER_OWNERSHIP_TYPE_URN =
       "urn:li:ownershipType:__system__data_steward";
 
-  private EntityClient _entityClient;
+  private SystemEntityClient _entityClient;
+  private GroupService _groupService;
   private OperationContext systemOperationContext;
   private PolicyEngine _policyEngine;
 
@@ -57,9 +61,12 @@ public class PolicyEngineTest {
 
   @BeforeMethod
   public void setupTest() throws Exception {
-    _entityClient = Mockito.mock(EntityClient.class);
+    _entityClient = Mockito.mock(SystemEntityClient.class);
+    _groupService =
+        new GroupService(
+            _entityClient, Mockito.mock(EntityService.class), Mockito.mock(GraphClient.class));
     systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    _policyEngine = new PolicyEngine(_entityClient);
+    _policyEngine = new PolicyEngine(_entityClient, _groupService);
 
     authorizedUserUrn = Urn.createFromString(AUTHORIZED_PRINCIPAL);
     resolvedAuthorizedUserSpec =
@@ -394,7 +401,207 @@ public class PolicyEngineTest {
   }
 
   @Test
-  // Write a test to verify that the policy engine is able to evaluate a policy with a role match
+  public void testEvaluatePolicyWithSeededGroupMembershipSkipsUserFetch() throws Exception {
+    final DataHubPolicyInfo groupPolicy = createGroupMatchPolicy();
+    final ResolvedEntitySpec actorWithoutGroupMembership =
+        buildEntityResolvers(CORP_USER_ENTITY_NAME, AUTHORIZED_PRINCIPAL);
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    final PolicyEngine.PolicyEvaluationContext seededContext =
+        _policyEngine.createSeededEvaluationContext(
+            List.of(Urn.createFromString(AUTHORIZED_GROUP)), Collections.emptySet());
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            groupPolicy,
+            actorWithoutGroupMembership,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList(),
+            seededContext);
+
+    assertTrue(result.isGranted());
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testEvaluatePolicyWithSeededRolesSkipsUserFetch() throws Exception {
+    final DataHubPolicyInfo rolePolicy = createRoleMatchPolicy();
+    final ResolvedEntitySpec actorWithoutMembership =
+        buildEntityResolvers(CORP_USER_ENTITY_NAME, AUTHORIZED_PRINCIPAL);
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    final Urn adminRole = Urn.createFromString("urn:li:dataHubRole:admin");
+    final Urn groupUrn = Urn.createFromString(AUTHORIZED_GROUP);
+    when(_entityClient.batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(Collections.singleton(groupUrn)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(createGroupRoleBatchResponse(groupUrn, adminRole));
+
+    final PolicyEngine.PolicyEvaluationContext seededContext =
+        _policyEngine.createSeededEvaluationContext(List.of(groupUrn), Collections.emptySet());
+
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            rolePolicy,
+            actorWithoutMembership,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec),
+            Collections.emptyList(),
+            seededContext);
+
+    assertTrue(result.isGranted());
+    verify(_entityClient, never())
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(Collections.singleton(authorizedUserUrn)),
+            any());
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(Collections.singleton(groupUrn)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testSharedSeededContextFetchesGroupRolesOnceAcrossPolicies() throws Exception {
+    final DataHubPolicyInfo rolePolicy = createRoleMatchPolicy();
+    final ResolvedEntitySpec actorWithoutMembership =
+        buildEntityResolvers(CORP_USER_ENTITY_NAME, AUTHORIZED_PRINCIPAL);
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    final Urn adminRole = Urn.createFromString("urn:li:dataHubRole:admin");
+    final Urn groupUrn = Urn.createFromString(AUTHORIZED_GROUP);
+    when(_entityClient.batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(Collections.singleton(groupUrn)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(createGroupRoleBatchResponse(groupUrn, adminRole));
+
+    final PolicyEngine.PolicyEvaluationContext sharedContext =
+        _policyEngine.createSeededEvaluationContext(List.of(groupUrn), Collections.emptySet());
+
+    assertTrue(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                rolePolicy,
+                actorWithoutMembership,
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList(),
+                sharedContext)
+            .isGranted());
+    assertFalse(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                rolePolicy,
+                actorWithoutMembership,
+                "EDIT_ENTITY_DOMAINS",
+                Optional.of(resourceSpec),
+                Collections.emptyList(),
+                sharedContext)
+            .isGranted());
+
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(Collections.singleton(groupUrn)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)));
+    verify(_entityClient, never())
+        .batchGetV2(
+            eq(systemOperationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(Collections.singleton(authorizedUserUrn)),
+            any());
+  }
+
+  @Test
+  public void testSharedContextFetchesResourceOwnersOnceAcrossPolicies() throws Exception {
+    // An ownership-based policy: the actor matches ONLY via resource ownership (no user/group/role
+    // match), so each evaluation reaches the ownership lookup.
+    final DataHubPolicyInfo ownerPolicy = new DataHubPolicyInfo();
+    ownerPolicy.setType(METADATA_POLICY_TYPE);
+    ownerPolicy.setState(ACTIVE_POLICY_STATE);
+    ownerPolicy.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    ownerPolicy.setDisplayName("Owner policy");
+    ownerPolicy.setDescription("Owner policy");
+    ownerPolicy.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    ownerPolicy.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    ownerPolicy.setResources(resourceFilter);
+
+    final EntityResponse ownershipResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        OWNERSHIP_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    ownershipResponse.setAspects(aspectMap);
+    when(_entityClient.getV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(resourceUrn),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
+        .thenReturn(ownershipResponse);
+
+    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+
+    // Shared per-request context: the resource-owner cache lives here.
+    final PolicyEngine.PolicyEvaluationContext sharedContext =
+        _policyEngine.createSeededEvaluationContext(
+            Collections.emptyList(), Collections.emptySet());
+
+    // Evaluate the ownership policy twice against the SAME resource, sharing one context.
+    assertTrue(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                ownerPolicy,
+                resolvedAuthorizedUserSpec,
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList(),
+                sharedContext)
+            .isGranted());
+    assertTrue(
+        _policyEngine
+            .evaluatePolicy(
+                systemOperationContext,
+                ownerPolicy,
+                resolvedAuthorizedUserSpec,
+                "EDIT_ENTITY_TAGS",
+                Optional.of(resourceSpec),
+                Collections.emptyList(),
+                sharedContext)
+            .isGranted());
+
+    // Ownership fetched exactly once across both evaluations, thanks to the per-context cache.
+    verify(_entityClient, times(1))
+        .getV2(
+            eq(systemOperationContext),
+            eq(resourceUrn.getEntityType()),
+            eq(resourceUrn),
+            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
   public void testEvaluatePolicyActorFilterRoleMatch() throws Exception {
 
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
@@ -2535,6 +2742,70 @@ public class PolicyEngineTest {
             mixedOwnerships);
 
     assertFalse(result.isGranted());
+  }
+
+  private DataHubPolicyInfo createGroupMatchPolicy() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Seeded group policy");
+    dataHubPolicyInfo.setDescription("Seeded group policy");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    final UrnArray groupsUrnArray = new UrnArray();
+    groupsUrnArray.add(Urn.createFromString(AUTHORIZED_GROUP));
+    actorFilter.setGroups(groupsUrnArray);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+    return dataHubPolicyInfo;
+  }
+
+  private DataHubPolicyInfo createRoleMatchPolicy() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("Seeded role policy");
+    dataHubPolicyInfo.setDescription("Seeded role policy");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    final UrnArray rolesUrnArray = new UrnArray();
+    rolesUrnArray.add(Urn.createFromString("urn:li:dataHubRole:admin"));
+    actorFilter.setRoles(rolesUrnArray);
+    actorFilter.setResourceOwners(false);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+    return dataHubPolicyInfo;
+  }
+
+  private Map<Urn, EntityResponse> createGroupRoleBatchResponse(
+      final Urn groupUrn, final Urn roleUrn) throws URISyntaxException {
+    final RoleMembership roleMembership = new RoleMembership();
+    roleMembership.setRoles(new UrnArray(roleUrn));
+    final EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(groupUrn);
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        ROLE_MEMBERSHIP_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(roleMembership.data())));
+    entityResponse.setAspects(aspectMap);
+    return Collections.singletonMap(groupUrn, entityResponse);
   }
 
   @Test

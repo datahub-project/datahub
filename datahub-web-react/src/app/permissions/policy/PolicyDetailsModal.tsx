@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +16,7 @@ import {
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
@@ -74,7 +75,7 @@ const Privileges = styled.div`
 export default function PolicyDetailsModal({ policy, open, onClose, privileges }: Props) {
     const { t } = useTranslation('settings.permissions');
     const { t: tc } = useTranslation('common.actions');
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const { data: ownershipData } = useOwnershipTypes();
     const ownershipTypesMap = Object.fromEntries(
         (ownershipData?.listOwnershipTypes?.ownershipTypes || []).map((ot) => [ot.urn, ot.info?.name]),
@@ -158,7 +159,9 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 <div>
                     <Typography.Title level={5}>{t('column.description')}</Typography.Title>
                     <ThinDivider />
-                    <Typography.Text type="secondary">{policy?.description}</Typography.Text>
+                    <Text type="span" color="textSecondary">
+                        {policy?.description}
+                    </Text>
                 </div>
                 {isMetadataPolicy && (
                     <>
@@ -279,7 +282,12 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 <div>
                     <Typography.Title level={5}>{t('details.appliesToUsersLabel')}</Typography.Title>
                     <ThinDivider />
-                    <AvatarsGroup users={policy?.actors?.resolvedUsers} entityRegistry={entityRegistry} maxCount={50} />
+                    <AvatarsGroup
+                        users={policy?.actors?.resolvedUsers}
+                        entityRegistry={entityRegistry}
+                        maxCount={50}
+                        title=""
+                    />
                     {policy?.actors?.allUsers ? <Tag>{t('allUsers')}</Tag> : null}
                 </div>
                 <div>
@@ -289,6 +297,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                         groups={policy?.actors?.resolvedGroups}
                         entityRegistry={entityRegistry}
                         maxCount={50}
+                        title=""
                     />
                     {policy?.actors?.allGroups ? <Tag>{t('allGroups')}</Tag> : null}
                 </div>
@@ -307,7 +316,12 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 <div>
                     <Typography.Title level={5}>{t('details.appliesToRolesLabel')}</Typography.Title>
                     <ThinDivider />
-                    <AvatarsGroup roles={policy?.actors?.resolvedRoles} entityRegistry={entityRegistry} maxCount={50} />
+                    <AvatarsGroup
+                        roles={policy?.actors?.resolvedRoles}
+                        entityRegistry={entityRegistry}
+                        maxCount={50}
+                        title=""
+                    />
                 </div>
             </PolicyContainer>
         </Modal>

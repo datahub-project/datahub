@@ -466,9 +466,8 @@ class ClickHouseSinkConnector(BaseConnector):
             for topic, table in parser.topics_to_tables.items():
                 target_dataset: str = f"{parser.database}.{table}"
 
-                fine_grained = self._extract_fine_grained_lineage(
-                    source_dataset=topic,
-                    source_platform=KAFKA,
+                fine_grained = self._extract_sink_fine_grained_lineage(
+                    source_topic=topic,
                     target_dataset=target_dataset,
                     target_platform="clickhouse",
                 )
@@ -501,6 +500,86 @@ class ClickHouseSinkConnector(BaseConnector):
 
     def get_platform(self) -> str:
         return "clickhouse"
+
+
+@dataclass
+class IcebergSinkConnector(BaseConnector):
+    @dataclass
+    class IcebergParser:
+        topics_to_tables: Dict[str, List[str]]
+
+    def get_parser(self, connector_manifest: ConnectorManifest) -> IcebergParser:
+        # Parse configured tables
+        tables_config = connector_manifest.config.get(
+            ConnectorConfigKeys.ICEBERG_TABLES, ""
+        )
+        tables = parse_comma_separated_list(tables_config)
+
+        # Resolve topics using shared helper
+        subscribed_topics = self._get_topics_from_sink_config()
+        topic_list = self._resolve_subscribed_topics(
+            connector_manifest, subscribed_topics
+        )
+
+        # All-to-all mapping: each topic → all configured tables
+        topics_to_tables: Dict[str, List[str]] = {topic: tables for topic in topic_list}
+
+        # Warn if no tables are configured for topics (valid only with dynamic routing)
+        if topic_list and not tables:
+            is_dynamic_enabled = connector_manifest.config.get(
+                ConnectorConfigKeys.ICEBERG_TABLES_DYNAMIC_ENABLED, ""
+            ).lower() in ("true", "yes")
+            if not is_dynamic_enabled:
+                self.report.warning(
+                    "No 'iceberg.tables' configured but topics are subscribed; no lineage will be emitted. "
+                    "This is expected only if iceberg.tables.dynamic-enabled=true (routing determined at record time).",
+                    context=connector_manifest.name,
+                )
+
+        return self.IcebergParser(topics_to_tables=topics_to_tables)
+
+    def extract_flow_property_bag(self) -> Dict[str, str]:
+        sensitive_markers = ("secret", "token", "credential", "password", ".key")
+        return {
+            k: v
+            for k, v in self.connector_manifest.config.items()
+            if not any(marker in k.lower() for marker in sensitive_markers)
+        }
+
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        try:
+            lineages: List[KafkaConnectLineage] = []
+            parser = self.get_parser(self.connector_manifest)
+
+            for topic, target_tables in parser.topics_to_tables.items():
+                for target_dataset in target_tables:
+                    fine_grained = self._extract_sink_fine_grained_lineage(
+                        source_topic=topic,
+                        target_dataset=target_dataset,
+                        target_platform="iceberg",
+                    )
+
+                    lineages.append(
+                        KafkaConnectLineage(
+                            source_dataset=topic,
+                            source_platform=KAFKA,
+                            target_dataset=target_dataset,
+                            target_platform="iceberg",
+                            fine_grained_lineages=fine_grained,
+                        )
+                    )
+
+            return lineages
+        except Exception as e:
+            self.report.warning(
+                f"Unexpected error resolving lineage for Iceberg sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
+        return []
+
+    def get_platform(self) -> str:
+        return "iceberg"
 
 
 @dataclass
@@ -1325,6 +1404,13 @@ S3_SINK_CONNECTOR_CLASS: Final[str] = "io.confluent.connect.s3.S3SinkConnector"
 SNOWFLAKE_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.snowflake.kafka.connector.SnowflakeSinkConnector"
 )
+# Snowflake's high-performance (v4) connector built on Snowpipe Streaming. It is
+# config-compatible with the classic sink connector — only the class name differs —
+# so it reuses SnowflakeSinkConnector for lineage extraction.
+# https://docs.snowflake.com/en/connectors/kafkahp/setup-kafka
+SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS: Final[str] = (
+    "com.snowflake.kafka.connector.SnowflakeStreamingSinkConnector"
+)
 DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
     "io.debezium.connector.jdbc.JdbcSinkConnector"
 )
@@ -1333,4 +1419,7 @@ CONFLUENT_JDBC_SINK_CONNECTOR_CLASS: Final[str] = (
 )
 CLICKHOUSE_SINK_CONNECTOR_CLASS: Final[str] = (
     "com.clickhouse.kafka.connect.ClickHouseSinkConnector"
+)
+ICEBERG_SINK_CONNECTOR_CLASS: Final[str] = (
+    "org.apache.iceberg.connect.IcebergSinkConnector"
 )

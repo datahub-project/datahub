@@ -43,7 +43,7 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                     <FlexContainer>
                         {t('advancedOptions.qualifiedName')}
                         <Tooltip title={t('advancedOptions.qualifiedNameTooltip')} showArrow={false}>
-                            <Icon icon={Info} color="violet" size="lg" />
+                            <Icon icon={Info} color="iconBrand" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </InputLabel>
