@@ -20,8 +20,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Literal, Optional, Set
 
-import yaml
-
 from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_dataset_urn,
@@ -129,7 +127,20 @@ class _SemanticField:
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class OmniSource(StatefulIngestionSourceBase, TestableSource):
-    """Ingestion source for the Omni BI platform."""
+    """Ingestion source for the Omni BI platform.
+
+    Ingestion runs in four stages: connections, semantic models, folders, and
+    documents (dashboards/workbooks).  Topics and views are discovered during the
+    document stage via the ``get_topic`` API — model processing emits only the
+    model dataset itself.
+
+    The ``get_model_yaml`` endpoint was intentionally removed: in production it
+    accounted for ~22k API calls (97% of API time) yet yielded zero topics or
+    views because the YAML format returned by Omni does not match the
+    ``type: topic`` / ``type: view`` structure the parser expected.  All topic
+    data is already available through the ``get_topic`` API called during
+    dashboard tile processing.
+    """
 
     PLATFORM = "omni"
 
@@ -156,8 +167,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         self._connection_dataset_urns: Set[str] = set()
         self._connections_by_id: Dict[str, Dict[str, object]] = {}
         self._model_context_by_id: Dict[str, _ModelContext] = {}
-        self._topic_specs_by_model_id: Dict[str, Dict[str, Dict[str, Any]]] = {}
-        self._view_specs_by_model_id: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._current_tile_model_id: Optional[str] = None
 
         # Lock for source-level collections (URN sets, context dicts, registries)
@@ -502,137 +511,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             owner_urn = make_user_urn(owner_id or owner_name)
             chart.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
         yield from chart.as_workunits()
-
-    # ------------------------------------------------------------------
-    # YAML parsing helpers
-    # ------------------------------------------------------------------
-
-    def _topic_names_from_yaml(self, model_yaml: Dict[str, str]) -> Set[str]:
-        names: Set[str] = set()
-        for _, text in model_yaml.items():
-            try:
-                parsed = yaml.safe_load(text) or {}
-            except Exception as exc:
-                logger.warning("Skipping model YAML file: failed to parse: %s", exc)
-                continue
-            if (
-                isinstance(parsed, dict)
-                and parsed.get("type") == "topic"
-                and parsed.get("name")
-            ):
-                names.add(parsed["name"])
-        return names
-
-    def _normalize_semantic_field_entries(
-        self, raw_fields: Any
-    ) -> List[Dict[str, Any]]:
-        normalized: List[Dict[str, Any]] = []
-        if isinstance(raw_fields, dict):
-            for field_name, payload in raw_fields.items():
-                if isinstance(payload, dict):
-                    row = dict(payload)
-                    row["field_name"] = (
-                        row.get("field_name") or row.get("name") or field_name
-                    )
-                    normalized.append(row)
-                elif isinstance(payload, str):
-                    normalized.append({"field_name": field_name, "expression": payload})
-                else:
-                    normalized.append({"field_name": field_name})
-            return normalized
-        if isinstance(raw_fields, list):
-            for item in raw_fields:
-                if isinstance(item, str):
-                    normalized.append({"field_name": item})
-                    continue
-                if not isinstance(item, dict):
-                    continue
-                row = dict(item)
-                row["field_name"] = row.get("field_name") or row.get("name")
-                normalized.append(row)
-        return normalized
-
-    def _parse_model_yaml_specs(
-        self, model_yaml_files: Dict[str, str]
-    ) -> tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
-        topic_specs: Dict[str, Dict[str, Any]] = {}
-        view_specs: Dict[str, Dict[str, Any]] = {}
-        for _, text in model_yaml_files.items():
-            try:
-                parsed = yaml.safe_load(text) or {}
-            except Exception as exc:
-                logger.warning("Skipping model YAML file: failed to parse: %s", exc)
-                continue
-            if not isinstance(parsed, dict):
-                continue
-            ptype = str(parsed.get("type") or "").lower()
-            pname = parsed.get("name")
-            if ptype == "topic" and pname:
-                topic_specs[str(pname)] = parsed
-            elif (
-                ptype == "view"
-                and pname
-                or pname
-                and (
-                    parsed.get("dimensions")
-                    or parsed.get("measures")
-                    or parsed.get("fields")
-                    or parsed.get("table_name")
-                )
-            ):
-                view_specs[str(pname)] = parsed
-        return topic_specs, view_specs
-
-    def _topic_payload_from_yaml_specs(
-        self,
-        topic_name: str,
-        topic_specs: Dict[str, Dict[str, Any]],
-        view_specs: Dict[str, Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        topic_spec = topic_specs.get(topic_name) or {}
-        candidate_view_names: Set[str] = set()
-        base_view_name = topic_spec.get("base_view_name")
-        if isinstance(base_view_name, str) and base_view_name:
-            candidate_view_names.add(base_view_name)
-        for row in topic_spec.get("views") or []:
-            if isinstance(row, str) and row:
-                candidate_view_names.add(row)
-            elif isinstance(row, dict):
-                row_name = row.get("name") or row.get("view_name")
-                if isinstance(row_name, str) and row_name:
-                    candidate_view_names.add(row_name)
-        if topic_name in view_specs:
-            candidate_view_names.add(topic_name)
-        views_payload: List[Dict[str, Any]] = []
-        for view_name in sorted(candidate_view_names):
-            raw_view = dict(view_specs.get(view_name) or {})
-            dimensions = self._normalize_semantic_field_entries(
-                raw_view.get("dimensions")
-            )
-            measures = self._normalize_semantic_field_entries(raw_view.get("measures"))
-            for f in self._normalize_semantic_field_entries(raw_view.get("fields")):
-                kind = str(f.get("kind") or f.get("field_type") or "").lower()
-                if kind == "measure":
-                    measures.append(f)
-                elif kind == "dimension":
-                    dimensions.append(f)
-            views_payload.append(
-                {
-                    "name": view_name,
-                    "schema": raw_view.get("schema") or "",
-                    "catalog": raw_view.get("catalog") or "",
-                    "table_name": (
-                        raw_view.get("table_name")
-                        or raw_view.get("sql_table_name")
-                        or raw_view.get("source_table")
-                        or raw_view.get("semantic_view_name")
-                        or ""
-                    ),
-                    "dimensions": dimensions,
-                    "measures": measures,
-                }
-            )
-        return {"views": views_payload}
 
     # ------------------------------------------------------------------
     # Connection / model-level helpers
@@ -1114,77 +992,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
             self.report.increment_counter("semantic_datasets_emitted")
 
-            try:
-                model_yaml_payload = self.client.get_model_yaml(model_id)
-            except Exception as exc:
-                self.report.warning(
-                    title="Model yaml fetch error",
-                    message="Failed to fetch model YAML",
-                    context=f"model_id={model_id}",
-                    exc=exc,
-                )
-                return work_units
-
-            model_yaml_files = model_yaml_payload.get("files", {})
-            topic_names = self._topic_names_from_yaml(model_yaml_files)
-            topic_specs, view_specs = self._parse_model_yaml_specs(model_yaml_files)
-            with self._state_lock:
-                self._topic_specs_by_model_id[model_id] = topic_specs
-                self._view_specs_by_model_id[model_id] = view_specs
-
-            logger.info(
-                "Model YAML parsed: model_id=%s found %d topics: %s",
-                model_id,
-                len(topic_names),
-                ", ".join(sorted(topic_names)) if topic_names else "(none)",
-            )
-
-            if not topic_names:
-                return work_units
-
-            for topic_name in sorted(topic_names):
-                logger.info(
-                    "Processing topic: model_id=%s topic_name=%s",
-                    model_id,
-                    topic_name,
-                )
-                try:
-                    topic = self.client.get_topic(model_id, topic_name)
-                except Exception as exc:
-                    self.report.warning(
-                        title="Topic fetch error",
-                        message="Failed to fetch topic for model; using YAML fallback",
-                        context=f"topic_name={topic_name}, model_id={model_id}",
-                        exc=exc,
-                    )
-                    topic = self._topic_payload_from_yaml_specs(
-                        topic_name, topic_specs, view_specs
-                    )
-                if not topic:
-                    logger.warning(
-                        "Skipping topic (empty payload): model_id=%s topic_name=%s",
-                        model_id,
-                        topic_name,
-                    )
-                    continue
-                work_units.extend(
-                    self._ingest_topic_payload(
-                        model_id=model_id,
-                        topic_name=topic_name,
-                        topic=topic,
-                        platform=platform,
-                        database=database,
-                        connection_id=str(connection_id) if connection_id else None,
-                        platform_instance=platform_instance,
-                        inferred=bool(topic.get("views")) and not bool(topic.get("id")),
-                        model_custom_properties={
-                            "modelKind": model_kind or "",
-                            "modelLayer": model_layer,
-                        },
-                        model_name=model_name,
-                    )
-                )
-
             return work_units
 
         except Exception as exc:
@@ -1395,60 +1202,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             },
         )
 
-    def _find_model_for_topic(self, topic_name: str) -> Optional[str]:
-        """Find which model owns a given topic by searching YAML specs."""
-        for model_id, topic_specs in self._topic_specs_by_model_id.items():
-            if topic_name in topic_specs:
-                return model_id
-        return None
-
     def _ingest_topic_from_dashboard(
         self,
         model_id: str,
         topic_name: str,
     ) -> Iterator[MetadataWorkUnit]:
-        """Fetch (or fall back to YAML) and ingest a topic referenced by a dashboard tile."""
-        # Try to find which model actually owns this topic
-        owner_model_id = self._find_model_for_topic(topic_name)
-
-        if owner_model_id:
-            logger.info(
-                "Topic ownership resolved: topic_name=%s dashboard_model=%s owner_model=%s",
-                topic_name,
-                model_id,
-                owner_model_id,
-            )
-            # Use the owner model to fetch the topic
-            try:
-                tp = self.client.get_topic(owner_model_id, topic_name)
-                if tp:
-                    yield from self._ingest_topic_payload_for_dashboard_tile(
-                        owner_model_id, topic_name, tp
-                    )
-                    return
-            except Exception as exc:
-                logger.warning(
-                    "Topic API fetch failed, falling back to YAML: topic_name=%s owner_model=%s error=%s",
-                    topic_name,
-                    owner_model_id,
-                    exc,
-                )
-                # Fall back to owner model's YAML
-                ts = self._topic_specs_by_model_id.get(owner_model_id, {})
-                vs = self._view_specs_by_model_id.get(owner_model_id, {})
-                yt = self._topic_payload_from_yaml_specs(topic_name, ts, vs)
-                if yt.get("views"):
-                    yield from self._ingest_topic_payload_for_dashboard_tile(
-                        owner_model_id, topic_name, yt
-                    )
-                    return
-
-        # Fallback: owner model not found, try the dashboard's model
-        logger.warning(
-            "Topic owner not found in YAML specs, trying dashboard model: topic_name=%s dashboard_model=%s",
-            topic_name,
-            model_id,
-        )
+        """Fetch and ingest a topic referenced by a dashboard tile."""
         try:
             tp = self.client.get_topic(model_id, topic_name)
             if tp:
@@ -1456,20 +1215,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     model_id, topic_name, tp
                 )
         except Exception as exc:
-            ts = self._topic_specs_by_model_id.get(model_id, {})
-            vs = self._view_specs_by_model_id.get(model_id, {})
-            yt = self._topic_payload_from_yaml_specs(topic_name, ts, vs)
-            if yt.get("views"):
-                yield from self._ingest_topic_payload_for_dashboard_tile(
-                    model_id, topic_name, yt
-                )
-            else:
-                self.report.warning(
-                    title="Topic fetch from dashboard error",
-                    message="Failed to fetch topic from both owner model and dashboard model",
-                    context=f"topic_name={topic_name}, dashboard_model={model_id}",
-                    exc=exc,
-                )
+            self.report.warning(
+                title="Topic fetch from dashboard error",
+                message="Failed to fetch topic from dashboard model",
+                context=f"topic_name={topic_name}, dashboard_model={model_id}",
+                exc=exc,
+            )
 
     def _collect_tile_data(
         self,

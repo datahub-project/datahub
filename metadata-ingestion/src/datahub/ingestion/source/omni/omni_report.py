@@ -15,7 +15,6 @@ class OmniClientReport:
     test_connection_calls: int = 0
     list_connections_calls: int = 0
     list_models_calls: int = 0
-    get_model_yaml_calls: int = 0
     get_topic_calls: int = 0
     list_documents_calls: int = 0
     get_dashboard_document_calls: int = 0
@@ -26,7 +25,6 @@ class OmniClientReport:
     test_connection_time_seconds: float = 0.0
     list_connections_time_seconds: float = 0.0
     list_models_time_seconds: float = 0.0
-    get_model_yaml_time_seconds: float = 0.0
     get_topic_time_seconds: float = 0.0
     list_documents_time_seconds: float = 0.0
     get_dashboard_document_time_seconds: float = 0.0

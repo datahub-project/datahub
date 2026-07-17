@@ -526,53 +526,6 @@ def test_snowflake_names_normalised_to_uppercase() -> None:
         )
 
 
-@time_machine.travel(FROZEN_TIME)
-def test_topic_fetch_failure_falls_back_to_yaml() -> None:
-    """When the topic API returns 404, views should still be extracted from model YAML."""
-    source = _build_source()
-
-    # Override topic fetch to always fail
-    class _NoTopicClient(FakeOmniClientFull):
-        def get_topic(self, model_id: str, topic_name: str) -> dict:
-            raise RuntimeError(f"404 Not Found: {topic_name}")
-
-    source.client = _NoTopicClient()  # type: ignore[assignment]
-    events = _collect_workunits(source)
-
-    orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
-    emitted_urns = {e["entityUrn"] for e in events}
-    assert orders_view_urn in emitted_urns, (
-        f"Semantic view {orders_view_urn} should be extracted from YAML fallback "
-        "when topic API fails"
-    )
-
-
-@time_machine.travel(FROZEN_TIME)
-def test_model_yaml_failure_logs_warning_but_continues() -> None:
-    """403 on model YAML should log a warning and continue to the next model."""
-    source = _build_source()
-
-    class _YamlForbiddenClient(FakeOmniClientFull):
-        def get_model_yaml(self, model_id: str) -> dict:
-            if model_id == "shared-model-1":
-                raise RuntimeError("403 Forbidden")
-            return {"files": {}}
-
-    source.client = _YamlForbiddenClient()  # type: ignore[assignment]
-    events = _collect_workunits(source)
-
-    # Ingestion should still emit model datasets despite the YAML failure
-    shared_model_urn = source._model_dataset_urn("shared-model-1")
-    emitted_urns = {e["entityUrn"] for e in events}
-    assert shared_model_urn in emitted_urns, (
-        "Model entity should still be emitted even when its YAML fetch fails"
-    )
-    warnings = source.report.warnings
-    assert any("Model yaml fetch error" in str(w) for w in warnings), (
-        "A warning should be logged for the failed YAML fetch"
-    )
-
-
 # ---------------------------------------------------------------------------
 # test_connection() static method
 # ---------------------------------------------------------------------------

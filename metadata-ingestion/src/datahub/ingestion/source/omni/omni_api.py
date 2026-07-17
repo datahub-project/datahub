@@ -152,16 +152,6 @@ class OmniClient:
                 logger.debug("API response list_models: model=%s", model)
                 yield model
 
-    def get_model_yaml(self, model_id: str) -> Dict[str, Any]:
-        with self._track_call("get_model_yaml"):
-            response = self._request("GET", f"/v1/models/{model_id}/yaml")
-            logger.debug(
-                "API response get_model_yaml: model_id=%s payload=%s",
-                model_id,
-                response,
-            )
-            return response
-
     def get_topic(self, model_id: str, topic_name: str) -> Dict[str, Any]:
         with self._track_call("get_topic"):
             payload = self._request("GET", f"/v1/models/{model_id}/topic/{topic_name}")
