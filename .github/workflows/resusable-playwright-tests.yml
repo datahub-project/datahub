@@ -126,8 +126,6 @@ jobs:
           DATAHUB_VERSION: ${{ inputs.datahub_version }}
           DATAHUB_REPO: ${{ inputs.datahub_repo }}
           SKIP_INSTALL_DEV: "true"
-          # CI-only: layer tmpfs storage + tighter healthchecks to speed up quickstart boot.
-          CI_FAST_BOOT: "true"
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           # Must match the profile the images were built for (e.g. smoke:quickstartPg → quickstart-postgres).

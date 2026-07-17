@@ -10,7 +10,7 @@ on:
       playwright_shard_count:
         description: "Number of parallel shards for Playwright E2E tests"
         required: false
-        default: "5"
+        default: "6"
         type: string
   push:
     branches:
@@ -299,6 +299,7 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
       - uses: ./.github/actions/restore-dependency-caches
+        id: dep-caches
         with:
           uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
@@ -358,21 +359,23 @@ jobs:
             ${{ github.workspace }}/build/build-metadata.json
             ${{ github.workspace }}/build/bake-spec-allImages.json
 
+      # Save only when the restore missed the exact key — re-saving an existing key just
+      # wastes ~60-90s uploading a cache the runner already has ("key already reserved").
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master' && steps.dep-caches.outputs.uv_cache_hit != 'true' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master' && steps.dep-caches.outputs.yarn_cache_hit != 'true' }}
         with:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master' && steps.dep-caches.outputs.gradle_cache_hit != 'true' }}
         with:
           path: |
             ~/.gradle/wrapper
@@ -560,8 +563,6 @@ jobs:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
-          # CI-only: layer tmpfs storage + tighter healthchecks to speed up quickstart boot.
-          CI_FAST_BOOT: "true"
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
@@ -748,8 +749,6 @@ jobs:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
-          # CI-only: layer tmpfs storage + tighter healthchecks to speed up quickstart boot.
-          CI_FAST_BOOT: "true"
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
@@ -885,18 +884,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
-
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
-        with:
-          path: ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
-        with:
-          path: ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
 
   playwright_test:
     name: Playwright E2E Tests
