@@ -560,8 +560,8 @@ jobs:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
-          # CI-only: back storage volumes with tmpfs (RAM) to speed up quickstart boot.
-          CI_TMPFS: "true"
+          # CI-only: layer tmpfs storage + tighter healthchecks to speed up quickstart boot.
+          CI_FAST_BOOT: "true"
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
@@ -748,8 +748,8 @@ jobs:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
-          # CI-only: back storage volumes with tmpfs (RAM) to speed up quickstart boot.
-          CI_TMPFS: "true"
+          # CI-only: layer tmpfs storage + tighter healthchecks to speed up quickstart boot.
+          CI_FAST_BOOT: "true"
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}

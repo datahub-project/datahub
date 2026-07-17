@@ -19,12 +19,13 @@ echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
 DATAHUB_TOKEN_SERVICE_SIGNING_KEY=$(openssl rand -base64 32)
 DATAHUB_TOKEN_SERVICE_SALT=$(openssl rand -base64 32)
 
-# CI_TMPFS=true backs mysql/opensearch/kafka storage with tmpfs (RAM) to speed
-# up boot. Opt-in only: never enable for a quickstart whose data must survive a
-# restart. When unset, the compose invocation is byte-for-byte the same as before.
+# CI_FAST_BOOT=true layers CI-only overrides (tmpfs storage + tighter healthcheck
+# polling) to speed up quickstart boot. Opt-in only: never enable for a quickstart
+# whose data must survive a restart. When unset, the compose invocation is
+# byte-for-byte the same as before.
 compose_file_args=()
-if [[ "${CI_TMPFS:-false}" == "true" ]]; then
-  compose_file_args=(-f ../docker/profiles/docker-compose.yml -f ../docker/profiles/docker-compose.ci-tmpfs.yml)
+if [[ "${CI_FAST_BOOT:-false}" == "true" ]]; then
+  compose_file_args=(-f ../docker/profiles/docker-compose.yml -f ../docker/profiles/docker-compose.ci-overrides.yml)
 fi
 
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
