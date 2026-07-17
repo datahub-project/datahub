@@ -105,7 +105,6 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const history = useHistory();
     const location = useLocation();
-    const entityRegistry = useEntityRegistry();
 
     const wasDragging = usePrevious(dragging);
 
