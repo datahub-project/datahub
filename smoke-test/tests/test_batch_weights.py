@@ -1,16 +1,18 @@
-import json
-from pathlib import Path
+from typing import cast
 
-from conftest import (
-    get_pytest_test_weight,
-    load_pytest_test_weights,
-    normalize_test_id,
-)
+from _pytest.nodes import Item
+
+from conftest import get_pytest_test_weight, load_pytest_test_weights, normalize_test_id
 
 
 class _FakeItem:
     def __init__(self, nodeid: str) -> None:
         self.nodeid = nodeid
+
+
+def _item(nodeid: str) -> Item:
+    # get_pytest_test_weight only reads .nodeid; a light double keeps the test standalone.
+    return cast(Item, _FakeItem(nodeid))
 
 
 def test_normalize_module_level_test():
@@ -46,13 +48,13 @@ def test_normalize_nested_class_joins_with_dot():
 
 def test_class_test_weight_is_looked_up_not_defaulted():
     weights = {"tests.status.test_lifecycle_state.TestFoo::test_bar": 440.0}
-    item = _FakeItem("tests/status/test_lifecycle_state.py::TestFoo::test_bar")
+    item = _item("tests/status/test_lifecycle_state.py::TestFoo::test_bar")
     assert get_pytest_test_weight(item, weights, default_weight=1.0) == 440.0
 
 
 def test_unknown_test_uses_default_weight():
     weights = {"tests.a::test_a": 10.0}
-    item = _FakeItem("tests/unknown.py::test_missing")
+    item = _item("tests/unknown.py::test_missing")
     assert get_pytest_test_weight(item, weights, default_weight=7.5) == 7.5
 
 
@@ -76,4 +78,6 @@ def test_every_weights_file_key_is_reachable():
         nodeid = "::".join([module, *classes, leaf]) if classes else f"{module}::{leaf}"
         if normalize_test_id(nodeid) != key:
             unreachable.append(key)
-    assert not unreachable, f"{len(unreachable)} keys unreachable, e.g. {unreachable[:3]}"
+    assert not unreachable, (
+        f"{len(unreachable)} keys unreachable, e.g. {unreachable[:3]}"
+    )
