@@ -1,15 +1,17 @@
 namespace com.linkedin.metric
 
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.ExternalReference
 import com.linkedin.common.Urn
 
 /**
  * Core information about a Metric entity.
  */
 @Aspect = {
-  "name": "metricInfo"
+  "name": "metricInfo",
+  "schemaVersion": 3
 }
-record MetricInfo {
+record MetricInfo includes ExternalReference {
 
   /**
    * Display name of the metric.
@@ -65,7 +67,8 @@ record MetricInfo {
    */
   @Relationship = {
     "name": "ModeledBy",
-    "entityTypes": [ "semanticModel" ]
+    "entityTypes": [ "semanticModel" ],
+    "isLineage": true
   }
   @Searchable = {
     "fieldName": "semanticModel",

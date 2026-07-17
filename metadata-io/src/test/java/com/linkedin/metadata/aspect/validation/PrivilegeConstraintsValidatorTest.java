@@ -759,10 +759,20 @@ public class PrivilegeConstraintsValidatorTest {
     patchOp.setPath("/tags/urn:li:platformResource:my-source/" + TEST_TAG_URN_2);
     patchOp.setValue(
         objectMapper.convertValue(
-            Map.of("tag", TEST_TAG_URN_2.toString(), "source", "urn:li:platformResource:my-source"),
+            Map.of(
+                "tag",
+                TEST_TAG_URN_2.toString(),
+                "attribution",
+                Map.of(
+                    "source",
+                    "urn:li:platformResource:my-source",
+                    "actor",
+                    "urn:li:corpuser:datahub",
+                    "time",
+                    0)),
             JsonNode.class));
     Map<String, List<String>> arrayPrimaryKeys = new HashMap<>();
-    arrayPrimaryKeys.put("tags", List.of("attribution", "source"));
+    arrayPrimaryKeys.put("tags", List.of("attribution␟source", "tag"));
 
     GenericJsonPatch genericJsonPatch =
         GenericJsonPatch.builder()
@@ -822,10 +832,20 @@ public class PrivilegeConstraintsValidatorTest {
     patchOp.setPath("/tags/urn:li:platformResource:my-source/" + TEST_TAG_URN_2);
     patchOp.setValue(
         objectMapper.convertValue(
-            Map.of("tag", TEST_TAG_URN_2.toString(), "source", "urn:li:platformResource:my-source"),
+            Map.of(
+                "tag",
+                TEST_TAG_URN_2.toString(),
+                "attribution",
+                Map.of(
+                    "source",
+                    "urn:li:platformResource:my-source",
+                    "actor",
+                    "urn:li:corpuser:datahub",
+                    "time",
+                    0)),
             JsonNode.class));
     Map<String, List<String>> arrayPrimaryKeys = new HashMap<>();
-    arrayPrimaryKeys.put("tags", List.of("attribution", "source"));
+    arrayPrimaryKeys.put("tags", List.of("attribution␟source", "tag"));
 
     GenericJsonPatch genericJsonPatch =
         GenericJsonPatch.builder()

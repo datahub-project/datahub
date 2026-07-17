@@ -103,6 +103,8 @@ dependencies {
   runtimeOnly externalDependency.playGuice
   implementation externalDependency.log4j2Api
   implementation externalDependency.logbackClassic
+  implementation externalDependency.janino
+  implementation externalDependency.lokiLogbackAppender
   annotationProcessor externalDependency.lombok
 }
 

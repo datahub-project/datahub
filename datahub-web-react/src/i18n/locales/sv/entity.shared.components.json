@@ -10,6 +10,7 @@
     "deprecation.markedUnDeprecatedSuccess": "Tillgångar markerade som inte längre föråldrade!",
     "deprecation.noAdditionalDetails": "Inga ytterligare detaljer",
     "deprecation.replacementLabel": "Ersättning:",
+    "deprecation.reasonLabel": "Anledning:",
     "deprecation.scheduledDecommission": "Schemalagd att tas ur drift den {{date}}",
     "download.creating": "Skapar CSV för nedladdning",
     "download.failed": "Nedladdningen misslyckades",

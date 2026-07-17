@@ -39,9 +39,6 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * In-memory {@link UsageAggregationStore} for GMS API request/response usage metrics.
  *
- * <p>Renamed from {@code InMemoryUsageRollupStore} to avoid colliding with the legacy product-usage
- * rollup type in {@code com.linkedin.metadata.billing.rollup}.
- *
  * <p>Recorders hold a shared read lock while writing to the active window; drain swaps windows
  * under an exclusive write lock (brief) then builds and publishes Micrometer batches outside any
  * lock.
@@ -215,6 +212,74 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
   }
 
   @Override
+  public boolean recordReportedUsage(
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull RequestContext requestContext,
+      long quantity) {
+    if (quantity <= 0) {
+      return false;
+    }
+    UsageOperationsRegistry.UsageOperationEntry operationEntry =
+        resolveAllowedOperation(requestContext);
+    if (operationEntry == null) {
+      return false;
+    }
+    UsageActorClass actorClass =
+        actorClassResolver.resolve(
+            systemOperationContext,
+            requestContext,
+            systemOperationContext.getSessionAuthentication());
+    String usageIdentity =
+        requestContext.getUsageIdentity() != null
+            ? requestContext.getUsageIdentity()
+            : requestContext.getActorUrn();
+    AttributionType attribution = UsageDimensions.resolveAttribution(requestContext);
+    ActivitySnapshot activitySnapshot =
+        ActivitySnapshot.fromActivityClass(operationEntry.activityClass());
+
+    Map<String, String> resolvedDimensions =
+        new HashMap<>(
+            UsageDimensions.fromRequestContext(
+                requestContext, requestContext.getUsageOperation(), null));
+    resolvedDimensions.putIfAbsent(UsageDimensions.ACTOR_CLASS, actorClass.dimensionValue());
+    Map<String, String> dimKey = Map.copyOf(resolvedDimensions);
+
+    boolean recorded = false;
+    windowLock.readLock().lock();
+    try {
+      ActiveWindow window = activeWindow;
+      String windowId = window.windowId();
+      for (UsageMetricRegistry.MetricDefinition metric :
+          metricRegistry.apiUsageMetrics().values()) {
+        if (metric.mergeKind() == UsageMetricRegistry.MergeKind.DISTINCT) {
+          if (!UsageMetricIncrementResolver.shouldEmitDistinct(
+              metric, activitySnapshot, operationEntry)) {
+            continue;
+          }
+          DistinctRollupKey key =
+              new DistinctRollupKey(windowId, metric.metricName(), actorClass.dimensionValue());
+          recordDistinctIdentity(window, key, usageIdentity, attribution);
+          recorded = true;
+          continue;
+        }
+        if (!UsageMetricIncrementResolver.isReportDrivenMetric(metric)) {
+          continue;
+        }
+        AdditiveRollupKey key =
+            new AdditiveRollupKey(windowId, metric.metricName(), actorClass, dimKey);
+        recordAdditive(window, key, quantity);
+        recorded = true;
+      }
+    } finally {
+      windowLock.readLock().unlock();
+    }
+    if (recorded) {
+      tryTriggerDrain();
+    }
+    return recorded;
+  }
+
+  @Override
   public void recordResponse(@Nonnull OperationContext opContext, @Nullable Long outputBytes) {
     RequestContext requestContext = opContext.getRequestContext();
     if (resolveAllowedOperation(requestContext) == null) {
@@ -267,7 +332,9 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
       ActiveWindow retired;
       windowLock.writeLock().lock();
       try {
-        retired = swapActiveWindowLocked(splitAtBoundary ? boundary : null);
+        // Mid-period and boundary: next window opens at batchEnd (process-relative or grid
+        // Instant).
+        retired = swapActiveWindowLocked(batchEnd);
       } finally {
         windowLock.writeLock().unlock();
       }
@@ -398,10 +465,9 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
 
   @Nonnull
   private ActiveWindow newActiveWindow(@Nullable Instant explicitStart) {
+    // Process-relative: never floor open time to the alignment grid. Alignment only splits
+    // closed windows at nextBoundary via flush / publishExtractedWindow.
     Instant windowStart = explicitStart != null ? explicitStart : clock.instant();
-    if (alignmentPeriod != null && explicitStart == null) {
-      windowStart = UsageFlushBoundaryUtils.alignDown(windowStart, alignmentPeriod, ALIGNMENT_ZONE);
-    }
     return new ActiveWindow(windowStart);
   }
 

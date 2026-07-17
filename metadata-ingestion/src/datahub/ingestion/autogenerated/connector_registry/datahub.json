@@ -2349,7 +2349,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default, configured using `extract_usage_history`",
+          "description": "Dashboard, chart, and explore usage. Enabled by default, configured using `extract_usage_history`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2986,6 +2986,44 @@
       "classname": "datahub.ingestion.source.notion.notion_source.NotionSource",
       "platform_id": "notion",
       "platform_name": "Notion",
+      "support_status": "INCUBATING"
+    },
+    "odcs": {
+      "capabilities": [
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Dataset and column descriptions.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via standard stateful ingestion (`stateful_ingestion.remove_stale_metadata`): only the logical `odcs` Datasets and Assertions ODCS owns are stale-removed; physical datasets and their `logicalParent` links are never marked removed.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Owners derived from `team[]`.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Top-level and column-level `tags`.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Canonical schema (types, descriptions, keys) from `schema[].properties[]`.",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.odcs.odcs_source.ODCSSource",
+      "platform_id": "odcs",
+      "platform_name": "Open Data Contract Standard",
       "support_status": "INCUBATING"
     },
     "okta": {

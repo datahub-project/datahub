@@ -12,6 +12,10 @@ inputs:
   junit-file-globs:
     description: "Glob patterns for JUnit XML files to publish (one per line)"
     required: true
+  retention-days:
+    description: "Number of days to retain the uploaded artifact (default: 7)"
+    required: false
+    default: "7"
 
 runs:
   using: composite
@@ -23,7 +27,7 @@ runs:
         name: ${{ inputs.artifact-name }}
         path: ${{ inputs.test-results-paths }}
         overwrite: true
-        retention-days: 7
+        retention-days: ${{ inputs.retention-days }}
 
     - name: Publish test results
       if: (!cancelled())
