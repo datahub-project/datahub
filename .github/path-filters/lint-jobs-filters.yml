@@ -1,6 +1,6 @@
 lint-job:
   - modified: ".github/workflows/lint-jobs.yml"
-  - ".github/path-filters/lint-job-filter.yml"
+  - ".github/path-filters/lint-jobs-filters.yml"
 markdown:
   - added|modified: "**/*.md"
   - ".github/scripts/check_docusaurus_markdown.py"
