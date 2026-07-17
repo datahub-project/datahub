@@ -496,20 +496,15 @@ jobs:
           restore-keys: |
             gradle-backend-build-cache-
       - name: Build + non-test checks once (assemble, spotless, etc.)
-        # Compile main + test + non-test checks (assemble/spotless), no tests run — warms the cache
-        # the shards restore. `testClasses` pulls the :datahub-web-react chain (generators + yarnBuild)
-        # and that's fine: the generators RUN and produce their sources, so yarnBuild/vite and
-        # graphqlUsageRegistryCheck succeed. Do NOT exclude the generators — that leaves yarnBuild
-        # building against missing sources (vite exit 1). Proven-green command (run 29288221733).
-        # :datahub-agent-context and :datahub-actions are excluded (build+check): pure-python
-        # modules whose `check` pulls installDev + a full pytest suite (602 and 200 tests), none of
-        # which the Java shards need — each is fully covered by its own workflow (agent-context.yml,
-        # actions.yml). Same rationale as :metadata-ingestion and the ingestion plugins below.
-        # :acryl-spark-lineage:build is also excluded — its `test` is already skipped here (global
-        # -x test) and shard-side, so `build` only produced the Scala shadowJars (~58s), which no
-        # shard consumes; it's built + tested by spark-smoke-test.yml.
+        # Compile main + test + non-test checks (no tests) to warm the shard cache.
+        # Keep yarnGenerate / generateLazyIconStubs (codegen + graphqlUsageRegistryCheck need them);
+        # drop yarnBuild via -x :datahub-frontend:testClasses / :datahub-web-react:jar (frontend-build
+        # covers Vite; shards don't need the React assets jar). --max-workers=2 and -Xmx4g avoid
+        # OOM on metadata-io testFixtures under parallel compile (do not bump toward 16g).
+        # Python modules / spark-lineage / docs / docker excluded — covered by their own workflows.
         run: |
-          ./gradlew build testClasses -x test --build-cache --max-workers="$(nproc)" \
+          ./gradlew build testClasses -x test --build-cache --max-workers=2 \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m" \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
             -x :datahub-agent-context:build \
@@ -527,7 +522,9 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:build \
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
+            -x :datahub-frontend:testClasses \
             -x :datahub-web-react:build \
+            -x :datahub-web-react:jar \
             -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
