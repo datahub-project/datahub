@@ -503,7 +503,7 @@ jobs:
         # OOM on metadata-io testFixtures under parallel compile (do not bump toward 16g).
         # Python modules / spark-lineage / docs / docker excluded — covered by their own workflows.
         run: |
-          ./gradlew build testClasses -x test --build-cache --max-workers=2 \
+          ./gradlew build testClasses -x test --build-cache --max-workers="$(nproc)" \
             -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m" \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
