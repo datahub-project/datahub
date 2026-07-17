@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from 'react';
 
 import AssetsModule from '@app/entityV2/summary/modules/assets/AssetsModule';
+import AiContextModule from '@app/entityV2/summary/modules/aiContext/AiContextModule';
 import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/ChildHierarchyModule';
 import DataProductsModule from '@app/entityV2/summary/modules/dataProducts/DataProductsModule';
 import LineageModule from '@app/entityV2/summary/modules/lineage/LineageModule';
@@ -40,6 +41,13 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.Platforms) return PlatformsModule;
         if (module.properties.type === DataHubPageModuleType.Lineage) return LineageModule;
         if (module.properties.type === DataHubPageModuleType.Columns) return ColumnsModule;
+        if (module.properties.type === DataHubPageModuleType.AiContext) return AiContextModule;
+        if (module.properties.type === DataHubPageModuleType.ModelDatasets) return SampleLargeModule;
+        if (module.properties.type === DataHubPageModuleType.MetricsInModel) return SampleLargeModule;
+        if (module.properties.type === DataHubPageModuleType.Relationships) return SampleLargeModule;
+        if (module.properties.type === DataHubPageModuleType.Dimensions) return SampleLargeModule;
+        if (module.properties.type === DataHubPageModuleType.MetricSql) return SampleLargeModule;
+        if (module.properties.type === DataHubPageModuleType.RelatedMetrics) return SampleLargeModule;
 
         // TODO: remove the sample large module once we have other modules to fill this out
         console.error(`Issue finding module with type ${module.properties.type}`);

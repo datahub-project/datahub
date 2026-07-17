@@ -93,6 +93,7 @@ fragment metricFields on Metric {
     type
     id
     path
+    lastIngested
     platform {
         ...platformFields
     }

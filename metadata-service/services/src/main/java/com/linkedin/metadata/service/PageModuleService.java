@@ -45,7 +45,14 @@ public class PageModuleService {
           "urn:li:dataHubPageModule:related_terms",
           "urn:li:dataHubPageModule:platforms",
           "urn:li:dataHubPageModule:lineage",
-          "urn:li:dataHubPageModule:columns");
+          "urn:li:dataHubPageModule:columns",
+          "urn:li:dataHubPageModule:model_datasets",
+          "urn:li:dataHubPageModule:metrics_in_model",
+          "urn:li:dataHubPageModule:relationships",
+          "urn:li:dataHubPageModule:dimensions",
+          "urn:li:dataHubPageModule:ai_context",
+          "urn:li:dataHubPageModule:sql",
+          "urn:li:dataHubPageModule:related_metrics");
 
   public PageModuleService(@Nonnull EntityClient entityClient) {
     this.entityClient = entityClient;

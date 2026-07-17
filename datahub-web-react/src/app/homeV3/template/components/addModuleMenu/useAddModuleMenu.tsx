@@ -155,6 +155,97 @@ export const COLUMNS_MODULE: PageModuleFragment = {
     },
 };
 
+export const MODEL_DATASETS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:model_datasets',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:modelDatasets.moduleName');
+        },
+        type: DataHubPageModuleType.ModelDatasets,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const METRICS_IN_MODEL_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:metrics_in_model',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:metricsInModel.moduleName');
+        },
+        type: DataHubPageModuleType.MetricsInModel,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const RELATIONSHIPS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:relationships',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:relationships.moduleName');
+        },
+        type: DataHubPageModuleType.Relationships,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const DIMENSIONS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:dimensions',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:dimensions.moduleName');
+        },
+        type: DataHubPageModuleType.Dimensions,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const AI_CONTEXT_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:ai_context',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:aiContext.moduleName');
+        },
+        type: DataHubPageModuleType.AiContext,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const SQL_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:sql',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:sql.moduleName');
+        },
+        type: DataHubPageModuleType.MetricSql,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const RELATED_METRICS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:related_metrics',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:relatedMetrics.moduleName');
+        },
+        type: DataHubPageModuleType.RelatedMetrics,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
     const { t } = useTranslation('modules');
     const { entityType } = useEntityData();
