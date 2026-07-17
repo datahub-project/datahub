@@ -1,5 +1,6 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import { NodeProps, NodeResizer } from 'reactflow';
+import { useHistory, useLocation } from 'react-router-dom';
+import { NodeProps, NodeResizer, useReactFlow, useStore } from 'reactflow';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
@@ -15,14 +16,15 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import LineageCard from '@app/lineageV3/components/LineageCard';
+import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import usePrevious from '@app/shared/usePrevious';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export const LINEAGE_BOUNDING_BOX_NODE_NAME = 'lineage-bounding-box';
 export const BOUNDING_BOX_PADDING = 50;
 
-const StyledNodeWrapper = styled(NodeWrapper)`
-    background-color: ${(props) => props.theme.colors.bgSurfaceBrand}50;
+const StyledNodeWrapper = styled(NodeWrapper)<{ $colorHex?: string }>`
+    background-color: ${({ $colorHex, theme }) => ($colorHex ? `${$colorHex}30` : `${theme.colors.bgSurfaceBrand}50`)};
     border-top-left-radius: 0;
 
     align-items: start;
@@ -54,14 +56,56 @@ const HomeIndicatorWrapper = styled.div<{ $cardHeight: number }>`
     z-index: -1;
 `;
 
+/**
+ * Resizes the bounding box to fit its member nodes as they change size or move at runtime, e.g.
+ * when a member's columns are expanded or a member is pushed down by `useAvoidIntersections`.
+ * The computed layout only accounts for members' initial positions and default dimensions.
+ */
+function useFitToContents(id: string) {
+    const { setNodes } = useReactFlow();
+    // String key so the box is only resized when a member's position or size actually changes
+    const contentsKey = useStore((state) =>
+        state
+            .getNodes()
+            .filter((node) => node.parentId === id)
+            .map((node) => `${node.position.x},${node.position.y},${node.width},${node.height}`)
+            .join(';'),
+    );
+
+    useEffect(() => {
+        if (!contentsKey) return;
+        setNodes((nodes) => {
+            const members = nodes.filter((node) => node.parentId === id);
+            if (!members.length) return nodes;
+            const width = Math.max(
+                LINEAGE_NODE_WIDTH + 2 * BOUNDING_BOX_PADDING,
+                ...members.map((node) => node.position.x + (node.width ?? LINEAGE_NODE_WIDTH) + BOUNDING_BOX_PADDING),
+            );
+            const height = Math.max(
+                LINEAGE_NODE_HEIGHT + 2 * BOUNDING_BOX_PADDING,
+                ...members.map((node) => node.position.y + (node.height ?? LINEAGE_NODE_HEIGHT) + BOUNDING_BOX_PADDING),
+            );
+            return nodes.map((node) => {
+                if (node.id !== id || (node.width === width && node.height === height)) return node;
+                return { ...node, width, height, style: { ...node.style, width, height } };
+            });
+        });
+    }, [id, contentsKey, setNodes]);
+}
+
 export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingBox>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity } = data;
+    const { urn, type, entity, colorHex } = data;
+
+    useFitToContents(props.id);
 
     const entityRegistry = useEntityRegistry();
     const { rootUrn } = useContext(LineageNodesContext);
     const { searchedEntity, setIsDraggingBoundingBox } = useContext(LineageVisualizationContext);
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
+    const history = useHistory();
+    const location = useLocation();
+    const entityRegistry = useEntityRegistry();
 
     const wasDragging = usePrevious(dragging);
 
@@ -104,6 +148,7 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                 dragging={dragging}
                 isGhost={isGhost}
                 isSearchedEntity={isSearchedEntity}
+                $colorHex={colorHex}
             >
                 {urn === rootUrn && (
                     <HomeIndicatorWrapper $cardHeight={cardHeight}>
@@ -127,6 +172,9 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                         typeIcon={entityRegistry.getIcon(type, 16, IconStyleType.ACCENT)}
                         platformIcons={entity?.icon ? [entity.icon] : []}
                         childrenOpen={false}
+                        onDoubleClick={
+                            isGhost ? undefined : () => history.push(getLineageUrl(urn, type, location, entityRegistry))
+                        }
                     />
                 </CardWrapper>
             </StyledNodeWrapper>

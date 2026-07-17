@@ -4,7 +4,7 @@ import { Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useHistory, useLocation } from 'react-router-dom';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position, useNodeId } from 'reactflow';
 import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
@@ -17,6 +17,7 @@ import { ContractLineageControl } from '@app/lineageV3/LineageEntityNode/Contrac
 import { ExpandLineageButton } from '@app/lineageV3/LineageEntityNode/ExpandLineageButton';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
+import OutputPortPill from '@app/lineageV3/LineageEntityNode/OutputPortPill';
 import useAvoidIntersections from '@app/lineageV3/LineageEntityNode/useAvoidIntersections';
 import { DisplayedColumns } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import NodeWrapper from '@app/lineageV3/NodeWrapper';
@@ -139,6 +140,8 @@ interface Props {
     rootUrn: string;
     rootType: EntityType;
     parentDataJob?: string;
+    /** Data product lineage: whether this member is an output port of the bounding box it renders in. */
+    isOutputPort?: boolean;
     searchQuery: string;
     setHoveredNode: (urn: string | null) => void;
     showColumns: boolean;
@@ -178,6 +181,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         rootUrn,
         rootType,
         parentDataJob,
+        isOutputPort,
         searchQuery,
         setHoveredNode,
         showColumns,
@@ -224,7 +228,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         (showColumns && paginatedColumns.length && extraHighlightedColumns.length ? 17 : 0) + // Column divider
         (showColumns && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 40 : 0); // Pagination
 
-    useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, isVertical);
+    // Data product members have data-product-qualified node ids, distinct from their urn
+    const nodeId = useNodeId() ?? urn;
+    useAvoidIntersections(nodeId, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, !!parentDataJob);
 
     const highlightColor = isSearchedEntity ? theme.colors.bgHighlight : theme.colors.tagsTrueYellowBg;
     const hasUpstreamChildren = !!(numUpstreams ?? !!entity?.numUpstreamChildren);
@@ -328,6 +334,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
             {urn === rootUrn && (
                 <HomeIndicatorWrapper>
                     <HomePill showText />
+                </HomeIndicatorWrapper>
+            )}
+            {urn !== rootUrn && isOutputPort && (
+                <HomeIndicatorWrapper>
+                    <OutputPortPill showText />
                 </HomeIndicatorWrapper>
             )}
             <NodeWrapper

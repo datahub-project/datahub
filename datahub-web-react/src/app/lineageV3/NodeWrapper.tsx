@@ -1,4 +1,4 @@
-import React, { HTMLAttributes } from 'react';
+import React, { HTMLAttributes, forwardRef } from 'react';
 import styled from 'styled-components';
 
 import { LINEAGE_NODE_WIDTH } from '@app/lineageV3/common';
@@ -8,12 +8,18 @@ const Wrapper = styled.div<{
     dragging: boolean;
     isGhost: boolean;
     isSearchedEntity: boolean;
+    $nodeColor?: string;
 }>`
     width: ${LINEAGE_NODE_WIDTH}px;
 
-    background-color: ${(props) => props.theme.colors.bg};
+    background-color: ${({ $nodeColor, theme }) => ($nodeColor ? `${$nodeColor}1e` : theme.colors.bg)};
     border-radius: 12px;
-    border: 1px solid ${({ selected, theme }) => (selected ? theme.colors.borderSelected : theme.colors.border)};
+    border: 1px solid
+        ${({ selected, $nodeColor, theme }) => {
+            if (selected) return theme.colors.textBrand;
+            if ($nodeColor) return `${$nodeColor}80`;
+            return theme.colors.border;
+        }};
     box-shadow: ${({ isSearchedEntity, theme }) =>
         isSearchedEntity ? `0 0 4px 4px ${theme.colors.border}` : theme.colors.shadowXs};
 
@@ -38,14 +44,18 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
     dragging: boolean;
     isGhost: boolean;
     isSearchedEntity: boolean;
+    $isDataProduct?: boolean;
+    $nodeColor?: string;
     children?: React.ReactNode;
 }
 
 /** Base component to wrap graph nodes */
-export default function NodeWrapper({ urn, children, ...props }: Props) {
+const NodeWrapper = forwardRef<HTMLDivElement, Props>(({ urn, children, ...props }, ref) => {
     return (
-        <Wrapper data-testid={`lineage-node-${urn}`} {...props}>
+        <Wrapper ref={ref} data-testid={`lineage-node-${urn}`} {...props}>
             {children}
         </Wrapper>
     );
-}
+});
+
+export default NodeWrapper;

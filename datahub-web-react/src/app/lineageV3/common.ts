@@ -59,6 +59,10 @@ export interface LineageEntity extends NodeBase {
     fetchStatus: Record<LineageDirection, FetchStatus>;
     filters: Record<LineageDirection, Filters>;
     parentDataJob?: Urn;
+    /** Data products containing this entity, with whether it is an output port of each. Undefined
+     * means membership is not yet known; fetched for the data product graph by `useBulkDataProductMemberships`.
+     * Not fetched as part of `entity` because data product lookup requires querying the graph index. */
+    dataProducts?: { urn: Urn; isOutputPort: boolean }[];
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
@@ -86,9 +90,11 @@ export interface LineageBoundingBox {
     type: EntityType;
     entity?: FetchedEntityV2;
     dragged?: boolean;
+    colorHex?: string;
 }
 
 export interface LineageAnnotationNode {
+    urn?: never;
     label: string;
     dragged?: boolean;
 }
@@ -267,6 +273,10 @@ export interface NodeContext {
     setShowDataProcessInstances: (hide: boolean) => void;
     showGhostEntities: boolean;
     setShowGhostEntities: (hide: boolean) => void;
+    /** Data Product Lineage */
+    dataProductEntities: Map<Urn, FetchedEntityV2>;
+    outputPortsOnly: boolean; // Restrict the graph to the home product's output ports and their adjacent nodes
+    setOutputPortsOnly: (only: boolean) => void;
 }
 
 export const LineageNodesContext = React.createContext<NodeContext>({
@@ -278,6 +288,7 @@ export const LineageNodesContext = React.createContext<NodeContext>({
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     },
+    dataProductEntities: new Map(),
     nodeVersion: 0,
     setNodeVersion: () => {},
     dataVersion: 0,
@@ -292,6 +303,8 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setShowDataProcessInstances: () => {},
     showGhostEntities: false,
     setShowGhostEntities: () => {},
+    outputPortsOnly: false,
+    setOutputPortsOnly: () => {},
 });
 
 export function getParents(node: LineageNode, adjacencyList: NodeContext['adjacencyList']): string[] {
