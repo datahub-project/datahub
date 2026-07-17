@@ -54,6 +54,27 @@ def test_kafka_source_configuration(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_profiling_enabled_check(mock_kafka):
+    ctx = PipelineContext(run_id="test")
+
+    # Test with profiling disabled
+    config = KafkaSourceConfig.parse_obj(
+        {"connection": {"bootstrap": "localhost:9092"}, "profiling": {"enabled": False}}
+    )
+    kafka_source = KafkaSource(config, ctx)
+    assert not kafka_source.source_config.is_profiling_enabled()
+    kafka_source.close()
+
+    # Test with profiling enabled
+    config = KafkaSourceConfig.parse_obj(
+        {"connection": {"bootstrap": "localhost:9092"}, "profiling": {"enabled": True}}
+    )
+    kafka_source = KafkaSource(config, ctx)
+    assert kafka_source.source_config.is_profiling_enabled()
+    kafka_source.close()
+
+
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
@@ -254,8 +275,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # TopicNameStrategy is used for subject
         "topic1": (
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_2",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -264,8 +285,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_1",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Value", "namespace": "test.acryl", "fields": [{"name":"t1value", "type": "string"}]}',
                     schema_type="AVRO",
@@ -277,8 +298,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # RecordNameStrategy is used for subject
         "topic2": (
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_3",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic2Key", "namespace": "test.acryl", "fields": [{"name":"t2key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -287,8 +308,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_4",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic2Value", "namespace": "test.acryl", "fields": [{"name":"t2value", "type": "string"}]}',
                     schema_type="AVRO",
@@ -300,8 +321,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # TopicRecordNameStrategy is used for subject
         "topic3": (
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_4",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic3Key", "namespace": "test.acryl", "fields": [{"name":"t3key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -310,8 +331,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_5",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic3Value", "namespace": "test.acryl", "fields": [{"name":"t3value", "type": "string"}]}',
                     schema_type="AVRO",
@@ -435,8 +456,8 @@ def test_kafka_ignore_warnings_on_schema_type(
 ):
     # define the key and value schemas for topic1
     topic1_key_schema = RegisteredSchema(
-        guid=None,
         schema_id="schema_id_2",
+        guid=None,
         schema=Schema(
             schema_str="{}",
             schema_type="UNKNOWN_TYPE",
@@ -445,8 +466,8 @@ def test_kafka_ignore_warnings_on_schema_type(
         version=1,
     )
     topic1_value_schema = RegisteredSchema(
-        guid=None,
         schema_id="schema_id_1",
+        guid=None,
         schema=Schema(
             schema_str="{}",
             schema_type="UNKNOWN_TYPE",
@@ -571,8 +592,8 @@ def test_kafka_source_topic_meta_mappings(
     topic_subject_schema_map: Dict[str, Tuple[RegisteredSchema, RegisteredSchema]] = {
         "topic1": (
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_2",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -581,8 +602,8 @@ def test_kafka_source_topic_meta_mappings(
                 version=1,
             ),
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_1",
+                guid=None,
                 schema=Schema(
                     schema_str=json.dumps(
                         {
@@ -1207,3 +1228,51 @@ def test_kafka_source_handles_valid_schema_tags(
         if any("Unable to extract tags from schema field" in ctx for ctx in w.context)
     ]
     assert len(tag_extraction_warnings) == 0
+
+
+@patch(
+    "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
+    autospec=True,
+)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_extract_record_with_domain(
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
+):
+    """Test _extract_record_with_schemas with domain configuration."""
+
+    topic_schema = RegisteredSchema(
+        schema_id="schema_id_1",
+        guid=None,
+        schema=Schema(
+            schema_str='{"type":"record", "name":"TestRecord", "fields": [{"name":"id", "type": "long"}]}',
+            schema_type="AVRO",
+        ),
+        subject="test_topic-value",
+        version=1,
+    )
+
+    # Mock the kafka consumer
+    mock_kafka_instance = mock_kafka_consumer.return_value
+    mock_cluster_metadata = MagicMock()
+    mock_cluster_metadata.topics = {"test_topic": None}
+    mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+    # Mock schema registry
+    mock_schema_registry_client.return_value.get_subjects.return_value = [
+        "test_topic-value"
+    ]
+    mock_schema_registry_client.return_value.get_latest_version.return_value = (
+        topic_schema
+    )
+
+    ctx = PipelineContext(run_id="test_domain")
+    config = {
+        "connection": {"bootstrap": "localhost:9092"},
+        "domain": {"urn:li:domain:test_domain": {"allow": ["test_topic"]}},
+    }
+
+    kafka_source = KafkaSource.create(config, ctx)
+    workunits = list(kafka_source.get_workunits())
+
+    # Should have domain in work units
+    assert len(workunits) > 0
