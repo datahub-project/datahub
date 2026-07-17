@@ -27,19 +27,33 @@ repos:
         files: ^contrib/metadata-model-extensions/datahub-demo-dataset-governance-validator/.*\.java$
         pass_filenames: false
 
-      - id: datahub-actions-lint-fix
-        name: datahub-actions Lint Fix
-        entry: ./gradlew :datahub-actions:lintFix -x generateGitPropertiesGlobal
+      - id: datahub-actions-ruff-check
+        name: datahub-actions Ruff Check
+        entry: ruff check --fix
         language: system
-        files: ^datahub-actions/.*\.(py|toml)$
-        pass_filenames: false
+        files: ^datahub-actions/.*\.py$
+        pass_filenames: true
 
-      - id: datahub-agent-context-lint-fix
-        name: datahub-agent-context Lint Fix
-        entry: ./gradlew :datahub-agent-context:lintFix -x generateGitPropertiesGlobal
+      - id: datahub-actions-ruff-format
+        name: datahub-actions Ruff Format
+        entry: ruff format
         language: system
-        files: ^datahub-agent-context/.*\.(py|toml)$
-        pass_filenames: false
+        files: ^datahub-actions/.*\.py$
+        pass_filenames: true
+
+      - id: datahub-agent-context-ruff-check
+        name: datahub-agent-context Ruff Check
+        entry: ruff check --fix
+        language: system
+        files: ^datahub-agent-context/.*\.py$
+        pass_filenames: true
+
+      - id: datahub-agent-context-ruff-format
+        name: datahub-agent-context Ruff Format
+        entry: ruff format
+        language: system
+        files: ^datahub-agent-context/.*\.py$
+        pass_filenames: true
 
       - id: datahub-frontend-spotless
         name: datahub-frontend Spotless Apply
@@ -125,40 +139,75 @@ repos:
         files: ^metadata-events/mxe-utils-avro/.*\.java$
         pass_filenames: false
 
-      - id: metadata-ingestion-lint-fix
-        name: metadata-ingestion Lint Fix
-        entry: ./gradlew :metadata-ingestion:lintFix -x generateGitPropertiesGlobal
+      - id: metadata-ingestion-ruff-check
+        name: metadata-ingestion Ruff Check
+        entry: ruff check --fix
         language: system
-        files: ^metadata-ingestion/.*\.(py|toml)$
-        pass_filenames: false
+        files: ^metadata-ingestion/.*\.py$
+        pass_filenames: true
 
-      - id: metadata-ingestion-modules-airflow-plugin-lint-fix
-        name: metadata-ingestion-modules/airflow-plugin Lint Fix
-        entry: ./gradlew :metadata-ingestion-modules:airflow-plugin:lintFix -x generateGitPropertiesGlobal
+      - id: metadata-ingestion-ruff-format
+        name: metadata-ingestion Ruff Format
+        entry: ruff format
         language: system
-        files: ^metadata-ingestion-modules/airflow-plugin/.*\.(py|toml)$
-        pass_filenames: false
+        files: ^metadata-ingestion/.*\.py$
+        pass_filenames: true
 
-      - id: metadata-ingestion-modules-dagster-plugin-lint-fix
-        name: metadata-ingestion-modules/dagster-plugin Lint Fix
-        entry: ./gradlew :metadata-ingestion-modules:dagster-plugin:lintFix -x generateGitPropertiesGlobal
+      - id: metadata-ingestion-modules-airflow-plugin-ruff-check
+        name: metadata-ingestion-modules/airflow-plugin Ruff Check
+        entry: ruff check --fix
         language: system
-        files: ^metadata-ingestion-modules/dagster-plugin/.*\.(py|toml)$
-        pass_filenames: false
+        files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
+        pass_filenames: true
 
-      - id: metadata-ingestion-modules-gx-plugin-lint-fix
-        name: metadata-ingestion-modules/gx-plugin Lint Fix
-        entry: ./gradlew :metadata-ingestion-modules:gx-plugin:lintFix -x generateGitPropertiesGlobal
+      - id: metadata-ingestion-modules-airflow-plugin-ruff-format
+        name: metadata-ingestion-modules/airflow-plugin Ruff Format
+        entry: ruff format
         language: system
-        files: ^metadata-ingestion-modules/gx-plugin/.*\.(py|toml)$
-        pass_filenames: false
+        files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
+        pass_filenames: true
 
-      - id: metadata-ingestion-modules-prefect-plugin-lint-fix
-        name: metadata-ingestion-modules/prefect-plugin Lint Fix
-        entry: ./gradlew :metadata-ingestion-modules:prefect-plugin:lintFix -x generateGitPropertiesGlobal
+      - id: metadata-ingestion-modules-dagster-plugin-ruff-check
+        name: metadata-ingestion-modules/dagster-plugin Ruff Check
+        entry: ruff check --fix
         language: system
-        files: ^metadata-ingestion-modules/prefect-plugin/.*\.(py|toml)$
-        pass_filenames: false
+        files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
+        pass_filenames: true
+
+      - id: metadata-ingestion-modules-dagster-plugin-ruff-format
+        name: metadata-ingestion-modules/dagster-plugin Ruff Format
+        entry: ruff format
+        language: system
+        files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
+        pass_filenames: true
+
+      - id: metadata-ingestion-modules-gx-plugin-ruff-check
+        name: metadata-ingestion-modules/gx-plugin Ruff Check
+        entry: ruff check --fix
+        language: system
+        files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
+        pass_filenames: true
+
+      - id: metadata-ingestion-modules-gx-plugin-ruff-format
+        name: metadata-ingestion-modules/gx-plugin Ruff Format
+        entry: ruff format
+        language: system
+        files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
+        pass_filenames: true
+
+      - id: metadata-ingestion-modules-prefect-plugin-ruff-check
+        name: metadata-ingestion-modules/prefect-plugin Ruff Check
+        entry: ruff check --fix
+        language: system
+        files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
+        pass_filenames: true
+
+      - id: metadata-ingestion-modules-prefect-plugin-ruff-format
+        name: metadata-ingestion-modules/prefect-plugin Ruff Format
+        entry: ruff format
+        language: system
+        files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
+        pass_filenames: true
 
       - id: metadata-integration-java-acryl-spark-lineage-spotless
         name: metadata-integration/java/acryl-spark-lineage Spotless Apply
@@ -370,12 +419,19 @@ repos:
         files: ^metadata-service/iceberg-catalog/.*\.java$
         pass_filenames: false
 
-      - id: metadata-service-iceberg-catalog-lint-fix
-        name: metadata-service/iceberg-catalog Lint Fix
-        entry: ./gradlew :metadata-service:iceberg-catalog:lintFix -x generateGitPropertiesGlobal
+      - id: metadata-service-iceberg-catalog-ruff-check
+        name: metadata-service/iceberg-catalog Ruff Check
+        entry: ruff check --fix
         language: system
-        files: ^metadata-service/iceberg-catalog/.*\.(py|toml)$
-        pass_filenames: false
+        files: ^metadata-service/iceberg-catalog/.*\.py$
+        pass_filenames: true
+
+      - id: metadata-service-iceberg-catalog-ruff-format
+        name: metadata-service/iceberg-catalog Ruff Format
+        entry: ruff format
+        language: system
+        files: ^metadata-service/iceberg-catalog/.*\.py$
+        pass_filenames: true
 
       - id: metadata-service-openapi-analytics-servlet-spotless
         name: metadata-service/openapi-analytics-servlet Spotless Apply
@@ -429,6 +485,13 @@ repos:
           -x generateGitPropertiesGlobal
         language: system
         files: ^metadata-service/plugin/src/test/sample-test-plugins/.*\.java$
+        pass_filenames: false
+
+      - id: metadata-service-rate-limit-spotless
+        name: metadata-service/rate-limit Spotless Apply
+        entry: ./gradlew :metadata-service:rate-limit:spotlessApply -x generateGitPropertiesGlobal
+        language: system
+        files: ^metadata-service/rate-limit/.*\.java$
         pass_filenames: false
 
       - id: metadata-service-restli-client-spotless
@@ -502,12 +565,33 @@ repos:
         files: ^mock-entity-registry/.*\.java$
         pass_filenames: false
 
-      - id: smoke-test-lint-fix
-        name: smoke-test Lint Fix
-        entry: ./gradlew :smoke-test:lintFix -x generateGitPropertiesGlobal
+      - id: perf-test-authz-perf-ruff-check
+        name: perf-test/authz-perf Ruff Check
+        entry: ruff check --fix
         language: system
-        files: ^smoke-test/.*\.(py|toml)$
-        pass_filenames: false
+        files: ^perf-test/authz-perf/.*\.py$
+        pass_filenames: true
+
+      - id: perf-test-authz-perf-ruff-format
+        name: perf-test/authz-perf Ruff Format
+        entry: ruff format
+        language: system
+        files: ^perf-test/authz-perf/.*\.py$
+        pass_filenames: true
+
+      - id: smoke-test-ruff-check
+        name: smoke-test Ruff Check
+        entry: ruff check --fix
+        language: system
+        files: ^smoke-test/.*\.py$
+        pass_filenames: true
+
+      - id: smoke-test-ruff-format
+        name: smoke-test Ruff Format
+        entry: ruff format
+        language: system
+        files: ^smoke-test/.*\.py$
+        pass_filenames: true
 
       - id: test-models-spotless
         name: test-models Spotless Apply
@@ -590,10 +674,11 @@ repos:
         entry: python .github/scripts/bump_schema_versions.py
         language: python
         pass_filenames: false
-      
+
       - id: betterleaks
         name: Detect hardcoded secrets
-        description: Detect hardcoded secrets using Betterleaks (system-installed binary)
+        description: Detect hardcoded secrets using Betterleaks (system-installed
+          binary)
         entry: betterleaks git --staged --redact --verbose --config .betterleaks.toml
         language: system
         pass_filenames: false
