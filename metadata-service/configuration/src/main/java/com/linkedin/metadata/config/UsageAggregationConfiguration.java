@@ -10,23 +10,12 @@ public class UsageAggregationConfiguration {
 
   private MicrometerExportConfiguration micrometerExport;
 
-  private DimensionsConfiguration dimensions;
-
   private FlushConfiguration flush;
 
   @Data
   public static class MicrometerExportConfiguration {
     /** Export aggregated usage to Micrometer on flush. */
     private boolean enabled;
-  }
-
-  @Data
-  public static class DimensionsConfiguration {
-    /**
-     * Include the client-provided agent name as an additive rollup dimension. Disabled by default
-     * because agent names are unbounded and can substantially increase metric cardinality.
-     */
-    private boolean includeAgentName;
   }
 
   @Data
@@ -54,5 +43,13 @@ public class UsageAggregationConfiguration {
      * disables alignment (process-relative windows).
      */
     private long alignmentPeriodSeconds;
+
+    /**
+     * Include the client {@code agent_name} (UAA AgentName) as an additive rollup dimension.
+     * Default false: agent_name is client-controlled and can be unbounded, so enabling it
+     * multiplies metric bucket cardinality. Enable only where finer client attribution is required
+     * (e.g. smoke probe isolation).
+     */
+    private boolean includeAgentNameDimension;
   }
 }

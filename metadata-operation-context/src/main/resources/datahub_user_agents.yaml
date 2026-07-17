@@ -1,6 +1,8 @@
 config:
-  # YAUAA's built-in bot matcher replaces AgentName with "BOT". Override it so
-  # DataHub-Client bot requests retain the client name from the second comment.
+  # Probe / isolation: first comment "bot" → AgentClass robot without collapsing AgentName.
+  # A first comment of "robot" (or "bot") triggers YAUAA built-ins at conf≥10001 that set
+  # AgentName=Robot/BOT and DeviceClass=Robot; override those with higher confidence and keep
+  # AgentName from comments.(2).
   - matcher:
       require:
         - 'agent.product.name="DataHub-Client"'
@@ -13,41 +15,42 @@ config:
       require:
         - 'agent.product.name="DataHub-Client"'
       extract:
-        - 'DeviceClass : 1000:"Robot"'
+        # Prefer Desktop over Robot so AgentName comes from comments.(2).
+        - 'DeviceClass : 1000:"Desktop"'
         - 'AgentClass : 1000 :agent.(1)product.(1)comments.(1)entry'
         - 'AgentName : 1000 :agent.(1)product.(1)comments.(2)entry'
   - test:
       input:
         user_agent_string: 'DataHub-Client/1.0.0 (sdk; datahub; 1.0.1)'
       expected:
-        DeviceClass: 'Robot'
+        DeviceClass: 'Desktop'
         AgentClass: 'sdk'
         AgentName: 'datahub'
   - test:
       input:
         user_agent_string: 'DataHub-Client/1.0.0 (cli; datahub; 1.0.1)'
       expected:
-        DeviceClass: 'Robot'
+        DeviceClass: 'Desktop'
         AgentClass: 'cli'
         AgentName: 'datahub'
   - test:
       input:
         user_agent_string: 'DataHub-Client/1.0.0 (ingestion; datahub; 1.0.1)'
       expected:
-        DeviceClass: 'Robot'
+        DeviceClass: 'Desktop'
         AgentClass: 'ingestion'
         AgentName: 'datahub'
   - test:
       input:
         user_agent_string: 'DataHub-Client/1.0 (cli; datahub/claude-code; 1.0.1)'
       expected:
-        DeviceClass: 'Robot'
+        DeviceClass: 'Desktop'
         AgentClass: 'cli'
         AgentName: 'datahub/claude-code'
   - test:
       input:
         user_agent_string: 'DataHub-Client/1.0 (ingestion; airflow-plugin/github-actions; 1.0.1)'
       expected:
-        DeviceClass: 'Robot'
+        DeviceClass: 'Desktop'
         AgentClass: 'ingestion'
         AgentName: 'airflow-plugin/github-actions'

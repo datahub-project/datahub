@@ -17,7 +17,15 @@ public final class UsageDimensions {
   public static final String USAGE_OPERATION = "usage_operation";
   public static final String REQUEST_API = "request_api";
   public static final String AGENT_CLASS = "agent_class";
+
+  /**
+   * DataHub-Client comment / UAA AgentName (e.g. {@code datahub/claude-code}). Client-controlled
+   * and potentially unbounded, so it is <strong>opt-in</strong> as a rollup dimension (default off)
+   * to avoid exploding metric bucket cardinality. Enable only where finer client attribution is
+   * worth the cardinality (e.g. isolated smoke probes).
+   */
   public static final String AGENT_NAME = "agent_name";
+
   public static final String AUTH_CHANNEL = "auth_channel";
   public static final String INGESTION_RUNNER = "ingestion_runner";
   public static final String ACTOR_CLASS = "actor_class";
