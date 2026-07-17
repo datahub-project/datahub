@@ -4,8 +4,8 @@ import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import MetricHeader from '@app/entityV2/metric/profile/MetricHeader';
 import MetricPreview from '@app/entityV2/metric/preview/MetricPreview';
+import { buildMetricContextParent } from '@app/entityV2/metric/MetricEntity.utils';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
@@ -95,7 +95,6 @@ export class MetricEntity implements Entity<Metric> {
                 component: SummaryTab,
                 properties: {
                     hideEditDescription: true,
-                    preContent: React.createElement(MetricHeader),
                 },
             },
             {
@@ -156,6 +155,7 @@ export class MetricEntity implements Entity<Metric> {
             properties: {
                 description: data?.info?.description ?? undefined,
             },
+            parent: buildMetricContextParent(data),
         };
     };
 
