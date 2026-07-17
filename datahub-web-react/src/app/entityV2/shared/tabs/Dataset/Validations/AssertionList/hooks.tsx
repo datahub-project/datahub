@@ -1,6 +1,7 @@
 import { Typography } from 'antd';
 import { ColumnsType } from 'antd/es/table';
-import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -39,9 +40,9 @@ const LastRun = styled(Typography.Text)`
     display: inline-block;
 `;
 
-const TABLE_HEADER_HEIGHT = 50;
-
 export const useAssertionsTableColumns = ({ contract, refetch }) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tl } = useTranslation('common.labels');
     const renderAssertionName = useCallback(
         (_, record) => (
             <AssertionName
@@ -97,7 +98,7 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
     return useMemo(() => {
         const columns: ColumnsType<AssertionListTableRow> = [
             {
-                title: 'Name',
+                title: tl('name'),
                 dataIndex: 'name',
                 key: 'name',
                 render: renderAssertionName,
@@ -110,7 +111,7 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
                 },
             },
             {
-                title: 'Category',
+                title: tl('category'),
                 dataIndex: 'type',
                 key: 'type',
                 render: renderCategory,
@@ -126,7 +127,7 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
                 },
             },
             {
-                title: 'Last Run',
+                title: t('column.lastRun'),
                 dataIndex: 'lastEvaluation',
                 key: 'lastEvaluation',
                 render: renderLastRun,
@@ -143,7 +144,7 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
                 },
             },
             {
-                title: 'Tags',
+                title: tl('tags'),
                 dataIndex: 'tags',
                 key: 'tags',
                 width: '18%',
@@ -163,31 +164,7 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
         ];
 
         return columns;
-    }, [renderAssertionName, renderCategory, renderLastRun, renderTags, renderActions]);
-};
-
-export const usePinnedAssertionTableHeaderProps = () => {
-    // Dynamic height calculation
-    const tableContainerRef = useRef<HTMLDivElement>(null);
-    const [scrollY, setScrollY] = useState<number>(0);
-
-    useEffect(() => {
-        const handleResize = () => {
-            if (tableContainerRef.current) {
-                const containerHeight = tableContainerRef.current.getBoundingClientRect().height;
-                setScrollY(containerHeight - TABLE_HEADER_HEIGHT);
-            }
-        };
-
-        handleResize();
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
-    }, []);
-
-    return { tableContainerRef, scrollY };
+    }, [t, tl, renderAssertionName, renderCategory, renderLastRun, renderTags, renderActions]);
 };
 
 /** set filter as per the params we are getting from URL set assertion type and status as per the url */

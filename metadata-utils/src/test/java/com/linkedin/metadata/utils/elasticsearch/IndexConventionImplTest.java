@@ -415,4 +415,23 @@ public class IndexConventionImplTest {
         allPatterns.contains("*index_v3"),
         "getAllEntityIndicesPatterns should not include v3 when disabled");
   }
+
+  @Test
+  public void testIsSemanticEntityIndex() {
+    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
+
+    assertTrue(
+        indexConvention.isSemanticEntityIndex("datasetindex_v2_semantic"),
+        "Should identify semantic entity index");
+
+    assertFalse(
+        indexConvention.isSemanticEntityIndex("datasetindex_v2"),
+        "Should not identify v2 index as semantic");
+    // A versioned semantic backing index must NOT be treated as the bare semantic index, so
+    // orphan cleanup still reclaims stale semantic backing indices.
+    assertFalse(
+        indexConvention.isSemanticEntityIndex("datasetindex_v2_semantic_1700000000000"),
+        "Should not identify a versioned semantic backing index");
+  }
 }

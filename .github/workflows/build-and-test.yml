@@ -4,12 +4,26 @@ on:
     branches:
       - master
       - releases/**
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
+      - hotfixes/**
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/build-and-test.yml"
+      - ".github/actions/ensure-codegen-updated"
+      - ".github/scripts/send_failed_tests_to_posthog.py"
   pull_request:
     branches:
       - "**"
+    paths:
+      - "**"
+      - "!docs/**"
+      - "!**.md"
+      - "!.github/**"
+      - ".github/workflows/build-and-test.yml"
+      - ".github/actions/ensure-codegen-updated"
+      - ".github/scripts/send_failed_tests_to_posthog.py"
   workflow_dispatch:
   schedule:
     - cron: "0 0 * * *" # Run at midnight UTC every day
@@ -22,6 +36,10 @@ concurrency:
 
 env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
+  # Toggle backend test sharding. Repo variable (Settings → Actions → Variables); unset → '' →
+  # falsy → defaults OFF, so it flips without a commit and each repo sets its own value.
+  SHARDED_TESTS_RUNS_ENABLED: ${{ vars.SHARDED_TESTS_RUNS_ENABLED || 'false' }}
 
 jobs:
   setup:
@@ -34,84 +52,78 @@ jobs:
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
-      mysql_setup_change: ${{ steps.ci-optimize.outputs.mysql-setup-change == 'true' }}
-      postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
-      elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
+      runner_type: ${{ steps.set-runner.outputs.runner_type }}
+      backend_sharding: ${{ steps.flags.outputs.backend_sharding }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+      - name: Read CI flags
+        id: flags
+        # Sharding toggle comes from the SHARDED_TESTS_RUNS_ENABLED repo variable (workflow env
+        # above, default 'false'). Normalize to lowercase so "True"/"TRUE" also count as on.
+        run: |
+          value="$(echo "${SHARDED_TESTS_RUNS_ENABLED}" | tr '[:upper:]' '[:lower:]')"
+          if [ "$value" = "true" ]; then
+            echo "backend_sharding=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend_sharding=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Determine runner type
+        id: set-runner
+        # Use depot runners only when a maintainer has explicitly added the "depot" label.
+        # vars.DEPOT_PROJECT_ID is not accessible to fork PRs, so we rely solely on the label.
+        run: |
+          if [[ "${{ env.HAS_DEPOT_LABEL }}" == "true" ]]; then
+            echo "runner_type=depot-ubuntu-latest-4" >> "$GITHUB_OUTPUT"
+          else
+            echo "runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+          fi
 
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        command: [
-            # metadata-ingestion and airflow-plugin each have dedicated build jobs
-            "except_metadata_ingestion",
-            "frontend",
-          ]
-        timezone: ["UTC"]
-        include:
-          # We only need the timezone variation for frontend tests.
-          - command: "frontend"
-            timezone: "America/New_York"
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-4' || 'ubuntu-latest' }}
+  # Runs unless the sharding toggle (SHARDED_TESTS_RUNS_ENABLED repo variable) is on. When on,
+  # backend-seed + backend-test-shard below replace this single job.
+  build-except-metadata-ingestion:
+    runs-on: ${{ needs.setup.outputs.runner_type }}
     timeout-minutes: 60
     needs: setup
+    if: ${{ needs.setup.outputs.backend_change == 'true' && needs.setup.outputs.backend_sharding != 'true' }}
     steps:
-      - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/.ghcup || true
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /usr/share/swift || true
-          sudo rm -rf /usr/local/julia* || true
-          sudo rm -rf /usr/local/share/powershell || true
-          sudo rm -rf /usr/share/miniconda || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker system prune -a -f || true
-          df -h
-      - uses: szenius/set-timezone@v2.0
-        with:
-          timezoneLinux: ${{ matrix.timezone }}
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
-      - uses: actions/setup-python@v6
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
-      - uses: actions/cache@v4
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
-          java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Disk Space Analysis
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
       - name: Gradle build (and test) for NOT metadata ingestion
-        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
+        # --max-workers=$(nproc): gradle.properties caps workers at 2 (an 8GB-laptop-safe
+        # default); on CI runners (4+ vCPU) that throttles this multi-module build, so scale
+        # to the runner's actual core count.
         run: |
-          ./gradlew build \
+          ./gradlew build --max-workers="$(nproc)" \
             -x :metadata-ingestion:build \
             -x :metadata-ingestion:check \
+            -x :datahub-agent-context:build \
+            -x :datahub-agent-context:check \
+            -x :datahub-actions:build \
+            -x :datahub-actions:check \
             -x :docs-website:build \
-            -x :metadata-integration:java:spark-lineage:test \
+            -x :metadata-integration:java:acryl-spark-lineage:build \
             -x :metadata-io:test \
             -x :metadata-ingestion-modules:airflow-plugin:build \
             -x :metadata-ingestion-modules:airflow-plugin:check \
@@ -123,46 +135,68 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
-            -x :metadata-integration:java:datahub-schematron:cli:test
+            -x :metadata-integration:java:datahub-schematron:cli:test \
+            -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      - name: Disk Space Analysis
-        run: |
-          echo "=== Disk Usage Overview ==="
-          df -h
-
-          echo -e "\n=== Docker Disk Usage ==="
-          docker system df -v
-      - name: Gradle build (and test) for frontend
-        if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
-        run: |
-          ./gradlew :datahub-frontend:build :datahub-web-react:build
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      - name: Gradle compile (jdk8) for legacy Spark
-        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
-        run: |
-          ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
+      - name: Generate cross-module coverage report
+        # --no-configure-on-demand is required so every module is configured and visible to
+        # the aggregation task (it reads other modules' outputs without a task dependency).
+        run: ./gradlew jacocoMergedReport --no-configure-on-demand
       - name: Gather coverage files
         run: |
-          echo "BACKEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade)' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
-          echo "FRONTEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(datahub-frontend|datahub-web-react).*\.(xml|json)$' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
-      - name: Generate tz artifact name
-        run: echo "NAME_TZ=$(echo ${{ matrix.timezone }} | tr '/' '-')" >> $GITHUB_ENV
-      - uses: actions/upload-artifact@v4
-        if: always()
+          {
+            echo "BACKEND_FILES=$(find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade|jacoco-merged)' | xargs | tr ' ' ',')"
+          } >> "$GITHUB_ENV"
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
         with:
-          name: Test Results (build) - ${{ matrix.command}}-${{ env.NAME_TZ }}
-          path: |
+          artifact-name: build-and-test-except_metadata_ingestion-UTC
+          test-results-paths: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
             !**/binary/**
+          junit-file-globs: |
+            **/build/test-results/test/**/*.xml
+            **/junit.*.xml
+      - name: Send failed test metrics to PostHog
+        if: failure()
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+
+          TEMP_DIR=$(mktemp -d)
+          mkdir -p "$TEMP_DIR/test-results"
+          find . -name "*.xml" -path "*/build/test-results/*" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+          find . -name "junit.*.xml" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir "$TEMP_DIR/test-results" \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${GH_HEAD_REF}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --command "except_metadata_ingestion" \
+            --timezone "UTC"
+
+          rm -rf "$TEMP_DIR"
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload backend coverage to Codecov
-        if: ${{  (matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' && github.event_name != 'release') }}
-        uses: codecov/codecov-action@v5
+        if: ${{ github.event_name != 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}
@@ -170,11 +204,11 @@ jobs:
           #handle_no_reports_found: true
           fail_ci_if_error: false
           flags: backend
-          name: ${{ matrix.command }}
+          name: except_metadata_ingestion
           verbose: true
       - name: Upload backend coverage to Codecov on release
-        if: ${{  (matrix.command == 'except_metadata_ingestion' && github.event_name == 'release' ) }}
-        uses: codecov/codecov-action@v5
+        if: ${{ github.event_name == 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}
@@ -182,53 +216,533 @@ jobs:
           #handle_no_reports_found: true
           fail_ci_if_error: false
           flags: backend
-          name: ${{ matrix.command }}
-          verbose: true
-          override_branch: ${{ github.head_ref || github.ref_name }}
-
-      - name: Upload frontend coverage to Codecov
-        if: ${{  (matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' && github.event_name != 'release') }}
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ${{ env.FRONTEND_FILES }}
-          disable_search: true
-          #handle_no_reports_found: true
-          fail_ci_if_error: false
-          flags: frontend
-          name: ${{ matrix.command }}
-          verbose: true
-
-      - name: Upload frontend coverage to Codecov on Release
-        if: ${{  (matrix.command == 'frontend' &&  github.event_name == 'release') }}
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ${{ env.FRONTEND_FILES }}
-          disable_search: true
-          #handle_no_reports_found: true
-          fail_ci_if_error: false
-          flags: frontend
-          name: ${{ matrix.command }}
+          name: except_metadata_ingestion
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() && github.event_name != 'release'  }}
-        uses: codecov/test-results-action@v1
+        if: ${{ !cancelled() && github.event_name != 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
       - name: Upload test results to Codecov on release
-        if: ${{ !cancelled() && github.event_name == 'release'  }}
-        uses: codecov/test-results-action@v1
+        if: ${{ !cancelled() && github.event_name == 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
+
+  frontend-build:
+    runs-on: ${{ needs.setup.outputs.runner_type }}
+    timeout-minutes: 30
+    needs: setup
+    if: ${{ needs.setup.outputs.frontend_change == 'true' }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+      # yarn's global download cache (safe to cache; node_modules itself is not — see
+      # datahub-web-react/build.gradle). frontend-build is the writer; frontend-test restores
+      # read-only. Turns yarnInstall from a cold ~100s download into a link-only step.
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - name: Gradle build and test for frontend (no JS tests)
+        run: |
+          ./gradlew :datahub-frontend:build :datahub-web-react:build --max-workers="$(nproc)" \
+            -x :datahub-web-react:yarnTest
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Ensure codegen is updated
+        uses: ./.github/actions/ensure-codegen-updated
+      - name: Upload frontend build artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: frontend-build-artifacts
+          retention-days: 1
+          # Only the GraphQL codegen output is shipped to the test shards — that is all
+          # :datahub-web-react:yarnTest (Vitest) consumes. Do NOT re-add datahub-frontend/build:
+          # it is the ~2GB Java/Play output, unused by the React tests, and downloading it in
+          # every shard made download-artifact fail after retries (digest-mismatch). See #16916
+          # for the original split; the Java build still runs above as a build-check, it just
+          # no longer uploads its output.
+          path: |
+            datahub-web-react/src/**/*.generated.ts
+
+  frontend-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        timezone: ["UTC", "America/New_York"]
+        frontend_shard: [1, 2, 3]
+    runs-on: ${{ needs.setup.outputs.runner_type }}
+    timeout-minutes: 30
+    needs: [setup, frontend-build]
+    steps:
+      - uses: szenius/set-timezone@1f9716b0f7120e344f0c62bb7b1ee98819aefd42 # v2.0
+        with:
+          timezoneLinux: ${{ matrix.timezone }}
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      # No python deps here: :datahub-web-react:yarnTest depends only on yarnInstall/yarnGenerate/
+      # generateLazyIconStubs (no :metadata-ingestion:connectorRegistry, which is frontend-build's
+      # concern). install_deps.sh + the ~/.cache/uv cache were dead weight — removed. setup-python
+      # stays for the PostHog failure-reporting step below.
+      # Restore yarn's download cache (written by frontend-build) so each matrix leg's yarnInstall
+      # links from cache instead of a cold ~100s download. Same key across legs (content-hashed on
+      # yarn.lock), so the redundant post-save from parallel legs is a no-op — matches the matrix
+      # build-cache restore in backend-test-shard.
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          # Matrix legs read the cache only; the primary build job (build-except-metadata-ingestion)
+          # is the writer. Prevents the 6 shard legs from racing to write the same Gradle cache.
+          cache-read-only: true
+      - name: Download frontend build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: frontend-build-artifacts
+      - name: Gradle test for frontend (shard ${{ matrix.frontend_shard }}/3)
+        run: |
+          ./gradlew :datahub-web-react:yarnTest \
+            -PvitestShard="${{ matrix.frontend_shard }}/3"
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Gather coverage files
+        run: |
+          {
+            echo "FRONTEND_FILES=$(find ./build/coverage-reports/ -type f | grep -E '(datahub-frontend|datahub-web-react).*\.(xml|json)$' | xargs | tr ' ' ',')"
+          } >> "$GITHUB_ENV"
+      - name: Generate tz artifact name
+        run: echo "NAME_TZ=$(echo "${{ matrix.timezone }}" | tr '/' '-')" >> "$GITHUB_ENV"
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: build-and-test-frontend-${{ env.NAME_TZ }}-shard${{ matrix.frontend_shard }}
+          test-results-paths: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+            !**/binary/**
+          junit-file-globs: |
+            **/build/test-results/test/**/*.xml
+            **/junit.*.xml
+      - name: Send failed test metrics to PostHog
+        if: failure()
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+
+          TEMP_DIR=$(mktemp -d)
+          mkdir -p "$TEMP_DIR/test-results"
+          find . -name "*.xml" -path "*/build/test-results/*" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+          find . -name "junit.*.xml" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir "$TEMP_DIR/test-results" \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${GH_HEAD_REF}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --command "frontend" \
+            --timezone "${{ matrix.timezone }}"
+
+          rm -rf "$TEMP_DIR"
+      - name: Upload frontend coverage to Codecov
+        if: ${{ github.event_name != 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.FRONTEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: frontend
+          name: frontend-shard${{ matrix.frontend_shard }}
+          verbose: true
+      - name: Upload frontend coverage to Codecov on Release
+        if: ${{ github.event_name == 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.FRONTEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: frontend
+          name: frontend-shard${{ matrix.frontend_shard }}
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() && github.event_name != 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+      - name: Upload test results to Codecov on release
+        if: ${{ !cancelled() && github.event_name == 'release' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
+  # ── Experimental backend test sharding (behind the SHARDED_TESTS_RUNS_ENABLED repo variable) ─
+  # Timing-balanced across shards (committed .github/backend_test_weights.json, refreshed by
+  # the update-test-weights workflow; falls back to an even split if absent). Each shard runs
+  # WHOLE modules (`:module:test`, never --tests) so no test can be silently dropped; a heavy
+  # module just lands alone on a shard via LPT and is parallelized within it by maxParallelForks.
+  # Shard count lives in ONE place — the `batch:` matrix length below. --split-index / --split-total
+  # are derived from GitHub's native strategy.job-index / strategy.job-total (no duplicated count).
+  backend-seed:
+    runs-on: ${{ needs.setup.outputs.runner_type }}
+    timeout-minutes: 40
+    needs: setup
+    if: ${{ needs.setup.outputs.backend_change == 'true' && needs.setup.outputs.backend_sharding == 'true' }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: Guard — shard discovery is non-empty
+        # Fail loudly if the globs/excludes discover far too few backend test modules, instead
+        # of silently sharding a near-empty suite (green CI that tested nothing). Keep the
+        # glob/exclude set in sync with the backend-test-shard step below.
+        run: |
+          count=$(python3 .github/scripts/split_gradle_tests.py \
+            --split-index 0 --split-total 1 --repo-root . \
+            --glob '**/src/test/**/*.java' \
+            --glob '**/src/test/**/*.kt' \
+            --glob '**/src/test/**/*.groovy' \
+            --exclude-glob 'metadata-io/src/test/**' \
+            --exclude-glob 'datahub-frontend/src/test/**' \
+            --exclude-glob 'metadata-integration/java/acryl-spark-lineage/src/test/**' \
+            --exclude-glob 'metadata-integration/java/datahub-schematron/cli/src/test/**' \
+            | python3 -c "import json,sys; print(len(json.load(sys.stdin)['tasks']))")
+          echo "Backend shard discovery found $count test modules"
+          if [ "$count" -lt 20 ]; then
+            echo "::error::Only $count backend test modules discovered (<20) — globs/excludes likely broken; refusing near-empty sharded run."
+            exit 1
+          fi
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          # setup-gradle handles deps/wrapper; the local build cache is managed explicitly
+          # below with a run-scoped key so shards deterministically restore the seed's output.
+          gradle-home-cache-excludes: caches/build-cache-1
+      - name: Cache Gradle build cache (seed writes; run-scoped key)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-backend-build-cache-${{ github.run_id }}
+          restore-keys: |
+            gradle-backend-build-cache-
+      - name: Build + non-test checks once (assemble, spotless, etc.)
+        # Compile main + test + non-test checks (assemble/spotless), no tests run — warms the cache
+        # the shards restore. `testClasses` pulls the :datahub-web-react chain (generators + yarnBuild)
+        # and that's fine: the generators RUN and produce their sources, so yarnBuild/vite and
+        # graphqlUsageRegistryCheck succeed. Do NOT exclude the generators — that leaves yarnBuild
+        # building against missing sources (vite exit 1). Proven-green command (run 29288221733).
+        # :datahub-agent-context and :datahub-actions are excluded (build+check): pure-python
+        # modules whose `check` pulls installDev + a full pytest suite (602 and 200 tests), none of
+        # which the Java shards need — each is fully covered by its own workflow (agent-context.yml,
+        # actions.yml). Same rationale as :metadata-ingestion and the ingestion plugins below.
+        # :acryl-spark-lineage:build is also excluded — its `test` is already skipped here (global
+        # -x test) and shard-side, so `build` only produced the Scala shadowJars (~58s), which no
+        # shard consumes; it's built + tested by spark-smoke-test.yml.
+        run: |
+          ./gradlew build testClasses -x test --build-cache --max-workers="$(nproc)" \
+            -x :metadata-ingestion:build \
+            -x :metadata-ingestion:check \
+            -x :datahub-agent-context:build \
+            -x :datahub-agent-context:check \
+            -x :datahub-actions:build \
+            -x :datahub-actions:check \
+            -x :metadata-integration:java:acryl-spark-lineage:build \
+            -x :docs-website:build \
+            -x :metadata-ingestion-modules:airflow-plugin:build \
+            -x :metadata-ingestion-modules:airflow-plugin:check \
+            -x :metadata-ingestion-modules:dagster-plugin:build \
+            -x :metadata-ingestion-modules:dagster-plugin:check \
+            -x :metadata-ingestion-modules:prefect-plugin:build \
+            -x :metadata-ingestion-modules:prefect-plugin:check \
+            -x :metadata-ingestion-modules:gx-plugin:build \
+            -x :metadata-ingestion-modules:gx-plugin:check \
+            -x :datahub-frontend:build \
+            -x :datahub-web-react:build \
+            -x :docker:build
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Ensure codegen is updated
+        # Same hard gate as build-except-metadata-ingestion — the sharded path must still fail
+        # if generated sources are stale (shards only run tests and would skip this check).
+        uses: ./.github/actions/ensure-codegen-updated
+
+  backend-test-shard:
+    needs: [setup, backend-seed]
+    if: ${{ needs.setup.outputs.backend_change == 'true' && needs.setup.outputs.backend_sharding == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Shard count = this list's length (the ONLY place it's defined). --split-index/--split-total
+        # come from strategy.job-index/strategy.job-total; values here match job-index so artifact
+        # and PostHog labels (shard${{ matrix.batch }}) line up with the actual split index.
+        batch: [0, 1, 2, 3, 4, 5]
+    runs-on: ${{ needs.setup.outputs.runner_type }}
+    timeout-minutes: 40
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          # Shards read the seed's cache; only the seed writes. Avoids matrix write races.
+          cache-read-only: true
+          gradle-home-cache-excludes: caches/build-cache-1
+      - name: Restore Gradle build cache (exact key from seed this run)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-backend-build-cache-${{ github.run_id }}
+          restore-keys: |
+            gradle-backend-build-cache-
+      - name: Compute this shard's modules
+        # Broad globs: a module is included by having ANY test source, so nothing depends on
+        # class naming — each shard runs `:module:test` whole. Excludes mirror build-except's
+        # `-x` list (keep in parity), so these tests are NOT skipped, just run elsewhere:
+        #   - metadata-io: runs in its own workflow (metadata-io.yml → `./gradlew :metadata-io:test`)
+        #   - datahub-frontend: built/tested in the frontend jobs
+        #   - acryl-spark-lineage / schematron:cli: excluded by build-except today
+        run: |
+          python3 .github/scripts/split_gradle_tests.py \
+            --split-index "${{ strategy.job-index }}" --split-total "${{ strategy.job-total }}" \
+            --repo-root . \
+            --weights .github/backend_test_weights.json \
+            --glob '**/src/test/**/*.java' \
+            --glob '**/src/test/**/*.kt' \
+            --glob '**/src/test/**/*.groovy' \
+            --exclude-glob 'metadata-io/src/test/**' \
+            --exclude-glob 'datahub-frontend/src/test/**' \
+            --exclude-glob 'metadata-integration/java/acryl-spark-lineage/src/test/**' \
+            --exclude-glob 'metadata-integration/java/datahub-schematron/cli/src/test/**' \
+            --output-args shard-args.txt
+      - name: Run shard tests
+        # Args array avoids shell word-splitting; empty shard skips cleanly.
+        run: |
+          mapfile -t ARGS < shard-args.txt
+          if [ "${#ARGS[@]}" -eq 0 ]; then
+            echo "No tests assigned to this shard — skipping."
+            exit 0
+          fi
+          ./gradlew "${ARGS[@]}" --build-cache --continue --max-workers="$(nproc)"
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: build-and-test-backend-shard${{ matrix.batch }}
+          test-results-paths: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+            !**/binary/**
+          junit-file-globs: |
+            **/build/test-results/test/**/*.xml
+            **/junit.*.xml
+      - name: Send failed test metrics to PostHog
+        if: failure()
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+          TEMP_DIR=$(mktemp -d)
+          mkdir -p "$TEMP_DIR/test-results"
+          find . -name "*.xml" -path "*/build/test-results/*" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir "$TEMP_DIR/test-results" \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${GH_HEAD_REF}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --command "backend-shard${{ matrix.batch }}" \
+            --timezone "UTC"
+          rm -rf "$TEMP_DIR"
+      # Raw per-module JaCoCo execution data. The backend-coverage job merges ALL shards' exec
+      # into ONE report, so cross-module coverage (a module covered by tests on another shard)
+      # is not lost. Paths are preserved so jacocoMergedReport finds them under */build/jacoco/.
+      - name: Upload JaCoCo exec for cross-shard merge
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: backend-jacoco-exec-shard${{ matrix.batch }}
+          retention-days: 1
+          if-no-files-found: warn
+          path: |
+            **/build/jacoco/*.exec
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
+
+  # Merges JaCoCo execution data from ALL shards into one cross-module report and uploads it
+  # once to Codecov (`backend` flag). Merging the union of .exec — rather than per-shard partial
+  # reports — recovers coverage where one module's classes are exercised by another module's
+  # tests that landed on a different shard (parity with the single build-except job).
+  backend-coverage:
+    needs: [setup, backend-test-shard]
+    if: ${{ !cancelled() && needs.setup.outputs.backend_change == 'true' && needs.setup.outputs.backend_sharding == 'true' }}
+    runs-on: ${{ needs.setup.outputs.runner_type }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          cache-read-only: true
+          gradle-home-cache-excludes: caches/build-cache-1
+      - name: Restore Gradle build cache (exact key from seed this run)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-backend-build-cache-${{ github.run_id }}
+          restore-keys: |
+            gradle-backend-build-cache-
+      - name: Download all shards' JaCoCo exec
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: backend-jacoco-exec-shard*
+          merge-multiple: true
+      - name: Merge coverage across shards
+        # Best-effort: a coverage-merge hiccup must not red a PR whose tests already passed.
+        continue-on-error: true
+        run: |
+          # `classes` restores compiled MAIN classes from the build cache (fast) → gives
+          # jacocoMergedReport its classDirectories; the downloaded .exec (union of all shards) are
+          # its executionData. `classes` (not `testClasses`) is used deliberately: it compiles only
+          # main and, since :datahub-web-react has no `classes` task, never drags in the frontend
+          # build chain (yarnBuild/vite). Coverage measures main code, so test classes aren't needed.
+          ./gradlew classes jacocoMergedReport --no-configure-on-demand --build-cache --max-workers="$(nproc)"
+          {
+            echo "BACKEND_FILES=$(find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade|jacoco-merged)' | xargs | tr ' ' ',')"
+          } >> "$GITHUB_ENV"
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      # Only upload when ALL shards passed — matches the old single job, which skipped its coverage
+      # steps after a test failure. Avoids skewing the Codecov trend with partial coverage on red
+      # PRs. (The merge above still runs best-effort so the report exists for debugging.)
+      - name: Upload backend coverage to Codecov
+        if: ${{ needs.backend-test-shard.result == 'success' }}
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.BACKEND_FILES }}
+          disable_search: true
+          fail_ci_if_error: false
+          flags: backend
+          name: backend-merged
+          verbose: true
+          # override_branch only on release (empty otherwise) — same as build-except's test-results
+          # upload, which sets it only in its release variant.
+          override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
 
   event-file:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: Event File
           path: ${{ github.event_path }}

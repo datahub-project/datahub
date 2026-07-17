@@ -11,8 +11,6 @@ import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
-import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
-
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
@@ -50,6 +48,7 @@ import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -143,7 +142,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @QueryParam("aspect") @Optional @Nullable String aspectName,
       @QueryParam("version") @Optional @Nullable Long version)
       throws URISyntaxException {
-    log.info("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
+    log.debug("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
     return RestliUtils.toTask(systemOperationContext,
         () -> {
@@ -151,7 +150,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             Authentication auth = AuthenticationContext.getAuthentication();
             final OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            "authorizerChain", urn.getEntityType()), _authorizer, auth, true);
+                            "authorizerChain", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
             if (!isAPIAuthorizedEntityUrns(
                   opContext,
@@ -187,7 +186,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sort)
       throws URISyntaxException {
-    log.info(
+    log.debug(
         "Get Timeseries Aspect values for aspect {} for entity {} with startTimeMillis {}, endTimeMillis {} and limit {}.",
         aspectName,
         entityName,
@@ -201,7 +200,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             Authentication auth = AuthenticationContext.getAuthentication();
             final OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()), _authorizer, auth, true);
+                            ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
 
             if (!isAPIAuthorizedUrns(
                   opContext,
@@ -235,7 +234,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                       startTimeMillis,
                       endTimeMillis,
                       limit,
-                      validateAndConvert(filter),
+                      filter,
                       sort)));
           return response;
         },
@@ -288,7 +287,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                                                      .collect(Collectors.toSet());
     final OperationContext opContext = OperationContext.asSession(
               systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
-                    ACTION_INGEST_PROPOSAL, entityTypes), _authorizer, authentication, true);
+                    ACTION_INGEST_PROPOSAL, entityTypes)
+                  .withUsageOperation(UsageOperation.METADATA_INGEST)
+                  .withUsageQuantity(metadataChangeProposals.size()), _authorizer, authentication, true);
 
     // Ingest Authorization Checks
     List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(opContext, ENTITY,
@@ -314,7 +315,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                 .build(opContext);
 
         batch.getMCPItems().forEach(item ->
-            log.info(
+            log.debug(
                     "INGEST PROPOSAL content: urn: {}, async: {}, value: {}",
                     item.getUrn(),
                     asyncBool,
@@ -325,7 +326,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
         List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
-        entitySearchService.appendRunId(opContext, results);
 
             // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
             return RESTLI_SUCCESS;
@@ -348,7 +348,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             Authentication authentication = AuthenticationContext.getAuthentication();
             final OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
-                            getContext(), ACTION_GET_COUNT), _authorizer, authentication, true);
+                            getContext(), ACTION_GET_COUNT).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, authentication, true);
 
             if (!isAPIAuthorized(
                   opContext,
@@ -381,7 +381,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             Authentication authentication = AuthenticationContext.getAuthentication();
             final OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
-                            getContext(), ACTION_RESTORE_INDICES), _authorizer, authentication, true);
+                            getContext(), ACTION_RESTORE_INDICES).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, authentication, true);
 
             if (!isAPIOperationsAuthorized(
                     opContext,

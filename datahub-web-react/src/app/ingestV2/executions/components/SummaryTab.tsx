@@ -1,10 +1,10 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { ScrollableDetailsContainer, SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import { ScrollableDetailsContainer, SectionBase } from '@app/ingestV2/executions/components/BaseTab';
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
@@ -12,7 +12,7 @@ import { getExecutionRequestSummaryText } from '@app/ingestV2/executions/utils';
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
-import { Button, Text, Tooltip } from '@src/alchemy-components';
+import { Button, Heading, Text, Tooltip } from '@src/alchemy-components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -40,15 +40,11 @@ const SubHeaderParagraph = styled(Text)`
 `;
 
 const StatusSection = styled.div`
-    padding: 16px;
-    padding-left: 30px;
-    padding-right: 30px;
+    padding: 16px 20px 16px 0;
 `;
 
 const IngestedAssetsSection = styled.div`
-    padding: 16px;
-    padding-left: 30px;
-    padding-right: 30px;
+    padding: 16px 20px 16px 0;
 `;
 
 export const SummaryTab = ({
@@ -64,7 +60,9 @@ export const SummaryTab = ({
     data: GetIngestionExecutionRequestQuery | undefined;
     onTabChange: (tab: TabType) => void;
 }) => {
-    const logs = data?.executionRequest?.result?.report || 'No output found.';
+    const { t } = useTranslation('ingestion');
+    const { t: tc } = useTranslation('common.actions');
+    const logs = data?.executionRequest?.result?.report || t('executions.noOutput');
 
     const downloadLogs = () => {
         downloadFile(logs, `exec-${urn}.log`);
@@ -73,7 +71,9 @@ export const SummaryTab = ({
     const structuredReport = result && getStructuredReport(result);
     const resultSummaryText =
         (status && status !== EXECUTION_REQUEST_STATUS_SUCCESS && (
-            <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>
+            <Text type="span" color="textSecondary">
+                {getExecutionRequestSummaryText(status)}
+            </Text>
         )) ||
         undefined;
     const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
@@ -104,16 +104,16 @@ export const SummaryTab = ({
                 )}
             </IngestedAssetsSection>
             <SectionBase>
-                <SectionHeader level={5}>Logs</SectionHeader>
+                <Heading type="h4" size="lg" weight="bold">
+                    {t('executions.logsTitle')}
+                </Heading>
                 <SectionSubHeader>
-                    <SubHeaderParagraph color="gray" colorLevel={600}>
-                        View logs that were collected during the sync.
-                    </SubHeaderParagraph>
+                    <SubHeaderParagraph>{t('executions.logsSubtitle')}</SubHeaderParagraph>
                     <ButtonGroup>
                         <Button variant="text" onClick={() => onTabChange(TabType.Logs)}>
-                            View All
+                            {tc('viewAll')}
                         </Button>
-                        <Tooltip title="Download Logs">
+                        <Tooltip title={t('executions.downloadLogs')}>
                             <Button variant="text" onClick={downloadLogs}>
                                 <DownloadOutlined />
                             </Button>
@@ -128,16 +128,16 @@ export const SummaryTab = ({
             </SectionBase>
             {recipe && (
                 <SectionBase>
-                    <SectionHeader level={5}>Recipe</SectionHeader>
+                    <Heading type="h4" size="lg" weight="bold">
+                        {t('executions.recipeTitle')}
+                    </Heading>
                     <SectionSubHeader>
-                        <SubHeaderParagraph color="gray" colorLevel={600}>
-                            The configurations used for this sync with the data source.
-                        </SubHeaderParagraph>
+                        <SubHeaderParagraph>{t('executions.recipeSubtitle')}</SubHeaderParagraph>
                         <ButtonGroup>
                             <Button variant="text" onClick={() => onTabChange(TabType.Recipe)}>
-                                View More
+                                {t('executions.viewMore')}
                             </Button>
-                            <Tooltip title="Download Recipe">
+                            <Tooltip title={t('executions.downloadRecipe')}>
                                 <Button variant="text" onClick={downloadRecipe}>
                                     <DownloadOutlined />
                                 </Button>

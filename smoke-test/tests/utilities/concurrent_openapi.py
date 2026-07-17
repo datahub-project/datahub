@@ -2,9 +2,10 @@ import concurrent.futures
 import glob
 import json
 import logging
-import time
 
 from deepdiff import DeepDiff
+
+from tests.consistency_utils import wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +28,12 @@ def execute_request(auth_session, request):
     :param request: request dictionary
     :return: output of the request
     """
-    if "method" in request:
-        method = request.pop("method")
-    else:
-        method = "post"
+    method = request.get("method", "post")
+    url = auth_session.gms_url() + request["url"]
+    passthrough_keys = {"json", "params", "headers", "data"}
+    kwargs = {k: v for k, v in request.items() if k in passthrough_keys}
 
-    url = auth_session.gms_url() + request.pop("url")
-
-    return getattr(auth_session, method)(url, **request)
+    return getattr(auth_session, method)(url, **kwargs)
 
 
 def evaluate_test(auth_session, test_name, test_data):
@@ -48,12 +47,15 @@ def evaluate_test(auth_session, test_name, test_data):
     try:
         assert isinstance(test_data, list), "Expected test_data is a list of test steps"
         for idx, req_resp in enumerate(test_data):
-            if "description" in req_resp["request"]:
-                description = req_resp["request"].pop("description")
-            else:
-                description = None
+            description = req_resp["request"].get("description")
+            skip_reason = req_resp["request"].get("skip")
+            if skip_reason:
+                logger.info(
+                    f"Skipping step {idx}: {description or 'no description'} - {skip_reason}"
+                )
+                continue
             if "wait" in req_resp["request"]:
-                time.sleep(req_resp["request"]["wait"])
+                wait_for_writes_to_sync()
                 continue
 
             actual_resp = execute_request(auth_session, req_resp["request"])

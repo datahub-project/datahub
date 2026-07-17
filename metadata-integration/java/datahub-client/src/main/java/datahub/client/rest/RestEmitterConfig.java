@@ -43,6 +43,8 @@ public class RestEmitterConfig {
   @Builder.Default
   EventFormatter eventFormatter = new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
 
+  @Builder.Default Boolean asyncIngest = null;
+
   HttpAsyncClientBuilder asyncHttpClientBuilder;
 
   public static class RestEmitterConfigBuilder {

@@ -1,9 +1,9 @@
-import { KeyboardArrowRight, KeyboardDoubleArrowRight } from '@mui/icons-material';
+import { CaretDoubleRight } from '@phosphor-icons/react/dist/csr/CaretDoubleRight';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { Button, DownstreamWrapper, UpstreamWrapper } from '@app/lineageV2/LineageEntityNode/components';
 import { useOnClickExpandLineage } from '@app/lineageV2/LineageEntityNode/useOnClickExpandLineage';
 import { FetchStatus, onClickPreventSelect } from '@app/lineageV2/common';
@@ -15,7 +15,7 @@ const VerticalDivider = styled.hr<{ margin: number }>`
     align-self: stretch;
     height: auto;
     margin: 0 ${({ margin }) => margin}px;
-    border: 0.5px solid ${ANTD_GRAY[5]};
+    border: 0.5px solid ${(props) => props.theme.colors.border};
     vertical-align: text-top;
 `;
 
@@ -73,8 +73,9 @@ export function ExpandLineageButton({ urn, type, direction, display, fetchStatus
                 onClick={(e) => onClickPreventSelect(e) && handleExpandOneLevel(e)}
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}
+                data-testid={`expand-one-${urn}-button`}
             >
-                <KeyboardArrowRight viewBox="3 3 18 18" fontSize="inherit" />
+                <CaretRight size="1em" />
             </Button>
             {showExpandAll && (
                 <>
@@ -83,8 +84,9 @@ export function ExpandLineageButton({ urn, type, direction, display, fetchStatus
                         onClick={(e) => onClickPreventSelect(e) && handleExpandAll(e)}
                         onMouseEnter={(e) => e.stopPropagation()}
                         onMouseLeave={(e) => e.stopPropagation()}
+                        data-testid={`expand-all-${urn}-button`}
                     >
-                        <KeyboardDoubleArrowRight viewBox="3 3 18 18" fontSize="inherit" />
+                        <CaretDoubleRight size="1em" />
                     </Button>
                 </>
             )}

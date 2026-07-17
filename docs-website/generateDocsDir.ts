@@ -5,6 +5,7 @@ import * as path from "path";
 import { Octokit } from "@octokit/rest";
 import { throttling } from "@octokit/plugin-throttling";
 import { retry } from "@octokit/plugin-retry";
+import { STAGE_META } from "./src/components/FeatureAvailability/stages";
 
 // Note: this must be executed within the docs-website directory.
 
@@ -16,6 +17,16 @@ const GITHUB_BROWSE_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 
 const OUTPUT_DIRECTORY = "docs";
+
+// Machine-readable per-page markdown mirror, served as static assets at
+// docs.datahub.com/docs/<slug>.md for AI-tool consumption (append ".md" to
+// the page URL — the common convention for exposing docs to AI tools).
+//
+// NOTE: this path is relative to the docs-website directory, since that is the
+// cwd this script runs in (see the comment at the top of the file, and
+// OUTPUT_DIRECTORY above). It resolves to docs-website/static/docs, which
+// Docusaurus copies verbatim into the build output under /docs/.
+const SERVED_MD_DIR = "static/docs";
 
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);
@@ -111,8 +122,13 @@ function list_markdown_files(): string[] {
   const filter_patterns = [
     // We don't need our issue and pull request templates.
     /^\.github\//,
+    // Ignore hidden/dot directories at the repo root (e.g. .claude, .agent-skills, .cursor).
+    /^\.[^/]+\//,
     // Ignore everything within this directory.
     /^docs-website\//,
+    // Ignore third-party dependencies and library documentation.
+    /^node_modules\//,
+    /^vendor\//,
     // Don't want hosted docs for these.
     /^contrib\//,
     // Keep main docs for kubernetes, but skip the inner docs.
@@ -121,11 +137,13 @@ function list_markdown_files(): string[] {
     /^metadata-models\/docs\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion\/archived\//, // these are archived, so we don't want to consider them here
     /^metadata-ingestion\/docs\/sources\//, // these are used to generate docs, so we don't want to consider them here
+    /^metadata-ingestion\/src\/datahub\/ingestion\/source\/odcs\/odcs_schema\//, // vendored ODCS JSON schemas + attribution README, not user-facing
     /^metadata-ingestion\/tests\//,
     /^metadata-ingestion-examples\//,
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^docs\/rfcs\/template\.md/, // RFC template file should not be processed
     /^\s*$/, //Empty string
   ];
 
@@ -173,8 +191,8 @@ function get_slug(filepath: string): string {
 }
 
 const hardcoded_titles = {
-  "README.md": "Introduction",
-  "docs/actions/README.md": "Introduction",
+  "README.md": "DataHub Docs Overview",
+  "docs/actions/README.md": "DataHub Actions Framework",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
   "docs/saas.md": "DataHub Cloud",
@@ -260,8 +278,55 @@ function markdown_add_edit_url(
   contents: matter.GrayMatterFile<string>,
   filepath: string
 ): void {
-  const editUrl = `${GITHUB_EDIT_URL}/${filepath}`;
-  contents.data.custom_edit_url = editUrl;
+  // 1. Intercept auto-generated files (Ingestion, Metamodel, Lineage, etc.) OR metadata-integration docs
+  if (
+    filepath.startsWith("docs/generated/") ||
+    filepath.includes("metadata-integration")
+  ) {
+    // Hide the default broken Docusaurus edit button
+    contents.data.custom_edit_url = null;
+
+    // Set up default routing for the DevRel note
+    let sourceLink = "https://github.com/datahub-project/datahub";
+    let guideLink = "https://docs.datahub.com/docs/contributing";
+    let folderName = "DataHub repository";
+
+    // Route specifically for ingestion docs
+    if (filepath.startsWith("docs/generated/ingestion")) {
+      sourceLink =
+        "https://github.com/datahub-project/datahub/tree/master/metadata-ingestion";
+      folderName = "metadata-ingestion";
+    }
+    // Route specifically for metamodel docs
+    else if (filepath.startsWith("docs/generated/metamodel")) {
+      sourceLink =
+        "https://github.com/datahub-project/datahub/tree/master/metadata-models";
+      folderName = "metadata-models";
+    }
+
+    // Route for Java/Spark/Protobuf integrations
+    else if (filepath.includes("metadata-integration")) {
+      sourceLink =
+        "https://github.com/datahub-project/datahub/tree/master/metadata-integration";
+      folderName = "metadata-integration";
+    }
+
+    // Create the DevRel bridge (A clean note at the bottom of the page)
+    const devRelNote = `\n\n
+:::note 💡 **Contributing to this documentation**
+This page is auto-generated from the underlying source code. To make changes, please edit the relevant source files in the [${folderName}](${sourceLink}) directory. 
+
+**Tip:** For quick typo fixes or documentation updates, you can click the ✏️ **Edit** icon directly in the GitHub UI to open a Pull Request. For larger changes and PR naming conventions, please refer to our [Contributing Guide](${guideLink}).
+:::\n`;
+
+    // Append the note to the bottom of the markdown content
+    contents.content = contents.content + devRelNote;
+  }
+  // 2. Standard behavior for manually written, Git-tracked docs
+  else {
+    const editUrl = `${GITHUB_EDIT_URL}/${filepath}`;
+    contents.data.custom_edit_url = editUrl;
+  }
 }
 
 function markdown_add_slug(
@@ -418,7 +483,10 @@ function markdown_process_inline_directives(
   filepath: string
 ): void {
   const new_content = contents.content.replace(
-    /^(\s*){{(\s*)inline\s+(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$/gm,
+    // Use [ \t]* (not \s*) for the leading-indent capture so a preceding blank
+    // line's \n isn't swallowed and prepended to every embedded line, which
+    // would insert blank lines between rows of an embedded table.
+    /^([ \t]*){{(\s*)inline\s+(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$/gm,
     (
       _,
       indent: string,
@@ -626,7 +694,166 @@ function write_markdown_file(
   }
 }
 
+// Built from a string so the triple-backtick fence below does not terminate
+// the surrounding template literal.
+const CODE_FENCE = "```";
+
+// Keep in sync with QuickstartCTA component (src/pages/docs/_components/QuickstartCTA/index.jsx)
+const QUICKSTART_CTA_MD = `### Get Started Now
+
+Run the following command to get started with DataHub:
+
+${CODE_FENCE}shell
+python3 -m pip install --upgrade pip wheel setuptools
+python3 -m pip install --upgrade acryl-datahub
+datahub docker quickstart
+${CODE_FENCE}
+
+- [Quickstart with DataHub Open Source](/docs/quickstart)
+- [Try DataHub Cloud](https://datahub.com/get-datahub-cloud/)`;
+
+// Keep in sync with FeatureCardSection component (src/pages/docs/_components/FeatureCardSection/index.jsx)
+const FEATURE_CARD_SECTION_MD = `- **[Data Discovery](/docs/how/search)** — Search your entire data ecosystem, including dashboards, datasets, ML models, and raw files.
+- **[Data Governance](https://medium.com/datahub-project/the-3-must-haves-of-metadata-management-part-2-35a649f2e2fb)** — Define ownership and track PII.
+- **[Data Quality & Observability](/docs/features/feature-guides/observe)** — Detect and resolve quality issues before they impact production. Automated anomaly detection, assertions, and data contracts keep data reliable.
+- **[UI-based Ingestion](/docs/ui-ingestion)** — Easily set up integrations in minutes using DataHub's intuitive UI-based ingestion feature.
+- **[APIs and SDKs](/docs/api/datahub-apis)** — For users who prefer programmatic control, DataHub offers a comprehensive set of APIs and SDKs.
+- **[Vibrant Community](/docs/slack)** — Our community provides support through office hours, workshops, and a Slack channel.`;
+
+// Convert the small set of custom MDX constructs used across the docs into
+// plain markdown so the served .md files are clean for AI tools. Only the
+// known component imports and the components we actually use are handled;
+// everything else (code-fence placeholders like <YOUR_TOKEN>, config-table
+// HTML) is intentionally left untouched.
+function clean_mdx_for_serving(content: string): string {
+  // Note: transforms run over the full document (not code-fence-aware). If a
+  // future doc uses these components as code examples inside triple-backtick
+  // fences, they will be transformed too. Currently zero docs trigger this;
+  // revisit if needed.
+
+  // Strip ONLY the five known MDX component imports. A generic ^import strip
+  // would corrupt the many Python/Java `import ...` lines inside code fences.
+  content = content
+    .replace(/^import Tabs from ['"]@theme\/Tabs['"];?\s*$/gm, "")
+    .replace(/^import TabItem from ['"]@theme\/TabItem['"];?\s*$/gm, "")
+    .replace(
+      /^import FeatureAvailability from ['"]@site\/src\/components\/FeatureAvailability['"];?\s*$/gm,
+      ""
+    )
+    .replace(
+      /^import QuickstartCTA from ['"]@site\/src\/pages\/docs\/\\?_components\/QuickstartCTA['"];?\s*$/gm,
+      ""
+    )
+    .replace(
+      /^import FeatureCardSection from ['"]@site\/src\/pages\/docs\/\\?_components\/FeatureCardSection['"];?\s*$/gm,
+      ""
+    );
+
+  // <FeatureAvailability .../> -> a plain-text availability line. A single
+  // callback handles every prop combination regardless of attribute order or
+  // spacing (e.g. `saasOnly/>` vs `saasOnly stage="private-beta" />`).
+  content = content.replace(
+    /<FeatureAvailability\b([^>]*?)\s*\/>/g,
+    (_match: string, attrs: string): string => {
+      const has = (name: string): boolean =>
+        new RegExp(`\\b${name}\\b`).test(attrs);
+      let base: string;
+      if (has("saasOnly")) {
+        base = "DataHub Cloud only";
+      } else if (has("ossOnly")) {
+        base = "Self-Hosted DataHub (open source) only";
+      } else if (has("selfHostedPartial")) {
+        base = "DataHub Cloud (fully) · Self-Hosted (partial)";
+      } else {
+        base = "Self-Hosted DataHub & DataHub Cloud";
+      }
+      const stage_match = attrs.match(/stage=["']([^"']+)["']/);
+      let line = `> **Availability:** ${base}`;
+      if (stage_match && STAGE_META[stage_match[1]]) {
+        line += ` — _${STAGE_META[stage_match[1]].label}_`;
+      }
+      return line;
+    }
+  );
+
+  // Self-closing landing-page components whose content lives in the React
+  // source, not the markdown. Substitute the hardcoded equivalents so the
+  // "Quickstart" and "Key Features" sections aren't empty in the served .md.
+  content = content
+    .replace(/<QuickstartCTA\s*\/>/g, () => QUICKSTART_CTA_MD)
+    .replace(/<FeatureCardSection\s*\/>/g, () => FEATURE_CARD_SECTION_MD);
+
+  // <Tabs>/<TabItem> -> the TabItem label becomes an h4 heading; the wrappers
+  // are dropped. Falls back to the `value` attribute when `label` is absent.
+  content = content
+    .replace(/<TabItem\b([^>]*)>/g, (_match: string, attrs: string): string => {
+      const label = attrs.match(/label=["']([^"']*)["']/);
+      const value = attrs.match(/value=["']([^"']*)["']/);
+      const heading = (label ? label[1] : value ? value[1] : "").trim();
+      return heading ? `\n#### ${heading}\n` : "\n";
+    })
+    .replace(/<\/TabItem>/g, "")
+    .replace(/<Tabs\b[^>]*>/g, "")
+    .replace(/<\/Tabs>/g, "");
+
+  // <details>/<summary> -> bold the summary text (stripping inner <b>), keep
+  // the collapsible body.
+  content = content
+    .replace(
+      /<summary\b[^>]*>([\s\S]*?)<\/summary>/g,
+      (_match: string, inner: string): string =>
+        `**${inner.replace(/<\/?b>/g, "").trim()}**`
+    )
+    .replace(/<details\b[^>]*>/g, "")
+    .replace(/<\/details>/g, "");
+
+  // Media embeds -> a plain markdown link. YouTube embed URLs are rewritten to
+  // their canonical watch URL.
+  // Embeds may be either `<iframe ...></iframe>` or self-closing `<iframe ... />`
+  // (generated connector docs use the latter), so match both terminators.
+  content = content
+    .replace(
+      /<iframe\b[\s\S]*?src=["'][^"']*youtube[^"']*\/embed\/([A-Za-z0-9_-]+)[^"']*["'][\s\S]*?(?:<\/iframe>|\/>)/g,
+      (_match: string, id: string): string =>
+        `[▶ Watch video](https://www.youtube.com/watch?v=${id})`
+    )
+    .replace(
+      /<iframe\b[\s\S]*?src=["'][^"']*loom\.com\/embed\/([A-Za-z0-9_-]+)[^"']*["'][\s\S]*?(?:<\/iframe>|\/>)/g,
+      (_match: string, id: string): string =>
+        `[▶ Watch video](https://www.loom.com/share/${id})`
+    )
+    .replace(
+      /<video\b[\s\S]*?src=["']([^"']*)["'][\s\S]*?(?:<\/video>|\/>)/g,
+      (_match: string, src: string): string => `[▶ Video](${src})`
+    );
+
+  // Unwrap a styled <div> whose ONLY content is a transformed video link
+  // (leftover from the iframe embeds above). The whitespace-only match around
+  // the single link guarantees the div wraps nothing else, so table/layout
+  // divs with real content are never touched.
+  content = content.replace(
+    /<div\b[^>]*style=[^>]*>\s*(\[▶[^\]]*\]\([^)]*\))\s*<\/div>/g,
+    (_match: string, link: string): string => link
+  );
+
+  return content;
+}
+
+// Emit a cleaned, frontmatter-free copy of a page's markdown to SERVED_MD_DIR,
+// keyed by the page slug so it is served at /docs/<slug>.md.
+function write_served_markdown(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  const served = path.join(SERVED_MD_DIR, `${get_slug(filepath)}.md`);
+  fs.mkdirSync(path.dirname(served), { recursive: true });
+  fs.writeFileSync(served, clean_mdx_for_serving(contents.content));
+}
+
 (async function main() {
+  // Clear stale served-markdown output so deleted/renamed pages don't linger.
+  fs.rmSync(SERVED_MD_DIR, { recursive: true, force: true });
+
   for (const filepath of markdown_files) {
     //console.log("Processing:", filepath);
     const contents_string = fs.readFileSync(`../${filepath}`).toString();
@@ -644,12 +871,14 @@ function write_markdown_file(
 
     const out_path = `${OUTPUT_DIRECTORY}/${filepath}`;
     write_markdown_file(contents, out_path);
+    write_served_markdown(contents, filepath);
   }
 
   // Generate the releases history.
   {
     const contents = await generate_releases_markdown();
     write_markdown_file(contents, `${OUTPUT_DIRECTORY}/releases.md`);
+    write_served_markdown(contents, "releases.md");
     markdown_files.push("releases.md");
   }
 

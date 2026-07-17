@@ -13,7 +13,9 @@ from datahub.metadata.urns import (
     DataPlatformInstanceUrn,
     DataPlatformUrn,
     DatasetUrn,
+    DocumentUrn,
     DomainUrn,
+    GlossaryNodeUrn,
     GlossaryTermUrn,
     SchemaFieldUrn,
     TagUrn,
@@ -24,6 +26,9 @@ from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.document import Document
+from datahub.sdk.glossary_node import GlossaryNode
+from datahub.sdk.glossary_term import GlossaryTerm
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup

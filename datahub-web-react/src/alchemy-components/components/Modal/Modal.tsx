@@ -1,4 +1,5 @@
-import { Button, ButtonProps, Heading, Icon, Text, typography } from '@components';
+import { Button, ButtonProps, Icon, Text, typography } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -9,7 +10,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
         border-radius: 12px;
     }
 
@@ -17,7 +18,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
         //margin-bottom: 24px;
         padding: 12px 20px;
         border-radius: ${({ hasChildren }) => (hasChildren ? '12px 12px 0 0' : '12px')};
-        border-bottom: ${({ hasChildren }) => (hasChildren ? `1px solid #F0F0F0` : '0')};
+        border-bottom: ${(props) => (props.hasChildren ? `1px solid ${props.theme.colors.border}` : '0')};
     }
 
     .ant-modal-body {
@@ -39,15 +40,32 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     }
 `;
 
-const HeaderContainer = styled.div<{ hasChildren: boolean }>`
+const ModalTitle = styled.h1`
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 0;
+    color: ${(props) => props.theme.colors.text};
+`;
+
+const ModalSubtitle = styled.span`
+    font-size: 14px;
+    font-weight: 500;
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
+const ModalHeader = styled.div<{ hasChildren: boolean }>`
     display: flex;
     flex-direction: column;
+    width: 100%;
 `;
 
 const TitleRow = styled.div`
     display: flex;
+    flex-direction: row;
     align-items: center;
     gap: 8px;
+    width: 100%;
 `;
 
 const ButtonsContainer = styled.div`
@@ -71,6 +89,8 @@ export interface ModalProps {
     children?: React.ReactNode;
     onCancel: () => void;
     dataTestId?: string;
+    titleIcon?: React.ReactNode;
+    closable?: boolean;
 }
 
 export function Modal({
@@ -81,30 +101,30 @@ export function Modal({
     children,
     onCancel,
     dataTestId,
+    closable = true,
     ...props
 }: ModalProps & AntModalProps) {
     return (
         <StyledModal
             open
             centered
+            closable={closable}
             onCancel={onCancel}
-            closeIcon={<Icon icon="X" source="phosphor" data-testid="modal-close-icon" />}
+            closeIcon={closable ? <Icon icon={X} data-testid="modal-close-icon" /> : null}
             hasChildren={!!children}
             data-testid={dataTestId}
             title={
-                <HeaderContainer hasChildren={!!children}>
-                    <TitleRow>
-                        <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
-                            {title}
-                        </Heading>
-                        {titlePill}
-                    </TitleRow>
-                    {!!subtitle && (
-                        <Text type="span" color="gray" colorLevel={1700} weight="medium">
-                            {subtitle}
-                        </Text>
-                    )}
-                </HeaderContainer>
+                typeof title === 'string' ? (
+                    <ModalHeader hasChildren={!!children}>
+                        <TitleRow>
+                            <ModalTitle>{title}</ModalTitle>
+                            {titlePill}
+                        </TitleRow>
+                        {!!subtitle && <ModalSubtitle>{subtitle}</ModalSubtitle>}
+                    </ModalHeader>
+                ) : (
+                    <div style={{ marginRight: closable ? '20px' : '0' }}>{title}</div>
+                )
             }
             footer={
                 !!buttons?.length && (

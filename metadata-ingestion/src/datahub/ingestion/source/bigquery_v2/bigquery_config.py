@@ -1,8 +1,8 @@
 import logging
 import re
 from copy import deepcopy
-from datetime import timedelta
-from typing import Any, Dict, List, Optional, Union
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import (
     Field,
@@ -19,6 +19,10 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
+)
+from datahub.configuration.time_window_config import (
+    BaseTimeWindowConfig,
+    BucketDuration,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.glossary.classification_mixin import (
@@ -40,6 +44,19 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 logger = logging.getLogger(__name__)
 
 DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
+
+# Tuple (not list) so in-place mutation cannot silently drift the value used by callers.
+DEFAULT_REGION_QUALIFIERS: Tuple[str, ...] = ("region-us", "region-eu")
+
+# Fields inherited from BaseTimeWindowConfig/BaseUsageConfig that are duplicated
+# on the nested `usage` config but only ever read from the top level of
+# BigQueryV2Config. See forward_deprecated_usage_fields below.
+_DEPRECATED_USAGE_TOP_LEVEL_FIELDS: Tuple[str, ...] = (
+    "start_time",
+    "end_time",
+    "bucket_duration",
+    "max_query_duration",
+)
 
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
@@ -99,20 +116,55 @@ class BigQueryBaseConfig(ConfigModel):
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
-    _query_log_delay_removed = pydantic_removed_field("query_log_delay")
+    _query_log_delay_removed = pydantic_removed_field(
+        "query_log_delay", month="April", year=2023
+    )
+
+    # start_time/end_time/bucket_duration are inherited from BaseTimeWindowConfig but
+    # redeclared here (rather than editing the shared base class, which other connectors
+    # also use) solely to surface the BigQuery-specific deprecation in generated docs.
+    # Descriptions are composed from the base class's text plus a deprecation suffix,
+    # rather than duplicated verbatim, so they can't silently drift out of sync.
+    # See forward_deprecated_usage_fields on BigQueryV2Config for the runtime behavior.
+    start_time: datetime = Field(
+        default=None,  # type: ignore
+        description=f"{BaseTimeWindowConfig.model_fields['start_time'].description or ''} "
+        "**Deprecated**: set the top-level `start_time` instead - it governs lineage, "
+        "usage, and operations together.",
+    )
+    end_time: datetime = Field(
+        default_factory=lambda: datetime.now(tz=timezone.utc),
+        description=f"{BaseTimeWindowConfig.model_fields['end_time'].description or ''} "
+        "**Deprecated**: set the top-level `end_time` instead - it governs lineage, "
+        "usage, and operations together.",
+    )
+    bucket_duration: BucketDuration = Field(
+        default=BucketDuration.DAY,
+        description=f"{BaseTimeWindowConfig.model_fields['bucket_duration'].description or ''} "
+        "**Deprecated**: set the top-level `bucket_duration` instead - it governs "
+        "lineage, usage, and operations together.",
+    )
 
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens "
         "within our time range but the query completion event is delayed and happens after the configured"
-        " end time.",
+        " end time. **Deprecated**: set the top-level `max_query_duration` instead. Note it only takes "
+        "effect with the legacy extraction path (`use_queries_v2: False`).",
     )
 
     apply_view_usage_to_tables: bool = Field(
         default=False,
         description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies "
         "usage to views / tables mentioned in the query. If set to True, usage is applied to base tables "
-        "only.",
+        "only. Only applied with the legacy extraction path (`use_queries_v2: False`); ignored under "
+        "queries-v2.",
+    )
+
+    include_read_operational_stats: bool = Field(
+        default=False,
+        description="Whether to report read operational stats. Experimental. Only applied with the "
+        "legacy extraction path (`use_queries_v2: False`); ignored under queries-v2.",
     )
 
 
@@ -327,6 +379,17 @@ class BigQueryV2Config(
         default=True, description="Whether table snapshots should be ingested."
     )
 
+    use_legacy_table_stats: bool = Field(
+        default=False,
+        description="Source table row count, size, and last-altered time from the undocumented "
+        "`__TABLES__` Legacy SQL construct instead of the supported `INFORMATION_SCHEMA.PARTITIONS` "
+        "view. `__TABLES__` additionally covers views and snapshots: views keep their `lastModified` "
+        "timestamp, and snapshots keep their `lastModified` timestamp along with the `rows_count` and "
+        "`size_in_bytes` custom properties. `__TABLES__` is undocumented and unsupported by Google, so "
+        "it may change or stop working without notice. Leave `False` to use `PARTITIONS`, which is "
+        "dataset-scoped but covers base tables only.",
+    )
+
     debug_include_full_payloads: bool = Field(
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",
@@ -400,9 +463,13 @@ class BigQueryV2Config(
     extract_policy_tags_from_catalog: bool = Field(
         default=False,
         description=(
-            "This flag enables the extraction of policy tags from the Google Data Catalog API. "
-            "When enabled, the extractor will fetch policy tags associated with BigQuery table columns. "
-            "For more information about policy tags and column-level security, refer to the documentation: "
+            "Extract policy tags from BigQuery tables using INFORMATION_SCHEMA and Data Catalog API. "
+            "Policy tag display names are resolved by listing all tags per taxonomy (one API call per "
+            "unique taxonomy, typically 3-10 calls per ingestion run). "
+            "If the Data Catalog API is blocked by VPC Service Controls, policy tag resource names will "
+            "be stored instead of display names (graceful degradation). "
+            "Requires BigQuery API v2 (available since ~2020) and Data Catalog API access. "
+            "For more information about policy tags and column-level security, refer to: "
             "https://cloud.google.com/bigquery/docs/column-level-security-intro"
         ),
     )
@@ -460,6 +527,11 @@ class BigQueryV2Config(
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 
+    convert_column_urns_to_lowercase: bool = Field(
+        default=False,
+        description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility.",
+    )
+
     exclude_empty_projects: bool = Field(
         default=False,
         description="Option to exclude empty projects from being ingested.",
@@ -477,14 +549,85 @@ class BigQueryV2Config(
     )
 
     region_qualifiers: List[str] = Field(
-        default=["region-us", "region-eu"],
+        default_factory=lambda: list(DEFAULT_REGION_QUALIFIERS),
         description="BigQuery regions to be scanned for bigquery jobs when using `use_queries_v2`. "
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
-    _include_view_lineage = pydantic_removed_field("include_view_lineage")
-    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
-    _lineage_parse_view_ddl = pydantic_removed_field("lineage_parse_view_ddl")
+    region_qualifiers_auto_discovery: bool = Field(
+        default=False,
+        description="When True, automatically extends `region_qualifiers` with any BigQuery "
+        "regions detected from dataset locations during schema ingestion. "
+        "Defaults to False to avoid unexpected query cost increases. "
+        "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
+    )
+
+    pushdown_deny_usernames: List[str] = Field(
+        default=[],
+        description="List of user email patterns using SQL LIKE syntax (e.g., 'bot_%', '%@%.iam.gserviceaccount.com') "
+        "which will NOT be considered for lineage/usage/queries extraction. "
+        "Uses case-insensitive LIKE for server-side filtering (e.g., 'bot_%' matches 'Bot_User@example.com'). "
+        "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
+        "Only applicable if `use_queries_v2` is enabled.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of user email patterns using SQL LIKE syntax (e.g., 'analyst_%@company.com') "
+        "which WILL be considered for lineage/usage/queries extraction. "
+        "Uses case-insensitive LIKE for server-side filtering (e.g., 'analyst_%' matches 'Analyst_John@company.com'). "
+        "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
+    )
+
+    _include_view_lineage = pydantic_removed_field(
+        "include_view_lineage", month="January", year=2025
+    )
+    _include_view_column_lineage = pydantic_removed_field(
+        "include_view_column_lineage", month="January", year=2025
+    )
+    _lineage_parse_view_ddl = pydantic_removed_field(
+        "lineage_parse_view_ddl", month="January", year=2025
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def forward_deprecated_usage_fields(cls, values: Any) -> Any:
+        # `usage.start_time`/`end_time`/`bucket_duration`/`max_query_duration` are
+        # inherited from BaseTimeWindowConfig/BaseUsageConfig via BigQueryUsageConfig
+        # but were never read by either the queries-v2 or legacy code paths, which
+        # both use the top-level copies. These are connector-wide settings governing
+        # lineage, usage, and operations together, so they belong at the top level only.
+        if not isinstance(values, dict) or not isinstance(values.get("usage"), dict):
+            # usage.pop() below requires a dict; skip if usage is already a
+            # BigQueryUsageConfig object. Accepted since recipes always come from YAML.
+            return values
+        # Copy first: usage.pop() below must not mutate the caller's dict.
+        values = deepcopy(values)
+        usage = values["usage"]
+        for field in _DEPRECATED_USAGE_TOP_LEVEL_FIELDS:
+            if field not in usage:
+                continue
+            if field in values and values[field] is not None:
+                raise ValueError(
+                    f"`{field}` is set both at the top level and under `usage`. "
+                    f"The top-level `{field}` is the only valid setting - remove `usage.{field}` from your recipe."
+                )
+            if field == "max_query_duration":
+                # Unlike start_time/end_time/bucket_duration, the top-level max_query_duration
+                # is only read on the legacy (non-queries-v2) extraction path - it has no effect
+                # under the default use_queries_v2=True, so don't claim otherwise.
+                logger.warning(
+                    "`usage.max_query_duration` is deprecated and will be ignored in a future release. "
+                    "Please set `max_query_duration` at the top level instead - note it only takes "
+                    "effect with the legacy extraction path (`use_queries_v2: False`)."
+                )
+            else:
+                logger.warning(
+                    f"`usage.{field}` is deprecated and will be ignored in a future release. "
+                    f"Please set `{field}` at the top level instead - it applies to lineage, usage, and operations together."
+                )
+            values[field] = usage.pop(field)
+        return values
 
     @model_validator(mode="before")
     @classmethod
@@ -556,9 +699,72 @@ class BigQueryV2Config(
                 )
         return self
 
+    @model_validator(mode="after")
+    def warn_legacy_only_usage_fields_under_queries_v2(self) -> "BigQueryV2Config":
+        # `include_read_operational_stats`, `apply_view_usage_to_tables`, and
+        # `max_query_duration` are only read by the legacy (non-queries-v2) extraction
+        # path; qv2 either has no equivalent mechanism (the first two) or simply never
+        # references the field (`max_query_duration` - see queries_extractor.py). We
+        # can't tell whether the user "explicitly" set a field post-validation, so we
+        # pragmatically warn whenever it differs from its default.
+        if self.use_queries_v2:
+            if self.usage.include_read_operational_stats:
+                logger.warning(
+                    "`usage.include_read_operational_stats` is only supported with the legacy "
+                    "extraction path (`use_queries_v2: False`) and is ignored under queries-v2."
+                )
+            if self.usage.apply_view_usage_to_tables:
+                logger.warning(
+                    "`usage.apply_view_usage_to_tables` is only supported with the legacy "
+                    "extraction path (`use_queries_v2: False`) and is ignored under queries-v2."
+                )
+            if self.max_query_duration != timedelta(minutes=15):
+                logger.warning(
+                    "`max_query_duration` is only supported with the legacy extraction path "
+                    "(`use_queries_v2: False`) and is ignored under queries-v2."
+                )
+        return self
+
+    @field_validator(
+        "pushdown_deny_usernames", "pushdown_allow_usernames", mode="after"
+    )
+    @classmethod
+    def validate_pushdown_username_patterns(cls, patterns: List[str]) -> List[str]:
+        """Validate and normalize pushdown username patterns.
+
+        - Strips leading/trailing whitespace from each pattern
+        - Rejects empty patterns (after stripping)
+
+        Note: Patterns use SQL LIKE syntax (% = any characters, _ = single character).
+        Invalid patterns will fail at runtime when the SQL query is executed.
+        """
+        validated = []
+        for i, pattern in enumerate(patterns):
+            stripped = pattern.strip()
+            if not stripped:
+                raise ValueError(
+                    f"Empty pattern at index {i}. "
+                    "Remove empty strings from pushdown username patterns."
+                )
+            validated.append(stripped)
+        return validated
+
+    @model_validator(mode="after")
+    def validate_pushdown_config(self) -> "BigQueryV2Config":
+        if (
+            self.pushdown_deny_usernames or self.pushdown_allow_usernames
+        ) and not self.use_queries_v2:
+            raise ValueError(
+                "pushdown_deny_usernames and pushdown_allow_usernames require use_queries_v2=True. "
+                "Either enable use_queries_v2 or remove the pushdown username filters."
+            )
+        return self
+
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if pattern else ""
 
     _platform_instance_not_supported_for_bigquery = pydantic_removed_field(
-        "platform_instance"
+        "platform_instance",
+        month="September",
+        year=2025,
     )

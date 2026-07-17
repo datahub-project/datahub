@@ -1,7 +1,7 @@
-import { ErrorRounded } from '@mui/icons-material';
-import { Divider } from 'antd';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { CTAWrapper, StyledArrow } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
@@ -20,10 +20,6 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
 import { FilterOperator, LineageDirection } from '@types';
-
-export const StyledDivider = styled(Divider)`
-    margin: 16px 0;
-`;
 
 const Title = styled.div`
     font-size: 14px;
@@ -53,6 +49,8 @@ const Container = styled.div`
 `;
 
 export default function UpstreamHealth() {
+    const { t } = useTranslation('entity.shared.stats');
+    const themeConfig = useTheme();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
 
@@ -231,11 +229,15 @@ export default function UpstreamHealth() {
 
     return (
         <Container>
-            <CTAWrapper backgroundColor="#FBF3EF" borderColor="#FBF3EF" padding="10px 0 0 0">
+            <CTAWrapper
+                backgroundColor={themeConfig.colors.bgSurfaceError}
+                borderColor={themeConfig.colors.bgSurfaceError}
+                padding="10px 0 0 0"
+            >
                 <TitleWrapper isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>
                     <Header>
-                        <ErrorRounded style={{ color: '#E54D1F', fontSize: '18' }} />
-                        <Title>Some upstreams are unhealthy</Title>
+                        <WarningCircle color={themeConfig.colors.textError} size={18} />
+                        <Title>{t('upstream.unhealthy')}</Title>
                     </Header>
                     <StyledArrow isOpen={isOpen} />
                 </TitleWrapper>

@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -71,7 +72,8 @@ public class AggregationQueryBuilderTest {
     structPropHelloDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
     structPropHelloDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropHelloDefinition.setQualifiedName("hello");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(helloUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(helloUrn)), anySet()))
         .thenReturn(
             Map.of(
                 helloUrn,
@@ -84,7 +86,8 @@ public class AggregationQueryBuilderTest {
     structPropAbFghTenDefinition.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinition.setQualifiedName("ab.fgh.ten");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(abFghTenUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(abFghTenUrn)), anySet()))
         .thenReturn(
             Map.of(
                 abFghTenUrn,
@@ -99,7 +102,8 @@ public class AggregationQueryBuilderTest {
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropUnderscoresAndDotsDefinition.setQualifiedName("under.scores.and.dots_make_a_mess");
     structPropUnderscoresAndDotsDefinition.setDisplayName("under.scores.and.dots_make_a_mess");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(underscoresAndDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 underscoresAndDotsUrn,
@@ -116,7 +120,8 @@ public class AggregationQueryBuilderTest {
     structPropHelloDefinitionV1.setVersion("00000000000001");
     structPropHelloDefinitionV1.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropHelloDefinitionV1.setQualifiedName("hello");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(helloUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(helloUrn)), anySet()))
         .thenReturn(
             Map.of(
                 helloUrn,
@@ -130,7 +135,8 @@ public class AggregationQueryBuilderTest {
     structPropAbFghTenDefinitionV1.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinitionV1.setQualifiedName("ab.fgh.ten");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(abFghTenUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(abFghTenUrn)), anySet()))
         .thenReturn(
             Map.of(
                 abFghTenUrn,
@@ -145,7 +151,8 @@ public class AggregationQueryBuilderTest {
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropUnderscoresAndDotsDefinitionV1.setQualifiedName("under.scores.and.dots_make_a_mess");
     structPropUnderscoresAndDotsDefinitionV1.setDisplayName("under.scores.and.dots_make_a_mess");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(underscoresAndDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 underscoresAndDotsUrn,
@@ -175,7 +182,8 @@ public class AggregationQueryBuilderTest {
       Optional<String> searchLabel,
       Optional<Boolean> searchIndexed,
       Optional<String> entityFieldName,
-      Optional<Boolean> eagerGlobalOrdinals) {
+      Optional<Boolean> eagerGlobalOrdinals,
+      boolean sanitizeRichText) {
     return new SearchableAnnotation(
         fieldName,
         fieldType,
@@ -197,7 +205,8 @@ public class AggregationQueryBuilderTest {
         searchLabel,
         searchIndexed,
         entityFieldName,
-        eagerGlobalOrdinals);
+        eagerGlobalOrdinals,
+        sanitizeRichText);
   }
 
   @Test
@@ -224,7 +233,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -264,7 +274,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -303,8 +314,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -328,8 +339,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -546,8 +557,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -571,8 +582,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -632,8 +643,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -657,8 +668,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -722,8 +733,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -799,7 +810,7 @@ public class AggregationQueryBuilderTest {
 
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
     builder.addCriterionFiltersToAggregationMetadata(
-        criterion, aggregationMetadataList, mockAspectRetriever);
+        criterion, aggregationMetadataList, null, mockAspectRetriever);
 
     // ensure we add the correct structured prop aggregation here
     Assert.assertEquals(aggregationMetadataList.size(), 1);
@@ -842,7 +853,7 @@ public class AggregationQueryBuilderTest {
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
     aggregationMetadataList.add(aggregationMetadata);
     builder.addCriterionFiltersToAggregationMetadata(
-        criterion, aggregationMetadataList, mockAspectRetriever);
+        criterion, aggregationMetadataList, null, mockAspectRetriever);
 
     Assert.assertEquals(aggregationMetadataList.size(), 1);
     Assert.assertEquals(aggregationMetadataList.get(0).getEntity(), propertyUrn);
@@ -877,8 +888,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -902,8 +913,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     // Create two different entity specs
     EntitySpec entitySpec1 = mock(EntitySpec.class);
@@ -960,8 +971,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -985,8 +996,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     SearchableAnnotation annotation3 =
         new SearchableAnnotation(
@@ -1010,8 +1021,8 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty() // eagerGlobalOrdinals
-            );
+            Optional.empty(), // eagerGlobalOrdinals
+            false);
 
     EntitySpec entitySpec1 = mock(EntitySpec.class);
     when(entitySpec1.getName()).thenReturn("dataset");
@@ -1070,7 +1081,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -1094,7 +1106,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     EntitySpec entitySpec1 = mock(EntitySpec.class);
     when(entitySpec1.getName()).thenReturn("dataset");
@@ -1149,7 +1162,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -1173,7 +1187,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     EntitySpec entitySpec1 = mock(EntitySpec.class);
     when(entitySpec1.getName()).thenReturn("dataset");
@@ -1228,7 +1243,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -1252,7 +1268,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     EntitySpec entitySpec1 = mock(EntitySpec.class);
     when(entitySpec1.getName()).thenReturn("dataset");
@@ -1308,7 +1325,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -1332,7 +1350,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     EntitySpec entitySpec1 = mock(EntitySpec.class);
     when(entitySpec1.getName()).thenReturn("dataset");
@@ -1407,7 +1426,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -1431,7 +1451,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     SearchableAnnotation annotation3 =
         new SearchableAnnotation(
@@ -1455,7 +1476,8 @@ public class AggregationQueryBuilderTest {
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     EntitySpec entitySpec1 = mock(EntitySpec.class);
     when(entitySpec1.getName()).thenReturn("dataset");
@@ -1506,7 +1528,9 @@ public class AggregationQueryBuilderTest {
     mockResult.put(propertyUrn, aspectMap);
     Set<Urn> urns = new HashSet<>();
     urns.add(propertyUrn);
-    Mockito.when(mockAspectRetriever.getLatestAspectObjects(eq(urns), any()))
+    Mockito.when(
+            mockAspectRetriever.getLatestAspectObjects(
+                any(OperationFingerprint.class), eq(urns), any()))
         .thenReturn(mockResult);
 
     return mockAspectRetriever;

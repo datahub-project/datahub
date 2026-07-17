@@ -15,7 +15,7 @@ public class Constants {
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
 
   public static final String URN_LI_PREFIX = "urn:li:";
-  public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
+
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
   // Actor ID for unauthenticated requests
@@ -27,6 +27,16 @@ public class Constants {
   public static final Urn SYSTEM_POLICY_ZERO = UrnUtils.getUrn("urn:li:dataHubPolicy:0");
   public static final Urn SYSTEM_POLICY_ONE = UrnUtils.getUrn("urn:li:dataHubPolicy:1");
   public static final Long ASPECT_LATEST_VERSION = 0L;
+
+  /**
+   * Optional {@link com.linkedin.mxe.MetadataChangeLog#getHeaders() MetadataChangeLog} header: the
+   * {@code metadata_aspect.version} column for the row this event describes. {@link
+   * #ASPECT_LATEST_VERSION} is the latest materialized row; pgSearch indexing should ignore rows
+   * with any other version.
+   */
+  public static final String MCL_HEADER_DATABASE_ASPECT_VERSION =
+      "X-DataHub-Database-Aspect-Version";
+
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
   public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
@@ -47,8 +57,22 @@ public class Constants {
   public static final String INGESTION_MAX_SERIALIZED_STRING_LENGTH =
       "INGESTION_MAX_SERIALIZED_STRING_LENGTH";
 
+  // Jackson's default max JSON property-name length is 50000. Deeply-nested struct field paths
+  // (e.g. dbt column-level lineage) can be carried as JSON names in patches and exceed it, throwing
+  // a StreamConstraintsException during deserialization. Raise it alongside the string-length
+  // limit.
+  public static final String MAX_JACKSON_NAME_LENGTH = "16000000";
+  public static final String INGESTION_MAX_SERIALIZED_NAME_LENGTH =
+      "INGESTION_MAX_SERIALIZED_NAME_LENGTH";
+
   /** System Metadata */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
+
+  /**
+   * Default schema version for aspects that were written before schema versioning was introduced,
+   * or whose {@code @Aspect} annotation does not specify a {@code schemaVersion}.
+   */
+  public static final long DEFAULT_SCHEMA_VERSION = 1L;
 
   // Forces indexing for no-ops, enabled for restore indices calls. Only
   // considered in the no-op
@@ -106,6 +130,14 @@ public class Constants {
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
   public static final String APPLICATION_ENTITY_NAME = "application";
+  public static final String METRIC_ENTITY_NAME = "metric";
+  public static final String METRIC_KEY_ASPECT_NAME = "metricKey";
+  public static final String METRIC_INFO_ASPECT_NAME = "metricInfo";
+  public static final String METRIC_RELATIONSHIPS_ASPECT_NAME = "metricRelationships";
+  public static final String METRIC_UPSTREAMS_ASPECT_NAME = "metricUpstreams";
+  public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
+  public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
+  public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
   public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
       UrnUtils.getUrn("urn:li:ownershipType:__system__none");
@@ -181,6 +213,7 @@ public class Constants {
   public static final String STRUCTURED_PROPERTIES_ASPECT_NAME = "structuredProperties";
   public static final String FORMS_ASPECT_NAME = "forms";
   // Aspect support
+  public static final String FINE_GRAINED_LINEAGE_ASPECT_NAME = "fineGrainedLineage";
   public static final String FINE_GRAINED_LINEAGE_DATASET_TYPE = "DATASET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_SET_TYPE = "FIELD_SET";
   public static final String FINE_GRAINED_LINEAGE_FIELD_TYPE = "FIELD";
@@ -427,10 +460,14 @@ public class Constants {
   public static final String DATA_CONTRACT_STATUS_ASPECT_NAME = "dataContractStatus";
 
   // Relationships
+  public static final String IS_PART_OF_RELATIONSHIP_NAME = "IsPartOf";
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
+  public static final String IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME = "IsMemberOfRole";
 
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
+
+  public static final String RELATIONSHIP_PLATFORM_EVENT_NAME = "relationshipChangeEvent";
 
   /** Retention */
   public static final String DATAHUB_RETENTION_ENTITY = "dataHubRetention";
@@ -466,6 +503,7 @@ public class Constants {
   // Knowledge Article
   public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
   public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
+  public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
 
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");

@@ -1,0 +1,14 @@
+{
+    "backButton.tooltip": "Gå tillbaka",
+    "confirmationModal.areYouSure": "Är du säker?",
+    "copyUrn.tooltip": "Kopiera URN. En URN identifierar en entitet i DataHub unikt.",
+    "customIcon.alt": "Ikon",
+    "entityCountCard.viewCountTooltip": "Visa {{formattedCount}} {{tooltipDescriptor}}",
+    "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
+    "multiStepForm.disabledNextTooltip": "Fyll i alla obligatoriska fält innan du går vidare till nästa steg",
+    "noEntityFound.subtitle": "Vi kunde tyvärr inte hitta den här entiteten i DataHub",
+    "noEntityFound.title": "Hittades inte",
+    "noPageFound.backToHome": "Tillbaka till startsidan",
+    "noPageFound.subtitle": "Sidan du efterfrågade hittades inte.",
+    "platformIcon.alt": "Plattformslogotyp"
+}

@@ -1,16 +1,25 @@
+import logging
 import os
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 import certifi
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    HiddenFromDocs,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -19,6 +28,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+logger = logging.getLogger(__name__)
 
 
 class DremioConnectionConfig(ConfigModel):
@@ -42,7 +53,7 @@ class DremioConnectionConfig(ConfigModel):
         description="Authentication method: 'password' or 'PAT' (Personal Access Token)",
     )
 
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None,
         description="Dremio password or Personal Access Token",
     )
@@ -91,8 +102,8 @@ class DremioConnectionConfig(ConfigModel):
     @field_validator("password", mode="after")
     @classmethod
     def validate_password(
-        cls, value: Optional[str], info: ValidationInfo
-    ) -> Optional[str]:
+        cls, value: Optional[TransparentSecretStr], info: ValidationInfo
+    ) -> Optional[TransparentSecretStr]:
         if info.data.get("authentication_method") == "PAT" and not value:
             raise ValueError(
                 "Password (Personal Access Token) is required when using PAT authentication",
@@ -100,7 +111,7 @@ class DremioConnectionConfig(ConfigModel):
         return value
 
 
-class ProfileConfig(GEProfilingBaseConfig):
+class ProfileConfig(GEProfilingConfig):
     query_timeout: int = Field(
         default=300, description="Time before cancelling Dremio profiling query"
     )
@@ -119,16 +130,43 @@ class DremioSourceMapping(EnvConfigMixin, PlatformInstanceConfigMixin, ConfigMod
     )
 
 
+class DremioSourceTypeOverride(ConfigModel):
+    platform: str = Field(
+        description="DataHub platform name to emit for this Dremio source type (e.g. `kafka`, `iceberg`, `snowflake`).",
+    )
+    category: Optional[Literal["database", "file_object_storage"]] = Field(
+        default=None,
+        description="Whether the Dremio source uses dot-notation database/schema paths (`database`) or slash-notation file paths (`file_object_storage`). Defaults to `unknown`.",
+    )
+
+
 class DremioSourceConfig(
     DremioConnectionConfig,
     StatefulIngestionConfigBase,
     BaseTimeWindowConfig,
+    IncrementalPropertiesConfigMixin,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 ):
+    # StatefulLineageConfigMixin / StatefulProfilingConfigMixin are
+    # intentionally not inherited — their fields are unused on Dremio
+    # (we use enable_stateful_time_window and profile_if_updated_since_days)
+    # and their validators would emit warnings for dead config.
+
     domain: Optional[str] = Field(
         default=None,
         description="Domain for all source objects.",
+    )
+
+    include_system_tables: bool = Field(
+        default=True,
+        description="Whether to include system tables and schemas (INFORMATION_SCHEMA, SYS) in ingestion. ",
+    )
+
+    # Backward compatibility: usage config parameter (hidden from docs)
+    usage: HiddenFromDocs[BaseUsageConfig] = Field(
+        default=BaseUsageConfig(),
+        description="Usage extraction configuration. For backward compatibility, this provides the same fields as the flattened time window config.",
     )
 
     source_mappings: Optional[List[DremioSourceMapping]] = Field(
@@ -136,7 +174,17 @@ class DremioSourceConfig(
         description="Mappings from Dremio sources to DataHub platforms and datasets.",
     )
 
-    # Entity Filters
+    source_type_mappings: Dict[str, "DremioSourceTypeOverride"] = Field(
+        default_factory=dict,
+        description=(
+            "Register additional Dremio source-type strings on top of the built-in mapping, "
+            "for Dremio ARP connectors or source types not yet known to DataHub. "
+            "Keys are the Dremio `type` field (case-insensitive); values declare the DataHub "
+            "platform and optional category. "
+            'Example: `{"MYORG_KAFKA": {"platform": "kafka", "category": "database"}}`.'
+        ),
+    )
+
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter",
@@ -147,14 +195,6 @@ class DremioSourceConfig(
         description="Regex patterns for tables and views to filter in ingestion. Specify regex to match the entire table name in dremio.schema.table format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'dremio.public.customer.*'",
     )
 
-    usage: BaseUsageConfig = Field(
-        description="The usage config to use when generating usage statistics",
-        default=BaseUsageConfig(),
-    )
-
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
-
-    # Profiling
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to profile",
@@ -169,10 +209,21 @@ class DremioSourceConfig(
             self.profiling.operation_config
         )
 
-    # Advanced Configs
     max_workers: int = Field(
         default=5 * (os.cpu_count() or 4),
         description="Number of worker threads to use for parallel processing",
+    )
+
+    batch_size: int = Field(
+        default=10000,
+        ge=0,
+        description="Number of rows to fetch per page when reading Dremio's system "
+        "tables (datasets, columns, view definitions, and queries) via LIMIT/OFFSET. "
+        "Dremio's system tables can be slow, so a larger batch reduces the number of "
+        "round-trips. Set to 0 to fetch as much as possible per page. Values are "
+        "clamped to a safety ceiling of 1,000,000 rows per page to keep pagination "
+        "reliable. A larger batch also raises the amount Dremio must materialize per "
+        "job, so lower this value if Dremio runs out of memory during extraction.",
     )
 
     include_query_lineage: bool = Field(
@@ -180,7 +231,46 @@ class DremioSourceConfig(
         description="Whether to include query-based lineage information.",
     )
 
+    incremental_lineage: bool = Field(
+        default=False,
+        description="When enabled, lineage aspects are emitted as PATCH operations rather than full "
+        "overwrites. This preserves any lineage edges that were manually added in DataHub "
+        "between runs. Disable if you want each run to fully replace lineage. "
+        "PATCH emission requires a GMS that supports patch aspects.",
+    )
+
+    enable_stateful_time_window: bool = Field(
+        default=False,
+        description="Enable stateful time window tracking for query lineage/usage extraction. "
+        "When enabled, subsequent runs will skip time windows already fully processed, "
+        "avoiding redundant API calls. Requires stateful_ingestion to be configured.",
+    )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Stateful ingestion config with stale-entity removal support.",
+    )
+
     ingest_owner: bool = Field(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
     )
+
+    @model_validator(mode="after")
+    def _warn_if_stateful_time_window_without_stateful_ingestion(
+        self,
+    ) -> "DremioSourceConfig":
+        # Warn when the user opts into time-window skipping but hasn't
+        # enabled stateful_ingestion (the run-skip handler is only
+        # installed in that case, so the flag would otherwise no-op).
+        if self.enable_stateful_time_window and (
+            self.stateful_ingestion is None or not self.stateful_ingestion.enabled
+        ):
+            logger.warning(
+                "`enable_stateful_time_window: true` has no effect because "
+                "`stateful_ingestion.enabled` is not set. Add a "
+                "`stateful_ingestion:` block with `enabled: true` (and a "
+                "configured `pipeline_name`) to activate run-to-run "
+                "time-window skipping."
+            )
+        return self

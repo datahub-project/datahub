@@ -18,7 +18,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
@@ -39,12 +38,10 @@ from datahub.ingestion.source.kafka_connect.topic_cache import (
     ConfluentCloudTopicRetriever,
     KafkaTopicCache,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +61,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = KafkaConnectSourceReport()
-        self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            }
-        )
+        self.session = self._create_json_session()
+
+        # Separate session for Kafka REST API calls — must NOT inherit Connect auth,
+        # because Confluent Cloud uses different credentials for Connect vs Kafka APIs.
+        self.kafka_session = self._create_json_session()
 
         # Test the connection using appropriate credentials
         connect_username, connect_password = self.config.get_connect_credentials()
@@ -82,7 +77,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             self.session.auth = (connect_username, connect_password)
         else:
             # For Confluent Cloud, authentication is required
-            if self._detect_confluent_cloud():
+            if self.config.is_confluent_cloud():
                 raise ValueError(
                     "Confluent Cloud detected but no Connect API credentials provided. "
                     "Confluent Cloud requires authentication credentials for API access."
@@ -94,23 +89,38 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         logger.info(f"Connection to {self.config.connect_uri} is ok")
 
         # Detect environment type for topic retrieval strategy
-        self._is_confluent_cloud = self._detect_confluent_cloud()
+        self._is_confluent_cloud = self.config.is_confluent_cloud()
         if self._is_confluent_cloud:
             logger.info(
                 "Detected Confluent Cloud - using comprehensive Kafka REST API topic retrieval"
             )
+            # For Confluent Cloud, DataHub graph connection is mandatory for lineage resolution
+            if ctx.graph is None:
+                raise ValueError(
+                    "Confluent Cloud detected but DataHub graph connection not configured. "
+                    "For Confluent Cloud, the DataHub graph is required for proper lineage resolution. "
+                    "Please configure 'datahub_api' in your pipeline configuration with the server URL."
+                )
         else:
             logger.info("Detected self-hosted Kafka Connect - using runtime topics API")
+
+        # Create shared SchemaResolverProvider if graph is available.
+        # The provider's lru_cache deduplicates bulk fetches across connectors.
+        self._schema_resolver_provider: Optional[SchemaResolverProvider] = None
+        if self.config.use_schema_resolver and self.ctx.graph:
+            self._schema_resolver_provider = SchemaResolverProvider(
+                graph=self.ctx.graph
+            )
 
         # Note: Removed topic handler registry - topic resolution moved to connector registry
 
         # Initialize enhanced Confluent Cloud components
         self._topic_cache = KafkaTopicCache()  # Simple cache for single ingestion run
         self._topic_retriever = ConfluentCloudTopicRetriever(
-            self.session, self._topic_cache
+            self.kafka_session, self._topic_cache
         )
         self._consumer_group_analyzer = ConsumerGroupAnalyzer(
-            self.session, self.config, self.report
+            self.kafka_session, self.config, self.report
         )
 
         # Cache for all Kafka topics (single ingestion run)
@@ -175,8 +185,17 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         # Try to get a connector handler from the registry
         connector = ConnectorRegistry.get_connector_for_manifest(
-            connector_manifest, self.config, self.report
+            connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
+
+        # For Confluent Cloud, populate all_cluster_topics for validation purposes
+        if connector and self._is_confluent_cloud:
+            all_cluster_topics = self._get_all_topics_from_kafka_api()
+            if all_cluster_topics:
+                connector.all_cluster_topics = all_cluster_topics
+                logger.debug(
+                    f"Populated {len(all_cluster_topics)} cluster topics for connector '{connector_manifest.name}'"
+                )
 
         if not connector:
             # No handler found for this connector class
@@ -269,14 +288,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             )
             tasks = []
 
-        filtered_manifest = {
-            "name": name,
-            "type": connector_type,
-            "config": config,
-            "tasks": tasks,
-        }
-
-        connector_manifest = ConnectorManifest(**filtered_manifest)
+        connector_manifest = ConnectorManifest(
+            name=name,
+            type=connector_type,
+            config=config,
+            tasks=tasks,
+        )
         return connector_manifest
 
     def _get_connector_tasks(self, connector_name: str) -> List[Dict[str, dict]]:
@@ -294,63 +311,24 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         return response.json()
 
-    def _detect_confluent_cloud(self) -> bool:
-        """
-        Detect if we're running against Confluent Cloud.
-
-        Detection logic:
-        1. If environment_id and cluster_id are explicitly configured, assume Confluent Cloud
-        2. Otherwise, check if connect_uri follows Confluent Cloud pattern:
-           https://api.confluent.cloud/connect/v1/environments/{env-id}/clusters/{cluster-id}
-        """
-        # Explicit Confluent Cloud configuration takes precedence
-        if (
-            self.config.confluent_cloud_environment_id
-            and self.config.confluent_cloud_cluster_id
-        ):
-            return True
-
-        # Fallback to URI-based detection
-        uri = self.config.connect_uri.lower()
-        return "api.confluent.cloud" in uri and "/connect/v1/" in uri
+    @staticmethod
+    def _create_json_session() -> requests.Session:
+        """Create a requests session with standard JSON headers."""
+        session = requests.Session()
+        session.headers.update(
+            {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            }
+        )
+        return session
 
     def _get_connector_topics(self, connector_manifest: ConnectorManifest) -> List[str]:
-        """
-        Get topics for a connector using environment-specific strategy.
+        """Get topics for a connector using environment-specific strategy.
 
-        This method implements a hybrid approach that handles both Confluent Cloud
-        and self-hosted Kafka Connect environments with different strategies:
-
-        **Self-hosted Strategy:**
-        - Uses the runtime `/connectors/{name}/topics` API endpoint
-        - Returns actual topics that the connector is currently reading from/writing to
-        - Provides the most accurate topic information as it reflects runtime state
-
-        **Confluent Cloud Strategy:**
-        - Uses configuration-based topic derivation from the connector manifest
-        - Extracts topics from connector configuration fields (topics, kafka.topic, etc.)
-        - No additional API calls needed since we already have the config from manifest
-        - Required because Confluent Cloud doesn't expose the `/topics` endpoint
-
-        **Feature Flag Control:**
-        The `use_connect_topics_api` configuration flag controls whether this method
-        performs any API calls at all. When disabled, returns empty list to skip
-        all topic validation for air-gapped environments or performance optimization.
-
-        **Environment Detection:**
-        Automatically detects environment based on connect_uri patterns:
-        - Confluent Cloud: URIs containing 'confluent.cloud'
-        - Self-hosted: All other URI patterns (localhost, internal domains, etc.)
-
-        Args:
-            connector_manifest: ConnectorManifest containing name, type, config, etc.
-
-        Returns:
-            List of topic names that the connector reads from or writes to.
-            Returns empty list if:
-            - Feature flag `use_connect_topics_api` is disabled
-            - API calls fail (self-hosted only)
-            - Connector has no topic configuration (Confluent Cloud)
+        Self-hosted: uses runtime ``/connectors/{name}/topics`` API.
+        Confluent Cloud: returns empty (topics are populated separately via Kafka REST API).
+        Disabled entirely when ``use_connect_topics_api`` is False.
         """
         connector_name = connector_manifest.name
 
@@ -363,11 +341,16 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         # Environment-specific approach
         if self._is_confluent_cloud:
-            # Confluent Cloud: Use config-based derivation from existing manifest data
-            # This avoids redundant API calls since we already have the connector config
-            return self._get_topics_confluent_cloud_from_manifest(connector_manifest)
+            # Confluent Cloud: Don't populate topic_names with all cluster topics
+            # All cluster topics will be stored separately and passed where needed
+            # This prevents accidental parsing of non-connector-specific topics
+            logger.debug(
+                f"Confluent Cloud environment - not populating topic_names for {connector_name}"
+            )
+            return []
         else:
             # Self-hosted: Use original runtime topics API
+            # These are connector-specific topics, safe to populate in topic_names
             topics = self._get_topics_self_hosted(connector_name)
 
             # For sink connectors, filter out stale topics
@@ -471,36 +454,16 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 logger.debug("Could not extract Kafka REST endpoint from Connect URI")
                 return []
 
-            # Build Kafka REST API v3 endpoint for listing topics
-            # Format: https://pkc-xxxxx.region.provider.confluent.cloud/kafka/v3/clusters/{cluster-id}/topics
-            if kafka_rest_endpoint.endswith("/"):
-                kafka_rest_endpoint = kafka_rest_endpoint.rstrip("/")
-            topics_url = f"{kafka_rest_endpoint}/kafka/v3/clusters/{cluster_id}/topics"
+            topics_url = f"{kafka_rest_endpoint.rstrip('/')}/kafka/v3/clusters/{cluster_id}/topics"
 
-            # Set up authentication for Kafka API
-            headers = {"Accept": "application/json", "Content-Type": "application/json"}
-            auth = None
-
-            # Check if we have Kafka-specific credentials configured
-            if self.config.kafka_api_key and self.config.kafka_api_secret:
-                # Use Kafka-specific API credentials with Basic auth
-                headers["Authorization"] = self._create_basic_auth_header(
-                    self.config.kafka_api_key, self.config.kafka_api_secret
-                )
-                logger.debug("Using dedicated Kafka API credentials for authentication")
-
-            # Fallback to reusing Connect credentials (same API key/secret in Confluent Cloud)
-            elif hasattr(self.session, "auth") and self.session.auth:
-                auth = self.session.auth
-                logger.debug("Reusing Connect credentials for Kafka API authentication")
-
-            else:
+            # Reuse the shared auth-header builder (Accept/Content-Type are on kafka_session already)
+            auth_headers = self._get_kafka_auth_headers()
+            if auth_headers is None:
                 logger.warning(
                     "No authentication credentials available for Kafka API - API call may fail"
                 )
 
-            # Make API call to get all topics
-            response = self.session.get(topics_url, headers=headers, auth=auth)
+            response = self.kafka_session.get(topics_url, headers=auth_headers or {})
             response.raise_for_status()
 
             # Parse v3 API response format
@@ -729,7 +692,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         )
 
         return ConnectorRegistry.get_topics_from_config(
-            connector_manifest, self.config, self.report
+            connector_manifest, self.config, self.report, self._schema_resolver_provider
         )
 
     # Note: _get_topic_fields_for_connector and get_platform_from_connector_class removed
@@ -842,11 +805,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     if source_dataset
                     else []
                 )
-                outlets = [
-                    self.make_lineage_dataset_urn(
-                        target_platform, target_dataset, target_platform_instance
-                    )
-                ]
+                outlets = (
+                    [
+                        self.make_lineage_dataset_urn(
+                            target_platform, target_dataset, target_platform_instance
+                        )
+                    ]
+                    if target_dataset
+                    else []
+                )
 
                 yield MetadataChangeProposalWrapper(
                     entityUrn=job_urn,
@@ -862,6 +829,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     aspect=models.DataJobInputOutputClass(
                         inputDatasets=inlets,
                         outputDatasets=outlets,
+                        fineGrainedLineages=lineage.fine_grained_lineages,
                     ),
                 ).as_workunit()
 
@@ -912,14 +880,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # No source identified - use target with unknown_source prefix
             return f"unknown_source.{lineage.target_dataset}"
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for connector in self.get_connectors_manifest():
             # Always emit flow workunit (connector metadata) for all connectors
@@ -930,6 +890,18 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 yield from self.construct_job_workunits(connector)
 
             self.report.report_connector_scanned(connector.name)
+
+    def close(self) -> None:
+        self.session.close()
+        self.kafka_session.close()
+        if self._schema_resolver_provider:
+            try:
+                self._schema_resolver_provider.close()
+            except Exception:
+                logger.warning(
+                    "Failed to close schema resolver provider", exc_info=True
+                )
+        super().close()
 
     def get_report(self) -> KafkaConnectSourceReport:
         return self.report

@@ -2,6 +2,7 @@ import { UsergroupAddOutlined } from '@ant-design/icons';
 import { Button, Empty, List, Pagination } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -10,6 +11,7 @@ import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import UserListItem from '@app/identity/user/UserListItem';
 import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from '@app/identity/user/cacheUtils';
+import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     USERS_ASSIGN_ROLE_ID,
@@ -23,9 +25,8 @@ import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useListRolesQuery } from '@graphql/role.generated';
 import { useListUsersQuery } from '@graphql/user.generated';
-import { CorpUser, DataHubRole } from '@types';
+import { CorpUser } from '@types';
 
 const UserContainer = styled.div`
     display: flex;
@@ -39,7 +40,7 @@ const UserStyledList = styled(List)`
     overflow: auto;
     &&& {
         width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
+        border-color: ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -49,6 +50,7 @@ const UserPaginationContainer = styled.div`
 `;
 
 export const UserList = () => {
+    const { t } = useTranslation('entity.identity');
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -98,30 +100,24 @@ export const UserList = () => {
     };
 
     const {
+        roles: selectRoleOptions,
         loading: rolesLoading,
-        error: rolesError,
-        data: rolesData,
-    } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
-        variables: {
-            input: {
-                start: 0,
-                count: 10,
-            },
-        },
-    });
+        hasMore: rolesHasMore,
+        observerRef: rolesObserverRef,
+        searchQuery: rolesSearchQuery,
+        setSearchQuery: setRolesSearchQuery,
+    } = useRoleSelector();
 
     const loading = usersLoading || rolesLoading;
-    const error = usersError || rolesError;
-    const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
+    const error = usersError;
 
     useToggleEducationStepIdsAllowList(canManageUserCredentials, USERS_INVITE_LINK_ID);
 
     return (
         <>
             <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_INVITE_LINK_ID, USERS_ASSIGN_ROLE_ID]} />
-            {!usersData && loading && <Message type="loading" content="Loading users..." />}
-            {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
+            {!usersData && loading && <Message type="loading" content={t('users.loading')} />}
+            {error && <Message type="error" content={t('users.loadError')} />}
             <UserContainer>
                 <TabToolbar>
                     <div>
@@ -131,12 +127,12 @@ export const UserList = () => {
                             type="text"
                             onClick={() => setIsViewingInviteToken(true)}
                         >
-                            <UsergroupAddOutlined /> Invite Users
+                            <UsergroupAddOutlined /> {t('users.inviteButton')}
                         </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search users..."
+                        placeholderText={t('users.searchPlaceholder')}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -159,7 +155,7 @@ export const UserList = () => {
                 <UserStyledList
                     bordered
                     locale={{
-                        emptyText: <Empty description="No Users!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description={t('users.emptyTitle')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     dataSource={usersList}
                     renderItem={(item: any) => (
@@ -168,6 +164,11 @@ export const UserList = () => {
                             user={item as CorpUser}
                             canManageUserCredentials={canManageUserCredentials}
                             selectRoleOptions={selectRoleOptions}
+                            rolesLoading={rolesLoading}
+                            rolesHasMore={rolesHasMore}
+                            rolesObserverRef={rolesObserverRef}
+                            rolesSearchQuery={rolesSearchQuery}
+                            setRolesSearchQuery={setRolesSearchQuery}
                             refetch={usersRefetch}
                         />
                     )}

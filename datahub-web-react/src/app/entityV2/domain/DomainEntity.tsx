@@ -1,14 +1,16 @@
 import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import i18next from 'i18next';
 import * as React from 'react';
 
-import DomainIcon from '@app/domain/DomainIcon';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import DataProductsTab from '@app/entityV2/domain/DataProductsTab/DataProductsTab';
 import { DomainEntitiesTab } from '@app/entityV2/domain/DomainEntitiesTab';
 import { Preview } from '@app/entityV2/domain/preview/Preview';
 import { DomainSummaryTab } from '@app/entityV2/domain/summary/DomainSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfileTab } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -31,8 +33,10 @@ import { useGetDomainQuery } from '@graphql/domain.generated';
 import { Domain, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -44,14 +48,6 @@ export class DomainEntity implements Entity<Domain> {
     type: EntityType = EntityType.Domain;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <DomainIcon />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DomainIcon style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         if (styleType === IconStyleType.SVG) {
             return (
                 <path
@@ -63,7 +59,14 @@ export class DomainEntity implements Entity<Domain> {
             );
         }
 
-        return <DomainIcon style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return (
+            <Globe
+                className={TYPE_ICON_CLASS_NAME}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
+            />
+        );
     };
 
     isSearchEnabled = () => true;
@@ -78,9 +81,9 @@ export class DomainEntity implements Entity<Domain> {
 
     getPathName = () => this.getGraphName();
 
-    getEntityName = () => 'Domain';
+    getEntityName = () => i18next.t('entity.types:domain.name');
 
-    getCollectionName = () => 'Domains';
+    getCollectionName = () => i18next.t('entity.types:domain.namePlural');
 
     useEntityQuery = useGetDomainQuery;
 
@@ -128,9 +131,9 @@ export class DomainEntity implements Entity<Domain> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -140,13 +143,13 @@ export class DomainEntity implements Entity<Domain> {
         return [
             {
                 id: EntityProfileTab.SUMMARY_TAB,
-                name: 'Summary',
+                name: i18next.t('entity.types:tab.summary'),
                 component: showSummaryTab ? SummaryTab : DomainSummaryTab,
                 icon: SUMMARY_TAB_ICON,
             },
             {
                 id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
-                name: 'Assets',
+                name: i18next.t('entity.types:tab.assets'),
                 getCount: (entityData, _) => {
                     return entityData?.entities?.total;
                 },
@@ -157,7 +160,7 @@ export class DomainEntity implements Entity<Domain> {
                 ? [
                       {
                           id: EntityProfileTab.DOCUMENTATION_TAB,
-                          name: 'Documentation',
+                          name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: FileOutlined,
                       },
@@ -165,7 +168,7 @@ export class DomainEntity implements Entity<Domain> {
                 : []),
             {
                 id: EntityProfileTab.DATA_PRODUCTS_TAB,
-                name: 'Data Products',
+                name: i18next.t('entity.types:dataProduct.namePlural'),
                 getCount: (entityData, _) => {
                     return entityData?.dataProducts?.total;
                 },
@@ -173,7 +176,7 @@ export class DomainEntity implements Entity<Domain> {
                 icon: FileDoneOutlined,
             },
             {
-                name: 'Properties',
+                name: i18next.t('entity.types:tab.properties'),
                 component: PropertiesTab,
                 icon: UnorderedListOutlined,
             },
@@ -192,6 +195,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
             />
@@ -211,6 +215,7 @@ export class DomainEntity implements Entity<Domain> {
                 owners={data.ownership?.owners}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={PreviewType.SEARCH}
             />
@@ -237,6 +242,11 @@ export class DomainEntity implements Entity<Domain> {
 
     supportedCapabilities = () => {
         // TODO.. Determine whether SOFT_DELETE should go into here.
-        return new Set([EntityCapabilityType.OWNERS]);
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
+        ]);
     };
 }

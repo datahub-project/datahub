@@ -5,7 +5,7 @@ This module provides a clean separation between common utilities and connector i
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
@@ -13,6 +13,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     POSTGRES_SINK_CLOUD,
     SINK,
     SNOWFLAKE_SINK_CLOUD,
+    SNOWFLAKE_SOURCE_CLOUD,
     SOURCE,
     BaseConnector,
     ConnectorManifest,
@@ -20,7 +21,12 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectLineage,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
+    get_platform_instance,
 )
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
+
+if TYPE_CHECKING:
+    from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +40,66 @@ class ConnectorRegistry:
     """
 
     @staticmethod
+    def create_schema_resolver(
+        config: KafkaConnectSourceConfig,
+        connector: BaseConnector,
+        schema_resolver_provider: Optional[SchemaResolverProvider] = None,
+    ) -> Optional["SchemaResolver"]:
+        """
+        Create SchemaResolver for enhanced lineage extraction if enabled.
+
+        Args:
+            config: Kafka Connect source configuration
+            connector: Connector instance to get platform from
+            schema_resolver_provider: Pre-configured provider for bulk-fetching schemas
+
+        Returns:
+            SchemaResolver instance if feature is enabled and provider is available, None otherwise
+        """
+        if not config.use_schema_resolver:
+            return None
+
+        if not schema_resolver_provider:
+            logger.warning(
+                f"SchemaResolver not available for connector {connector.connector_manifest.name}: "
+                "No SchemaResolverProvider configured. Make sure the ingestion is running with "
+                "a valid DataHub connection (datahub_api or sink configuration)."
+            )
+            return None
+
+        try:
+            # Get platform from connector instance (single source of truth)
+            platform = connector.get_platform()
+
+            # Get platform instance if configured
+            platform_instance = get_platform_instance(
+                config, connector.connector_manifest.name, platform
+            )
+
+            logger.info(
+                f"Initializing SchemaResolver for connector {connector.connector_manifest.name} "
+                f"with platform={platform}, platform_instance={platform_instance}, env={config.env}"
+            )
+
+            return schema_resolver_provider.get(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=config.env,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to create SchemaResolver for connector {connector.connector_manifest.name}: {e}. "
+                "Falling back to standard lineage extraction.",
+                exc_info=True,
+            )
+            return None
+
+    @staticmethod
     def get_connector_for_manifest(
         manifest: ConnectorManifest,
         config: KafkaConnectSourceConfig,
         report: KafkaConnectSourceReport,
+        schema_resolver_provider: Optional[SchemaResolverProvider] = None,
     ) -> Optional[BaseConnector]:
         """
         Get the appropriate connector instance for a manifest.
@@ -46,23 +108,52 @@ class ConnectorRegistry:
             manifest: The connector manifest
             config: DataHub configuration
             report: Ingestion report
+            schema_resolver_provider: Pre-configured provider for bulk-fetching schemas
 
         Returns:
             Connector instance or None if no handler found
         """
         connector_class_value = manifest.config.get("connector.class", "")
 
-        # Determine connector type based on manifest type
+        logger.info(
+            f"Processing connector '{manifest.name}' - type={manifest.type}, class={connector_class_value}"
+        )
+
+        # Create connector instance first
         if manifest.type == SOURCE:
-            return ConnectorRegistry._get_source_connector(
+            connector = ConnectorRegistry._get_source_connector(
                 connector_class_value, manifest, config, report
             )
         elif manifest.type == SINK:
-            return ConnectorRegistry._get_sink_connector(
+            connector = ConnectorRegistry._get_sink_connector(
                 connector_class_value, manifest, config, report
             )
+        else:
+            logger.warning(
+                f"Unknown connector type '{manifest.type}' for connector '{manifest.name}'"
+            )
+            return None
 
-        return None
+        if connector:
+            # Log which handler was selected
+            handler_name = connector.__class__.__name__
+            platform = connector.get_platform()
+            logger.info(
+                f"Connector '{manifest.name}' will be handled by {handler_name} (platform={platform})"
+            )
+
+            # Create and attach schema resolver using connector's platform
+            schema_resolver = ConnectorRegistry.create_schema_resolver(
+                config, connector, schema_resolver_provider
+            )
+            if schema_resolver:
+                connector.schema_resolver = schema_resolver
+        else:
+            logger.debug(
+                f"No handler found for connector '{manifest.name}' with class '{connector_class_value}'"
+            )
+
+        return connector
 
     @staticmethod
     def _get_source_connector(
@@ -79,11 +170,15 @@ class ConnectorRegistry:
             ConfluentJDBCSourceConnector,
             DebeziumSourceConnector,
             MongoSourceConnector,
+            SnowflakeSourceConnector,
         )
 
         # Traditional JDBC source connector
         if connector_class_value == JDBC_SOURCE_CONNECTOR_CLASS:
             return ConfluentJDBCSourceConnector(manifest, config, report)
+        # Snowflake Source connector (Confluent Cloud managed)
+        elif connector_class_value == SNOWFLAKE_SOURCE_CLOUD:
+            return SnowflakeSourceConnector(manifest, config, report)
         # Cloud CDC connectors (use Debezium-style naming)
         elif (
             connector_class_value in CLOUD_JDBC_SOURCE_CLASSES
@@ -110,10 +205,17 @@ class ConnectorRegistry:
         """Get appropriate sink connector implementation."""
         from datahub.ingestion.source.kafka_connect.sink_connectors import (
             BIGQUERY_SINK_CONNECTOR_CLASS,
+            CLICKHOUSE_SINK_CONNECTOR_CLASS,
+            CONFLUENT_JDBC_SINK_CONNECTOR_CLASS,
+            DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
+            ICEBERG_SINK_CONNECTOR_CLASS,
             S3_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
+            SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS,
             BigQuerySinkConnector,
+            ClickHouseSinkConnector,
             ConfluentS3SinkConnector,
+            IcebergSinkConnector,
             JdbcSinkConnector,
             SnowflakeSinkConnector,
         )
@@ -128,46 +230,31 @@ class ConnectorRegistry:
         # S3 sink connectors
         elif connector_class_value == S3_SINK_CONNECTOR_CLASS:
             return ConfluentS3SinkConnector(manifest, config, report)
-        # Snowflake sink connectors (both self-hosted and Cloud)
+        # Snowflake sink connectors (classic self-hosted, high-performance v4, and Cloud)
         elif connector_class_value in (
             SNOWFLAKE_SINK_CONNECTOR_CLASS,
+            SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS,
             SNOWFLAKE_SINK_CLOUD,
         ):
             return SnowflakeSinkConnector(manifest, config, report)
-        # Confluent Cloud JDBC sink connectors (Postgres, MySQL)
+        # Confluent Cloud JDBC sink connectors (Postgres, MySQL) — platform known from class name
         elif connector_class_value == POSTGRES_SINK_CLOUD:
             return JdbcSinkConnector(manifest, config, report, platform="postgres")
         elif connector_class_value == MYSQL_SINK_CLOUD:
             return JdbcSinkConnector(manifest, config, report, platform="mysql")
+        # ClickHouse sink connector
+        elif connector_class_value == CLICKHOUSE_SINK_CONNECTOR_CLASS:
+            return ClickHouseSinkConnector(manifest, config, report)
+        # Iceberg sink connector
+        elif connector_class_value == ICEBERG_SINK_CONNECTOR_CLASS:
+            return IcebergSinkConnector(manifest, config, report)
+        # Self-hosted JDBC sink connectors — platform auto-detected from connection.url
+        elif connector_class_value in (
+            DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
+            CONFLUENT_JDBC_SINK_CONNECTOR_CLASS,
+        ):
+            return JdbcSinkConnector(manifest, config, report)
 
-        return None
-
-    @staticmethod
-    def extract_lineages(
-        manifest: ConnectorManifest,
-        config: KafkaConnectSourceConfig,
-        report: KafkaConnectSourceReport,
-    ) -> List[KafkaConnectLineage]:
-        """Extract lineages using the appropriate connector."""
-        connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report
-        )
-        if connector:
-            return connector.extract_lineages()
-        return []
-
-    @staticmethod
-    def extract_flow_property_bag(
-        manifest: ConnectorManifest,
-        config: KafkaConnectSourceConfig,
-        report: KafkaConnectSourceReport,
-    ) -> Optional[Dict[str, str]]:
-        """Extract flow property bag using the appropriate connector."""
-        connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report
-        )
-        if connector:
-            return connector.extract_flow_property_bag()
         return None
 
     @staticmethod
@@ -175,13 +262,31 @@ class ConnectorRegistry:
         manifest: ConnectorManifest,
         config: KafkaConnectSourceConfig,
         report: KafkaConnectSourceReport,
+        schema_resolver_provider: Optional[SchemaResolverProvider] = None,
     ) -> List[str]:
         """Extract topics from config using the appropriate connector."""
+        logger.debug(
+            f"get_topics_from_config called for connector '{manifest.name}' "
+            f"(type={manifest.type}, class={manifest.config.get('connector.class', 'unknown')})"
+        )
+
         connector = ConnectorRegistry.get_connector_for_manifest(
-            manifest, config, report
+            manifest, config, report, schema_resolver_provider
         )
         if connector:
-            return connector.get_topics_from_config()
+            logger.debug(
+                f"Calling get_topics_from_config on {connector.__class__.__name__} for '{manifest.name}'"
+            )
+            topics = connector.get_topics_from_config()
+            logger.info(
+                f"get_topics_from_config returned {len(topics)} topics for connector '{manifest.name}': "
+                f"{topics[:10] if topics else '[]'}"
+            )
+            return topics
+        else:
+            logger.warning(
+                f"No connector handler found for '{manifest.name}' - cannot derive topics from config"
+            )
         return []
 
 
@@ -202,14 +307,17 @@ class _GenericConnector(BaseConnector):
         """Create basic lineage from generic configuration."""
         from datahub.ingestion.source.kafka_connect.common import KafkaConnectLineage
 
-        return [
-            KafkaConnectLineage(
-                source_platform=self.generic_config.source_platform,
-                source_dataset=self.generic_config.source_dataset,
-                target_dataset="",  # Will be filled by kafka_connect.py
-                target_platform="kafka",
+        lineages: List[KafkaConnectLineage] = []
+        for topic in self.connector_manifest.topic_names:
+            lineages.append(
+                KafkaConnectLineage(
+                    source_platform=self.generic_config.source_platform,
+                    source_dataset=self.generic_config.source_dataset,
+                    target_dataset=topic,
+                    target_platform="kafka",
+                )
             )
-        ]
+        return lineages
 
     def get_topics_from_config(self) -> List[str]:
         """Extract topics from manifest configuration."""
@@ -236,7 +344,6 @@ class _GenericConnector(BaseConnector):
         """Generic connector supports any unknown class."""
         return True
 
-    @staticmethod
-    def get_platform(connector_class: str) -> str:
+    def get_platform(self) -> str:
         """Generic connectors have configurable platforms."""
         return "unknown"

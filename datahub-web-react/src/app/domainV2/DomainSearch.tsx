@@ -1,11 +1,11 @@
-import { LoadingOutlined, SearchOutlined } from '@ant-design/icons';
-import { SearchBar } from '@components';
+import { Loader, SearchBar } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
 import DomainSearchResultItem from '@app/domainV2/DomainSearchResultItem';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -18,12 +18,9 @@ const DomainSearchWrapper = styled.div`
 `;
 
 const ResultsWrapper = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     padding: 8px;
     position: absolute;
     max-height: 210px;
@@ -45,11 +42,23 @@ const InputWrapper = styled.div`
     padding: 12px;
 `;
 
-const SearchIcon = styled(SearchOutlined)`
-    color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
-    padding: 16px;
+// Collapsed-state search trigger. Anatomy mirrors the documents sidebar's
+// `SearchIconButton` so both sidebars present the same collapsed entry point:
+// a full-width borderless button that re-expands the sidebar on click.
+const SearchIconButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    font-size: 20px;
+    padding: 16px 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: ${(props) => props.theme.colors.icon};
+
+    &:hover {
+        color: ${(props) => props.theme.colors.iconHover};
+    }
 `;
 
 type Props = {
@@ -58,6 +67,7 @@ type Props = {
 };
 
 function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     const [searchInput, setSearchInput] = useState('');
     const [query, setQuery] = useState('');
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
@@ -79,12 +89,19 @@ function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
     return (
         <DomainSearchWrapper>
             {isCollapsed && unhideSidebar ? (
-                <SearchIcon onClick={unhideSidebar} />
+                <SearchIconButton
+                    type="button"
+                    onClick={unhideSidebar}
+                    aria-label={tc('search')}
+                    data-testid="domain-sidebar-search-icon"
+                >
+                    <MagnifyingGlass size={20} weight="regular" />
+                </SearchIconButton>
             ) : (
                 <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                     <InputWrapper>
                         <SearchBar
-                            placeholder="Search"
+                            placeholder={tc('search')}
                             value={searchInput}
                             onChange={setSearchInput}
                             onFocus={() => setIsSearchBarFocused(true)}
@@ -92,7 +109,7 @@ function DomainSearch({ isCollapsed, unhideSidebar }: Props) {
                     </InputWrapper>
                     {loading && isSearchBarFocused && (
                         <LoadingWrapper>
-                            <LoadingOutlined />
+                            <Loader size="md" />
                         </LoadingWrapper>
                     )}
                     {!loading && isSearchBarFocused && !!entities?.length && (

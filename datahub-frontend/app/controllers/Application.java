@@ -3,7 +3,7 @@ package controllers;
 import static auth.AuthUtils.ACTOR;
 import static auth.AuthUtils.SESSION_COOKIE_GMS_TOKEN_NAME;
 
-import akka.util.ByteString;
+import auth.AuthUtils;
 import auth.Authenticator;
 import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
+import config.GracefulShutdownModule;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -21,11 +22,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import org.apache.pekko.util.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.Environment;
@@ -45,24 +48,51 @@ public class Application extends Controller {
       Set.of("connection", "host", "content-length", "expect", "upgrade", "transfer-encoding");
   private static final Set<String> SWAGGER_PATHS =
       Set.of("/openapi/swagger-ui", "/openapi/v3/api-docs");
+  // Stamped on every proxied request so GMS can rate-limit browser vs programmatic traffic
+  // differently. Browser = authenticated UI session (signed cookie); SDK = bearer/programmatic.
+  // Client-supplied values are stripped before re-stamping, so the value is trustworthy ON THIS
+  // HOP only. It is advisory: callers that reach GMS directly (bypassing this proxy) can set the
+  // header themselves, so GMS treats client class as a hint and applies class buckets only when
+  // RATE_LIMITS_CLIENT_CLASS_ENABLED=true.
+  private static final String REQUEST_SOURCE_HEADER = "X-DataHub-Request-Source";
+  private static final String REQUEST_SOURCE_BROWSER = "BROWSER";
+  private static final String REQUEST_SOURCE_SDK = "SDK";
   private final HttpClient httpClient;
 
   private final Config config;
   private final Environment environment;
+  private final GracefulShutdownModule shutdownModule;
 
   private final String basePath;
   private final String gaTrackingId;
+  private final List<String> streamingPathPrefixes;
 
   @Inject
-  public Application(HttpClient httpClient, Environment environment, @Nonnull Config config) {
+  public Application(
+      HttpClient httpClient,
+      Environment environment,
+      @Nonnull Config config,
+      GracefulShutdownModule shutdownModule) {
     this.httpClient = httpClient;
     this.config = config;
     this.environment = environment;
+    this.shutdownModule = shutdownModule;
     this.basePath = config.getString("datahub.basePath");
     this.gaTrackingId =
         config.hasPath("analytics.google.tracking.id")
             ? config.getString("analytics.google.tracking.id")
             : null;
+    this.streamingPathPrefixes = resolveStreamingPathPrefixes(config);
+  }
+
+  static List<String> resolveStreamingPathPrefixes(Config config) {
+    if (config.hasPath("proxy.streamingPathPrefixes")) {
+      String value = config.getString("proxy.streamingPathPrefixes");
+      if (value != null && !value.isBlank()) {
+        return Arrays.stream(value.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+      }
+    }
+    return List.of();
   }
 
   /**
@@ -109,6 +139,9 @@ public class Application extends Controller {
 
   @Nonnull
   public Result healthcheck() {
+    if (shutdownModule.isShuttingDown()) {
+      return status(SERVICE_UNAVAILABLE, "Shutting down");
+    }
     return ok("GOOD");
   }
 
@@ -120,18 +153,6 @@ public class Application extends Controller {
   @Nonnull
   public Result index(@Nullable String path) {
     return serveAsset(path);
-  }
-
-  /**
-   * Moves permanently the get into version without trailing slash
-   *
-   * @param path String
-   * @return Result
-   */
-  @Nonnull
-  public Result redirectTrailingSlash(@Nullable String path) {
-
-    return movedPermanently("/" + path);
   }
 
   /**
@@ -198,6 +219,7 @@ public class Application extends Controller {
                 !RESTRICTED_HEADERS.contains(entry.getKey().toLowerCase())
                     && !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(
                         entry.getKey())
+                    && !REQUEST_SOURCE_HEADER.equalsIgnoreCase(entry.getKey())
                     && !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey())
                     && !Http.HeaderNames.AUTHORIZATION.equalsIgnoreCase(entry.getKey()))
         .forEach(
@@ -207,50 +229,81 @@ public class Application extends Controller {
     }
     httpRequestBuilder.header(
         AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader(request));
+    // Browser = authenticated UI session (signed cookie); everything else = programmatic/SDK.
+    httpRequestBuilder.header(
+        REQUEST_SOURCE_HEADER,
+        AuthUtils.hasValidSessionCookie(request) ? REQUEST_SOURCE_BROWSER : REQUEST_SOURCE_SDK);
     request
         .contentType()
         .ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));
     Instant start = Instant.now();
+    boolean useStreaming =
+        streamingPathPrefixes.stream().anyMatch(prefix -> resolvedUri.startsWith(prefix));
+
+    HttpResponse.BodyHandler<?> bodyHandler =
+        useStreaming
+            ? HttpResponse.BodyHandlers.ofInputStream()
+            : HttpResponse.BodyHandlers.ofByteArray();
+
     return httpClient
-        .sendAsync(httpRequestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray())
+        .sendAsync(httpRequestBuilder.build(), bodyHandler)
         .thenApply(
-            apiResponse -> {
-              boolean verboseGraphQLLogging = config.getBoolean("graphql.verbose.logging");
-              int verboseGraphQLLongQueryMillis = config.getInt("graphql.verbose.slowQueryMillis");
-              Instant finish = Instant.now();
-              long timeElapsed = Duration.between(start, finish).toMillis();
-              if (verboseGraphQLLogging && timeElapsed >= verboseGraphQLLongQueryMillis) {
-                logSlowQuery(request, resolvedUri, timeElapsed);
-              }
-              final ResponseHeader header =
-                  new ResponseHeader(
-                      apiResponse.statusCode(),
-                      apiResponse.headers().map().entrySet().stream()
-                          .filter(
-                              entry ->
-                                  !Http.HeaderNames.CONTENT_LENGTH.equalsIgnoreCase(entry.getKey()))
-                          .filter(
-                              entry ->
-                                  !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
-                          .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
-                          .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
-              final HttpEntity body =
-                  new HttpEntity.Strict(
-                      ByteString.fromArray(apiResponse.body()),
-                      apiResponse.headers().firstValue(Http.HeaderNames.CONTENT_TYPE));
-              return new Result(header, body);
-            })
-        .exceptionally(
-            ex -> {
-              Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-              if (cause instanceof java.net.http.HttpTimeoutException) {
-                return status(GATEWAY_TIMEOUT, "Proxy request timed out.");
-              } else if (cause instanceof java.net.ConnectException) {
-                return status(BAD_GATEWAY, "Proxy connection failed: " + cause.getMessage());
-              } else {
-                return internalServerError("Proxy error: " + cause.getMessage());
-              }
-            });
+            apiResponse -> buildProxyResult(request, resolvedUri, start, apiResponse, useStreaming))
+        .exceptionally(this::handleProxyException);
+  }
+
+  private Result buildProxyResult(
+      Http.Request request,
+      String resolvedUri,
+      Instant start,
+      HttpResponse<?> apiResponse,
+      boolean useStreaming) {
+    boolean verboseGraphQLLogging = config.getBoolean("graphql.verbose.logging");
+    int verboseGraphQLLongQueryMillis = config.getInt("graphql.verbose.slowQueryMillis");
+    long timeElapsed = Duration.between(start, Instant.now()).toMillis();
+    if (verboseGraphQLLogging && timeElapsed >= verboseGraphQLLongQueryMillis) {
+      logSlowQuery(request, resolvedUri, (float) timeElapsed);
+    }
+    ResponseHeader header = buildProxyResponseHeader(apiResponse, useStreaming);
+    Optional<String> contentType = apiResponse.headers().firstValue(Http.HeaderNames.CONTENT_TYPE);
+    HttpEntity body =
+        useStreaming
+            ? new HttpEntity.Streamed(
+                org.apache.pekko.stream.javadsl.StreamConverters.fromInputStream(
+                    () -> (InputStream) apiResponse.body()),
+                Optional.empty(),
+                contentType)
+            : new HttpEntity.Strict(ByteString.fromArray((byte[]) apiResponse.body()), contentType);
+    return new Result(header, body);
+  }
+
+  private ResponseHeader buildProxyResponseHeader(
+      HttpResponse<?> apiResponse, boolean useStreaming) {
+    Map<String, String> headers =
+        apiResponse.headers().map().entrySet().stream()
+            .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equalsIgnoreCase(entry.getKey()))
+            .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
+            .filter(
+                entry ->
+                    !Http.HeaderNames.CONTENT_ENCODING.equalsIgnoreCase(entry.getKey())
+                        && !Http.HeaderNames.TRANSFER_ENCODING.equalsIgnoreCase(entry.getKey()))
+            .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
+            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+    if (useStreaming) {
+      headers.put(Http.HeaderNames.CONTENT_ENCODING, "identity");
+    }
+    return new ResponseHeader(apiResponse.statusCode(), headers);
+  }
+
+  private Result handleProxyException(Throwable ex) {
+    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+    if (cause instanceof java.net.http.HttpTimeoutException) {
+      return status(GATEWAY_TIMEOUT, "Proxy request timed out.");
+    } else if (cause instanceof java.net.ConnectException) {
+      return status(BAD_GATEWAY, "Proxy connection failed: " + cause.getMessage());
+    } else {
+      return internalServerError("Proxy error: " + cause.getMessage());
+    }
   }
 
   private HttpRequest.BodyPublisher buildBodyPublisher(Http.Request request) {
@@ -408,13 +461,19 @@ public class Application extends Controller {
     return actor == null ? "" : actor;
   }
 
+  /**
+   * Maps the request path to the backend path: strips datahub.basePath (when present) and applies
+   * path rewrites (e.g. /api/v2/graphql → /api/graphql, /api/gms → /). All conditionals (GraphQL,
+   * GMS, streaming) use this stripped path. When using a base path, set datahub.basePath to the
+   * same value as play.http.context so that stripping works (Play may already strip context from
+   * request.uri(); stripBasePath returns the path unchanged if the prefix is not present).
+   */
   private String mapPath(@Nonnull final String path) {
 
     final String strippedPath;
 
     // Cannot strip base path from swagger urls
     if (SWAGGER_PATHS.stream().noneMatch(path::contains)) {
-      // First, strip the base path if present
       strippedPath = BasePathUtils.stripBasePath(path, this.basePath);
     } else {
       strippedPath = path;

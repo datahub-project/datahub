@@ -41,7 +41,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
     TestableSource,
@@ -74,9 +73,6 @@ from datahub.ingestion.source.looker.looker_common import (
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -128,7 +124,7 @@ class DashboardProcessingResult:
 )
 @capability(
     SourceCapability.USAGE_STATS,
-    "Enabled by default, configured using `extract_usage_history`",
+    "Dashboard, chart, and explore usage. Enabled by default, configured using `extract_usage_history`",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
@@ -141,15 +137,14 @@ class DashboardProcessingResult:
 )
 class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     """
-    This plugin extracts the following:
-    - Looker dashboards, dashboard elements (charts) and explores
-    - Names, descriptions, URLs, chart types, input explores for the charts
-    - Schemas and input views for explores
-    - Owners of dashboards
+    Source that extracts dashboards, explores, and charts from Looker via the Looker API.
 
-    :::note
-    To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must ALSO use the `lookml` module.
-    :::
+    Implementation notes:
+    - Uses Looker SDK for API access
+    - Maintains LookerExploreRegistry to cache and resolve explore metadata
+    - Maintains LookerUserRegistry for ownership resolution
+    - Implements stateful ingestion for stale entity removal
+    - Supports usage statistics extraction from Looker's system activity
     """
 
     platform = "looker"
@@ -181,6 +176,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # Keep track of ingested chart urns, to omit usage for non-ingested entities
         self.chart_urns: Set[str] = set()
+
+        # Explores we actually emitted, so we only attach usage stats to them
+        self.explores_for_usage: List[looker_usage.LookerExploreForUsage] = []
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -918,6 +916,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 self.source_config.external_base_url or self.source_config.base_url,
                 self.source_config.extract_embed_urls,
             )
+            if explore_dataset_entity is not None:
+                # list.append is atomic under the GIL, so this is safe to call
+                # from the BackpressureAwareExecutor worker threads.
+                self.explores_for_usage.append(
+                    looker_usage.LookerExploreForUsage(
+                        id=None, model_name=model, name=explore
+                    )
+                )
 
         return (
             explore_dataset_entity,
@@ -1408,20 +1414,23 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             filtered_looks,
         )
 
+        explore_usage_generator = looker_usage.create_explore_stat_generator(
+            stat_generator_config,
+            self.reporter,
+            self.source_config,
+            self.explores_for_usage,
+        )
+
         mcps: List[MetadataChangeProposalWrapper] = []
-        for usage_stat_generator in [dashboard_usage_generator, chart_usage_generator]:
+        for usage_stat_generator in [
+            dashboard_usage_generator,
+            chart_usage_generator,
+            explore_usage_generator,
+        ]:
             for mcp in usage_stat_generator.generate_usage_stat_mcps():
                 mcps.append(mcp)
 
         return mcps
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def emit_independent_looks_entities(
         self, dashboard_element: LookerDashboardElement

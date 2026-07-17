@@ -1,3 +1,7 @@
+---
+description: "Get started with the DataHub GraphQL API by reading entities, running queries, and exploring metadata through the schema."
+---
+
 # Getting Started With GraphQL
 
 ## Reading an Entity: Queries
@@ -96,7 +100,7 @@ mutation updateDashboard {
         urn: "urn:li:dashboard:(looker,baz)",
         input: {
             editableProperties: {
-                description: "My new desription"
+                description: "My new description"
             }
         }
     ) {
@@ -120,7 +124,7 @@ For more information, please refer to following links.
 - [Editing Description (i.e. Documentation) on Columns](/docs/api/tutorials/descriptions.md#add-description-on-column)
 - [Soft Deleting](/docs/api/tutorials/datasets.md#delete-dataset)
 
-Please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide.
+Please refer to [DataHub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison) to navigate to the use-case oriented guide.
 
 ## Handling Errors
 

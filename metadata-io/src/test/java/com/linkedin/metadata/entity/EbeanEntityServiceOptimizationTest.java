@@ -2,6 +2,9 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 
@@ -16,6 +19,7 @@ import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import io.datahubproject.metadata.context.OperationContext;
@@ -55,7 +59,7 @@ public class EbeanEntityServiceOptimizationTest {
   // Retention lookup (disabled for test)
   // 1. dataHubRetentionConfig (if enabled add 1 for read)
   private static final int existingRetention = 0;
-  // Final default select existing
+  // Final default select existing (no retention)
   private static final int existingBaseCount = existingDefaultAspectsGeneration + existingRetention;
 
   private final OperationContext opContext =
@@ -69,7 +73,13 @@ public class EbeanEntityServiceOptimizationTest {
     server =
         EbeanTestUtils.createTestServer(EbeanEntityServiceOptimizationTest.class.getSimpleName());
 
-    AspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
+    AspectDao aspectDao =
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(server),
+            EbeanConfiguration.testDefault,
+            null,
+            List.of(),
+            null);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     entityService =
@@ -134,7 +144,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "existing: single no-op",
@@ -161,15 +171,15 @@ public class EbeanEntityServiceOptimizationTest {
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "existing: multiple no-ops. expected no additional interactions vs single no-op",
         mustInclude);
 
     // single update (existing from previous - with actual change)
-    // 1. nextVersion
-    // 2. current value
+    // With retentionService=null, maxVersionsToKeep=1 so no version-history row is inserted.
+    // 1. nextVersion, 2. current value (SELECTs); 0 INSERT, 1 UPDATE (version 0 only).
     assertSQL(
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
@@ -183,15 +193,14 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
-        1,
+        existingBaseCount + 1,
+        0,
         1,
         "existing: single change",
         mustInclude);
 
     // multiple update (existing from previous - with 2 actual changes)
-    // 1. nextVersion
-    // 2. current value
+    // With retentionService=null, maxVersionsToKeep=1: no version-history INSERT, only UPDATE.
     assertSQL(
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
@@ -212,10 +221,90 @@ public class EbeanEntityServiceOptimizationTest {
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
             .build(opContext),
-        existingBaseCount + 2,
-        1,
+        existingBaseCount + 1,
+        0,
         1,
         "existing: multiple change. expected no additional statements over single change",
+        mustInclude);
+  }
+
+  /**
+   * When retention returns maxVersionsToKeep &gt; 1, an update that changes the aspect inserts the
+   * previous version as history (1 INSERT) and updates version 0 (1 UPDATE). This test covers that
+   * path to retain coverage for the version-history write behavior.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testUpsertOptimizationWithVersionHistory() {
+    RetentionService<ChangeItemImpl> mockRetention =
+        (RetentionService<ChangeItemImpl>) mock(RetentionService.class);
+    doReturn(20).when(mockRetention).getMaxVersionsToKeepForWrite(any(), anyString(), anyString());
+    entityService.setRetentionService(mockRetention);
+
+    Urn testUrn1 =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:opt,testOptimizationV2,PROD)");
+    final String mustInclude = "urn:li:dataPlatform:opt";
+
+    // initial insert (same as no-retention path)
+    assertSQL(
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .one(
+                ChangeItemImpl.builder()
+                    .urn(testUrn1)
+                    .aspectName(STATUS_ASPECT_NAME)
+                    .recordTemplate(new Status().setRemoved(false))
+                    .changeType(ChangeType.UPSERT)
+                    .auditStamp(TEST_AUDIT_STAMP)
+                    .build(opContext.getAspectRetriever()),
+                opContext.getRetrieverContext())
+            .build(opContext),
+        nonExistingBaseCount + 1,
+        1,
+        0,
+        "with retention: initial insert",
+        mustInclude);
+
+    // no-op update (same SELECT/INSERT/UPDATE counts as no-retention path; mock does not add DB
+    // reads)
+    assertSQL(
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .one(
+                ChangeItemImpl.builder()
+                    .urn(testUrn1)
+                    .aspectName(STATUS_ASPECT_NAME)
+                    .recordTemplate(new Status().setRemoved(false))
+                    .changeType(ChangeType.UPSERT)
+                    .auditStamp(TEST_AUDIT_STAMP)
+                    .build(opContext.getAspectRetriever()),
+                opContext.getRetrieverContext())
+            .build(opContext),
+        existingBaseCount + 1,
+        0,
+        1,
+        "with retention: existing no-op",
+        mustInclude);
+
+    // actual change: maxVersionsToKeep=20 so we insert previous version (1 INSERT) and update v0 (1
+    // UPDATE)
+    assertSQL(
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .one(
+                ChangeItemImpl.builder()
+                    .urn(testUrn1)
+                    .aspectName(STATUS_ASPECT_NAME)
+                    .recordTemplate(new Status().setRemoved(true))
+                    .changeType(ChangeType.UPSERT)
+                    .auditStamp(TEST_AUDIT_STAMP)
+                    .build(opContext.getAspectRetriever()),
+                opContext.getRetrieverContext())
+            .build(opContext),
+        existingBaseCount + 1,
+        1,
+        1,
+        "with retention: existing single change (expect version-history INSERT + UPDATE)",
         mustInclude);
   }
 

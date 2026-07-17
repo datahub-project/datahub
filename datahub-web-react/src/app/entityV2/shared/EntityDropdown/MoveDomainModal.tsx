@@ -1,5 +1,6 @@
-import { Form, Modal, Typography, message } from 'antd';
+import { Form, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useDomainsContext } from '@app/domainV2/DomainsContext';
@@ -10,8 +11,7 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
 
 import { useMoveDomainMutation } from '@graphql/domain.generated';
 import { DataHubPageModuleType, EntityType } from '@types';
@@ -30,6 +30,9 @@ interface Props {
 
 function MoveDomainModal(props: Props) {
     const { onClose } = props;
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tcf } = useTranslation('common.feedback');
     const { entityData } = useDomainsContext();
     const domainUrn = entityData?.urn;
     const [form] = Form.useForm();
@@ -54,12 +57,14 @@ function MoveDomainModal(props: Props) {
             },
         })
             .then(() => {
-                message.loading({ content: 'Updating...', duration: 2 });
+                message.loading({ content: tcf('updating'), duration: 2 });
                 const newParentToUpdate = selectedParentUrn || undefined;
                 handleMoveDomainComplete(newParentToUpdate);
                 setTimeout(() => {
                     message.success({
-                        content: `Moved ${entityRegistry.getEntityName(EntityType.Domain)}!`,
+                        content: t('move.success', {
+                            entityName: entityRegistry.getEntityName(EntityType.Domain),
+                        }),
                         duration: 2,
                     });
                     refetch();
@@ -72,33 +77,36 @@ function MoveDomainModal(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to move: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('move.error', { errorMessage: e.message || '' }), duration: 3 });
             });
         onClose();
     }
 
     return (
         <Modal
-            title="Move Domain"
+            title={t('moveDomain.title')}
             data-testid="move-domain-modal"
-            visible
+            open
             onCancel={onClose}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" onClick={onClose}>
-                        Cancel
-                    </Button>
-                    <Button onClick={moveDomain} data-testid="move-domain-modal-move-button">
-                        Move
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: tc('cancel'),
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: tc('move'),
+                    variant: 'filled',
+                    onClick: moveDomain,
+                    buttonDataTestId: 'move-domain-modal-move-button',
+                },
+            ]}
         >
             <Form form={form} initialValues={{}} layout="vertical">
                 <Form.Item
                     label={
                         <Typography.Text strong>
-                            Move To <OptionalWrapper>(optional)</OptionalWrapper>
+                            <Trans t={t} i18nKey="move.toLabel" components={{ optional: <OptionalWrapper /> }} />
                         </Typography.Text>
                     }
                 >

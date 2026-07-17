@@ -33,6 +33,11 @@ record FreshnessAssertionInfo {
       "name": "Asserts",
       "entityTypes": [ "dataset", "dataJob" ]
     }
+    @UrnValidation = {
+      "exist": false,
+      "strict": true,
+      "entityTypes": [ "dataset", "dataJob" ]
+    }
     entity: Urn
 
     /**
@@ -44,6 +49,11 @@ record FreshnessAssertionInfo {
       }
     }
     schedule: FreshnessAssertionSchedule
+
+    /**
+    * Optional configuration for assigning severities to failed freshness assertions.
+    */
+    failureSeverityConfig: optional AssertionFailureSeverityConfig
 
     /**
      * A definition of the specific filters that should be applied, when performing monitoring.

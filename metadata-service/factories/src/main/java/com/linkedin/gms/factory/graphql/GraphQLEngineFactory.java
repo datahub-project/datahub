@@ -21,6 +21,7 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.knowledge.DocumentImportServiceFactory;
 import com.linkedin.gms.factory.knowledge.DocumentServiceFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -31,8 +32,10 @@ import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
@@ -48,6 +51,7 @@ import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.aws.S3Util;
@@ -80,9 +84,11 @@ import org.springframework.context.annotation.Import;
   GitVersionFactory.class,
   SiblingGraphServiceFactory.class,
   AssertionServiceFactory.class,
-  DocumentServiceFactory.class
+  DocumentServiceFactory.class,
+  DocumentImportServiceFactory.class,
 })
 public class GraphQLEngineFactory {
+
   @Autowired
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
@@ -134,6 +140,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("gitVersion")
   private GitVersion gitVersion;
+
+  @Autowired
+  @Qualifier("ingestionCliVersionMatrixService")
+  private IngestionCliVersionMatrixService versionMatrixService;
 
   @Autowired
   @Qualifier("timelineService")
@@ -218,6 +228,10 @@ public class GraphQLEngineFactory {
   @Qualifier("documentService")
   private DocumentService documentService;
 
+  @Autowired(required = false)
+  @Qualifier("documentImportService")
+  private DocumentImportService documentImportService;
+
   @Autowired
   @Qualifier("pageTemplateService")
   private PageTemplateService pageTemplateService;
@@ -233,6 +247,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("dataHubFileService")
   private DataHubFileService dataHubFileService;
+
+  @Autowired(required = false)
+  @Qualifier("semanticSearchService")
+  private SemanticSearchService semanticSearchService;
 
   @Bean(name = "graphQLEngine")
   @Nonnull
@@ -261,6 +279,7 @@ public class GraphQLEngineFactory {
     args.setSecretService(secretService);
     args.setNativeUserService(nativeUserService);
     args.setIngestionConfiguration(configProvider.getIngestion());
+    args.setIngestionCliVersionMatrixService(versionMatrixService);
     args.setAuthenticationConfiguration(configProvider.getAuthentication());
     args.setAuthorizationConfiguration(configProvider.getAuthorization());
     args.setGitVersion(gitVersion);
@@ -301,8 +320,12 @@ public class GraphQLEngineFactory {
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
     args.setDocumentService(documentService);
+    args.setDocumentImportService(documentImportService);
     args.setMetricUtils(metricUtils);
     args.setS3Util(s3Util);
+    args.setSemanticSearchService(semanticSearchService);
+    args.setSemanticSearchConfiguration(
+        configProvider.getElasticSearch().getEntityIndex().getSemanticSearch());
 
     return new GmsGraphQLEngine(args).builder().build();
   }

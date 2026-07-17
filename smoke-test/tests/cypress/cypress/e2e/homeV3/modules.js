@@ -12,14 +12,14 @@ import {
   finishEditingDefaultTemplate,
   removeFirstModuleWithTestId,
   resetToOrgDefault,
-  setThemeV2AndHomePageRedesignFlags,
+  setHomePageRedesignFlags,
   startEditingDefaultTemplate,
   waitUntilTemplateIsLoaded,
 } from "./utils";
 
 describe("home page modules", () => {
   beforeEach(() => {
-    setThemeV2AndHomePageRedesignFlags(true);
+    setHomePageRedesignFlags(true);
     cy.login();
     cy.visit("/");
     cy.skipIntroducePage();

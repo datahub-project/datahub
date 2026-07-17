@@ -1,18 +1,23 @@
 import contextlib
+import json
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Protocol, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set, Tuple
 
+from requests.models import HTTPError
 from typing_extensions import TypedDict
 
+from datahub.configuration.common import GraphError
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.metadata.urns import DataPlatformUrn
 from datahub.sql_parsing._models import _TableName as _TableName
@@ -47,6 +52,11 @@ class SchemaResolverInterface(Protocol):
     @property
     def platform(self) -> str: ...
 
+    # Declared as a settable attribute (not a read-only property like `platform`)
+    # because implementers assign it in __init__; a Protocol property would
+    # install a read-only descriptor and break those assignments.
+    platform_instance: Optional[str]
+
     def includes_temp_tables(self) -> bool: ...
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]: ...
@@ -63,7 +73,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         platform: str,
         platform_instance: Optional[str] = None,
         env: str = DEFAULT_ENV,
-        graph: Optional[DataHubGraph] = None,
+        graph: Optional["DataHubGraph"] = None,
         _cache_filename: Optional[pathlib.Path] = None,
         report: Optional[SchemaResolverReport] = None,
     ):
@@ -142,20 +152,16 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return urn, None
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        """Resolve a table to its URN and (best-effort) schema.
+
+        Contract: the returned URN is **best-effort and always non-None** — on a
+        cache/graph miss a *synthesized* URN is still returned. The resolution
+        signal is the **second element**: ``SchemaInfo is None`` means the table
+        was not found in DataHub. Callers deciding whether a table actually
+        exists must test the ``SchemaInfo``, never ``urn is None``.
+        """
         urn = self.get_urn_for_table(table)
-
-        schema_info = self._resolve_schema_info(urn)
-        if schema_info:
-            self._track_cache_hit()
-            return urn, schema_info
-
         urn_lower = self.get_urn_for_table(table, lower=True)
-        if urn_lower != urn:
-            schema_info = self._resolve_schema_info(urn_lower)
-            if schema_info:
-                self._track_cache_hit()
-                return urn_lower, schema_info
-
         # Our treatment of platform instances when lowercasing urns
         # is inconsistent. In some places (e.g. Snowflake), we lowercase
         # the table names but not the platform instance. In other places
@@ -165,11 +171,71 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         # While we have this sort of inconsistency, we should also
         # check the mixed case urn, as a last resort.
         urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
+
+        urns_to_try = [urn]
+        if urn_lower != urn:
+            urns_to_try.append(urn_lower)
         if urn_mixed not in {urn, urn_lower}:
-            schema_info = self._resolve_schema_info(urn_mixed)
-            if schema_info:
-                self._track_cache_hit()
-                return urn_mixed, schema_info
+            urns_to_try.append(urn_mixed)
+
+        for candidate_urn in urns_to_try:
+            if candidate_urn in self._schema_cache:
+                schema_info = self._schema_cache[candidate_urn]
+                if schema_info is not None:
+                    self._track_cache_hit()
+                    return candidate_urn, schema_info
+
+        if self.graph:
+            # Skip URNs already in cache (None entries included) to avoid repeated API calls.
+            urns_to_fetch = [u for u in urns_to_try if u not in self._schema_cache]
+
+            if urns_to_fetch:
+                try:
+                    entity_results = self.graph.get_entities(
+                        entity_name="dataset",
+                        urns=urns_to_fetch,
+                        aspects=[SchemaMetadataClass.ASPECT_NAME],
+                        with_system_metadata=False,
+                    )
+
+                    for fetch_urn in urns_to_fetch:
+                        schema_metadata: Optional[SchemaMetadataClass] = None
+
+                        if fetch_urn in entity_results:
+                            entity_aspects = entity_results[fetch_urn]
+                            if SchemaMetadataClass.ASPECT_NAME in entity_aspects:
+                                aspect_value, _ = entity_aspects[
+                                    SchemaMetadataClass.ASPECT_NAME
+                                ]
+                                if isinstance(aspect_value, SchemaMetadataClass):
+                                    schema_metadata = aspect_value
+
+                        self.add_schema_metadata_from_fetch(fetch_urn, schema_metadata)
+
+                except (
+                    TimeoutError,
+                    ConnectionError,
+                    OSError,
+                    HTTPError,
+                    json.JSONDecodeError,
+                    ValueError,
+                    KeyError,
+                    GraphError,
+                    AssertionError,
+                ) as e:
+                    logger.warning(
+                        f"Batch schema fetch failed ({type(e).__name__}): {e}. "
+                        f"Caching {len(urns_to_fetch)} URN(s) as None to avoid repeated lookups.",
+                        exc_info=True,
+                    )
+                    for fetch_urn in urns_to_fetch:
+                        self._save_to_cache(fetch_urn, None)
+
+            for candidate_urn in urns_to_try:
+                schema_info = self._schema_cache.get(candidate_urn)
+                if schema_info is not None:
+                    self._track_cache_hit()
+                    return candidate_urn, schema_info
 
         logger.debug(
             f"Schema resolution failed for table {table}. Tried URNs: "
@@ -177,10 +243,24 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         self._track_cache_miss()
 
-        if self._prefers_urn_lower():
-            return urn_lower, None
-        else:
-            return urn, None
+        return (urn_lower if self._prefers_urn_lower() else urn), None
+
+    def resolve_table_parts(
+        self,
+        *,
+        database: Optional[str],
+        db_schema: Optional[str],
+        table: str,
+    ) -> Tuple[str, Optional[SchemaInfo]]:
+        """Resolve catalog/schema/table parts to a URN without importing _TableName.
+
+        Same contract as :meth:`resolve_table`: the URN is always non-None
+        (synthesized on a miss); test the returned ``SchemaInfo`` (2nd element)
+        to tell whether the table was actually found.
+        """
+        return self.resolve_table(
+            _TableName(database=database, db_schema=db_schema, table=table)
+        )
 
     def _prefers_urn_lower(self) -> bool:
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
@@ -220,6 +300,18 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         schema_info = _convert_schema_aspect_to_info(schema_metadata)
         self._save_to_cache(urn, schema_info)
 
+    def add_schema_metadata_from_fetch(
+        self, urn: str, schema_metadata: Optional[SchemaMetadataClass]
+    ) -> None:
+        # Always stores a result (including None) to prevent repeated API calls
+        # for schemas not found in DataHub.
+        schema_info = (
+            _convert_schema_aspect_to_info(schema_metadata)
+            if schema_metadata is not None
+            else None
+        )
+        self._save_to_cache(urn, schema_info)
+
     def add_raw_schema_info(self, urn: str, schema_info: SchemaInfo) -> None:
         self._save_to_cache(urn, schema_info)
 
@@ -248,7 +340,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def _save_to_cache(self, urn: str, schema_info: Optional[SchemaInfo]) -> None:
         self._schema_cache[urn] = schema_info
 
-    def _fetch_schema_info(self, graph: DataHubGraph, urn: str) -> Optional[SchemaInfo]:
+    def _fetch_schema_info(
+        self, graph: "DataHubGraph", urn: str
+    ) -> Optional[SchemaInfo]:
         aspect = graph.get_aspect(urn, SchemaMetadataClass)
         if not aspect:
             return None
@@ -281,6 +375,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
     ):
         self._base_resolver = base_resolver
         self._extra_schemas = extra_schemas
+        self.platform_instance = base_resolver.platform_instance
 
     @property
     def platform(self) -> str:

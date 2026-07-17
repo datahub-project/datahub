@@ -3,7 +3,8 @@ package com.linkedin.metadata.graph.search;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
-import static org.testng.Assert.assertEquals;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static org.testng.Assert.*;
 
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -12,6 +13,7 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -32,7 +34,9 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
@@ -91,7 +95,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @BeforeMethod
   public void wipe() throws Exception {
     syncAfterWrite();
-    _client.clear();
+    _client.clear(operationContext);
     syncAfterWrite();
   }
 
@@ -332,7 +336,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
         new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
     TagUrn tagUrn = new TagUrn("newTag");
     Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null, null);
-    getGraphService().addEdge(edge);
+    getGraphService().addEdge(operationContext, edge);
     syncAfterWrite();
     RelatedEntitiesResult result =
         getGraphService()
@@ -347,7 +351,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
                 0,
                 100);
     assertEquals(result.getTotal(), 1);
-    getGraphService().removeEdge(edge);
+    getGraphService().removeEdge(operationContext, edge);
     syncAfterWrite();
     result =
         getGraphService()
@@ -393,7 +397,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             // One with null values, should always be returned
             new Edge(dataset5Urn, dataset2Urn, downstreamOf, null, null, null, null, null));
 
-    edges.forEach(getGraphService()::addEdge);
+    edges.forEach(edge -> getGraphService().addEdge(operationContext, edge));
     syncAfterWrite();
 
     // Without timestamps
@@ -436,7 +440,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
                 null,
                 null));
 
-    edges.forEach(getGraphService()::addEdge);
+    edges.forEach(edge -> getGraphService().addEdge(operationContext, edge));
     syncAfterWrite();
 
     // Without timestamps
@@ -471,7 +475,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             // One with null values, should always be returned
             new Edge(dataset5Urn, dataset2Urn, downstreamOf, null, null, null, null, null));
 
-    edges.forEach(getGraphService()::addEdge);
+    edges.forEach(edge -> getGraphService().addEdge(operationContext, edge));
     syncAfterWrite();
 
     EntityLineageResult result = getUpstreamLineage(dataset2Urn, null, null, 10);
@@ -548,5 +552,198 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             0,
             limit,
             3);
+  }
+
+  @Test
+  public void testScrollRelatedEntities() throws Exception {
+    GraphService service = getPopulatedGraphService();
+
+    List<SortCriterion> sortCriteria = Edge.EDGE_SORT_CRITERION;
+    String keepAlive = "5m";
+    int count = 3; // Small count to force multiple pages
+
+    // First scroll call with null scroll ID
+    RelatedEntitiesScrollResult firstResult =
+        service.scrollRelatedEntities(
+            operationContext,
+            anyType,
+            EMPTY_FILTER,
+            anyType,
+            EMPTY_FILTER,
+            Set.of(downstreamOf, hasOwner, knowsUser),
+            outgoingRelationships,
+            sortCriteria,
+            null, // scrollId is null for first call
+            keepAlive,
+            count,
+            null,
+            null);
+
+    int total = firstResult.getNumResults();
+
+    assertNotNull(firstResult);
+    assertNotNull(firstResult.getEntities());
+    assertFalse(firstResult.getEntities().isEmpty());
+    assertTrue(firstResult.getEntities().size() <= count);
+    assertNotNull(firstResult.getScrollId());
+
+    // Decode scroll ID to verify it contains PIT information
+    SearchAfterWrapper scrollWrapper = SearchAfterWrapper.fromScrollId(firstResult.getScrollId());
+    assertNotNull(scrollWrapper);
+
+    // When PIT is enabled, the scroll ID should contain a PIT ID
+    if (TEST_OS_SEARCH_CONFIG.getSearch().getGraph().isPointInTimeCreationEnabled()) {
+      assertNotNull(
+          scrollWrapper.getPitId(), "Scroll ID should contain PIT ID when PIT is enabled");
+      assertTrue(
+          scrollWrapper.getExpirationTime() > 0, "Scroll ID should have valid expiration time");
+    }
+
+    // Second scroll call with returned scroll ID
+    RelatedEntitiesScrollResult secondResult =
+        service.scrollRelatedEntities(
+            operationContext,
+            anyType,
+            EMPTY_FILTER,
+            anyType,
+            EMPTY_FILTER,
+            Set.of(downstreamOf, hasOwner, knowsUser),
+            outgoingRelationships,
+            sortCriteria,
+            firstResult.getScrollId(), // Use scroll ID from first result
+            keepAlive,
+            count,
+            null,
+            null);
+
+    assertNotNull(secondResult);
+    assertNotNull(secondResult.getEntities());
+    assertNotNull(secondResult.getScrollId());
+    assertNotEquals(
+        secondResult.getScrollId(),
+        firstResult.getScrollId(),
+        "Scroll ID should change between calls");
+    assertNotEquals(
+        secondResult.getEntities(),
+        firstResult.getEntities(),
+        "Second page should have different results");
+
+    // Verify second scroll also maintains PIT information if more results
+    SearchAfterWrapper secondScrollWrapper =
+        SearchAfterWrapper.fromScrollId(secondResult.getScrollId());
+    assertNotNull(secondScrollWrapper);
+
+    if (TEST_OS_SEARCH_CONFIG.getSearch().getGraph().isPointInTimeCreationEnabled()) {
+      assertNotNull(secondScrollWrapper.getPitId(), "Second scroll ID should also contain PIT ID");
+      assertTrue(
+          secondScrollWrapper.getExpirationTime() > 0,
+          "Second scroll ID should have valid expiration time");
+      // PIT ID should remain consistent across scroll calls
+      assertEquals(
+          scrollWrapper.getPitId(),
+          secondScrollWrapper.getPitId(),
+          "PIT ID should remain consistent across scroll calls");
+    }
+
+    // Fetch rest of results to test scroll end
+    RelatedEntitiesScrollResult finalResult =
+        service.scrollRelatedEntities(
+            operationContext,
+            anyType,
+            EMPTY_FILTER,
+            anyType,
+            EMPTY_FILTER,
+            Set.of(downstreamOf, hasOwner, knowsUser),
+            outgoingRelationships,
+            sortCriteria,
+            secondResult.getScrollId(),
+            keepAlive,
+            total,
+            null,
+            null);
+    assertEquals(finalResult.getEntities().size(), total - count * 2);
+    assertNull(finalResult.getScrollId());
+  }
+
+  @Test
+  public void testScrollRelatedEntitiesNoPit() throws Exception {
+    GraphService service = getPopulatedGraphService();
+
+    List<SortCriterion> sortCriteria = Edge.EDGE_SORT_CRITERION;
+    String keepAlive = null;
+    int count = 3; // Small count to force multiple pages
+
+    // First scroll call with null scroll ID
+    RelatedEntitiesScrollResult firstResult =
+        service.scrollRelatedEntities(
+            operationContext,
+            anyType,
+            EMPTY_FILTER,
+            anyType,
+            EMPTY_FILTER,
+            Set.of(downstreamOf, hasOwner, knowsUser),
+            outgoingRelationships,
+            sortCriteria,
+            null, // scrollId is null for first call
+            keepAlive,
+            count,
+            null,
+            null);
+
+    int total = firstResult.getNumResults();
+
+    assertNotNull(firstResult);
+    assertNotNull(firstResult.getEntities());
+    assertFalse(firstResult.getEntities().isEmpty());
+    assertTrue(firstResult.getEntities().size() <= count);
+    assertNotNull(firstResult.getScrollId());
+
+    // Second scroll call with returned scroll ID
+    RelatedEntitiesScrollResult secondResult =
+        service.scrollRelatedEntities(
+            operationContext,
+            anyType,
+            EMPTY_FILTER,
+            anyType,
+            EMPTY_FILTER,
+            Set.of(downstreamOf, hasOwner, knowsUser),
+            outgoingRelationships,
+            sortCriteria,
+            firstResult.getScrollId(), // Use scroll ID from first result
+            keepAlive,
+            count,
+            null,
+            null);
+
+    assertNotNull(secondResult);
+    assertNotNull(secondResult.getEntities());
+    assertNotNull(secondResult.getScrollId());
+    assertNotEquals(
+        secondResult.getScrollId(),
+        firstResult.getScrollId(),
+        "Scroll ID should change between calls");
+    assertNotEquals(
+        secondResult.getEntities(),
+        firstResult.getEntities(),
+        "Second page should have different results");
+
+    // Fetch rest of results to test scroll end
+    RelatedEntitiesScrollResult finalResult =
+        service.scrollRelatedEntities(
+            operationContext,
+            anyType,
+            EMPTY_FILTER,
+            anyType,
+            EMPTY_FILTER,
+            Set.of(downstreamOf, hasOwner, knowsUser),
+            outgoingRelationships,
+            sortCriteria,
+            secondResult.getScrollId(),
+            keepAlive,
+            total,
+            null,
+            null);
+    assertEquals(finalResult.getEntities().size(), total - count * 2);
+    assertNull(finalResult.getScrollId());
   }
 }

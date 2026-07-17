@@ -6,12 +6,15 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +32,7 @@ import org.springframework.context.annotation.Import;
 @Import(EntityRegistryFactory.class)
 @Slf4j
 public class SettingsBuilderFactory {
+
   @Autowired
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
@@ -60,14 +64,41 @@ public class SettingsBuilderFactory {
     }
   }
 
+  @Bean("semanticSearchSettingsBuilder")
+  @ConditionalOnProperty(
+      name = "elasticsearch.entityIndex.semanticSearch.enabled",
+      havingValue = "true")
+  @Nonnull
+  protected SettingsBuilder createSemanticSearchSettingsBuilder(
+      ConfigurationProvider configProvider,
+      @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
+      @Qualifier("legacySettingsBuilder") @Nullable SettingsBuilder v2SettingsBuilder,
+      SearchClientShim<?> searchClientShim) {
+    EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
+    SemanticSearchConfiguration semanticConfig = entityIndexConfig.getSemanticSearch();
+
+    if (v2SettingsBuilder == null) {
+      throw new IllegalStateException(
+          "Semantic search requires v2 entity index to be enabled. "
+              + "Please set elasticsearch.entityIndex.v2.enabled=true");
+    }
+
+    log.info(
+        "Creating SemanticSearchSettingsBuilder bean for entities: {} engine: {}",
+        semanticConfig.getEnabledEntities(),
+        searchClientShim.getEngineType());
+    return new V2SemanticSearchSettingsBuilder(
+        indexConvention, v2SettingsBuilder, searchClientShim);
+  }
+
   @Bean("settingsBuilder")
   protected SettingsBuilder getInstance(
       ConfigurationProvider configProvider,
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Qualifier("legacySettingsBuilder") @Nullable SettingsBuilder legacySettingsBuilder,
-      @Qualifier("multiEntitySettingsBuilder") @Nullable
-          SettingsBuilder multiEntitySettingsBuilder) {
-
+      @Qualifier("multiEntitySettingsBuilder") @Nullable SettingsBuilder multiEntitySettingsBuilder,
+      @Qualifier("semanticSearchSettingsBuilder") @Nullable
+          SettingsBuilder semanticSearchSettingsBuilder) {
     List<SettingsBuilder> builders = new ArrayList<>();
 
     if (legacySettingsBuilder != null) {
@@ -76,6 +107,10 @@ public class SettingsBuilderFactory {
 
     if (multiEntitySettingsBuilder != null) {
       builders.add(multiEntitySettingsBuilder);
+    }
+
+    if (semanticSearchSettingsBuilder != null) {
+      builders.add(semanticSearchSettingsBuilder);
     }
 
     if (builders.isEmpty()) {

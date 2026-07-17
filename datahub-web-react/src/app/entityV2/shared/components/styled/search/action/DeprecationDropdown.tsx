@@ -1,10 +1,12 @@
-import { Modal, message } from 'antd';
+import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 
@@ -16,7 +18,10 @@ type Props = {
 
 // eslint-disable-next-line
 export default function DeprecationDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation('entity.shared.components');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
 
     const batchUndeprecate = () => {
@@ -30,7 +35,7 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
+                    message.success({ content: t('deprecation.markedUnDeprecatedSuccess'), duration: 2 });
                     refetch?.();
                     analytics.event({
                         type: EventType.SetDeprecation,
@@ -43,7 +48,7 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to mark assets as un-deprecated: \n ${e.message || ''}`,
+                        content: t('deprecation.markUnDeprecatedError', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -53,28 +58,18 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
     return (
         <>
             <ActionDropdown
-                name="Deprecation"
+                name={t('searchActions.deprecation.name')}
                 actions={[
                     {
-                        title: 'Mark as deprecated',
+                        title: t('deprecation.markAsDeprecated'),
                         onClick: () => {
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Mark as un-deprecated',
+                        title: t('deprecation.markAsUnDeprecated'),
                         onClick: () => {
-                            Modal.confirm({
-                                title: `Confirm Mark as un-deprecated`,
-                                content: `Are you sure you want to mark these assets as un-deprecated?`,
-                                onOk() {
-                                    batchUndeprecate();
-                                },
-                                onCancel() {},
-                                okText: 'Yes',
-                                maskClosable: true,
-                                closable: true,
-                            });
+                            setShowConfirmationModal(true);
                         },
                     },
                 ]}
@@ -89,6 +84,13 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
                     }}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={batchUndeprecate}
+                modalTitle={t('deprecation.confirmUnDeprecatedTitle')}
+                modalText={t('deprecation.confirmUnDeprecatedText')}
+            />
         </>
     );
 }

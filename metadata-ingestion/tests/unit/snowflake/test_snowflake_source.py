@@ -31,6 +31,10 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
     SnowflakeQuery,
     create_deny_regex_sql_filter,
 )
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+    SnowflakeSchemaGenerator,
+)
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeObjectAccessEntry,
 )
@@ -369,6 +373,31 @@ def test_private_key_set_but_auth_not_changed():
         )
 
 
+def test_snowflake_connection_config_excludes_secrets_from_serialization():
+    """Ensure secret fields are excluded from model_dump() to prevent leaking
+    credentials in logs, reports, or the system info endpoint."""
+    from datahub.ingestion.source.snowflake.snowflake_connection import (
+        SnowflakeConnectionConfig,
+    )
+
+    config = SnowflakeConnectionConfig.model_validate(
+        {
+            "account_id": "acctname",
+            "username": "user",
+            "password": "hunter2",
+            "private_key": "-----BEGIN PRIVATE KEY-----\nfakekey\n-----END PRIVATE KEY-----\n",
+            "private_key_password": "keypassword",
+            "authentication_type": "KEY_PAIR_AUTHENTICATOR",
+        }
+    )
+
+    dumped = config.model_dump()
+    assert "password" not in dumped
+    assert "private_key" not in dumped
+    assert "private_key_password" not in dumped
+    assert dumped["username"] == "user"  # non-secret field still present
+
+
 def test_snowflake_config_with_connect_args_overrides_base_connect_args():
     config_dict = default_config_dict.copy()
     config_dict["connect_args"] = {
@@ -559,6 +588,10 @@ def test_test_connection_capability_all_success(mock_connect):
             SourceCapability.DATA_PROFILING,
             SourceCapability.DESCRIPTIONS,
             SourceCapability.LINEAGE_COARSE,
+            SourceCapability.LINEAGE_FINE,
+            SourceCapability.USAGE_STATS,
+            SourceCapability.OPERATION_CAPTURE,
+            SourceCapability.TAGS,
         ],
     )
 
@@ -641,26 +674,28 @@ def test_snowflake_object_access_entry_missing_object_id():
 
 def test_snowflake_query_create_deny_regex_sql():
     assert create_deny_regex_sql_filter([], ["col"]) == ""
+    # Deny patterns compose into a single NOT RLIKE alternation (each pattern
+    # wrapped in (...)), one clause per column.
     assert (
         create_deny_regex_sql_filter([".*tmp.*"], ["col"])
-        == "NOT RLIKE(col,'.*tmp.*','i')"
+        == "UPPER(col) NOT RLIKE '(.*TMP.*)'"
     )
 
     assert (
         create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col"])
-        == "NOT RLIKE(col,'.*tmp.*','i') AND NOT RLIKE(col,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+        == "UPPER(col) NOT RLIKE '(.*TMP.*)|([A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12})'"
     )
 
     assert (
         create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col1", "col2"])
-        == "NOT RLIKE(col1,'.*tmp.*','i') AND NOT RLIKE(col1,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(col2,'.*tmp.*','i') AND NOT RLIKE(col2,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+        == "UPPER(col1) NOT RLIKE '(.*TMP.*)|([A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12})' AND UPPER(col2) NOT RLIKE '(.*TMP.*)|([A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12})'"
     )
 
     assert (
         create_deny_regex_sql_filter(
             DEFAULT_TEMP_TABLES_PATTERNS, ["upstream_table_name"]
         )
-        == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}','i') AND NOT RLIKE(upstream_table_name,'.*\.SNOWPARK_TEMP_TABLE_.+','i')"
+        == r"UPPER(upstream_table_name) NOT RLIKE '(.*\\.FIVETRAN_.*_STAGING\\..*)|(.*__DBT_TMP$)|(.*\\.SEGMENT_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12})|(.*\\.STAGING_.*_[A-F0-9]{8}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{4}[-_][A-F0-9]{12})|(.*\\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8})|(.*\\.SNOWPARK_TEMP_TABLE_.+)'"
     )
 
 
@@ -784,6 +819,83 @@ def test_snowsight_privatelink_external_urls():
     assert (
         table_url
         == "https://app.snowflake.com/us-east-1/test_acct/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TEST_TABLE/"
+    )
+
+
+def test_snowsight_base_url_override_normalises_trailing_slash():
+    builder = SnowsightUrlBuilder(
+        account_locator="ignored",
+        region="aws_us_east_1",
+        privatelink=True,
+        base_url_override="https://app.us-east-1.privatelink.snowflakecomputing.com",
+    )
+    assert (
+        builder.snowsight_base_url
+        == "https://app.us-east-1.privatelink.snowflakecomputing.com/"
+    )
+
+
+def test_snowsight_base_url_override_keeps_existing_trailing_slash():
+    builder = SnowsightUrlBuilder(
+        account_locator="ignored",
+        region="aws_us_east_1",
+        privatelink=True,
+        base_url_override="https://app.us-east-1.privatelink.snowflakecomputing.com/",
+    )
+    assert (
+        builder.snowsight_base_url
+        == "https://app.us-east-1.privatelink.snowflakecomputing.com/"
+    )
+
+
+def test_snowsight_base_url_override_used_for_all_entity_urls():
+    override = "https://app-myorg-myacct.privatelink.snowflakecomputing.com/"
+    builder = SnowsightUrlBuilder(
+        account_locator="ignored_locator",
+        region="aws_us_east_1",
+        privatelink=True,
+        base_url_override=override,
+    )
+
+    assert (
+        builder.get_external_url_for_database("DB") == f"{override}#/data/databases/DB/"
+    )
+    assert (
+        builder.get_external_url_for_schema("SCH", "DB")
+        == f"{override}#/data/databases/DB/schemas/SCH/"
+    )
+    assert (
+        builder.get_external_url_for_table(
+            "T", "SCH", "DB", domain=SnowflakeObjectDomain.TABLE
+        )
+        == f"{override}#/data/databases/DB/schemas/SCH/table/T/"
+    )
+    assert (
+        builder.get_external_url_for_streamlit("APP", "SCH", "DB")
+        == f"{override}#/streamlit-apps/DB.SCH.APP"
+    )
+
+
+def test_snowflake_config_rejects_non_http_snowsight_base_url():
+    with pytest.raises(ValueError, match="must start with http"):
+        SnowflakeV2Config(
+            account_id="ab12345",
+            username="u",
+            password="p",
+            snowsight_base_url="app.example.privatelink.snowflakecomputing.com",
+        )
+
+
+def test_snowflake_config_accepts_https_snowsight_base_url():
+    cfg = SnowflakeV2Config(
+        account_id="ab12345",
+        username="u",
+        password="p",
+        snowsight_base_url="https://app.us-east-1.privatelink.snowflakecomputing.com/",
+    )
+    assert (
+        cfg.snowsight_base_url
+        == "https://app.us-east-1.privatelink.snowflakecomputing.com/"
     )
 
 
@@ -1073,3 +1185,151 @@ def test_process_upstream_lineage_row_dynamic_table_moved(mock_extractor_class):
 
     # Restore the original method (cleanup)
     mock_extractor_class._process_upstream_lineage_row = original_method
+
+
+class TestSnowflakeIdentifierQuoting:
+    """Tests for proper escaping of embedded double-quotes in Snowflake identifiers."""
+
+    def test_get_quoted_identifier_for_table_simple(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            "WAREHOUSE_DB", "REPORTING", "MONTHLY_SALES"
+        )
+        assert result == '"WAREHOUSE_DB"."REPORTING"."MONTHLY_SALES"'
+
+    def test_get_quoted_identifier_for_table_with_embedded_quotes(self):
+        # Table name contains embedded double-quotes (e.g. from information_schema)
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            "WAREHOUSE_DB", "REPORTING", '"Sales.Q1"."Summary"'
+        )
+        # Each embedded " becomes "" inside the outer quotes
+        assert result == '"WAREHOUSE_DB"."REPORTING"."""Sales.Q1"".""Summary"""'
+
+    def test_get_quoted_identifier_for_table_with_dots_only(self):
+        # Table name has dots but no embedded quotes
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            "WAREHOUSE_DB", "REPORTING", "sales.q1.summary"
+        )
+        assert result == '"WAREHOUSE_DB"."REPORTING"."sales.q1.summary"'
+
+    def test_get_quoted_identifier_for_database_with_embedded_quote(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_database('MY"DB')
+        assert result == '"MY""DB"'
+
+    def test_get_quoted_identifier_for_schema_with_embedded_quotes(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_schema(
+            'MY"DB', 'TEST"SCHEMA'
+        )
+        assert result == '"MY""DB"."TEST""SCHEMA"'
+
+    def test_escape_identifier_no_quotes(self):
+        assert (
+            SnowflakeIdentifierBuilder._escape_identifier("NORMAL_NAME")
+            == "NORMAL_NAME"
+        )
+
+    def test_escape_identifier_with_quotes(self):
+        assert (
+            SnowflakeIdentifierBuilder._escape_identifier('has"quote') == 'has""quote'
+        )
+
+    def test_escape_identifier_multiple_quotes(self):
+        assert SnowflakeIdentifierBuilder._escape_identifier('a"b"c') == 'a""b""c'
+
+
+def _make_pushdown_gen(push_down: bool) -> SnowflakeSchemaGenerator:
+    config = SnowflakeV2Config.model_validate(
+        {
+            "account_id": "test",
+            "username": "u",
+            "password": "p",
+            "push_down_metadata_patterns": push_down,
+        }
+    )
+    aggregator = MagicMock()
+    aggregator._schema_resolver = MagicMock()
+    return SnowflakeSchemaGenerator(
+        config=config,
+        report=SnowflakeV2Report(),
+        connection=MagicMock(),
+        filters=MagicMock(),
+        identifiers=MagicMock(),
+        domain_registry=None,
+        profiler=None,
+        aggregator=aggregator,
+        snowsight_url_builder=None,
+    )
+
+
+def test_fetch_tables_for_schema_pushdown_applies_client_side_deny_backstop():
+    """With pushdown, fetch_tables_for_schema re-applies the canonical filter
+    client-side (_is_table_allowed) as the deny backstop, dropping any table the
+    capped server-side deny let through."""
+    gen = _make_pushdown_gen(push_down=True)
+    t_keep, t_drop = MagicMock(), MagicMock()
+    t_keep.name, t_drop.name = "KEEP", "DROP"
+    schema = MagicMock()
+    with (
+        patch.object(gen, "get_tables_for_schema", return_value=[t_keep, t_drop]),
+        patch.object(
+            gen, "_is_table_allowed", side_effect=[True, False]
+        ) as mock_allowed,
+    ):
+        result = gen.fetch_tables_for_schema(schema, "DB", "SCHEMA")
+
+    assert result == [t_keep]
+    assert schema.tables == ["KEEP"]
+    assert mock_allowed.call_count == 2
+
+
+def test_fetch_tables_for_schema_no_pushdown_filters_on_table_pattern():
+    """Without pushdown, fetch_tables_for_schema is the only filter and uses
+    table_pattern.allowed directly."""
+    gen = _make_pushdown_gen(push_down=False)
+    t_keep, t_drop = MagicMock(), MagicMock()
+    t_keep.name, t_drop.name = "KEEP", "DROP"
+    schema = MagicMock()
+    with (
+        patch.object(gen, "get_tables_for_schema", return_value=[t_keep, t_drop]),
+        patch.object(
+            gen.filters.filter_config.table_pattern,
+            "allowed",
+            side_effect=[True, False],
+        ),
+    ):
+        result = gen.fetch_tables_for_schema(schema, "DB", "SCHEMA")
+
+    assert result == [t_keep]
+
+
+def test_get_tables_for_schema_falls_back_client_side_over_byte_limit():
+    """When the composed pushdown filter exceeds Snowflake's per-query byte limit,
+    get_tables_for_schema drops the server-side filter (empty) and relies on the
+    client-side pass instead of sending an oversized query."""
+    from datahub.ingestion.source.snowflake.snowflake_query import (
+        SNOWFLAKE_MAX_QUERY_BYTES,
+    )
+
+    gen = _make_pushdown_gen(push_down=True)
+    gen.data_dictionary = MagicMock()
+    gen.data_dictionary.get_tables_for_database.return_value = {"SCHEMA": []}
+
+    oversized = "x" * (SNOWFLAKE_MAX_QUERY_BYTES + 1)
+    with patch.object(SnowflakeQuery, "build_table_filter", return_value=oversized):
+        gen.get_tables_for_schema("SCHEMA", "DB")
+
+    _, kwargs = gen.data_dictionary.get_tables_for_database.call_args
+    assert kwargs["table_filter"] == ""  # oversized filter dropped
+
+
+def test_get_tables_for_schema_pushes_down_when_filter_fits():
+    """A normally-sized pushdown filter is sent to the server as-is."""
+    gen = _make_pushdown_gen(push_down=True)
+    gen.data_dictionary = MagicMock()
+    gen.data_dictionary.get_tables_for_database.return_value = {"SCHEMA": []}
+
+    fitting = "table_name RLIKE '(A.*)'"
+    with patch.object(SnowflakeQuery, "build_table_filter", return_value=fitting):
+        gen.get_tables_for_schema("SCHEMA", "DB")
+
+    _, kwargs = gen.data_dictionary.get_tables_for_database.call_args
+    assert kwargs["table_filter"] == fitting

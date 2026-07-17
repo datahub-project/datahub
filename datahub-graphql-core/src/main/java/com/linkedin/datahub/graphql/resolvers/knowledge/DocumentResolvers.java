@@ -1,16 +1,22 @@
 package com.linkedin.datahub.graphql.resolvers.knowledge;
 
+import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
+import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
+import com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import graphql.schema.idl.RuntimeWiring;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Configures resolvers for Document query, mutation, and type wiring. */
 public class DocumentResolvers {
@@ -21,29 +27,41 @@ public class DocumentResolvers {
   private final DocumentService documentService;
   private final java.util.List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> entityTypes;
   private final DocumentType documentType;
+  private final DataPlatformType dataPlatformType;
+  private final DataPlatformInstanceType dataPlatformInstanceType;
   private final EntityClient entityClient;
   private final EntityService entityService;
   private final com.linkedin.metadata.graph.GraphClient graphClient;
   private final EntityRegistry entityRegistry;
   private final TimelineService timelineService;
+  private final ViewService viewService;
+  @Nullable private final DocumentImportService documentImportService;
 
   public DocumentResolvers(
       @Nonnull DocumentService documentService,
       @Nonnull java.util.List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> entityTypes,
       @Nonnull DocumentType documentType,
+      @Nonnull DataPlatformType dataPlatformType,
+      @Nonnull DataPlatformInstanceType dataPlatformInstanceType,
       @Nonnull EntityClient entityClient,
       @Nonnull EntityService entityService,
       @Nonnull com.linkedin.metadata.graph.GraphClient graphClient,
       @Nonnull EntityRegistry entityRegistry,
-      @Nonnull TimelineService timelineService) {
+      @Nonnull TimelineService timelineService,
+      @Nonnull ViewService viewService,
+      @Nullable DocumentImportService documentImportService) {
     this.documentService = documentService;
     this.entityTypes = entityTypes;
     this.documentType = documentType;
+    this.dataPlatformType = dataPlatformType;
+    this.dataPlatformInstanceType = dataPlatformInstanceType;
     this.entityClient = entityClient;
     this.entityService = entityService;
     this.graphClient = graphClient;
     this.entityRegistry = entityRegistry;
     this.timelineService = timelineService;
+    this.viewService = viewService;
+    this.documentImportService = documentImportService;
   }
 
   public void configureResolvers(final RuntimeWiring.Builder builder) {
@@ -59,45 +77,52 @@ public class DocumentResolvers {
                 .dataFetcher(
                     "searchDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.SearchDocumentsResolver(
-                        documentService, entityClient)));
+                        documentService, entityClient, viewService)));
 
     // Mutation resolvers
     builder.type(
         MUTATION_TYPE,
-        typeWiring ->
-            typeWiring
-                .dataFetcher(
-                    "createDocument",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.CreateDocumentResolver(
-                        documentService, entityService))
-                .dataFetcher(
-                    "updateDocumentContents",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentContentsResolver(documentService))
-                .dataFetcher(
-                    "updateDocumentRelatedEntities",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentRelatedEntitiesResolver(documentService))
-                .dataFetcher(
-                    "moveDocument",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.MoveDocumentResolver(
-                        documentService))
-                .dataFetcher(
-                    "deleteDocument",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.DeleteDocumentResolver(
-                        documentService))
-                .dataFetcher(
-                    "updateDocumentStatus",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentStatusResolver(documentService))
-                .dataFetcher(
-                    "updateDocumentSubType",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge
-                        .UpdateDocumentSubTypeResolver(documentService))
-                .dataFetcher(
-                    "mergeDraft",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.MergeDraftResolver(
-                        documentService, entityService)));
+        typeWiring -> {
+          typeWiring
+              .dataFetcher(
+                  "createDocument",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge.CreateDocumentResolver(
+                      documentService, entityService))
+              .dataFetcher(
+                  "updateDocumentContents",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge
+                      .UpdateDocumentContentsResolver(documentService))
+              .dataFetcher(
+                  "updateDocumentRelatedEntities",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge
+                      .UpdateDocumentRelatedEntitiesResolver(documentService))
+              .dataFetcher(
+                  "moveDocument",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge.MoveDocumentResolver(
+                      documentService))
+              .dataFetcher(
+                  "deleteDocument",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge.DeleteDocumentResolver(
+                      documentService))
+              .dataFetcher(
+                  "updateDocumentStatus",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge.UpdateDocumentStatusResolver(
+                      documentService))
+              .dataFetcher(
+                  "updateDocumentSubType",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge
+                      .UpdateDocumentSubTypeResolver(documentService))
+              .dataFetcher(
+                  "updateDocumentSettings",
+                  new com.linkedin.datahub.graphql.resolvers.knowledge
+                      .UpdateDocumentSettingsResolver(documentService));
+          if (documentImportService != null) {
+            typeWiring.dataFetcher(
+                "importDocumentsFromFiles",
+                new ImportDocumentsFromFilesResolver(documentImportService));
+          }
+          return typeWiring;
+        });
 
     // Type wiring for Document root
     builder.type(
@@ -106,17 +131,31 @@ public class DocumentResolvers {
             typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
-                    "aspects",
-                    new com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver(
-                        entityClient, entityRegistry))
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        dataPlatformType,
+                        (env) -> {
+                          final Document document = env.getSource();
+                          return document.getPlatform() != null
+                              ? document.getPlatform().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "dataPlatformInstance",
+                    new LoadableTypeResolver<>(
+                        dataPlatformInstanceType,
+                        (env) -> {
+                          final Document document = env.getSource();
+                          return document.getDataPlatformInstance() != null
+                              ? document.getDataPlatformInstance().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "aspects", new com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver())
                 .dataFetcher(
                     "privileges",
                     new com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver(
                         entityClient))
-                .dataFetcher(
-                    "drafts",
-                    new com.linkedin.datahub.graphql.resolvers.knowledge.DocumentDraftsResolver(
-                        documentService))
                 .dataFetcher(
                     "changeHistory",
                     new com.linkedin.datahub.graphql.resolvers.knowledge
@@ -164,19 +203,6 @@ public class DocumentResolvers {
                     (env) ->
                         ((com.linkedin.datahub.graphql.generated.DocumentParentDocument)
                                 env.getSource())
-                            .getDocument()
-                            .getUrn())));
-
-    // Resolve DocumentInfo.draftOf.document -> Document (resolved)
-    builder.type(
-        "DocumentDraftOf",
-        typeWiring ->
-            typeWiring.dataFetcher(
-                "document",
-                new LoadableTypeResolver<>(
-                    documentType,
-                    (env) ->
-                        ((com.linkedin.datahub.graphql.generated.DocumentDraftOf) env.getSource())
                             .getDocument()
                             .getUrn())));
 

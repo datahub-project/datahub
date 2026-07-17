@@ -41,7 +41,7 @@ def mock_dashboard():
         tags=["tag1", "environment:prod"],
         timezone="UTC",
         schemaVersion="1.0",
-        meta={"folderId": "123"},
+        folder_id="123",
         created_by="test@test.com",
     )
 
@@ -72,12 +72,20 @@ def test_build_dashboard_properties(mock_dashboard):
 
 
 def test_build_ownership(mock_dashboard):
-    ownership = _build_ownership(mock_dashboard)
+    ownership = _build_ownership(mock_dashboard, True)
     assert isinstance(ownership, OwnershipClass)
-    assert len(ownership.owners) == 2
+    assert len(ownership.owners) == 1
     assert {owner.owner for owner in ownership.owners} == {
-        "urn:li:corpuser:dash1",
         "urn:li:corpuser:test",
+    }
+
+
+def test_build_ownership_full_email(mock_dashboard):
+    ownership = _build_ownership(mock_dashboard, False)
+    assert isinstance(ownership, OwnershipClass)
+    assert len(ownership.owners) == 1
+    assert {owner.owner for owner in ownership.owners} == {
+        "urn:li:corpuser:test@test.com",
     }
 
 
@@ -147,6 +155,7 @@ def test_build_dashboard_mcps(mock_dashboard):
         chart_urns=chart_urns,
         base_url="http://grafana.test",
         ingest_owners=True,
+        remove_email_suffix=True,
         ingest_tags=True,
     )
 
@@ -193,7 +202,7 @@ def test_build_dashboard_mcps(mock_dashboard):
     )
     assert ownership_mcp is not None
     assert isinstance(ownership_mcp.aspect, OwnershipClass)  # type safety
-    assert len(ownership_mcp.aspect.owners) == 2
+    assert len(ownership_mcp.aspect.owners) == 1
 
 
 def test_build_chart_mcps_no_tags(mock_panel, mock_dashboard):
@@ -222,6 +231,7 @@ def test_build_dashboard_mcps_no_owners(mock_dashboard):
         chart_urns=[],
         base_url="http://grafana.test",
         ingest_owners=True,
+        remove_email_suffix=True,
         ingest_tags=True,
     )
 

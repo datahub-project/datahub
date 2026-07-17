@@ -1,9 +1,14 @@
 import { Text } from '@components';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import {
+    RelatedTermTypes,
+    getRelatedTermTypeLabel,
+} from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
@@ -15,6 +20,7 @@ import { useGetRelatedTermsQuery } from '@graphql/glossary.generated';
 import { DataHubPageModuleType } from '@types';
 
 export default function RelatedTermsModule(props: ModuleProps) {
+    const { t } = useTranslation('modules');
     const entityRegistry = useEntityRegistryV2();
     const history = useHistory();
     const { entityType, urn } = useEntityData();
@@ -46,10 +52,10 @@ export default function RelatedTermsModule(props: ModuleProps) {
         >
             {!hasData && (
                 <EmptyContent
-                    icon="BookmarkSimple"
-                    title="No Related Terms"
-                    description="Add relationship for this glossary term to see them in this list"
-                    linkText="Add related terms"
+                    icon={BookmarkSimple}
+                    title={t('relatedTerms.emptyTitle')}
+                    description={t('relatedTerms.emptyDescription')}
+                    linkText={t('relatedTerms.emptyLink')}
                     onLinkClick={navigateToRelatedTermsTab}
                 />
             )}
@@ -66,7 +72,7 @@ export default function RelatedTermsModule(props: ModuleProps) {
                                     moduleType={DataHubPageModuleType.RelatedTerms}
                                     customDetailsRenderer={() => (
                                         <Text size="sm" color="gray">
-                                            {RelatedTermTypes[relationshipType]}
+                                            {getRelatedTermTypeLabel(RelatedTermTypes[relationshipType])}
                                         </Text>
                                     )}
                                 />

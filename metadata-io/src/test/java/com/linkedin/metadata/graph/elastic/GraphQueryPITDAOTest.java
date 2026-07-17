@@ -16,13 +16,16 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFI
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG_NO_PIT;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.fail;
 
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
@@ -378,13 +381,15 @@ public class GraphQueryPITDAOTest {
     int count = 10;
 
     // Set up mock behavior
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockSearchResponse);
 
     // Mock the createPit method for OpenSearch Point-in-Time searches
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Call the method
@@ -397,7 +402,8 @@ public class GraphQueryPITDAOTest {
 
     // Verify that search was called with correct parameters
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockClient).search(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     SearchRequest capturedRequest = requestCaptor.getValue();
 
@@ -458,7 +464,7 @@ public class GraphQueryPITDAOTest {
     // The method should throw an IllegalArgumentException for the mixed URNs
     try {
       dao.getLineageQuery(operationContext, urnsPerEntityType, lineageGraphFilters);
-      Assert.fail("Should throw IllegalArgumentException for URNs of different entity types");
+      fail("Should throw IllegalArgumentException for URNs of different entity types");
     } catch (IllegalArgumentException e) {
       // Expected exception
       Assert.assertEquals(e.getMessage(), "Urns must be of the same entity type.");
@@ -660,7 +666,8 @@ public class GraphQueryPITDAOTest {
     // Mock dependencies
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     SearchResponse mockResponse = mock(SearchResponse.class);
-    when(mockClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
@@ -687,7 +694,8 @@ public class GraphQueryPITDAOTest {
 
     // Verify that search was called with the right parameters
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockClient).search(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     SearchRequest capturedRequest = requestCaptor.getValue();
     SearchSourceBuilder sourceBuilder = capturedRequest.source();
@@ -701,7 +709,8 @@ public class GraphQueryPITDAOTest {
     // Mock dependencies
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     SearchResponse mockResponse = mock(SearchResponse.class);
-    when(mockClient.search(any(SearchRequest.class), any(RequestOptions.class)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
@@ -730,7 +739,8 @@ public class GraphQueryPITDAOTest {
 
     // Verify that search was called with the right parameters
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockClient).search(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     SearchRequest capturedRequest = requestCaptor.getValue();
     SearchSourceBuilder sourceBuilder = capturedRequest.source();
@@ -757,7 +767,8 @@ public class GraphQueryPITDAOTest {
     // Mock the createPit method for PIT search
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     GraphQueryPITDAO dao =
@@ -787,7 +798,8 @@ public class GraphQueryPITDAOTest {
     SearchResponse emptySearchResponse = createEmptySearchResponse(0);
 
     // Mock search calls: first 2 calls return results, subsequent calls return empty
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse1) // First slice, first page
         .thenReturn(emptySearchResponse) // First slice, no more pages
         .thenReturn(searchResponse2) // Second slice, first page
@@ -803,7 +815,8 @@ public class GraphQueryPITDAOTest {
     }
 
     // Verify that search was called at least 4 times (2 slices × 2 searches each)
-    verify(mockClient, atLeast(4)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+    verify(mockClient, atLeast(4))
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test(timeOut = 10000) // Add timeout to prevent hanging in test suites
@@ -858,12 +871,13 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     try {
       LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
-      Assert.fail("Should throw exception for exceeding maxRelations limit");
+      fail("Should throw exception for exceeding maxRelations limit");
     } catch (RuntimeException e) {
       // Verify the exception message contains the maxRelations limit error
       // The exception may be wrapped by processSliceFutures, so use hasMessageInChain to check
@@ -929,7 +943,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // When partialResults=true, should return partial results instead of throwing
@@ -997,12 +1012,14 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Mock search to delay, simulating a timeout scenario
     // We'll make the first search return results, but delay to trigger timeout check
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               // Simulate delay that would cause timeout
@@ -1056,7 +1073,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Mock search to delay, simulating a timeout scenario
@@ -1068,7 +1086,8 @@ public class GraphQueryPITDAOTest {
             "DownstreamOf");
     SearchResponse searchResponse = createFakeSearchResponse(hits, 10);
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               // Simulate delay that would cause timeout
@@ -1079,34 +1098,27 @@ public class GraphQueryPITDAOTest {
     // When partialResults=false and timeout occurs, should throw exception
     try {
       dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
-      Assert.fail("Should throw exception when timeout occurs with partialResults=false");
+      fail("Should throw exception when timeout occurs with partialResults=false");
     } catch (RuntimeException e) {
-      // The exception may be wrapped, so check both the exception and its cause
+      // Slice timeouts wrap java.util.concurrent.TimeoutException, which often has a null
+      // message; the wrapper message is "Slice N timed out after … seconds".
       Throwable cause = e.getCause();
-      String message = cause.getMessage();
-      boolean isTimeoutException = false;
-
-      // Check if the cause is an IllegalStateException with timeout message
-      if (cause instanceof RuntimeException) {
-        String causeMessage = cause.getMessage();
-        isTimeoutException =
-            (causeMessage != null
-                && (causeMessage.contains("timed out") || causeMessage.contains("timeout")));
-      }
-
-      // Also check if the wrapper message indicates a timeout
-      if (!isTimeoutException
-          && message != null
-          && (message.contains("timed out") || message.contains("timeout"))) {
-        isTimeoutException = true;
-      }
+      String top = e.getMessage();
+      String causeMsg = cause != null ? cause.getMessage() : null;
+      boolean isTimeoutException =
+          cause instanceof java.util.concurrent.TimeoutException
+              || (top != null
+                  && (top.contains("timed out") || top.toLowerCase().contains("timeout")))
+              || (causeMsg != null
+                  && (causeMsg.contains("timed out")
+                      || causeMsg.toLowerCase().contains("timeout")));
 
       Assert.assertTrue(
           isTimeoutException,
           "Exception should indicate timeout. Got: "
               + e.getClass().getSimpleName()
               + " - "
-              + message
+              + top
               + (cause != null
                   ? " (cause: "
                       + cause.getClass().getSimpleName()
@@ -1155,7 +1167,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Create hits that will be returned, but we'll delay to ensure timeout
@@ -1171,7 +1184,8 @@ public class GraphQueryPITDAOTest {
     // Mock search to take time, causing remainingTime to become negative
     // The delay should be long enough that after the first hop completes,
     // when we check remainingTime at the start of the next iteration, it's negative
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               // Delay to ensure timeout happens
@@ -1192,7 +1206,7 @@ public class GraphQueryPITDAOTest {
     } catch (IllegalStateException e) {
       // If we get IllegalStateException, it means timeout occurred but partialResults handling
       // didn't work
-      Assert.fail(
+      fail(
           "Should not throw IllegalStateException when partialResults=true. Got: "
               + e.getMessage());
     }
@@ -1235,7 +1249,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Create hits that will be returned, but we'll delay to ensure timeout
@@ -1249,7 +1264,8 @@ public class GraphQueryPITDAOTest {
 
     // Mock search - first call returns quickly, second call delays to consume timeout
     // This ensures first hop completes, then timeout occurs before second hop
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse) // First hop - return quickly with results
         .thenAnswer(
             invocation -> {
@@ -1263,7 +1279,7 @@ public class GraphQueryPITDAOTest {
     // which would result in a RuntimeException. We accept either case.
     try {
       dao.getImpactLineage(operationContext, sourceUrn, filters, 2);
-      Assert.fail("Should throw exception when remainingTime < 0 and partialResults=false");
+      fail("Should throw exception when remainingTime < 0 and partialResults=false");
     } catch (IllegalStateException e) {
       // Verify the exception message contains the expected information
       String message = e.getMessage();
@@ -1299,7 +1315,7 @@ public class GraphQueryPITDAOTest {
 
       // Accept either IllegalStateException in chain OR timeout-related RuntimeException
       if (!foundIllegalStateException && !foundTimeoutMessage) {
-        Assert.fail(
+        fail(
             "Expected IllegalStateException or timeout-related exception in chain but got: "
                 + e.getClass().getSimpleName()
                 + " - "
@@ -1348,7 +1364,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Create hits for slices
@@ -1371,7 +1388,8 @@ public class GraphQueryPITDAOTest {
 
     // Mock search to take time for first slice, causing remainingTime to become <= 0
     // The first slice takes time, and by the time we process later slices, remainingTime <= 0
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               // First slice takes time, simulating processing that consumes remainingTime
@@ -1435,7 +1453,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Create hits for slices
@@ -1457,7 +1476,8 @@ public class GraphQueryPITDAOTest {
     SearchResponse emptyResponse = createEmptySearchResponse(2);
 
     // Mock search to take time for first slice, causing remainingTime to become <= 0
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               // First slice takes time, simulating processing that consumes remainingTime
@@ -1493,8 +1513,10 @@ public class GraphQueryPITDAOTest {
   @Test(timeOut = 10000)
   public void testProcessSliceFuturesExceptionWithPartialResultsAndCollectedRelationships()
       throws Exception {
-    // Test that when an exception occurs during slice processing, allowPartialResults=true,
-    // and some relationships have been collected, we log a warning and return partial results
+    // allowPartialResults=true: a failing slice is skipped and LineageResponse.partial is set.
+    // Use one slice so Mockito stubs are deterministic (parallel slices consume stubs in arbitrary
+    // order). When the slice task throws, its in-flight relationships are not merged, so total may
+    // be 0 while partial is still true.
     Urn sourceUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
 
@@ -1505,19 +1527,18 @@ public class GraphQueryPITDAOTest {
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
-    // Create a configuration with multiple slices and partialResults=true
     ElasticSearchConfiguration testConfig =
         TEST_OS_SEARCH_CONFIG.toBuilder()
             .search(
                 TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .graph(
                         TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
-                            .timeoutSeconds(10) // Reasonable timeout
+                            .timeoutSeconds(10)
                             .impact(
                                 TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
-                                    .maxRelations(1000) // High limit so we don't hit it
+                                    .maxRelations(1000)
                                     .partialResults(true)
-                                    .slices(3) // Use 3 slices
+                                    .slices(1)
                                     .searchQueryTimeReservation(0.2)
                                     .build())
                             .build())
@@ -1526,13 +1547,12 @@ public class GraphQueryPITDAOTest {
 
     GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
 
-    // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
-    // Create hits for the first slice that will succeed
     SearchHit[] hits1 =
         createFakeLineageHits(
             2,
@@ -1541,40 +1561,17 @@ public class GraphQueryPITDAOTest {
             "DownstreamOf");
 
     SearchResponse searchResponse1 = createFakeSearchResponse(hits1, 2);
-    SearchResponse emptyResponse = createEmptySearchResponse(2);
 
-    // Mock search: first slice succeeds completely (initial + scroll), then second slice throws
-    // exception
-    // For PIT-based search, we need to ensure the first slice completes fully before the second
-    // throws
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(searchResponse1) // First slice, initial search - succeeds
-        .thenReturn(emptyResponse) // First slice, scroll search (empty = complete)
-        .thenReturn(emptyResponse) // First slice, any additional scroll (empty = complete)
-        .thenThrow(
-            new RuntimeException("Search operation failed for second slice")); // Second slice fails
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(searchResponse1)
+        .thenThrow(new RuntimeException("PIT search failed on follow-up page"));
 
-    // When partialResults=true and an exception occurs but some relationships were collected,
-    // should return partial results
-    // Note: The exception might be thrown before relationships are collected due to async
-    // execution,
-    // so we need to handle both cases - either partial results are returned OR an exception is
-    // thrown
-    try {
-      LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
-      Assert.assertNotNull(response, "Response should not be null");
-      // Should return partial results from the first slice that succeeded
-      Assert.assertTrue(
-          response.getTotal() > 0,
-          "Should return partial results from slices that completed successfully");
-    } catch (RuntimeException e) {
-      // If exception is thrown, it means the exception happened before relationships were collected
-      // This is acceptable behavior - the test verifies the code path exists
-      // We just verify it's the expected exception type
-      Assert.assertTrue(
-          e.getMessage() != null && e.getMessage().contains("slice"),
-          "Exception should mention slice failure. Got: " + e.getMessage());
-    }
+    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+    Assert.assertNotNull(response, "Response should not be null");
+    Assert.assertTrue(
+        response.isPartial(),
+        "Response should be marked partial when the slice fails under allowPartialResults=true");
   }
 
   @Test(timeOut = 10000)
@@ -1614,7 +1611,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Create hits for the first slice that will succeed
@@ -1629,7 +1627,8 @@ public class GraphQueryPITDAOTest {
     SearchResponse emptyResponse = createEmptySearchResponse(2);
 
     // Mock search: first slice succeeds, second slice throws exception
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse1) // First slice, first page - succeeds
         .thenReturn(emptyResponse) // First slice completes successfully
         .thenThrow(
@@ -1638,7 +1637,7 @@ public class GraphQueryPITDAOTest {
     // When partialResults=false and an exception occurs, should throw exception
     try {
       dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
-      Assert.fail("Should throw exception when slice processing fails and partialResults=false");
+      fail("Should throw exception when slice processing fails and partialResults=false");
     } catch (RuntimeException e) {
       // Verify the exception message contains the expected information
       String message = e.getMessage();
@@ -1698,7 +1697,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Should return results without hitting maxRelations limit (since it's unlimited)
@@ -1762,7 +1762,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Should return results without hitting maxRelations limit (since it's unlimited)
@@ -1826,7 +1827,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Should work correctly with time reservation
@@ -1887,7 +1889,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Should work correctly with time reservation
@@ -1947,7 +1950,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Should work correctly without time reservation (full timeout available)
@@ -1974,25 +1978,27 @@ public class GraphQueryPITDAOTest {
         createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG);
 
     // Mock a search operation that will throw an exception
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Search operation failed"));
 
     // Mock the createPit method for OpenSearch Point-in-Time searches
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // This should throw an exception due to the search operation failure
     try {
       dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
-      Assert.fail("Should throw RuntimeException for search operation failure");
+      fail("Should throw RuntimeException for search operation failure");
     } catch (RuntimeException e) {
       // The exception should be wrapped in our new exception handling
       // Check the entire exception chain for the expected messages
       Assert.assertTrue(
-          hasMessageInChain(e, "Failed to execute slice-based search"),
-          "Expected slice-related error message in exception chain, got: " + e.getMessage());
+          hasMessageInChain(e, "Search operation failed") || hasMessageInChain(e, "Slice 0 failed"),
+          "Expected search or slice failure in exception chain, got: " + e.getMessage());
     }
   }
 
@@ -2038,7 +2044,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Mock search responses - first hop completes, second hop times out
@@ -2054,7 +2061,8 @@ public class GraphQueryPITDAOTest {
     mockSliceBasedSearch(mockClient, List.of(searchResponse), List.of(emptyResponse));
 
     // Override to delay second hop to cause timeout in main loop
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(searchResponse) // First hop returns quickly
         .thenAnswer(
             invocation -> {
@@ -2065,8 +2073,7 @@ public class GraphQueryPITDAOTest {
     // Should throw IllegalStateException with exact message format
     try {
       dao.getImpactLineage(operationContext, sourceUrn, filters, 2);
-      Assert.fail(
-          "Should throw IllegalStateException when timeout occurs with partialResults=false");
+      fail("Should throw IllegalStateException when timeout occurs with partialResults=false");
     } catch (IllegalStateException e) {
       String message = e.getMessage();
       Assert.assertNotNull(message, "Exception message should not be null");
@@ -2220,7 +2227,8 @@ public class GraphQueryPITDAOTest {
 
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Should work with defaulted 0.2 reservation (20% of 10s = 2s reserved, 8s available)
@@ -2338,7 +2346,8 @@ public class GraphQueryPITDAOTest {
 
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Should work correctly with clamped minimum reservation (100ms instead of 50ms)
@@ -2375,7 +2384,8 @@ public class GraphQueryPITDAOTest {
     // Mock the createPit method for OpenSearch Point-in-Time searches
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
@@ -2419,7 +2429,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Test with maxHops = 1 (should return the 3 direct relationships)
@@ -2481,8 +2492,7 @@ public class GraphQueryPITDAOTest {
                     paths.add(path);
                   }
                 } catch (Exception e) {
-                  Assert.fail(
-                      "Thread " + threadId + " should not throw exception: " + e.getMessage());
+                  fail("Thread " + threadId + " should not throw exception: " + e.getMessage());
                 }
               });
     }
@@ -2576,8 +2586,7 @@ public class GraphQueryPITDAOTest {
                     GraphQueryUtils.addEdgeToPaths(pathStore, testParent, null, testChild);
                   }
                 } catch (Exception e) {
-                  Assert.fail(
-                      "Thread " + threadId + " should not throw exception: " + e.getMessage());
+                  fail("Thread " + threadId + " should not throw exception: " + e.getMessage());
                 }
               });
     }
@@ -2656,18 +2665,21 @@ public class GraphQueryPITDAOTest {
     when(emptyScrollResponse.getHits()).thenReturn(emptySearchHits);
     when(emptyScrollResponse.getScrollId()).thenReturn("empty_scroll_id");
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockSearchResponse)
         .thenReturn(emptyScrollResponse);
 
     // Mock the clearScroll calls
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(null);
 
     // Mock the createPit method for OpenSearch Point-in-Time searches
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Test with maxHops = 1 to trigger the path building logic
@@ -2703,7 +2715,8 @@ public class GraphQueryPITDAOTest {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch connection failed"));
 
     GraphQueryPITDAO graphQueryDAO =
@@ -2713,7 +2726,7 @@ public class GraphQueryPITDAOTest {
     try {
       graphQueryDAO.getSearchResponse(
           operationContext, GraphFilters.outgoingFilter(EMPTY_FILTER), 0, 10);
-      Assert.fail("Expected ESQueryException to be thrown");
+      fail("Expected ESQueryException to be thrown");
     } catch (ESQueryException e) {
       Assert.assertEquals(e.getMessage(), "Search query failed:");
       Assert.assertNotNull(e.getCause());
@@ -2726,7 +2739,8 @@ public class GraphQueryPITDAOTest {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch search failed"));
 
     GraphQueryPITDAO graphQueryDAO =
@@ -2737,8 +2751,8 @@ public class GraphQueryPITDAOTest {
 
     // Test that executeSearch throws ESQueryException when client.search fails
     try {
-      graphQueryDAO.executeSearch(searchRequest);
-      Assert.fail("Expected ESQueryException to be thrown");
+      graphQueryDAO.executeSearch(operationContext, searchRequest);
+      fail("Expected ESQueryException to be thrown");
     } catch (ESQueryException e) {
       Assert.assertEquals(e.getMessage(), "Search query failed:");
       Assert.assertNotNull(e.getCause());
@@ -2751,7 +2765,8 @@ public class GraphQueryPITDAOTest {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch scroll search failed"));
 
     GraphQueryPITDAO graphQueryDAO =
@@ -2764,7 +2779,7 @@ public class GraphQueryPITDAOTest {
     // Test that executeScrollSearchQuery throws ESQueryException when client.search fails
     try {
       graphQueryDAO.getSearchResponse(operationContext, graphFilters, sortCriteria, null, null, 10);
-      Assert.fail("Expected ESQueryException to be thrown");
+      fail("Expected ESQueryException to be thrown");
     } catch (ESQueryException e) {
       Assert.assertEquals(e.getMessage(), "Search query failed:");
       Assert.assertNotNull(e.getCause());
@@ -2777,7 +2792,8 @@ public class GraphQueryPITDAOTest {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch group by lineage search failed"));
 
     GraphQueryPITDAO graphQueryDAO =
@@ -2824,7 +2840,8 @@ public class GraphQueryPITDAOTest {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch query with limit failed"));
 
     GraphQueryPITDAO graphQueryDAO =
@@ -2871,7 +2888,8 @@ public class GraphQueryPITDAOTest {
     // Mock the client to throw an exception
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(new RuntimeException("Elasticsearch search request failed"));
 
     GraphQueryPITDAO graphQueryDAO =
@@ -2936,7 +2954,7 @@ public class GraphQueryPITDAOTest {
     try {
       LineageResponse result =
           graphQueryDAO.getImpactLineage(operationContext, entityUrn, lineageGraphFilters, 2);
-      Assert.fail("Expected IllegalStateException to be thrown when PIT is disabled");
+      fail("Expected IllegalStateException to be thrown when PIT is disabled");
     } catch (IllegalStateException e) {
       // The method should fail fast with a clear error message when PIT is disabled
       // Check the entire exception chain for the expected messages
@@ -2963,7 +2981,8 @@ public class GraphQueryPITDAOTest {
     for (String exceptionMessage : exceptionMessages) {
       SearchClientShim<?> mockClient = mock(SearchClientShim.class);
       when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-      when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockClient.search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
           .thenThrow(new RuntimeException(exceptionMessage));
 
       GraphQueryPITDAO graphQueryDAO =
@@ -2972,7 +2991,7 @@ public class GraphQueryPITDAOTest {
       try {
         graphQueryDAO.getSearchResponse(
             operationContext, GraphFilters.outgoingFilter(EMPTY_FILTER), 0, 10);
-        Assert.fail("Expected ESQueryException to be thrown for: " + exceptionMessage);
+        fail("Expected ESQueryException to be thrown for: " + exceptionMessage);
       } catch (ESQueryException e) {
         Assert.assertEquals(e.getMessage(), "Search query failed:");
         Assert.assertNotNull(e.getCause());
@@ -2986,7 +3005,8 @@ public class GraphQueryPITDAOTest {
     // Test that the original exception is properly preserved
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     RuntimeException originalException = new RuntimeException("Original error message");
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(originalException);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
@@ -2996,7 +3016,7 @@ public class GraphQueryPITDAOTest {
     try {
       graphQueryDAO.getSearchResponse(
           operationContext, GraphFilters.outgoingFilter(EMPTY_FILTER), 0, 10);
-      Assert.fail("Expected ESQueryException to be thrown");
+      fail("Expected ESQueryException to be thrown");
     } catch (ESQueryException e) {
       Assert.assertEquals(e.getMessage(), "Search query failed:");
       Assert.assertSame(e.getCause(), originalException);
@@ -3009,7 +3029,8 @@ public class GraphQueryPITDAOTest {
     // Test exception handling when the original exception has no cause
     SearchClientShim<?> mockClient = mock(SearchClientShim.class);
     RuntimeException originalException = new RuntimeException("Error without cause");
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(originalException);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
@@ -3019,7 +3040,7 @@ public class GraphQueryPITDAOTest {
     try {
       graphQueryDAO.getSearchResponse(
           operationContext, GraphFilters.outgoingFilter(EMPTY_FILTER), 0, 10);
-      Assert.fail("Expected ESQueryException to be thrown");
+      fail("Expected ESQueryException to be thrown");
     } catch (ESQueryException e) {
       Assert.assertEquals(e.getMessage(), "Search query failed:");
       Assert.assertNotNull(e.getCause());
@@ -3035,7 +3056,8 @@ public class GraphQueryPITDAOTest {
     RuntimeException middleException = new RuntimeException("Middle layer", rootCause);
     RuntimeException topException = new RuntimeException("Top layer", middleException);
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenThrow(topException);
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
 
@@ -3045,7 +3067,7 @@ public class GraphQueryPITDAOTest {
     try {
       graphQueryDAO.getSearchResponse(
           operationContext, GraphFilters.outgoingFilter(EMPTY_FILTER), 0, 10);
-      Assert.fail("Expected ESQueryException to be thrown");
+      fail("Expected ESQueryException to be thrown");
     } catch (ESQueryException e) {
       Assert.assertEquals(e.getMessage(), "Search query failed:");
       Assert.assertNotNull(e.getCause());
@@ -3088,7 +3110,7 @@ public class GraphQueryPITDAOTest {
 
     try {
       graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 5);
-      Assert.fail("Expected IllegalStateException to be thrown when PIT is disabled");
+      fail("Expected IllegalStateException to be thrown when PIT is disabled");
     } catch (IllegalStateException e) {
       // Check the entire exception chain for the expected messages
       Assert.assertTrue(
@@ -3132,7 +3154,8 @@ public class GraphQueryPITDAOTest {
     // Mock the createPit method to avoid NullPointerException
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Mock empty search response to avoid complex mocking
@@ -3141,7 +3164,8 @@ public class GraphQueryPITDAOTest {
     when(mockHits.getHits()).thenReturn(new SearchHit[0]);
     when(mockHits.getTotalHits()).thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
     when(mockSearchResponse.getHits()).thenReturn(mockHits);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockSearchResponse);
 
     // The validation should pass, and the method should complete successfully
@@ -3159,7 +3183,7 @@ public class GraphQueryPITDAOTest {
     } catch (IllegalStateException e) {
       // This should NOT be the PIT validation exception
       if (hasMessageInChain(e, "Point-in-Time creation is required")) {
-        Assert.fail("PIT validation should have passed when PIT is enabled");
+        fail("PIT validation should have passed when PIT is enabled");
       }
       // Any other IllegalStateException is unexpected
       throw e;
@@ -3200,11 +3224,13 @@ public class GraphQueryPITDAOTest {
     when(mockScrollResponse.getScrollId()).thenReturn("test_scroll_id");
 
     // Mock the search call to return scroll response
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockScrollResponse);
 
     // Mock clear scroll call
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(null);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
@@ -3220,11 +3246,16 @@ public class GraphQueryPITDAOTest {
       graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 1);
 
       // Verify that search was called (scroll path) instead of PIT creation
-      verify(mockClient, atLeast(1)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+      verify(mockClient, atLeast(1))
+          .search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
       // Verify that clearScroll was called to clean up scroll context
       verify(mockClient, atLeast(1))
-          .clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT));
+          .clearScroll(
+              any(OperationContext.class),
+              any(ClearScrollRequest.class),
+              eq(RequestOptions.DEFAULT));
 
     } catch (Exception e) {
       // Expected to fail due to missing lineage data, but should use scroll path
@@ -3274,16 +3305,21 @@ public class GraphQueryPITDAOTest {
 
     // Mock search calls: first 2 calls return results (one for each slice), subsequent calls return
     // empty
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse1) // First slice
         .thenReturn(mockResponse2); // Second slice
 
     // Mock scroll calls to return empty (no more pages)
-    when(mockClient.scroll(any(SearchScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.scroll(
+            any(OperationContext.class),
+            any(SearchScrollRequest.class),
+            eq(RequestOptions.DEFAULT)))
         .thenReturn(emptyResponse);
 
     // Mock clear scroll calls
-    when(mockClient.clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.clearScroll(
+            any(OperationContext.class), any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(null);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
@@ -3299,11 +3335,16 @@ public class GraphQueryPITDAOTest {
       graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 1);
 
       // Verify that search was called for both slices
-      verify(mockClient, atLeast(2)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+      verify(mockClient, atLeast(2))
+          .search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
       // Verify that clearScroll was called for both slices
       verify(mockClient, atLeast(2))
-          .clearScroll(any(ClearScrollRequest.class), eq(RequestOptions.DEFAULT));
+          .clearScroll(
+              any(OperationContext.class),
+              any(ClearScrollRequest.class),
+              eq(RequestOptions.DEFAULT));
 
     } catch (Exception e) {
       // Expected to fail due to missing lineage data, but should use scroll path
@@ -3331,7 +3372,8 @@ public class GraphQueryPITDAOTest {
     when(mockResponse.getHits()).thenReturn(mockHits);
     when(mockResponse.getScrollId()).thenReturn("test_scroll_id");
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
@@ -3346,7 +3388,9 @@ public class GraphQueryPITDAOTest {
       graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 1);
 
       // Should handle empty results gracefully
-      verify(mockClient, atLeast(1)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+      verify(mockClient, atLeast(1))
+          .search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     } catch (Exception e) {
       // Expected to fail due to missing lineage data, but should handle empty results
@@ -3386,7 +3430,8 @@ public class GraphQueryPITDAOTest {
     when(mockResponse.getHits()).thenReturn(mockHits);
     when(mockResponse.getScrollId()).thenReturn("test_scroll_id");
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockResponse);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:dataset:test-urn");
@@ -3404,7 +3449,10 @@ public class GraphQueryPITDAOTest {
       ArgumentCaptor<SearchRequest> searchRequestCaptor =
           ArgumentCaptor.forClass(SearchRequest.class);
       verify(mockClient, atLeast(1))
-          .search(searchRequestCaptor.capture(), eq(RequestOptions.DEFAULT));
+          .search(
+              any(OperationContext.class),
+              searchRequestCaptor.capture(),
+              eq(RequestOptions.DEFAULT));
 
       // Verify that scroll parameter was set
       SearchRequest capturedRequest = searchRequestCaptor.getValue();
@@ -3428,7 +3476,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Create a thread that will be interrupted
@@ -3475,7 +3524,8 @@ public class GraphQueryPITDAOTest {
     // Mock PIT creation
     CreatePitResponse mockPitResponse = mock(CreatePitResponse.class);
     when(mockPitResponse.getId()).thenReturn("test_pit_id");
-    when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockPitResponse);
 
     // Create a mock search response that will cause the method to enter the loop
@@ -3483,7 +3533,8 @@ public class GraphQueryPITDAOTest {
     SearchResponse searchResponse = createFakeSearchResponse(hits, 1);
 
     // Mock search to return the response, then throw interruption exception
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               // Simulate thread interruption by checking Thread.currentThread().isInterrupted()
@@ -3526,8 +3577,9 @@ public class GraphQueryPITDAOTest {
     Assert.assertNotNull(
         caughtException[0], "Expected RuntimeException to be thrown due to interruption");
     Assert.assertTrue(
-        caughtException[0].getMessage().contains("Failed to execute slice-based search"),
-        "Expected slice-based search failure message, got: " + caughtException[0].getMessage());
+        caughtException[0].getMessage().contains("Interrupted during slice processing"),
+        "Expected interruption during slice processing message, got: "
+            + caughtException[0].getMessage());
   }
 
   @Test
@@ -3688,5 +3740,444 @@ public class GraphQueryPITDAOTest {
     dao.shutdown();
 
     // Test passes if no exception is thrown
+  }
+
+  /**
+   * Bug 2 regression test: the per-page deadline check inside searchSingleSliceWithPit previously
+   * used the expression {@code remainingTime = System.currentTimeMillis() -
+   * (System.currentTimeMillis() - remainingTime)}, which always evaluates to the original {@code
+   * remainingTime} value. The guard {@code if (remainingTime <= 0)} therefore never fired, allowing
+   * slices to paginate indefinitely — eventually exhausting the PIT's keep-alive window and
+   * producing "Failed to execute PIT search for slice N" errors.
+   *
+   * <p>The fix converts {@code remainingTime} to an absolute {@code deadline} at method entry and
+   * compares wall-clock time on each iteration.
+   *
+   * <p>Design: {@code GraphQueryBaseDAO} enforces {@code Math.max(2, config.slices)}, so 2 slices
+   * always run. Slice 0 returns empty in a single call (fast path). All multi-page pagination is
+   * driven through slice 1, whose per-slice call count is tracked deterministically.
+   *
+   * <p>Timing contract (must hold on any reasonable CI machine):
+   *
+   * <ul>
+   *   <li>remainingTime = 800 ms (timeoutSeconds=1 minus 20% reservation)
+   *   <li>futureTimeout for slice 1 = max(1, ~800/1000) = 1 second (outer coordinator timeout)
+   *   <li>Page 2 mock sleeps 900 ms — past the 800 ms deadline but under the 1 s outer timeout
+   *   <li>With the fix: slice 1 stops after 2 pages; slice1Calls == 2
+   *   <li>Without the fix: slice 1 also fetches page 3 and the empty page 4; slice1Calls == 4
+   * </ul>
+   */
+  @Test(timeOut = 5000)
+  public void testSliceDeadlineTerminatesPaginationAfterRemainingTimeElapsed() throws Exception {
+    // testShutdownWithInterruptedException stubs awaitTermination to throw InterruptedException.
+    // Its @AfterMethod then calls dao.shutdown() again on the same mock, which hits the same stub
+    // and calls Thread.currentThread().interrupt() — leaving the flag set on the TestNG runner
+    // thread. Clear any residual interrupt state before this test runs.
+    Thread.interrupted();
+
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    // timeoutSeconds=1, partialResults=true (20% reservation) → remainingTime=800ms.
+    // maxThreads=1 makes slices run sequentially on the same worker, so slice 0 completes
+    // before slice 1 starts. This ensures the per-slice call count is deterministic.
+    ElasticSearchConfiguration testConfig =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .timeoutSeconds(1)
+                            .maxThreads(1)
+                            .impact(
+                                TEST_OS_SEARCH_CONFIG.getSearch().getGraph().getImpact().toBuilder()
+                                    .slices(2)
+                                    .maxRelations(-1)
+                                    .partialResults(true)
+                                    .searchQueryTimeReservation(0.2)
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+
+    CreatePitResponse pitResponse = mock(CreatePitResponse.class);
+    when(pitResponse.getId()).thenReturn("test-pit-id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), any(RequestOptions.class)))
+        .thenReturn(pitResponse);
+
+    // Slice 0: returns empty in one call (fast path, does not affect timing).
+    // Slice 1: page 1 instant, page 2 with 900 ms delay (past the 800 ms deadline,
+    //   under the 1 s outer future timeout), page 3 instant but must NOT be fetched.
+    String srcUrn = "urn:li:dataset:(urn:li:dataPlatform:test,src,PROD)";
+    SearchResponse page1 =
+        createFakeSearchResponse(createFakeLineageHits(3, srcUrn, "d1_", "DownstreamOf"), 12);
+    SearchResponse page2 =
+        createFakeSearchResponse(createFakeLineageHits(3, srcUrn, "d2_", "DownstreamOf"), 12);
+    SearchResponse page3 =
+        createFakeSearchResponse(createFakeLineageHits(3, srcUrn, "d3_", "DownstreamOf"), 12);
+    SearchResponse emptyPage = createEmptySearchResponse(12);
+
+    java.util.concurrent.atomic.AtomicInteger slice1Calls =
+        new java.util.concurrent.atomic.AtomicInteger(0);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              SearchRequest req =
+                  invocation.getArgument(
+                      1); // PR6: arg 0 is now OperationContext after shim widening
+              int sliceId =
+                  (req.source() != null && req.source().slice() != null)
+                      ? req.source().slice().getId()
+                      : -1;
+              if (sliceId == 0) {
+                return createEmptySearchResponse(0); // slice 0: single call, no pagination
+              }
+              // slice 1: multi-page with a delay on page 2 to push past the deadline
+              switch (slice1Calls.incrementAndGet()) {
+                case 1:
+                  return page1;
+                case 2:
+                  try {
+                    Thread.sleep(900); // pushes elapsed time past the 800 ms deadline
+                  } catch (InterruptedException e) {
+                    // Restore interrupt flag so searchSingleSliceWithPit's isInterrupted() check
+                    // terminates the loop cleanly on the next iteration.
+                    Thread.currentThread().interrupt();
+                  }
+                  return page2;
+                case 3:
+                  return page3; // must NOT be reached with the fix in place
+                default:
+                  return emptyPage;
+              }
+            });
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,src,PROD)");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+
+    LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+    Assert.assertNotNull(response);
+    // With the deadline fix slice 1 breaks before page 3 → exactly 2 calls to client.search().
+    // Without the fix (no-op remainingTime update) page 3 and the empty page 4 are also
+    // fetched, producing 4 calls.
+    Assert.assertEquals(
+        slice1Calls.get(),
+        2,
+        "Slice 1 must stop after page 2 when the deadline passes mid-loop, not fetch page 3+");
+  }
+
+  /**
+   * Bug 1 regression test: when {@code processSliceFutures()} times out waiting for a slow slice
+   * and calls {@code cancel(true)}, it then returns. The {@code finally} block in {@code
+   * searchWithSlices()} must still clean up the shared PIT. Before the fix, {@code sliceFutures}
+   * was scoped inside the {@code try} block, so the {@code finally} block could not iterate over
+   * them to cancel before cleanup.
+   *
+   * <p>This test simulates the race window: slice 0 returns quickly while slice 1 is permanently
+   * blocked inside {@code client.search()}. After the 1-second outer future timeout fires and
+   * cancels all futures, the {@code finally} block must still call {@code deletePit} to release the
+   * PIT on the server — preventing resource exhaustion from leaked PITs.
+   */
+  @Test(timeOut = 10000)
+  public void testPitCleanedUpAfterSliceTimeoutWithConcurrentBlockedSlice() throws Exception {
+    java.util.concurrent.CountDownLatch sliceBlockedLatch =
+        new java.util.concurrent.CountDownLatch(1);
+
+    try {
+      SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+      when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+      // 2 threads so both slices run concurrently: slice 0 finishes instantly while
+      // slice 1 stays blocked, causing processSliceFutures to time out on it.
+      ElasticSearchConfiguration testConfig =
+          TEST_OS_SEARCH_CONFIG.toBuilder()
+              .search(
+                  TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                      .graph(
+                          TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                              .timeoutSeconds(1)
+                              .maxThreads(2)
+                              .impact(
+                                  TEST_OS_SEARCH_CONFIG
+                                      .getSearch()
+                                      .getGraph()
+                                      .getImpact()
+                                      .toBuilder()
+                                      .slices(2)
+                                      .maxRelations(-1)
+                                      .partialResults(true) // return partial results on timeout
+                                      .searchQueryTimeReservation(0.2)
+                                      .build())
+                              .build())
+                      .build())
+              .build();
+
+      GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+
+      CreatePitResponse pitResponse = mock(CreatePitResponse.class);
+      when(pitResponse.getId()).thenReturn("test-pit-id");
+      when(mockClient.createPit(
+              any(OperationContext.class), any(CreatePitRequest.class), any(RequestOptions.class)))
+          .thenReturn(pitResponse);
+
+      // Slice 0 returns empty immediately. Slice 1 blocks on the latch, simulating
+      // a worker thread permanently stuck inside client.search().
+      when(mockClient.search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+          .thenAnswer(
+              invocation -> {
+                SearchRequest req =
+                    invocation.getArgument(
+                        1); // PR6: arg 0 is now OperationContext after shim widening
+                if (req.source() != null
+                    && req.source().slice() != null
+                    && req.source().slice().getId() == 1) {
+                  sliceBlockedLatch.await(10, TimeUnit.SECONDS);
+                }
+                return createEmptySearchResponse(0);
+              });
+
+      Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test,PROD)");
+      LineageGraphFilters filters =
+          LineageGraphFilters.forEntityType(
+              operationContext.getLineageRegistry(),
+              DATASET_ENTITY_NAME,
+              LineageDirection.UPSTREAM);
+
+      // Must return (with partial results) despite slice 1 being blocked.
+      // processSliceFutures waits up to 1 s for slice 1, times out, cancels all futures,
+      // and returns. The finally block then runs and must call deletePit.
+      LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+      Assert.assertNotNull(response, "Response must not be null when a slice times out");
+      Assert.assertTrue(
+          response.isPartial(),
+          "Slice-level timeout with partialResults=true must set LineageResponse.partial");
+
+      // The PIT must be cleaned up exactly once regardless of the blocked slice.
+      // With the structural fix (sliceFutures moved to outer scope) the finally block
+      // can also call cancel(true) on all futures before invoking cleanupPointInTime.
+      verify(mockClient, times(1))
+          .deletePit(
+              any(OperationContext.class),
+              argThat(req -> req.getPitIds().contains("test-pit-id")),
+              any(RequestOptions.class));
+    } finally {
+      // Unblock the stuck worker so the daemon thread can terminate cleanly.
+      sliceBlockedLatch.countDown();
+    }
+  }
+
+  /**
+   * Path C regression test: {@code processSliceFutures()} exits via the {@code remainingTime <= 0}
+   * branch after a <em>successful</em> (non-timed-out) slice, without calling {@code cancel(true)}
+   * on the remaining futures. Before the fix, {@code sliceFutures} was scoped inside the {@code
+   * try} block, so the {@code finally} block could not cancel or drain those still-running futures
+   * before deleting the shared PIT.
+   *
+   * <p>Timing contract:
+   *
+   * <ul>
+   *   <li>remainingTime = 800 ms (timeoutSeconds=1 minus 20% reservation)
+   *   <li>futureTimeout = max(1, 800/1000) = 1 s (outer per-future get() timeout)
+   *   <li>Slice 0 sleeps 900 ms — completes before the 1 s futureTimeout (no TimeoutException, so
+   *       Path A is not triggered), but elapsed > remainingTime=800 ms → remainingTime goes
+   *       negative → Path C break, with no cancel(true) issued
+   *   <li>Slice 1 is blocked when Path C fires; the finally block must still call deletePit
+   * </ul>
+   */
+  @Test(timeOut = 10000)
+  public void testPitCleanedUpWhenRemainingBudgetExhaustedBySuccessfulSlice() throws Exception {
+    // Clear any residual interrupt flag (see testSliceDeadlineTerminatesPagination... for details).
+    Thread.interrupted();
+
+    java.util.concurrent.CountDownLatch slice1BlockedLatch =
+        new java.util.concurrent.CountDownLatch(1);
+    try {
+      SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+      when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+      // maxThreads=2: both slices run concurrently on separate worker threads.
+      ElasticSearchConfiguration testConfig =
+          TEST_OS_SEARCH_CONFIG.toBuilder()
+              .search(
+                  TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
+                      .graph(
+                          TEST_OS_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                              .timeoutSeconds(1)
+                              .maxThreads(2)
+                              .impact(
+                                  TEST_OS_SEARCH_CONFIG
+                                      .getSearch()
+                                      .getGraph()
+                                      .getImpact()
+                                      .toBuilder()
+                                      .slices(2)
+                                      .maxRelations(-1)
+                                      .partialResults(true)
+                                      .searchQueryTimeReservation(0.2)
+                                      .build())
+                              .build())
+                      .build())
+              .build();
+
+      GraphQueryPITDAO dao = createTrackedDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testConfig);
+
+      CreatePitResponse pitResponse = mock(CreatePitResponse.class);
+      when(pitResponse.getId()).thenReturn("test-pit-id");
+      when(mockClient.createPit(
+              any(OperationContext.class), any(CreatePitRequest.class), any(RequestOptions.class)))
+          .thenReturn(pitResponse);
+
+      String srcUrn = "urn:li:dataset:(urn:li:dataPlatform:test,src,PROD)";
+      SearchResponse page1 =
+          createFakeSearchResponse(createFakeLineageHits(3, srcUrn, "d1_", "DownstreamOf"), 12);
+
+      // Slice 0: sleeps 900 ms then returns one result page followed by an empty page.
+      //   future.get(1 s) completes (900 ms < futureTimeout=1 s) → no TimeoutException.
+      //   Elapsed ≈ 900 ms > remainingTime=800 ms → remainingTime goes negative → Path C break.
+      // Slice 1: blocks on the latch, representing an in-flight client.search() that Path C
+      //   leaves without cancellation.
+      java.util.concurrent.atomic.AtomicInteger slice0Calls =
+          new java.util.concurrent.atomic.AtomicInteger(0);
+      when(mockClient.search(
+              any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+          .thenAnswer(
+              invocation -> {
+                SearchRequest req =
+                    invocation.getArgument(
+                        1); // PR6: arg 0 is now OperationContext after shim widening
+                int sliceId =
+                    (req.source() != null && req.source().slice() != null)
+                        ? req.source().slice().getId()
+                        : -1;
+                if (sliceId == 0) {
+                  if (slice0Calls.incrementAndGet() == 1) {
+                    try {
+                      Thread.sleep(900);
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                    }
+                    return page1;
+                  }
+                  return createEmptySearchResponse(0);
+                }
+                // Slice 1: blocks, simulating a worker stuck in client.search()
+                slice1BlockedLatch.await(10, TimeUnit.SECONDS);
+                return createEmptySearchResponse(0);
+              });
+
+      Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,src,PROD)");
+      LineageGraphFilters filters =
+          LineageGraphFilters.forEntityType(
+              operationContext.getLineageRegistry(),
+              DATASET_ENTITY_NAME,
+              LineageDirection.UPSTREAM);
+
+      // processSliceFutures: waits for slice 0 (~900 ms, within futureTimeout=1 s),
+      // then remainingTime <= 0 → Path C break (no cancel). Slice 1 is still blocked.
+      // The finally block must cancel all futures and call deletePit.
+      LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+      Assert.assertNotNull(response, "Response must not be null when Path C triggers");
+      verify(mockClient, times(1))
+          .deletePit(
+              any(OperationContext.class),
+              argThat(req -> req.getPitIds().contains("test-pit-id")),
+              any(RequestOptions.class));
+    } finally {
+      // Unblock the stuck worker so the daemon thread can terminate cleanly.
+      slice1BlockedLatch.countDown();
+    }
+  }
+
+  @Test
+  public void testPitCreatedOnceAndCleanedUpInFinally() throws Exception {
+    // Tests that PIT is created once before the slice loop and cleaned up in finally
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+
+    // Mock PIT creation
+    CreatePitResponse pitResponse = mock(CreatePitResponse.class);
+    when(pitResponse.getId()).thenReturn("test-pit-id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), any(RequestOptions.class)))
+        .thenReturn(pitResponse);
+
+    // Mock search responses
+    SearchHit[] hits = createFakeLineageHits(5, "urn:li:dataset:test", "dest", "DownstreamOf");
+    SearchResponse searchResponse = createFakeSearchResponse(hits, 5);
+    SearchResponse emptyResponse = createEmptySearchResponse(5);
+
+    mockSliceBasedSearch(mockClient, List.of(searchResponse), List.of(emptyResponse));
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+
+    // Execute
+    dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+
+    // Verify PIT was created exactly once (not per slice)
+    verify(mockClient, times(1))
+        .createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), any(RequestOptions.class));
+
+    // Verify PIT cleanup was called exactly once in finally
+    verify(mockClient, times(1))
+        .deletePit(
+            any(OperationContext.class),
+            argThat(req -> req.getPitIds().contains("test-pit-id")),
+            any(RequestOptions.class));
+  }
+
+  @Test
+  public void testPitCleanupHappensEvenOnSliceException() throws Exception {
+    // Tests that finally block executes and cleans up PIT even when slice fails
+    SearchClientShim<?> mockClient = mock(SearchClientShim.class);
+    when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    GraphQueryPITDAO dao = createTrackedDAO(mockClient);
+
+    // Mock PIT creation
+    CreatePitResponse pitResponse = mock(CreatePitResponse.class);
+    when(pitResponse.getId()).thenReturn("test-pit-id");
+    when(mockClient.createPit(
+            any(OperationContext.class), any(CreatePitRequest.class), any(RequestOptions.class)))
+        .thenReturn(pitResponse);
+
+    // Mock search to throw exception
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
+        .thenThrow(new RuntimeException("Search failed"));
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test");
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), DATASET_ENTITY_NAME, LineageDirection.UPSTREAM);
+
+    try {
+      dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
+      fail("Should have thrown exception");
+    } catch (RuntimeException e) {
+      // Expected
+    }
+
+    // Verify PIT cleanup was STILL called in finally block
+    verify(mockClient, times(1))
+        .deletePit(
+            any(OperationContext.class),
+            argThat(req -> req.getPitIds().contains("test-pit-id")),
+            any(RequestOptions.class));
   }
 }

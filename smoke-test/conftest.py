@@ -1,24 +1,33 @@
+pytest_plugins = ["tests.utilities.agent_reporter"]
+
+import json
 import logging
 import os
-import json
-from pathlib import Path
-
 from collections import defaultdict
-import pytest
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from _pytest.nodes import Item
-import requests
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph, get_default_graph
 
+import pytest
+import requests
+from _pytest.nodes import Item
+
+from datahub.ingestion.graph.client import (
+    DatahubClientConfig,
+    DataHubGraph,
+    get_default_graph,
+)
 from tests.test_result_msg import send_message
 from tests.utilities import env_vars
 from tests.utils import (
     TestSessionWrapper,
-    get_frontend_session,
-    wait_for_healthcheck_util,
-    ingest_file_via_rest,
+    assert_admin_corpuser_info_preserved,
     delete_urns,
     delete_urns_from_file,
+    fetch_admin_corpuser_info,
+    get_frontend_session,
+    ingest_file_via_rest,
+    wait_for_admin_corpuser_system_bootstrap,
+    wait_for_healthcheck_util,
     wait_for_writes_to_sync,
 )
 
@@ -31,13 +40,30 @@ os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 
 
 def build_auth_session():
+    """Build an auth session.
+
+    Token-based (preferred for remote instances — no login round-trip):
+        Set DATAHUB_GMS_TOKEN=<pat> and DATAHUB_GMS_URL=<gms-url>.
+        Frontend URL is not required; GraphQL routes through the GMS directly.
+
+    Login-based (default for local dev):
+        Set ADMIN_USERNAME / ADMIN_PASSWORD (or CYPRESS_ADMIN_* equivalents).
+    """
+    prebuilt_token = os.environ.get("DATAHUB_GMS_TOKEN")
+    if prebuilt_token:
+        logger.info("Token-based auth: using DATAHUB_GMS_TOKEN (skipping login)")
+        return TestSessionWrapper(requests.Session(), prebuilt_token=prebuilt_token)
+
     wait_for_healthcheck_util(requests)
-    return TestSessionWrapper(get_frontend_session())
+    auth_session = TestSessionWrapper(get_frontend_session())
+    wait_for_admin_corpuser_system_bootstrap(auth_session)
+    return auth_session
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def auth_session():
     auth_session = build_auth_session()
+    os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
     yield auth_session
     auth_session.destroy()
 
@@ -45,8 +71,9 @@ def auth_session():
 def build_graph_client(auth_session, openapi_ingestion=False):
     graph: DataHubGraph = DataHubGraph(
         config=DatahubClientConfig(
-            server=auth_session.gms_url(), token=auth_session.gms_token(),
-            openapi_ingestion=openapi_ingestion
+            server=auth_session.gms_url(),
+            token=auth_session.gms_token(),
+            openapi_ingestion=openapi_ingestion,
         )
     )
     return graph
@@ -74,12 +101,35 @@ def clear_graph_cache():
     yield
 
 
+@pytest.fixture(scope="session")
+def admin_corpuser_info_baseline(auth_session):
+    """Snapshot privileged admin corpUserInfo flags after session bootstrap."""
+    if os.environ.get("DATAHUB_GMS_TOKEN"):
+        return None
+    return fetch_admin_corpuser_info(auth_session)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def verify_admin_corpuser_info_unchanged(
+    auth_session, admin_corpuser_info_baseline, request
+):
+    """Detect tests that overwrite admin corpUserInfo and clear system/support flags."""
+    yield
+    if admin_corpuser_info_baseline is None:
+        return
+    assert_admin_corpuser_info_preserved(
+        auth_session,
+        admin_corpuser_info_baseline,
+        context=request.node.nodeid,
+    )
+
+
 def _ingest_cleanup_data_impl(
     auth_session,
     graph_client,
     data_file: str,
     test_name: str,
-    to_delete_urns: Optional[List[str]] = None
+    to_delete_urns: Optional[List[str]] = None,
 ):
     """Helper for ingesting test data with automatic cleanup.
 
@@ -99,18 +149,16 @@ def _ingest_cleanup_data_impl(
                 "tags_and_terms"
             )
     """
-    print(f"deleting {test_name} test data for idempotency")
+    logger.info(f"deleting {test_name} test data for idempotency")
     delete_urns_from_file(graph_client, data_file)
-    print(f"ingesting {test_name} test data")
+    logger.info(f"ingesting {test_name} test data")
     ingest_file_via_rest(auth_session, data_file)
-    wait_for_writes_to_sync()
     yield
-    print(f"removing {test_name} test data")
+    logger.info(f"removing {test_name} test data")
     delete_urns_from_file(graph_client, data_file)
     if to_delete_urns:
         delete_urns(graph_client, to_delete_urns)
-    wait_for_writes_to_sync()
-
+        wait_for_writes_to_sync()
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -183,7 +231,26 @@ def load_pytest_test_weights() -> Dict[str, float]:
         return {}
 
 
-def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) -> List[Tuple[str, List[Item], float]]:
+def get_pytest_test_weight(item: Item, test_weights: Dict[str, float]) -> float:
+    nodeid = item.nodeid
+    test_id = nodeid.replace("/", ".").replace(".py::", "::")
+    weight = test_weights.get(test_id)
+    if weight is not None:
+        return weight
+
+    nodeid_parts = nodeid.split("::")
+    if len(nodeid_parts) > 2:
+        module_id = nodeid_parts[0].replace("/", ".").removesuffix(".py")
+        weight = test_weights.get(f"{module_id}::{nodeid_parts[-1]}")
+        if weight is not None:
+            return weight
+
+    return 1.0
+
+
+def aggregate_module_weights(
+    items: List[Item], test_weights: Dict[str, float]
+) -> List[Tuple[str, List[Item], float]]:
     """
     Group test items by module and aggregate their weights.
 
@@ -207,21 +274,40 @@ def aggregate_module_weights(items: List[Item], test_weights: Dict[str, float]) 
     for module_path, module_items in modules.items():
         total_weight = 0.0
         for item in module_items:
-            # Build test ID from nodeid
-            # nodeid format: "tests/database/test_database.py::test_method"
-            # weights format: "tests.database.test_database::test_method"
-            nodeid = item.nodeid
-
-            # Convert path separators to dots and remove .py extension
-            # tests/database/test_database.py::test_method -> tests.database.test_database::test_method
-            test_id = nodeid.replace("/", ".").replace(".py::", "::")
-
-            weight = test_weights.get(test_id, 1.0)  # Default to 1.0 if not found
-            total_weight += weight
+            total_weight += get_pytest_test_weight(item, test_weights)
 
         module_data.append((module_path, module_items, total_weight))
 
     return module_data
+
+
+def _is_global_policy_mutator(item: Item) -> bool:
+    return item.get_closest_marker("global_policy_mutator") is not None
+
+
+def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
+    """Keep batch assignment stable across smoke.sh's two pytest invocations.
+
+    Batching runs on the full module set first; this filter then selects
+    non-mutators (phase 1) or mutators (phase 2). Unset means run everything
+    (ad-hoc local pytest without smoke.sh).
+    """
+    phase = env_vars.get_smoke_policy_phase()
+    if phase is None:
+        return
+    if phase == "1":
+        items[:] = [item for item in items if not _is_global_policy_mutator(item)]
+        logger.info(
+            "SMOKE_POLICY_PHASE=1: running %s non-mutator test(s)", len(items)
+        )
+        return
+    if phase == "2":
+        items[:] = [item for item in items if _is_global_policy_mutator(item)]
+        logger.info("SMOKE_POLICY_PHASE=2: running %s mutator test(s)", len(items))
+        return
+    logger.warning(
+        "Unknown SMOKE_POLICY_PHASE=%r; running all collected tests", phase
+    )
 
 
 def pytest_collection_modifyitems(
@@ -230,6 +316,47 @@ def pytest_collection_modifyitems(
     if env_vars.get_test_strategy() == "cypress":
         return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
 
+    # Check if FILTERED_TESTS is set (for retry logic)
+    filtered_tests_file = env_vars.get_filtered_tests_file()
+    if filtered_tests_file:
+        logger.info(f"Reading filtered test modules from {filtered_tests_file}")
+        try:
+            with open(filtered_tests_file) as f:
+                # Read non-empty lines, strip whitespace, ignore comments
+                filtered_modules = set(
+                    line.strip()
+                    for line in f
+                    if line.strip() and not line.strip().startswith("#")
+                )
+
+            logger.info(f"Found {len(filtered_modules)} filtered module(s) to run")
+
+            # Filter items to only those from the specified modules
+            filtered_items = []
+            for item in items:
+                # Get the module path from the item's fspath
+                module_path = str(item.fspath)
+
+                # Check if this item's module is in the filtered list
+                # Need to handle both absolute and relative paths
+                if any(
+                    module_path.endswith(filtered_mod)
+                    for filtered_mod in filtered_modules
+                ):
+                    filtered_items.append(item)
+
+            logger.info(
+                f"RETRY MODE: Running {len(filtered_items)} tests from {len(filtered_modules)} failed module(s)"
+            )
+            items[:] = filtered_items
+            _apply_smoke_policy_phase_filter(items)
+            return
+        except Exception as e:
+            logger.warning(
+                f"Failed to read filtered tests file: {e}. Running all tests."
+            )
+            # Fall through to normal batching logic
+
     # Get batch configuration
     batch_count_env = env_vars.get_batch_count()
     batch_count = int(batch_count_env)
@@ -237,7 +364,7 @@ def pytest_collection_modifyitems(
     batch_number = int(batch_number_env)
 
     if batch_count <= 1:
-        # No batching needed
+        _apply_smoke_policy_phase_filter(items)
         return
 
     # Load test weights
@@ -251,10 +378,16 @@ def pytest_collection_modifyitems(
 
     # Create weighted tuples for bin-packing: (module_path, weight)
     # We'll also keep track of the items for each module
-    module_map = {module_path: module_items for module_path, module_items, _ in module_data}
-    weighted_modules = [(module_path, total_weight) for module_path, _, total_weight in module_data]
+    module_map = {
+        module_path: module_items for module_path, module_items, _ in module_data
+    }
+    weighted_modules = [
+        (module_path, total_weight) for module_path, _, total_weight in module_data
+    ]
 
-    logger.info(f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches")
+    logger.info(
+        f"Batching {len(items)} tests from {len(weighted_modules)} modules across {batch_count} batches"
+    )
 
     # Apply bin-packing to modules
     module_batches = bin_pack_tasks(weighted_modules, batch_count)
@@ -268,8 +401,10 @@ def pytest_collection_modifyitems(
     for module_path in selected_modules:
         selected_items.extend(module_map[module_path])
 
-    logger.info(f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules")
+    logger.info(
+        f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules"
+    )
 
-    # Replace items with the filtered list
+    # Replace items with the filtered list, then apply smoke.sh phase filter
     items[:] = selected_items
-
+    _apply_smoke_policy_phase_filter(items)

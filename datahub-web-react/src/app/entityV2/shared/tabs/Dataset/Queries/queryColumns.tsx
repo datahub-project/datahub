@@ -1,13 +1,17 @@
+import { Avatar } from '@components';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, Typography, message } from 'antd';
+import { Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import ActorAvatar from '@app/entityV2/shared/ActorAvatar';
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { ActionButton } from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
 
@@ -32,6 +36,7 @@ interface DescriptionProps {
 }
 
 export const QueryDescription = ({ description }: DescriptionProps) => {
+    const { t: tc } = useTranslation('common.actions');
     const [isTruncated, setIsTruncated] = useState(description && description.length > MAX_DESCRIPTION_LENGTH);
 
     if (!description) return null;
@@ -45,14 +50,14 @@ export const QueryDescription = ({ description }: DescriptionProps) => {
                     <TruncatedTextWrapper>
                         <MarkdownViewer source={`${truncatedDescription}...`} />
                     </TruncatedTextWrapper>
-                    <StyledLink onClick={() => setIsTruncated(false)}>Read more</StyledLink>
+                    <StyledLink onClick={() => setIsTruncated(false)}>{tc('readMore')}</StyledLink>
                 </>
             )}
             {!isTruncated && (
                 <>
                     <MarkdownViewer source={description} ignoreLimit />
                     {description.length > MAX_DESCRIPTION_LENGTH && (
-                        <StyledLink onClick={() => setIsTruncated(true)}>Read less</StyledLink>
+                        <StyledLink onClick={() => setIsTruncated(true)}>{tc('readLess')}</StyledLink>
                     )}
                 </>
             )}
@@ -80,12 +85,7 @@ export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
 
     return (
         <div>
-            <ActorAvatar
-                size={26}
-                name={userName}
-                url={`/${entityRegistry.getPathName(createdBy.type)}/${createdBy.urn}`}
-                photoUrl={photoUrl}
-            />
+            <Avatar name={userName || ''} imageUrl={photoUrl} type={AvatarType.user} size="lg" />
         </div>
     );
 };
@@ -110,7 +110,9 @@ interface EditDeleteProps {
 }
 
 export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }: EditDeleteProps) => {
+    const { t } = useTranslation('entity.profile.queries');
     const [editingQuery, setEditingQuery] = useState<Query | null>(null);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [deleteQueryMutation] = useDeleteQueryMutation();
     const urn = query.urn as string;
 
@@ -119,7 +121,7 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Deleted Query!`,
+                        content: t('queryCard.deleteSuccess'),
                         duration: 3,
                     });
                     onDeleted?.(query);
@@ -127,22 +129,8 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: 'Failed to delete Query! An unexpected error occurred' });
+                message.error({ content: t('queryCard.deleteError') });
             });
-    };
-
-    const confirmDeleteQuery = () => {
-        Modal.confirm({
-            title: `Delete Query`,
-            content: `Are you sure you want to delete this query?`,
-            onOk() {
-                deleteQuery();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
     };
 
     const onEditSubmitted = (newQuery) => {
@@ -156,7 +144,7 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
                 <ActionButton privilege onClick={() => setEditingQuery(query)} data-testid="edit-query">
                     <EditOutlinedIcon />
                 </ActionButton>
-                <ActionButton privilege onClick={confirmDeleteQuery} data-testid="delete-query">
+                <ActionButton privilege onClick={() => setShowConfirmationModal(true)} data-testid="delete-query">
                     <DeleteOutlinedIcon />
                 </ActionButton>
             </ButtonsWrapper>
@@ -172,6 +160,13 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
                     onClose={() => setEditingQuery(null)}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={deleteQuery}
+                modalTitle={t('queryCard.deleteConfirmTitle')}
+                modalText={t('queryCard.deleteConfirmBody')}
+            />
         </>
     );
 };

@@ -1,4 +1,4 @@
-import { Collapse, Select } from 'antd';
+import { Collapse } from 'antd';
 import styled from 'styled-components/macro';
 
 import { Button, colors } from '@src/alchemy-components';
@@ -33,7 +33,7 @@ export const ToolbarContainer = styled.div`
 `;
 
 export const OperationButton = styled(Button)<{ isSelected: boolean }>`
-    color: ${(props) => (props.isSelected ? colors.violet : colors.gray[600])};
+    color: ${(props) => (props.isSelected ? props.theme.colors.textBrand : colors.gray[600])};
     background-color: ${(props) => (props.isSelected ? colors.gray[1000] : 'transparent')};
     padding: 10px 12px;
 
@@ -108,10 +108,4 @@ export const CardIcons = styled.div`
             cursor: pointer;
         }
     }
-`;
-
-export const StyledSelect = styled(Select)`
-    min-width: 200px;
-    display: flex;
-    align-items: center;
 `;

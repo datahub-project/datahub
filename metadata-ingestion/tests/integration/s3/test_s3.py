@@ -7,7 +7,7 @@ from unittest.mock import Mock, call, patch
 import moto.s3
 import pytest
 from boto3.session import Session
-from moto import mock_s3
+from moto import mock_aws
 from pydantic import ValidationError
 
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
@@ -65,6 +65,9 @@ FILE_LIST_FOR_VALIDATION = [
     "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=march/part2.json",
     "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json",
     "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/_temporary/dummy.json",
+    "folders_only_media/audio/podcast.mp3",
+    "folders_only_media/videos/2023/clip.mp4",
+    "folders_only_media/videos/2024/clip.mp4",
 ]
 
 
@@ -75,7 +78,7 @@ def bucket_names():
 
 @pytest.fixture(scope="module", autouse=True)
 def s3():
-    with mock_s3():
+    with mock_aws():
         conn = Session(
             aws_access_key_id="test",
             aws_secret_access_key="test",
@@ -86,14 +89,14 @@ def s3():
 
 @pytest.fixture(scope="module", autouse=True)
 def s3_resource(s3):
-    with mock_s3():
+    with mock_aws():
         conn = s3.resource("s3")
         yield conn
 
 
 @pytest.fixture(scope="module", autouse=True)
 def s3_client(s3):
-    with mock_s3():
+    with mock_aws():
         conn = s3.client("s3")
         yield conn
 
@@ -255,7 +258,7 @@ def test_data_lake_gcs_ingest(
 
     with patch("datahub.ingestion.source.gcs.gcs_source.GCS_ENDPOINT_URL", None):
         pipeline = Pipeline.create(config_dict)
-    pipeline.run()
+        pipeline.run()
     pipeline.raise_from_status()
 
     # Verify the output.

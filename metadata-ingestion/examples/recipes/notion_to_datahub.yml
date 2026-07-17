@@ -1,0 +1,151 @@
+# Notion to DataHub ingestion recipe
+#
+# This recipe extracts documents from Notion pages and databases
+# using the Notion API and Unstructured.io text extraction.
+#
+# Prerequisites:
+# 1. Create a Notion internal integration at https://www.notion.so/my-integrations
+# 2. Share the pages/databases you want to ingest with the integration
+# 3. Set NOTION_API_KEY environment variable with your integration token
+#
+# Installation:
+#   pip install 'acryl-datahub[notion]'
+#
+# Run:
+#   datahub ingest -c notion_to_datahub.yml
+
+# =============================================================================
+# MINIMAL CONFIGURATION - This is all you need!
+# =============================================================================
+# The Notion source automatically:
+# - Discovers ALL pages and databases accessible to the integration
+# - Enables hierarchy mode with Notion parent-child relationships
+# - Uses embeddings and chunking if configured on the DataHub server
+# - Sets sensible defaults for all other options
+#
+# source:
+#   type: notion
+#   config:
+#     api_key: "${NOTION_API_KEY}"
+#
+# sink:
+#   type: datahub-rest
+#   config:
+#     server: "http://localhost:8080"
+# =============================================================================
+
+# =============================================================================
+# FULL CONFIGURATION WITH ALL OPTIONS (for reference)
+# =============================================================================
+# Most users don't need to configure these - the defaults are production-ready.
+# Only override if you have specific requirements.
+
+source:
+  type: notion
+  config:
+    # ====================
+    # Required
+    # ====================
+    api_key: "${NOTION_API_KEY}"
+
+    # ====================
+    # Optional - Page Selection
+    # ====================
+    # By default, ALL pages and databases accessible to the integration are ingested.
+    # Uncomment to limit to specific pages/databases:
+
+    # page_ids:
+    #   - "2bffc6a6-4277-8024-97c9-d0f26faa4480"  # Can use page IDs
+    #   - "https://www.notion.so/Page-Title-abc123"  # Or full URLs
+
+    # database_ids:
+    #   - "abc123def456789012345678901234"
+
+    # recursive: true  # Recursively fetch child pages (default: true)
+
+    # ====================
+    # Optional - Processing Configuration
+    # ====================
+    # Text extraction and partitioning configuration
+    # processing:
+    #   partition:
+    #     strategy: auto  # auto, fast, hi_res, ocr_only (default: auto)
+    #     partition_by_api: false  # Use Unstructured API (default: false)
+    #     # api_key: "${UNSTRUCTURED_API_KEY}"  # Required if partition_by_api=true
+    #
+    #   parallelism:
+    #     num_processes: 2  # Number of parallel workers (default: 2)
+    #     disable_parallelism: false  # Disable parallel processing (default: false)
+
+    # ====================
+    # Optional - Document Mapping
+    # ====================
+    # Controls how Notion pages map to DataHub document entities
+    # document_mapping:
+    #   id_pattern: "notion-{basename}"  # Default pattern (uses Notion page ID)
+    #
+    #   id_normalization:
+    #     lowercase: true  # Lowercase IDs (default: true)
+    #     replace_spaces_with: "-"  # Replace spaces in IDs (default: "-")
+    #     remove_special_chars: true  # Remove special chars (default: true)
+    #     max_length: 200  # Max ID length (default: 200)
+    #
+    #   title:
+    #     extract_from_content: true  # Extract title from content (default: true)
+    #     fallback_to_filename: true  # Use filename if no title (default: true)
+    #     max_length: 500  # Max title length (default: 500)
+    #
+    #   source:
+    #     type: "EXTERNAL"  # Source type (default: EXTERNAL)
+    #     include_external_url: true  # Include Notion URL (default: true)
+    #     include_external_id: true  # Include Notion ID (default: true)
+    #
+    #   status: "PUBLISHED"  # Document status (default: PUBLISHED)
+
+    # ====================
+    # Optional - Hierarchy Configuration
+    # ====================
+    # Preserves Notion page parent-child relationships in DataHub
+    # hierarchy:
+    #   enabled: true  # Enable hierarchy (default: true)
+    #   parent_strategy: "notion"  # Extract parent from Notion API (default: notion for Notion source)
+
+    # ====================
+    # Optional - Filtering
+    # ====================
+    # filtering:
+    #   skip_empty_documents: true  # Skip empty documents (default: true)
+    #   min_text_length: 50  # Minimum text length (default: 50)
+
+    # ====================
+    # Optional - Chunking & Embeddings
+    # ====================
+    # By default, chunking and embedding settings are fetched from the DataHub server.
+    # Only override if you want to use local configuration:
+    #
+    # chunking:
+    #   strategy: by_title  # by_title, basic (default: by_title)
+    #   max_chunk_size: 500  # Max characters per chunk (default: 500)
+    #
+    # embedding:
+    #   provider: bedrock  # bedrock, cohere (fetched from server by default)
+    #   model: cohere.embed-english-v3  # Model name (fetched from server by default)
+    #   aws_region: us-west-2  # AWS region for Bedrock (fetched from server by default)
+    #   # api_key: "${COHERE_API_KEY}"  # Cohere API key (if using Cohere provider)
+
+    # ====================
+    # Optional - Advanced Configuration
+    # ====================
+    # advanced:
+    #   work_dir: "/tmp/notion_ingestion"  # Working directory (default: /tmp/notion_ingestion)
+    #   preserve_outputs: false  # Keep intermediate files (default: false)
+    #   raise_on_error: false  # Fail on first error (default: false)
+    #   max_errors: 10  # Max errors before stopping (default: 10)
+    #   continue_on_failure: true  # Continue after errors (default: true)
+
+# DataHub connection
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    # token: "${DATAHUB_TOKEN}"  # If authentication is required

@@ -1,8 +1,13 @@
+import logging
 from typing import Any, Dict
 
 import pytest
 
 from tests.utils import execute_graphql, get_root_urn, with_test_retry
+
+logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.global_policy_mutator
 
 TEST_POLICY_NAME = "Updated Platform Policy"
 
@@ -58,7 +63,7 @@ def _ensure_policy_present(auth_session, new_urn):
             lambda x: x["urn"] == new_urn, res_data["data"]["listPolicies"]["policies"]
         )
     )
-    print(result)
+    logger.info(result)
 
     assert len(result) == 1
     assert result[0]["description"] == "Updated Metadaata Policy"

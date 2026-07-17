@@ -31,8 +31,15 @@ export type EditorProps = {
     hideHighlightToolbar?: boolean;
     toolbarStyles?: React.CSSProperties;
     dataTestId?: string;
+    /** Key down handler - fires in capture phase to allow intercepting before ProseMirror */
     onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+    /** Paste handler - fires in capture phase to allow intercepting before ProseMirror */
+    onPaste?: (event: React.ClipboardEvent<HTMLDivElement>) => void;
     hideBorder?: boolean;
     uploadFileProps?: FileUploadProps;
     fixedBottomToolbar?: boolean;
+    /** Hide the formatting toolbar completely (for chat input use case) */
+    hideToolbar?: boolean;
+    /** Enable compact mode with smaller min-height and adjusted padding */
+    compact?: boolean;
 };

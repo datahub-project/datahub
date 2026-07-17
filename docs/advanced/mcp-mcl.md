@@ -1,3 +1,7 @@
+---
+description: "Overview of DataHub's Metadata Change Proposal (MCP) and Metadata Change Log (MCL) events that drive the metadata write pipeline."
+---
+
 # MetadataChangeProposal & MetadataChangeLog Events
 
 ## Overview & Vision
@@ -224,6 +228,38 @@ should be dropped without considering it an exception, then add the following he
 The writes to the elasticsearch are asynchronous by default. A writer can add a custom header
 `X-DataHub-Sync-Index-Update` to the MCP `headers` with value set to `true` to enable a synchronous update of
 elasticsearch for specific MCPs that may benefit from it.
+
+## Aspect Size Validation
+
+Validates aspect sizes to protect against very large aspect sizes being created or consumed.
+
+**Debugging flags - disabled by default.** See [Environment Variables - Aspect Size Validation](../deploy/environment-vars.md#aspect-size-validation) for configuration details and usage guidance.
+
+```yaml
+datahub:
+  validation:
+    aspectSize:
+      prePatch:
+        enabled: false # Validates existing aspects from DB before patch application
+        warnSizeBytes: null # Optional: logs warning at this size without blocking (for observability)
+        maxSizeBytes: 16000000 # 16MB - same as INGESTION_MAX_SERIALIZED_STRING_LENGTH
+        oversizedRemediation: IGNORE # IGNORE (skip write, log warning) or DELETE (skip write and delete aspect)
+      postPatch:
+        enabled: false # Validates aspects after patch, before DB write
+        warnSizeBytes: null # Optional: logs warning at this size without blocking (for observability)
+        maxSizeBytes: 16000000 # 16MB - same as INGESTION_MAX_SERIALIZED_STRING_LENGTH
+        oversizedRemediation: IGNORE # IGNORE (skip write, log warning) or DELETE (skip write and delete aspect)
+```
+
+**Size Thresholds:**
+
+- `warnSizeBytes` (optional): Logs warning when exceeded but allows write to proceed. Useful for observability during gradual adoption. Should be lower than `maxSizeBytes`. If set higher than `maxSizeBytes`, writes are skipped before the warning triggers.
+- `maxSizeBytes`: Skips writes when exceeded and applies the configured remediation strategy.
+
+**Remediation Strategies:**
+
+- `IGNORE`: Logs warning, skips write, routes MCP to FailedMetadataChangeProposal topic.
+- `DELETE`: Logs warning, skips write, routes MCP to FailedMetadataChangeProposal topic, and deletes the aspect.
 
 ## Change Data Capture (CDC) Mode for Generating MCLs
 

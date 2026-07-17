@@ -1,5 +1,6 @@
-import { Form, Input, Modal, Typography, message } from 'antd';
+import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { PostEntry } from '@app/settings/posts/PostsListColumns';
@@ -11,8 +12,7 @@ import {
 } from '@app/settings/posts/constants';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button, Editor, colors } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Editor, Modal } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
 import { MediaType, PostContentType, PostType, SubResourceType } from '@types';
@@ -32,7 +32,7 @@ type Props = {
 
 const EditorContainer = styled.div`
     flex: 1;
-    border: 1px solid #d9d9d9;
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
     .remirror-editor.ProseMirror {
         padding: 10px;
@@ -44,26 +44,6 @@ const EditorContainer = styled.div`
     }
 `;
 
-const ModalHeaderContainer = styled.div`
-    display: flex;
-    align-items: center;
-    font-size: 16px;
-    color: ${colors.gray[600]}
-    font-weight: bold; 
-    font-family: 'Mulish', sans-serif;
-    font-weight: lighter;
-`;
-
-const ModalTitle = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-`;
-
-const StyledModal = styled(Modal)`
-    width: 720px !important;
-`;
-
 export default function CreateEntityAnnouncementModal({
     urn,
     subResource,
@@ -72,6 +52,9 @@ export default function CreateEntityAnnouncementModal({
     editData,
     onEdit,
 }: Props) {
+    const { t } = useTranslation('entity.shared.profile');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tcl } = useTranslation('common.labels');
     const [createPostMutation] = useCreatePostMutation();
     const [updatePostMutation] = useUpdatePostMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
@@ -110,7 +93,7 @@ export default function CreateEntityAnnouncementModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Created Note!`,
+                        content: t('noteModal.createdSuccess'),
                         duration: 3,
                     });
                     onCreate?.(form.getFieldValue(noteTitle), form.getFieldValue(noteContent));
@@ -120,8 +103,8 @@ export default function CreateEntityAnnouncementModal({
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to create Note! An unexpected error occurred',
-                    permissionMessage: 'Unauthorized to create Note. Please contact your DataHub administrator.',
+                    defaultMessage: t('noteModal.createError'),
+                    permissionMessage: t('noteModal.createUnauthorized'),
                 });
             });
         onClose();
@@ -153,7 +136,7 @@ export default function CreateEntityAnnouncementModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Updated Note!`,
+                        content: t('noteModal.updatedSuccess'),
                         duration: 3,
                     });
                     onEdit?.();
@@ -162,7 +145,7 @@ export default function CreateEntityAnnouncementModal({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: 'Failed to update Note! An unknown error occured.', duration: 3 });
+                message.error({ content: t('noteModal.updateError'), duration: 3 });
                 console.error('Failed to update Note:', e.message);
             });
         onClose();
@@ -179,7 +162,7 @@ export default function CreateEntityAnnouncementModal({
     };
 
     // note-- edit announcement functionality is not implemented
-    const titleText = editData ? 'Edit Note' : 'Create Note';
+    const titleText = editData ? t('noteModal.editTitle') : t('noteModal.createTitle');
 
     /**
      * Handles the change in the description field.
@@ -191,29 +174,27 @@ export default function CreateEntityAnnouncementModal({
     };
 
     return (
-        <StyledModal
-            title={
-                <ModalHeaderContainer>
-                    <ModalTitle>{titleText}</ModalTitle>
-                </ModalHeaderContainer>
-            }
+        <Modal
+            title={titleText}
             open
             onCancel={onCloseModal}
-            footer={
-                <ModalButtonContainer>
-                    <Button onClick={onCloseModal} variant="text" id="createPostButton">
-                        Cancel
-                    </Button>
-                    <Button
-                        id={CREATE_POST_BUTTON_ID}
-                        data-testid={!editData ? 'create-announcement-button' : 'update-announcement-button'}
-                        onClick={!editData ? onCreatePost : onUpdatePost}
-                        disabled={!createButtonEnabled}
-                    >
-                        {!editData ? 'Create' : 'Update'}
-                    </Button>
-                </ModalButtonContainer>
-            }
+            width={650}
+            buttons={[
+                {
+                    text: tc('cancel'),
+                    variant: 'text',
+                    onClick: onClose,
+                    id: 'createPostButton',
+                },
+                {
+                    text: !editData ? tc('create') : tc('update'),
+                    onClick: !editData ? onCreatePost : onUpdatePost,
+                    variant: 'filled',
+                    disabled: !createButtonEnabled,
+                    id: CREATE_POST_BUTTON_ID,
+                    buttonDataTestId: !editData ? 'create-announcement-button' : 'update-announcement-button',
+                },
+            ]}
         >
             <Form
                 form={form}
@@ -230,21 +211,21 @@ export default function CreateEntityAnnouncementModal({
                     }
                 }}
             >
-                <Typography.Paragraph>Title</Typography.Paragraph>
+                <Typography.Paragraph>{tcl('title')}</Typography.Paragraph>
                 <SubFormItem name={noteTitle} rules={[{ min: 1, max: 500, required: true }]} hasFeedback>
-                    <Input placeholder="Your title" />
+                    <Input placeholder={t('noteModal.titlePlaceholder')} />
                 </SubFormItem>
-                <Typography.Paragraph>Content</Typography.Paragraph>
+                <Typography.Paragraph>{t('noteModal.contentLabel')}</Typography.Paragraph>
                 <SubFormItem name={noteContent} rules={[{ min: 1, max: 5000 }]} hasFeedback>
                     <EditorContainer>
                         <Editor
                             content={editData?.description || ''}
                             onChange={handleDescriptionChange}
-                            placeholder="Write a note. Tag @user or reference @asset to make your note come to life!"
+                            placeholder={t('noteModal.contentPlaceholder')}
                         />
                     </EditorContainer>
                 </SubFormItem>
             </Form>
-        </StyledModal>
+        </Modal>
     );
 }

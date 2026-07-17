@@ -14,6 +14,7 @@ import com.linkedin.metadata.config.DebeziumConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.MCLProcessingConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -22,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -74,6 +75,7 @@ public class CDCSetupConfigTest {
 
     // Create real KafkaConfiguration
     kafkaConfig = new KafkaConfiguration();
+    kafkaConfig.setProducer(new ProducerConfiguration());
     kafkaConfig.setBootstrapServers("localhost:9092");
 
     // Create real KafkaProperties

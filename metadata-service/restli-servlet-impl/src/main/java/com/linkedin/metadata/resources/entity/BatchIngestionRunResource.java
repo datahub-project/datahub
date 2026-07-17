@@ -6,6 +6,8 @@ import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.service.RollbackService.ROLLBACK_FAILED_STATUS;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
+
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -35,6 +37,7 @@ import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.List;
@@ -88,15 +91,16 @@ public class BatchIngestionRunResource
 
       Authentication auth = AuthenticationContext.getAuthentication();
       final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()), authorizer, auth, true);
+              systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()).withUsageOperation(UsageOperation.OTHER_OPERATIONS), authorizer, auth, true);
 
 
-      if (!AuthUtil.isAPIAuthorized(
-              opContext,
-              ENTITY, MANAGE)) {
-          throw new RestLiServiceException(
-                  HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entity");
-      }
+      if (!AuthUtil.isAPIAuthorizedEntityType(
+                opContext,
+                MANAGE,
+                INGESTION_SOURCE_ENTITY_NAME)) {
+            throw new RestLiServiceException(
+                    HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entity");
+        }
 
     log.info("ROLLBACK RUN runId: {} dry run: {}", runId, dryRun);
 
@@ -138,8 +142,14 @@ public class BatchIngestionRunResource
 
     return RestliUtils.toTask(systemOperationContext,
         () -> {
+          Authentication auth = AuthenticationContext.getAuthentication();
+          final OperationContext opContext = OperationContext.asSession(
+                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                          "list", List.of()).withUsageOperation(UsageOperation.OTHER_READ), authorizer, auth, true);
+
           List<IngestionRunSummary> summaries =
               systemMetadataService.listRuns(
+                  opContext,
                   pageOffset != null ? pageOffset : DEFAULT_OFFSET,
                   pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
                   includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
@@ -166,7 +176,7 @@ public class BatchIngestionRunResource
             Authentication auth = AuthenticationContext.getAuthentication();
             final OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            "describe", List.of()), authorizer, auth, true);
+                            "describe", List.of()).withUsageOperation(UsageOperation.OTHER_READ), authorizer, auth, true);
 
             if (!AuthUtil.isAPIAuthorized(
                     opContext,
@@ -177,7 +187,7 @@ public class BatchIngestionRunResource
 
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(
-                  runId, includeSoft != null && includeSoft, start, count);
+                  opContext, runId, includeSoft != null && includeSoft, start, count);
 
           if (includeAspect != null && includeAspect) {
             summaries.forEach(

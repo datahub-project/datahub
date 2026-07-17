@@ -3,7 +3,6 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ContainerLink from '@app/entity/shared/containers/profile/header/PlatformContent/ContainerLink';
 import DatasetLink from '@app/entity/shared/containers/profile/header/PlatformContent/DatasetLink';
 import {
@@ -17,20 +16,20 @@ import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 
 import { Container, Dataset, Entity } from '@types';
 
-export const LogoIcon = styled.span`
+const LogoIcon = styled.span`
     display: flex;
     gap: 4px;
     margin-right: 8px;
 `;
 
-export const PreviewImage = styled(Image)`
+const PreviewImage = styled(Image)`
     max-height: 17px;
     width: auto;
     object-fit: contain;
     background-color: transparent;
 `;
 
-export const PlatformContentWrapper = styled.div`
+const PlatformContentWrapper = styled.div`
     display: flex;
     align-items: center;
     margin: 0 8px 6px 0;
@@ -38,11 +37,11 @@ export const PlatformContentWrapper = styled.div`
     flex: 1;
 `;
 
-export const PlatformText = styled(Typography.Text)`
+const PlatformText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
     font-weight: 700;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textSecondary};
     white-space: nowrap;
 `;
 
@@ -50,12 +49,17 @@ const PlatformDivider = styled.div`
     display: inline-block;
     padding-left: 8px;
     margin-right: 8px;
-    border-right: 1px solid ${ANTD_GRAY[4]};
+    border-right: 1px solid ${(props) => props.theme.colors.border};
     height: 18px;
     vertical-align: text-top;
 `;
 
-export function getParentContainerNames(containers?: Maybe<Container>[] | null) {
+// Separator rendered between sibling platform names, and the truncation indicator —
+// symbols, not translatable copy.
+const PLATFORM_NAME_SEPARATOR = ' & ';
+const ELLIPSIS = '...';
+
+function getParentContainerNames(containers?: Maybe<Container>[] | null) {
     let parentNames = '';
     if (containers) {
         [...containers].reverse().forEach((container, index) => {
@@ -132,7 +136,7 @@ function PlatformContentView(props: Props) {
                 </LogoIcon>
             )}
             <PlatformText>
-                {showSiblingPlatformNames ? platformNames.join(' & ') : platformName}
+                {showSiblingPlatformNames ? platformNames.join(PLATFORM_NAME_SEPARATOR) : platformName}
                 {(directParentContainer || instanceId) && <StyledRightOutlined data-testid="right-arrow" />}
             </PlatformText>
             {instanceId && (
@@ -145,7 +149,7 @@ function PlatformContentView(props: Props) {
                 title={getParentContainerNames(parentContainers)}
                 overlayStyle={areContainersTruncated ? {} : { display: 'none' }}
             >
-                {areContainersTruncated && <Ellipsis>...</Ellipsis>}
+                {areContainersTruncated && <Ellipsis>{ELLIPSIS}</Ellipsis>}
                 <ParentContainersWrapper ref={parentContainersRef}>
                     {remainingParentContainers &&
                         remainingParentContainers.map((container) => (

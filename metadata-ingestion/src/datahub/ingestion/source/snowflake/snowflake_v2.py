@@ -1,11 +1,9 @@
 import contextlib
-import functools
 import json
 import logging
 import os
 import os.path
 import platform
-import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -18,13 +16,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
-from datahub.ingestion.api.incremental_properties_helper import (
-    auto_incremental_properties,
-)
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
     TestableSource,
@@ -49,6 +42,12 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
+from datahub.ingestion.source.snowflake.snowflake_marketplace import (
+    SnowflakeMarketplaceHandler,
+)
+from datahub.ingestion.source.snowflake.snowflake_pipes import (
+    SnowflakePipesExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractor,
@@ -56,11 +55,23 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDictionary
+from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeDatabase,
+    SnowflakeDataDictionary,
+)
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_semantic_view_usage import (
+    SemanticViewUsageExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesHandler
+from datahub.ingestion.source.snowflake.snowflake_stages import (
+    SnowflakeStagesExtractor,
+)
+from datahub.ingestion.source.snowflake.snowflake_tasks import (
+    SnowflakeTasksExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
 )
@@ -75,9 +86,6 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
     RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -126,6 +134,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Enabled by default, can be disabled via configuration `include_usage_stats`",
 )
 @capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default, can be disabled via configuration `include_operational_stats`",
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
     supported=True,
@@ -133,11 +145,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(
     SourceCapability.TAGS,
     "Optionally enabled via `extract_tags`",
-    supported=True,
-)
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
@@ -231,18 +238,21 @@ class SnowflakeV2Source(
                 )
             )
 
+        # Constructed up front so consumers other than ``usage_extractor``
+        # (e.g. the marketplace handler) can also use the stateful window.
+        self.redundant_usage_run_skip_handler: Optional[
+            RedundantUsageRunSkipHandler
+        ] = None
+        if self.config.enable_stateful_usage_ingestion:
+            self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = (
-                None
-            )
-            if self.config.enable_stateful_usage_ingestion:
-                redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
-                    source=self,
-                    config=self.config,
-                    pipeline_name=self.ctx.pipeline_name,
-                    run_id=self.ctx.run_id,
-                )
             self.usage_extractor = self._exit_stack.enter_context(
                 SnowflakeUsageExtractor(
                     config,
@@ -250,8 +260,21 @@ class SnowflakeV2Source(
                     connection=self.connection,
                     filter=self.filters,
                     identifiers=self.identifiers,
-                    redundant_run_skip_handler=redundant_usage_run_skip_handler,
+                    redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
                 )
+            )
+
+        # Semantic view usage extractor (separate from main usage due to different data source)
+        self.semantic_view_usage_extractor: Optional[SemanticViewUsageExtractor] = None
+        if (
+            self.config.semantic_views.enabled
+            and self.config.semantic_views.include_usage
+        ):
+            self.semantic_view_usage_extractor = SemanticViewUsageExtractor(
+                config=config,
+                report=self.report,
+                connection=self.connection,
+                identifiers=self.identifiers,
             )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
@@ -386,9 +409,6 @@ class SnowflakeV2Source(
                     _report[SourceCapability.DATA_PROFILING] = CapabilityReport(
                         capable=True
                     )
-                    _report[SourceCapability.CLASSIFICATION] = CapabilityReport(
-                        capable=True
-                    )
 
                     if privilege.object_name.startswith("SNOWFLAKE.ACCOUNT_USAGE."):
                         # if access to "snowflake" shared database, access to all account_usage views is automatically granted
@@ -403,6 +423,9 @@ class SnowflakeV2Source(
                         )
 
                         _report[SourceCapability.USAGE_STATS] = CapabilityReport(
+                            capable=True
+                        )
+                        _report[SourceCapability.OPERATION_CAPTURE] = CapabilityReport(
                             capable=True
                         )
                         _report[SourceCapability.TAGS] = CapabilityReport(capable=True)
@@ -426,11 +449,11 @@ class SnowflakeV2Source(
             SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.DESCRIPTIONS: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.DATA_PROFILING: "Either no tables exist or current role does not have permissions to access them",
-            SourceCapability.CLASSIFICATION: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.CONTAINERS: "Current role does not have permissions to use any database",
             SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.LINEAGE_FINE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.USAGE_STATS: "Current role does not have permissions to snowflake account usage views",
+            SourceCapability.OPERATION_CAPTURE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.TAGS: "Either no tags have been applied to objects, or the current role does not have permission to access the objects or to snowflake account usage views ",
         }
 
@@ -440,10 +463,10 @@ class SnowflakeV2Source(
                 SourceCapability.SCHEMA_METADATA,
                 SourceCapability.DESCRIPTIONS,
                 SourceCapability.DATA_PROFILING,
-                SourceCapability.CLASSIFICATION,
                 SourceCapability.LINEAGE_COARSE,
                 SourceCapability.LINEAGE_FINE,
                 SourceCapability.USAGE_STATS,
+                SourceCapability.OPERATION_CAPTURE,
                 SourceCapability.TAGS,
             ):
                 failure_message = (
@@ -469,8 +492,8 @@ class SnowflakeV2Source(
 
     def _is_temp_table(self, name: str) -> bool:
         if any(
-            re.match(pattern, name, flags=re.IGNORECASE)
-            for pattern in self.config.temporary_tables_pattern
+            pattern.match(name)
+            for pattern in self.config._compiled_temporary_tables_pattern
         ):
             return True
 
@@ -494,20 +517,6 @@ class SnowflakeV2Source(
         return self.filters.is_dataset_pattern_allowed(
             name, SnowflakeObjectDomain.TABLE
         )
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            functools.partial(
-                auto_incremental_properties, self.config.incremental_properties
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
@@ -545,6 +554,21 @@ class SnowflakeV2Source(
                 self.config, self.report
             ).get_shares_workunits(databases)
 
+        if self.config.marketplace.enabled:
+            with self.report.new_stage("*: MARKETPLACE_EXTRACTION"):
+                marketplace_handler = SnowflakeMarketplaceHandler(
+                    config=self.config,
+                    report=self.report,
+                    connection=self.connection,
+                    identifiers=self.identifiers,
+                    snowsight_url_builder=snowsight_url_builder,
+                    redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
+                    domain_registry=self.domain_registry,
+                )
+                yield from marketplace_handler.get_marketplace_workunits()
+
+        yield from self._get_stages_tasks_pipes_workunits(databases)
+
         discovered_tables: List[str] = [
             self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
@@ -557,6 +581,14 @@ class SnowflakeV2Source(
             for schema in db.schemas
             for table_name in schema.views
         ]
+        discovered_semantic_views: List[str] = [
+            self.identifiers.get_dataset_identifier(
+                semantic_view_name, schema.name, db.name
+            )
+            for db in databases
+            for schema in db.schemas
+            for semantic_view_name in schema.semantic_views
+        ]
         discovered_streams: List[str] = [
             self.identifiers.get_dataset_identifier(stream_name, schema.name, db.name)
             for db in databases
@@ -567,6 +599,7 @@ class SnowflakeV2Source(
         if (
             len(discovered_tables) == 0
             and len(discovered_views) == 0
+            and len(discovered_semantic_views) == 0
             and len(discovered_streams) == 0
         ):
             if self.config.warn_no_datasets:
@@ -580,7 +613,10 @@ class SnowflakeV2Source(
                 )
 
         self.discovered_datasets = (
-            discovered_tables + discovered_views + discovered_streams
+            discovered_tables
+            + discovered_views
+            + discovered_semantic_views
+            + discovered_streams
         )
 
         if self.config.use_queries_v2:
@@ -663,12 +699,77 @@ class SnowflakeV2Source(
                     self.discovered_datasets
                 )
 
+        if self.semantic_view_usage_extractor and discovered_semantic_views:
+            discovered_semantic_views_set = set(discovered_semantic_views)
+            yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
+                discovered_semantic_views_set
+            )
+            yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
+                discovered_semantic_views_set
+            )
+
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(
                 self.config, self.report, self.connection, self.identifiers
             ).get_assertion_workunits(self.discovered_datasets)
 
         self.connection.close()
+
+    def _get_stages_tasks_pipes_workunits(
+        self,
+        databases: List[SnowflakeDatabase],
+    ) -> Iterable[MetadataWorkUnit]:
+        stages_extractor: Optional[SnowflakeStagesExtractor] = None
+        if self.config.include_stages or self.config.include_pipes:
+            stages_extractor = SnowflakeStagesExtractor(
+                config=self.config,
+                report=self.report,
+                data_dictionary=self.data_dictionary,
+                identifiers=self.identifiers,
+            )
+
+        if stages_extractor:
+            for db in databases:
+                for schema in db.schemas:
+                    schema_container_key = self.identifiers.gen_schema_key(
+                        db.name, schema.name
+                    )
+                    for wu in stages_extractor.get_workunits(
+                        db_name=db.name,
+                        schema_name=schema.name,
+                        schema_container_key=schema_container_key,
+                    ):
+                        if self.config.include_stages:
+                            yield wu
+
+        if self.config.include_tasks:
+            tasks_extractor = SnowflakeTasksExtractor(
+                config=self.config,
+                report=self.report,
+                data_dictionary=self.data_dictionary,
+                identifiers=self.identifiers,
+            )
+            for db in databases:
+                for schema in db.schemas:
+                    yield from tasks_extractor.get_workunits(
+                        db_name=db.name,
+                        schema_name=schema.name,
+                    )
+
+        if self.config.include_pipes and stages_extractor:
+            pipes_extractor = SnowflakePipesExtractor(
+                config=self.config,
+                report=self.report,
+                data_dictionary=self.data_dictionary,
+                identifiers=self.identifiers,
+                stages_extractor=stages_extractor,
+            )
+            for db in databases:
+                for schema in db.schemas:
+                    yield from pipes_extractor.get_workunits(
+                        db_name=db.name,
+                        schema_name=schema.name,
+                    )
 
     def report_warehouse_failure(self) -> None:
         if self.config.warehouse is not None:
@@ -765,6 +866,7 @@ class SnowflakeV2Source(
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
                 snowflake_domain=self.config.snowflake_domain,
+                base_url_override=self.config.snowsight_base_url,
             )
 
         except Exception as e:

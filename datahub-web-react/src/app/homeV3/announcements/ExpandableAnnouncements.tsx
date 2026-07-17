@@ -1,5 +1,8 @@
 import { Button } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AnnouncementCard } from '@app/homeV3/announcements/AnnouncementCard';
@@ -20,6 +23,7 @@ interface Props {
 }
 
 export default function ExpandableAnnouncements({ announcements, onDismiss }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
     const finalAnnouncements = useMemo(
@@ -38,11 +42,11 @@ export default function ExpandableAnnouncements({ announcements, onDismiss }: Pr
                     <Button
                         color="gray"
                         variant="link"
-                        icon={{ icon: 'CaretUp', source: 'phosphor' }}
+                        icon={{ icon: CaretUp }}
                         iconPosition="right"
                         onClick={() => setIsExpanded(false)}
                     >
-                        Show less
+                        {tc('showLess')}
                     </Button>
                 </ExpandCollapseButtonWrapper>
             );
@@ -53,15 +57,15 @@ export default function ExpandableAnnouncements({ announcements, onDismiss }: Pr
                 <Button
                     color="gray"
                     variant="link"
-                    icon={{ icon: 'CaretDown', source: 'phosphor' }}
+                    icon={{ icon: CaretDown }}
                     iconPosition="right"
                     onClick={() => setIsExpanded(true)}
                 >
-                    View all ({announcements.length})
+                    {tc('viewAllCount', { count: announcements.length })}
                 </Button>
             </ExpandCollapseButtonWrapper>
         );
-    }, [announcements, isExpanded]);
+    }, [announcements, isExpanded, tc]);
 
     return (
         <>

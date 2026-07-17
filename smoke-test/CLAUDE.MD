@@ -7,6 +7,30 @@
     - should not depend on the order in which they run
     - should not depend on another test doing their cleanup
 
+## Logging
+
+**IMPORTANT: Use logger.info() instead of print() in all test files**
+
+- Always use `logger.info()` for test logging instead of `print()`
+- Add `import logging` at the top of the file
+- Define logger: `logger = logging.getLogger(__name__)`
+- This ensures consistent, structured logging across all smoke tests
+
+Example:
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+@pytest.fixture(scope="module", autouse=True)
+def ingest_cleanup_data(auth_session, graph_client):
+    logger.info("ingesting test data")
+    ingest_file_via_rest(auth_session, "tests/my_test/data.json")
+    yield
+    logger.info("removing test data")
+    delete_urns_from_file(graph_client, "tests/my_test/data.json")
+```
+
 ## Common Utilities
 
 
@@ -85,10 +109,10 @@ Basic pattern (manual cleanup):
 ```python
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(auth_session, graph_client):
-    print("ingesting test data")
+    logger.info("ingesting test data")
     ingest_file_via_rest(auth_session, "tests/my_test/data.json")
     yield
-    print("removing test data")
+    logger.info("removing test data")
     delete_urns_from_file(graph_client, "tests/my_test/data.json")
 ```
 

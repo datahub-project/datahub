@@ -1,12 +1,12 @@
 import { DownloadOutlined } from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { DetailsContainer, SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import { DetailsContainer, SectionBase } from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
-import { Button, Text, Tooltip } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
+import { Button, Heading, Text, Tooltip } from '@src/alchemy-components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 
@@ -20,11 +20,10 @@ const SubHeaderParagraph = styled(Text)`
     margin-bottom: 0px;
 `;
 
-const RecipeSection = styled(SectionBase)`
-    border-top: 1px solid ${colors.gray[1400]};
-`;
+const RecipeSection = styled(SectionBase)``;
 
 export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecutionRequestQuery | undefined }) => {
+    const { t } = useTranslation('ingestion');
     const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
     let recipeYaml: string;
     try {
@@ -39,12 +38,12 @@ export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecut
 
     return (
         <RecipeSection>
-            <SectionHeader level={5}>Recipe</SectionHeader>
+            <Heading type="h4" size="lg" weight="bold">
+                {t('executions.recipeTitle')}
+            </Heading>
             <SectionSubHeader>
-                <SubHeaderParagraph color="gray" colorLevel={600}>
-                    The configurations used for this sync with the data source.
-                </SubHeaderParagraph>
-                <Tooltip title="Download Recipe">
+                <SubHeaderParagraph>{t('executions.recipeSubtitle')}</SubHeaderParagraph>
+                <Tooltip title={t('executions.downloadRecipe')}>
                     <Button variant="text" onClick={downloadRecipe}>
                         <DownloadOutlined />
                     </Button>
@@ -52,7 +51,7 @@ export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecut
             </SectionSubHeader>
             <DetailsContainer>
                 <Text size="sm">
-                    <pre>{recipeYaml || 'No recipe found.'}</pre>
+                    <pre>{recipeYaml || t('executions.noRecipe')}</pre>
                 </Text>
             </DetailsContainer>
         </RecipeSection>

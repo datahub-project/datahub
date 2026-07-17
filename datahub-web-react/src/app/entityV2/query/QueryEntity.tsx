@@ -1,4 +1,6 @@
-import { ConsoleSqlOutlined, FileOutlined } from '@ant-design/icons';
+import { FileOutlined } from '@ant-design/icons';
+import { FileSql } from '@phosphor-icons/react/dist/csr/FileSql';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -23,11 +25,13 @@ import { DataPlatform, EntityType, QueryEntity as Query } from '@types';
 export class QueryEntity implements Entity<Query> {
     type: EntityType = EntityType.Query;
 
-    icon = (fontSize?: number, _styleType?: IconStyleType, color?: string) => {
+    icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         return (
-            <ConsoleSqlOutlined
+            <FileSql
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -42,9 +46,9 @@ export class QueryEntity implements Entity<Query> {
 
     getPathName = () => 'query';
 
-    getEntityName = () => 'Query';
+    getEntityName = () => i18next.t('entity.types:query.name');
 
-    getCollectionName = () => 'Queries';
+    getCollectionName = () => i18next.t('entity.types:query.namePlural');
 
     useEntityQuery = useGetQueryQuery;
 
@@ -56,7 +60,7 @@ export class QueryEntity implements Entity<Query> {
                 useEntityQuery={useGetQueryQuery}
                 tabs={[
                     {
-                        name: 'Documentation',
+                        name: i18next.t('entity.types:tab.documentation'),
                         component: DocumentationTab,
                         icon: FileOutlined,
                     },
@@ -104,7 +108,11 @@ export class QueryEntity implements Entity<Query> {
     };
 
     displayName = (data: Query) => {
-        return data?.properties?.name || (data?.properties?.source === 'SYSTEM' && 'System Query') || data?.urn;
+        return (
+            data?.properties?.name ||
+            (data?.properties?.source === 'SYSTEM' && i18next.t('entity.types:query.systemQueryFallback')) ||
+            data?.urn
+        );
     };
 
     getGenericEntityProperties = (data: Query) => {

@@ -1,8 +1,16 @@
 # ABOUTME: Central registry for all environment variables used in metadata-ingestion.
 # ABOUTME: All environment variable reads should go through this module for discoverability and maintainability.
 
+import logging
 import os
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# Sink types that a no-sink recipe can default to. These match the YAML `sink:`
+# type names (datahub-rest / datahub-kafka), not shorthand.
+DEFAULT_SINK_REST = "datahub-rest"
+DEFAULT_SINK_KAFKA = "datahub-kafka"
 
 # ============================================================================
 # Core DataHub Configuration
@@ -34,6 +42,16 @@ def get_gms_token() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_TOKEN")
 
 
+def get_username() -> Optional[str]:
+    """Username for generating access tokens."""
+    return os.getenv("DATAHUB_USERNAME")
+
+
+def get_password() -> Optional[str]:
+    """Password for generating access tokens."""
+    return os.getenv("DATAHUB_PASSWORD")
+
+
 def get_system_client_id() -> Optional[str]:
     """System client ID for OAuth/auth."""
     return os.getenv("DATAHUB_SYSTEM_CLIENT_ID")
@@ -55,6 +73,164 @@ def get_gms_base_path() -> str:
 
 
 # ============================================================================
+# Ingestion Sink Configuration
+# ============================================================================
+
+
+def get_ingestion_default_sink() -> str:
+    """Sink type for a recipe that does not specify one.
+
+    Returns one of ``datahub-rest`` (the default) or ``datahub-kafka``. An
+    unset, blank, or unrecognized ``DATAHUB_INGESTION_DEFAULT_SINK`` resolves to
+    ``datahub-rest`` -- unrecognized values also log a warning -- so the historical
+    REST behavior is always the safe fallback.
+    """
+    raw = os.getenv("DATAHUB_INGESTION_DEFAULT_SINK", DEFAULT_SINK_REST).strip().lower()
+    if raw not in (DEFAULT_SINK_REST, DEFAULT_SINK_KAFKA):
+        logger.warning(
+            "Unrecognized DATAHUB_INGESTION_DEFAULT_SINK=%r; falling back to %s. "
+            "Accepted values: %s or %s.",
+            raw,
+            DEFAULT_SINK_REST,
+            DEFAULT_SINK_REST,
+            DEFAULT_SINK_KAFKA,
+        )
+        return DEFAULT_SINK_REST
+    return raw
+
+
+def get_kafka_sink_bootstrap() -> Optional[str]:
+    """Kafka bootstrap servers for the default Kafka ingestion sink.
+
+    Reuses the DataHub-wide KAFKA_BOOTSTRAP_SERVER convention (same broker GMS /
+    consumers use) rather than a sink-specific var, so ingestion targets the
+    same cluster as the rest of the platform.
+    """
+    return os.getenv("KAFKA_BOOTSTRAP_SERVER")
+
+
+def _get_int_env(var: str, default: int) -> int:
+    """Parse an int env var, raising a clear error naming the offending variable.
+
+    Avoids a bare ValueError ("invalid literal for int()...") that operators
+    can't trace back to a specific env var / ConfigMap key.
+    """
+    raw = os.getenv(var)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        raise ValueError(
+            f"Environment variable {var}={raw!r} is not a valid integer."
+        ) from None
+
+
+def get_kafka_sink_queue_max_kbytes() -> int:
+    """Per-producer local queue size cap (KiB) for the default Kafka ingestion sink.
+
+    Bounds producer buffer memory so backpressure engages before OOM. Peak
+    buffer memory ~= num_producers * this value. Default 128 MiB.
+    """
+    return _get_int_env("DATAHUB_KAFKA_SINK_QUEUE_MAX_KBYTES", 131072)
+
+
+def get_kafka_sink_queue_max_messages() -> int:
+    """Per-producer local queue size cap (msg count) for the default Kafka ingestion sink."""
+    return _get_int_env("DATAHUB_KAFKA_SINK_QUEUE_MAX_MESSAGES", 20000)
+
+
+def get_kafka_sink_linger_ms() -> int:
+    """Producer linger.ms (send batching window) for the default Kafka ingestion sink."""
+    return _get_int_env("DATAHUB_KAFKA_SINK_LINGER_MS", 100)
+
+
+def get_kafka_sink_max_message_bytes() -> int:
+    """Max serialized message size (bytes) the default Kafka ingestion sink will send.
+
+    librdkafka's own default is ~1 MiB -- stricter than GMS's aspect limit, so
+    without this an aspect REST would accept could be rejected over Kafka.
+    Defaults to 5 MiB to match DataHub's default MCP topic ``max.message.bytes``.
+    Must be <= the broker/topic ``max.message.bytes`` or the broker rejects the
+    produce. An oversized aspect degrades to the sink's REST fallback when one is
+    configured (parity with the REST sink's ~16 MiB cap); with no fallback it
+    fails the record (reported), never silent.
+    """
+    return _get_int_env("DATAHUB_KAFKA_SINK_MAX_MESSAGE_BYTES", 5242880)
+
+
+def get_kafka_sink_init_probe_timeout() -> int:
+    """Per-check timeout (seconds) for the Kafka ingestion sink's init reachability probe.
+
+    The probe runs whenever the Kafka default sink is selected
+    (DATAHUB_INGESTION_DEFAULT_SINK=kafka) -- no separate on/off flag. Bounds
+    both the broker metadata fetch and the schema-registry request so a
+    misconfigured endpoint dies in seconds at startup. Default 10s.
+    """
+    return _get_int_env("DATAHUB_KAFKA_SINK_INIT_PROBE_TIMEOUT", 10)
+
+
+# Env-configured OAuth (DATAHUB_AUTH_TYPE)
+# Parsed into an AuthConfig by datahub.ingestion.auth.env.
+# ============================================================================
+
+
+def get_auth_type() -> Optional[str]:
+    """Env-configured OAuth provider type (k8s_oidc / azure_entra / oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_TYPE")
+
+
+def get_auth_token_file() -> Optional[str]:
+    """Path to the projected service-account token file (k8s_oidc)."""
+    return os.getenv("DATAHUB_AUTH_TOKEN_FILE")
+
+
+def get_auth_audience() -> Optional[str]:
+    """Expected token audience (k8s_oidc, oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_AUDIENCE")
+
+
+def get_auth_scope() -> Optional[str]:
+    """OAuth scope (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_SCOPE")
+
+
+def get_auth_token_endpoint() -> Optional[str]:
+    """IdP token endpoint URL (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_TOKEN_ENDPOINT")
+
+
+def get_auth_client_id() -> Optional[str]:
+    """OAuth client id (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_CLIENT_ID")
+
+
+def get_auth_client_secret() -> Optional[str]:
+    """OAuth client secret (oidc_client_credentials)."""
+    return os.getenv("DATAHUB_AUTH_CLIENT_SECRET")
+
+
+def get_auth_azure_tenant_id() -> Optional[str]:
+    """Azure Entra tenant id (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_TENANT_ID")
+
+
+def get_auth_azure_client_id() -> Optional[str]:
+    """Azure Entra client id (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_CLIENT_ID")
+
+
+def get_auth_azure_scope() -> Optional[str]:
+    """Azure Entra token scope (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_SCOPE")
+
+
+def get_auth_azure_client_secret() -> Optional[str]:
+    """Azure Entra client secret; omit for workload identity (azure_entra)."""
+    return os.getenv("DATAHUB_AUTH_AZURE_CLIENT_SECRET")
+
+
+# ============================================================================
 # REST Emitter Configuration
 # ============================================================================
 
@@ -62,6 +238,24 @@ def get_gms_base_path() -> str:
 def get_rest_emitter_default_retry_max_times() -> str:
     """Max retry attempts for failed requests."""
     return os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
+
+
+def get_rest_emitter_429_retry_multiplier() -> int:
+    """Multiplier for 429 retry backoff.
+
+    Number of retries will effectively be this value * get_rest_emitter_default_retry_max_times().
+    """
+    return int(os.getenv("DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER", "2")) or 1
+
+
+def get_rest_emitter_default_pool_connections() -> int:
+    """Max number of different hosts to cache connection pools for."""
+    return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_CONNECTIONS", "100"))
+
+
+def get_rest_emitter_default_pool_maxsize() -> int:
+    """Max connections per host in each connection pool."""
+    return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_MAXSIZE", "100"))
 
 
 def get_rest_emitter_batch_max_payload_bytes() -> int:
@@ -106,6 +300,11 @@ def get_rest_sink_default_mode() -> Optional[str]:
     return os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE")
 
 
+def get_rest_sink_default_tcp_keepalive() -> bool:
+    """Default value for tcp_keepalive on the REST sink / DataHub client"""
+    return os.getenv("DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE", "").lower() == "true"
+
+
 # ============================================================================
 # Telemetry & Monitoring
 # ============================================================================
@@ -124,6 +323,41 @@ def get_sentry_dsn() -> Optional[str]:
 def get_sentry_environment() -> str:
     """Sentry environment (dev/prod)."""
     return os.getenv("SENTRY_ENVIRONMENT", "dev")
+
+
+# ============================================================================
+# Report Configuration
+# ============================================================================
+
+
+def get_report_failure_sample_size() -> int:
+    """Maximum number of failure entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "10"))
+
+
+def get_report_warning_sample_size() -> int:
+    """Maximum number of warning entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_WARNING_SAMPLE_SIZE", "10"))
+
+
+def get_report_info_sample_size() -> int:
+    """Maximum number of info entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_INFO_SAMPLE_SIZE", "10"))
+
+
+def get_progress_report_max_failures() -> int:
+    """Maximum number of failure entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_FAILURES", "10"))
+
+
+def get_progress_report_max_warnings() -> int:
+    """Maximum number of warning entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_WARNINGS", "10"))
+
+
+def get_progress_report_max_infos() -> int:
+    """Maximum number of info entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_INFOS", "10"))
 
 
 # ============================================================================
@@ -171,6 +405,16 @@ def get_sql_agg_query_log() -> str:
     return os.getenv("DATAHUB_SQL_AGG_QUERY_LOG", "DISABLED")
 
 
+def get_sql_agg_skip_joins() -> bool:
+    """Skip join processing in SQL aggregator (default: False)."""
+    return os.getenv("DATAHUB_SQL_AGG_SKIP_JOINS", "").lower() == "true"
+
+
+def get_sql_parse_cache_size() -> int:
+    """SQL parse result cache size (number of entries)."""
+    return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
+
+
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
@@ -189,6 +433,14 @@ def get_kafka_schema_registry_url() -> Optional[str]:
 def get_spark_version() -> Optional[str]:
     """Spark version (for S3 source)."""
     return os.getenv("SPARK_VERSION")
+
+
+def get_vertexai_disable_parallelism() -> bool:
+    """Disable parallel resource fetching in Vertex AI connector."""
+    return os.getenv("DATAHUB_VERTEXAI_DISABLE_PARALLELISM", "").lower() in (
+        "1",
+        "true",
+    )
 
 
 def get_bigquery_schema_parallelism() -> int:
@@ -339,3 +591,26 @@ def get_update_entity_registry() -> str:
 def get_ci() -> Optional[str]:
     """Indicates running in CI environment."""
     return os.getenv("CI")
+
+
+def is_ci() -> bool:
+    """Check if running in a CI environment.
+
+    Returns True if running in a CI environment.
+
+    Checks multiple indicators:
+    - CI environment variable (set by most CI systems like GitHub Actions, GitLab CI, Travis CI, CircleCI, etc.)
+    - GITHUB_ACTIONS (GitHub Actions specific, always set even on custom runners)
+
+    This handles various CI value formats (true, 1, yes) and provides fallback
+    detection for GitHub Actions workflows using custom runners that might not set
+    the standard CI variable.
+    """
+    # Check standard CI variable (set by most CI systems)
+    ci_value = os.getenv("CI", "").lower()
+    if ci_value in ("true", "1", "yes"):
+        return True
+
+    # Fallback: GitHub Actions always sets GITHUB_ACTIONS=true
+    # This handles Depot runners and other custom GitHub Actions runners
+    return os.getenv("GITHUB_ACTIONS") == "true"

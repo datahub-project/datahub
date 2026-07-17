@@ -4,10 +4,34 @@ import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_STATE, UserContext } from '@app/context/userContext';
 import { SearchDocumentsInput, useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 
 import { SearchDocumentsDocument } from '@graphql/document.generated';
-import { DocumentState } from '@types';
+import { DocumentSourceType, DocumentState } from '@types';
+
+const TEST_VIEW_URN = 'urn:li:dataHubView:test';
+
+/** Wrapper that provides a selected View in user context, wrapped around Apollo mocks. */
+function withSelectedView(viewUrn: string | undefined, mocks: any[]) {
+    return ({ children }: { children: React.ReactNode }) => (
+        <UserContext.Provider
+            value={{
+                loaded: true,
+                urn: 'urn:li:corpuser:test',
+                localState: { selectedViewUrn: viewUrn },
+                state: DEFAULT_STATE,
+                updateLocalState: () => null,
+                updateState: () => null,
+                refetchUser: () => null,
+            }}
+        >
+            <MockedProvider mocks={mocks} addTypename={false}>
+                {children}
+            </MockedProvider>
+        </UserContext.Provider>
+    );
+}
 
 describe('useSearchDocuments', () => {
     const mockDocuments = [
@@ -27,9 +51,10 @@ describe('useSearchDocuments', () => {
         },
     ];
 
-    it('should search documents with default parameters', async () => {
+    it('should search documents with Native source type', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -41,12 +66,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: '*',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -85,6 +109,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             query: 'test query',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -96,12 +121,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: 'test query',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -137,6 +161,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             parentDocument: 'urn:li:document:parent',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -148,12 +173,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: '*',
-                            parentDocument: 'urn:li:document:parent',
+                            parentDocuments: ['urn:li:document:parent'],
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -188,6 +212,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             rootOnly: true,
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -199,12 +224,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: '*',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: true,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -239,6 +263,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             types: ['guide', 'tutorial'],
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -250,12 +275,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: '*',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: ['guide', 'tutorial'],
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -290,6 +314,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             states: [DocumentState.Published],
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -301,12 +326,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: '*',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -337,10 +361,10 @@ describe('useSearchDocuments', () => {
         expect(result.current.documents).toEqual([mockDocuments[0]]);
     });
 
-    it('should include drafts when specified', async () => {
+    it('should search all documents when both source types specified', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
-            includeDrafts: true,
+            sourceTypes: [DocumentSourceType.Native, DocumentSourceType.External],
         };
 
         const mocks = [
@@ -352,12 +376,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: '*',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
-                            sourceType: 'NATIVE',
-                            includeDrafts: true,
+                            sourceType: undefined,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -393,6 +416,7 @@ describe('useSearchDocuments', () => {
             fetchPolicy: 'network-only',
             start: 10,
             count: 50,
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -404,12 +428,11 @@ describe('useSearchDocuments', () => {
                             start: 10,
                             count: 50,
                             query: '*',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -445,6 +468,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             includeParentDocuments: true,
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -456,12 +480,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: '*',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: true,
                     },
@@ -495,6 +518,7 @@ describe('useSearchDocuments', () => {
     it('should use specified fetch policy', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -506,12 +530,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: '*',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -546,6 +569,7 @@ describe('useSearchDocuments', () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
             query: 'nonexistent',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -557,12 +581,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: 'nonexistent',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -597,6 +620,7 @@ describe('useSearchDocuments', () => {
     it('should handle GraphQL errors', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -608,12 +632,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: '*',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -641,6 +664,7 @@ describe('useSearchDocuments', () => {
     it('should expose refetch function', async () => {
         const input: SearchDocumentsInput = {
             fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
         };
 
         const mocks = [
@@ -652,12 +676,11 @@ describe('useSearchDocuments', () => {
                             start: 0,
                             count: 100,
                             query: '*',
-                            parentDocument: undefined,
+                            parentDocuments: undefined,
                             rootOnly: undefined,
                             types: undefined,
-                            states: [DocumentState.Published, DocumentState.Unpublished],
                             sourceType: 'NATIVE',
-                            includeDrafts: false,
+                            viewUrn: undefined,
                         },
                         includeParentDocuments: false,
                     },
@@ -687,5 +710,135 @@ describe('useSearchDocuments', () => {
 
         expect(result.current.refetch).toBeDefined();
         expect(typeof result.current.refetch).toBe('function');
+    });
+
+    it('should search External documents only', async () => {
+        const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.External],
+        };
+
+        const mocks = [
+            {
+                request: {
+                    query: SearchDocumentsDocument,
+                    variables: {
+                        input: {
+                            start: 0,
+                            count: 100,
+                            query: '*',
+                            parentDocuments: undefined,
+                            rootOnly: undefined,
+                            types: undefined,
+                            sourceType: 'EXTERNAL',
+                            viewUrn: undefined,
+                        },
+                        includeParentDocuments: false,
+                    },
+                },
+                result: {
+                    data: {
+                        searchDocuments: {
+                            documents: mockDocuments,
+                            total: 2,
+                        },
+                    },
+                },
+            },
+        ];
+
+        const { result } = renderHook(() => useSearchDocuments(input), {
+            wrapper: ({ children }) => (
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    {children}
+                </MockedProvider>
+            ),
+        });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.documents).toEqual(mockDocuments);
+        expect(result.current.total).toBe(2);
+    });
+
+    it('should scope search to the active View by default', async () => {
+        const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
+        };
+
+        const mocks = [
+            {
+                request: {
+                    query: SearchDocumentsDocument,
+                    variables: {
+                        input: {
+                            start: 0,
+                            count: 100,
+                            query: '*',
+                            parentDocuments: undefined,
+                            rootOnly: undefined,
+                            types: undefined,
+                            sourceType: 'NATIVE',
+                            viewUrn: TEST_VIEW_URN,
+                        },
+                        includeParentDocuments: false,
+                    },
+                },
+                result: { data: { searchDocuments: { documents: mockDocuments, total: 2 } } },
+            },
+        ];
+
+        const { result } = renderHook(() => useSearchDocuments(input), {
+            wrapper: withSelectedView(TEST_VIEW_URN, mocks),
+        });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.documents).toEqual(mockDocuments);
+    });
+
+    it('should bypass the active View when applyView is false', async () => {
+        const input: SearchDocumentsInput = {
+            fetchPolicy: 'network-only',
+            sourceTypes: [DocumentSourceType.Native],
+            applyView: false,
+        };
+
+        const mocks = [
+            {
+                request: {
+                    query: SearchDocumentsDocument,
+                    variables: {
+                        input: {
+                            start: 0,
+                            count: 100,
+                            query: '*',
+                            parentDocuments: undefined,
+                            rootOnly: undefined,
+                            types: undefined,
+                            sourceType: 'NATIVE',
+                            viewUrn: undefined,
+                        },
+                        includeParentDocuments: false,
+                    },
+                },
+                result: { data: { searchDocuments: { documents: mockDocuments, total: 2 } } },
+            },
+        ];
+
+        const { result } = renderHook(() => useSearchDocuments(input), {
+            wrapper: withSelectedView(TEST_VIEW_URN, mocks),
+        });
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.documents).toEqual(mockDocuments);
     });
 });

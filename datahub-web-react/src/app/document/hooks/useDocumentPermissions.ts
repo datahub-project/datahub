@@ -3,7 +3,9 @@ import { useMemo } from 'react';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 
-export interface DocumentPermissions {
+import { Document, DocumentSourceType } from '@types';
+
+interface DocumentPermissions {
     canCreate: boolean;
     canEditContents: boolean;
     canEditTitle: boolean;
@@ -20,12 +22,17 @@ export interface DocumentPermissions {
  * - Document Contents, Title, State, Type: Requires EDIT_ENTITY_DOCS privilege for asset
  * - Owners, Tags, Terms, Domain, Data Product: Requires the respective EDIT_X privilege
  * - Create/Delete/Move: Requires EDIT_ENTITY or MANAGE_DOCUMENTS privilege.
+ *
+ * External documents (ingested from Confluence, Notion, etc.) treat state and type as
+ * read-only because ingestion owns those fields and would overwrite any UI edits.
  */
 export function useDocumentPermissions(_documentUrn?: string): DocumentPermissions {
     const { entityData } = useEntityData();
     const { platformPrivileges } = useUserContext();
 
     return useMemo(() => {
+        const isExternal = (entityData as Document)?.info?.source?.sourceType === DocumentSourceType.External;
+
         // Platform-level privilege check
         const hasManageDocuments = platformPrivileges?.manageDocuments || false;
 
@@ -39,11 +46,11 @@ export function useDocumentPermissions(_documentUrn?: string): DocumentPermissio
 
         return {
             canCreate: hasManageDocuments,
-            // All the same here.
             canEditContents: canEditDescription,
             canEditTitle: canEditDescription,
-            canEditState: canEditDescription,
-            canEditType: canEditDescription,
+            // Ingestion owns state and type for external documents — UI edits would be overwritten.
+            canEditState: isExternal ? false : canEditDescription,
+            canEditType: isExternal ? false : canEditDescription,
             canDelete,
             canMove,
         };

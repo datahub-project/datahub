@@ -6,6 +6,7 @@ from typing import Annotated, Any, Dict, List, Optional
 import pydantic
 from pydantic import model_validator
 from pydantic.fields import Field
+from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
 from datahub.ingestion.source_config.operation_config import OperationConfig
@@ -20,7 +21,22 @@ _PROFILING_FLAGS_TO_REPORT = {
 logger = logging.getLogger(__name__)
 
 
-class GEProfilingBaseConfig(ConfigModel):
+class ProfilingMethodConfig(ConfigModel):
+    """Base class for profiling configs that support method selection."""
+
+    method: Literal["ge", "sqlalchemy"] = Field(
+        default="sqlalchemy",
+        description=(
+            "Profiling method to use. "
+            "`sqlalchemy` (default) runs profiling queries directly against your "
+            "source's existing SQLAlchemy connection. "
+            "`ge` selects the legacy Great Expectations profiler, which is "
+            "deprecated and requires `pip install 'acryl-datahub[profiling-ge]'`."
+        ),
+    )
+
+
+class GEProfilingBaseConfig(ProfilingMethodConfig):
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
     )
@@ -122,22 +138,29 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     )
 
     profile_if_updated_since_days: Annotated[
-        Optional[pydantic.PositiveFloat], SupportedSources(["snowflake", "bigquery"])
+        Optional[pydantic.PositiveFloat],
+        SupportedSources(["snowflake", "bigquery", "dremio"]),
     ] = Field(
         default=None,
         description="Profile table only if it has been updated since these many number of days. "
         "If set to `null`, no constraint of last modified time for tables to profile. "
-        "Supported only in `snowflake` and `BigQuery`.",
+        "Supported in `Snowflake`, `BigQuery`, and `Dremio`. "
+        "Note: for Dremio this compares against DataHub's last-profiled timestamp "
+        "(Dremio exposes no table modification time), so it controls profile frequency "
+        "rather than reacting to upstream change.",
     )
 
     profile_table_size_limit: Annotated[
         Optional[int],
-        SupportedSources(["snowflake", "bigquery", "unity-catalog", "oracle"]),
+        SupportedSources(
+            ["snowflake", "bigquery", "unity-catalog", "oracle", "teradata"]
+        ),
     ] = Field(
         default=5,
         description="Profile tables only if their size is less than specified GBs. If set to `null`, "
-        "no limit on the size of tables to profile. Supported only in `Snowflake`, `BigQuery` and "
-        "`Databricks`. Supported for `Oracle` based on calculated size from gathered stats.",
+        "no limit on the size of tables to profile. Supported in `Snowflake`, `BigQuery`, "
+        "`Databricks`, `Oracle`, and `Teradata`. `Oracle` uses calculated size from gathered stats. "
+        "`Teradata` uses DBC space accounting.",
     )
 
     profile_table_row_limit: Annotated[
@@ -203,7 +226,8 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(
         default=None,
         description=(
-            "Fixed list of tags to ignore sampling."
+            "Fixed list of tags to ignore sampling. Each entry may be a full tag URN"
+            " (e.g. `urn:li:tag:my_tag`) or just the tag name (e.g. `my_tag`)."
             " If not specified, tables will be sampled based on `use_sampling`."
         ),
     )
@@ -211,6 +235,13 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     profile_nested_fields: bool = Field(
         default=False,
         description="Whether to profile complex types like structs, arrays and maps. ",
+    )
+
+    nested_field_max_depth: pydantic.PositiveInt = Field(
+        default=10,
+        description="Maximum recursion depth when flattening nested JSON structures during profiling. "
+        "Lower values prevent recursion errors but may truncate deeply nested data. "
+        "Applies to connectors that process dynamic JSON content (e.g., Kafka, MongoDB, Elasticsearch).",
     )
 
     @model_validator(mode="before")
@@ -277,3 +308,17 @@ class GEProfilingConfig(GEProfilingBaseConfig):
             for flag in config_dict
             if flag in _PROFILING_FLAGS_TO_REPORT or flag.startswith("include_field_")
         }
+
+
+# Alias for clearer naming in new code
+# GEProfilingConfig is misleadingly named - it's actually a generic profiling config
+# used by both GE and SQLAlchemy profilers. This alias allows new code to use a
+# more appropriate name without breaking existing code.
+#
+# Migration strategy:
+# 1. New code should use ProfilingConfig instead of GEProfilingConfig
+# 2. Once GE profiler is removed, deprecate GEProfilingConfig with a warning
+# 3. Eventually rename the class itself to ProfilingConfig
+# 4. Consider moving to datahub.ingestion.source.profiling.common since it's
+#    generic profiling infrastructure, not source-specific
+ProfilingConfig = GEProfilingConfig

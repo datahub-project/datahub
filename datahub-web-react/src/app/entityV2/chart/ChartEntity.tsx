@@ -3,12 +3,14 @@ import {
     EyeOutlined,
     FileOutlined,
     LayoutOutlined,
-    LineChartOutlined,
     PartitionOutlined,
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { ListBullets, TreeStructure } from '@phosphor-icons/react';
+import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -71,29 +73,12 @@ export class ChartEntity implements Entity<Chart> {
     type: EntityType = EntityType.Chart;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <LineChartOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <LineChartOutlined
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || 'rgb(144 163 236)' }}
-                />
-            );
-        }
-
-        if (styleType === IconStyleType.SVG) {
-            return (
-                <path d="M888 792H200V168c0-4.4-3.6-8-8-8h-56c-4.4 0-8 3.6-8 8v688c0 4.4 3.6 8 8 8h752c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM305.8 637.7c3.1 3.1 8.1 3.1 11.3 0l138.3-137.6L583 628.5c3.1 3.1 8.2 3.1 11.3 0l275.4-275.3c3.1-3.1 3.1-8.2 0-11.3l-39.6-39.6a8.03 8.03 0 00-11.3 0l-230 229.9L461.4 404a8.03 8.03 0 00-11.3 0L266.3 586.7a8.03 8.03 0 000 11.3l39.5 39.7z" />
-            );
-        }
-
         return (
-            <LineChartOutlined
+            <ChartLine
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -110,9 +95,9 @@ export class ChartEntity implements Entity<Chart> {
 
     getPathName = () => this.getGraphName();
 
-    getEntityName = () => 'Chart';
+    getEntityName = () => i18next.t('entity.types:chart.name');
 
-    getCollectionName = () => 'Charts';
+    getCollectionName = () => i18next.t('entity.types:chart.namePlural');
 
     useEntityQuery = useGetChartQuery;
 
@@ -129,7 +114,7 @@ export class ChartEntity implements Entity<Chart> {
             }}
             tabs={[
                 {
-                    name: 'Summary',
+                    name: i18next.t('entity.types:tab.summary'),
                     component: ChartSummaryTab,
                     icon: SUMMARY_TAB_ICON,
                     display: {
@@ -141,12 +126,12 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileOutlined,
                 },
                 {
-                    name: 'Fields',
+                    name: i18next.t('entity.types:chart.fieldsTab'),
                     component: InputFieldsTab,
                     icon: LayoutOutlined,
                     display: {
@@ -155,7 +140,7 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Preview',
+                    name: i18next.t('common.actions:preview'),
                     component: EmbedTab,
                     icon: EyeOutlined,
                     display: {
@@ -168,7 +153,7 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     icon: PartitionOutlined,
                     properties: {
@@ -177,12 +162,12 @@ export class ChartEntity implements Entity<Chart> {
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,
                 },
                 {
-                    name: 'Dashboards',
+                    name: i18next.t('entity.types:dashboard.namePlural'),
                     component: ChartDashboardsTab,
                     icon: DashboardOutlined,
                     display: {
@@ -191,7 +176,7 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Incidents',
+                    name: i18next.t('entity.types:tab.incidents'),
                     getCount: (_, chart, loading) => {
                         return !loading ? chart?.chart?.activeIncidents?.total : undefined;
                     },
@@ -248,18 +233,18 @@ export class ChartEntity implements Entity<Chart> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -383,6 +368,8 @@ export class ChartEntity implements Entity<Chart> {
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 

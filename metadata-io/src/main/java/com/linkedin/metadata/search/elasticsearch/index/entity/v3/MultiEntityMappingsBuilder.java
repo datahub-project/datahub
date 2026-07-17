@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getEntityTypeId;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
@@ -206,25 +208,56 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       return Collections.emptyList();
     }
 
-    List<IndexMapping> result = new ArrayList<>(1);
+    List<IndexMapping> result = new ArrayList<>();
 
-    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
-
-    if (entitySpec == null || entitySpec.getSearchGroup() == null) {
-      log.warn("Missing entitySpec with searchGroup for {}", urn.getEntityType());
+    // Get entity types from the property definition (e.g., urn:li:entityType:datahub.dataset)
+    if (property.getEntityTypes() == null || property.getEntityTypes().isEmpty()) {
+      log.warn("Property {} has no entity types defined", urn);
       return result;
     }
 
-    String searchGroup = entitySpec.getSearchGroup();
-    Map<String, Object> mappings =
-        getMappingsForMultipleEntities(
-            opContext.getEntityRegistry(), searchGroup, List.of(Pair.of(urn, property)));
-    result.add(
-        IndexMapping.builder()
-            .indexName(
-                opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(searchGroup))
-            .mappings(mappings)
-            .build());
+    // Group entity types by search group to build mappings per index
+    Map<String, List<EntitySpec>> searchGroupToEntitySpecs = new HashMap<>();
+
+    for (Urn entityTypeUrn : property.getEntityTypes()) {
+      // Extract entity type name from URN, handling both formats:
+      // - urn:li:entityType:dataset (legacy)
+      // - urn:li:entityType:datahub.dataset (production)
+      String entityTypeName = getEntityTypeId(entityTypeUrn);
+      if (entityTypeName == null) {
+        log.warn("Could not extract entity type from URN: {}", entityTypeUrn);
+        continue;
+      }
+
+      EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityTypeName);
+
+      if (entitySpec != null && entitySpec.getSearchGroup() != null) {
+        String searchGroup = entitySpec.getSearchGroup();
+        searchGroupToEntitySpecs
+            .computeIfAbsent(searchGroup, k -> new ArrayList<>())
+            .add(entitySpec);
+      } else {
+        log.warn("Missing entitySpec with searchGroup for entity type: {}", entityTypeName);
+      }
+    }
+
+    // Build mappings for each search group
+    for (Map.Entry<String, List<EntitySpec>> entry : searchGroupToEntitySpecs.entrySet()) {
+      String searchGroup = entry.getKey();
+      Map<String, Object> mappings =
+          getMappingsForMultipleEntities(
+              opContext.getEntityRegistry(), searchGroup, List.of(Pair.of(urn, property)));
+
+      result.add(
+          IndexMapping.builder()
+              .indexName(
+                  opContext
+                      .getSearchContext()
+                      .getIndexConvention()
+                      .getEntityIndexNameV3(searchGroup))
+              .mappings(mappings)
+              .build());
+    }
 
     return result;
   }
@@ -247,21 +280,25 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
             urnProperty -> {
               StructuredPropertyDefinition property = urnProperty.getSecond();
               Map<String, Object> mappingForField = new HashMap<>();
-              String valueType = property.getValueType().getId();
+              LogicalValueType logicalType = getLogicalValueType(property.getValueType());
 
-              // Map structured property value types to field types
-              if (valueType.equalsIgnoreCase(LogicalValueType.STRING.name())
-                  || valueType.equalsIgnoreCase(LogicalValueType.RICH_TEXT.name())) {
-                mappingForField = FieldTypeMapper.getMappingsForKeyword();
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.DATE.name())) {
-                mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.URN.name())) {
-                mappingForField = FieldTypeMapper.getMappingsForUrn();
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.NUMBER.name())) {
-                mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
-              } else {
-                // Default to keyword for unknown types
-                mappingForField = FieldTypeMapper.getMappingsForKeyword();
+              switch (logicalType) {
+                case STRING:
+                case RICH_TEXT:
+                  mappingForField = FieldTypeMapper.getMappingsForKeyword();
+                  break;
+                case DATE:
+                  mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
+                  break;
+                case URN:
+                  mappingForField = FieldTypeMapper.getMappingsForUrn();
+                  break;
+                case NUMBER:
+                  mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
+                  break;
+                default:
+                  mappingForField = FieldTypeMapper.getMappingsForKeyword();
+                  break;
               }
 
               return Map.entry(
@@ -801,6 +838,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       // Create root field mapping - this is the target field that aspect fields will copy_to
       Map<String, Object> rootFieldMapping = new HashMap<>();
       rootFieldMapping.put(TYPE, resolvedElasticsearchType);
+      if (ESUtils.OBJECT_FIELD_TYPE.equals(resolvedElasticsearchType)) {
+        rootFieldMapping.put("dynamic", true);
+      }
 
       // Check if any of the conflicting fields have eagerGlobalOrdinals set to true
       boolean hasEagerGlobalOrdinals =
@@ -889,8 +929,12 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       log.debug("Creating root alias for _entityName -> _search.entityName");
     } else {
       // Create root field mapping - this is the target field that aspect fields will copy_to
+      String resolvedType = FieldTypeMapper.getElasticsearchTypeForFieldType(fieldType);
       Map<String, Object> rootFieldMapping = new HashMap<>();
-      rootFieldMapping.put(TYPE, FieldTypeMapper.getElasticsearchTypeForFieldType(fieldType));
+      rootFieldMapping.put(TYPE, resolvedType);
+      if (ESUtils.OBJECT_FIELD_TYPE.equals(resolvedType)) {
+        rootFieldMapping.put("dynamic", true);
+      }
 
       // Check if any of the conflicting fields have eagerGlobalOrdinals set to true
       boolean hasEagerGlobalOrdinals =

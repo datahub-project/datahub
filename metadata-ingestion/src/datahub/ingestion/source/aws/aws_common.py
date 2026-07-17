@@ -9,7 +9,7 @@ import boto3
 import requests
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
-from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
 from pydantic.fields import Field
 
@@ -17,6 +17,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     PermissiveConfigModel,
+    TransparentSecretStr,
 )
 from datahub.configuration.env_vars import (
     get_aws_app_runner_service_id,
@@ -275,11 +276,11 @@ class AwsConnectionConfig(ConfigModel):
         default=None,
         description=f"AWS access key ID. {AUTODETECT_CREDENTIALS_DOC_LINK}",
     )
-    aws_secret_access_key: Optional[str] = Field(
+    aws_secret_access_key: Optional[TransparentSecretStr] = Field(
         default=None,
         description=f"AWS secret access key. {AUTODETECT_CREDENTIALS_DOC_LINK}",
     )
-    aws_session_token: Optional[str] = Field(
+    aws_session_token: Optional[TransparentSecretStr] = Field(
         default=None,
         description=f"AWS session token. {AUTODETECT_CREDENTIALS_DOC_LINK}",
     )
@@ -343,8 +344,12 @@ class AwsConnectionConfig(ConfigModel):
             # Explicit credentials take precedence
             session = Session(
                 aws_access_key_id=self.aws_access_key_id,
-                aws_secret_access_key=self.aws_secret_access_key,
-                aws_session_token=self.aws_session_token,
+                aws_secret_access_key=self.aws_secret_access_key.get_secret_value(),
+                aws_session_token=(
+                    self.aws_session_token.get_secret_value()
+                    if self.aws_session_token
+                    else None
+                ),
                 region_name=self.aws_region,
             )
         elif self.aws_profile:
@@ -670,3 +675,26 @@ class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for tables to filter in ingestion.",
     )
+
+
+def aws_error_code(e: Union[ClientError, BotoCoreError]) -> str:
+    """Return a short human-readable code for an AWS SDK exception.
+
+    For ``ClientError`` (the structured API error: 4xx/5xx with a wire-format
+    response body), returns ``e.response["Error"]["Code"]`` —
+    e.g. ``AccessDeniedException``, ``ThrottlingException``,
+    ``ValidationException``.
+
+    For ``BotoCoreError`` (the unstructured client-side errors:
+    ``NoCredentialsError``, ``EndpointConnectionError``, ``ConnectTimeoutError``,
+    etc., which don't have a ``.response`` attribute), returns the exception's
+    class name, since that's the only stable identifier those exceptions
+    expose.
+
+    The returned string is safe to log without further sanitization.
+    """
+    if isinstance(e, ClientError):
+        return e.response.get("Error", {}).get("Code", "")
+    # BotoCoreError subclasses don't carry a structured code; the class name
+    # (e.g. "NoCredentialsError") is the next-best stable identifier.
+    return type(e).__name__

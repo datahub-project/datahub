@@ -1,8 +1,11 @@
+import importlib.metadata
 import json
 import logging
+import socket
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import quote, urlparse, urlunparse
 
 import click
 import click.testing
@@ -15,6 +18,7 @@ from requests.structures import CaseInsensitiveDict
 from datahub.cli import cli_utils, env_utils
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities import env_vars
 
@@ -26,11 +30,31 @@ def sync_elastic() -> None:
     wait_for_writes_to_sync()
 
 
+_TRANSIENT_LOGIN_EXCEPTIONS = (
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+)
+
+
+def _is_transient_login_error(exception: BaseException) -> bool:
+    if isinstance(exception, _TRANSIENT_LOGIN_EXCEPTIONS):
+        return True
+    if isinstance(exception, requests.HTTPError) and exception.response is not None:
+        return exception.response.status_code >= 500
+    return False
+
+
 def get_frontend_session():
     username, password = get_admin_credentials()
     return login_as(username, password)
 
 
+@tenacity.retry(
+    retry=tenacity.retry_if_exception(_is_transient_login_error),
+    stop=tenacity.stop_after_attempt(5),
+    wait=tenacity.wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
 def login_as(username: str, password: str):
     return cli_utils.get_frontend_session_login_as(
         username=username, password=password, frontend_url=get_frontend_url()
@@ -66,6 +90,70 @@ def get_gms_url():
     return env_vars.get_gms_url() or f"http://localhost:8080{get_gms_base_path()}"
 
 
+def get_gms_prometheus_base_url():
+    """Base URL for /actuator/prometheus.
+
+    Docker images default to management on :4319 while GMS HTTP stays on :8080; when the GMS URL
+    uses port 8080, assume Micrometer is on the same host at 4319 unless DATAHUB_GMS_MANAGEMENT_URL
+    is set. For a local GMS with Actuator on the main port only, set DATAHUB_GMS_MANAGEMENT_URL
+    to your GMS base URL.
+    """
+    mgmt = env_vars.get_gms_management_url()
+    if mgmt:
+        return mgmt.rstrip("/")
+    base = get_gms_url().rstrip("/")
+    parsed = urlparse(base)
+    if parsed.port == 8080 and parsed.hostname is not None:
+        return urlunparse((parsed.scheme, f"{parsed.hostname}:4319", "", "", "", ""))
+    return base
+
+
+def _prometheus_actuator_reachable(base_url: str, timeout: float = 2.0) -> bool:
+    try:
+        response = requests.get(
+            f"{base_url.rstrip('/')}/actuator/prometheus", timeout=timeout
+        )
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
+
+
+def resolve_queue_ingest_prometheus_base_url() -> tuple[Optional[str], str]:
+    """Resolve Prometheus base URL for queue-path ``metadata_ingest`` metrics.
+
+    Standalone MCE consumer deployments expose metrics on the MCE management port; embedded
+    consumer deployments (``quickstart`` without ``quickstart-consumers``) share the GMS JVM and
+    fall back to the GMS management URL when no separate MCE actuator is reachable.
+
+    Returns:
+        (base_url, source) where source is ``mce``, ``gms``, or ``none``.
+    """
+    explicit_mce = env_vars.get_mce_management_url()
+    if explicit_mce and explicit_mce.strip():
+        base = explicit_mce.strip().rstrip("/")
+        if _prometheus_actuator_reachable(base):
+            return base, "mce"
+        return None, "none"
+
+    for candidate in ("http://datahub-mce-consumer:4319",):
+        if _prometheus_actuator_reachable(candidate):
+            return candidate.rstrip("/"), "mce"
+
+    gms_base = get_gms_prometheus_base_url()
+    if gms_base and _prometheus_actuator_reachable(gms_base):
+        return gms_base.rstrip("/"), "gms"
+
+    return None, "none"
+
+
+def get_queue_ingest_prometheus_url() -> tuple[Optional[str], str]:
+    """Full ``/actuator/prometheus`` URL for queue ingest metrics, plus source label."""
+    base, source = resolve_queue_ingest_prometheus_base_url()
+    if base is None:
+        return None, source
+    return f"{base}/actuator/prometheus", source
+
+
 def get_frontend_url():
     return env_vars.get_frontend_url() or f"http://localhost:9002{get_base_path()}"
 
@@ -82,17 +170,51 @@ def get_kafka_schema_registry():
     )
 
 
+def _metadata_db_tcp_reachable(host_port: str, default_port: int) -> bool:
+    """Return True if ``host[:port]`` accepts a TCP connection (short timeout)."""
+    host, port = parse_host_port(host_port, default_port)
+    if port is None:
+        port = default_port
+    try:
+        with socket.create_connection((host, int(port)), timeout=0.75):
+            return True
+    except OSError:
+        return False
+
+
 def get_db_type():
     db_type = env_vars.get_db_type()
     if db_type:
         return db_type
-    else:
-        # infer from profile
-        profile_name = env_vars.get_profile_name()
-        if profile_name and "postgres" in profile_name:
-            return "postgres"
-        else:
-            return "mysql"
+    profile_name = env_vars.get_profile_name()
+    if profile_name and "postgres" in profile_name:
+        return "postgres"
+
+    pg_url = env_vars.get_postgres_url()
+    mysql_url = env_vars.get_mysql_url()
+    pg_ok = _metadata_db_tcp_reachable(pg_url, 5432)
+    mysql_ok = _metadata_db_tcp_reachable(mysql_url, 3306)
+
+    if pg_ok and not mysql_ok:
+        return "postgres"
+    if mysql_ok and not pg_ok:
+        return "mysql"
+    if pg_ok and mysql_ok:
+        logger.warning(
+            "Both postgres (%s) and mysql (%s) ports accept connections; "
+            "using postgres. Set DB_TYPE=mysql or DB_TYPE=postgres to override.",
+            pg_url,
+            mysql_url,
+        )
+        return "postgres"
+
+    logger.warning(
+        "Neither postgres (%s) nor mysql (%s) responded to a TCP probe; "
+        "defaulting to mysql. Set DB_TYPE=postgres for PostgreSQL-only quickstart.",
+        pg_url,
+        mysql_url,
+    )
+    return "mysql"
 
 
 def get_db_url():
@@ -152,6 +274,7 @@ def with_test_retry(
     return tenacity.retry(
         stop=tenacity.stop_after_attempt(retry_count),
         wait=tenacity.wait_fixed(sleep_sec),
+        reraise=True,
     )
 
 
@@ -162,6 +285,90 @@ def is_k8s_enabled():
 def wait_for_healthcheck_util(auth_session):
     assert not check_endpoint(auth_session, f"{get_frontend_url()}/admin")
     assert not check_endpoint(auth_session, f"{get_gms_url()}/health")
+
+
+class AdminCorpUserBootstrapError(Exception):
+    """Admin corpUserInfo not yet visible or missing root-user bootstrap flags."""
+
+
+class AdminCorpUserInfoMutatedError(AssertionError):
+    """A smoke test overwrote privileged admin corpUserInfo fields."""
+
+
+_ADMIN_CORPUSER_PRIVILEGED_FLAGS = ("system", "isSupportUser")
+
+
+def get_admin_corpuser_urn() -> str:
+    return f"urn:li:corpuser:{get_admin_username()}"
+
+
+def fetch_admin_corpuser_info(auth_session) -> Dict[str, Any]:
+    """Return corpUserInfo.value for the configured smoke admin."""
+    expected_urn = get_admin_corpuser_urn()
+    encoded = quote(expected_urn, safe="")
+    response = auth_session.get(
+        f"{auth_session.gms_url()}/openapi/v3/entity/corpuser/{encoded}"
+    )
+    if response.status_code != 200:
+        raise AdminCorpUserBootstrapError(
+            f"Admin corpuser not readable: HTTP {response.status_code} for {expected_urn}"
+        )
+    corp_user_info = response.json().get("corpUserInfo")
+    if not corp_user_info or corp_user_info.get("value") is None:
+        raise AdminCorpUserBootstrapError(
+            f"corpUserInfo aspect missing for {expected_urn}"
+        )
+    return dict(corp_user_info.get("value", {}))
+
+
+def assert_admin_corpuser_info_preserved(
+    auth_session,
+    baseline: Dict[str, Any],
+    *,
+    context: str = "",
+) -> None:
+    """Fail if a test cleared privileged corpUserInfo flags on the smoke admin."""
+    current = fetch_admin_corpuser_info(auth_session)
+    cleared = {
+        flag: baseline.get(flag)
+        for flag in _ADMIN_CORPUSER_PRIVILEGED_FLAGS
+        if baseline.get(flag) and not current.get(flag)
+    }
+    if cleared:
+        suffix = f" after {context}" if context else ""
+        raise AdminCorpUserInfoMutatedError(
+            f"Privileged admin corpUserInfo flags were cleared{suffix}: "
+            f"cleared={cleared!r} baseline={baseline!r} current={current!r}"
+        )
+
+
+@tenacity.retry(
+    retry=tenacity.retry_if_exception_type(AdminCorpUserBootstrapError),
+    stop=tenacity.stop_after_attempt(40),
+    wait=tenacity.wait_fixed(3),
+    reraise=True,
+)
+def wait_for_admin_corpuser_system_bootstrap(auth_session) -> None:
+    """Wait until the configured smoke admin has corpUserInfo with system=true.
+
+    Quickstart relies on the root-user bootstrap MCP; GMS health can be ready before
+    that aspect is readable on the entity API (or before the session actor matches).
+    """
+    expected_urn = get_admin_corpuser_urn()
+    me = execute_graphql(auth_session, "query { me { corpUser { urn } } }")
+    actual_urn = me["data"]["me"]["corpUser"]["urn"]
+    if actual_urn != expected_urn:
+        raise AdminCorpUserBootstrapError(
+            f"Session corp user {actual_urn} != configured admin {expected_urn}"
+        )
+
+    info = fetch_admin_corpuser_info(auth_session)
+    if not info.get("system"):
+        raise AdminCorpUserBootstrapError(
+            f"corpUserInfo.system is not true for {expected_urn}: {info!r}"
+        )
+
+    logger.info("Verified admin corpUserInfo bootstrap: %s system=true", expected_urn)
 
 
 def check_endpoint(auth_session, url):
@@ -217,8 +424,11 @@ def execute_graphql(
     res_data = response.json()
 
     assert res_data, "GraphQL response is empty"
-    assert res_data.get("data") is not None, "GraphQL response.data is None"
-    assert "errors" not in res_data, f"GraphQL errors: {res_data.get('errors')}"
+    if not expect_errors:
+        assert res_data.get("data") is not None, (
+            f"GraphQL response.data is None. Errors: {res_data.get('errors')}"
+        )
+        assert "errors" not in res_data, f"GraphQL errors: {res_data.get('errors')}"
 
     return res_data
 
@@ -230,7 +440,7 @@ def run_datahub_cmd(
     env: Optional[Dict[str, str]] = None,
 ) -> click.testing.Result:
     # TODO: Unify this with the run_datahub_cmd in the metadata-ingestion directory.
-    click_version: str = click.__version__  # type: ignore
+    click_version: str = importlib.metadata.version("click")
     if version.parse(click_version) >= version.parse("8.2.0"):
         runner = click.testing.CliRunner()
     else:
@@ -277,7 +487,7 @@ def delete_urns_from_file(
     graph_client, filename: str, shared_data: bool = False
 ) -> None:
     if not env_utils.get_boolean_env_variable("CLEANUP_DATA", True):
-        print("Not cleaning data to save time")
+        logger.info("Not cleaning data to save time")
         return
 
     def delete(entry):
@@ -330,7 +540,7 @@ def create_datahub_step_state_aspect(
     username: str, onboarding_id: str
 ) -> Dict[str, Any]:
     entity_urn = f"urn:li:dataHubStepState:urn:li:corpuser:{username}-{onboarding_id}"
-    print(f"Creating dataHubStepState aspect for {entity_urn}")
+    logger.info(f"Creating dataHubStepState aspect for {entity_urn}")
     return {
         "auditHeader": None,
         "entityType": "dataHubStepState",
@@ -364,13 +574,34 @@ class TestSessionWrapper:
     Many of the tests do not consider async writes. This
     class intercepts mutations using the requests library
     to simulate sync requests.
+
+    Two construction modes:
+
+    1. Login-based (default): provide a ``requests_session`` obtained via
+       ``get_frontend_session()``.  A short-lived GMS token is minted via GraphQL
+       and revoked on ``destroy()``.
+
+    2. Token-based: pass ``prebuilt_token`` directly (e.g. a PAT).  No login or
+       token-generation round-trip is performed.  ``frontend_url()`` returns the
+       GMS URL so GraphQL calls go to ``{gms_url}/api/graphql``.  ``destroy()``
+       is a no-op — the externally-provided token is never revoked.
     """
 
-    def __init__(self, requests_session):
+    __test__ = False
+
+    def __init__(self, requests_session, *, prebuilt_token: str | None = None):
         self._upstream = requests_session
-        self._frontend_url = get_frontend_url()
         self._gms_url = get_gms_url()
-        self._gms_token_id, self._gms_token = self._generate_gms_token()
+
+        if prebuilt_token is not None:
+            # Token-based auth: skip login and token generation entirely.
+            # Route GraphQL calls through the GMS endpoint directly.
+            self._gms_token = prebuilt_token
+            self._gms_token_id = None  # externally-owned — never revoke
+            self._frontend_url = self._gms_url  # /api/graphql works on GMS too
+        else:
+            self._frontend_url = get_frontend_url()
+            self._gms_token_id, self._gms_token = self._generate_gms_token()
 
     def __getattr__(self, name):
         # Intercept method calls
@@ -420,13 +651,14 @@ class TestSessionWrapper:
 
     def _wait(self, *args, **kwargs):
         if "/logIn" not in args[0]:
-            print("TestSessionWrapper sync wait.")
+            logger.info("TestSessionWrapper sync wait.")
             wait_for_writes_to_sync()
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(10),
         wait=tenacity.wait_exponential(multiplier=1, min=4, max=30),
         retry=tenacity.retry_if_exception_type(Exception),
+        reraise=True,
     )
     def _generate_gms_token(self):
         actor_urn = self._upstream.cookies["actor"]
@@ -469,7 +701,9 @@ class TestSessionWrapper:
             }
 
             response = self._upstream.post(
-                f"{self._frontend_url}/api/v2/graphql", json=json
+                f"{self._frontend_url}/api/v2/graphql",
+                json=json,
+                headers={"Authorization": f"Bearer {self._gms_token}"},
             )
             response.raise_for_status()
             # Clear the token ID after successful revocation to prevent double-call issues

@@ -1,4 +1,16 @@
-import { IconNames } from '@components';
+import { Brain } from '@phosphor-icons/react/dist/csr/Brain';
+import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
+import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
+import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
+import { SortAscending } from '@phosphor-icons/react/dist/csr/SortAscending';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TextT } from '@phosphor-icons/react/dist/csr/TextT';
+import i18next from 'i18next';
+import React from 'react';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
@@ -12,19 +24,33 @@ export const MODULE_TYPE_TO_DESCRIPTION: Map<DataHubPageModuleType, string> = ne
     [DataHubPageModuleType.OwnedAssets, 'Assets the current user owns'],
     [DataHubPageModuleType.RichText, 'Pin docs for your DataHub users'],
     [DataHubPageModuleType.Columns, 'View the columns of this dataset'],
+    [DataHubPageModuleType.SemanticModelDatasets, 'Datasets referenced by this semantic model'],
+    [DataHubPageModuleType.SemanticModelMetrics, 'Metrics defined within this semantic model'],
+    [DataHubPageModuleType.SemanticModelRelationships, 'Relationships defined in this semantic model'],
+    [DataHubPageModuleType.SemanticModelDimensions, 'Dimensions defined in this semantic model'],
+    [DataHubPageModuleType.AiContext, 'AI context including synonyms, instructions, and examples'],
+    [DataHubPageModuleType.MetricSql, 'SQL expression for this metric'],
+    [DataHubPageModuleType.RelatedMetrics, 'Related metrics'],
 ]);
 
-export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, IconNames> = new Map([
-    [DataHubPageModuleType.AssetCollection, 'Stack'],
-    [DataHubPageModuleType.Domains, 'Globe'],
-    [DataHubPageModuleType.Hierarchy, 'SortAscending'],
-    [DataHubPageModuleType.Link, 'LinkSimple'],
-    [DataHubPageModuleType.OwnedAssets, 'Database'],
-    [DataHubPageModuleType.RichText, 'TextT'],
-    [DataHubPageModuleType.Columns, 'Table'],
+export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, React.ComponentType<any>> = new Map([
+    [DataHubPageModuleType.AssetCollection, Stack],
+    [DataHubPageModuleType.Domains, Globe],
+    [DataHubPageModuleType.Hierarchy, SortAscending],
+    [DataHubPageModuleType.Link, LinkSimple],
+    [DataHubPageModuleType.OwnedAssets, Database],
+    [DataHubPageModuleType.RichText, TextT],
+    [DataHubPageModuleType.Columns, Table],
+    [DataHubPageModuleType.SemanticModelDatasets, Database],
+    [DataHubPageModuleType.SemanticModelMetrics, ChartBar],
+    [DataHubPageModuleType.SemanticModelRelationships, Graph],
+    [DataHubPageModuleType.SemanticModelDimensions, Rows],
+    [DataHubPageModuleType.AiContext, Brain],
+    [DataHubPageModuleType.MetricSql, TextT],
+    [DataHubPageModuleType.RelatedMetrics, ChartBar],
 ]);
 
-export const DEFAULT_MODULE_ICON = 'Database';
+export const DEFAULT_MODULE_ICON = Database;
 
 // keep this in sync with PageModuleService.java
 export const DEFAULT_MODULE_URNS = [
@@ -32,12 +58,20 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:your_subscriptions',
     'urn:li:dataHubPageModule:top_domains',
     'urn:li:dataHubPageModule:assets',
+    'urn:li:dataHubPageModule:output_ports',
     'urn:li:dataHubPageModule:child_hierarchy',
     'urn:li:dataHubPageModule:data_products',
     'urn:li:dataHubPageModule:related_terms',
     'urn:li:dataHubPageModule:platforms',
     'urn:li:dataHubPageModule:lineage',
     'urn:li:dataHubPageModule:columns',
+    'urn:li:dataHubPageModule:semantic_model_datasets',
+    'urn:li:dataHubPageModule:semantic_model_metrics',
+    'urn:li:dataHubPageModule:semantic_model_relationships',
+    'urn:li:dataHubPageModule:semantic_model_dimensions',
+    'urn:li:dataHubPageModule:ai_context',
+    'urn:li:dataHubPageModule:sql',
+    'urn:li:dataHubPageModule:related_metrics',
 ];
 
 export const DEFAULT_TEMPLATE_URN = 'urn:li:dataHubPageTemplate:home_default_1';
@@ -56,10 +90,18 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Hierarchy,
     DataHubPageModuleType.RichText,
     DataHubPageModuleType.Assets,
+    DataHubPageModuleType.OutputPorts,
     DataHubPageModuleType.ChildHierarchy,
     DataHubPageModuleType.RelatedTerms,
     DataHubPageModuleType.DataProducts,
     DataHubPageModuleType.Columns,
+    DataHubPageModuleType.SemanticModelDatasets,
+    DataHubPageModuleType.SemanticModelMetrics,
+    DataHubPageModuleType.SemanticModelRelationships,
+    DataHubPageModuleType.SemanticModelDimensions,
+    DataHubPageModuleType.AiContext,
+    DataHubPageModuleType.MetricSql,
+    DataHubPageModuleType.RelatedMetrics,
 ];
 
 export const SMALL_MODULE_TYPES: DataHubPageModuleType[] = [DataHubPageModuleType.Link];
@@ -81,7 +123,9 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                         urn: 'urn:li:dataHubPageModule:your_assets',
                         type: EntityType.DatahubPageModule,
                         properties: {
-                            name: 'Your Assets',
+                            get name() {
+                                return i18next.t('modules:yourAssets.moduleName');
+                            },
                             type: DataHubPageModuleType.OwnedAssets,
                             visibility: {
                                 scope: PageModuleScope.Global,
@@ -93,7 +137,9 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                         urn: 'urn:li:dataHubPageModule:top_domains',
                         type: EntityType.DatahubPageModule,
                         properties: {
-                            name: 'Domains',
+                            get name() {
+                                return i18next.t('modules:domains.moduleName');
+                            },
                             type: DataHubPageModuleType.Domains,
                             visibility: {
                                 scope: PageModuleScope.Global,

@@ -232,7 +232,7 @@ def test_search_dpi(auth_session, ingest_cleanup_data):
     res_data = execute_graphql(auth_session, query, variables)
 
     # Basic response structure validation
-    print("RESPONSE DATA:" + str(res_data))
+    logger.info("RESPONSE DATA:" + str(res_data))
     assert "scrollAcrossEntities" in res_data["data"], (
         "Response should contain 'scrollAcrossEntities' field"
     )

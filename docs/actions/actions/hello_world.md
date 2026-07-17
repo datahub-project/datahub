@@ -1,3 +1,7 @@
+---
+description: "The Hello World Action is a reference DataHub Action that prints incoming events to the console for learning and testing."
+---
+
 # Hello World
 
 <!-- Set Support Status -->
@@ -17,7 +21,7 @@ This Action is an example action which simply prints all Events it receives as J
 All event types, including
 
 - `EntityChangeEvent_v1`
-- `MetadataChangeLog_v1`
+- `MetadataChangeLogEvent_v1`
 
 ## Action Quickstart
 

@@ -90,14 +90,15 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://docs.datahub.com/",
+    url="https://datahub.com/",
     project_urls={
-        "Documentation": "https://docs.datahub.com/docs/",
+        "Documentation": "https://docs.datahub.com/",
         "Source": "https://github.com/datahub-project/datahub",
-        "Changelog": "https://github.com/datahub-project/datahub/releases",
+        "Changelog": "https://github.com/acryldata/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache-2.0",
-    description="Datahub Dagster plugin to capture executions and send to Datahub",
+    description="DataHub Dagster plugin — automatically capture asset lineage, run history, and job metadata from Dagster pipelines",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[
@@ -105,6 +106,8 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -116,7 +119,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     entry_points=entry_points,

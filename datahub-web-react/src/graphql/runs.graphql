@@ -1,0 +1,9 @@
+query getExecutionRuns($urn: String!, $start: Int!, $count: Int!) {
+    entity(urn: $urn) {
+        ... on HasExecutionRuns {
+            runs(start: $start, count: $count) {
+                ...runResults
+            }
+        }
+    }
+}

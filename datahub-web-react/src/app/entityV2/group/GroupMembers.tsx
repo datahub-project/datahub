@@ -1,22 +1,23 @@
 import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
-import { Button, Col, Dropdown, Empty, MenuProps, Modal, Pagination, Row, Typography, message } from 'antd';
+import { Avatar, Tooltip } from '@components';
+import { Button, Col, Dropdown, Empty, MenuProps, Pagination, Row, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { AddGroupMembersModal } from '@app/entityV2/group/AddGroupMembersModal';
-import { CustomAvatar } from '@app/shared/avatar';
+import { getExternalGroupMembershipTooltip } from '@app/entityV2/group/utils';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetAllGroupMembersQuery, useRemoveGroupMembersMutation } from '@graphql/group.generated';
 import { CorpUser, EntityType } from '@types';
 
-const ADD_MEMBER_STYLE = {
-    backGround: '#ffffff',
-    boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.05)',
-};
-const AVATAR_STYLE = { margin: '5px 5px 5px 0' };
+const ADD_MEMBER_STYLE = {};
 
 /**
  * Styled Components
@@ -41,7 +42,7 @@ const AddMemberText = styled(Typography.Text)`
 const MemberNameSection = styled.div`
     font-size: 20px;
     line-height: 28px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     align-items: center;
     justify-content: start;
@@ -59,7 +60,7 @@ const GroupMemberWrapper = styled.div`
 
 const MemberColumn = styled(Col)`
     padding: 19px 0 19px 0;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const MemberEditIcon = styled.div`
@@ -71,7 +72,7 @@ const Name = styled.span`
     font-weight: bold;
     font-size: 14px;
     line-height: 22px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     margin-left: 8px;
 `;
 
@@ -89,10 +90,12 @@ type Props = {
     urn: string;
     pageSize: number;
     isExternalGroup: boolean;
+    externalGroupType?: string;
     onChangeMembers?: () => void;
 };
 
-export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeMembers }: Props) {
+export default function GroupMembers({ urn, pageSize, isExternalGroup, externalGroupType, onChangeMembers }: Props) {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
 
     const [page, setPage] = useState(1);
@@ -104,6 +107,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
         fetchPolicy: 'cache-first',
     });
     const [removeGroupMembersMutation] = useRemoveGroupMembersMutation();
+    const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
 
     const onChangeMembersPage = (newPage: number) => {
         scrollToTop();
@@ -119,7 +123,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Removed Group Member!', duration: 2 });
+                    message.success({ content: t('group.removedMemberSuccess'), duration: 2 });
                     // Hack to deal with eventual consistency
                     setTimeout(() => {
                         // Reload the page.
@@ -130,7 +134,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to remove group member: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('group.removeMemberError', { error: e.message || '' }), duration: 3 });
             });
     };
 
@@ -145,20 +149,6 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
         onChangeMembers?.();
     };
 
-    const onRemoveMember = (memberUrn: string) => {
-        Modal.confirm({
-            title: `Confirm Group Member Removal`,
-            content: `Are you sure you want to remove this user from the group?`,
-            onOk() {
-                removeGroupMember(memberUrn);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     const relationships = membersData && membersData.corpGroup?.relationships;
     const total = relationships?.total || 0;
     const groupMembers = relationships?.relationships?.map((rel) => rel.entity as CorpUser) || [];
@@ -170,17 +160,17 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                 disabled: true,
                 label: (
                     <span>
-                        <UserAddOutlined /> Make owner
+                        <UserAddOutlined /> {t('group.makeOwner')}
                     </span>
                 ),
             },
             {
                 key: 'remove',
                 disabled: isExternalGroup,
-                onClick: () => onRemoveMember(urnID),
+                onClick: () => setMemberToRemove(urnID),
                 label: (
                     <span>
-                        <UserDeleteOutlined /> Remove from Group
+                        <UserDeleteOutlined /> {t('group.removeFromGroup')}
                     </span>
                 ),
             },
@@ -190,18 +180,30 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     return (
         <>
             <Row style={ADD_MEMBER_STYLE}>
-                <AddMember
-                    type="text"
-                    disabled={isExternalGroup}
-                    onClick={onClickEditMembers}
-                    data-testid="add-group-member-button"
+                <Tooltip
+                    showArrow={false}
+                    title={isExternalGroup ? getExternalGroupMembershipTooltip(externalGroupType) : null}
                 >
-                    <UserAddOutlined />
-                    <AddMemberText>Add Member</AddMemberText>
-                </AddMember>
+                    {/*
+                     * Wrapper needed so the Tooltip has a hover target: antd's `disabled`
+                     * Buttons get `pointer-events: none`, which swallows mouse events and
+                     * prevents the Tooltip from firing when disabled.
+                     */}
+                    <div style={{ display: 'inline-block', cursor: isExternalGroup ? 'not-allowed' : 'auto' }}>
+                        <AddMember
+                            type="text"
+                            disabled={isExternalGroup}
+                            onClick={onClickEditMembers}
+                            data-testid="add-group-member-button"
+                        >
+                            <UserAddOutlined />
+                            <AddMemberText>{t('group.addMember')}</AddMemberText>
+                        </AddMember>
+                    </div>
+                </Tooltip>
             </Row>
             <GroupMemberWrapper>
-                {groupMembers.length === 0 && <NoGroupMembers description="No members in this group yet." />}
+                {groupMembers.length === 0 && <NoGroupMembers description={t('group.noMembersInGroupEmpty')} />}
                 {groupMembers
                     ? groupMembers.map((item) => {
                           const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpUser, item.urn);
@@ -210,12 +212,10 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                                   <MemberColumn xl={23} lg={23} md={23} sm={23} xs={23}>
                                       <Link to={entityUrn}>
                                           <MemberNameSection>
-                                              <CustomAvatar
-                                                  useDefaultAvatar={false}
-                                                  size={28}
-                                                  photoUrl={item.editableProperties?.pictureLink || ''}
+                                              <Avatar
                                                   name={entityRegistry.getDisplayName(EntityType.CorpUser, item)}
-                                                  style={AVATAR_STYLE}
+                                                  imageUrl={item.editableProperties?.pictureLink || undefined}
+                                                  type={AvatarType.user}
                                               />
                                               <Name>{entityRegistry.getDisplayName(EntityType.CorpUser, item)}</Name>
                                           </MemberNameSection>
@@ -251,6 +251,13 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                     onCloseModal={() => setIsEditingMembers(false)}
                 />
             )}
+            <ConfirmationModal
+                isOpen={!!memberToRemove}
+                handleClose={() => setMemberToRemove(null)}
+                handleConfirm={() => removeGroupMember(memberToRemove as string)}
+                modalTitle={t('group.confirmMemberRemovalTitle')}
+                modalText={t('group.confirmMemberRemovalBody')}
+            />
         </>
     );
 }

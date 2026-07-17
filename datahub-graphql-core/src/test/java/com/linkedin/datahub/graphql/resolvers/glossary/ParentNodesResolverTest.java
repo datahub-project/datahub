@@ -4,7 +4,11 @@ import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_INFO_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
-import static org.testng.Assert.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -21,230 +25,248 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.graph.cache.AncestorWalkResult;
+import com.linkedin.metadata.graph.cache.EntityGraphBinding;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
+import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
+import com.linkedin.metadata.graph.cache.KnownEntityGraph;
+import com.linkedin.metadata.graph.cache.ReadMode;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class ParentNodesResolverTest {
+
+  private static final GlossaryNodeUrn PARENT_NODE_1;
+  private static final GlossaryNodeUrn PARENT_NODE_2;
+
+  static {
+    try {
+      PARENT_NODE_1 =
+          GlossaryNodeUrn.createFromString("urn:li:glossaryNode:11115397daf94708a8822b8106cfd451");
+      PARENT_NODE_2 =
+          GlossaryNodeUrn.createFromString("urn:li:glossaryNode:22225397daf94708a8822b8106cfd451");
+    } catch (URISyntaxException e) {
+      throw new ExceptionInInitializerError(e);
+    }
+  }
+
   @Test
   public void testGetSuccessForTerm() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
-
     Urn termUrn = Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
-    GlossaryTerm termEntity = new GlossaryTerm();
-    termEntity.setUrn(termUrn.toString());
-    termEntity.setType(EntityType.GLOSSARY_TERM);
-    Mockito.when(mockEnv.getSource()).thenReturn(termEntity);
 
-    final GlossaryTermInfo parentNode1 =
-        new GlossaryTermInfo()
-            .setParentNode(
-                GlossaryNodeUrn.createFromString(
-                    "urn:li:glossaryNode:11115397daf94708a8822b8106cfd451"))
-            .setDefinition("test def");
-    final GlossaryNodeInfo parentNode2 =
-        new GlossaryNodeInfo()
-            .setParentNode(
-                GlossaryNodeUrn.createFromString(
-                    "urn:li:glossaryNode:22225397daf94708a8822b8106cfd451"))
-            .setDefinition("test def 2");
+    GlossaryTermInfo termInfo = new GlossaryTermInfo().setParentNode(PARENT_NODE_1);
+    GlossaryNodeInfo parent1Info =
+        new GlossaryNodeInfo().setParentNode(PARENT_NODE_2).setDefinition("node parent 1");
+    GlossaryNodeInfo parent2Info = new GlossaryNodeInfo().setDefinition("node parent 2");
 
-    Map<String, EnvelopedAspect> glossaryTermAspects = new HashMap<>();
-    glossaryTermAspects.put(
-        GLOSSARY_TERM_INFO_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(parentNode1.data())));
+    ParentNodesResolver resolver =
+        new ParentNodesResolver(
+            mockEntityClient(PARENT_NODE_1, PARENT_NODE_2, parent1Info, parent2Info));
+    ParentNodesResult result = resolver.get(mockEnv(termUrn, true)).get();
 
-    Map<String, EnvelopedAspect> parentNode1Aspects = new HashMap<>();
-    parentNode1Aspects.put(
-        GLOSSARY_NODE_INFO_ASPECT_NAME,
-        new EnvelopedAspect()
-            .setValue(
-                new Aspect(
-                    new GlossaryNodeInfo()
-                        .setDefinition("node parent 1")
-                        .setParentNode(parentNode2.getParentNode())
-                        .data())));
-
-    Map<String, EnvelopedAspect> parentNode2Aspects = new HashMap<>();
-    parentNode2Aspects.put(
-        GLOSSARY_NODE_INFO_ASPECT_NAME,
-        new EnvelopedAspect()
-            .setValue(new Aspect(new GlossaryNodeInfo().setDefinition("node parent 2").data())));
-
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(termUrn.getEntityType()),
-                Mockito.eq(termUrn),
-                Mockito.eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(glossaryTermAspects)));
-
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentNode1.getParentNode().getEntityType()),
-                Mockito.eq(parentNode1.getParentNode()),
-                Mockito.eq(null)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
-                .setUrn(parentNode1.getParentNode())
-                .setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
-
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentNode1.getParentNode().getEntityType()),
-                Mockito.eq(parentNode1.getParentNode()),
-                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
-
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentNode2.getParentNode().getEntityType()),
-                Mockito.eq(parentNode2.getParentNode()),
-                Mockito.eq(null)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
-                .setUrn(parentNode2.getParentNode())
-                .setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
-
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentNode2.getParentNode().getEntityType()),
-                Mockito.eq(parentNode2.getParentNode()),
-                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
-
-    ParentNodesResolver resolver = new ParentNodesResolver(mockClient);
-    ParentNodesResult result = resolver.get(mockEnv).get();
-
-    Mockito.verify(mockClient, Mockito.times(5))
-        .getV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
     assertEquals(result.getCount(), 2);
-    assertEquals(result.getNodes().get(0).getUrn(), parentNode1.getParentNode().toString());
-    assertEquals(result.getNodes().get(1).getUrn(), parentNode2.getParentNode().toString());
+    assertEquals(result.getNodes().get(0).getUrn(), PARENT_NODE_1.toString());
+    assertEquals(result.getNodes().get(1).getUrn(), PARENT_NODE_2.toString());
   }
 
   @Test
   public void testGetSuccessForNode() throws Exception {
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
-
     Urn nodeUrn = Urn.createFromString("urn:li:glossaryNode:00005397daf94708a8822b8106cfd451");
-    GlossaryNode nodeEntity = new GlossaryNode();
-    nodeEntity.setUrn(nodeUrn.toString());
-    nodeEntity.setType(EntityType.GLOSSARY_NODE);
-    Mockito.when(mockEnv.getSource()).thenReturn(nodeEntity);
 
-    final GlossaryNodeInfo parentNode1 =
-        new GlossaryNodeInfo()
-            .setParentNode(
-                GlossaryNodeUrn.createFromString(
-                    "urn:li:glossaryNode:11115397daf94708a8822b8106cfd451"))
-            .setDefinition("test def");
-    final GlossaryNodeInfo parentNode2 =
-        new GlossaryNodeInfo()
-            .setParentNode(
-                GlossaryNodeUrn.createFromString(
-                    "urn:li:glossaryNode:22225397daf94708a8822b8106cfd451"))
-            .setDefinition("test def 2");
+    GlossaryNodeInfo nodeInfo = new GlossaryNodeInfo().setParentNode(PARENT_NODE_1);
+    GlossaryNodeInfo parent1Info =
+        new GlossaryNodeInfo().setParentNode(PARENT_NODE_2).setDefinition("node parent 1");
+    GlossaryNodeInfo parent2Info = new GlossaryNodeInfo().setDefinition("node parent 2");
 
-    Map<String, EnvelopedAspect> glossaryNodeAspects = new HashMap<>();
-    glossaryNodeAspects.put(
-        GLOSSARY_NODE_INFO_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(parentNode1.data())));
+    ParentNodesResolver resolver =
+        new ParentNodesResolver(
+            mockEntityClient(PARENT_NODE_1, PARENT_NODE_2, parent1Info, parent2Info));
+    ParentNodesResult result = resolver.get(mockEnv(nodeUrn, false)).get();
+
+    assertEquals(result.getCount(), 2);
+    assertEquals(result.getNodes().get(0).getUrn(), PARENT_NODE_1.toString());
+    assertEquals(result.getNodes().get(1).getUrn(), PARENT_NODE_2.toString());
+  }
+
+  @Test
+  public void testGetSuccessUsesEntityGraphCacheWhenAvailable() throws Exception {
+    Urn termUrn = Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
+
+    GlossaryNodeInfo parent1Info =
+        new GlossaryNodeInfo().setParentNode(PARENT_NODE_2).setDefinition("node parent 1");
+    GlossaryNodeInfo parent2Info = new GlossaryNodeInfo().setDefinition("node parent 2");
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("glossary").source(GraphSnapshotSource.GRAPH).build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.GLOSSARY))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.walkOrderedForwardAncestors(
+            eq("glossary"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(termUrn.toString()),
+            eq(50),
+            eq(ReadMode.CACHED)))
+        .thenReturn(
+            AncestorWalkResult.fromAncestors(
+                List.of(PARENT_NODE_1.toString(), PARENT_NODE_2.toString())));
+
+    ParentNodesResolver resolver =
+        new ParentNodesResolver(
+            mockEntityClient(PARENT_NODE_1, PARENT_NODE_2, parent1Info, parent2Info));
+    ParentNodesResult result = resolver.get(mockEnv(termUrn, true, entityGraphCache)).get();
+
+    assertEquals(result.getCount(), 2);
+    assertEquals(result.getNodes().get(0).getUrn(), PARENT_NODE_1.toString());
+    assertEquals(result.getNodes().get(1).getUrn(), PARENT_NODE_2.toString());
+  }
+
+  @Test
+  public void testThrowsWhenParentNodeNotFound() throws Exception {
+    Urn termUrn = Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
+
+    // The walk yields parent urns, but the batch hydration returns none of them.
+    EntityClient mockClient = mock(EntityClient.class);
+    when(mockClient.batchGetV2(any(), any(), any(), any())).thenReturn(Collections.emptyMap());
+
+    ParentNodesResolver resolver = new ParentNodesResolver(mockClient);
+    assertThrows(ExecutionException.class, () -> resolver.get(mockEnv(termUrn, true)).get());
+  }
+
+  private static DataFetchingEnvironment mockEnv(Urn sourceUrn, boolean term) {
+    return mockEnv(sourceUrn, term, EntityGraphCache.NO_OP);
+  }
+
+  private static DataFetchingEnvironment mockEnv(
+      Urn sourceUrn, boolean term, EntityGraphCache entityGraphCache) {
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
+    when(mockContext.getMaxParentDepth()).thenReturn(50);
+    OperationContext operationContext =
+        operationContextWithAspects(sourceUrn, term, entityGraphCache);
+    when(mockContext.getOperationContext()).thenReturn(operationContext);
+
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    if (term) {
+      GlossaryTerm termEntity = new GlossaryTerm();
+      termEntity.setUrn(sourceUrn.toString());
+      termEntity.setType(EntityType.GLOSSARY_TERM);
+      when(mockEnv.getSource()).thenReturn(termEntity);
+    } else {
+      GlossaryNode nodeEntity = new GlossaryNode();
+      nodeEntity.setUrn(sourceUrn.toString());
+      nodeEntity.setType(EntityType.GLOSSARY_NODE);
+      when(mockEnv.getSource()).thenReturn(nodeEntity);
+    }
+    return mockEnv;
+  }
+
+  private static OperationContext operationContextWithAspects(
+      Urn sourceUrn, boolean term, EntityGraphCache entityGraphCache) {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Set<Urn> urns = invocation.getArgument(1);
+              Map<Urn, Map<String, Aspect>> result = new LinkedHashMap<>();
+              for (Urn urn : urns) {
+                result.put(urn, aspectsFor(urn, sourceUrn, term));
+              }
+              return result;
+            });
+
+    OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(SearchRetriever.EMPTY)
+            .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+            .aspectRetriever(aspectRetriever)
+            .entityGraphCache(entityGraphCache)
+            .build();
+    return base.toBuilder()
+        .retrieverContext(retrieverContext)
+        .build(base.getSessionAuthentication(), false);
+  }
+
+  private static Map<String, Aspect> aspectsFor(Urn urn, Urn sourceUrn, boolean term) {
+    Map<String, Aspect> aspects = new HashMap<>();
+
+    if (term && urn.equals(sourceUrn)) {
+      aspects.put(
+          GLOSSARY_TERM_INFO_ASPECT_NAME,
+          new Aspect(new GlossaryTermInfo().setParentNode(PARENT_NODE_1).data()));
+    } else if (urn.equals(PARENT_NODE_1)) {
+      aspects.put(
+          GLOSSARY_NODE_INFO_ASPECT_NAME,
+          new Aspect(new GlossaryNodeInfo().setParentNode(PARENT_NODE_2).data()));
+    } else if (urn.equals(PARENT_NODE_2)) {
+      aspects.put(
+          GLOSSARY_NODE_INFO_ASPECT_NAME,
+          new Aspect(new GlossaryNodeInfo().setDefinition("node parent 2").data()));
+    } else if (!term && urn.equals(sourceUrn)) {
+      aspects.put(
+          GLOSSARY_NODE_INFO_ASPECT_NAME,
+          new Aspect(new GlossaryNodeInfo().setParentNode(PARENT_NODE_1).data()));
+    }
+    return aspects;
+  }
+
+  private static EntityClient mockEntityClient(
+      GlossaryNodeUrn parentNode1,
+      GlossaryNodeUrn parentNode2,
+      GlossaryNodeInfo parent1Info,
+      GlossaryNodeInfo parent2Info)
+      throws Exception {
+    EntityClient mockClient = mock(EntityClient.class);
 
     Map<String, EnvelopedAspect> parentNode1Aspects = new HashMap<>();
     parentNode1Aspects.put(
         GLOSSARY_NODE_INFO_ASPECT_NAME,
-        new EnvelopedAspect()
-            .setValue(
-                new Aspect(
-                    new GlossaryNodeInfo()
-                        .setDefinition("node parent 1")
-                        .setParentNode(parentNode2.getParentNode())
-                        .data())));
+        new EnvelopedAspect().setValue(new Aspect(parent1Info.data())));
 
     Map<String, EnvelopedAspect> parentNode2Aspects = new HashMap<>();
     parentNode2Aspects.put(
         GLOSSARY_NODE_INFO_ASPECT_NAME,
-        new EnvelopedAspect()
-            .setValue(new Aspect(new GlossaryNodeInfo().setDefinition("node parent 2").data())));
+        new EnvelopedAspect().setValue(new Aspect(parent2Info.data())));
 
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(nodeUrn.getEntityType()),
-                Mockito.eq(nodeUrn),
-                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(glossaryNodeAspects)));
+    Map<Urn, EntityResponse> batchResponse = new HashMap<>();
+    batchResponse.put(
+        parentNode1,
+        new EntityResponse()
+            .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
+            .setUrn(parentNode1)
+            .setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
+    batchResponse.put(
+        parentNode2,
+        new EntityResponse()
+            .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
+            .setUrn(parentNode2)
+            .setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
 
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentNode1.getParentNode().getEntityType()),
-                Mockito.eq(parentNode1.getParentNode()),
-                Mockito.eq(null)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
-                .setUrn(parentNode1.getParentNode())
-                .setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
+    when(mockClient.batchGetV2(
+            any(), Mockito.eq(parentNode1.getEntityType()), any(), Mockito.eq(null)))
+        .thenReturn(batchResponse);
 
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentNode1.getParentNode().getEntityType()),
-                Mockito.eq(parentNode1.getParentNode()),
-                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
-
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentNode2.getParentNode().getEntityType()),
-                Mockito.eq(parentNode2.getParentNode()),
-                Mockito.eq(null)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
-                .setUrn(parentNode2.getParentNode())
-                .setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
-
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(parentNode2.getParentNode().getEntityType()),
-                Mockito.eq(parentNode2.getParentNode()),
-                Mockito.eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
-
-    ParentNodesResolver resolver = new ParentNodesResolver(mockClient);
-    ParentNodesResult result = resolver.get(mockEnv).get();
-
-    Mockito.verify(mockClient, Mockito.times(5))
-        .getV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
-    assertEquals(result.getCount(), 2);
-    assertEquals(result.getNodes().get(0).getUrn(), parentNode1.getParentNode().toString());
-    assertEquals(result.getNodes().get(1).getUrn(), parentNode2.getParentNode().toString());
+    return mockClient;
   }
 }

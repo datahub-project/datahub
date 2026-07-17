@@ -1,130 +1,136 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useState } from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useDocumentTree } from '@app/document/DocumentTreeContext';
+import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useDeleteDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import { MoveDocumentPopover } from '@app/homeV2/layout/sidebar/documents/MoveDocumentPopover';
+import {
+    calculateDeleteNavigationTarget,
+    navigateAfterDelete,
+} from '@app/homeV2/layout/sidebar/documents/documentDeleteNavigation';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover } from '@src/alchemy-components';
 import { ItemType } from '@src/alchemy-components/components/Menu/types';
-import { colors } from '@src/alchemy-components/theme';
-
-import { EntityType } from '@types';
 
 const MenuButton = styled(Button)`
     &:hover {
-        background-color: ${colors.gray[200]};
+        colors: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
 interface DocumentActionsMenuProps {
     documentUrn: string;
     currentParentUrn?: string | null;
+    canDelete?: boolean;
+    canMove?: boolean;
+    shouldNavigateOnDelete?: boolean;
+    onDelete?: (deletedNode: DocumentTreeNode | null) => void;
+    onMove?: (documentUrn: string) => void;
+    onMenuVisibilityChange?: (open: boolean) => void;
 }
 
-export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({ documentUrn, currentParentUrn }) => {
+export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({
+    documentUrn,
+    currentParentUrn,
+    canDelete = true,
+    canMove = true,
+    shouldNavigateOnDelete = false,
+    onDelete,
+    onMove,
+    onMenuVisibilityChange,
+}) => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const [showMoveDialog, setShowMoveDialog] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const { deleteDocument } = useDeleteDocumentTreeMutation();
     const { getNode, getRootNodes } = useDocumentTree();
     const history = useHistory();
-    const location = useLocation();
     const entityRegistry = useEntityRegistry();
 
-    const handleDelete = async () => {
-        console.log('🗑️ Delete handler called for:', documentUrn);
-        console.log('📍 Current pathname:', location.pathname);
+    const handleDelete = async (e?: React.MouseEvent) => {
+        // Prevent event propagation if event is provided
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
 
-        // Extract the current document URN from the URL (same logic as DocumentTree)
-        const match = location.pathname.match(/\/document\/([^/]+)/);
-        const currentDocumentUrn = match ? decodeURIComponent(match[1]) : null;
-        console.log('📄 Current document URN from URL:', currentDocumentUrn);
-
-        // Check if we're currently viewing this document
-        const isCurrentDocument = currentDocumentUrn === documentUrn;
-        console.log(
-            '❓ Is current document?',
-            isCurrentDocument,
-            '(comparing',
-            currentDocumentUrn,
-            'with',
-            documentUrn,
-            ')',
-        );
-
-        let navigationTarget: string | null = null;
-
-        if (isCurrentDocument) {
+        try {
+            // Get node info BEFORE deleting (so we can still access tree state)
             const node = getNode(documentUrn);
-            console.log('📄 Node info:', node);
+            const rootNodes = getRootNodes();
 
-            if (node?.parentUrn) {
-                // Nested document → navigate to parent
-                navigationTarget = node.parentUrn;
-                console.log('⬆️ Will navigate to parent:', navigationTarget);
-            } else {
-                // Root document → find next or previous sibling
-                const rootNodes = getRootNodes();
-                console.log(
-                    '📚 Root nodes:',
-                    rootNodes.map((n) => ({ urn: n.urn, title: n.title })),
-                );
-                const currentIndex = rootNodes.findIndex((n) => n.urn === documentUrn);
-                console.log('📍 Current index:', currentIndex);
+            // Delete the document (mutation is handled here, similar to how move is handled in MoveDocumentPopover)
+            const success = await deleteDocument(documentUrn);
 
-                if (currentIndex !== -1) {
-                    // Try next sibling first, then previous
-                    const nextNode = rootNodes[currentIndex + 1] || rootNodes[currentIndex - 1];
-                    navigationTarget = nextNode?.urn || null;
-                    console.log('➡️ Will navigate to sibling:', navigationTarget);
-                }
+            if (!success) {
+                return;
             }
+
+            // If a custom onDelete callback is provided, call it with the deleted node
+            // The callback can compute navigation using the node info
+            if (onDelete) {
+                onDelete(node || null);
+                return;
+            }
+
+            // Default behavior: navigate if shouldNavigateOnDelete is true
+            if (shouldNavigateOnDelete) {
+                const navigationTarget = calculateDeleteNavigationTarget(node, rootNodes, documentUrn);
+                navigateAfterDelete(navigationTarget, entityRegistry, history);
+            }
+        } catch (error) {
+            console.error('❌ Error in handleDelete:', error);
         }
-
-        // Delete the document
-        console.log('🔥 Calling deleteDocument...');
-        const success = await deleteDocument(documentUrn);
-        console.log('✅ Delete success?', success);
-
-        if (success && navigationTarget) {
-            // Navigate to the target
-            const targetNode = getNode(navigationTarget);
-            const url = entityRegistry.getEntityUrl(EntityType.Document, navigationTarget);
-            console.log('🚀 Navigating to:', url, '(title:', targetNode?.title, ')');
-            history.push(url);
-        } else if (success && isCurrentDocument && !navigationTarget) {
-            // No siblings and no parent → go to documents home
-            console.log('🏠 Navigating to home');
-            history.push('/');
-        }
-
-        setShowDeleteConfirm(false);
     };
 
     const menuItems: ItemType[] = [
-        {
-            type: 'item',
-            key: 'move',
-            title: 'Move',
-            onClick: () => setShowMoveDialog(true),
-        },
-        {
-            type: 'item',
-            key: 'delete',
-            title: 'Delete',
-            danger: true,
-            onClick: () => setShowDeleteConfirm(true),
-        },
+        ...(canMove
+            ? [
+                  {
+                      type: 'item' as const,
+                      key: 'move',
+                      title: tc('move'),
+                      onClick: () => {
+                          setShowMoveDialog(true);
+                          onMenuVisibilityChange?.(true);
+                      },
+                  },
+              ]
+            : []),
+        ...(canDelete
+            ? [
+                  {
+                      type: 'item' as const,
+                      key: 'delete',
+                      title: tc('delete'),
+                      danger: true,
+                      onClick: () => setShowDeleteConfirm(true),
+                  },
+              ]
+            : []),
     ];
+
+    // Don't render menu if no items available
+    if (menuItems.length === 0) {
+        return null;
+    }
 
     return (
         <>
             <Menu items={menuItems} placement="bottomRight">
                 <MenuButton
                     data-testid="document-actions-menu-button"
-                    icon={{ icon: 'DotsThreeVertical', source: 'phosphor' }}
+                    icon={{
+                        icon: DotsThreeVertical,
+                        size: '2xl',
+                        color: 'gray',
+                        colorLevel: 1800,
+                    }}
                     variant="text"
                     isCircle
                     size="md"
@@ -136,12 +142,22 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({ docume
 
             <Popover
                 open={showMoveDialog}
-                onOpenChange={(visible) => !visible && setShowMoveDialog(false)}
+                trigger="click"
+                onOpenChange={(visible) => {
+                    setShowMoveDialog(visible);
+                    if (!visible) {
+                        onMenuVisibilityChange?.(false);
+                    }
+                }}
                 content={
                     <MoveDocumentPopover
                         documentUrn={documentUrn}
                         currentParentUrn={currentParentUrn}
-                        onClose={() => setShowMoveDialog(false)}
+                        onClose={() => {
+                            setShowMoveDialog(false);
+                            onMenuVisibilityChange?.(false);
+                        }}
+                        onMove={onMove}
                     />
                 }
                 placement="rightTop"
@@ -151,17 +167,19 @@ export const DocumentActionsMenu: React.FC<DocumentActionsMenuProps> = ({ docume
                     background: 'transparent',
                     boxShadow: 'none',
                 }}
+                getPopupContainer={() => document.body}
+                destroyTooltipOnHide
             >
-                <span style={{ position: 'absolute', pointerEvents: 'none' }} />
+                <span aria-hidden style={{ position: 'absolute', width: 0, height: 0 }} />
             </Popover>
 
             <ConfirmationModal
                 isOpen={showDeleteConfirm}
                 handleClose={() => setShowDeleteConfirm(false)}
                 handleConfirm={handleDelete}
-                modalTitle="Delete Document(s)"
-                modalText="Are you sure you want to delete this document? This will also delete all child documents."
-                confirmButtonText="Delete"
+                modalTitle={t('documents.deleteTitle')}
+                modalText={t('documents.deleteText')}
+                confirmButtonText={tc('delete')}
                 isDeleteModal
             />
         </>

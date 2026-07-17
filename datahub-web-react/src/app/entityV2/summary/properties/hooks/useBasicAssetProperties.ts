@@ -26,6 +26,9 @@ export default function useBasicAssetProperties() {
                 return [CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY, TAGS_PROPERTY, TERMS_PROPERTY];
             case EntityType.Dataset:
                 return [CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY, TAGS_PROPERTY, TERMS_PROPERTY];
+            case EntityType.Document:
+                // Documents don't have assetSettings aspect yet - hide add button until backend supports it
+                return [];
             default:
                 return [];
         }

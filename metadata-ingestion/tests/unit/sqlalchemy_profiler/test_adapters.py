@@ -1,0 +1,1436 @@
+"""Unit tests for platform adapters."""
+
+import re
+from typing import Any
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+import sqlalchemy as sa
+from sqlalchemy.dialects import mssql, mysql, postgresql
+from sqlalchemy.engine import Dialect
+
+from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.athena import AthenaAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.bigquery import (
+    BigQueryAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.clickhouse import (
+    ClickHouseAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+    DatabricksAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
+    GenericAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.mssql import MSSQLAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.mysql import MySQLAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.postgres import (
+    PostgresAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.redshift import (
+    RedshiftAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
+    SnowflakeAdapter,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.trino import TrinoAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import DEFAULT_QUANTILES
+from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    ProfilingContext,
+)
+
+# =============================================================================
+# SQL Assertion Helpers
+# =============================================================================
+
+
+def compile_expr_to_sql(expr: sa.sql.expression.ClauseElement, dialect: Dialect) -> str:
+    """Compile SQLAlchemy expression to SQL string with given dialect."""
+    return str(expr.compile(dialect=dialect, compile_kwargs={"literal_binds": True}))
+
+
+def assert_sql_matches_pattern(
+    sql: str, pattern: str, flags: int = re.IGNORECASE
+) -> None:
+    """Assert SQL matches regex pattern."""
+    assert re.search(pattern, sql, flags), (
+        f"Pattern '{pattern}' not found in SQL: {sql}"
+    )
+
+
+# =============================================================================
+# Mock Engine Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def mock_generic_engine() -> Any:
+    """Mock SQLAlchemy engine with SQLite dialect for testing GenericAdapter."""
+    from sqlalchemy.dialects import sqlite
+
+    engine = MagicMock()
+    engine.dialect = sqlite.dialect()
+    return engine
+
+
+@pytest.fixture
+def mock_postgres_engine() -> Any:
+    """Mock PostgreSQL engine with correct dialect."""
+    engine = MagicMock()
+    engine.dialect = postgresql.dialect()  # type: ignore[misc]
+    return engine
+
+
+@pytest.fixture
+def mock_mysql_engine() -> Any:
+    """Mock MySQL engine with correct dialect."""
+    engine = MagicMock()
+    engine.dialect = mysql.dialect()
+    return engine
+
+
+@pytest.fixture
+def mock_mssql_engine() -> Any:
+    """Mock MSSQL (SQL Server) engine with correct dialect."""
+    engine = MagicMock()
+    engine.dialect = mssql.dialect()
+    return engine
+
+
+@pytest.fixture
+def mock_bigquery_engine() -> Any:
+    """Mock BigQuery engine with correct dialect."""
+    from sqlalchemy_bigquery import BigQueryDialect
+
+    engine = MagicMock()
+    engine.dialect = BigQueryDialect()
+    return engine
+
+
+@pytest.fixture
+def mock_snowflake_engine() -> Any:
+    """Mock Snowflake engine with correct dialect."""
+    from snowflake.sqlalchemy import dialect as snowflake_dialect
+
+    engine = MagicMock()
+    engine.dialect = snowflake_dialect()
+    return engine
+
+
+@pytest.fixture
+def mock_redshift_engine() -> Any:
+    """Mock Redshift engine with correct dialect."""
+    from sqlalchemy_redshift import dialect as redshift_dialect
+
+    engine = MagicMock()
+    engine.dialect = redshift_dialect.RedshiftDialect()
+    return engine
+
+
+@pytest.fixture
+def mock_trino_engine() -> Any:
+    """Mock Trino engine with correct dialect."""
+    from trino.sqlalchemy import dialect as trino_dialect
+
+    engine = MagicMock()
+    engine.dialect = trino_dialect.TrinoDialect()
+    return engine
+
+
+@pytest.fixture
+def mock_athena_engine() -> Any:
+    """Mock Athena engine with correct dialect."""
+    from pyathena import sqlalchemy_athena
+
+    engine = MagicMock()
+    engine.dialect = sqlalchemy_athena.AthenaDialect()
+    return engine
+
+
+@pytest.fixture
+def mock_databricks_engine() -> Any:
+    """Mock Databricks engine with correct dialect."""
+    from databricks.sqlalchemy import DatabricksDialect
+
+    engine = MagicMock()
+    engine.dialect = DatabricksDialect()
+    return engine
+
+
+@pytest.fixture
+def mock_clickhouse_engine() -> Any:
+    """Mock ClickHouse engine with correct dialect."""
+    from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
+
+    engine = MagicMock()
+    engine.dialect = ClickHouseDialect()
+    return engine
+
+
+# =============================================================================
+# Mock Table Fixture
+# =============================================================================
+
+
+@pytest.fixture
+def mock_table() -> Any:
+    """Create a mock SQLAlchemy table for testing."""
+    table = Mock(spec=sa.Table)
+    table.name = "test_table"
+    table.schema = "test_schema"
+    table.columns = []
+    return table
+
+
+# =============================================================================
+# Shared Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def config() -> ProfilingConfig:
+    """Create test profiling config."""
+    return ProfilingConfig()
+
+
+@pytest.fixture
+def report() -> SQLSourceReport:
+    """Create test SQL report."""
+    return SQLSourceReport()
+
+
+# =============================================================================
+# Tests
+# =============================================================================
+
+
+class TestAdapterFactory:
+    """Test adapter factory function."""
+
+    def test_get_adapter_bigquery(self, config, report, mock_bigquery_engine):
+        """Test factory returns BigQuery adapter."""
+        adapter = get_adapter("bigquery", config, report, mock_bigquery_engine)
+        assert isinstance(adapter, BigQueryAdapter)
+
+    def test_get_adapter_postgresql(self, config, report, mock_postgres_engine):
+        """Test factory returns PostgreSQL adapter."""
+        adapter = get_adapter("postgresql", config, report, mock_postgres_engine)
+        assert isinstance(adapter, PostgresAdapter)
+
+    def test_get_adapter_postgres(self, config, report, mock_postgres_engine):
+        """Test factory returns PostgreSQL adapter for 'postgres' alias."""
+        adapter = get_adapter("postgres", config, report, mock_postgres_engine)
+        assert isinstance(adapter, PostgresAdapter)
+
+    def test_get_adapter_athena(self, config, report, mock_athena_engine):
+        """Test factory returns Athena adapter."""
+        adapter = get_adapter("athena", config, report, mock_athena_engine)
+        assert isinstance(adapter, AthenaAdapter)
+
+    def test_get_adapter_mysql(self, config, report, mock_mysql_engine):
+        """Test factory returns MySQL adapter."""
+        adapter = get_adapter("mysql", config, report, mock_mysql_engine)
+        assert isinstance(adapter, MySQLAdapter)
+
+    def test_get_adapter_mssql(self, config, report, mock_mssql_engine):
+        """Test factory returns MSSQL adapter for 'mssql' platform name."""
+        adapter = get_adapter("mssql", config, report, mock_mssql_engine)
+        assert isinstance(adapter, MSSQLAdapter)
+
+    def test_get_adapter_sqlserver(self, config, report, mock_mssql_engine):
+        """Test factory returns MSSQL adapter for 'sqlserver' alias."""
+        adapter = get_adapter("sqlserver", config, report, mock_mssql_engine)
+        assert isinstance(adapter, MSSQLAdapter)
+
+    def test_get_adapter_generic(self, config, report, mock_generic_engine):
+        """Test factory returns GenericAdapter for unknown platform name."""
+        adapter = get_adapter("unknown_platform", config, report, mock_generic_engine)
+        assert isinstance(adapter, GenericAdapter)
+
+    def test_get_adapter_redshift(self, config, report, mock_redshift_engine):
+        """Test factory returns Redshift adapter."""
+        adapter = get_adapter("redshift", config, report, mock_redshift_engine)
+        assert isinstance(adapter, RedshiftAdapter)
+
+    def test_get_adapter_snowflake(self, config, report, mock_snowflake_engine):
+        """Test factory returns Snowflake adapter."""
+        adapter = get_adapter("snowflake", config, report, mock_snowflake_engine)
+        assert isinstance(adapter, SnowflakeAdapter)
+
+    def test_get_adapter_databricks(self, config, report, mock_databricks_engine):
+        """Test factory returns Databricks adapter."""
+        adapter = get_adapter("databricks", config, report, mock_databricks_engine)
+        assert isinstance(adapter, DatabricksAdapter)
+
+    def test_get_adapter_trino(self, config, report, mock_trino_engine):
+        """Test factory returns Trino adapter."""
+        adapter = get_adapter("trino", config, report, mock_trino_engine)
+        assert isinstance(adapter, TrinoAdapter)
+
+    def test_get_adapter_clickhouse(self, config, report, mock_clickhouse_engine):
+        """Test factory returns ClickHouse adapter."""
+        adapter = get_adapter("clickhouse", config, report, mock_clickhouse_engine)
+        assert isinstance(adapter, ClickHouseAdapter)
+
+    def test_get_adapter_case_insensitive(
+        self, config, report, mock_bigquery_engine, mock_postgres_engine
+    ):
+        """Test factory is case-insensitive."""
+        adapter = get_adapter("BigQuery", config, report, mock_bigquery_engine)
+        assert isinstance(adapter, BigQueryAdapter)
+
+        adapter = get_adapter("POSTGRESQL", config, report, mock_postgres_engine)
+        assert isinstance(adapter, PostgresAdapter)
+
+
+class TestGenericAdapter:
+    """Test cases for GenericAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_generic_engine):
+        """Create generic adapter for testing."""
+        return GenericAdapter(config, report, mock_generic_engine)
+
+    def test_setup_profiling_creates_sql_table(self, adapter, mock_generic_engine):
+        """Test setup creates SQLAlchemy table object."""
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            custom_sql=None,
+            pretty_name="test_table",
+        )
+
+        # Mock the table reflection
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_instance = MagicMock()
+            mock_table_instance.name = "test_table"
+            mock_table_class.return_value = mock_table_instance
+
+            mock_conn = MagicMock()
+            result_context = adapter.setup_profiling(context, mock_conn)
+
+            assert result_context.sql_table is not None
+            # Verify Table was created with correct parameters
+            mock_table_class.assert_called_once()
+            call_args = mock_table_class.call_args
+            assert call_args[0][0] == "test_table"  # table name
+            assert call_args[1]["schema"] == "test_schema"
+
+    def test_setup_profiling_requires_table_name(self, adapter):
+        """Test ProfilingContext creation fails with empty table name."""
+        # Validation happens in __post_init__, not in setup_profiling
+        with pytest.raises(ValueError, match="table must be a non-empty string"):
+            ProfilingContext(
+                pretty_name="test",
+                table="",
+                schema=None,
+                custom_sql="SELECT * FROM users",
+            )
+
+    def test_cleanup_does_nothing(self, adapter):
+        """Test cleanup is a no-op for generic adapter."""
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            custom_sql=None,
+            pretty_name="test_table",
+        )
+        # Should not raise any errors
+        adapter.cleanup(context)
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_generic_engine):
+        """Test approximate unique count uses COUNT(DISTINCT)."""
+        expr = adapter.get_approx_unique_count_expr("test_column")
+        sql = compile_expr_to_sql(expr, mock_generic_engine.dialect)
+
+        # Validate COUNT(DISTINCT(column)) structure
+        pattern = r"\bCOUNT\s*\(\s*DISTINCT\s*\(\s*test_column\s*\)\s*\)"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter):
+        """Generic adapter returns None — base adapter's Python OFFSET/LIMIT fallback handles it."""
+        assert adapter.get_median_expr("test_column") is None
+
+    def test_generic_mean_expr_promotes_to_float(self, adapter, mock_generic_engine):
+        """
+        Base/generic AVG must emit `AVG(col * 1.0)` to force float promotion.
+
+        This prevents:
+          - MSSQL integer truncation (`AVG(int_col)` returns int there).
+          - MySQL/Doris precision loss (DECIMAL(N,4) for AVG over int columns).
+        GE uses the same trick (sqlalchemy_dataset.py:1093-1101). Catches future
+        regressions that drop `* 1.0` from base or re-add an MSSQL-specific override.
+        """
+        expr = adapter.get_mean_expr("my_col")
+        rendered = compile_expr_to_sql(expr, mock_generic_engine.dialect)
+        assert "1.0" in rendered
+        assert "avg" in rendered.lower()
+
+    def test_get_quantiles_expr(self, adapter):
+        """Test generic adapter returns None for quantiles (not supported)."""
+        expr = adapter.get_quantiles_expr("test_column", [0.25, 0.5, 0.75])
+        assert expr is None
+
+    def test_get_sample_clause(self, adapter):
+        """Test generic adapter returns None for sample clause (not supported)."""
+        clause = adapter.get_sample_clause(1000)
+        assert clause is None
+
+    def test_supports_row_count_estimation(self, adapter):
+        """Test generic adapter doesn't support row count estimation."""
+        assert adapter.supports_row_count_estimation() is False
+
+    def test_get_estimated_row_count(self, adapter, mock_table):
+        """Test generic adapter returns None for row count estimation."""
+        mock_conn = MagicMock()
+        result = adapter.get_estimated_row_count(mock_table, mock_conn)
+        assert result is None
+
+
+class TestMySQLAdapter:
+    """Test cases for MySQLAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_mysql_engine):
+        """Create MySQL adapter for testing."""
+        return MySQLAdapter(config, report, mock_mysql_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_mysql_engine):
+        """Test MySQL uses COUNT(DISTINCT) for approximate unique count."""
+        expr = adapter.get_approx_unique_count_expr("user_id")
+        sql = compile_expr_to_sql(expr, mock_mysql_engine.dialect)
+
+        # Validate COUNT(DISTINCT(column)) structure
+        pattern = r"\bCOUNT\s*\(\s*DISTINCT\s*\(\s*user_id\s*\)\s*\)"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter):
+        """Test MySQL doesn't support median (returns None)."""
+        expr = adapter.get_median_expr("value_column")
+        assert expr is None
+
+    def test_supports_row_count_estimation(self, adapter):
+        """Test MySQL supports fast row count estimation."""
+        assert adapter.supports_row_count_estimation() is True
+
+    def test_get_estimated_row_count_generates_correct_query(
+        self, adapter, mock_table, mock_mysql_engine
+    ):
+        """Test MySQL row count estimation query structure."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 12345
+        mock_conn.execute.return_value = mock_result
+
+        row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
+
+        # Verify query was executed
+        assert mock_conn.execute.called
+        executed_query = mock_conn.execute.call_args[0][0]
+        sql = compile_expr_to_sql(executed_query, mock_mysql_engine.dialect)
+
+        # Validate information_schema.tables query
+        pattern = r"\binformation_schema\.tables\b.*\btable_rows\b"
+        assert_sql_matches_pattern(sql, pattern)
+        assert row_count == 12345
+
+
+class TestMSSQLAdapter:
+    """Test cases for MSSQLAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_mssql_engine):
+        """Create MSSQL adapter for testing."""
+        return MSSQLAdapter(config, report, mock_mssql_engine)
+
+    @pytest.fixture
+    def real_table(self) -> Any:
+        """Real sa.Table needed for SQL compilation paths (select_from)."""
+        return sa.Table(
+            "test_table",
+            sa.MetaData(),
+            sa.Column("value_col", sa.Float),
+            schema="dbo",
+        )
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_mssql_engine):
+        """MSSQL has no APPROX function, so falls back to COUNT(DISTINCT)."""
+        expr = adapter.get_approx_unique_count_expr("user_id")
+        sql = compile_expr_to_sql(expr, mock_mssql_engine.dialect)
+
+        pattern = r"\bcount\s*\(\s*distinct\s*\(\s*user_id\s*\)\s*\)"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr_returns_none(self, adapter):
+        """MSSQL has no native MEDIAN — None engages base OFFSET/LIMIT fallback."""
+        assert adapter.get_median_expr("value_column") is None
+
+    def test_supports_row_count_estimation(self, adapter):
+        """MSSQL row count estimation not implemented yet (defaults to False)."""
+        assert adapter.supports_row_count_estimation() is False
+
+    def test_stdev_uses_stdev_not_stddev_samp(
+        self, adapter, real_table, mock_mssql_engine
+    ):
+        """MSSQL has no `stddev_samp` — must emit MSSQL's `STDEV()` instead."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 1.5
+        mock_conn.execute.return_value = mock_result
+
+        adapter.get_column_stdev(real_table, "value_col", mock_conn)
+
+        assert mock_conn.execute.called
+        executed_query = mock_conn.execute.call_args[0][0]
+        sql = compile_expr_to_sql(executed_query, mock_mssql_engine.dialect)
+
+        # Must use STDEV (MSSQL's sample stddev function), never stddev_samp.
+        assert_sql_matches_pattern(sql, r"\bstdev\s*\(")
+        assert "stddev_samp" not in sql.lower()
+
+    def test_stdev_single_row_returns_none(self, adapter, real_table):
+        """
+        STDEV() returns NULL on a single-value column. Stddev of one value is
+        mathematically undefined, so we return None (not 0.0).
+        """
+        mock_conn = MagicMock()
+        # First execute: STDEV(...) returns NULL.
+        # Second execute: COUNT(value_col) for the non-null disambiguation returns 1.
+        stdev_result = MagicMock()
+        stdev_result.scalar.return_value = None
+        count_result = MagicMock()
+        count_result.scalar.return_value = 1
+        mock_conn.execute.side_effect = [stdev_result, count_result]
+
+        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
+        assert result is None
+
+    def test_stdev_multiple_equal_rows_returns_zero(self, adapter, real_table):
+        """
+        STDEV() returns NULL when all values are equal (zero variance). With
+        multiple non-null rows, the well-defined answer is 0.0.
+        """
+        mock_conn = MagicMock()
+        stdev_result = MagicMock()
+        stdev_result.scalar.return_value = None
+        count_result = MagicMock()
+        count_result.scalar.return_value = 5
+        mock_conn.execute.side_effect = [stdev_result, count_result]
+
+        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
+        assert result == 0.0
+
+    def test_stdev_all_null_returns_default(self, adapter, real_table):
+        """
+        STDEV() on an all-null column falls through to the
+        `get_stdev_null_value` hook. MSSQL inherits the base default (None).
+        """
+        mock_conn = MagicMock()
+        stdev_result = MagicMock()
+        stdev_result.scalar.return_value = None
+        count_result = MagicMock()
+        count_result.scalar.return_value = 0
+        mock_conn.execute.side_effect = [stdev_result, count_result]
+
+        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
+        assert result is None
+
+    def test_quantiles_use_percentile_disc_with_over_window(
+        self, adapter, real_table, mock_mssql_engine
+    ):
+        """MSSQL requires PERCENTILE_DISC with empty OVER () window + DISTINCT."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = (1.0, 2.0, 3.0, 4.0, 5.0)
+        mock_conn.execute.return_value = mock_result
+
+        quantiles = adapter.get_column_quantiles(
+            real_table, "value_col", mock_conn, quantiles=DEFAULT_QUANTILES
+        )
+
+        assert quantiles == [1.0, 2.0, 3.0, 4.0, 5.0]
+        executed_query = mock_conn.execute.call_args[0][0]
+        sql = compile_expr_to_sql(executed_query, mock_mssql_engine.dialect)
+
+        # Verify PERCENTILE_DISC, WITHIN GROUP, OVER (), and DISTINCT all present.
+        assert_sql_matches_pattern(sql, r"\bpercentile_disc\s*\(")
+        assert_sql_matches_pattern(sql, r"\bwithin\s+group\b")
+        assert_sql_matches_pattern(sql, r"\bover\s*\(\s*\)")
+        assert_sql_matches_pattern(sql, r"\bselect\s+distinct\b")
+
+    def test_quantiles_invalid_range_raises(self, adapter, real_table):
+        """Quantile values outside [0, 1] must raise ValueError."""
+        mock_conn = MagicMock()
+        with pytest.raises(ValueError, match=r"Quantiles must be in \[0, 1\]"):
+            adapter.get_column_quantiles(
+                real_table, "value_col", mock_conn, quantiles=[1.5]
+            )
+
+
+class TestPostgresAdapter:
+    """Test cases for PostgresAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_postgres_engine):
+        """Create PostgreSQL adapter for testing."""
+        return PostgresAdapter(config, report, mock_postgres_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_postgres_engine):
+        """Test PostgreSQL uses COUNT(DISTINCT)."""
+        expr = adapter.get_approx_unique_count_expr("email")
+        sql = compile_expr_to_sql(expr, mock_postgres_engine.dialect)
+
+        # Validate COUNT(DISTINCT(column)) structure
+        pattern = r"\bCOUNT\s*\(\s*DISTINCT\s*\(\s*email\s*\)\s*\)"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_postgres_engine):
+        """Test PostgreSQL uses PERCENTILE_CONT for median."""
+        expr = adapter.get_median_expr("price")
+        sql = compile_expr_to_sql(expr, mock_postgres_engine.dialect)
+
+        # Validate PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price)
+        pattern = (
+            r"\bPERCENTILE_CONT\s*\(\s*0\.5\s*\)"
+            r".*\bWITHIN\s+GROUP\s*\("
+            r".*\bORDER\s+BY\b"
+            r".*\bprice\b"
+        )
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_supports_row_count_estimation(self, adapter):
+        """Test PostgreSQL supports fast row count estimation."""
+        assert adapter.supports_row_count_estimation() is True
+
+    def test_get_estimated_row_count_uses_pg_class(
+        self, adapter, mock_table, mock_postgres_engine
+    ):
+        """Test PostgreSQL uses pg_class.reltuples for estimation."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 98765
+        mock_conn.execute.return_value = mock_result
+
+        row_count = adapter.get_estimated_row_count(mock_table, mock_conn)
+
+        assert mock_conn.execute.called
+        executed_query = mock_conn.execute.call_args[0][0]
+        sql = compile_expr_to_sql(executed_query, mock_postgres_engine.dialect)
+
+        # Validate query uses pg_class and pg_namespace for reltuples
+        assert "reltuples" in sql
+        assert "pg_class" in sql
+        assert "pg_namespace" in sql
+        assert row_count == 98765
+
+
+class TestRedshiftAdapter:
+    """Test cases for RedshiftAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_redshift_engine):
+        """Create Redshift adapter for testing."""
+        return RedshiftAdapter(config, report, mock_redshift_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_redshift_engine):
+        """Test Redshift uses COUNT(DISTINCT)."""
+        expr = adapter.get_approx_unique_count_expr("customer_id")
+        sql = compile_expr_to_sql(expr, mock_redshift_engine.dialect)
+
+        # Validate COUNT(DISTINCT(column)) structure
+        pattern = r"\bCOUNT\s*\(\s*DISTINCT\s*\(\s*customer_id\s*\)\s*\)"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_redshift_engine):
+        """Test Redshift uses PERCENTILE_CONT for median."""
+        expr = adapter.get_median_expr("amount")
+        sql = compile_expr_to_sql(expr, mock_redshift_engine.dialect)
+
+        # Validate PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount)
+        pattern = (
+            r"\bPERCENTILE_CONT\s*\(\s*0\.5\s*\)"
+            r".*\bWITHIN\s+GROUP\s*\("
+            r".*\bORDER\s+BY\b"
+            r".*\bamount\b"
+        )
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_mean_expr(self, adapter, mock_redshift_engine):
+        """Test Redshift casts to FLOAT for AVG precision."""
+        expr = adapter.get_mean_expr("int_column")
+        sql = compile_expr_to_sql(expr, mock_redshift_engine.dialect)
+
+        # Validate AVG(CAST(column AS FLOAT))
+        pattern = (
+            r"\bAVG\s*\("
+            r".*\bCAST\s*\("
+            r".*\bint_column\b"
+            r".*\bAS\s+FLOAT\b"
+        )
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_supports_row_count_estimation(self, adapter):
+        """Test Redshift supports fast row count estimation."""
+        assert adapter.supports_row_count_estimation() is True
+
+
+class TestSnowflakeAdapter:
+    """Test cases for SnowflakeAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_snowflake_engine):
+        """Create Snowflake adapter for testing."""
+        return SnowflakeAdapter(config, report, mock_snowflake_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_snowflake_engine):
+        """Test Snowflake uses APPROX_COUNT_DISTINCT."""
+        expr = adapter.get_approx_unique_count_expr("session_id")
+        sql = compile_expr_to_sql(expr, mock_snowflake_engine.dialect)
+
+        # Validate APPROX_COUNT_DISTINCT(session_id)
+        pattern = r"\bAPPROX_COUNT_DISTINCT\b.*\bsession_id\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_snowflake_engine):
+        """Test Snowflake uses MEDIAN function."""
+        expr = adapter.get_median_expr("score")
+        sql = compile_expr_to_sql(expr, mock_snowflake_engine.dialect)
+
+        # Validate MEDIAN(score)
+        pattern = r"\bMEDIAN\b.*\bscore\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_quote_identifier_mixed_case(self, adapter):
+        """Test Snowflake identifier quoting."""
+        # Snowflake preserves case with double quotes
+        quoted = adapter.quote_identifier("MixedCase")
+        assert '"' in quoted
+        assert "MixedCase" in quoted
+
+    def test_quote_identifier_with_schema(self, adapter):
+        """Test Snowflake schema.table quoting."""
+        quoted = adapter.quote_identifier("schema.table")
+        # Should quote both parts
+        assert '"schema"."table"' in quoted or "schema.table" in quoted
+
+
+class TestBigQueryAdapter:
+    """Test cases for BigQueryAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_bigquery_engine):
+        """Create BigQuery adapter for testing."""
+        return BigQueryAdapter(config, report, mock_bigquery_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_bigquery_engine):
+        """Test BigQuery uses APPROX_COUNT_DISTINCT."""
+        expr = adapter.get_approx_unique_count_expr("visitor_id")
+        sql = compile_expr_to_sql(expr, mock_bigquery_engine.dialect)
+
+        # Validate APPROX_COUNT_DISTINCT(visitor_id)
+        pattern = r"\bAPPROX_COUNT_DISTINCT\b.*\bvisitor_id\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_bigquery_engine):
+        """Test BigQuery uses APPROX_QUANTILES for median."""
+        expr = adapter.get_median_expr("duration")
+        sql = compile_expr_to_sql(expr, mock_bigquery_engine.dialect)
+
+        # Validate APPROX_QUANTILES(column, 2)[OFFSET(1)]
+        pattern = (
+            r"\bAPPROX_QUANTILES\s*\("
+            r".*\bduration\b"
+            r".*,\s*2\s*\)"
+            r".*\bOFFSET\s*\(\s*1\s*\)"
+        )
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_cleanup_does_nothing(self, adapter):
+        """Test BigQuery cleanup is no-op (tables auto-expire)."""
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            custom_sql=None,
+            pretty_name="test",
+            temp_table="temp_123",
+        )
+        # Should not raise
+        adapter.cleanup(context)
+
+    def test_create_temp_table_with_properly_quoted_identifiers(
+        self, adapter, mock_bigquery_engine
+    ):
+        """Test that temp table creation uses properly quoted identifiers (SQL injection prevention)."""
+        # Mock the raw connection and cursor
+        mock_cursor = Mock()
+        mock_cursor.query_job = Mock()
+        mock_cursor.query_job.destination = Mock()
+        mock_cursor.query_job.destination.project = "test_project"
+        mock_cursor.query_job.destination.dataset_id = "test_dataset"
+        mock_cursor.query_job.destination.table_id = "temp_table_123"
+
+        mock_raw_conn = Mock()
+        mock_raw_conn.cursor.return_value = mock_cursor
+
+        with patch.object(
+            adapter.base_engine, "raw_connection", return_value=mock_raw_conn
+        ):
+            context = ProfilingContext(
+                schema="my_dataset",
+                table="my_table",
+                custom_sql=None,
+                pretty_name="test",
+            )
+
+            adapter._create_temp_table_for_query(context)
+
+            # Verify cursor.execute was called
+            assert mock_cursor.execute.called
+            sql = mock_cursor.execute.call_args[0][0]
+
+            # Verify SQL contains properly quoted identifiers (not vulnerable to injection)
+            assert "my_dataset" in sql
+            assert "my_table" in sql
+            assert "SELECT" in sql.upper()
+
+    def test_create_temp_table_includes_limit_and_offset(
+        self, adapter, mock_bigquery_engine, config
+    ):
+        """Test that temp table creation correctly applies LIMIT and OFFSET."""
+        # Configure LIMIT and OFFSET
+        config.limit = 100
+        config.offset = 50
+        adapter.config = config
+
+        # Mock the raw connection and cursor
+        mock_cursor = Mock()
+        mock_cursor.query_job = Mock()
+        mock_cursor.query_job.destination = Mock()
+        mock_cursor.query_job.destination.project = "test_project"
+        mock_cursor.query_job.destination.dataset_id = "test_dataset"
+        mock_cursor.query_job.destination.table_id = "temp_table_123"
+
+        mock_raw_conn = Mock()
+        mock_raw_conn.cursor.return_value = mock_cursor
+
+        with patch.object(
+            adapter.base_engine, "raw_connection", return_value=mock_raw_conn
+        ):
+            context = ProfilingContext(
+                schema="my_dataset",
+                table="my_table",
+                custom_sql=None,
+                pretty_name="test",
+            )
+
+            adapter._create_temp_table_for_query(context)
+
+            # Verify cursor.execute was called with LIMIT and OFFSET
+            assert mock_cursor.execute.called
+            sql = mock_cursor.execute.call_args[0][0].upper()
+
+            # Verify LIMIT and OFFSET are in the SQL
+            assert "LIMIT" in sql
+            assert "OFFSET" in sql
+            # Verify values are present as integers (not string concatenation)
+            assert "100" in sql or "50" in sql
+
+    def test_setup_sampling_generates_tablesample_sql(
+        self, adapter, mock_bigquery_engine, config
+    ):
+        """Test that sampling generates correct TABLESAMPLE SQL for large tables."""
+        # Configure sampling
+        config.use_sampling = True
+        config.sample_size = 1000
+        adapter.config = config
+
+        # Track the SQL passed to _create_temp_table_for_query
+        captured_sql = []
+
+        # Mock _get_quick_row_count to return large row count
+        with patch.object(adapter, "_get_quick_row_count", return_value=10000):
+            # Mock _create_temp_table_for_query
+            def mock_create_temp(ctx):
+                # Capture the custom_sql for verification
+                if ctx.custom_sql:
+                    captured_sql.append(ctx.custom_sql)
+                ctx.temp_table = "temp_123"
+                ctx.temp_schema = "project.dataset"
+                return ctx
+
+            with patch.object(
+                adapter, "_create_temp_table_for_query", side_effect=mock_create_temp
+            ) as mock_create:
+                context = ProfilingContext(
+                    schema="my_dataset",
+                    table="my_table",
+                    custom_sql=None,
+                    pretty_name="test",
+                )
+
+                mock_conn = Mock()
+                result = adapter._setup_sampling(context, mock_conn)
+
+                # Verify sampling was set up
+                assert result.is_sampled
+                assert result.sample_percentage is not None
+                assert result.sample_percentage > 0
+
+                # Verify _create_temp_table_for_query was called
+                assert mock_create.called
+
+                # Verify the captured SQL contains TABLESAMPLE
+                assert len(captured_sql) > 0
+                assert "TABLESAMPLE" in captured_sql[0].upper()
+
+
+class TestDatabricksAdapter:
+    """Test cases for DatabricksAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_databricks_engine):
+        """Create Databricks adapter for testing."""
+        return DatabricksAdapter(config, report, mock_databricks_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_databricks_engine):
+        """Test Databricks uses approx_count_distinct."""
+        expr = adapter.get_approx_unique_count_expr("device_id")
+        sql = compile_expr_to_sql(expr, mock_databricks_engine.dialect)
+
+        # Validate approx_count_distinct(device_id)
+        pattern = r"\bapprox_count_distinct\b.*\bdevice_id\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_databricks_engine):
+        """Test Databricks uses approx_percentile for median."""
+        expr = adapter.get_median_expr("latency")
+        sql = compile_expr_to_sql(expr, mock_databricks_engine.dialect)
+
+        # Validate approx_percentile(latency, 0.5)
+        pattern = r"\bapprox_percentile\b.*\blatency\b.*\b0\.5\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+
+class TestTrinoAdapter:
+    """Test cases for TrinoAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_trino_engine):
+        """Create Trino adapter for testing."""
+        return TrinoAdapter(config, report, mock_trino_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_trino_engine):
+        """Test Trino uses approx_distinct."""
+        expr = adapter.get_approx_unique_count_expr("request_id")
+        sql = compile_expr_to_sql(expr, mock_trino_engine.dialect)
+
+        # Validate approx_distinct(request_id)
+        pattern = r"\bapprox_distinct\b.*\brequest_id\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_trino_engine):
+        """Test Trino uses approx_percentile for median."""
+        expr = adapter.get_median_expr("response_time")
+        sql = compile_expr_to_sql(expr, mock_trino_engine.dialect)
+
+        # Validate approx_percentile(response_time, 0.5)
+        pattern = r"\bapprox_percentile\b.*\bresponse_time\b.*\b0\.5\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_cleanup_drops_temp_view(self, adapter):
+        """Test Trino always drops temp views."""
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            custom_sql=None,
+            pretty_name="test_table",
+            temp_view="ge_temp_view",
+        )
+
+        # Mock both base_engine and quote_identifier
+        with (
+            patch.object(adapter, "base_engine") as mock_engine,
+            patch.object(
+                adapter, "quote_identifier", return_value='"test_schema"."ge_temp_view"'
+            ),
+        ):
+            mock_conn = MagicMock()
+            mock_engine.connect.return_value.__enter__.return_value = mock_conn
+
+            adapter.cleanup(context)
+
+            # Verify DROP VIEW was executed
+            assert mock_conn.execute.called
+            executed_query = mock_conn.execute.call_args[0][0]
+            sql = str(executed_query)
+
+            # Validate DROP VIEW ge_temp_view
+            pattern = r"\bDROP\s+VIEW\b.*\bge_temp_view\b"
+            assert_sql_matches_pattern(sql, pattern)
+
+
+class TestAthenaAdapter:
+    """Test cases for AthenaAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_athena_engine):
+        """Create Athena adapter for testing."""
+        return AthenaAdapter(config, report, mock_athena_engine)
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_athena_engine):
+        """Test Athena uses approx_distinct."""
+        expr = adapter.get_approx_unique_count_expr("transaction_id")
+        sql = compile_expr_to_sql(expr, mock_athena_engine.dialect)
+
+        # Validate approx_distinct(transaction_id)
+        pattern = r"\bapprox_distinct\b.*\btransaction_id\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr(self, adapter, mock_athena_engine):
+        """Test Athena uses approx_percentile for median."""
+        expr = adapter.get_median_expr("value")
+        sql = compile_expr_to_sql(expr, mock_athena_engine.dialect)
+
+        # Validate approx_percentile(value, 0.5)
+        pattern = r"\bapprox_percentile\b.*\bvalue\b.*\b0\.5\b"
+        assert_sql_matches_pattern(sql, pattern)
+
+
+class TestClickHouseAdapter:
+    """Test cases for ClickHouseAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_clickhouse_engine):
+        """Create ClickHouse adapter for testing."""
+        return ClickHouseAdapter(config, report, mock_clickhouse_engine)
+
+    @pytest.fixture
+    def real_table(self) -> Any:
+        """Real sa.Table needed for SQL compilation paths (select_from)."""
+        return sa.Table(
+            "test_table",
+            sa.MetaData(),
+            sa.Column("score", sa.Float),
+            sa.Column("value", sa.Float),
+            schema="test_schema",
+        )
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_clickhouse_engine):
+        """ClickHouse uses uniq() (HyperLogLog) for approximate distinct counts."""
+        expr = adapter.get_approx_unique_count_expr("user_id")
+        sql = compile_expr_to_sql(expr, mock_clickhouse_engine.dialect)
+        assert_sql_matches_pattern(sql, r"\buniq\b.*\buser_id\b")
+
+    def test_get_mean_expr(self, adapter, mock_clickhouse_engine):
+        """ClickHouse uses standard avg() — no CAST overhead like Redshift."""
+        expr = adapter.get_mean_expr("amount")
+        sql = compile_expr_to_sql(expr, mock_clickhouse_engine.dialect)
+        assert_sql_matches_pattern(sql, r"\bavg\s*\(\s*amount\s*\)")
+        assert "CAST" not in sql.upper()
+
+    def test_get_median_expr(self, adapter, mock_clickhouse_engine):
+        """Median uses quantile(0.5)(col) two-call syntax labelled AS median."""
+        expr = adapter.get_median_expr("score")
+        assert expr is not None
+        sql = compile_expr_to_sql(expr, mock_clickhouse_engine.dialect)
+        assert_sql_matches_pattern(sql, r'quantile\(0\.5\)\(\s*"score"\s*\)')
+        # Verify the label renders inside a SELECT — query combiner extracts by name.
+        select_sql = compile_expr_to_sql(
+            sa.select([expr]), mock_clickhouse_engine.dialect
+        )
+        assert_sql_matches_pattern(select_sql, r"\bAS\s+median\b")
+
+    def test_get_median_expr_quotes_column_with_special_chars(
+        self, adapter, mock_clickhouse_engine
+    ):
+        """Column names with spaces must be double-quoted to prevent SQL injection."""
+        expr = adapter.get_median_expr("my column")
+        assert expr is not None
+        sql = compile_expr_to_sql(expr, mock_clickhouse_engine.dialect)
+        assert '"my column"' in sql
+        assert_sql_matches_pattern(sql, r'quantile\(0\.5\)\(\s*"my column"\s*\)')
+
+    def test_get_column_stdev_returns_value(
+        self, adapter, real_table, mock_clickhouse_engine
+    ):
+        """stddevSamp() result is returned directly when ClickHouse returns a number."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = 12.5
+
+        result = adapter.get_column_stdev(real_table, "score", mock_conn)
+
+        assert result == 12.5
+        executed = mock_conn.execute.call_args[0][0]
+        sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
+        assert_sql_matches_pattern(sql, r"\bstddevSamp\s*\(\s*score\s*\)")
+
+    def test_get_column_stdev_null_with_single_row_returns_none(
+        self, adapter, mock_table
+    ):
+        """stddevSamp returns NULL with ≤1 non-null row → None (mathematically undefined)."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.side_effect = [
+            None,  # stddevSamp result
+            1,  # non-null count
+        ]
+
+        result = adapter.get_column_stdev(mock_table, "score", mock_conn)
+
+        assert result is None
+
+    def test_get_column_stdev_null_with_multiple_rows_returns_zero(
+        self, adapter, mock_table
+    ):
+        """stddevSamp returns NULL with >1 non-null row → 0.0 (no variance)."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.side_effect = [None, 10]
+
+        result = adapter.get_column_stdev(mock_table, "score", mock_conn)
+
+        assert result == 0.0
+
+    def test_get_column_stdev_query_failure_reports_warning(
+        self, adapter, report, mock_table
+    ):
+        """SQLAlchemyError surfaces via SQLSourceReport.warning, not silent logger."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = sa.exc.SQLAlchemyError("permission denied")
+
+        result = adapter.get_column_stdev(mock_table, "score", mock_conn)
+
+        assert result is None
+        # Distinguish from the non_null_count-disambiguation path.
+        assert any("compute stdev" in w.title.lower() for w in report.warnings)
+
+    def test_supports_row_count_estimation_is_false(self, adapter):
+        assert adapter.supports_row_count_estimation() is False
+
+    def test_setup_profiling_warns_on_custom_sql(self, adapter, report):
+        """custom_sql is unsupported on the ClickHouse SQLAlchemy path; warn and proceed."""
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            custom_sql="SELECT * FROM other",
+            pretty_name="test_table",
+        )
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            mock_conn = MagicMock()
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert result.sql_table is not None
+        assert any("ignored" in w.title.lower() for w in report.warnings)
+
+    def test_setup_profiling_warns_on_limit_or_offset(self, adapter, report, config):
+        """limit/offset are unsupported on the ClickHouse SQLAlchemy path; warn and proceed."""
+        config.limit = 500
+        adapter.config = config
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            pretty_name="test_table",
+        )
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            mock_conn = MagicMock()
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert result.sql_table is not None
+        assert any("ignored" in w.title.lower() for w in report.warnings)
+
+    def test_setup_profiling_warns_on_offset_without_limit(
+        self, adapter, report, config
+    ):
+        """offset alone (no limit) is also unsupported; warn and proceed."""
+        config.offset = 100
+        adapter.config = config
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            pretty_name="test_table",
+        )
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            mock_conn = MagicMock()
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert result.sql_table is not None
+        assert any("ignored" in w.title.lower() for w in report.warnings)
+
+    def test_setup_profiling_no_warning_for_normal_table(self, adapter, report):
+        """Normal full-table profiling produces no warning."""
+        context = ProfilingContext(
+            schema="test_schema",
+            table="test_table",
+            pretty_name="test_table",
+        )
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            mock_conn = MagicMock()
+            adapter.setup_profiling(context, mock_conn)
+
+        assert report.warnings == []
+
+    def test_get_column_quantiles_default_levels(
+        self, adapter, real_table, mock_clickhouse_engine
+    ):
+        """Default quantiles use batched quantiles(...) call returning a list."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = [
+            float(i) for i in range(len(DEFAULT_QUANTILES))
+        ]
+
+        result = adapter.get_column_quantiles(real_table, "value", mock_conn)
+
+        assert result == [float(i) for i in range(len(DEFAULT_QUANTILES))]
+        assert mock_conn.execute.call_count == 1
+        executed = mock_conn.execute.call_args[0][0]
+        sql = compile_expr_to_sql(executed, mock_clickhouse_engine.dialect)
+        levels_pattern = ", ".join(re.escape(str(q)) for q in DEFAULT_QUANTILES)
+        assert_sql_matches_pattern(
+            sql, rf"quantiles\({levels_pattern}\)\(\s*\"value\"\s*\)"
+        )
+
+    def test_get_column_quantiles_custom_levels_preserves_order(
+        self, adapter, mock_table
+    ):
+        """Result list ordering matches the input quantile ordering."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = [10.0, 20.0]
+
+        result = adapter.get_column_quantiles(
+            mock_table, "value", mock_conn, quantiles=[0.9, 0.1]
+        )
+
+        assert result == [10.0, 20.0]
+
+    def test_get_column_quantiles_empty_table_returns_nones(self, adapter, mock_table):
+        """Driver returning None for empty table → list of Nones with correct length."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = None
+
+        result = adapter.get_column_quantiles(
+            mock_table, "value", mock_conn, quantiles=[0.25, 0.5, 0.75]
+        )
+
+        assert result == [None, None, None]
+
+    def test_get_column_quantiles_rejects_out_of_range(self, adapter, mock_table):
+        """Out-of-range quantiles are rejected before any SQL is built (injection guard)."""
+        mock_conn = MagicMock()
+        with pytest.raises(ValueError):
+            adapter.get_column_quantiles(
+                mock_table, "value", mock_conn, quantiles=[1.5]
+            )
+        with pytest.raises(ValueError):
+            adapter.get_column_quantiles(
+                mock_table, "value", mock_conn, quantiles=[-0.1]
+            )
+        mock_conn.execute.assert_not_called()
+
+    def test_get_column_quantiles_accepts_boundary_values(self, adapter, mock_table):
+        """Boundary quantiles 0.0 and 1.0 are mathematically valid and accepted."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = [0.0, 1.0]
+        result = adapter.get_column_quantiles(
+            mock_table, "value", mock_conn, quantiles=[0.0, 1.0]
+        )
+        assert result == [0.0, 1.0]
+
+    def test_get_column_quantiles_falls_back_per_quantile_on_batch_failure(
+        self, adapter, report, mock_table
+    ):
+        """Batch failure triggers per-quantile fallback; results length preserved."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            sa.exc.SQLAlchemyError("batch failed"),
+            MagicMock(scalar=MagicMock(return_value=11.0)),
+            MagicMock(scalar=MagicMock(return_value=22.0)),
+            MagicMock(scalar=MagicMock(return_value=33.0)),
+        ]
+
+        result = adapter.get_column_quantiles(
+            mock_table, "value", mock_conn, quantiles=[0.25, 0.5, 0.75]
+        )
+
+        assert result == [11.0, 22.0, 33.0]
+        assert any("fallback" in w.title.lower() for w in report.warnings)
+
+    def test_get_column_quantiles_partial_per_quantile_failure(
+        self, adapter, report, mock_table
+    ):
+        """When fallback succeeds for some and fails for others, per-position None."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            sa.exc.SQLAlchemyError("batch"),
+            MagicMock(scalar=MagicMock(return_value=1.0)),
+            sa.exc.SQLAlchemyError("q2"),
+            MagicMock(scalar=MagicMock(return_value=3.0)),
+        ]
+
+        result = adapter.get_column_quantiles(
+            mock_table, "value", mock_conn, quantiles=[0.25, 0.5, 0.75]
+        )
+
+        assert result == [1.0, None, 3.0]
+        titles = [w.title.lower() for w in report.warnings]
+        assert any("fallback" in t for t in titles)
+        assert any("unavailable" in t for t in titles)
+
+    def test_get_column_quantiles_batch_value_error_triggers_fallback(
+        self, adapter, report, mock_table
+    ):
+        """Non-numeric value in batch result (ValueError on float()) triggers fallback."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=["not_a_number"])),
+            MagicMock(scalar=MagicMock(return_value=5.0)),
+        ]
+
+        result = adapter.get_column_quantiles(
+            mock_table, "value", mock_conn, quantiles=[0.5]
+        )
+
+        assert result == [5.0]
+        assert any("non-numeric" in w.title.lower() for w in report.warnings)
+
+    def test_profiling_method_defaults_to_sqlalchemy(self):
+        """ClickHouse inherits the SQLAlchemy profiler default."""
+        from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
+
+        cfg = ClickHouseConfig(host_port="localhost:28123", username="u", password="p")
+        assert cfg.profiling.method == "sqlalchemy"
+
+    def test_profiling_method_explicit_sqlalchemy_respected(self):
+        """Users opt into the new SQLAlchemy profiler explicitly."""
+        from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
+
+        cfg = ClickHouseConfig(
+            host_port="localhost:28123",
+            username="u",
+            password="p",
+            profiling={"enabled": True, "method": "sqlalchemy"},
+        )
+        assert cfg.profiling.method == "sqlalchemy"
+
+    def test_get_column_stdev_non_null_count_failure_reports_warning(
+        self, adapter, report, mock_table
+    ):
+        """If the inner non_null_count query fails, the failure is still reported."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=None)),  # stddev → NULL
+            sa.exc.SQLAlchemyError("count denied"),  # non-null lookup fails
+        ]
+        assert adapter.get_column_stdev(mock_table, "score", mock_conn) is None
+        # Discriminate from the stddevSamp-query failure path.
+        assert any("disambiguate" in w.title.lower() for w in report.warnings)
+
+    def test_get_column_stdev_happy_path_emits_no_warnings(
+        self, adapter, report, real_table
+    ):
+        """Successful stdev should not pollute the report."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = 7.5
+
+        adapter.get_column_stdev(real_table, "score", mock_conn)
+
+        assert report.warnings == []
+
+    def test_get_column_quantiles_happy_path_emits_no_warnings(
+        self, adapter, report, real_table
+    ):
+        """Successful batched quantiles should not emit any warnings."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = [1.0, 2.0, 3.0]
+
+        adapter.get_column_quantiles(
+            real_table, "value", mock_conn, quantiles=[0.25, 0.5, 0.75]
+        )
+
+        assert report.warnings == []
+
+    def test_get_column_quantiles_arity_mismatch_raises(self, adapter, real_table):
+        """If the driver returns a wrong-length list, raise rather than silently truncate."""
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = [1.0, 2.0]  # wrong length
+
+        with pytest.raises(RuntimeError, match=r"returned \d+ values for \d+"):
+            adapter.get_column_quantiles(
+                real_table, "value", mock_conn, quantiles=[0.25, 0.5, 0.75]
+            )
+
+    def test_get_column_quantiles_batch_type_error_triggers_fallback(
+        self, adapter, report, mock_table
+    ):
+        """Non-iterable batch result (TypeError on `for v in raw`) triggers fallback."""
+        mock_conn = MagicMock()
+        # Non-iterable int from driver triggers TypeError → per-quantile fallback.
+        mock_conn.execute.side_effect = [
+            MagicMock(scalar=MagicMock(return_value=42)),
+            MagicMock(scalar=MagicMock(return_value=7.0)),
+        ]
+
+        result = adapter.get_column_quantiles(
+            mock_table, "value", mock_conn, quantiles=[0.5]
+        )
+
+        assert result == [7.0]
+        assert any("non-numeric" in w.title.lower() for w in report.warnings)
+
+    def test_get_column_quantiles_per_quantile_float_cast_failure(
+        self, adapter, report, mock_table
+    ):
+        """Per-quantile fallback that returns a non-numeric scalar yields None for that slot."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            sa.exc.SQLAlchemyError("batch failed"),
+            MagicMock(scalar=MagicMock(return_value=1.0)),
+            MagicMock(scalar=MagicMock(return_value="oops")),  # ValueError on float()
+            MagicMock(scalar=MagicMock(return_value=3.0)),
+        ]
+
+        result = adapter.get_column_quantiles(
+            mock_table, "value", mock_conn, quantiles=[0.25, 0.5, 0.75]
+        )
+
+        assert result == [1.0, None, 3.0]
+        titles = [w.title.lower() for w in report.warnings]
+        assert any("unavailable" in t for t in titles)
+
+    def test_get_column_quantiles_empty_input_short_circuits(self, adapter, mock_table):
+        """Empty quantiles list returns [] without issuing any SQL."""
+        mock_conn = MagicMock()
+
+        result = adapter.get_column_quantiles(
+            mock_table, "value", mock_conn, quantiles=[]
+        )
+
+        assert result == []
+        mock_conn.execute.assert_not_called()
+
+    def test_format_context_with_missing_parts(self):
+        """`_format_context` skips None parts and falls back to <unknown>."""
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.clickhouse import (
+            _format_context,
+        )
+
+        t1 = Mock(spec=sa.Table)
+        t1.schema = "db"
+        t1.name = "users"
+        assert _format_context(t1) == "db.users"
+        assert _format_context(t1, "email") == "db.users.email"
+
+        t2 = Mock(spec=sa.Table)
+        t2.schema = None
+        t2.name = "orders"
+        assert _format_context(t2) == "orders"
+        assert _format_context(t2, "amount") == "orders.amount"
+
+        t3 = Mock(spec=sa.Table)
+        t3.schema = None
+        t3.name = None
+        assert _format_context(t3) == "<unknown>"

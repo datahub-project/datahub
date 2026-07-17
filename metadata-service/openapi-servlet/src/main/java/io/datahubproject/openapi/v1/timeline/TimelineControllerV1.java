@@ -16,6 +16,7 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -82,7 +83,8 @@ public class TimelineControllerV1 {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getTimeline", urn.getEntityType()),
+                .buildOpenapi(actorUrnStr, request, "getTimeline", urn.getEntityType())
+                .withUsageOperation(UsageOperation.METADATA_QUERY),
             _authorizerChain,
             authentication,
             true);
@@ -94,10 +96,23 @@ public class TimelineControllerV1 {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.GET_TIMELINE_PRIVILEGE.getType()))));
     if (restApiAuthorizationEnabled && !AuthUtil.isAuthorized(opContext, orGroup, resourceSpec)) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
+      throw new UnauthorizedException(
+          actorUrnStr + " is unauthorized to get the timeline for entity " + urn);
+    }
+    // Entity-level view authorization (independent of restApiAuthorization flag):
+    // a caller without view privileges on the target URN must not read its history.
+    if (!AuthUtil.canViewEntity(opContext, urn)) {
+      throw new UnauthorizedException(actorUrnStr + " is unauthorized to view entity " + urn);
     }
     return ResponseEntity.ok(
         _timelineService.getTimeline(
-            urn, categories, startTime, endTime, startVersionStamp, endVersionStamp, raw));
+            opContext,
+            urn,
+            categories,
+            startTime,
+            endTime,
+            startVersionStamp,
+            endVersionStamp,
+            raw));
   }
 }

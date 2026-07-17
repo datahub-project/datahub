@@ -21,6 +21,26 @@
     displayName: Azure Data Lake (Gen 2)
     type: FILE_SYSTEM
     logoUrl: "assets/platforms/adlslogo.png"
+- entityUrn: urn:li:dataPlatform:aerospike
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: aerospike
+    displayName: Aerospike
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/aerospike.png"
+- entityUrn: urn:li:dataPlatform:azure-data-factory
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: azure-data-factory
+    displayName: Azure Data Factory
+    type: OTHERS
+    logoUrl: "assets/platforms/azuredatafactorylogo.svg"
 - entityUrn: urn:li:dataPlatform:airflow
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -50,6 +70,16 @@
     displayName: ClickHouse
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/clickhouselogo.png"
+- entityUrn: urn:li:dataPlatform:cloudsql
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: cloudsql
+    displayName: Cloud SQL
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/cloudsqllogo.png"
 - entityUrn: urn:li:dataPlatform:cockroachdb
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -60,6 +90,16 @@
     displayName: CockroachDb
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/cockroachdblogo.png"
+- entityUrn: urn:li:dataPlatform:doris
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: doris
+    displayName: Apache Doris
+    type: OLAP_DATASTORE
+    logoUrl: "assets/platforms/dorislogo.png"
 - entityUrn: urn:li:dataPlatform:couchbase
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -80,6 +120,36 @@
     displayName: Dagster
     type: OTHERS
     logoUrl: "assets/platforms/dagsterlogo.svg"
+- entityUrn: urn:li:dataPlatform:dataplex
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dataplex
+    displayName: Dataplex
+    type: OTHERS
+    logoUrl: "assets/platforms/dataplexlogo.svg"
+- entityUrn: urn:li:dataPlatform:dataproc-metastore
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dataproc-metastore
+    displayName: Dataproc Metastore
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/dataprocmetastorelogo.svg"
+- entityUrn: urn:li:dataPlatform:documentdb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: documentdb
+    displayName: DocumentDB
+    type: KEY_VALUE_STORE
+    logoUrl: "assets/platforms/documentdblogo.svg"
 - entityUrn: urn:li:dataPlatform:external
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -169,6 +239,26 @@
     displayName: Kafka Connect
     type: OTHERS
     logoUrl: "assets/platforms/kafkalogo.png"
+- entityUrn: urn:li:dataPlatform:kinesis
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kinesis
+    displayName: Amazon Kinesis Data Streams
+    type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/kinesislogo.png"
+- entityUrn: urn:li:dataPlatform:kinesis-firehose
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kinesis-firehose
+    displayName: Amazon Data Firehose
+    type: OTHERS
+    logoUrl: "assets/platforms/kinesisfirehoselogo.png"
 - entityUrn: urn:li:dataPlatform:kusto
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -228,7 +318,57 @@
     name: mariadb
     displayName: MariaDB
     type: RELATIONAL_DB
-    logoUrl: "assets/platforms/mariadblogo.png"
+    logoUrl: "assets/platforms/mariadblogo.svg"
+- entityUrn: urn:li:dataPlatform:tidb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: tidb
+    displayName: TiDB
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/tidblogo.svg"
+- entityUrn: urn:li:dataPlatform:matillion
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: matillion
+    displayName: Matillion
+    type: OTHERS
+    logoUrl: "assets/platforms/matillionlogo.png"
+- entityUrn: urn:li:dataPlatform:bigid
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: bigid
+    displayName: BigID
+    type: OTHERS
+    logoUrl: "assets/platforms/bigidlogo.png"
+- entityUrn: urn:li:dataPlatform:cube
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: cube
+    displayName: Cube
+    type: OTHERS
+    logoUrl: "assets/platforms/cubelogo.png"
+- entityUrn: urn:li:dataPlatform:odcs
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: odcs
+    displayName: Open Data Contract Standard
+    type: OTHERS
+    logoUrl: "assets/platforms/odcslogo.png"
 - entityUrn: urn:li:dataPlatform:OpenApi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -309,6 +449,16 @@
     displayName: Tableau
     type: OTHERS
     logoUrl: "assets/platforms/tableaulogo.svg"
+- entityUrn: urn:li:dataPlatform:thoughtspot
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: thoughtspot
+    displayName: ThoughtSpot
+    type: OTHERS
+    logoUrl: "assets/platforms/thoughtspotlogo.svg"
 - entityUrn: urn:li:dataPlatform:teradata
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -338,6 +488,26 @@
     displayName: Snowflake
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/snowflakelogo.png"
+- entityUrn: urn:li:dataPlatform:spanner
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: spanner
+    displayName: Cloud Spanner
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/spannerlogo.png"
+- entityUrn: urn:li:dataPlatform:snowplow
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: snowplow
+    displayName: Snowplow
+    type: OTHERS
+    logoUrl: "assets/platforms/snowplowlogo.png"
 - entityUrn: urn:li:dataPlatform:redshift
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -358,6 +528,16 @@
     displayName: SQL Server
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/mssqllogo.png"
+- entityUrn: urn:li:dataPlatform:bigtable
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: bigtable
+    displayName: Cloud Bigtable
+    type: KEY_VALUE_STORE
+    logoUrl: "assets/platforms/bigtablelogo.png"
 - entityUrn: urn:li:dataPlatform:bigquery
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -398,6 +578,16 @@
     displayName: Feast
     type: OTHERS
     logoUrl: "assets/platforms/feastlogo.png"
+- entityUrn: urn:li:dataPlatform:flink
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: flink
+    displayName: Flink
+    type: OTHERS
+    logoUrl: "assets/platforms/flinklogo.svg"
 - entityUrn: urn:li:dataPlatform:sagemaker
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -497,7 +687,7 @@
     name: powerbi
     displayName: Power BI
     type: OTHERS
-    logoUrl: "assets/platforms/powerbilogo.png"
+    logoUrl: "assets/platforms/powerbilogo.svg"
 - entityUrn: urn:li:dataPlatform:presto-on-hive
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -518,6 +708,16 @@
     displayName: Metabase
     type: OTHERS
     logoUrl: "assets/platforms/metabaselogo.svg"
+- entityUrn: urn:li:dataPlatform:microstrategy
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: microstrategy
+    displayName: MicroStrategy
+    type: OTHERS
+    logoUrl: "assets/platforms/microstrategylogo.svg"
 - entityUrn: urn:li:dataPlatform:nifi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -568,6 +768,16 @@
     displayName: Pulsar
     type: MESSAGE_BROKER
     logoUrl: "assets/platforms/pulsarlogo.png"
+- entityUrn: urn:li:dataPlatform:pubsub
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: pubsub
+    displayName: Cloud Pub/Sub
+    type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/pubsublogo.png"
 - entityUrn: urn:li:dataPlatform:salesforce
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -657,6 +867,16 @@
     displayName: DynamoDB
     type: KEY_VALUE_STORE
     logoUrl: "assets/platforms/dynamodblogo.png"
+- entityUrn: urn:li:dataPlatform:dlt
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dlt
+    displayName: dlt
+    type: OTHERS
+    logoUrl: "assets/platforms/dltlogo.svg"
 - entityUrn: urn:li:dataPlatform:fivetran
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -756,7 +976,7 @@
     name: neo4j
     displayName: Neo4j
     type: OTHERS
-    logoUrl: "assets/platforms/neo4j.png"
+    logoUrl: "assets/platforms/neo4j.svg"
 - entityUrn: urn:li:dataPlatform:vertexai
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -797,6 +1017,16 @@
     displayName: Control-M
     type: OTHERS
     logoUrl: "assets/platforms/controlmlogo.png"
+- entityUrn: urn:li:dataPlatform:timescaledb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: timescaledb
+    displayName: TimescaleDB
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/timescaledblogo.png"
 - entityUrn: urn:li:dataPlatform:abinitio
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -817,6 +1047,16 @@
     displayName: Informatica
     type: OTHERS
     logoUrl: "assets/platforms/informaticalogo.png"
+- entityUrn: urn:li:dataPlatform:snaplogic
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: snaplogic
+    displayName: SnapLogic
+    type: OTHERS
+    logoUrl: "assets/platforms/snaplogic.svg"
 - entityUrn: urn:li:dataPlatform:google_sheets
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -837,3 +1077,82 @@
     displayName: Streamlit
     type: OTHERS
     logoUrl: "assets/platforms/streamlitlogo.png"
+- entityUrn: urn:li:dataPlatform:omni
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: omni
+    displayName: Omni
+    type: OTHERS
+    logoUrl: "assets/platforms/omnilogo.svg"
+- entityUrn: urn:li:dataPlatform:notion
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: notion
+    displayName: Notion
+    type: OTHERS
+    logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:github
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: github
+    displayName: GitHub
+    type: OTHERS
+    logoUrl: "assets/platforms/githublogo.png"
+- entityUrn: urn:li:dataPlatform:fabric
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: fabric
+    displayName: Microsoft Fabric
+    type: OTHERS
+    logoUrl: "assets/platforms/fabriclogo.svg"
+- entityUrn: urn:li:dataPlatform:fabric-onelake
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: fabric-onelake
+    displayName: Fabric OneLake
+    type: OTHERS
+    logoUrl: "assets/platforms/fabriconelakelogo.png"
+- entityUrn: urn:li:dataPlatform:fabric-data-factory
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: fabric-data-factory
+    displayName: Fabric Data Factory
+    type: OTHERS
+    logoUrl: "assets/platforms/fabricdatafactorylogo.svg"
+- entityUrn: urn:li:dataPlatform:datahub
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: datahub
+    displayName: DataHub
+    type: OTHERS
+- entityUrn: urn:li:dataPlatform:airbyte
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: airbyte
+    displayName: Airbyte
+    type: OTHERS
+    logoUrl: "assets/platforms/airbytelogo.png"

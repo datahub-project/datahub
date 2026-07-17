@@ -54,6 +54,7 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.schema.TimeType;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
 import io.datahubproject.openlineage.dataset.HdfsPathDataset;
@@ -110,6 +111,11 @@ public class OpenLineageToDataHub {
   public static final String MERGE_INTO_COMMAND_PATTERN = "execute_merge_into_command_edge";
   public static final String MERGE_INTO_SQL_PATTERN = "MERGE INTO";
   public static final String TABLE_PREFIX = "table/";
+  // Matches an OpenLineage Glue namespace (with or without the "arn:" prefix), capturing region
+  // (group 1) and account (group 2) from arn:aws:glue:{region}:{account}. Both are needed to
+  // identify the catalog — account alone isn't unique across regions.
+  private static final Pattern GLUE_ARN_PATTERN =
+      Pattern.compile("(?:arn:)?aws:glue:([^:]+):([^:]+)");
   public static final String WAREHOUSE_PATH_PATTERN = "/warehouse/";
   public static final String DB_SUFFIX = ".db/";
 
@@ -132,8 +138,9 @@ public class OpenLineageToDataHub {
     if (dataset.getFacets() != null
         && dataset.getFacets().getSymlinks() != null
         && !mappingConfig.isDisableSymlinkResolution()) {
+      String connectionKey = null;
       Optional<DatasetUrn> originalUrn =
-          getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+          getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
           dataset.getFacets().getSymlinks().getIdentifiers()) {
         if ("TABLE".equals(symlink.getType())) {
@@ -150,10 +157,14 @@ public class OpenLineageToDataHub {
           } else {
             datasetName = symlink.getName();
           }
+          // Derive the connection-instance map key from the symlink's own namespace before it is
+          // flattened above (e.g. the Glue ARN, which "glue" alone can't recover). toConnectionKey
+          // dispatches on the namespace protocol — it is not Glue-specific.
+          connectionKey = toConnectionKey(symlink.getNamespace());
         }
       }
       Optional<DatasetUrn> symlinkedUrn =
-          getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+          getDatasetUrnFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
       if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
         mappingConfig
             .getUrnAliases()
@@ -161,7 +172,7 @@ public class OpenLineageToDataHub {
       }
       datahubUrn = symlinkedUrn;
     } else {
-      datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+      datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
     }
 
     log.debug("Dataset URN: {}, alias_list: {}", datahubUrn, mappingConfig.getUrnAliases());
@@ -184,7 +195,10 @@ public class OpenLineageToDataHub {
   }
 
   private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(
-      String namespace, String datasetName, DatahubOpenlineageConfig mappingConfig) {
+      String namespace,
+      String datasetName,
+      String connectionKeyOverride,
+      DatahubOpenlineageConfig mappingConfig) {
     String platform;
     if (mappingConfig.isLowerCaseDatasetUrns()) {
       namespace = namespace.toLowerCase();
@@ -222,16 +236,88 @@ public class OpenLineageToDataHub {
       }
     } else {
       platform = namespace;
+      // Bare-namespace FS datasets (e.g. "file", "dbfs") have no scheme, so they don't flow through
+      // HdfsPathDataset where file_partition_regexp is normally applied. Apply the opt-in regexp
+      // here too — otherwise it is silently ignored for these platforms. Scoped to FS platforms so
+      // non-FS bare namespaces (hive, the symlink-flattened glue) are unaffected.
+      if (HdfsPlatform.isFsPlatformPrefix(platform)
+          && mappingConfig.getFilePartitionRegexpPattern() != null) {
+        datasetName =
+            HdfsPathDataset.getRawNameWithoutPartition(
+                datasetName, mappingConfig.getFilePartitionRegexpPattern());
+      }
     }
 
-    String platformInstance = getPlatformInstance(mappingConfig, platform);
-    FabricType env = getEnv(mappingConfig, platform);
+    // The connection key drives per-connection platform_instance/env resolution. The caller
+    // supplies
+    // it for the symlink (Glue) case where `namespace` was flattened; otherwise derive it from the
+    // namespace via the same protocol-dispatching utility.
+    String connectionKey =
+        connectionKeyOverride != null ? connectionKeyOverride : toConnectionKey(namespace);
+    // When URNs are lowercased the dataset namespace is too (above), so the lookup key must match.
+    // The symlink override is derived from the raw symlink namespace, which skips that lowercasing,
+    // so normalize here to keep both paths consistent (matters for mixed-case hosts, e.g. Hive).
+    if (connectionKey != null && mappingConfig.isLowerCaseDatasetUrns()) {
+      connectionKey = connectionKey.toLowerCase();
+    }
+    // Resolve the per-connection detail once; both platform_instance and env key off it.
+    ConnectionInstanceDetail connectionDetail =
+        connectionKey == null ? null : mappingConfig.getConnectionInstanceMap().get(connectionKey);
+    if (!mappingConfig.getConnectionInstanceMap().isEmpty()) {
+      // Surface every connection-key lookup so a configured `connections` entry that never matches
+      // an emitted namespace (trailing slash, omitted port, sqlserver:// vs mssql, case when
+      // lowerCaseUrns is off, or an authority-less namespace like hive/bigquery) is diagnosable —
+      // otherwise the URN silently falls back to the global platform_instance/env and dangles.
+      log.debug(
+          "Connection-instance lookup: namespace={} -> key={} -> matched={}",
+          namespace,
+          connectionKey,
+          connectionDetail != null);
+    }
+    String platformInstance = getPlatformInstance(mappingConfig, platform, connectionDetail);
+    FabricType env = getEnv(mappingConfig, platform, connectionDetail);
     DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);
     return Optional.of(urn);
   }
 
-  private static FabricType getEnv(DatahubOpenlineageConfig mappingConfig, String platform) {
+  /**
+   * Converts an OpenLineage dataset namespace to the connection-instance map key, dispatching on
+   * the namespace's protocol. Not platform-specific:
+   *
+   * <ul>
+   *   <li>Glue arrives as an ARN ({@code arn:aws:glue:{region}:{account}}, or the pre-0.17.1 {@code
+   *       aws:glue:...} form) rather than a {@code scheme://authority} URI — normalized to the
+   *       canonical ARN authority (account + region).
+   *   <li>URI namespaces ({@code snowflake://...}, {@code postgres://host:port}, {@code
+   *       kafka://...}, …) carry the connection authority directly and are used verbatim.
+   *   <li>A bare platform name (e.g. {@code hive}, or the symlink-flattened {@code glue}) has no
+   *       connection authority.
+   * </ul>
+   *
+   * Returns null when no connection key applies. This is the single place that decides, per
+   * protocol, how a namespace maps to a key — extend it here for new protocols.
+   */
+  public static String toConnectionKey(String olNamespace) {
+    if (olNamespace == null) {
+      return null;
+    }
+    Matcher glueArn = GLUE_ARN_PATTERN.matcher(olNamespace);
+    if (glueArn.find()) {
+      return "arn:aws:glue:" + glueArn.group(1) + ":" + glueArn.group(2);
+    }
+    if (olNamespace.contains(SCHEME_SEPARATOR)) {
+      return olNamespace;
+    }
+    return null;
+  }
+
+  private static FabricType getEnv(
+      DatahubOpenlineageConfig mappingConfig, String platform, ConnectionInstanceDetail detail) {
     FabricType fabricType = mappingConfig.getFabricType();
+    if (detail != null && detail.getEnv().isPresent()) {
+      // env is validated to a FabricType at config-load time, so it is used directly here.
+      return detail.getEnv().get();
+    }
     if (mappingConfig.getPathSpecs() != null
         && mappingConfig.getPathSpecs().containsKey(platform)) {
       List<PathSpec> pathSpecs = mappingConfig.getPathSpecs().get(platform);
@@ -241,7 +327,7 @@ public class OpenLineageToDataHub {
             fabricType = FabricType.valueOf(pathSpec.getEnv().get());
             return fabricType;
           } catch (IllegalArgumentException e) {
-            log.warn("Invalid environment value: {}", pathSpec.getEnv());
+            log.warn("Invalid environment value: {}", pathSpec.getEnv().get());
           }
         }
       }
@@ -250,7 +336,14 @@ public class OpenLineageToDataHub {
   }
 
   private static String getPlatformInstance(
-      DatahubOpenlineageConfig mappingConfig, String platform) {
+      DatahubOpenlineageConfig mappingConfig, String platform, ConnectionInstanceDetail detail) {
+    // Cross-platform lineage: resolve the upstream connection's instance first via an explicit
+    // connection->instance mapping, so datasets from different accounts/regions/hosts in one job
+    // get
+    // distinct, correct URNs instead of collapsing to a single instance.
+    if (detail != null && detail.getPlatformInstance().isPresent()) {
+      return detail.getPlatformInstance().get();
+    }
     // Use the platform instance from the path spec if it is present otherwise use the one from the
     // commonDatasetPlatformInstance
     String platformInstance = mappingConfig.getCommonDatasetPlatformInstance();
@@ -336,6 +429,9 @@ public class OpenLineageToDataHub {
                   dataPlatformInstanceUrn(
                       dataFlowUrn.getOrchestratorEntity(), datahubConf.getPlatformInstance()));
       jobBuilder.flowPlatformInstance(dpi);
+      // Stamp the same instance on the DataJob so the job entity carries its own
+      // DataPlatformInstance aspect, not just the instance embedded in the parent DataFlow URN.
+      jobBuilder.jobPlatformInstance(dpi);
     }
 
     StringMap customProperties = generateCustomProperties(event, true);
@@ -420,6 +516,21 @@ public class OpenLineageToDataHub {
     }
 
     OpenLineage.ColumnLineageDatasetFacet columnLineage = dataset.getFacets().getColumnLineage();
+    // Per OpenLineage spec
+    // (https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json),
+    // "fields" is a required property. However, the OpenLineage Java client may return null
+    // when the fields object is empty {} or when producers (like Trino) omit it.
+    // We handle this gracefully to avoid NPE.
+    if (columnLineage.getFields() == null) {
+      log.warn(
+          "ColumnLineageDatasetFacet has null fields for dataset '{}' - skipping fine-grained lineage extraction. "
+              + "This may occur when the producer sends an empty fields object or omits it entirely.",
+          dataset.getName());
+      return null;
+    }
+
+    boolean includeIndirect = mappingConfig.isIncludeIndirectColumnLineage();
+
     Set<Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional>> fields =
         columnLineage.getFields().getAdditionalProperties().entrySet();
     for (Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional> field : fields) {
@@ -442,12 +553,9 @@ public class OpenLineageToDataHub {
           .getInputFields()
           .forEach(
               inputField -> {
-                OpenLineage.Dataset staticDataset =
-                    staticDatasetBuilder
-                        .name(inputField.getName())
-                        .namespace(inputField.getNamespace())
-                        .build();
-
+                // Capture transformation tags up front so the user can still see that the
+                // SQL involves JOIN/FILTER/GROUP_BY operations even when we drop the URN
+                // that contributed only an INDIRECT role.
                 if (inputField.getTransformations() != null) {
                   for (OpenLineage.InputFieldTransformations transformation :
                       inputField.getTransformations()) {
@@ -456,6 +564,18 @@ public class OpenLineageToDataHub {
                             "%s:%s", transformation.getType(), transformation.getSubtype()));
                   }
                 }
+
+                // Drop input fields whose only role is INDIRECT (JOIN/FILTER/GROUP BY) when
+                // the caller opts out. Mixed DIRECT+INDIRECT and DIRECT-only fields pass.
+                if (!includeIndirect && isIndirectOnly(inputField)) {
+                  return;
+                }
+
+                OpenLineage.Dataset staticDataset =
+                    staticDatasetBuilder
+                        .name(inputField.getName())
+                        .namespace(inputField.getNamespace())
+                        .build();
                 Optional<DatasetUrn> urn =
                     convertOpenlineageDatasetToDatasetUrn(staticDataset, mappingConfig);
                 if (urn.isPresent()) {
@@ -480,6 +600,10 @@ public class OpenLineageToDataHub {
                 }
               });
 
+      if (upstreamFields.isEmpty()) {
+        continue;
+      }
+
       String combinedTransformations = "";
 
       // Capture transformation information from OpenLineage
@@ -499,7 +623,6 @@ public class OpenLineageToDataHub {
         String sqlQuery = job.getFacets().getSql().getQuery();
         if (!sqlQuery.trim().isEmpty()) {
           if (!combinedTransformations.isEmpty()) {
-            // Add the OpenLineage Column Transformations as comments and then add the SQL
             combinedTransformations = "-- " + combinedTransformations + "\n" + sqlQuery;
           } else {
             combinedTransformations = sqlQuery;
@@ -523,6 +646,19 @@ public class OpenLineageToDataHub {
     upstreamLineage.setFineGrainedLineages(fgla);
     upstreamLineage.setUpstreams(upstreams);
     return upstreamLineage;
+  }
+
+  private static boolean isIndirectOnly(OpenLineage.InputField inputField) {
+    List<OpenLineage.InputFieldTransformations> transformations = inputField.getTransformations();
+    if (transformations == null || transformations.isEmpty()) {
+      return false;
+    }
+    for (OpenLineage.InputFieldTransformations t : transformations) {
+      if (!"INDIRECT".equalsIgnoreCase(t.getType())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static GlobalTags generateTags(OpenLineage.RunEvent event) {
@@ -1278,6 +1414,8 @@ public class OpenLineageToDataHub {
         orchestrator = matcher.group(1);
       } else if (producer.startsWith("https://github.com/apache/airflow/")) {
         orchestrator = "airflow";
+      } else if (producer.startsWith("https://github.com/trinodb/trino/")) {
+        orchestrator = "trino";
       }
     }
     if (orchestrator == null) {
@@ -1288,6 +1426,9 @@ public class OpenLineageToDataHub {
 
   public static SchemaFieldDataType.Type convertOlFieldTypeToDHFieldType(
       String openLineageFieldType) {
+    if (openLineageFieldType == null) {
+      return SchemaFieldDataType.Type.create(new NullType());
+    }
     switch (openLineageFieldType) {
       case "string":
         return SchemaFieldDataType.Type.create(new StringType());
@@ -1306,7 +1447,16 @@ public class OpenLineageToDataHub {
   public static SchemaMetadata getSchemaMetadata(
       OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig) {
     SchemaFieldArray schemaFieldArray = new SchemaFieldArray();
-    if ((dataset.getFacets() == null) || (dataset.getFacets().getSchema() == null)) {
+    // Per OpenLineage spec (https://openlineage.io/spec/facets/1-2-0/SchemaDatasetFacet.json),
+    // "fields" is NOT a required property - it can be omitted entirely.
+    // Producers like Trino may send SchemaDatasetFacet without fields.
+    // We handle this gracefully to avoid NPE.
+    if ((dataset.getFacets() == null)
+        || (dataset.getFacets().getSchema() == null)
+        || (dataset.getFacets().getSchema().getFields() == null)) {
+      log.warn(
+          "SchemaDatasetFacet has null or missing fields for dataset '{}' - skipping schema metadata extraction",
+          dataset.getName());
       return null;
     }
     dataset
@@ -1317,7 +1467,7 @@ public class OpenLineageToDataHub {
             field -> {
               SchemaField schemaField = new SchemaField();
               schemaField.setFieldPath(field.getName());
-              schemaField.setNativeDataType(field.getType());
+              schemaField.setNativeDataType(field.getType() == null ? "" : field.getType());
               schemaField.setType(
                   new SchemaFieldDataType()
                       .setType(convertOlFieldTypeToDHFieldType(field.getType())));
@@ -1334,7 +1484,7 @@ public class OpenLineageToDataHub {
     SchemaMetadata.PlatformSchema platformSchema = new SchemaMetadata.PlatformSchema();
     platformSchema.setMySqlDDL(ddl);
     Optional<DatasetUrn> datasetUrn =
-        getDatasetUrnFromOlDataset(dataset.getNamespace(), dataset.getName(), mappingConfig);
+        getDatasetUrnFromOlDataset(dataset.getNamespace(), dataset.getName(), null, mappingConfig);
 
     if (!datasetUrn.isPresent()) {
       return null;

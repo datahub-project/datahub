@@ -282,6 +282,7 @@ fragment assertionStdParametersDetails on AssertionStdParameters {
 
 fragment assertionResultDetails on AssertionResult {
     type
+    severity
     actualAggValue
     rowCount
     missingCount

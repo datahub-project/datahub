@@ -1,12 +1,12 @@
 import dataclasses
+import fnmatch
+import glob as glob_module
 import json
 import logging
 import re
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
-import dateutil.parser
 import requests
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -29,23 +29,42 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBT_EXPOSURE_MATURITY,
+    DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
+    DBTExposure,
     DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    convert_semantic_model_fields_to_columns,
+    parse_dbt_timestamp,
 )
-from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
+from datahub.ingestion.source.dbt.dbt_tests import (
+    DBTFreshnessInfo,
+    DBTTest,
+    DBTTestResult,
+    parse_freshness_criteria,
+)
+from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 logger = logging.getLogger(__name__)
+
+_GLOB_CHARACTERS = frozenset("*?[]")
+
+
+def _has_glob_characters(path: str) -> bool:
+    return any(c in path for c in _GLOB_CHARACTERS)
 
 
 @dataclasses.dataclass
 class DBTCoreReport(DBTSourceReport):
     catalog_info: Optional[dict] = None
     manifest_info: Optional[dict] = None
+    run_results_paths_expanded: Optional[List[str]] = None
 
 
 class DBTCoreConfig(DBTCommonConfig):
@@ -68,8 +87,11 @@ class DBTCoreConfig(DBTCommonConfig):
     run_results_paths: List[str] = Field(
         default=[],
         description="Path to output of dbt test run as run_results files in JSON format. "
-        "If not specified, test execution results and model performance metadata will not be populated in DataHub."
+        "If not specified, test execution results and model performance metadata will not be populated in DataHub. "
         "If invoking dbt multiple times, you can provide paths to multiple run result files. "
+        "Glob patterns are supported for S3, GCS, and local paths "
+        "(e.g. 's3://bucket/results/*/run_results.json', 'gs://bucket/results/*/run_results.json', "
+        "or '/path/to/results/*/run_results.json'). "
         "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
     )
 
@@ -92,6 +114,12 @@ class DBTCoreConfig(DBTCommonConfig):
         description="When fetching manifest files from s3, configuration for aws connection details",
     )
 
+    gcs_connection: Optional[GCSConnectionConfig] = Field(
+        default=None,
+        description="When fetching manifest files from gs://, GCS connection using HMAC credentials. "
+        "See https://cloud.google.com/storage/docs/authentication/hmackeys",
+    )
+
     git_info: Optional[GitReference] = Field(
         None,
         description="Reference to your git location to enable easy navigation from DataHub to your dbt files.",
@@ -100,8 +128,7 @@ class DBTCoreConfig(DBTCommonConfig):
     _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
 
     @model_validator(mode="after")
-    def aws_connection_needed_if_s3_uris_present(self) -> "DBTCoreConfig":
-        # first check if there are fields that contain s3 uris
+    def cloud_connection_needed_if_cloud_uris_present(self) -> "DBTCoreConfig":
         uris = [
             getattr(self, f, None)
             for f in [
@@ -111,10 +138,15 @@ class DBTCoreConfig(DBTCommonConfig):
             ]
         ] + (self.run_results_paths or [])
         s3_uris = [uri for uri in uris if is_s3_uri(uri or "")]
-
         if s3_uris and self.aws_connection is None:
             raise ValueError(
                 f"Please provide aws_connection configuration, since s3 uris have been provided {s3_uris}"
+            )
+
+        gcs_uris = [uri for uri in uris if is_gcs_uri(uri or "")]
+        if gcs_uris and self.gcs_connection is None:
+            raise ValueError(
+                f"Please provide gcs_connection configuration, since gs:// uris have been provided {gcs_uris}"
             )
         return self
 
@@ -168,6 +200,41 @@ def get_columns(
     return columns
 
 
+def _extract_catalog_stats(
+    catalog_node: Optional[Dict[str, Any]],
+    node_name: Optional[str] = None,
+) -> Tuple[Optional[int], Optional[int]]:
+    """Extract row_count and size_in_bytes from catalog node stats.
+
+    Returns:
+        Tuple of (row_count, size_in_bytes), each can be None if not available.
+    """
+    if catalog_node is None:
+        return None, None
+
+    catalog_stats = catalog_node.get("stats", {})
+    row_count: Optional[int] = None
+    size_in_bytes: Optional[int] = None
+
+    # Extract row count (num_rows)
+    num_rows_stat = catalog_stats.get("num_rows", {})
+    if num_rows_stat.get("include", False) and num_rows_stat.get("value") is not None:
+        try:
+            row_count = int(num_rows_stat["value"])
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse num_rows stat for {node_name}: {e}")
+
+    # Extract size in bytes (num_bytes)
+    num_bytes_stat = catalog_stats.get("num_bytes", {})
+    if num_bytes_stat.get("include", False) and num_bytes_stat.get("value") is not None:
+        try:
+            size_in_bytes = int(num_bytes_stat["value"])
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse num_bytes stat for {node_name}: {e}")
+
+    return row_count, size_in_bytes
+
+
 def extract_dbt_entities(
     all_manifest_entities: Dict[str, Dict[str, Any]],
     all_catalog_entities: Optional[Dict[str, Dict[str, Any]]],
@@ -178,158 +245,350 @@ def extract_dbt_entities(
     only_include_if_in_catalog: bool,
     include_database_name: bool,
     report: DBTSourceReport,
+    sources_invocation_id: Optional[str] = None,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
 
     dbt_entities = []
     for key, manifest_node in all_manifest_entities.items():
-        name = manifest_node["name"]
+        try:
+            name = manifest_node["name"]
 
-        if use_identifiers and manifest_node.get("identifier"):
-            name = manifest_node["identifier"]
+            if use_identifiers and manifest_node.get("identifier"):
+                name = manifest_node["identifier"]
 
-        if (
-            manifest_node.get("alias") is not None
-            and manifest_node.get("resource_type")
-            != "test"  # tests have non-human-friendly aliases, so we don't want to use it for tests
-        ):
-            name = manifest_node["alias"]
+            if (
+                manifest_node.get("alias") is not None
+                and manifest_node.get("resource_type")
+                != "test"  # tests have non-human-friendly aliases, so we don't want to use it for tests
+            ):
+                name = manifest_node["alias"]
 
-        materialization = None
-        if "materialized" in manifest_node.get("config", {}):
-            # It's a model
-            materialization = manifest_node["config"]["materialized"]
+            materialization = None
+            if "materialized" in manifest_node.get("config", {}):
+                # It's a model
+                materialization = manifest_node["config"]["materialized"]
 
-        upstream_nodes = []
-        if "depends_on" in manifest_node and "nodes" in manifest_node["depends_on"]:
-            upstream_nodes = manifest_node["depends_on"]["nodes"]
+            upstream_nodes = []
+            if "depends_on" in manifest_node and "nodes" in manifest_node["depends_on"]:
+                upstream_nodes = manifest_node["depends_on"]["nodes"]
 
-        catalog_node = (
-            all_catalog_entities.get(key) if all_catalog_entities is not None else None
-        )
-        missing_from_catalog = catalog_node is None
-        catalog_type = None
+            catalog_node = (
+                all_catalog_entities.get(key)
+                if all_catalog_entities is not None
+                else None
+            )
+            missing_from_catalog = catalog_node is None
+            catalog_type = None
 
-        if catalog_node is None:
-            if materialization in {"test", "ephemeral"}:
-                # Test and ephemeral nodes will never show up in the catalog.
-                missing_from_catalog = False
+            if catalog_node is None:
+                if materialization in {"test", "ephemeral", "semantic_view"}:
+                    # Test, ephemeral, and semantic_view nodes will never show up in the catalog.
+                    missing_from_catalog = False
+                else:
+                    if (
+                        all_catalog_entities is not None
+                        and not only_include_if_in_catalog
+                    ):
+                        # If the catalog file is missing, we have already generated a general message.
+                        report.warning(
+                            title="Node missing from catalog",
+                            message="Found a node in the manifest file but not in the catalog. "
+                            "This usually means the catalog file was not generated by `dbt docs generate` and so is incomplete. "
+                            "Some metadata, particularly schema information, will be impacted.",
+                            context=key,
+                        )
             else:
-                if all_catalog_entities is not None and not only_include_if_in_catalog:
-                    # If the catalog file is missing, we have already generated a general message.
-                    report.warning(
-                        title="Node missing from catalog",
-                        message="Found a node in the manifest file but not in the catalog. "
-                        "This usually means the catalog file was not generated by `dbt docs generate` and so is incomplete. "
-                        "Some metadata, particularly schema information, will be impacted.",
-                        context=key,
+                catalog_type = catalog_node["metadata"]["type"]
+
+            # Extract stats from catalog (e.g., num_rows, num_bytes from BigQuery/Snowflake)
+            row_count, size_in_bytes = _extract_catalog_stats(
+                catalog_node, node_name=key
+            )
+
+            # initialize comment to "" for consistency with descriptions
+            # (since dbt null/undefined descriptions as "")
+            comment = ""
+            if catalog_node is not None and catalog_node.get("metadata", {}).get(
+                "comment"
+            ):
+                comment = catalog_node["metadata"]["comment"]
+
+            query_tag_props = manifest_node.get("query_tag", {})
+
+            meta = manifest_node.get("meta", {})
+
+            owner = meta.get("owner")
+            if owner is None:
+                owner = (manifest_node.get("config", {}).get("meta") or {}).get("owner")
+
+            if not meta:
+                # On older versions of dbt, the meta field was nested under config
+                # for some node types.
+                meta = manifest_node.get("config", {}).get("meta") or {}
+
+            tags = manifest_node.get("tags", [])
+            tags = [tag_prefix + tag for tag in tags]
+
+            source_result = sources_by_id.get(key, {})
+            max_loaded_at_str = source_result.get("max_loaded_at")
+            max_loaded_at = None
+            if max_loaded_at_str:
+                max_loaded_at = parse_dbt_timestamp(max_loaded_at_str)
+
+            freshness_info = None
+            if source_result and source_result.get("status"):
+                snapshotted_at_str = source_result.get("snapshotted_at")
+                snapshotted_at = (
+                    parse_dbt_timestamp(snapshotted_at_str)
+                    if snapshotted_at_str
+                    else None
+                )
+                criteria = source_result.get("criteria", {})
+
+                if max_loaded_at and snapshotted_at:
+                    freshness_info = DBTFreshnessInfo(
+                        invocation_id=sources_invocation_id or "unknown",
+                        status=source_result.get("status", ""),
+                        max_loaded_at=max_loaded_at,
+                        snapshotted_at=snapshotted_at,
+                        max_loaded_at_time_ago_in_s=source_result.get(
+                            "max_loaded_at_time_ago_in_s", 0.0
+                        ),
+                        warn_after=parse_freshness_criteria(criteria.get("warn_after")),
+                        error_after=parse_freshness_criteria(
+                            criteria.get("error_after")
+                        ),
                     )
-        else:
-            catalog_type = catalog_node["metadata"]["type"]
 
-        # initialize comment to "" for consistency with descriptions
-        # (since dbt null/undefined descriptions as "")
-        comment = ""
-        if catalog_node is not None and catalog_node.get("metadata", {}).get("comment"):
-            comment = catalog_node["metadata"]["comment"]
+            test_info = None
+            if manifest_node.get("resource_type") == "test":
+                test_metadata = manifest_node.get("test_metadata", {})
+                kw_args = test_metadata.get("kwargs", {})
 
-        query_tag_props = manifest_node.get("query_tag", {})
+                qualified_test_name = (
+                    (test_metadata.get("namespace") or "")
+                    + "."
+                    + (test_metadata.get("name") or "")
+                )
+                qualified_test_name = (
+                    qualified_test_name[1:]
+                    if qualified_test_name.startswith(".")
+                    else qualified_test_name
+                )
+                test_info = DBTTest(
+                    qualified_test_name=qualified_test_name,
+                    column_name=kw_args.get("column_name"),
+                    kw_args=kw_args,
+                )
 
-        meta = manifest_node.get("meta", {})
-
-        owner = meta.get("owner")
-        if owner is None:
-            owner = (manifest_node.get("config", {}).get("meta") or {}).get("owner")
-
-        if not meta:
-            # On older versions of dbt, the meta field was nested under config
-            # for some node types.
-            meta = manifest_node.get("config", {}).get("meta") or {}
-
-        tags = manifest_node.get("tags", [])
-        tags = [tag_prefix + tag for tag in tags]
-
-        max_loaded_at_str = sources_by_id.get(key, {}).get("max_loaded_at")
-        max_loaded_at = None
-        if max_loaded_at_str:
-            max_loaded_at = parse_dbt_timestamp(max_loaded_at_str)
-
-        test_info = None
-        if manifest_node.get("resource_type") == "test":
-            test_metadata = manifest_node.get("test_metadata", {})
-            kw_args = test_metadata.get("kwargs", {})
-
-            qualified_test_name = (
-                (test_metadata.get("namespace") or "")
-                + "."
-                + (test_metadata.get("name") or "")
-            )
-            qualified_test_name = (
-                qualified_test_name[1:]
-                if qualified_test_name.startswith(".")
-                else qualified_test_name
-            )
-            test_info = DBTTest(
-                qualified_test_name=qualified_test_name,
-                column_name=kw_args.get("column_name"),
-                kw_args=kw_args,
-            )
-
-        dbtNode = DBTNode(
-            dbt_name=key,
-            dbt_adapter=manifest_adapter,
-            dbt_package_name=manifest_node.get("package_name"),
-            database=manifest_node["database"] if include_database_name else None,
-            schema=manifest_node["schema"],
-            name=name,
-            alias=manifest_node.get("alias"),
-            dbt_file_path=manifest_node["original_file_path"],
-            node_type=manifest_node["resource_type"],
-            max_loaded_at=max_loaded_at,
-            comment=comment,
-            description=manifest_node.get("description", ""),
-            raw_code=manifest_node.get(
-                "raw_code", manifest_node.get("raw_sql")
-            ),  # Backward compatibility dbt <=v1.2
-            language=manifest_node.get(
-                "language", "sql"
-            ),  # Backward compatibility dbt <=v1.2
-            upstream_nodes=upstream_nodes,
-            materialization=materialization,
-            catalog_type=catalog_type,
-            missing_from_catalog=missing_from_catalog,
-            meta=meta,
-            query_tag=query_tag_props,
-            tags=tags,
-            owner=owner,
-            compiled_code=manifest_node.get(
-                "compiled_code", manifest_node.get("compiled_sql")
-            ),  # Backward compatibility dbt <=v1.2
-            test_info=test_info,
-        )
-
-        # Load columns from catalog, and override some properties from manifest.
-        if dbtNode.materialization not in [
-            "ephemeral",
-            "test",
-        ]:
-            dbtNode.columns = get_columns(
-                dbtNode.dbt_name,
-                catalog_node,
-                manifest_node,
-                tag_prefix,
+            dbtNode = DBTNode(
+                dbt_name=key,
+                dbt_adapter=manifest_adapter,
+                dbt_package_name=manifest_node.get("package_name"),
+                database=manifest_node["database"] if include_database_name else None,
+                schema=manifest_node["schema"],
+                name=name,
+                alias=manifest_node.get("alias"),
+                dbt_file_path=manifest_node["original_file_path"],
+                node_type=manifest_node["resource_type"],
+                max_loaded_at=max_loaded_at,
+                comment=comment,
+                description=manifest_node.get("description", ""),
+                raw_code=manifest_node.get(
+                    "raw_code", manifest_node.get("raw_sql")
+                ),  # Backward compatibility dbt <=v1.2
+                language=manifest_node.get(
+                    "language", "sql"
+                ),  # Backward compatibility dbt <=v1.2
+                upstream_nodes=upstream_nodes,
+                materialization=materialization,
+                catalog_type=catalog_type,
+                missing_from_catalog=missing_from_catalog,
+                meta=meta,
+                query_tag=query_tag_props,
+                tags=tags,
+                owner=owner,
+                compiled_code=manifest_node.get(
+                    "compiled_code", manifest_node.get("compiled_sql")
+                ),  # Backward compatibility dbt <=v1.2
+                test_info=test_info,
+                freshness_info=freshness_info,
+                row_count=row_count,
+                size_in_bytes=size_in_bytes,
             )
 
-        else:
-            dbtNode.columns = []
+            # Load columns from catalog, and override some properties from manifest.
+            if dbtNode.materialization not in [
+                "ephemeral",
+                "test",
+                "semantic_view",  # semantic views have custom column handling
+            ]:
+                dbtNode.columns = get_columns(
+                    dbtNode.dbt_name,
+                    catalog_node,
+                    manifest_node,
+                    tag_prefix,
+                )
 
-        dbt_entities.append(dbtNode)
+            else:
+                dbtNode.columns = []
+
+            dbt_entities.append(dbtNode)
+        except Exception as e:
+            file_path = manifest_node.get("original_file_path") or "unknown path"
+            report.record_node_failure(
+                f"{key} ({file_path})",
+                e,
+                title="Failed to parse dbt node",
+                message="Failed to parse this node from the manifest; it will be dropped from ingestion.",
+                kind="extraction",
+            )
+            continue
 
     return dbt_entities
 
 
-def parse_dbt_timestamp(timestamp: str) -> datetime:
-    return dateutil.parser.parse(timestamp)
+def extract_dbt_exposures(
+    manifest_exposures: Dict[str, Dict[str, Any]],
+    tag_prefix: str,
+) -> List[DBTExposure]:
+    """Extract dbt exposures from the manifest.json exposures section."""
+    exposures = []
+    for key, exposure_node in manifest_exposures.items():
+        owner = exposure_node.get("owner", {})
+        depends_on = exposure_node.get("depends_on", {})
+        # depends_on can have "nodes" and "macros" keys
+        depends_on_nodes = (
+            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+        )
+
+        tags = exposure_node.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
+        raw_type = exposure_node.get("type", "dashboard")
+        exposure_type: Literal[
+            "dashboard", "notebook", "ml", "application", "analysis"
+        ] = cast(
+            Literal["dashboard", "notebook", "ml", "application", "analysis"],
+            raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
+        )
+        raw_maturity = exposure_node.get("maturity")
+        maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
+
+        exposures.append(
+            DBTExposure(
+                name=exposure_node["name"],
+                unique_id=key,
+                type=exposure_type,
+                owner_name=owner.get("name") if isinstance(owner, dict) else None,
+                owner_email=owner.get("email") if isinstance(owner, dict) else None,
+                description=exposure_node.get("description"),
+                url=exposure_node.get("url"),
+                maturity=maturity,
+                depends_on=depends_on_nodes,
+                tags=tags,
+                meta=exposure_node.get("meta", {}),
+                dbt_package_name=exposure_node.get("package_name"),
+                dbt_file_path=exposure_node.get("original_file_path"),
+            )
+        )
+    return exposures
+
+
+def _resolve_database_schema(
+    node_relation: Dict[str, Any],
+    depends_on: Dict[str, Any],
+    manifest_nodes: Dict[str, Dict[str, Any]],
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve database/schema from node_relation or upstream dependencies."""
+    database = node_relation.get("database")
+    schema = node_relation.get("schema")
+
+    if database and schema:
+        return database, schema
+
+    depends_on_nodes = (
+        depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+    )
+    for ref_node_id in depends_on_nodes:
+        if ref_node_id in manifest_nodes:
+            ref_node = manifest_nodes[ref_node_id]
+            return (
+                database or ref_node.get("database"),
+                schema or ref_node.get("schema"),
+            )
+
+    return database, schema
+
+
+def extract_semantic_models(
+    manifest_semantic_models: Dict[str, Dict[str, Any]],
+    manifest_nodes: Dict[str, Dict[str, Any]],
+    manifest_adapter: Optional[str],
+    tag_prefix: str,
+) -> List[DBTNode]:
+    """Extract dbt semantic models (dbt 1.6+) from manifest.json."""
+    semantic_model_nodes: List[DBTNode] = []
+
+    for key, sm_node in manifest_semantic_models.items():
+        name = sm_node.get("name", "")
+        description = sm_node.get("description", "")
+
+        node_relation = sm_node.get("node_relation", {})
+        depends_on = sm_node.get("depends_on", {})
+        database, schema = _resolve_database_schema(
+            node_relation, depends_on, manifest_nodes
+        )
+        alias = node_relation.get("alias")
+
+        entities = sm_node.get("entities", [])
+        dimensions = sm_node.get("dimensions", [])
+        measures = sm_node.get("measures", [])
+
+        columns = convert_semantic_model_fields_to_columns(
+            entities=entities,
+            dimensions=dimensions,
+            measures=measures,
+        )
+
+        tags = sm_node.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
+        upstream_nodes = (
+            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+        )
+
+        semantic_model_nodes.append(
+            DBTNode(
+                dbt_name=key,
+                dbt_adapter=manifest_adapter,
+                dbt_package_name=sm_node.get("package_name"),
+                database=database,
+                schema=schema,
+                name=name,
+                alias=alias,
+                dbt_file_path=sm_node.get("original_file_path"),
+                node_type="semantic_model",
+                max_loaded_at=None,
+                comment="",
+                description=description,
+                upstream_nodes=upstream_nodes,
+                materialization=None,
+                catalog_type=None,
+                missing_from_catalog=False,
+                meta=sm_node.get("meta", {}),
+                query_tag={},
+                tags=tags,
+                owner=None,
+                language="yaml",
+                columns=columns,
+                compiled_code=None,
+                raw_code=None,
+            )
+        )
+
+    return semantic_model_nodes
 
 
 class DBTRunTiming(BaseModel):
@@ -483,11 +742,15 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         try:
             source_config = DBTCoreConfig.parse_obj_allow_extras(config_dict)
             DBTCoreSource.load_file_as_json(
-                source_config.manifest_path, source_config.aws_connection
+                source_config.manifest_path,
+                source_config.aws_connection,
+                source_config.gcs_connection,
             )
             if source_config.catalog_path is not None:
                 DBTCoreSource.load_file_as_json(
-                    source_config.catalog_path, source_config.aws_connection
+                    source_config.catalog_path,
+                    source_config.aws_connection,
+                    source_config.gcs_connection,
                 )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
@@ -498,20 +761,172 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     @staticmethod
     def load_file_as_json(
-        uri: str, aws_connection: Optional[AwsConnectionConfig]
+        uri: str,
+        aws_connection: Optional[AwsConnectionConfig],
+        gcs_connection: Optional[GCSConnectionConfig] = None,
     ) -> Dict:
         if re.match("^https?://", uri):
-            return json.loads(requests.get(uri).text)
+            resp = requests.get(uri, timeout=30)
+            resp.raise_for_status()
+            return resp.json()
         elif is_s3_uri(uri):
             u = urlparse(uri)
-            assert aws_connection
-            response = aws_connection.get_s3_client().get_object(
-                Bucket=u.netloc, Key=u.path.lstrip("/")
-            )
+            if not aws_connection:
+                raise ValueError(f"AWS connection required for S3 URI: {uri}")
+            try:
+                response = aws_connection.get_s3_client().get_object(
+                    Bucket=u.netloc, Key=u.path.lstrip("/")
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to read {uri} from object store: {e}") from e
+            return json.loads(response["Body"].read().decode("utf-8"))
+        elif is_gcs_uri(uri):
+            u = urlparse(uri)
+            if not gcs_connection:
+                raise ValueError(f"GCS connection required for GCS URI: {uri}")
+            try:
+                response = (
+                    gcs_connection.s3_compatible_connection.get_s3_client().get_object(
+                        Bucket=u.netloc, Key=u.path.lstrip("/")
+                    )
+                )
+            except Exception as e:
+                raise ValueError(f"Failed to read {uri} from object store: {e}") from e
             return json.loads(response["Body"].read().decode("utf-8"))
         else:
             with open(uri) as f:
                 return json.load(f)
+
+    @staticmethod
+    def _expand_object_store_glob(
+        uri: str, connection: AwsConnectionConfig, scheme: str
+    ) -> List[str]:
+        u = urlparse(uri)
+        bucket = u.netloc
+        key_pattern = u.path.lstrip("/")
+
+        # Use the longest static prefix to limit object store listing scope
+        prefix_parts: List[str] = []
+        for part in key_pattern.split("/"):
+            if _has_glob_characters(part):
+                break
+            prefix_parts.append(part)
+        prefix = "/".join(prefix_parts)
+        if prefix:
+            prefix += "/"
+
+        s3_client = connection.get_s3_client()
+        paginator = s3_client.get_paginator("list_objects_v2")
+
+        pattern_parts = key_pattern.split("/")
+        matched_keys: List[str] = []
+        total_scanned = 0
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                total_scanned += 1
+                key = obj["Key"]
+                key_parts = key.split("/")
+                if len(key_parts) == len(pattern_parts) and all(
+                    fnmatch.fnmatchcase(k, p)
+                    for k, p in zip(key_parts, pattern_parts, strict=True)
+                ):
+                    matched_keys.append(key)
+
+        logger.info(
+            f"{scheme} glob '{uri}': scanned {total_scanned} object(s) under "
+            f"prefix '{prefix}', matched {len(matched_keys)}"
+        )
+        return [f"{scheme}://{bucket}/{key}" for key in sorted(matched_keys)]
+
+    def _expand_cloud_glob(
+        self,
+        path: str,
+        connection: Optional[AwsConnectionConfig],
+        scheme: str,
+        *,
+        store_label: str,
+        connection_field: str,
+    ) -> List[str]:
+        # store_label is the user-facing storage name ("S3"/"GCS"); connection_field
+        # is the recipe key that supplies credentials ("aws_connection"/"gcs_connection").
+        connection_label = connection_field.split("_")[0].upper()
+        if not connection:
+            self.report.failure(
+                title=f"Missing {connection_label} connection for {store_label} glob",
+                message=f"{connection_field} is required for {store_label} glob pattern: {path}",
+            )
+            return []
+        try:
+            matched_paths = self._expand_object_store_glob(path, connection, scheme)
+        except Exception as e:
+            self.report.failure(
+                title=f"{store_label} glob expansion failed",
+                message=f"Failed to expand {store_label} glob pattern '{path}': {e}",
+            )
+            return []
+        if not matched_paths:
+            self.report.warning(
+                title=f"{store_label} glob pattern matched no objects",
+                message=f"Pattern '{path}' did not match any {store_label} objects",
+            )
+        else:
+            logger.info(
+                f"{store_label} glob pattern '{path}' expanded to "
+                f"{len(matched_paths)} file(s)"
+            )
+        return matched_paths
+
+    def _expand_run_results_paths(self) -> List[str]:
+        expanded_paths: List[str] = []
+
+        for path in self.config.run_results_paths:
+            if not _has_glob_characters(path):
+                expanded_paths.append(path)
+                continue
+
+            if is_s3_uri(path):
+                expanded_paths.extend(
+                    self._expand_cloud_glob(
+                        path,
+                        self.config.aws_connection,
+                        "s3",
+                        store_label="S3",
+                        connection_field="aws_connection",
+                    )
+                )
+            elif is_gcs_uri(path):
+                gcs_connection = self.config.gcs_connection
+                expanded_paths.extend(
+                    self._expand_cloud_glob(
+                        path,
+                        gcs_connection.s3_compatible_connection
+                        if gcs_connection
+                        else None,
+                        "gs",
+                        store_label="GCS",
+                        connection_field="gcs_connection",
+                    )
+                )
+            elif re.match("^https?://", path):
+                self.report.warning(
+                    title="Glob patterns not supported for HTTP(S) URIs",
+                    message=f"Glob patterns are not supported for HTTP(S) URIs: {path}. "
+                    "Please provide explicit file paths.",
+                )
+            else:
+                local_paths = sorted(glob_module.glob(path))
+                if not local_paths:
+                    self.report.warning(
+                        title="Local glob pattern matched no files",
+                        message=f"Pattern '{path}' did not match any local files",
+                    )
+                else:
+                    logger.info(
+                        f"Local glob pattern '{path}' expanded to {len(local_paths)} file(s)"
+                    )
+                expanded_paths.extend(local_paths)
+
+        return expanded_paths
 
     def loadManifestAndCatalog(
         self,
@@ -524,7 +939,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         Optional[str],
     ]:
         dbt_manifest_json = self.load_file_as_json(
-            self.config.manifest_path, self.config.aws_connection
+            self.config.manifest_path,
+            self.config.aws_connection,
+            self.config.gcs_connection,
         )
         dbt_manifest_metadata = dbt_manifest_json["metadata"]
         self.report.manifest_info = dict(
@@ -537,7 +954,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         dbt_catalog_metadata = None
         if self.config.catalog_path is not None:
             dbt_catalog_json = self.load_file_as_json(
-                self.config.catalog_path, self.config.aws_connection
+                self.config.catalog_path,
+                self.config.aws_connection,
+                self.config.gcs_connection,
             )
             dbt_catalog_metadata = dbt_catalog_json.get("metadata", {})
             self.report.catalog_info = dict(
@@ -545,17 +964,33 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 dbt_version=dbt_catalog_metadata.get("dbt_version", "unknown"),
                 project_name=dbt_catalog_metadata.get("project_name", "unknown"),
             )
+            # Parse and store catalog's generated_at for use in DatasetProfile timestamps
+            if generated_at_str := dbt_catalog_metadata.get("generated_at"):
+                try:
+                    self.report.catalog_generated_at = parse_dbt_timestamp(
+                        generated_at_str
+                    )
+                except Exception:
+                    logger.debug(
+                        f"Failed to parse catalog generated_at: {generated_at_str}"
+                    )
         else:
             self.report.warning(
                 title="No catalog file configured",
                 message="Some metadata, particularly schema information, will be missing.",
             )
 
+        sources_invocation_id = None
         if self.config.sources_path is not None:
             dbt_sources_json = self.load_file_as_json(
-                self.config.sources_path, self.config.aws_connection
+                self.config.sources_path,
+                self.config.aws_connection,
+                self.config.gcs_connection,
             )
             sources_results = dbt_sources_json["results"]
+            sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
+                "invocation_id"
+            )
         else:
             sources_results = {}
 
@@ -571,6 +1006,8 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
         manifest_nodes = dbt_manifest_json["nodes"]
         manifest_sources = dbt_manifest_json["sources"]
+        manifest_exposures = dbt_manifest_json.get("exposures", {})
+        manifest_semantic_models = dbt_manifest_json.get("semantic_models", {})
 
         all_manifest_entities = {**manifest_nodes, **manifest_sources}
 
@@ -591,7 +1028,32 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             only_include_if_in_catalog=self.config.only_include_if_in_catalog,
             include_database_name=self.config.include_database_name,
             report=self.report,
+            sources_invocation_id=sources_invocation_id,
         )
+
+        # Extract exposures from manifest
+        self._exposures = extract_dbt_exposures(
+            manifest_exposures=manifest_exposures,
+            tag_prefix=self.config.tag_prefix,
+        )
+
+        # Extract semantic models from manifest (dbt 1.6+)
+        if (
+            self.config.entities_enabled.can_emit_semantic_models
+            and manifest_semantic_models
+        ):
+            semantic_model_nodes = extract_semantic_models(
+                manifest_semantic_models=manifest_semantic_models,
+                manifest_nodes=manifest_nodes,
+                manifest_adapter=manifest_adapter,
+                tag_prefix=self.config.tag_prefix,
+            )
+            nodes.extend(semantic_model_nodes)
+            self.report.num_semantic_models_emitted = len(semantic_model_nodes)
+            if semantic_model_nodes:
+                logger.info(
+                    f"Extracted {len(semantic_model_nodes)} semantic models from manifest"
+                )
 
         return (
             nodes,
@@ -643,11 +1105,17 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             "catalog_version": catalog_version,
         }
 
-        for run_results_path in self.config.run_results_paths:
-            # This will populate the test_results and model_performance fields on each node.
+        expanded_run_results_paths = self._expand_run_results_paths()
+        if expanded_run_results_paths:
+            self.report.run_results_paths_expanded = expanded_run_results_paths
+        for run_results_path in expanded_run_results_paths:
             all_nodes = load_run_results(
                 self.config,
-                self.load_file_as_json(run_results_path, self.config.aws_connection),
+                self.load_file_as_json(
+                    run_results_path,
+                    self.config.aws_connection,
+                    self.config.gcs_connection,
+                ),
                 all_nodes,
             )
 

@@ -1,0 +1,32 @@
+# Test recipe for Iglu automatic schema discovery
+# This recipe DOES NOT specify schemas_to_extract and relies on list_schemas() endpoint
+
+source:
+  type: snowplow
+  config:
+    # Iglu Schema Registry connection (no BDP)
+    iglu_connection:
+      iglu_server_url: "http://localhost:8081"
+      # No API key needed for public schemas in test environment
+
+    # NO schemas_to_extract - will use automatic discovery via /api/schemas endpoint
+
+    # Schema types to extract
+    schema_types_to_extract:
+      - "event"
+      - "entity"
+
+    # Environment configuration
+    env: "TEST"
+    platform_instance: "iglu_autodiscovery_test"
+
+    # Filtering (allow all for testing)
+    schema_pattern:
+      allow:
+        - ".*"
+
+# Sink to file for golden file testing
+sink:
+  type: file
+  config:
+    filename: "./snowplow_iglu_autodiscovery_golden.json"

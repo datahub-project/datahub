@@ -1,19 +1,15 @@
+import i18next from 'i18next';
 import { useCallback } from 'react';
-import { Edge, Node } from 'reactflow';
+import { Node } from 'reactflow';
 
 import { LINEAGE_ANNOTATION_NODE } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
 import type { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 
-export function useAddAnnotationNodes() {
+function useAddAnnotationNodes() {
     return useCallback(
-        (
-            filteredNodes: LineageVisualizationNode[],
-            filteredEdges: Edge[],
-            levelsInfo: LevelsInfo,
-            levelsMap: Map<string, number>,
-        ) => {
+        (filteredNodes: LineageVisualizationNode[], levelsInfo: LevelsInfo, levelsMap: Map<string, number>) => {
             const nodesWithLevel = filteredNodes.map((node) => {
                 const urn = node.id;
                 const nodeLevel = levelsMap.get(urn) ?? 0;
@@ -58,19 +54,17 @@ export function useAddAnnotationNodes() {
                     type: LINEAGE_ANNOTATION_NODE,
                     position: { x: annotationX, y: annotationY },
                     data: {
-                        label: `${levelInfo.shownEntities} of ${levelInfo.totalEntities} shown`,
+                        label: i18next.t('lineage:node.annotation.shownOfTotal', {
+                            shown: levelInfo.shownEntities,
+                            total: levelInfo.totalEntities,
+                        }),
                     },
-                    draggable: false,
                     selectable: false,
                     connectable: false,
                 });
             });
 
-            return {
-                nodes: [...nodesWithLevel, ...annotationNodes],
-                edges: filteredEdges,
-                levelsInfo,
-            };
+            return [...nodesWithLevel, ...annotationNodes];
         },
         [],
     );

@@ -5,14 +5,17 @@ export default class DatasetHelper {
 
   static assignTag(name) {
     cy.get("#entity-profile-tags").within(() => {
-      cy.clickOptionWithTestId("AddRoundedIcon");
+      cy.get('[data-testid="add-tags-button"]').should("not.be.disabled");
+      cy.clickOptionWithTestId("add-tags-button");
     });
 
-    cy.getWithTestId("tag-term-modal-input").within(() => {
-      cy.get("input").focus({ force: true }).type(name);
-    });
-
-    cy.get(`[name="${name}"]`).click();
+    // AddTagsModal uses alchemy SimpleSelect: click the trigger to open the
+    // portal-rendered dropdown, then type into its search input.
+    cy.getWithTestId("tag-term-modal-input").click();
+    cy.get('[data-testid="dropdown-search-input"]').type(name);
+    cy.get(`[data-testid="tag-term-option-${name}"]`)
+      .first()
+      .click({ force: true });
     cy.clickOptionWithTestId("add-tag-term-from-modal-btn");
     cy.waitTextVisible("Added Tags!");
   }
@@ -23,12 +26,10 @@ export default class DatasetHelper {
 
   static unassignTag(name) {
     cy.getWithTestId(`tag-${name}`).within(() => {
-      cy.get(".ant-tag-close-icon").click();
+      cy.get('[data-testid="remove-icon"]').click();
     });
 
-    cy.get(".ant-modal-confirm-confirm").within(() => {
-      cy.get(".ant-btn-primary").click();
-    });
+    cy.getWithTestId("modal-confirm-button").click();
 
     cy.waitTextVisible("Removed Tag!");
   }

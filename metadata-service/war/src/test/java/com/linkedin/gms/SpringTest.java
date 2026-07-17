@@ -2,6 +2,9 @@ package com.linkedin.gms;
 
 import static org.testng.AssertJUnit.assertNotNull;
 
+import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
+import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
+import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -11,10 +14,11 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.micrometer.core.instrument.Clock;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.mockito.Answers;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ContextConfiguration;
@@ -26,20 +30,32 @@ import org.testng.annotations.Test;
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = {
       "telemetry.enabledServer=true",
-      "spring.main.allow-bean-definition-overriding=true"
+      "spring.main.allow-bean-definition-overriding=true",
+      "authentication.tokenService.signingKey=test-signing-key-for-tests",
+      "authentication.tokenService.salt=test-salt-for-tests",
     })
 @ContextConfiguration(classes = {CommonApplicationConfig.class, SpringTest.TestBeans.class})
 public class SpringTest extends AbstractTestNGSpringContextTests {
 
   // Mock Beans take precedence, we add these to avoid needing to configure data sources etc. while
   // still testing prod config
-  @MockBean private Database database;
-  @MockBean private BootstrapManager bootstrapManager;
-  @MockBean private Clock clock;
-  @MockBean private MetricUtils metricUtils;
+  @MockitoBean private Database database;
+
+  @MockitoBean private BootstrapManager bootstrapManager;
+
+  @MockitoBean private Clock clock;
+
+  @MockitoBean private MetricUtils metricUtils;
 
   @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
   SearchClientShim<?> searchClientShim;
+
+  // Mock semantic search factories to avoid needing full configuration
+  @MockitoBean private EmbeddingProviderFactory embeddingProviderFactory;
+
+  @MockitoBean private SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+
+  @MockitoBean private SemanticSearchServiceFactory semanticSearchServiceFactory;
 
   @Test
   public void testTelemetry() {
@@ -49,6 +65,7 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
 
   @TestConfiguration
   public static class TestBeans {
+
     @Bean
     public OperationContext systemOperationContext() {
       return TestOperationContexts.systemContextNoSearchAuthorization();
@@ -58,6 +75,12 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
     @Bean
     public EntityRegistry entityRegistry(OperationContext systemOperationContext) {
       return systemOperationContext.getEntityRegistry();
+    }
+
+    @Primary
+    @Bean
+    public MeterRegistry meterRegistry() {
+      return new SimpleMeterRegistry();
     }
   }
 }

@@ -1,16 +1,25 @@
-import { Image } from '@phosphor-icons/react';
+import { Image } from '@phosphor-icons/react/dist/csr/Image';
 import { useCommands } from '@remirror/react';
-import { Form, Input, Modal, Typography } from 'antd';
+import { Form, Input } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
+import { Modal } from '@components/components/Modal';
+import { Text } from '@components/components/Text';
 
-import { colors } from '@src/alchemy-components/theme';
+// Sample URL shown as input placeholder — illustrative, not user-facing copy.
+const EXAMPLE_IMAGE_URL = 'http://www.example.com/image.jpg';
 
 export const AddImageButton = () => {
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.actions');
     const [isModalVisible, setModalVisible] = useState(false);
     const [form] = Form.useForm();
     const { insertImage } = useCommands();
+    const styledTheme = useTheme();
+    const iconColor = styledTheme.colors.icon;
 
     const handleButtonClick = () => {
         setModalVisible(true);
@@ -36,27 +45,43 @@ export const AddImageButton = () => {
         <>
             <CommandButton
                 active={false}
-                icon={<Image size={20} color={colors.gray[1800]} />}
+                icon={<Image size={20} color={iconColor} />}
                 commandName="insertImage"
                 onClick={handleButtonClick}
             />
             <Modal
-                title="Add Image"
+                title={t('editor.addImage.title')}
                 open={isModalVisible}
-                okText="Save"
-                onOk={handleOk}
                 onCancel={handleCancel}
+                buttons={[
+                    {
+                        text: tc('save'),
+                        variant: 'filled',
+                        onClick: handleOk,
+                    },
+                ]}
                 zIndex={1200}
             >
                 <Form form={form} layout="vertical" colon={false} requiredMark={false}>
                     <Form.Item
                         name="src"
-                        label={<Typography.Text strong>Image URL</Typography.Text>}
+                        label={
+                            <Text type="span" weight="bold">
+                                {t('editor.addImage.urlLabel')}
+                            </Text>
+                        }
                         rules={[{ required: true }]}
                     >
-                        <Input placeholder="http://www.example.com/image.jpg" autoFocus />
+                        <Input placeholder={EXAMPLE_IMAGE_URL} autoFocus />
                     </Form.Item>
-                    <Form.Item name="alt" label={<Typography.Text strong>Alt Text</Typography.Text>}>
+                    <Form.Item
+                        name="alt"
+                        label={
+                            <Text type="span" weight="bold">
+                                {t('editor.addImage.altLabel')}
+                            </Text>
+                        }
+                    >
                         <Input />
                     </Form.Item>
                 </Form>

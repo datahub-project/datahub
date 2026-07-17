@@ -42,13 +42,13 @@ public class QueryUtils {
 
   private QueryUtils() {}
 
-  // Creates new Criterion with field and value, using EQUAL condition.
+  // Creates new Criterion with field and values, using EQUAL condition.
   @Nullable
   public static Criterion newCriterion(@Nonnull String field, @Nonnull List<String> values) {
     return newCriterion(field, values, Condition.EQUAL);
   }
 
-  // Creates new Criterion with field, value and condition.
+  // Creates new Criterion with field, values and condition.
   @Null
   public static Criterion newCriterion(
       @Nonnull String field, @Nonnull List<String> values, @Nonnull Condition condition) {
@@ -57,12 +57,12 @@ public class QueryUtils {
     }
     return new Criterion()
         .setField(field)
-        .setValue(values.get(0)) // Hack! This is due to bad modeling.
         .setValues(new StringArray(values))
         .setCondition(condition);
   }
 
-  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria
+  // and using EQUAL
   // condition (default).
   @Nonnull
   public static Filter newFilter(@Nullable Map<String, String> params) {
@@ -245,19 +245,42 @@ public class QueryUtils {
   }
 
   public static List<EntitySpec> getQueryByDefaultEntitySpecs(EntityRegistry entityRegistry) {
-    return entityRegistry.getEntitySpecs().values().stream()
-        .map(
-            spec ->
-                Pair.of(
-                    spec,
-                    spec.getSearchableFieldSpecs().stream()
-                        .map(SearchableFieldSpec::getSearchableAnnotation)
-                        .collect(Collectors.toList())))
-        .filter(
-            specPair ->
-                specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
-        .map(Pair::getFirst)
-        .collect(Collectors.toList());
+    return filterEntitySpecsForSearch(
+        entityRegistry.getEntitySpecs().values().stream()
+            .map(
+                spec ->
+                    Pair.of(
+                        spec,
+                        spec.getSearchableFieldSpecs().stream()
+                            .map(SearchableFieldSpec::getSearchableAnnotation)
+                            .collect(Collectors.toList())))
+            .filter(
+                specPair ->
+                    specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
+            .map(Pair::getFirst)
+            .collect(Collectors.toList()));
+  }
+
+  /**
+   * Filters entities for search. This is a hook for custom entity filtering logic. In OSS, this is
+   * a no-op that returns the input unchanged.
+   *
+   * @param entities list of entity names
+   * @return filtered list of entity names (unchanged in OSS)
+   */
+  public static List<String> filterEntitiesForSearch(List<String> entities) {
+    return entities;
+  }
+
+  /**
+   * Filters entity specs for search. This is a hook for custom entity filtering logic. In OSS, this
+   * is a no-op that returns the input unchanged.
+   *
+   * @param entities list of EntitySpecs
+   * @return filtered list of EntitySpecs (unchanged in OSS)
+   */
+  public static List<EntitySpec> filterEntitySpecsForSearch(List<EntitySpec> entities) {
+    return entities;
   }
 
   /**
@@ -275,7 +298,8 @@ public class QueryUtils {
     boolean schemaFieldEnabled =
         appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().isEnabled();
 
-    // Prevent increasing the query size by avoiding querying multiple fields with the
+    // Prevent increasing the query size by avoiding querying multiple fields with
+    // the
     // same URNs
     Criterion urnMatchCriterion =
         buildCriterion(

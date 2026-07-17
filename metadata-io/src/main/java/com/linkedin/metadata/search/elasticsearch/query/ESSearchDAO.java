@@ -115,7 +115,7 @@ public class ESSearchDAO {
         "docCount",
         () -> {
           try {
-            return client.count(countRequest, RequestOptions.DEFAULT).getCount();
+            return client.count(opContext, countRequest, RequestOptions.DEFAULT).getCount();
           } catch (IOException e) {
             log.error("Count query failed:" + e.getMessage());
             throw new ESQueryException("Count query failed:", e);
@@ -142,7 +142,7 @@ public class ESSearchDAO {
           SearchResponse searchResponse = null;
           try {
             log.debug("Executing request {}: {}", id, searchRequest);
-            searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+            searchResponse = client.search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
                 opContext.getSearchContext().getIndexConvention(),
@@ -256,7 +256,7 @@ public class ESSearchDAO {
         () -> {
           try {
             final SearchResponse searchResponse =
-                client.search(searchRequest, RequestOptions.DEFAULT);
+                client.search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
                 opContext.getSearchContext().getIndexConvention(),
@@ -348,6 +348,7 @@ public class ESSearchDAO {
     List<EntitySpec> entitySpecs =
         entityNames.stream()
             .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+            .distinct()
             .collect(Collectors.toList());
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
@@ -431,7 +432,7 @@ public class ESSearchDAO {
       Pair<SearchRequest, AutocompleteRequestHandler> searchRequestAndBuilder =
           buildAutocompleteRequest(opContext, entityName, query, field, requestParams, limit);
       SearchResponse searchResponse =
-          client.search(searchRequestAndBuilder.getLeft(), RequestOptions.DEFAULT);
+          client.search(opContext, searchRequestAndBuilder.getLeft(), RequestOptions.DEFAULT);
       return searchRequestAndBuilder.getRight().extractResult(opContext, searchResponse, query);
     } catch (Exception e) {
       log.error("Auto complete query failed:" + e.getMessage());
@@ -493,7 +494,7 @@ public class ESSearchDAO {
             final SearchRequest searchRequest =
                 buildAggregateByValue(opContext, entityNames, field, requestParams, limit);
             final SearchResponse searchResponse =
-                client.search(searchRequest, RequestOptions.DEFAULT);
+                client.search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return AggregationQueryBuilder.extractAggregationsFromResponse(searchResponse, field);
           } catch (Exception e) {
@@ -519,6 +520,7 @@ public class ESSearchDAO {
       entitySpecs =
           entityNames.stream()
               .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+              .distinct()
               .collect(Collectors.toList());
     }
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
@@ -627,6 +629,7 @@ public class ESSearchDAO {
     List<EntitySpec> entitySpecs =
         entities.stream()
             .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+            .distinct()
             .collect(Collectors.toList());
 
     String[] indexArray =
@@ -644,7 +647,9 @@ public class ESSearchDAO {
 
     boolean usePIT = (pointInTimeCreationEnabled || hasSliceOptions) && keepAlive != null;
     String pitId =
-        usePIT ? ESUtils.computePointInTime(scrollId, keepAlive, client, indexArray) : null;
+        usePIT
+            ? ESUtils.computePointInTime(opContext, scrollId, keepAlive, client, indexArray)
+            : null;
     Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
     SearchRequest searchRequest =
@@ -693,7 +698,7 @@ public class ESSearchDAO {
                         opContext.getSearchContext().getIndexConvention().getIndexName(indexName));
                 searchRequest.source(searchSourceBuilder);
 
-                return client.search(searchRequest, RequestOptions.DEFAULT);
+                return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
@@ -729,7 +734,8 @@ public class ESSearchDAO {
                 searchRequest.source(searchSourceBuilder);
 
                 return Map.entry(
-                    entry.getKey(), client.search(searchRequest, RequestOptions.DEFAULT));
+                    entry.getKey(),
+                    client.search(opContext, searchRequest, RequestOptions.DEFAULT));
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
@@ -773,7 +779,7 @@ public class ESSearchDAO {
         .id(documentId)
         .index(indexConvention.getEntityIndexName(entityName));
     try {
-      return client.explain(explainRequest, RequestOptions.DEFAULT);
+      return client.explain(opContext, explainRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to explain query.", e);
       throw new IllegalStateException("Failed to explain query:", e);

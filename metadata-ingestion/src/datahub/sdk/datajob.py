@@ -6,7 +6,6 @@ from typing import Dict, List, Optional, Type
 
 from typing_extensions import Self
 
-import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.errors import IngestionAttributionWarning
@@ -38,7 +37,7 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
-from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.dataflow import DataFlow, _normalize_env
 from datahub.sdk.entity import Entity, ExtraAspectsType
 
 
@@ -65,7 +64,7 @@ class DataJob(
         """Get the URN type for data jobs."""
         return DataJobUrn
 
-    def __init__(  # noqa: C901
+    def __init__(
         self,
         *,
         name: str,
@@ -120,6 +119,7 @@ class DataJob(
                 platform=flow_urn.orchestrator,
                 name=flow_name,
                 platform_instance=platform_instance,
+                env=flow_urn.cluster,
             )
         urn = DataJobUrn.create_from_ids(
             job_id=name,
@@ -169,9 +169,7 @@ class DataJob(
         if fine_grained_lineages is not None:
             self.set_fine_grained_lineages(fine_grained_lineages)
 
-        if self.flow_urn.cluster.upper() in builder.ALL_ENV_TYPES:
-            env = self.flow_urn.cluster.upper()
-        self._ensure_datajob_props().env = env
+        self._ensure_datajob_props().env = _normalize_env(self.flow_urn.cluster)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -183,6 +181,7 @@ class DataJob(
             flow=DataFlow(
                 platform=data_flow_urn.orchestrator,
                 name=data_flow_urn.flow_id,
+                env=data_flow_urn.cluster,
             ),
             name=urn.job_id,
         )
@@ -364,4 +363,5 @@ class DataJob(
     @property
     def env(self) -> Optional[str]:
         """Get the environment of the data job."""
-        return str(self._ensure_datajob_props().env)
+        env_value = self._ensure_datajob_props().env
+        return str(env_value) if env_value is not None else None

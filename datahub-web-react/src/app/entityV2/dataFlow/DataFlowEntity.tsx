@@ -1,10 +1,17 @@
-import { ShareAltOutlined } from '@ant-design/icons';
-import { FileText, ListBullets, Share, TreeStructure, WarningCircle } from '@phosphor-icons/react';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Share } from '@phosphor-icons/react/dist/csr/Share';
+import { ShareNetwork } from '@phosphor-icons/react/dist/csr/ShareNetwork';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/dataFlow/preview/Preview';
+import { RunsTab } from '@app/entityV2/dataJob/tabs/RunsTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
@@ -28,7 +35,7 @@ import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTa
 import { isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
-import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
+import { GetDataFlowQuery, useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
 import { DataFlow, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
@@ -44,20 +51,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
     type: EntityType = EntityType.DataFlow;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ShareAltOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <ShareAltOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#d6246c' }} />
-            );
-        }
-
         return (
-            <ShareAltOutlined
+            <ShareNetwork
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -74,9 +73,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getPathName = () => 'pipelines';
 
-    getEntityName = () => 'Pipeline';
+    getEntityName = () => i18next.t('entity.types:dataFlow.name');
 
-    getCollectionName = () => 'Pipelines';
+    getCollectionName = () => i18next.t('entity.types:dataFlow.namePlural');
 
     useEntityQuery = useGetDataFlowQuery;
 
@@ -90,18 +89,18 @@ export class DataFlowEntity implements Entity<DataFlow> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: DAGTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Tasks',
+                    name: i18next.t('entity.types:dataJob.namePlural'),
                     component: DataFlowJobsTab,
                     icon: Share,
                     properties: {
@@ -109,7 +108,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     },
                 },
                 {
-                    name: 'Incidents',
+                    name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningCircle,
                     component: IncidentTab,
                     getCount: (_, dataFlow) => {
@@ -117,9 +116,18 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     },
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
+                },
+                {
+                    name: i18next.t('entity.types:tab.runs'),
+                    component: RunsTab,
+                    icon: ArrowsClockwise,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataFlow: GetDataFlowQuery) => (dataFlow?.dataFlow?.runs?.total || 0) !== 0,
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
@@ -165,9 +173,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -269,6 +277,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

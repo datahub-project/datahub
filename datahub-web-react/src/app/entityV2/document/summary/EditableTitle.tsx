@@ -1,33 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useUpdateDocumentTitleMutation } from '@app/document/hooks/useDocumentTreeMutations';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const TitleContainer = styled.div`
     width: 100%;
+    min-width: 0;
 `;
 
 const TitleInput = styled.textarea<{ $editable: boolean }>`
     font-size: 32px;
     font-weight: 700;
     line-height: 1.4;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     border: none;
     outline: none;
     background: transparent;
     width: 100%;
+    min-width: 0;
     padding: 6px 8px;
     margin: -6px -8px;
     cursor: ${(props) => (props.$editable ? 'text' : 'default')};
     border-radius: 4px;
     resize: none;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     font-family: inherit;
     white-space: pre-wrap;
     word-wrap: break-word;
-
+    overflow-wrap: break-word;
+    box-sizing: border-box;
+    min-height: calc(32px * 1.4 + 12px); /* 1 row: font-size * line-height + padding */
+    max-height: calc(32px * 1.4 * 3 + 12px); /* 3 rows: font-size * line-height * 3 + padding */
     &:hover {
         background-color: transparent;
     }
@@ -37,7 +42,7 @@ const TitleInput = styled.textarea<{ $editable: boolean }>`
     }
 
     &::placeholder {
-        color: ${colors.gray[400]};
+        color: ${(props) => props.theme.colors.textTertiary};
         opacity: 0.4;
     }
 `;
@@ -50,6 +55,8 @@ interface Props {
 export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) => {
     const [title, setTitle] = useState(initialTitle || '');
     const [isSaving, setIsSaving] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const hasAutoFocused = useRef(false);
     const { canEditTitle } = useDocumentPermissions(documentUrn);
     const { updateTitle } = useUpdateDocumentTitleMutation();
 
@@ -57,19 +64,55 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
         setTitle(initialTitle || '');
     }, [initialTitle]);
 
-    // Auto-resize textarea to fit content
-    const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
-        const target = e.currentTarget;
-        target.style.height = 'auto';
-        target.style.height = `${target.scrollHeight}px`;
-    };
+    // For freshly created docs, clear the default title and focus the field so the placeholder shows and typing starts immediately.
+    useEffect(() => {
+        const trimmed = (initialTitle || '').trim().toLowerCase();
+        /* untranslated-text -- internal default-title sentinel for fresh-doc detection; compared, not rendered */
+        const isDefaultTitle = trimmed === 'new document' || trimmed === '';
+
+        if (canEditTitle && isDefaultTitle && !hasAutoFocused.current) {
+            hasAutoFocused.current = true;
+            setTitle('');
+            // Defer focus to next paint so the DOM is ready.
+            requestAnimationFrame(() => {
+                textareaRef.current?.focus();
+            });
+        }
+    }, [canEditTitle, initialTitle]);
+
+    // Auto-resize textarea up to 3 rows, then scroll
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const { style, scrollHeight } = textarea;
+
+        // Reset height to auto to get the correct scrollHeight
+        style.height = 'auto';
+
+        // Calculate max height for 3 rows (font-size * line-height * 3 + padding)
+        const maxHeight = 32 * 1.4 * 3 + 12; // ~146px
+
+        // Set height to scrollHeight, but cap at maxHeight
+        style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+    }, [title]);
 
     const handleBlur = async () => {
-        if (title !== initialTitle && !isSaving) {
+        // If the user leaves the field empty, fall back to the default placeholder title.
+        const trimmed = title.trim();
+        /* untranslated-text -- default persisted document title; saved as data, not UI chrome */
+        const fallbackTitle = initialTitle || 'New Document';
+        const finalTitle = trimmed === '' ? fallbackTitle : title;
+
+        if (finalTitle !== title) {
+            setTitle(finalTitle);
+        }
+
+        if (finalTitle !== initialTitle && !isSaving) {
             setIsSaving(true);
 
             // Tree mutation handles optimistic update + backend call + rollback on error!
-            await updateTitle(documentUrn, title);
+            await updateTitle(documentUrn, finalTitle);
 
             setIsSaving(false);
         }
@@ -85,14 +128,15 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     return (
         <TitleContainer>
             <TitleInput
+                ref={textareaRef}
                 data-testid="document-title-input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onInput={handleInput}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
                 $editable={canEditTitle}
                 disabled={!canEditTitle}
+                /* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) placeholder must match the persisted default-title sentinel used for fresh-doc detection (see line 70) */
                 placeholder="New Document"
                 rows={1}
             />

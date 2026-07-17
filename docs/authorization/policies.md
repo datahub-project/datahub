@@ -1,3 +1,7 @@
+---
+description: "Define fine-grained access policies in DataHub to control who can view and edit metadata entities, aspects, and platform features."
+---
+
 # Policies Guide
 
 ## Introduction
@@ -55,17 +59,56 @@ A Metadata Policy can be broken down into 3 parts:
 
 #### Resources
 
-Resources can be associated with the policy in a number of ways.
+Resources can be associated with the policy in a number of ways:
 
-1. List of resource types - The entity's type for example: dataset, chart, dashboard
-2. List of resource URNs
-3. List of tags
-4. List of domains
+1. **Resource types** - The entity's type, for example: dataset, chart, dashboard
+2. **Resource URNs** - Specific entity URNs to target
+3. **Tags** - Assets tagged with specific tags
+4. **Domains** - Assets within specific domains
+5. **Containers** - Assets within specific containers (e.g., databases, schemas)
+6. **Glossary Terms or Term Groups** - Assets annotated with specific glossary terms or any term within a term group (see [Glossary-Based Policy Targeting](#glossary-based-policy-targeting) below)
 
 :::note Important Note
 The associations in the list above are an _intersection_ or an _AND_ operation. For example, if the policy targets
 `1. resource type: dataset` and `3. resources tagged: 'myTag'`, it will apply to datasets that are tagged with tag 'myTag'.
 :::
+
+##### Domain-Based Policy Targeting
+
+Policies can be targeted to assets based on **Domains**. This allows you to apply permissions to all assets within a specific business domain.
+
+When you target a policy by domain, the policy applies recursively to any asset that belongs to that domain as well as any assets in nested child domains.
+
+**Example**: A policy targeting the "Marketing" domain will apply to all datasets, dashboards, and other assets assigned to that domain, as well as assets in child domains like "Marketing Analytics" or "Marketing Campaigns".
+
+:::caution View-based access control performance
+When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, domain filters can be expensive: DataHub walks the domain hierarchy for each authorization check. Prefer [ownership-based policies](#ownership-based-access) for entity access, and use domain filters mainly for domain-entity visibility or Cloud discovery boundaries. Keep domain hierarchies shallow.
+:::
+
+##### Container-Based Policy Targeting
+
+Policies can be targeted to assets based on **Containers** (e.g., databases, schemas, projects). This allows you to apply permissions based on technical organization.
+
+When you target a policy by container, the policy applies recursively to all assets within that container as well as any assets in nested child containers.
+
+**Example**: A policy targeting a "production" database container will apply to all schemas within that database and all tables within those schemas.
+
+:::caution View-based access control performance
+When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, container filters walk the container hierarchy sequentially for each authorization check. Avoid container-based policies on deep warehouse hierarchies (database → schema → table). See [Domains and containers](#domains-and-containers) for alternatives.
+:::
+
+##### Glossary-Based Policy Targeting
+
+Policies can be targeted to assets based on **Glossary Terms** or **Glossary Term Groups**. This allows you to apply permissions based on business vocabulary rather than technical properties.
+
+When you target a policy by glossary terms or groups:
+
+- **Individual Terms**: The policy applies to any asset annotated with that specific glossary term
+- **Term Groups**: The policy applies recursively to assets annotated with any term within that group, including all nested child terms and groups
+
+This works similarly to domain and container-based policies, automatically covering assets as your glossary evolves.
+
+**Example**: A policy targeting the "Sensitive Data" term group will apply to all assets tagged with child terms like "PII", "PHI", or any terms in nested groups, without requiring policy updates when new terms are added to the hierarchy.
 
 #### Privileges
 
@@ -110,7 +153,7 @@ Note that these privilege _can_ and likely _should_ be altered inside the **Poli
 :::note Pro-Tip
 To login using the `datahub` account, simply navigate to `<your-datahub-domain>/login` and enter `datahub`, `datahub`. Note that the password can be customized for your
 deployment by changing the `user.props` file within the `datahub-frontend` module. Notice that JaaS authentication must be enabled.
-:::note
+:::
 
 ## Configuration
 
@@ -134,6 +177,118 @@ AUTH_POLICIES_ENABLED=false
 ### REST API Authorization
 
 Policies only affect REST APIs when the environment variable `REST_API_AUTHORIZATION` is set to `true` for GMS. Some policies only apply when this setting is enabled, marked above, and other Metadata and Platform policies apply to the APIs where relevant, also specified in the table above.
+
+## Designing policies for view-based access control
+
+This section covers how to design access policies when **view-based access control (VBAC)** is enabled — that is, when policies restrict what users can **view or discover**, not just edit. Poor policy design in VBAC deployments can cause slow search, slow entity pages, and high load on the metadata service.
+
+### When this guidance applies
+
+| Deployment            | VBAC prerequisite                                                                      | What it enables                                                                                                                     |
+| --------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **DataHub Cloud**     | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
+| **Self-hosted (OSS)** | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
+
+### Performance considerations
+
+Policy evaluation is **grant-only** and **first-match-wins**: DataHub checks policies in order until one grants access. Under VBAC, view and discovery privileges trigger authorization on search results, entity pages, and browse — often **once per entity**.
+
+Keep these factors in mind when designing policies:
+
+| Factor                         | Impact                                                                                                                                 | Recommendation                                                                                                                                        |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Number of active policies**  | Every user session evaluates actor match against all policies; each authorization request may iterate policies until one grants access | Consolidate policies; avoid duplicating the same privilege across many policies                                                                       |
+| **Domain resource filters**    | Each check may walk the full domain parent hierarchy                                                                                   | Prefer ownership for entity access; keep domain trees shallow; use domain filters for domain entities or Cloud discovery only                         |
+| **Container resource filters** | Each check walks the container chain (database → schema → table)                                                                       | Avoid container-based view policies on deep hierarchies                                                                                               |
+| **Group membership**           | Users in many groups increase matching and role-resolution cost and can impact performance                                             | Limit each user to no more than **200 groups** for best performance; one group per team policy boundary; avoid listing many groups on a single policy |
+| **Search under VBAC**          | Each search hit may be authorized individually with full policy evaluation                                                             | Fewer domain-scoped view policies; prefer ownership-based grants                                                                                      |
+| **Policy cache**               | Policy changes may take up to ~120 seconds to propagate (`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`)                                      | Plan for brief delay after policy updates                                                                                                             |
+
+### Groups
+
+Groups are the preferred way to assign policies to teams. When VBAC is enabled:
+
+- **Sync from your IdP** when possible ([Okta](../generated/ingestion/sources/okta.md), [Azure AD](../generated/ingestion/sources/azure-ad.md)) so group membership stays current without manual updates.
+- **Assign one group per policy boundary** — e.g. a "Team A Developers" group on a single owner-based policy, rather than listing many groups on one policy.
+- **Limit overlapping group membership** — users in many groups increase matching and role-resolution cost and can impact performance. DataHub recommends limiting each user to no more than **200 groups** for best performance.
+- **Prefer group-level policies over per-user policies** — easier to maintain and fewer actor entries to evaluate.
+
+For SCIM-based group provisioning, see [Okta identity provisioning](../managed-datahub/configuring-identity-provisioning-with-okta.md) and [Microsoft Entra identity provisioning](../managed-datahub/configuring-identity-provisioning-with-ms-entra.md).
+
+### Domains and containers
+
+[Domains](../domains.md) organize metadata for curation; they can also be used as policy resource filters. Under VBAC, **using domains as the primary boundary for entity view access is expensive** because DataHub resolves parent domains recursively on every authorization check.
+
+**Prefer:**
+
+- **Ownership-based policies** for dataset and other entity access (see [Ownership-based access](#ownership-based-access))
+- **Domain filters** only for **domain entity** visibility (so users can navigate the domain tree) or for **Cloud Search Access Controls** discovery boundaries
+- **Shallow domain hierarchies** when domain filters are required
+
+**Avoid:**
+
+- One full-metadata view policy per team domain when ownership can express the same boundary
+- Deep nested domain trees as the primary access boundary
+- Container-based view policies on deep warehouse hierarchies
+
+### Roles and VBAC
+
+When VBAC is enabled, **Admin**, **Editor**, and **Reader** roles **override** view-based policy restrictions. Users assigned any of these roles can view all entities regardless of domain- or ownership-based view policies.
+
+Do not assign Editor or Reader to users who should have restricted discovery. Reserve the Admin role for platform operators. See [Roles](./roles.md) and [Search Access Controls](../features/feature-guides/search-access-controls.md).
+
+### Recommended patterns
+
+These patterns assume VBAC is enabled and separate teams need isolated metadata visibility. Use generic team and domain names when implementing.
+
+#### Pattern A — Multi-team isolation (ownership-first)
+
+Use when separate teams or business units should only access their own metadata:
+
+1. **Platform Admins** — `Admin` role only (hardcoded super-privileges).
+2. **Central platform team** — one metadata policy: actors = IdP group(s), resources = broad (by entity type), privileges = view/edit as needed.
+3. **Team-scoped users** — one **owner-based metadata policy** per team: actors = **resource owners** (group ownership type), privileges include view/edit metadata; assign ownership at ingestion (see [Ownership-based access](#ownership-based-access)).
+4. **Domain visibility only** — one narrow policy per team targeting **domain entities** (not datasets) so users can navigate the domain structure without domain-scoped dataset policies.
+
+Resource matching via ownership uses a single ownership aspect fetch instead of walking domain parents on every dataset.
+
+#### Pattern B — Domain-scoped discovery (DataHub Cloud)
+
+On **DataHub Cloud** with Search Access Controls enabled:
+
+- Use domain-based **`View Entity`** policies for discovery boundaries.
+- Keep the domain hierarchy **shallow**, policy count **low**, and **do not assign Editor/Reader roles** to restricted users.
+
+### Anti-patterns
+
+- One policy per user instead of per group.
+- Many overlapping domain policies for the same privilege (e.g. one full-metadata policy per team domain instead of consolidating).
+- Deep nested domain trees as the primary access boundary.
+- Container-based policies on deep database → schema → table chains.
+- Assigning **Reader** or **Editor** while expecting domain or ownership isolation.
+- Relying on OSS `VIEW_AUTHORIZATION_ENABLED` alone to prevent users from discovering other teams' data in search (OSS does not filter search at query time).
+- Large numbers of URN-specific policies instead of tags plus one tag-based policy.
+
+### Ownership-based access
+
+Assign **ownership at ingestion** so owner-based policies can grant view and edit access without domain-scoped resource filters. Use the [`pattern_add_dataset_ownership`](../../metadata-ingestion/docs/transformer/dataset_transformer.md) transformer to match dataset URNs and assign group owners by pattern.
+
+**Schema ownership:** Ingestion recipes that assign ownership only to datasets may leave schemas without owners. If team-scoped users need to view schemas via owner-based policies, assign schema ownership through the UI or extend ingestion to cover schema entities.
+
+### Troubleshooting slow search or UI
+
+If search or entity pages feel slow after enabling VBAC:
+
+1. **Count active policies** — reduce overlapping or redundant policies.
+2. **Review domain-scoped view policies** — replace dataset boundaries with ownership-based policies where possible.
+3. **Check domain depth** — flatten nested domains used in policy filters.
+4. **Review group membership** — reduce users in many overlapping groups; aim for no more than **200 groups** per user.
+5. **Check role assignments** — Editor/Reader on restricted users won't cause slowness but indicates misconfiguration if isolation is expected.
+6. **Wait for cache refresh** — policy changes may take up to `POLICY_CACHE_REFRESH_INTERVAL_SECONDS` (default 120) to apply.
+
+### Policy propagation
+
+Policy definitions are cached in GMS and refreshed periodically. After creating or editing policies, allow up to **`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`** seconds (default **120**) before changes fully propagate. See [environment variables](../deploy/environment-vars.md) for configuration.
 
 ## Reference
 
@@ -223,21 +378,21 @@ These privileges are to view & modify any entity within DataHub.
 
 #### Aspect Privileges
 
-| Aspect Privileges             | Description                                                        |
-| ----------------------------- | ------------------------------------------------------------------ |
-| Edit Tags                     | Allow actor to add and remove tags to an asset.                    |
-| Edit Glossary Terms           | Allow actor to add and remove glossary terms to an asset.          |
-| Edit Description              | Allow actor to edit the description (documentation) of an entity.  |
-| Edit Links                    | Allow actor to edit links associated with an entity.               |
-| Edit Status                   | Allow actor to edit the status of an entity (soft deleted or not). |
-| Edit Domain                   | Allow actor to edit the Domain of an entity.                       |
-| Edit Data Product             | Allow actor to edit the Data Product of an entity.                 |
-| Edit Deprecation              | Allow actor to edit the Deprecation status of an entity.           |
-| Edit Incidents                | Allow actor to create and remove incidents for an entity.          |
-| Edit Lineage                  | Allow actor to add and remove lineage edges for this entity.       |
-| Edit Properties               | Allow actor to edit the properties for an entity.                  |
-| Edit Owners                   | Allow actor to add and remove owners of an entity.                 |
-| Get Timeseries Aspect API[^3] | Allow actor to use the GET Timeseries Aspect API.                  |
+| Aspect Privileges             | Description                                                                                                                                                                                                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Edit Tags                     | Allow actor to add and remove tags to an asset.                                                                                                                                                                                                                                                    |
+| Edit Glossary Terms           | Allow actor to add and remove glossary terms to an asset.                                                                                                                                                                                                                                          |
+| Edit Description              | Allow actor to edit the description (documentation) of an entity.                                                                                                                                                                                                                                  |
+| Edit Links                    | Allow actor to edit links associated with an entity.                                                                                                                                                                                                                                               |
+| Edit Status                   | Allow actor to edit the status of an entity (soft deleted or not).                                                                                                                                                                                                                                 |
+| Edit Domain                   | Allow actor to edit the Domain of an entity.                                                                                                                                                                                                                                                       |
+| Edit Data Product             | Allow actor to add or remove Data Product membership **from an asset** (asset profile / `batchAddToDataProducts`, `batchRemoveFromDataProducts`, unset via `batchSetDataProduct`). Does not authorize editing a Data Product's `assets` list from the product page — see **Manage Data Products**. |
+| Edit Deprecation              | Allow actor to edit the Deprecation status of an entity.                                                                                                                                                                                                                                           |
+| Edit Incidents                | Allow actor to create and remove incidents for an entity.                                                                                                                                                                                                                                          |
+| Edit Lineage                  | Allow actor to add and remove lineage edges for this entity.                                                                                                                                                                                                                                       |
+| Edit Properties               | Allow actor to edit the properties for an entity.                                                                                                                                                                                                                                                  |
+| Edit Owners                   | Allow actor to add and remove owners of an entity.                                                                                                                                                                                                                                                 |
+| Get Timeseries Aspect API[^3] | Allow actor to use the GET Timeseries Aspect API.                                                                                                                                                                                                                                                  |
 
 #### Proposals
 
@@ -267,6 +422,58 @@ These privileges are to view & modify any entity within DataHub.
 | Manage Dataset Column Glossary Term Proposals[^1] | Allow actor to manage a proposal to add a glossary term to dataset schema field (column).       |
 | Manage Dataset Column Property Proposals[^1]      | Allow actor to manage a proposal to add a structured property to dataset schema field (column). |
 
+### Derived authorization rules
+
+Some APIs authorize against **related** entities rather than only the URN in the request. These rules apply across GraphQL, Rest.li, and MCP ingestion (unless the change uses a system ingestion source).
+
+#### Data Products
+
+| Operation                                                                             | Privilege evaluated                                                                                | Resource                                        |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Create Data Product                                                                   | **Manage Data Products**                                                                           | Domain from create input                        |
+| Update / delete Data Product                                                          | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
+| Change `dataProductProperties.assets` (MCP / ingestion)                               | **Manage Data Products** on any product Domain **or** **Edit Data Product** on every changed asset | Product Domain(s) and/or each changed **asset** |
+| Change `dataProductProperties.assets` (product page / `batchSetDataProduct` with urn) | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
+| Add/remove Data Product from asset profile                                            | **Edit Data Product**                                                                              | Target **asset**                                |
+| Rename Data Product (`updateName`)                                                    | **Manage Data Products** on any Domain **or** **Edit Entity** on the Data Product                  | Domains and/or product URN                      |
+
+Domain URNs are read from the product's `domains` aspect, preferring `domainAssociations` and falling back to the legacy `domains` array. Duplicate entries are deduplicated. Products with no Domain associations are denied for product-side manage operations. Product and asset Domains do not need to match — authorization succeeds when either product-side manage or asset-side edit checks pass.
+
+**Known issue:** Domain alignment is not enforced after membership is written. Changing a product's or asset's `domains` aspect does not re-validate or prune existing `assets` links.
+
+#### Query entities
+
+| Operation                                                           | Privilege evaluated                                  | Resource                                     |
+| ------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------- |
+| Create / update / delete Query                                      | **Edit Dataset Queries** (or **Edit Entity**)        | Each subject dataset in `querySubjects`      |
+| Read Query metadata (GraphQL, Rest.li, search when view auth is on) | **View Entity Page** **or** **Edit Dataset Queries** | **Every** subject dataset in `querySubjects` |
+
+Query entities with **no subjects** are not readable when view authorization is enabled (fail-closed). Schema field subjects are resolved to their parent dataset for authorization. **Edit Entity** on a subject dataset also grants read access (same disjunction as write).
+
+View authorization is controlled by `VIEW_AUTHORIZATION_ENABLED` (see [Environment Variables](../deploy/environment-vars.md)).
+
+#### Logical parent (`logicalParent` aspect)
+
+Setting a logical parent requires **Edit Entity** on **both** the child and the proposed parent.
+Clearing a logical parent requires **Edit Entity** on the child side only. There is no OR between
+child and parent — access to only one side is insufficient when setting a link.
+
+Each side is evaluated **independently**. For a **dataset**, that side passes when the actor has
+**Edit Entity** on that dataset. For a **schema field**, that side passes when the actor has **Edit
+Entity** on the containing dataset **or** on the schema field URN. Child and parent may satisfy
+their respective checks via different grant types (for example, dataset grant on the physical side
+and schema-field grant on the logical side).
+
+| Child entity  | Parent entity (when set) | How access is evaluated                                                                 |
+| ------------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| `dataset`     | `dataset`                | Edit Entity on child dataset **and** parent dataset                                     |
+| `schemaField` | `schemaField`            | Edit Entity on each side (containing dataset or schema field URN), independently        |
+| `dataset`     | `schemaField`            | Edit Entity on child dataset **and** on parent (containing dataset or schema field URN) |
+| `schemaField` | `dataset`                | Edit Entity on child (containing dataset or schema field URN) **and** parent dataset    |
+
+Applies to MCP ingestion, GraphQL (`setLogicalParent`), and OpenAPI logical-model relationship
+endpoints.
+
 ### Specific Entity-level Privileges
 
 These privileges are not generalizable.
@@ -284,40 +491,40 @@ These privileges are not generalizable.
 
 #### Dataset
 
-| Entity       | Privilege                                 | Description                                                                                                                                                                       |
-| ------------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dataset      | View Dataset Usage                        | Allow actor to access dataset usage information (includes usage statistics and queries).                                                                                          |
-| Dataset      | View Dataset Profile                      | Allow actor to access dataset profile (snapshot statistics)                                                                                                                       |
-| Dataset      | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                             |
-| Dataset      | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                     |
-| Dataset      | Edit Dataset Column Glossary Terms        | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                           |
-| Dataset      | Edit Dataset Column Properties            | Allow actor to edit the column (field) properties associated with a dataset schema.                                                                                               |
-| Dataset      | Propose Dataset Column Glossary Terms[^1] | Allow actor to propose column (field) glossary terms associated with a dataset schema.                                                                                            |
-| Dataset      | Propose Dataset Column Tags[^1]           | Allow actor to propose new column (field) tags associated with a dataset schema.                                                                                                  |
-| Dataset      | Manage Dataset Column Glossary Terms[^1]  | Allow actor to manage column (field) glossary term proposals associated with a dataset schema.                                                                                    |
-| Dataset      | Propose Dataset Column Descriptions[^1]   | Allow actor to propose new descriptions associated with a dataset schema.                                                                                                         |
-| Dataset      | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                              |
-| Dataset      | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                          |
-| Dataset      | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset.                                                                                                                                    |
-| Dataset      | View Dataset Operations                   | Allow actor to view operations on a Dataset.                                                                                                                                      |
-| Dataset      | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                              |
-| Dataset      | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                      |
-| Dataset      | Edit SQL Assertion Monitors[^1]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care. |
-| Dataset      | Edit Data Contract[^1]                    | Allow actor to edit the Data Contract for an entity.                                                                                                                              |
-| Dataset      | Manage Data Contract Proposals[^1]        | Allow actor to manage a proposal for a Data Contract                                                                                                                              |
-| Tag          | Edit Tag Color                            | Allow actor to change the color of a Tag.                                                                                                                                         |
-| Domain       | Manage Data Products                      | Allow actor to create, edit, and delete Data Products within a Domain                                                                                                             |
-| GlossaryNode | Manage Direct Glossary Children           | Allow actor to create and delete the direct children of this entity.                                                                                                              |
-| GlossaryNode | Manage All Glossary Children              | Allow actor to create and delete everything underneath this entity.                                                                                                               |
+| Entity       | Privilege                                 | Description                                                                                                                                                                                                                                |
+| ------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Dataset      | View Dataset Usage                        | Allow actor to access dataset usage information (includes usage statistics and queries).                                                                                                                                                   |
+| Dataset      | View Dataset Profile                      | Allow actor to access dataset profile (snapshot statistics)                                                                                                                                                                                |
+| Dataset      | Edit Dataset Column Descriptions          | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                                                                                      |
+| Dataset      | Edit Dataset Column Tags                  | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                                                                                              |
+| Dataset      | Edit Dataset Column Glossary Terms        | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                                                                                    |
+| Dataset      | Edit Dataset Column Properties            | Allow actor to edit the column (field) properties associated with a dataset schema.                                                                                                                                                        |
+| Dataset      | Propose Dataset Column Glossary Terms[^1] | Allow actor to propose column (field) glossary terms associated with a dataset schema.                                                                                                                                                     |
+| Dataset      | Propose Dataset Column Tags[^1]           | Allow actor to propose new column (field) tags associated with a dataset schema.                                                                                                                                                           |
+| Dataset      | Manage Dataset Column Glossary Terms[^1]  | Allow actor to manage column (field) glossary term proposals associated with a dataset schema.                                                                                                                                             |
+| Dataset      | Propose Dataset Column Descriptions[^1]   | Allow actor to propose new descriptions associated with a dataset schema.                                                                                                                                                                  |
+| Dataset      | Manage Dataset Column Tag Proposals[^1]   | Allow actor to manage column (field) tag proposals associated with a dataset schema.                                                                                                                                                       |
+| Dataset      | Edit Assertions                           | Allow actor to add and remove assertions from an entity.                                                                                                                                                                                   |
+| Dataset      | Edit Dataset Queries                      | Allow actor to edit the Queries for a Dataset. Query entity **read** visibility is derived from **View Entity Page** or **Edit Dataset Queries** (or **Edit Entity**) on all subject datasets linked via `querySubjects`.                  |
+| Dataset      | View Dataset Operations                   | Allow actor to view operations on a Dataset.                                                                                                                                                                                               |
+| Dataset      | Create erModelRelationship                | Allow actor to add erModelRelationship on a dataset.                                                                                                                                                                                       |
+| Dataset      | Edit Monitors[^1]                         | Allow actor to edit monitors for the entity.                                                                                                                                                                                               |
+| Dataset      | Edit SQL Assertion Monitors[^1]           | Allow actor to edit custom SQL assertion monitors for the entity. Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care.                                                          |
+| Dataset      | Edit Data Contract[^1]                    | Allow actor to edit the Data Contract for an entity.                                                                                                                                                                                       |
+| Dataset      | Manage Data Contract Proposals[^1]        | Allow actor to manage a proposal for a Data Contract                                                                                                                                                                                       |
+| Tag          | Edit Tag Color                            | Allow actor to change the color of a Tag.                                                                                                                                                                                                  |
+| Domain       | Manage Data Products                      | Allow actor to create, update, and delete Data Products scoped to a Domain, including changing a product's `assets` membership from the product side when the actor has this privilege on at least one Domain associated with the product. |
+| GlossaryNode | Manage Direct Glossary Children           | Allow actor to create and delete the direct children of this entity.                                                                                                                                                                       |
+| GlossaryNode | Manage All Glossary Children              | Allow actor to create and delete everything underneath this entity.                                                                                                                                                                        |
 
 #### Misc
 
-| Entity       | Privilege                       | Description                                                           |
-| ------------ | ------------------------------- | --------------------------------------------------------------------- |
-| Tag          | Edit Tag Color                  | Allow actor to change the color of a Tag.                             |
-| Domain       | Manage Data Products            | Allow actor to create, edit, and delete Data Products within a Domain |
-| GlossaryNode | Manage Direct Glossary Children | Allow actor to create and delete the direct children of this entity.  |
-| GlossaryNode | Manage All Glossary Children    | Allow actor to create and delete everything underneath this entity.   |
+| Entity       | Privilege                       | Description                                                                                                                                                                                                                                |
+| ------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tag          | Edit Tag Color                  | Allow actor to change the color of a Tag.                                                                                                                                                                                                  |
+| Domain       | Manage Data Products            | Allow actor to create, update, and delete Data Products scoped to a Domain, including changing a product's `assets` membership from the product side when the actor has this privilege on at least one Domain associated with the product. |
+| GlossaryNode | Manage Direct Glossary Children | Allow actor to create and delete the direct children of this entity.                                                                                                                                                                       |
+| GlossaryNode | Manage All Glossary Children    | Allow actor to create and delete everything underneath this entity.                                                                                                                                                                        |
 
 ## Coming Soon
 

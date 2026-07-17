@@ -11,7 +11,11 @@ from elasticsearch import Elasticsearch
 from pydantic import field_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -32,11 +36,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -259,7 +261,7 @@ class ElasticsearchSourceConfig(
     username: Optional[str] = Field(
         default=None, description="The username credential."
     )
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description="The password credential."
     )
     api_key: Optional[Union[Any, str]] = Field(
@@ -343,7 +345,14 @@ class ElasticsearchSourceConfig(
 
     @property
     def http_auth(self) -> Optional[Tuple[str, str]]:
-        return None if self.username is None else (self.username, self.password or "")
+        return (
+            None
+            if self.username is None
+            else (
+                self.username,
+                self.password.get_secret_value() if self.password else "",
+            )
+        )
 
 
 @platform_name("Elasticsearch")
@@ -385,14 +394,6 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
     ) -> "ElasticsearchSource":
         config = ElasticsearchSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         indices = self.client.indices.get_alias()

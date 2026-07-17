@@ -1,18 +1,16 @@
-import collections
-import dataclasses
 import logging
-from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional
+import re
+from datetime import datetime, timezone
+from typing import Any, Dict, Iterable, Optional
 
-from dateutil import parser
+from pydantic import field_validator
 from pydantic.fields import Field
-from pydantic.main import BaseModel
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.time_window_config import get_time_bucket
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -22,57 +20,67 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
-from datahub.ingestion.source.usage.usage_common import (
-    BaseUsageConfig,
-    GenericAggregatedDataset,
+from datahub.ingestion.source.sql.clickhouse import (
+    ClickHouseConfig,
+    clickhouse_datetime_format,
+)
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.metadata.urns import CorpUserUrn
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    SqlParsingAggregator,
 )
 
 logger = logging.getLogger(__name__)
 
-clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
+# A ClickHouse table identifier is at most `database.table`; restrict to characters
+# valid in an (optionally qualified) identifier. query_log_table is interpolated into
+# the fetch SQL as an identifier (identifiers cannot be bound as query parameters), so
+# validating it here is what prevents SQL injection through that config value.
+_QUERY_LOG_TABLE_PATTERN = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?$")
 
-clickhouse_usage_sql_comment = """\
-SELECT user                                                                       AS username
+# SELECT queries recorded in system.query_log. Each row's raw query text is fed
+# to the SqlParsingAggregator as an observed query; the aggregator does the SQL
+# parsing and usage aggregation (buckets, top users/queries), so this query only
+# needs to surface the raw statement plus the user and timestamp.
+CLICKHOUSE_USAGE_SQL = """\
+SELECT query_id
      , query
-     , substring(full_table_name, 1, position(full_table_name, '.') - 1)          AS database
-     , substring(full_table_name, position(full_table_name, '.') + 1)             AS table
-     , full_table_name
-     , arrayMap(x -> substr(x, length(full_table_name) + 2),
-                arrayFilter(x -> startsWith(x, full_table_name || '.'), columns)) AS columns
-     , query_start_time                                                           AS starttime
-     , event_time                                                                 AS endtime
+     , user                AS username
+     , query_start_time    AS starttime
+     , event_time          AS endtime
+     , normalized_query_hash
   FROM {query_log_table}
- ARRAY JOIN tables AS full_table_name
  WHERE is_initial_query
    AND type = 'QueryFinish'
    AND query_kind = 'Select'
-   AND full_table_name NOT LIKE 'system.%%'
-   AND full_table_name NOT LIKE '_table_function.%%'
-   AND table NOT LIKE '`.inner%%'
    AND event_time >= '{start_time}'
    AND event_time < '{end_time}'
+   AND query NOT LIKE '%%system.%%'
  ORDER BY event_time DESC"""
-
-ClickHouseTableRef = str
-AggregatedDataset = GenericAggregatedDataset[ClickHouseTableRef]
-
-
-class ClickHouseJoinedAccessEvent(BaseModel):
-    username: str = None  # type:ignore
-    query: str = None  # type: ignore
-    database: str = None  # type:ignore
-    table: str = None  # type:ignore
-    columns: List[str]
-    starttime: datetime
-    endtime: datetime
 
 
 class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
-    email_domain: str = Field(description="")
+    email_domain: str = Field(
+        description="Email domain appended to ClickHouse usernames to build the "
+        "user URNs surfaced in usage statistics."
+    )
     options: dict = Field(default={}, description="")
     query_log_table: str = Field(default="system.query_log", exclude=True)
+
+    @field_validator("query_log_table")
+    @classmethod
+    def validate_query_log_table(cls, v: str) -> str:
+        """Validate the query log table identifier to prevent SQL injection."""
+        if not _QUERY_LOG_TABLE_PATTERN.match(v):
+            raise ValueError(
+                f"Invalid query_log_table '{v}'. It must be an (optionally "
+                "database-qualified) identifier containing only alphanumeric "
+                "characters and underscores, e.g. 'system.query_log'."
+            )
+        return v
 
     def get_sql_alchemy_url(
         self,
@@ -82,7 +90,7 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
         return super().get_sql_alchemy_url(uri_opts=uri_opts, current_db=current_db)
 
 
-@platform_name("ClickHouse")
+@platform_name("ClickHouse", id="clickhouse")
 @config_class(ClickHouseUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
@@ -90,176 +98,137 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
 )
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
-@dataclasses.dataclass
 class ClickHouseUsageSource(Source):
     """
-    This plugin has the below functionalities -
-    1. For a specific dataset this plugin ingests the following statistics -
-       1. top n queries.
-       2. top users.
-       3. usage of each column in the dataset.
-    2. Aggregation of these statistics into buckets, by day or hour granularity.
+    Source that extracts usage statistics from ClickHouse by analyzing system.query_log.
 
-    Usage information is computed by querying the system.query_log table. In case you have a cluster or need to apply additional transformation/filters you can create a view and put to the `query_log_table` setting.
+    Implementation notes:
+    - Queries system.query_log (or custom view via query_log_table config) for SELECT queries
+    - Feeds each query into a SqlParsingAggregator as an observed query, so usage is
+      computed through the same SQL-parsing path as the rest of the ClickHouse connector
+      family (see the aggregator-based path in sql/clickhouse.py)
+    - The aggregator produces DatasetUsageStatistics (buckets, top users/queries) with
+      generate_usage_statistics=True
 
-    :::note
-
-    This source only does usage statistics. To get the tables, views, and schemas in your ClickHouse warehouse, ingest using the `clickhouse` source described above.
-
-    :::
-
+    This remains a standalone source (rather than folding into sql/clickhouse.py) to preserve
+    the existing `clickhouse-usage` recipe entry point; it now delegates aggregation to the
+    shared aggregator instead of the legacy usage_common GenericAggregatedDataset.
     """
 
     config: ClickHouseUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
+    report: SourceReport
+
+    def __init__(self, config: ClickHouseUsageConfig, ctx: PipelineContext) -> None:
+        super().__init__(ctx)
+        self.config = config
+        self.report = SourceReport()
+
+        self.aggregator = SqlParsingAggregator(
+            platform="clickhouse",
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            graph=ctx.graph,
+            eager_graph_load=False,
+            generate_lineage=False,
+            generate_queries=True,
+            generate_usage_statistics=True,
+            generate_query_usage_statistics=True,
+            usage_config=self.config,
+            is_allowed_table=self._is_allowed_table,
+            format_queries=self.config.format_sql_queries,
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = ClickHouseUsageConfig.model_validate(config_dict)
-        return cls(ctx, config)
+        return cls(config, ctx)
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """Gets ClickHouse usage stats as work units"""
-        access_events = self._get_clickhouse_history()
-        # If the query results is empty, we don't want to proceed
-        if not access_events:
-            return
-
-        joined_access_event = self._get_joined_access_event(access_events)
-        aggregated_info = self._aggregate_access_events(joined_access_event)
-
-        for time_bucket in aggregated_info.values():
-            for aggregate in time_bucket.values():
-                yield self._make_usage_stat(aggregate)
+    def _is_allowed_table(self, name: str) -> bool:
+        if "." in name:
+            database = name.split(".", 1)[0]
+            if not self.config.database_pattern.allowed(database):
+                return False
+        return self.config.table_pattern.allowed(
+            name
+        ) or self.config.view_pattern.allowed(name)
 
     def _make_usage_query(self) -> str:
-        return clickhouse_usage_sql_comment.format(
+        # Floor start_time to the bucket boundary so the first (partial) bucket is
+        # fully populated, matching the aggregator's bucket list (buckets() floors
+        # start_time internally) and the query-log window in sql/clickhouse.py.
+        start_time = get_time_bucket(
+            self.config.start_time, self.config.bucket_duration
+        )
+        # Security: the interpolated values are not injectable. start_time/end_time are
+        # datetime objects rendered via strftime (fixed numeric format, no user text),
+        # and query_log_table is validated to a safe identifier by validate_query_log_table.
+        return CLICKHOUSE_USAGE_SQL.format(
             query_log_table=self.config.query_log_table,
-            start_time=self.config.start_time.strftime(clickhouse_datetime_format),
+            start_time=start_time.strftime(clickhouse_datetime_format),
             end_time=self.config.end_time.strftime(clickhouse_datetime_format),
         )
 
     def _make_sql_engine(self) -> Engine:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url = {url}")
-        engine = create_engine(url, **self.config.options)
-        return engine
+        return create_engine(url, **self.config.options)
 
-    def _get_clickhouse_history(self):
-        query = self._make_usage_query()
+    def _get_observed_queries(self) -> Iterable[ObservedQuery]:
         engine = self._make_sql_engine()
-        results = engine.execute(query)
-        events = []
+        results = engine.execute(text(self._make_usage_query()))
         for row in results:
-            event_dict = row._asdict()
+            row_dict = dict(row._mapping)
 
-            # stripping extra spaces caused by above _asdict() conversion
-            for k, v in event_dict.items():
-                if isinstance(v, str):
-                    event_dict[k] = v.strip()
+            query = row_dict.get("query")
+            if not query:
+                continue
 
-            if not self.config.database_pattern.allowed(
-                event_dict.get("database")
-            ) or not (
-                self.config.table_pattern.allowed(event_dict.get("full_table_name"))
-                or self.config.view_pattern.allowed(event_dict.get("full_table_name"))
-            ):
-                logger.debug(
-                    f"Dropping usage event for {event_dict.get('full_table_name')}"
+            username = row_dict.get("username")
+            if isinstance(username, str):
+                username = username.strip()
+            user_urn: Optional[CorpUserUrn] = None
+            if username:
+                user_email = (
+                    username
+                    if "@" in username
+                    else f"{username}@{self.config.email_domain}"
                 )
-                continue
+                user_urn = CorpUserUrn(user_email)
 
-            if event_dict.get("starttime", None):
-                event_dict["starttime"] = event_dict.get("starttime").__str__()
-            if event_dict.get("endtime", None):
-                event_dict["endtime"] = event_dict.get("endtime").__str__()
-            # when the http protocol is used, the columns field is returned as a string
-            if isinstance(event_dict.get("columns"), str):
-                event_dict["columns"] = (
-                    event_dict.get("columns").replace("'", "").strip("][").split(",")
+            timestamp = row_dict.get("starttime") or row_dict.get("endtime")
+            if isinstance(timestamp, datetime):
+                # system.query_log DateTime columns come back naive; they represent
+                # UTC instants, so tag them as UTC rather than astimezone(), which
+                # would (wrongly) reinterpret a naive value as the host's local time.
+                timestamp = (
+                    timestamp.replace(tzinfo=timezone.utc)
+                    if timestamp.tzinfo is None
+                    else timestamp.astimezone(timezone.utc)
                 )
 
-            logger.debug(f"event_dict: {event_dict}")
-            events.append(event_dict)
-
-        if events:
-            return events
-
-        # SQL results can be empty. If results is empty, the SQL connection closes.
-        # Then, we don't want to proceed ingestion.
-        logging.info("SQL Result is empty")
-        return None
-
-    def _convert_str_to_datetime(self, v):
-        if isinstance(v, str):
-            isodate = parser.parse(v)  # compatible with Python 3.6+
-            return isodate.strftime(clickhouse_datetime_format)
-
-    def _get_joined_access_event(self, events):
-        joined_access_events = []
-        for event_dict in events:
-            event_dict["starttime"] = self._convert_str_to_datetime(
-                event_dict.get("starttime")
-            )
-            event_dict["endtime"] = self._convert_str_to_datetime(
-                event_dict.get("endtime")
+            yield ObservedQuery(
+                query=query,
+                session_id=row_dict.get("query_id"),
+                timestamp=timestamp,
+                user=user_urn,
+                # Don't pass a default_db. ClickHouse uses 2-level (database.table)
+                # naming, but for a 2-level dialect sqlglot slots an existing database
+                # qualifier into `db` and lets default_db fill `catalog`, over-qualifying
+                # already-qualified names into incorrect URNs like
+                # "default.analytics_marts.table".
+                default_db=None,
+                query_hash=str(row_dict.get("normalized_query_hash", "")),
             )
 
-            if not (event_dict.get("database", None) and event_dict.get("table", None)):
-                logging.info("An access event parameter(s) is missing. Skipping ....")
-                continue
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        for observed_query in self._get_observed_queries():
+            self.aggregator.add(observed_query)
 
-            if not event_dict.get("username") or event_dict["username"] == "":
-                logging.info("The username parameter is missing. Skipping ....")
-                continue
-
-            joined_access_events.append(ClickHouseJoinedAccessEvent(**event_dict))
-
-        return joined_access_events
-
-    def _aggregate_access_events(
-        self, events: List[ClickHouseJoinedAccessEvent]
-    ) -> Dict[datetime, Dict[ClickHouseTableRef, AggregatedDataset]]:
-        datasets: Dict[datetime, Dict[ClickHouseTableRef, AggregatedDataset]] = (
-            collections.defaultdict(dict)
-        )
-
-        for event in events:
-            floored_ts = get_time_bucket(event.starttime, self.config.bucket_duration)
-
-            resource = (
-                f"{self.config.platform_instance + '.' if self.config.platform_instance else ''}"
-                f"{event.database}.{event.table}"
-            )
-
-            agg_bucket = datasets[floored_ts].setdefault(
-                resource,
-                AggregatedDataset(bucket_start_time=floored_ts, resource=resource),
-            )
-
-            # current limitation in user stats UI, we need to provide email to show users
-            user_email = f"{event.username if event.username else 'unknown'}"
-            if "@" not in user_email:
-                user_email += f"@{self.config.email_domain}"
-            logger.info(f"user_email: {user_email}")
-            agg_bucket.add_read_entry(
-                user_email,
-                event.query,
-                event.columns,
-            )
-        return datasets
-
-    def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
-        return agg.make_usage_workunit(
-            self.config.bucket_duration,
-            lambda resource: builder.make_dataset_urn(
-                "clickhouse", resource, self.config.env
-            ),
-            self.config.top_n_queries,
-            self.config.format_sql_queries,
-            self.config.include_top_n_queries,
-            self.config.queries_character_limit,
-        )
+        yield from auto_workunit(self.aggregator.gen_metadata())
 
     def get_report(self) -> SourceReport:
         return self.report
+
+    def close(self) -> None:
+        self.aggregator.close()
+        super().close()

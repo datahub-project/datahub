@@ -1,8 +1,9 @@
+import i18next from 'i18next';
+import { DefaultTheme } from 'styled-components';
+
 import {
     AGGREGATION_GROUPS,
-    AGGREGATION_GROUP_TO_COLORS_MAPPING,
     CUSTOM_KEY_PREFIX,
-    DEFAULT_COLOR,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/ChangeHistoryGraph/constants';
 import {
     AggregationGroup,
@@ -68,42 +69,42 @@ export function convertAggregationsToOperationsData(
                 key: OperationType.Insert,
                 group: AggregationGroup.Purple,
                 type: OperationType.Insert,
-                name: 'Insert',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.insert'),
             },
             updates: {
                 value: updates,
                 key: OperationType.Update,
                 group: AggregationGroup.Purple,
                 type: OperationType.Update,
-                name: 'Update',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.update'),
             },
             deletes: {
                 value: deletes,
                 key: OperationType.Delete,
                 group: AggregationGroup.Red,
                 type: OperationType.Delete,
-                name: 'Delete',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.delete'),
             },
             alters: {
                 value: alters,
                 key: OperationType.Alter,
                 group: AggregationGroup.Purple,
                 type: OperationType.Alter,
-                name: 'Alter',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.alter'),
             },
             creates: {
                 value: creates,
                 key: OperationType.Create,
                 group: AggregationGroup.Purple,
                 type: OperationType.Create,
-                name: 'Create',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.create'),
             },
             drops: {
                 value: drops,
                 key: OperationType.Drop,
                 group: AggregationGroup.Red,
                 type: OperationType.Drop,
-                name: 'Drop',
+                name: i18next.t('entity.profile.stats:changeHistoryGraph.operation.drop'),
             },
             ...prefixedCustomOperations,
         },
@@ -136,7 +137,19 @@ export function createColorAccessors(
     summary: OperationsData | undefined,
     data: CalendarData<OperationsData>[],
     types: AnyOperationType[],
+    theme: DefaultTheme,
 ) {
+    const DEFAULT_COLOR = theme.colors.bgSurfaceDarker;
+
+    const AGGREGATION_GROUP_TO_COLORS_MAPPING = {
+        [AggregationGroup.Purple]: [
+            theme.colors.chartsBrandBase,
+            theme.colors.chartsBrandMedium,
+            theme.colors.chartsHeatmapHigh,
+        ],
+        [AggregationGroup.Red]: [theme.colors.chartsRedLow, theme.colors.chartsRedMedium, theme.colors.chartsRedHigh],
+    };
+
     // Calculate max values for each group
     const maxValueMapping = AGGREGATION_GROUPS.reduce(
         (mapping, group) => ({
