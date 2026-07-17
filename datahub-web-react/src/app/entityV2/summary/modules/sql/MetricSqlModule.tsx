@@ -144,7 +144,7 @@ function DialectSubpanel({
     );
 }
 
-export default function SqlModule(props: ModuleProps) {
+export default function MetricSqlModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { entityData } = useEntityData();
     const metric = entityData as Metric | null | undefined;

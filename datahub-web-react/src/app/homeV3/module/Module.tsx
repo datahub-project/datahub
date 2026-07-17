@@ -13,7 +13,7 @@ import SemanticModelDatasetsModule from '@app/entityV2/summary/modules/semanticM
 import SemanticModelDimensionsModule from '@app/entityV2/summary/modules/semanticModelDimensions/SemanticModelDimensionsModule';
 import SemanticModelMetricsModule from '@app/entityV2/summary/modules/semanticModelMetrics/SemanticModelMetricsModule';
 import SemanticModelRelationshipsModule from '@app/entityV2/summary/modules/semanticModelRelationships/SemanticModelRelationshipsModule';
-import SqlModule from '@app/entityV2/summary/modules/sql/SqlModule';
+import MetricSqlModule from '@app/entityV2/summary/modules/sql/MetricSqlModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
 import { ModuleProvider } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -54,7 +54,7 @@ function Module(props: ModuleProps) {
             return SemanticModelRelationshipsModule;
         if (module.properties.type === DataHubPageModuleType.SemanticModelDimensions)
             return SemanticModelDimensionsModule;
-        if (module.properties.type === DataHubPageModuleType.MetricSql) return SqlModule;
+        if (module.properties.type === DataHubPageModuleType.MetricSql) return MetricSqlModule;
         if (module.properties.type === DataHubPageModuleType.RelatedMetrics) return RelatedMetricsModule;
 
         // TODO: remove the sample large module once we have other modules to fill this out
