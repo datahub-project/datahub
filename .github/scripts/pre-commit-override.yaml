@@ -7,6 +7,9 @@ repos:
         language: system
         files: ^smoke-test/tests/cypress/.*\.tsx$
         pass_filenames: false
+        # cypressLintFix is a self-correcting formatter (slow, module-wide Gradle
+        # invocation). Run it at pre-push instead of pre-commit; see PFP-5002.
+        stages: [pre-push]
       - id: update-lineage-file
         name: update-lineage-file
         entry: ./gradlew :metadata-ingestion:lineageGen -x generateGitPropertiesGlobal
@@ -51,6 +54,9 @@ repos:
         language: system
         files: ^e2e-test/ui/playwright/.*\.ts$
         pass_filenames: false
+        # lintFix + prettierWrite are self-correcting formatters (slow, module-wide
+        # Gradle invocation). Run them at pre-push instead of pre-commit; see PFP-5002.
+        stages: [pre-push]
       - id: bump-schema-versions
         name: Bump PDL schema versions
         entry: python .github/scripts/bump_schema_versions.py

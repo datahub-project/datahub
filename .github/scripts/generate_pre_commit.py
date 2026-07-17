@@ -280,6 +280,10 @@ class HookGenerator:
             "language": "system",
             "files": f"^{project.path}/.*\\.java$",
             "pass_filenames": False,
+            # spotlessApply is a self-correcting formatter (slow, module-wide Gradle
+            # invocation). Run it at pre-push instead of pre-commit so commits stay
+            # fast; see PFP-5002.
+            "stages": ["pre-push"],
         }
 
     def _generate_prettier_hook(self, project: Project) -> dict:
@@ -291,6 +295,10 @@ class HookGenerator:
             "language": "system",
             "files": project.filePattern,
             "pass_filenames": False,
+            # PrettierWrite is a self-correcting formatter (slow, module-wide Gradle
+            # invocation). Run it at pre-push instead of pre-commit so commits stay
+            # fast; see PFP-5002.
+            "stages": ["pre-push"],
         }
 
 
