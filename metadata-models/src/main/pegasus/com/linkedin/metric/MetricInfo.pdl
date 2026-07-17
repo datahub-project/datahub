@@ -1,6 +1,7 @@
 namespace com.linkedin.metric
 
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.ExternalReference
 import com.linkedin.common.Urn
 
 /**
@@ -8,9 +9,9 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "metricInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
-record MetricInfo {
+record MetricInfo includes ExternalReference {
 
   /**
    * Display name of the metric.

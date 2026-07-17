@@ -1,0 +1,180 @@
+fragment semanticFieldFields on SemanticField {
+    schemaField {
+        fieldPath
+        type
+        description
+        nativeDataType
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    type
+    expression {
+        dialects {
+            dialect
+            expression
+        }
+    }
+    dimension {
+        isTime
+    }
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
+}
+
+fragment modelDatasetFields on ModelDataset {
+    name
+    source {
+        urn
+        type
+        ... on Dataset {
+            name
+            platform {
+                ...platformFields
+            }
+            editableProperties {
+                description
+            }
+            properties {
+                name
+                description
+            }
+            tags {
+                ...globalTagsFields
+            }
+        }
+    }
+    fields {
+        ...semanticFieldFields
+    }
+}
+
+fragment semanticModelRelationshipFields on SemanticModelRelationship {
+    name
+    from
+    fromColumns
+    to
+    toColumns
+    cardinality
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
+}
+
+fragment semanticModelInfoFields on SemanticModelInfo {
+    name
+    description
+    created {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    nativeDefinition
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
+    datasets {
+        ...modelDatasetFields
+    }
+    relationships {
+        ...semanticModelRelationshipFields
+    }
+}
+
+fragment semanticModelProfileInfoFields on SemanticModelInfo {
+    name
+    description
+    created {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+        }
+    }
+    nativeDefinition
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
+}
+
+fragment semanticModelFields on SemanticModel {
+    urn
+    type
+    id
+    path
+    lastIngested
+    platform {
+        ...platformFields
+    }
+    info {
+        ...semanticModelProfileInfoFields
+    }
+    ownership {
+        ...ownershipFields
+    }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    subTypes {
+        typeNames
+    }
+    exists
+    privileges {
+        ...entityPrivileges
+    }
+}
+
+query getSemanticModel($urn: String!) {
+    semanticModel(urn: $urn) {
+        ...semanticModelFields
+    }
+}

@@ -1,6 +1,7 @@
 namespace com.linkedin.semanticmodel
 
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.ExternalReference
 import com.linkedin.metric.AiContext
 
 /**
@@ -8,9 +9,9 @@ import com.linkedin.metric.AiContext
  */
 @Aspect = {
   "name": "semanticModelInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
-record SemanticModelInfo {
+record SemanticModelInfo includes ExternalReference {
 
   /**
    * Display name of the semantic model.

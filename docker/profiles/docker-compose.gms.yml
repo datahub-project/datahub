@@ -53,12 +53,20 @@ x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
   DATAHUB_TELEMETRY_ENABLED: ${DATAHUB_TELEMETRY_ENABLED:-true}
   # OSS usage aggregation + Micrometer flush export
   USAGE_AGGREGATION_ENABLED: ${USAGE_AGGREGATION_ENABLED:-true}
+  # Faster local flushes so Prometheus smoke waits stay under typical budgets
+  USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS: ${USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS:-30}
+  # Align flush windows to the top of the UTC hour (local parity with production cadence)
+  USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS: ${USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS:-3600}
 
 x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-dev}
   DATAHUB_TELEMETRY_ENABLED: ${DATAHUB_TELEMETRY_ENABLED:-true}
   # OSS usage aggregation + Micrometer flush export
   USAGE_AGGREGATION_ENABLED: ${USAGE_AGGREGATION_ENABLED:-true}
+  # Faster local flushes so Prometheus smoke waits stay under typical budgets
+  USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS: ${USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS:-30}
+  # Align flush windows to the top of the UTC hour (local parity with production cadence)
+  USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS: ${USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS:-3600}
 
 x-localstack-env: &localstack-env
   AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
