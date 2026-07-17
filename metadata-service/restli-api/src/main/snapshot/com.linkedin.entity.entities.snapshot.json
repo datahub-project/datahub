@@ -2260,13 +2260,22 @@
       "type" : "string",
       "doc" : "The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle"
     }, {
+      "name" : "logical",
+      "type" : "boolean",
+      "doc" : "Whether datasets on this platform represent logical models or specifications rather than physical assets. If absent, the platform is not logical.",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "BOOLEAN"
+      }
+    }, {
       "name" : "logoUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "The URL for a logo associated with the platform",
       "optional" : true
     } ],
     "Aspect" : {
-      "name" : "dataPlatformInfo"
+      "name" : "dataPlatformInfo",
+      "schemaVersion" : 2
     }
   }, "com.linkedin.dataplatform.PlatformType", {
     "type" : "record",
@@ -2591,7 +2600,7 @@
     }, {
       "name" : "matchType",
       "type" : "LineageMatchType",
-      "doc" : "How this upstream reference's URN was resolved against the entities stored in\nDataHub. Set by the lineage URN casing normalization processor (EXACT when the\nreference already matched an existing entity, NORMALIZED when it was rewritten\nto heal a casing mismatch). Absent when no reconciliation was performed.",
+      "doc" : "How this upstream reference's URN was resolved against the entities stored in\nDataHub. Set by the lineage URN casing normalization processor (EXACT when the\nreference already matched existing entities, NORMALIZED when it was rewritten\nto heal a casing mismatch). Absent when no reconciliation was performed.",
       "optional" : true
     } ]
   }, {

@@ -3035,6 +3035,11 @@ type DataPlatformProperties {
   A logo URL associated with the platform
   """
   logoUrl: String
+
+  """
+  Whether datasets on this platform represent logical models or specifications rather than physical assets. If absent, the platform is not logical.
+  """
+  logical: Boolean
 }
 
 """

@@ -6,7 +6,8 @@ import com.linkedin.common.Url
  * Information about a data platform
  */
 @Aspect = {
-  "name": "dataPlatformInfo"
+  "name": "dataPlatformInfo",
+  "schemaVersion": 2
 }
 record DataPlatformInfo {
 
@@ -93,6 +94,14 @@ record DataPlatformInfo {
    * The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle
    */
   datasetNameDelimiter: string
+
+  /**
+   * Whether datasets on this platform represent logical models or specifications rather than physical assets. If absent, the platform is not logical.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  logical: optional boolean
 
   /**
    * The URL for a logo associated with the platform

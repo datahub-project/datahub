@@ -41,7 +41,7 @@ Columns on the logical parent and physical children can be linked as well:
 Logical models are created like any DataHub dataset. We recommend using the Python SDK.
 
 :::note Logical Model Platform
-All DataHub datasets require a platform, representing where the dataset exists. If your logical models are stored in a system users are familiar with, we recommend creating a custom platform for that system and providing a custom icon. Otherwise, we recommend using the platform `logical`, which has a special default icon.
+Logical model datasets belong to a logical platform: a data platform whose `dataPlatformInfo` aspect sets `logical: true`. This identifies its datasets as logical models or specifications rather than physical assets. The built-in `logical` platform is marked this way. Custom platforms used for logical models must also set `logical: true`; if the field is absent, the platform is treated as non-logical.
 :::
 
 ### Create Dataset in "logical" Platform
@@ -81,7 +81,8 @@ All DataHub datasets require a platform, representing where the dataset exists. 
         name="<platformName>",
         type=PlatformTypeClass.OTHERS,
         datasetNameDelimiter=".",
-        logoUrl="<url>"
+        logoUrl="<url>",
+        logical=True,
     )
     client = DataHubClient.from_env()
     client._graph.emit(MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect))
