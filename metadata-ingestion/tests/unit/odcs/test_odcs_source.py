@@ -295,6 +295,7 @@ def test_platform_info_emitted_once_and_not_primary(tmp_path: pathlib.Path) -> N
     platform_aspect = _mcp(platform_wus[0]).aspect
     assert isinstance(platform_aspect, DataPlatformInfoClass)
     assert platform_aspect.name == "odcs"
+    assert platform_aspect.logical is True
     assert not platform_wus[0].is_primary_source
 
 

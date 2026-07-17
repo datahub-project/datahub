@@ -674,6 +674,7 @@ def test_platform_info_registers_odcs() -> None:
     assert isinstance(mcp.aspect, DataPlatformInfoClass)
     assert mcp.aspect.name == "odcs"
     assert mcp.aspect.displayName == "Open Data Contract Standard"
+    assert mcp.aspect.logical is True
 
 
 # ---------------------------------------------------------------------------

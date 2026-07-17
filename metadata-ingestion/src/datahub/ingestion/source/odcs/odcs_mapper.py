@@ -230,6 +230,7 @@ def odcs_platform_info_mcp() -> MetadataChangeProposalWrapper:
             datasetNameDelimiter=".",
             displayName="Open Data Contract Standard",
             logoUrl="assets/platforms/odcslogo.png",
+            logical=True,
         ),
     )
 
