@@ -45,15 +45,9 @@ repos:
         language: system
         files: ^.*\.mdx?$
         entry: python3 .github/scripts/check_docusaurus_markdown.py
-      - id: playwright-e2e-lint-fix
-        name: Playwright E2E ESLint Fix
-        entry: ./gradlew :e2e-test:ui:playwright:lintFix -x generateGitPropertiesGlobal
-        language: system
-        files: ^e2e-test/ui/playwright/.*\.ts$
-        pass_filenames: false
-      - id: playwright-e2e-prettier-write
-        name: Playwright E2E Prettier Format
-        entry: ./gradlew :e2e-test:ui:playwright:prettierWrite -x generateGitPropertiesGlobal
+      - id: playwright-e2e-lint-and-format
+        name: Playwright E2E ESLint Fix + Prettier Format
+        entry: bash .github/scripts/playwright_staged_lint.sh
         language: system
         files: ^e2e-test/ui/playwright/.*\.ts$
         pass_filenames: false
