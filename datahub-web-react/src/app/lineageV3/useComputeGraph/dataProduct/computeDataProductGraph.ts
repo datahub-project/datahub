@@ -5,7 +5,7 @@ import {
     LineageFilter,
     LineageToggles,
     NodeContext,
-    filterAdjacencyList,
+    buildHighlightAdjacencyList,
     setDefault,
 } from '@app/lineageV3/common';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
@@ -173,7 +173,7 @@ export default function computeDataProductGraph(
             flowEdges: [],
             resetPositions: false,
             lineageFilters,
-            adjacencyList: filterAdjacencyList(revealedGraphStore.adjacencyList, displayedIds),
+            adjacencyList: buildHighlightAdjacencyList(revealedGraphStore.edges, displayedIds),
         };
     }
 
@@ -232,7 +232,7 @@ export default function computeDataProductGraph(
         flowEdges,
         resetPositions: false,
         lineageFilters,
-        // For node highlighting: only shown nodes and revealed edges
-        adjacencyList: filterAdjacencyList(revealedGraphStore.adjacencyList, displayedIds),
+        // For hover highlighting: revealed edges between shown nodes, routed through query nodes.
+        adjacencyList: buildHighlightAdjacencyList(revealedGraphStore.edges, displayedIds),
     };
 }

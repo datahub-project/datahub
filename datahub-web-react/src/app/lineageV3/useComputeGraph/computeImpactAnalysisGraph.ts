@@ -4,7 +4,7 @@ import {
     LineageNode,
     LineageToggles,
     NodeContext,
-    filterAdjacencyList,
+    buildHighlightAdjacencyList,
 } from '@app/lineageV3/common';
 import NodeBuilder from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGraph';
@@ -86,6 +86,6 @@ export default function computeImpactAnalysisGraph(
         levelsMap,
         lineageFilters,
         // For node highlighting: only shown nodes, with edges connected through toggle-hidden nodes
-        adjacencyList: filterAdjacencyList(newGraphStore.adjacencyList, new Set(displayedNodes.map((n) => n.id))),
+        adjacencyList: buildHighlightAdjacencyList(newGraphStore.edges, new Set(displayedNodes.map((n) => n.id))),
     };
 }

@@ -66,7 +66,16 @@ export default function buildFlowEdges(
                 endpointsFor(target).forEach((targetEndpoint) => {
                     const id = createEdgeId(sourceEndpoint.id, targetEndpoint.id);
                     if (!flowEdges.has(id)) {
-                        flowEdges.set(id, createFlowEdge(id, sourceEndpoint, targetEndpoint, edge, edgeId, graphStore));
+                        // `originalId` is the entity-level id highlighting matches against. Use this
+                        // segment's own entity endpoints, not the full table->table `edgeId`: a query
+                        // node fanning many upstreams into one downstream produces a single shared
+                        // query->downstream segment, so keying it to the full edge would only match
+                        // the one upstream that happened to build it first (see useNodeHighlighting).
+                        const originalId = createEdgeId(sourceEndpoint.urn, targetEndpoint.urn);
+                        flowEdges.set(
+                            id,
+                            createFlowEdge(id, sourceEndpoint, targetEndpoint, edge, originalId, graphStore),
+                        );
                     }
                 });
             });

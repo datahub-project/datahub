@@ -333,24 +333,32 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
-/** Restricts an adjacency list to the given node ids, on both sides of each edge. */
-export function filterAdjacencyList(
-    adjacencyList: NodeContext['adjacencyList'],
+/**
+ * Builds the adjacency list used for hover highlighting from `edges`, restricted to `keepIds` on
+ * both sides. Edges through a query/via node are routed *through* it (`upstream -> via -> downstream`)
+ * rather than as a direct hop, so hovering any upstream of a query that fans into a shared downstream
+ * lights up the shared query->downstream segment. A via node not in `keepIds` falls back to a direct
+ * hop. See `useNodeHighlighting`, which matches rendered edges against these entity-level hops.
+ */
+export function buildHighlightAdjacencyList(
+    edges: NodeContext['edges'],
     keepIds: Set<Urn>,
 ): NodeContext['adjacencyList'] {
-    const filterMap = (neighborMap: NeighborMap): NeighborMap => {
-        const result: NeighborMap = new Map();
-        neighborMap.forEach((neighbors, urn) => {
-            if (!keepIds.has(urn)) return;
-            const keptNeighbors = new Set(Array.from(neighbors).filter((neighbor) => keepIds.has(neighbor)));
-            if (keptNeighbors.size) result.set(urn, keptNeighbors);
-        });
-        return result;
+    const adjacencyList: NodeContext['adjacencyList'] = {
+        [LineageDirection.Upstream]: new Map(),
+        [LineageDirection.Downstream]: new Map(),
     };
-    return {
-        [LineageDirection.Upstream]: filterMap(adjacencyList[LineageDirection.Upstream]),
-        [LineageDirection.Downstream]: filterMap(adjacencyList[LineageDirection.Downstream]),
-    };
+    edges.forEach((edge, edgeId) => {
+        const [upstream, downstream] = parseEdgeId(edgeId);
+        if (!keepIds.has(upstream) || !keepIds.has(downstream)) return;
+        if (edge.via && keepIds.has(edge.via)) {
+            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, upstream, edge.via);
+            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, edge.via, downstream);
+        } else {
+            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, upstream, downstream);
+        }
+    });
+    return adjacencyList;
 }
 
 // Mapping fromRef -> toRef -> operationRef represents a column-level edge (fromRef -> toRef)
