@@ -66,7 +66,9 @@ const CopyButton = styled.button`
     background: transparent;
     color: ${(props) => props.theme.colors.textSecondary};
     cursor: pointer;
-    transition: color 0.12s ease, background 0.12s ease;
+    transition:
+        color 0.12s ease,
+        background 0.12s ease;
 
     &:hover {
         color: ${(props) => props.theme.colors.text};

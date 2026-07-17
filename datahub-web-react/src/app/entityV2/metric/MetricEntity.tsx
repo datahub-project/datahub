@@ -4,8 +4,8 @@ import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import MetricPreview from '@app/entityV2/metric/preview/MetricPreview';
 import { buildMetricContextParent } from '@app/entityV2/metric/MetricEntity.utils';
+import MetricPreview from '@app/entityV2/metric/preview/MetricPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';

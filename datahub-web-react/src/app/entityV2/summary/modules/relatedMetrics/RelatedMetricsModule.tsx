@@ -34,15 +34,11 @@ function buildEntries(metric: Metric): RelatedMetricEntry[] {
         ? [{ entity: metric.parentMetric as Entity, kind: 'parentMetric' }]
         : [];
 
-    const derivedEntries: RelatedMetricEntry[] = (
-        (metric?.metricRelationships?.derivedFrom ?? []) as EntityEdge[]
-    )
+    const derivedEntries: RelatedMetricEntry[] = ((metric?.metricRelationships?.derivedFrom ?? []) as EntityEdge[])
         .filter((edge) => !!edge.destination)
         .map((edge) => ({ entity: edge.destination as Entity, kind: 'derivedFrom' as RelationshipKind }));
 
-    const relatedEntries: RelatedMetricEntry[] = (
-        (metric?.metricRelationships?.relatedMetrics ?? []) as EntityEdge[]
-    )
+    const relatedEntries: RelatedMetricEntry[] = ((metric?.metricRelationships?.relatedMetrics ?? []) as EntityEdge[])
         .filter((edge) => !!edge.destination)
         .map((edge) => ({ entity: edge.destination as Entity, kind: 'relatedMetrics' as RelationshipKind }));
 
@@ -72,11 +68,7 @@ export default function RelatedMetricsModule(props: ModuleProps) {
                         moduleType={DataHubPageModuleType.RelatedMetrics}
                         customDetailsRenderer={() => (
                             <PillWrapper>
-                                <Pill
-                                    label={RELATIONSHIP_LABEL[entry.kind]}
-                                    size="sm"
-                                    variant="outline"
-                                />
+                                <Pill label={RELATIONSHIP_LABEL[entry.kind]} size="sm" variant="outline" />
                             </PillWrapper>
                         )}
                     />
