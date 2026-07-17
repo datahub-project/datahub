@@ -19,6 +19,14 @@ echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
 DATAHUB_TOKEN_SERVICE_SIGNING_KEY=$(openssl rand -base64 32)
 DATAHUB_TOKEN_SERVICE_SALT=$(openssl rand -base64 32)
 
+# CI_TMPFS=true backs mysql/opensearch/kafka storage with tmpfs (RAM) to speed
+# up boot. Opt-in only: never enable for a quickstart whose data must survive a
+# restart. When unset, the compose invocation is byte-for-byte the same as before.
+compose_file_args=()
+if [[ "${CI_TMPFS:-false}" == "true" ]]; then
+  compose_file_args=(-f ../docker/profiles/docker-compose.yml -f ../docker/profiles/docker-compose.ci-tmpfs.yml)
+fi
+
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
 DATAHUB_SEARCH_IMAGE="${DATAHUB_SEARCH_IMAGE:=opensearchproject/opensearch}"
 DATAHUB_SEARCH_TAG="${DATAHUB_SEARCH_TAG:=2.19.3}"
@@ -45,5 +53,5 @@ DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
 DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${DATAHUB_TOKEN_SERVICE_SIGNING_KEY} \
 DATAHUB_TOKEN_SERVICE_SALT=${DATAHUB_TOKEN_SERVICE_SALT} \
 DATAHUB_LOCAL_ACTIONS_ENV=`pwd`/test_resources/actions/actions.env  \
-docker compose --project-directory ../docker/profiles --profile ${PROFILE_NAME:-quickstart-consumers} up -d --quiet-pull --wait --wait-timeout 900
+docker compose --project-directory ../docker/profiles ${compose_file_args[@]+"${compose_file_args[@]}"} --profile ${PROFILE_NAME:-quickstart-consumers} up -d --quiet-pull --wait --wait-timeout 900
 

@@ -67,7 +67,9 @@ env:
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
-  PLAYWRIGHT_SHARD_COUNT: "8"
+  # 6 shards keeps the slowest Playwright job below the pytest critical path while
+  # spinning up 2 fewer quickstart stacks (each boot ≈ pull + quickstart overhead).
+  PLAYWRIGHT_SHARD_COUNT: "6"
 
 permissions:
   contents: read
@@ -558,6 +560,8 @@ jobs:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          # CI-only: back storage volumes with tmpfs (RAM) to speed up quickstart boot.
+          CI_TMPFS: "true"
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
@@ -744,6 +748,8 @@ jobs:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          # CI-only: back storage volumes with tmpfs (RAM) to speed up quickstart boot.
+          CI_TMPFS: "true"
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
