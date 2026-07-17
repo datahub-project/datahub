@@ -75,8 +75,8 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
 
         def new_get_latest_version(subject_name: str) -> RegisteredSchema:
             return RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_1",
+                guid=None,
                 schema=Schema(schema_str=schema_str_ref, schema_type="AVRO"),
                 subject="test",
                 version=1,
@@ -166,6 +166,53 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
         field_names = [f.fieldPath for f in fields]
         assert any("id" in name for name in field_names)
         assert any("name" in name for name in field_names)
+
+    def test_init_subjects_connectivity_failure_is_reported(self):
+        kafka_source_config = KafkaSourceConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "localhost:9092",
+                    "schema_registry_url": "http://localhost:8081",
+                },
+            }
+        )
+        report = KafkaSourceReport()
+
+        with patch(
+            "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient"
+        ) as mock_client_cls:
+            mock_client_cls.return_value.get_subjects.side_effect = OSError(
+                "registry unreachable"
+            )
+            registry = ConfluentSchemaRegistry.create(kafka_source_config, report)
+
+        # A registry we can't reach at startup must be tallied, not swallowed.
+        assert report.schema_registry_connectivity_failures == 1
+        assert registry.get_subjects() == []
+
+    def test_batch_connectivity_failure_is_reported(self):
+        kafka_source_config = KafkaSourceConfig.model_validate(
+            {
+                "connection": {
+                    "bootstrap": "localhost:9092",
+                    "schema_registry_url": "http://localhost:8081",
+                },
+            }
+        )
+        report = KafkaSourceReport()
+        registry = ConfluentSchemaRegistry.create(kafka_source_config, report)
+
+        with patch.object(
+            registry,
+            "_get_schema_and_fields",
+            side_effect=OSError("registry unreachable"),
+        ):
+            result = registry.get_schema_and_fields_batch(["topic-a"])
+
+        # Connectivity failures must be tallied and the topic left schemaless.
+        assert report.schema_registry_connectivity_failures == 1
+        assert result["topic-a"].schema is None
+        assert result["topic-a"].fields == []
 
 
 if __name__ == "__main__":
