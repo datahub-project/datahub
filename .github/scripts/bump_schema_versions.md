@@ -131,17 +131,19 @@ DataHubIngestionSourceSchedule.pdl  ← changed (non-aspect)
 
 ### Backward-compatible changes are not bumped
 
-`schemaVersion` exists so that migration tooling can detect when data stored at an older version needs transformation before it can be read at the newer version. A change that is purely **additive** leaves every previously-serialized aspect valid and complete, so it requires no migration — and therefore no bump. Before a changed file is considered for bumping (and before it can cascade a bump into dependents), the tool checks whether its only diff vs the base branch is backward-compatible. If so, the file is ignored exactly like a comment-only change.
+`schemaVersion` exists so that migration tooling can detect when data stored at an older version needs transformation before it can be read at the newer version. A change that is purely **additive** leaves every previously-serialized aspect valid and complete, so it requires no migration — and therefore no bump. This matches the Additive vs Breaking taxonomy in [`report_aspect_changes.py`](report_pdl_aspect_changes.md): only breaking changes require a version hop.
 
-A change is treated as backward-compatible when **all** of the following hold:
+Before a changed file is considered for bumping (and before it can cascade a bump into dependents), the tool checks whether its only diff vs the base branch is backward-compatible. If so, the file is ignored exactly like a comment-only change.
 
-- Every field present on the base branch is unchanged (same name, type, default, and field annotations).
+A change is treated as backward-compatible when **all** of the following hold (aligned with the report tool's `fields()` / Additive bucket):
+
+- Every field present on the base branch keeps the same name, type, and optional-ness (annotations and defaults are ignored, matching the report).
 - Every newly added record field is declared `optional`.
 - Every enum symbol present on the base branch is still present (new symbols may be added).
 - `includes` clauses are unchanged.
-- The `@Aspect` annotation is unchanged **except** for `schemaVersion` itself (this is what lets a maintainer intentionally remove or lower a version that was bumped for an additive-only change).
+- The `@Aspect` annotation is unchanged **except** for `schemaVersion` itself (this is what lets a maintainer intentionally remove a version that was bumped for an additive-only change — e.g. CorpUserInfo / #18278).
 
-Anything else — removing or renaming a field, changing a field's type/default/annotations, adding a non-optional field, removing an enum symbol, or any construct the conservative parser cannot model (e.g. `typeref`) — is treated as a real change and bumps normally. The detector **fails closed**: any parse ambiguity resolves toward bumping, because a missed bump (and its skipped migration) is far more dangerous than an unnecessary one.
+Anything else — removing or renaming a field, changing a field's type, flipping optional↔required, adding a non-optional field, removing an enum symbol, or any construct the conservative parser cannot model (e.g. `typeref`) — is treated as a real change and bumps normally. The detector **fails closed**: any parse ambiguity resolves toward bumping, because a missed bump (and its skipped migration) is far more dangerous than an unnecessary one.
 
 ### Step 4 — Bump the version
 

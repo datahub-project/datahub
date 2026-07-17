@@ -783,24 +783,34 @@ def _type_is_optional(type_text: str) -> bool:
     return bool(re.match(r"\s*optional\b", type_text))
 
 
+def _strip_field_default(type_text: str) -> str:
+    """Drop a trailing PDL default (`= ...`) so type comparison matches the
+    report tool, which ignores defaults when deciding whether a field changed.
+    """
+    return re.sub(r"\s*=\s*.*$", "", type_text).strip()
+
+
 def _parse_record_fields(body: str) -> dict[str, tuple[str, bool]] | None:
     """Parse the top-level fields of a record body (comments already stripped).
 
-    Returns {field name: (normalized signature, is_optional)}, or None if the
-    body cannot be parsed unambiguously. The signature covers the field's
-    annotations, type, and default — everything but its doc comment — so any
-    change to those is detected as a diff.
+    Returns {field name: (normalized type, is_optional)}, or None if the body
+    cannot be parsed unambiguously.
+
+    Comparison is aligned with report_aspect_changes.fields(): only the field's
+    type and optional-ness matter for bump decisions. Annotations and defaults
+    are parsed (so the scanner stays positioned correctly) but do not enter the
+    signature — changing a @Searchable annotation or a default alone is not
+    bump-worthy.
     """
     fields: dict[str, tuple[str, bool]] = {}
     n = len(body)
     i = _skip_ws(body, 0)
-    pending: list[str] = []
     while i < n:
         if body[i] == ",":
             i = _skip_ws(body, i + 1)
             continue
         if body[i] == "@":
-            start = i
+            # Consume the annotation but do not include it in the signature.
             i += 1
             m = _IDENT_RE.match(body, i)
             if not m:
@@ -817,7 +827,6 @@ def _parse_record_fields(body: str) -> dict[str, tuple[str, bool]] | None:
                 if nxt is None:
                     return None
                 i = nxt
-            pending.append(body[start:i])
             i = _skip_ws(body, i)
             continue
         m = _IDENT_RE.match(body, i)
@@ -832,11 +841,10 @@ def _parse_record_fields(body: str) -> dict[str, tuple[str, bool]] | None:
         if end is None:
             return None
         type_text = body[type_start:end]
-        sig = normalize_pdl_for_compare(" ".join(pending) + " " + type_text)
+        type_norm = normalize_pdl_for_compare(_strip_field_default(type_text))
         if name in fields:
             return None
-        fields[name] = (sig, _type_is_optional(type_text))
-        pending = []
+        fields[name] = (type_norm, _type_is_optional(type_text))
         i = _skip_ws(body, end)
     return fields
 
@@ -976,9 +984,15 @@ def _defs_backward_compatible(
     base_defs: dict[str, dict], cur_defs: dict[str, dict]
 ) -> bool:
     """True iff cur_defs differs from base_defs only by additive, migration-free
-    changes: added optional fields, added enum symbols, and entirely new type
-    definitions. Any removal, type/annotation change, or added non-optional
-    field is treated as incompatible.
+    changes — matching report_aspect_changes' Additive bucket:
+
+      - added optional fields
+      - added enum symbols
+      - entirely new type definitions
+      - annotation-only / default-only edits on existing fields
+
+    Any removal, type change, optional→required flip, added non-optional field,
+    includes change, or removed enum symbol is treated as incompatible (bump).
     """
     for name, bdef in base_defs.items():
         cdef = cur_defs.get(name)
@@ -989,11 +1003,21 @@ def _defs_backward_compatible(
                 return False
             base_fields = bdef["fields"]
             cur_fields = cdef["fields"]
-            for fname, (bsig, _bopt) in base_fields.items():
+            for fname, (btype, bopt) in base_fields.items():
                 cur_field = cur_fields.get(fname)
-                if cur_field is None or cur_field[0] != bsig:
+                if cur_field is None:
                     return False
-            for fname, (_csig, copt) in cur_fields.items():
+                ctype, copt = cur_field
+                # Type change or optional→required is breaking (matches report).
+                if ctype != btype:
+                    return False
+                if bopt and not copt:
+                    return False
+                # required→optional is noisy in the report (still sets
+                # has_structural there); treat as bump-worthy to stay aligned.
+                if (not bopt) and copt:
+                    return False
+            for fname, (_ctype, copt) in cur_fields.items():
                 if fname not in base_fields and not copt:
                     return False
         elif not bdef["symbols"].issubset(cdef["symbols"]):

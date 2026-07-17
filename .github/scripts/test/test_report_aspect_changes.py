@@ -339,8 +339,10 @@ def test_enums_returns_empty_when_no_enum_present():
 
 
 def test_analyze_pure_addition_is_additive_only(monkeypatch):
+    # Additive optional field with no version bump — stays additive-only and
+    # does not require a schemaVersion bump (CorpUserInfo / #18278 pattern).
     old = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string }'
-    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 2}\nrecord A { x: string\n y: optional string }'
+    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string\n y: optional string }'
 
     monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "abc1234 add y")
@@ -349,6 +351,25 @@ def test_analyze_pure_addition_is_additive_only(monkeypatch):
     assert f.is_aspect
     assert any("added optional field: y" in line for line in f.additive)
     assert f.breaking == []
+    assert f.has_structural is False
+    assert f.bump_status == rac.BUMP_NOT_NEEDED
+
+
+def test_analyze_optional_add_with_bump_is_spurious(monkeypatch):
+    # Bumping for an additive-only change is the CorpUserInfo anti-pattern.
+    old = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string }'
+    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 2}\nrecord A { x: string\n y: optional string }'
+
+    monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+
+    f = rac.analyze_file("path.pdl", "BASE", "HEAD")
+    assert any("added optional field: y" in line for line in f.additive)
+    assert f.has_structural is False
+    assert f.bump_status == rac.BUMP_SPURIOUS
+    assert any(
+        "bumped with NO structural change" in line for line in f.noisy
+    )
 
 
 def test_analyze_removed_field_is_breaking(monkeypatch):
@@ -1090,8 +1111,9 @@ def test_render_summary_counts_are_correct():
 
 
 def test_bump_status_bump_done_when_version_increases(monkeypatch):
-    old = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string }'
-    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 2}\nrecord A { x: string\n y: optional string }'
+    # bump_done requires a bump-required (breaking) change, not additive-only.
+    old = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string\n y: string }'
+    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 2}\nrecord A { x: string }'
     monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
     f = rac.analyze_file("path.pdl", "BASE", "HEAD")
@@ -1105,6 +1127,16 @@ def test_bump_status_bump_needed_when_structural_change_without_bump(monkeypatch
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
     f = rac.analyze_file("path.pdl", "BASE", "HEAD")
     assert f.bump_status == rac.BUMP_NEEDED
+
+
+def test_bump_status_not_needed_for_optional_add_without_bump(monkeypatch):
+    old = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string }'
+    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string\n y: optional string }'
+    monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+    f = rac.analyze_file("path.pdl", "BASE", "HEAD")
+    assert f.bump_status == rac.BUMP_NOT_NEEDED
+    assert f.has_structural is False
 
 
 def test_bump_status_na_when_no_change_and_no_bump(monkeypatch):

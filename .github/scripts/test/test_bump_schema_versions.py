@@ -800,9 +800,31 @@ def test_bc_changed_field_type_is_incompatible():
     assert bsv._defs_backward_compatible(base, cur) is False
 
 
-def test_bc_changed_field_annotation_is_incompatible():
+def test_bc_changed_field_annotation_is_compatible():
+    # Annotation-only edits match the report tool (which ignores annotations)
+    # and do not require a bump.
     base = _record_defs('@Searchable = { "fieldType": "KEYWORD" }', "a: optional string")
     cur = _record_defs('@Searchable = { "fieldType": "TEXT" }', "a: optional string")
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_changed_field_default_is_compatible():
+    # Defaults are ignored by the report tool's fields() comparison.
+    base = _record_defs("a: optional boolean = false")
+    cur = _record_defs("a: optional boolean = true")
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_required_to_optional_is_incompatible():
+    # Matches the report: required→optional is noisy but still bump-required.
+    base = _record_defs("a: string")
+    cur = _record_defs("a: optional string")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_optional_to_required_is_incompatible():
+    base = _record_defs("a: optional string")
+    cur = _record_defs("a: string")
     assert bsv._defs_backward_compatible(base, cur) is False
 
 

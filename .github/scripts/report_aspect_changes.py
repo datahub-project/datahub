@@ -402,12 +402,14 @@ def upstream_attribution_for_transitive(
 
 
 # Bump-status classification per aspect (mirrors bump_schema_versions semantics:
-# schemaVersion defaults to 1 when absent; any structural change OR transitive
-# dependency change requires a bump).
-BUMP_DONE = "bump_done"  # head schemaVersion > base AND a real change exists
-BUMP_NEEDED = "bump_needed"  # changed (direct or transitive) but version not bumped
-BUMP_SPURIOUS = "bump_spurious"  # version bumped but NO schema change (auto-bumper side-effect, e.g. PR #9579)
-BUMP_NOT_NEEDED = "bump_not_needed"  # new file, deleted, non-aspect, no change, or version regressed — no forward bump applies
+# schemaVersion defaults to 1 when absent; a *breaking* structural change OR a
+# transitive dependency change requires a bump). Additive-only changes
+# (optional fields, new enum values) do not — previously-serialized aspects
+# remain valid, so no migration / version hop is warranted.
+BUMP_DONE = "bump_done"  # head schemaVersion > base AND a bump-required change exists
+BUMP_NEEDED = "bump_needed"  # breaking change (direct or transitive) but version not bumped
+BUMP_SPURIOUS = "bump_spurious"  # version bumped but NO bump-required change (auto-bumper side-effect, e.g. PR #9579 / CorpUserInfo #18278)
+BUMP_NOT_NEEDED = "bump_not_needed"  # new file, deleted, non-aspect, additive-only, unchanged, or version regressed — no forward bump applies
 # Backwards-compat aliases. Both now resolve to BUMP_NOT_NEEDED so the
 # 4-bucket classification is exhaustive: every changed PDL lands in
 # bump_done / bump_needed / bump_spurious / bump_not_needed.
@@ -416,10 +418,10 @@ BUMP_NA = BUMP_NOT_NEEDED
 
 # Short human-readable descriptions used in the report legend
 BUMP_STATUS_DESCRIPTIONS = {
-    BUMP_DONE: "head schemaVersion > base AND a real change exists (intentional bump)",
-    BUMP_NEEDED: "change exists (direct or transitive) but schemaVersion was NOT bumped",
-    BUMP_SPURIOUS: "schemaVersion bumped but no actual schema change — likely auto-bumper side-effect",
-    BUMP_NOT_NEEDED: "bump is not required — new file, deleted, non-aspect, unchanged, or version regressed",
+    BUMP_DONE: "head schemaVersion > base AND a bump-required (breaking) change exists",
+    BUMP_NEEDED: "breaking change exists (direct or transitive) but schemaVersion was NOT bumped",
+    BUMP_SPURIOUS: "schemaVersion bumped but no bump-required change — likely auto-bumper side-effect",
+    BUMP_NOT_NEEDED: "bump is not required — new file, deleted, non-aspect, additive-only, unchanged, or version regressed",
 }
 
 # Captures `(#1234)` PR reference appended by GitHub squash-merge commit subjects.
@@ -465,10 +467,10 @@ def _bump_breakdown(findings: list["FileFinding"], status: str) -> str:
 
 
 _BUMP_WHY = {
-    BUMP_DONE: "version bumped AND a real schema change exists in the window",
-    BUMP_NEEDED: "schema changed (direct or transitive) but version was NOT bumped",
-    BUMP_SPURIOUS: "version bumped but NO schema change in the contributing PR(s)",
-    BUMP_NOT_NEEDED: "bump is not required (new file, deleted, non-aspect, unchanged, or version regressed)",
+    BUMP_DONE: "version bumped AND a bump-required (breaking) change exists in the window",
+    BUMP_NEEDED: "breaking schema change (direct or transitive) but version was NOT bumped",
+    BUMP_SPURIOUS: "version bumped but NO bump-required change in the contributing PR(s)",
+    BUMP_NOT_NEEDED: "bump is not required (new file, deleted, non-aspect, additive-only, unchanged, or version regressed)",
 }
 
 
@@ -878,7 +880,7 @@ class FileFinding:
     )
     last_commit_date: Optional[str] = None  # YYYY-MM-DD of most recent commit
     has_structural: bool = (
-        False  # tracked so main() can re-classify with transitive context
+        False  # True when a bump-required (breaking) change exists; additive-only does not set this
     )
     old_v: Optional[int] = None  # schemaVersion at base (None if missing/not-aspect)
     new_v: Optional[int] = None  # schemaVersion at head (None if missing/not-aspect)
@@ -969,7 +971,9 @@ def analyze_file(path: str, base: str, head: str) -> FileFinding:
         aspect_name=new_meta.get("name") or old_meta.get("name"),
         head_commit=latest_commit(head, path, base),
     )
-    # Track whether any actual structural changes have been found
+    # Track whether any *bump-required* (breaking) structural changes exist.
+    # Additive-only edits (optional fields, new enum values) are reported in
+    # the Additive bucket but do not set this flag — they need no migration.
     has_structural = False
 
     if not old:
@@ -1003,7 +1007,10 @@ def analyze_file(path: str, base: str, head: str) -> FileFinding:
         opt = "optional" if new_fields[a]["optional"] else "REQUIRED"
         bucket = f.additive if new_fields[a]["optional"] else f.breaking
         bucket.append(f"added {opt} field: {a}: {new_fields[a]['type']}")
-        has_structural = True
+        # Optional field adds are additive / backward-compatible — no bump.
+        # Required field adds are breaking and require a schemaVersion bump.
+        if not new_fields[a]["optional"]:
+            has_structural = True
     for name in sorted(set(old_fields) & set(new_fields)):
         o, n = old_fields[name], new_fields[name]
         if o["optional"] and not n["optional"]:
@@ -1023,7 +1030,7 @@ def analyze_file(path: str, base: str, head: str) -> FileFinding:
             has_structural = True
         for v in sorted(set(new_enums[ename]) - set(old_enums[ename])):
             f.additive.append(f"enum {ename}: added value {v}")
-            has_structural = True
+            # Additive enum values do not require a schemaVersion bump.
 
     if is_aspect:
         # Use bump_schema_versions semantics: missing schemaVersion is treated as 1.

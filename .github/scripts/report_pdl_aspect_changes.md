@@ -102,20 +102,20 @@ filtered to `*.pdl`. Files that exist on only one side (added or deleted) are st
 
 For every changed file the classifier compares base vs. head content and emits findings against **five breaking-change criteria** plus **two `schemaVersion` anomalies**:
 
-| #   | Criterion                                                                 | Bucket   |
-| --- | ------------------------------------------------------------------------- | -------- |
-| 1   | Removed fields                                                            | breaking |
-| 2   | Renamed record without `@renamedFrom` annotation                          | breaking |
-| 3   | `optional → required` flip                                                | breaking |
-| 4   | Enum value removal                                                        | breaking |
-| 5   | Field type change                                                         | breaking |
-|     | Added required field                                                      | breaking |
-|     | **Structural change without `schemaVersion` bump**                        | breaking |
-|     | Added optional field                                                      | additive |
-|     | Added enum value                                                          | additive |
-|     | `required → optional` flip                                                | noisy    |
-|     | Renamed record **with** `@renamedFrom` annotation                         | noisy    |
-|     | **`schemaVersion` bump without structural change** (the PR #9579 pattern) | noisy    |
+| #   | Criterion                                                                        | Bucket   | Bump required? |
+| --- | -------------------------------------------------------------------------------- | -------- | -------------- |
+| 1   | Removed fields                                                                   | breaking | yes            |
+| 2   | Renamed record without `@renamedFrom` annotation                                 | breaking | yes            |
+| 3   | `optional → required` flip                                                       | breaking | yes            |
+| 4   | Enum value removal                                                               | breaking | yes            |
+| 5   | Field type change                                                                | breaking | yes            |
+|     | Added required field                                                             | breaking | yes            |
+|     | **Breaking change without `schemaVersion` bump**                                 | breaking | (flag)         |
+|     | Added optional field                                                             | additive | **no**         |
+|     | Added enum value                                                                 | additive | **no**         |
+|     | `required → optional` flip                                                       | noisy    | yes            |
+|     | Renamed record **with** `@renamedFrom` annotation                                | noisy    | yes            |
+|     | **`schemaVersion` bump without bump-required change** (e.g. CorpUserInfo #18278) | noisy    | — (spurious)   |
 
 ### Step 4 — Walk the dependency graph (transitive impact)
 
@@ -129,12 +129,14 @@ Aspects that were both directly edited AND reached by the BFS get their `bump_st
 
 Each aspect ends with one of four bump statuses:
 
-| Status          | Trigger                                                                                  |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| `bump_done`     | `head schemaVersion > base AND a real change exists` (direct or transitive). Legitimate. |
-| `bump_needed`   | change exists but version NOT bumped — silent migration hazard.                          |
-| `bump_spurious` | version bumped with NO schema change at all (auto-bumper side-effect).                   |
-| `not_sure`      | version regressed (head < base) — manual review.                                         |
+| Status          | Trigger                                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
+| `bump_done`     | `head schemaVersion > base AND a bump-required (breaking) change exists` (direct or transitive).      |
+| `bump_needed`   | breaking change exists but version NOT bumped — silent migration hazard.                              |
+| `bump_spurious` | version bumped with NO bump-required change (auto-bumper side-effect; additive-only bumps land here). |
+| `not_sure`      | version regressed (head < base) — manual review.                                                      |
+
+Additive-only changes (new optional fields, new enum values) do **not** require a bump — previously-serialized aspects remain valid. Bumping for them is classified `bump_spurious` (see CorpUserInfo / #18278). This matches [`bump_schema_versions.py`](bump_schema_versions.md)'s backward-compatible skip.
 
 `schemaVersion` defaults to 1 when absent, matching [`bump_schema_versions.md`](bump_schema_versions.md) semantics.
 
