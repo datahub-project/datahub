@@ -50,6 +50,14 @@ export const CREATED_PROPERTY: AssetProperty = {
     icon: Clock,
 };
 
+export const LAST_INGESTED_PROPERTY: AssetProperty = {
+    get name() {
+        return i18next.t('entity.profile.summary:properties.lastIngested', 'Last Synced');
+    },
+    type: SummaryElementType.LastIngested,
+    icon: Clock,
+};
+
 export const SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES = [
     STRING_TYPE_URN,
     NUMBER_TYPE_URN,

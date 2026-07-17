@@ -5,6 +5,7 @@ import React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import SemanticModelPreview from '@app/entityV2/semanticModel/preview/SemanticModelPreview';
+import { DefinitionTab } from '@app/entityV2/semanticModel/profile/DefinitionTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
@@ -17,6 +18,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
 
 import { useGetSemanticModelQuery } from '@graphql/semanticModel.generated';
 import { EntityType, SearchResult, SemanticModel } from '@types';
@@ -89,6 +91,14 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
     getProfileTabs = (): EntityTab[] => {
         return [
             {
+                name: i18next.t('entity.types:tab.summary'),
+                component: SummaryTab,
+            },
+            {
+                name: i18next.t('entity.types:tab.definition'),
+                component: DefinitionTab,
+            },
+            {
                 name: i18next.t('entity.types:tab.properties', 'Properties'),
                 component: PropertiesTab,
             },
@@ -143,6 +153,9 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
     getOverridePropertiesFromEntity = (data: SemanticModel): GenericEntityProperties => {
         return {
             name: data?.info?.name,
+            properties: {
+                description: data?.info?.description ?? undefined,
+            },
         };
     };
 

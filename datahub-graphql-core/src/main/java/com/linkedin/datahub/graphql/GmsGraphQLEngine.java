@@ -4116,5 +4116,12 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+    builder.type(
+        "ModelDataset",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "source",
+                new EntityTypeResolver(
+                    entityTypes, (env) -> ((ModelDataset) env.getSource()).getSource())));
   }
 }

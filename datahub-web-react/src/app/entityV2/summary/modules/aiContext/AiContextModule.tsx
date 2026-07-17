@@ -9,6 +9,10 @@ import { ModuleProps } from '@app/homeV3/module/types';
 
 import { AiContext } from '@types';
 
+const ContentWrapper = styled.div`
+    padding: 4px 8px 0;
+`;
+
 const Section = styled.div`
     margin-bottom: 12px;
 `;
@@ -60,34 +64,36 @@ export default function AiContextModule(props: ModuleProps) {
 
     return (
         <LargeModule {...props} dataTestId="ai-context-module">
-            {hasSynonyms && (
-                <Section>
-                    <SectionTitle>{t('aiContext.synonymsTitle')}</SectionTitle>
-                    <SynonymTags>
-                        {synonyms.map((synonym) => (
-                            <Pill key={synonym} label={synonym} />
-                        ))}
-                    </SynonymTags>
-                </Section>
-            )}
-            {hasInstructions && (
-                <Section>
-                    <SectionTitle>{t('aiContext.instructionsTitle')}</SectionTitle>
-                    <Text size="sm">{instructions}</Text>
-                </Section>
-            )}
-            {hasExamples && (
-                <Section>
-                    <SectionTitle>{t('aiContext.examplesTitle')}</SectionTitle>
-                    <ExampleList>
-                        {examples.map((example) => (
-                            <ExampleItem key={example}>
-                                <Text size="sm">{example}</Text>
-                            </ExampleItem>
-                        ))}
-                    </ExampleList>
-                </Section>
-            )}
+            <ContentWrapper>
+                {hasSynonyms && (
+                    <Section>
+                        <SectionTitle>{t('aiContext.synonymsTitle')}</SectionTitle>
+                        <SynonymTags>
+                            {synonyms.map((synonym) => (
+                                <Pill key={synonym} label={synonym} />
+                            ))}
+                        </SynonymTags>
+                    </Section>
+                )}
+                {hasInstructions && (
+                    <Section>
+                        <SectionTitle>{t('aiContext.instructionsTitle')}</SectionTitle>
+                        <Text size="sm">{instructions}</Text>
+                    </Section>
+                )}
+                {hasExamples && (
+                    <Section>
+                        <SectionTitle>{t('aiContext.examplesTitle')}</SectionTitle>
+                        <ExampleList>
+                            {examples.map((example) => (
+                                <ExampleItem key={example}>
+                                    <Text size="sm">{example}</Text>
+                                </ExampleItem>
+                            ))}
+                        </ExampleList>
+                    </Section>
+                )}
+            </ContentWrapper>
         </LargeModule>
     );
 }

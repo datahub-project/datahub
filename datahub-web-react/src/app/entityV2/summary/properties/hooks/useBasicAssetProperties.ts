@@ -4,6 +4,7 @@ import { useEntityContext } from '@app/entity/shared/EntityContext';
 import {
     CREATED_PROPERTY,
     DOMAIN_PROPERTY,
+    LAST_INGESTED_PROPERTY,
     OWNERS_PROPERTY,
     TAGS_PROPERTY,
     TERMS_PROPERTY,
@@ -26,6 +27,8 @@ export default function useBasicAssetProperties() {
                 return [CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY, TAGS_PROPERTY, TERMS_PROPERTY];
             case EntityType.Dataset:
                 return [CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY, TAGS_PROPERTY, TERMS_PROPERTY];
+            case EntityType.SemanticModel:
+                return [LAST_INGESTED_PROPERTY, DOMAIN_PROPERTY, OWNERS_PROPERTY, TERMS_PROPERTY];
             case EntityType.Document:
                 // Documents don't have assetSettings aspect yet - hide add button until backend supports it
                 return [];
