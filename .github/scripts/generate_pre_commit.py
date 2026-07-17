@@ -153,7 +153,7 @@ class HookGenerator:
 
         for project in self.projects:
             if project.type == ProjectType.PYTHON:
-                hooks.append(self._generate_lint_fix_hook(project))
+                hooks.extend(self._generate_python_hooks(project))
             elif project.type == ProjectType.JAVA:
                 hooks.append(self._generate_spotless_hook(project))
             elif project.type == ProjectType.PRETTIER:
@@ -188,16 +188,38 @@ class HookGenerator:
 
         return config
 
-    def _generate_lint_fix_hook(self, project: Project) -> dict:
-        """Generate a lint-fix hook for Python projects."""
-        return {
-            "id": f"{project.project_id}-lint-fix",
-            "name": f"{project.path} Lint Fix",
-            "entry": f"./gradlew {project.gradle_path}:lintFix -x generateGitPropertiesGlobal",
-            "language": "system",
-            "files": f"^{project.path}/.*\\.(py|toml)$",
-            "pass_filenames": False,
-        }
+    def _generate_python_hooks(self, project: Project) -> list[dict]:
+        """Generate staged-file ruff hooks for a Python project.
+
+        Replaces the previous module-wide ``gradle :<module>:lintFix`` hook
+        (which lint-fixed the entire module on every commit, with
+        ``pass_filenames: false``) with two fast staged-file ruff hooks that
+        only check/format the files actually staged for commit. Ruff resolves
+        its configuration by walking up from each staged file to the nearest
+        ``pyproject.toml``, so each module's pinned ruff config applies
+        automatically. The ruff version is the one pinned in the module's
+        ``setup.py``/``pyproject.toml`` (currently 0.15.18); no remote hook
+        repo is introduced.
+        """
+        files_regex = f"^{project.path}/.*\\.py$"
+        return [
+            {
+                "id": f"{project.project_id}-ruff-check",
+                "name": f"{project.path} Ruff Check",
+                "entry": "ruff check --fix",
+                "language": "system",
+                "files": files_regex,
+                "pass_filenames": True,
+            },
+            {
+                "id": f"{project.project_id}-ruff-format",
+                "name": f"{project.path} Ruff Format",
+                "entry": "ruff format",
+                "language": "system",
+                "files": files_regex,
+                "pass_filenames": True,
+            },
+        ]
 
     def _generate_spotless_hook(self, project: Project) -> dict:
         """Generate a spotless hook for Java projects."""
