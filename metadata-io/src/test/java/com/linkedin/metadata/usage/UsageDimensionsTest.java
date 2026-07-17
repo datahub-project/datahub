@@ -15,6 +15,7 @@ public class UsageDimensionsTest {
     Assert.assertEquals(UsageDimensions.USAGE_OPERATION, "usage_operation");
     Assert.assertEquals(UsageDimensions.REQUEST_API, "request_api");
     Assert.assertEquals(UsageDimensions.AGENT_CLASS, "agent_class");
+    Assert.assertEquals(UsageDimensions.AGENT_NAME, "agent_name");
     Assert.assertEquals(UsageDimensions.AUTH_CHANNEL, "auth_channel");
     Assert.assertEquals(UsageDimensions.INGESTION_RUNNER, "ingestion_runner");
     Assert.assertEquals(UsageDimensions.ACTOR_CLASS, "actor_class");
@@ -28,6 +29,7 @@ public class UsageDimensionsTest {
             UsageDimensions.USAGE_OPERATION,
             UsageDimensions.REQUEST_API,
             UsageDimensions.AGENT_CLASS,
+            UsageDimensions.AGENT_NAME,
             UsageDimensions.AUTH_CHANNEL,
             UsageDimensions.INGESTION_RUNNER,
             UsageDimensions.ACTOR_CLASS));
@@ -74,6 +76,23 @@ public class UsageDimensionsTest {
     Assert.assertEquals(dimensions.get(UsageDimensions.REQUEST_API), "graphql");
     Assert.assertEquals(dimensions.get(UsageDimensions.AUTH_CHANNEL), "unknown");
     Assert.assertNotNull(dimensions.get(UsageDimensions.AGENT_CLASS));
+  }
+
+  @Test
+  public void testFromRequestContextIncludesNormalizedAgentNameWhenEnabled() {
+    RequestContext requestContext =
+        RequestContext.builder()
+            .actorUrn("urn:li:corpuser:test")
+            .sourceIP("127.0.0.1")
+            .requestAPI(RequestContext.RequestAPI.OPENAPI)
+            .requestID("test")
+            .userAgent("DataHub-Client/1.0.0 (sdk; DataHub/Custom-Agent; 1.0.1)")
+            .build();
+
+    Map<String, String> dimensions =
+        UsageDimensions.fromRequestContext(requestContext, "metadata_read", "regular", true);
+
+    Assert.assertEquals(dimensions.get(UsageDimensions.AGENT_NAME), "datahub/custom-agent");
   }
 
   @Test

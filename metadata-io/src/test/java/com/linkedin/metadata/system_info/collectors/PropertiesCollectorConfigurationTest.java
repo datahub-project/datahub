@@ -525,6 +525,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.readOnly",
           "datahub.usage.aggregation.enabled",
           "datahub.usage.aggregation.micrometerExport.enabled",
+          "datahub.usage.aggregation.dimensions.includeAgentName",
           "datahub.usage.aggregation.flush.maxWindowSeconds",
           "datahub.usage.aggregation.flush.maxCardinality",
           "datahub.usage.aggregation.flush.scheduledIntervalSeconds",

@@ -321,6 +321,8 @@ datahub:
       enabled: ${USAGE_AGGREGATION_ENABLED:false}
       micrometerExport:
         enabled: ${USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED:true}
+      dimensions:
+        includeAgentName: ${USAGE_AGGREGATION_INCLUDE_AGENT_NAME:false}
       flush:
         maxWindowSeconds: ${USAGE_AGGREGATION_MAX_WINDOW_SECONDS:300}
         maxCardinality: ${USAGE_AGGREGATION_MAX_CARDINALITY:10000}

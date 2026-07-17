@@ -10,12 +10,23 @@ public class UsageAggregationConfiguration {
 
   private MicrometerExportConfiguration micrometerExport;
 
+  private DimensionsConfiguration dimensions;
+
   private FlushConfiguration flush;
 
   @Data
   public static class MicrometerExportConfiguration {
     /** Export aggregated usage to Micrometer on flush. */
     private boolean enabled;
+  }
+
+  @Data
+  public static class DimensionsConfiguration {
+    /**
+     * Include the client-provided agent name as an additive rollup dimension. Disabled by default
+     * because agent names are unbounded and can substantially increase metric cardinality.
+     */
+    private boolean includeAgentName;
   }
 
   @Data

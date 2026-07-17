@@ -57,6 +57,7 @@ x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
   USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS: ${USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS:-30}
   # Align flush windows to the top of the UTC hour (local parity with production cadence)
   USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS: ${USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS:-3600}
+  USAGE_AGGREGATION_INCLUDE_AGENT_NAME: ${USAGE_AGGREGATION_INCLUDE_AGENT_NAME:-false}
 
 x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-dev}
@@ -67,6 +68,7 @@ x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
   USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS: ${USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS:-30}
   # Align flush windows to the top of the UTC hour (local parity with production cadence)
   USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS: ${USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS:-3600}
+  USAGE_AGGREGATION_INCLUDE_AGENT_NAME: ${USAGE_AGGREGATION_INCLUDE_AGENT_NAME:-false}
 
 x-localstack-env: &localstack-env
   AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}

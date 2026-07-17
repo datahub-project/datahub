@@ -1,4 +1,14 @@
 config:
+  # YAUAA's built-in bot matcher replaces AgentName with "BOT". Override it so
+  # DataHub-Client bot requests retain the client name from the second comment.
+  - matcher:
+      require:
+        - 'agent.product.name="DataHub-Client"'
+        - 'agent.(1)product.(1)comments.(1)entry="bot"'
+      extract:
+        - 'DeviceClass : 200000:"Desktop"'
+        - 'AgentClass : 200000:"robot"'
+        - 'AgentName : 200000 :agent.(1)product.(1)comments.(2)entry'
   - matcher:
       require:
         - 'agent.product.name="DataHub-Client"'

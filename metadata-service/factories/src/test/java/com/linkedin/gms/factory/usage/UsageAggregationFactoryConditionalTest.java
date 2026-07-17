@@ -40,6 +40,7 @@ public class UsageAggregationFactoryConditionalTest {
   @Mock private DataHubConfiguration dataHubConfiguration;
   @Mock private UsageConfiguration usageConfiguration;
   @Mock private UsageAggregationConfiguration aggregationConfiguration;
+  @Mock private UsageAggregationConfiguration.DimensionsConfiguration dimensionsConfiguration;
   @Mock private UsageAggregationConfiguration.FlushConfiguration flushConfiguration;
 
   @BeforeMethod
@@ -53,6 +54,7 @@ public class UsageAggregationFactoryConditionalTest {
     when(configurationProvider.getDatahub()).thenReturn(dataHubConfiguration);
     when(dataHubConfiguration.getUsage()).thenReturn(usageConfiguration);
     when(usageConfiguration.getAggregation()).thenReturn(aggregationConfiguration);
+    when(aggregationConfiguration.getDimensions()).thenReturn(dimensionsConfiguration);
     when(aggregationConfiguration.getFlush()).thenReturn(flushConfiguration);
     when(aggregationConfiguration.getMicrometerExport()).thenReturn(micrometerExport);
     when(flushConfiguration.getMaxCardinality()).thenReturn(10_000);

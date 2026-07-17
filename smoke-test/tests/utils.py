@@ -40,7 +40,10 @@ def _is_transient_login_error(exception: BaseException) -> bool:
     if isinstance(exception, _TRANSIENT_LOGIN_EXCEPTIONS):
         return True
     if isinstance(exception, requests.HTTPError) and exception.response is not None:
-        return exception.response.status_code >= 500
+        return (
+            exception.response.status_code == 429
+            or exception.response.status_code >= 500
+        )
     return False
 
 

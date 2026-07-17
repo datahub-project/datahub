@@ -134,7 +134,8 @@ public class MceUsageAggregationFactory {
         flush.getMaxWindowSeconds(),
         flush.getRetryAttempts(),
         flush.getRetryInitialBackoffMillis(),
-        flush.getAlignmentPeriodSeconds());
+        flush.getAlignmentPeriodSeconds(),
+        config.getDimensions().isIncludeAgentName());
   }
 
   @Bean

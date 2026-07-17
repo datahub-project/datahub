@@ -8,6 +8,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.usage.loader.UsageMetricRegistryLoader;
 import com.linkedin.metadata.config.usage.loader.UsageOperationsLoader;
+import com.linkedin.metadata.usage.UsageDimensions;
 import com.linkedin.metadata.usage.UsageTestFixtures;
 import com.linkedin.metadata.usage.flush.AdditiveUsageRow;
 import com.linkedin.metadata.usage.flush.FlushTrigger;
@@ -187,6 +188,45 @@ public class InMemoryUsageAggregationStoreTest {
     Assert.assertTrue(
         batch.distinctSnapshots().stream()
             .anyMatch(snapshot -> snapshot.metricName().equals("active_writers")));
+  }
+
+  @Test
+  public void testAgentNameDimensionIncludedWhenEnabled() {
+    RecordingUsageFlushSink agentNameSink = new RecordingUsageFlushSink();
+    UsageOperationsRegistry usageRegistry =
+        UsageOperationsRegistry.loadOssOnly(new UsageOperationsLoader(yamlMapper()));
+    UsageMetricRegistry metricRegistry =
+        UsageMetricRegistry.loadBundled(
+            new UsageMetricRegistryLoader(yamlMapper()), java.util.List.of());
+    InMemoryUsageAggregationStore agentNameStore =
+        new InMemoryUsageAggregationStore(
+            usageRegistry,
+            metricRegistry,
+            deterministicActorClassResolver(),
+            agentNameSink,
+            10_000,
+            300,
+            3,
+            100,
+            0,
+            true);
+
+    agentNameStore.recordRequest(
+        session(
+            UsageTestFixtures.REGULAR_CORP_USER_URN,
+            "metadata_read",
+            null,
+            AuthChannel.SESSION,
+            "DataHub-Client/1.0.0 (sdk; DataHub/Custom-Agent; 1.0.1)"));
+    agentNameStore.flush(FlushTrigger.SCHEDULED);
+
+    AdditiveUsageRow apiCalls =
+        agentNameSink.batches().get(0).additiveRows().stream()
+            .filter(row -> row.metricName().equals("api_calls"))
+            .findFirst()
+            .orElseThrow();
+    Assert.assertEquals(
+        apiCalls.dimensions().get(UsageDimensions.AGENT_NAME), "datahub/custom-agent");
   }
 
   @Test
@@ -862,6 +902,15 @@ public class InMemoryUsageAggregationStoreTest {
 
   private static OperationContext session(
       String actorUrn, String usageOperation, Long inputBytes, AuthChannel authChannel) {
+    return session(actorUrn, usageOperation, inputBytes, authChannel, "test-agent");
+  }
+
+  private static OperationContext session(
+      String actorUrn,
+      String usageOperation,
+      Long inputBytes,
+      AuthChannel authChannel,
+      String userAgent) {
     // Drop any ThreadLocal actor-class / corp-user flag memoization left by prior tests on this
     // worker thread before building a fresh session context.
     UsageRequestState.clear();
@@ -871,7 +920,7 @@ public class InMemoryUsageAggregationStoreTest {
             .sourceIP("127.0.0.1")
             .requestAPI(RequestContext.RequestAPI.OPENAPI)
             .requestID("testAction")
-            .userAgent("test-agent")
+            .userAgent(userAgent)
             .usageOperation(usageOperation)
             .usageIdentity(actorUrn)
             .authChannel(authChannel)

@@ -114,7 +114,8 @@ public class UsageAggregationFactory {
         flush.getMaxWindowSeconds(),
         flush.getRetryAttempts(),
         flush.getRetryInitialBackoffMillis(),
-        flush.getAlignmentPeriodSeconds());
+        flush.getAlignmentPeriodSeconds(),
+        config.getDimensions().isIncludeAgentName());
   }
 
   @Bean
@@ -166,6 +167,10 @@ public class UsageAggregationFactory {
           "datahub.usage.aggregation must be defined in application.yaml");
     }
     UsageAggregationConfiguration aggregation = usage.getAggregation();
+    if (aggregation.getDimensions() == null) {
+      throw new IllegalStateException(
+          "datahub.usage.aggregation.dimensions must be defined in application.yaml");
+    }
     if (aggregation.getFlush() == null) {
       throw new IllegalStateException(
           "datahub.usage.aggregation.flush must be defined in application.yaml");
