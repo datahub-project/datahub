@@ -171,6 +171,12 @@ fragment metricFields on Metric {
     subTypes {
         typeNames
     }
+    metricRelationships {
+        ...metricRelationshipsFields
+    }
+    metricUpstreams {
+        ...metricUpstreamsFields
+    }
     exists
     privileges {
         ...entityPrivileges

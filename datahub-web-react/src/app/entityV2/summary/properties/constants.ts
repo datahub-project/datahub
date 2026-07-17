@@ -1,5 +1,6 @@
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
 import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
@@ -56,6 +57,22 @@ export const LAST_INGESTED_PROPERTY: AssetProperty = {
     },
     type: SummaryElementType.LastIngested,
     icon: Clock,
+};
+
+export const LAST_MODIFIED_PROPERTY: AssetProperty = {
+    get name() {
+        return i18next.t('entity.profile.summary:properties.lastModified');
+    },
+    type: SummaryElementType.LastModified,
+    icon: Clock,
+};
+
+export const SEMANTIC_MODEL_PROPERTY: AssetProperty = {
+    get name() {
+        return i18next.t('entity.profile.summary:properties.semanticModel');
+    },
+    type: SummaryElementType.SemanticModel,
+    icon: Cube,
 };
 
 export const SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES = [
