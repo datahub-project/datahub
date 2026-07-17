@@ -8,6 +8,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.dialects import mssql, mysql, postgresql
 from sqlalchemy.engine import Dialect
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -715,6 +716,317 @@ class TestSnowflakeAdapter:
         quoted = adapter.quote_identifier("schema.table")
         # Should quote both parts
         assert '"schema"."table"' in quoted or "schema.table" in quoted
+
+    # =========================================================================
+    # setup_profiling tests
+    # =========================================================================
+
+    def test_setup_profiling_small_table_no_sampling(self, adapter, config):
+        """Small tables (row_count <= sample_size) are profiled directly without temp table."""
+        config.use_sampling = True
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="SMALL_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with (
+            patch.object(adapter, "_get_row_count_from_metadata", return_value=5000),
+            patch.object(
+                adapter, "_create_sqlalchemy_table", return_value=MagicMock()
+            ) as mock_create_table,
+        ):
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert result.sql_table is not None
+        assert not result.is_sampled
+        assert result.temp_table is None
+        mock_create_table.assert_called_once_with(
+            schema="MY_SCHEMA", table="SMALL_TABLE"
+        )
+
+    def test_setup_profiling_large_table_creates_temp_table(self, adapter, config):
+        """Large tables (row_count > sample_size) get sampled into a temp table."""
+        config.use_sampling = True
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="BIG_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        sampled_context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="BIG_TABLE",
+            pretty_name="test",
+            is_sampled=True,
+            temp_table="dh_sample_abc123",
+        )
+        sampled_context.sql_table = MagicMock()
+
+        with (
+            patch.object(
+                adapter, "_get_row_count_from_metadata", return_value=1_000_000
+            ),
+            patch.object(
+                adapter, "_create_sampled_temp_table", return_value=sampled_context
+            ) as mock_sample,
+        ):
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert result.is_sampled
+        assert result.temp_table == "dh_sample_abc123"
+        mock_sample.assert_called_once_with(context, mock_conn, 1_000_000)
+
+    def test_setup_profiling_no_row_count_conservative_sampling(self, adapter, config):
+        """When INFORMATION_SCHEMA row count is unavailable, be conservative and sample."""
+        config.use_sampling = True
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="UNKNOWN_SIZE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with (
+            patch.object(adapter, "_get_row_count_from_metadata", return_value=None),
+            patch.object(
+                adapter, "_create_sampled_temp_table", return_value=context
+            ) as mock_sample,
+        ):
+            adapter.setup_profiling(context, mock_conn)
+
+        # Should use sample_size * 10 as effective row count
+        mock_sample.assert_called_once_with(context, mock_conn, 100_000)
+
+    def test_setup_profiling_sampling_disabled(self, adapter, config):
+        """When use_sampling=False, profile the original table directly."""
+        config.use_sampling = False
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="ANY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch.object(
+            adapter, "_create_sqlalchemy_table", return_value=MagicMock()
+        ) as mock_create:
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert not result.is_sampled
+        mock_create.assert_called_once()
+
+    def test_setup_profiling_with_limit_skips_sampling(self, adapter, config):
+        """When config.limit is set, skip sampling and profile directly."""
+        config.use_sampling = True
+        config.limit = 100
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="ANY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch.object(
+            adapter, "_create_sqlalchemy_table", return_value=MagicMock()
+        ) as mock_create:
+            result = adapter.setup_profiling(context, mock_conn)
+
+        assert not result.is_sampled
+        mock_create.assert_called_once()
+
+    def test_setup_profiling_custom_sql_creates_temp_table(self, adapter):
+        """custom_sql is materialized into a temp table."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="MY_TABLE",
+            custom_sql="SELECT * FROM MY_SCHEMA.MY_TABLE WHERE x > 1",
+            pretty_name="test",
+        )
+        mock_conn = MagicMock()
+
+        with patch.object(
+            adapter, "_create_temp_table_from_custom_sql", return_value=context
+        ) as mock_custom:
+            adapter.setup_profiling(context, mock_conn)
+
+        mock_custom.assert_called_once_with(context, mock_conn)
+
+    # =========================================================================
+    # _create_sampled_temp_table SQL generation tests
+    # =========================================================================
+
+    def test_sampled_temp_table_bernoulli_sql(self, adapter, config):
+        """Moderate tables use BERNOULLI-only sampling."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MEDIUM_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_sampled_temp_table(context, mock_conn, row_count=100_000)
+
+        # Verify CREATE TEMPORARY TABLE with TABLESAMPLE BERNOULLI
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        assert "CREATE OR REPLACE TEMPORARY TABLE" in executed_sql
+        assert "dh_sample_" in executed_sql
+        assert "TABLESAMPLE BERNOULLI" in executed_sql
+        assert "BLOCK" not in executed_sql
+        assert context.is_sampled
+        assert context.temp_table is not None
+
+    def test_sampled_temp_table_block_bernoulli_sql(self, adapter, config):
+        """Very large tables use two-tier BLOCK + BERNOULLI sampling."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="HUGE_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        # row_count must exceed both block_profiling_min_rows (50M) and
+        # sample_size * overgeneration_factor (10M)
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_sampled_temp_table(
+                context, mock_conn, row_count=100_000_000
+            )
+
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        assert "TABLESAMPLE BLOCK" in executed_sql
+        assert "TABLESAMPLE BERNOULLI" in executed_sql
+
+    def test_sampled_temp_table_block_fallback_to_bernoulli(self, adapter, config):
+        """When BLOCK sampling fails (views), falls back to BERNOULLI-only."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_VIEW", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        # First execute fails (BLOCK on view), second succeeds (BERNOULLI fallback)
+        mock_conn.execute.side_effect = [
+            SQLAlchemyError("BLOCK not supported on views"),
+            MagicMock(),  # fallback succeeds
+        ]
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_sampled_temp_table(
+                context, mock_conn, row_count=100_000_000
+            )
+
+        # Should have been called twice: first BLOCK (failed), then BERNOULLI (success)
+        assert mock_conn.execute.call_count == 2
+        fallback_sql = str(mock_conn.execute.call_args_list[1][0][0])
+        assert "TABLESAMPLE BERNOULLI" in fallback_sql
+        assert "BLOCK" not in fallback_sql
+
+    def test_sampled_temp_table_bernoulli_failure_raises(self, adapter, config):
+        """When BERNOULLI-only sampling fails, the error propagates."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="BAD_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = SQLAlchemyError("table not found")
+
+        # row_count below block threshold, so only BERNOULLI is tried
+        with pytest.raises(SQLAlchemyError, match="table not found"):
+            adapter._create_sampled_temp_table(context, mock_conn, row_count=50_000)
+
+    def test_sampled_temp_table_name_unquoted(self, adapter, config):
+        """Temp table name must be unquoted so Snowflake stores it as UPPERCASE."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_sampled_temp_table(context, mock_conn, row_count=100_000)
+
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        # Temp name should NOT be quoted (no double quotes around dh_sample_...)
+        assert '"dh_sample_' not in executed_sql
+        assert "dh_sample_" in executed_sql
+
+    # =========================================================================
+    # _get_row_count_from_metadata tests
+    # =========================================================================
+
+    def test_get_row_count_from_metadata_success(self, adapter):
+        """Successful INFORMATION_SCHEMA query returns int row count."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = 42000
+
+        result = adapter._get_row_count_from_metadata(context, mock_conn)
+
+        assert result == 42000
+        # Verify parameterized query (not string interpolation)
+        call_args = mock_conn.execute.call_args
+        params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
+        assert params["schema_name"] == "MY_SCHEMA"
+        assert params["table_name"] == "MY_TABLE"
+
+    def test_get_row_count_from_metadata_returns_none_on_error(self, adapter):
+        """SQLAlchemy errors return None (caller handles conservatively)."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = SQLAlchemyError("access denied")
+
+        result = adapter._get_row_count_from_metadata(context, mock_conn)
+
+        assert result is None
+
+    def test_get_row_count_from_metadata_null_result(self, adapter):
+        """NULL from INFORMATION_SCHEMA (e.g. view) returns None."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_VIEW", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.scalar.return_value = None
+
+        result = adapter._get_row_count_from_metadata(context, mock_conn)
+
+        assert result is None
+
+    # =========================================================================
+    # cleanup tests
+    # =========================================================================
+
+    def test_cleanup_is_noop(self, adapter):
+        """Snowflake temp tables auto-drop at session end; cleanup is a no-op."""
+        context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="MY_TABLE",
+            pretty_name="test",
+            temp_table="dh_sample_abc123",
+        )
+        # Should not raise
+        adapter.cleanup(context)
 
 
 class TestBigQueryAdapter:
