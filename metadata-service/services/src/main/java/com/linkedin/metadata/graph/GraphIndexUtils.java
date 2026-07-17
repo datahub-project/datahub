@@ -323,23 +323,40 @@ public class GraphIndexUtils {
       Urn upstream,
       List<String> fineGrainedLineageNotAllowedForPlatforms,
       EntityRegistry entityRegistry) {
-    return !CollectionUtils.isEmpty(fineGrainedLineageNotAllowedForPlatforms)
-        && ((Objects.nonNull(downstream)
-                && downstream.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
-                && fineGrainedLineageNotAllowedForPlatforms.contains(
-                    getDatasetPlatformName(entityRegistry, downstream.getIdAsUrn())))
-            || (Objects.nonNull(upstream)
-                && upstream.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
-                && fineGrainedLineageNotAllowedForPlatforms.contains(
-                    getDatasetPlatformName(entityRegistry, upstream.getIdAsUrn()))));
+    if (CollectionUtils.isEmpty(fineGrainedLineageNotAllowedForPlatforms)) {
+      return false;
+    }
+    // getDatasetPlatformName returns null for non-Dataset parents (e.g. SemanticModel); guard
+    // explicitly rather than relying on List#contains(null), which some List.of(...) instances
+    // reject with an NPE instead of returning false.
+    String downstreamPlatform =
+        Objects.nonNull(downstream) && downstream.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
+            ? getDatasetPlatformName(entityRegistry, downstream.getIdAsUrn())
+            : null;
+    String upstreamPlatform =
+        Objects.nonNull(upstream) && upstream.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
+            ? getDatasetPlatformName(entityRegistry, upstream.getIdAsUrn())
+            : null;
+    return (downstreamPlatform != null
+            && fineGrainedLineageNotAllowedForPlatforms.contains(downstreamPlatform))
+        || (upstreamPlatform != null
+            && fineGrainedLineageNotAllowedForPlatforms.contains(upstreamPlatform));
   }
 
-  private static String getDatasetPlatformName(EntityRegistry entityRegistry, Urn datasetUrn) {
+  // The platform exclusion list (fineGrainedLineageNotAllowedForPlatforms) only makes sense for
+  // Dataset-backed schemaFields (e.g. hdfs, s3). FineGrainedLineage can also point at schemaFields
+  // whose parent is a non-Dataset entity (e.g. SemanticModel), which have no platform concept —
+  // treat those as "not excluded" instead of crashing on the cast to DatasetKey.
+  @Nullable
+  private static String getDatasetPlatformName(EntityRegistry entityRegistry, Urn parentUrn) {
+    if (!parentUrn.getEntityType().equals(DATASET_ENTITY_NAME)) {
+      return null;
+    }
     DatasetKey dsKey =
         (DatasetKey)
             EntityKeyUtils.convertUrnToEntityKey(
-                datasetUrn,
-                entityRegistry.getEntitySpec(datasetUrn.getEntityType()).getKeyAspectSpec());
+                parentUrn,
+                entityRegistry.getEntitySpec(parentUrn.getEntityType()).getKeyAspectSpec());
     DataPlatformKey dpKey =
         (DataPlatformKey)
             EntityKeyUtils.convertUrnToEntityKey(
