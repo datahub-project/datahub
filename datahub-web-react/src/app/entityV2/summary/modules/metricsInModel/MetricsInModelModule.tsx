@@ -92,7 +92,7 @@ export default function MetricsInModelModule(props: ModuleProps) {
                     <EntityItem
                         key={entity.urn}
                         entity={entity}
-                        moduleType={DataHubPageModuleType.MetricsInModel}
+                        moduleType={DataHubPageModuleType.SemanticModelMetrics}
                         customIconRenderer={MetricSigmaIcon}
                     />
                 )}
@@ -100,8 +100,8 @@ export default function MetricsInModelModule(props: ModuleProps) {
                 emptyState={
                     <EmptyContent
                         icon={ChartBar}
-                        title={t('metricsInModel.emptyTitle')}
-                        description={t('metricsInModel.emptyDescription')}
+                        title={t('semanticModelMetrics.emptyTitle')}
+                        description={t('semanticModelMetrics.emptyDescription')}
                     />
                 }
                 totalItemCount={total}

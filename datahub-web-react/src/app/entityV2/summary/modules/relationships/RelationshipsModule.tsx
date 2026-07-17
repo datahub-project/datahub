@@ -105,10 +105,10 @@ const StyledLink = styled(Link)`
 const PLATFORM_ICON_SIZE = 16;
 
 const CARDINALITY_LABEL_KEYS: Record<ErModelRelationshipCardinality, string> = {
-    [ErModelRelationshipCardinality.OneOne]: 'relationships.cardinality.oneOne',
-    [ErModelRelationshipCardinality.NOne]: 'relationships.cardinality.manyOne',
-    [ErModelRelationshipCardinality.OneN]: 'relationships.cardinality.oneMany',
-    [ErModelRelationshipCardinality.NN]: 'relationships.cardinality.manyMany',
+    [ErModelRelationshipCardinality.OneOne]: 'semanticModelRelationships.cardinality.oneOne',
+    [ErModelRelationshipCardinality.NOne]: 'semanticModelRelationships.cardinality.manyOne',
+    [ErModelRelationshipCardinality.OneN]: 'semanticModelRelationships.cardinality.oneMany',
+    [ErModelRelationshipCardinality.NN]: 'semanticModelRelationships.cardinality.manyMany',
 };
 
 const CARDINALITY_LABELS_FALLBACK: Record<ErModelRelationshipCardinality, string> = {
@@ -180,8 +180,8 @@ export default function RelationshipsModule(props: ModuleProps) {
             <LargeModule {...props} dataTestId="relationships-module">
                 <EmptyContent
                     icon={ArrowsLeftRight}
-                    title={t('relationships.emptyTitle')}
-                    description={t('relationships.emptyDescription')}
+                    title={t('semanticModelRelationships.emptyTitle')}
+                    description={t('semanticModelRelationships.emptyDescription')}
                 />
             </LargeModule>
         );

@@ -30,8 +30,8 @@ export default function ModelDatasetsModule(props: ModuleProps) {
             <LargeModule {...props} dataTestId="model-datasets-module">
                 <EmptyContent
                     icon={Database}
-                    title={t('modelDatasets.emptyTitle')}
-                    description={t('modelDatasets.emptyDescription')}
+                    title={t('semanticModelDatasets.emptyTitle')}
+                    description={t('semanticModelDatasets.emptyDescription')}
                 />
             </LargeModule>
         );
@@ -46,7 +46,7 @@ export default function ModelDatasetsModule(props: ModuleProps) {
                     <EntityItem
                         key={source.urn}
                         entity={source}
-                        moduleType={DataHubPageModuleType.ModelDatasets}
+                        moduleType={DataHubPageModuleType.SemanticModelDatasets}
                         customDetailsRenderer={() => (
                             <Text size="sm" color="gray">
                                 {typeName}

@@ -146,8 +146,8 @@ export default function DimensionsModule(props: ModuleProps) {
             <LargeModule {...props} dataTestId="dimensions-module">
                 <EmptyContent
                     icon={Cube}
-                    title={t('dimensions.emptyTitle')}
-                    description={t('dimensions.emptyDescription')}
+                    title={t('semanticModelDimensions.emptyTitle')}
+                    description={t('semanticModelDimensions.emptyDescription')}
                 />
             </LargeModule>
         );
