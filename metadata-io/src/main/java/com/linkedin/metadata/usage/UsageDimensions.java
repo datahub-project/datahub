@@ -29,10 +29,11 @@ public final class UsageDimensions {
   public static final String AUTH_CHANNEL = "auth_channel";
   public static final String INGESTION_RUNNER = "ingestion_runner";
   public static final String ACTOR_CLASS = "actor_class";
+  public static final String ENTITY_TYPE = "entity_type";
 
   /**
    * Preferred key order when serializing dimension maps (access-channel keys first, then {@link
-   * #ACTOR_CLASS}).
+   * #ACTOR_CLASS}, then inventory dimensions).
    */
   public static final List<String> STABLE_KEY_ORDER =
       List.of(
@@ -42,7 +43,8 @@ public final class UsageDimensions {
           AGENT_NAME,
           AUTH_CHANNEL,
           INGESTION_RUNNER,
-          ACTOR_CLASS);
+          ACTOR_CLASS,
+          ENTITY_TYPE);
 
   private UsageDimensions() {}
 

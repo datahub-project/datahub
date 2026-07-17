@@ -19,6 +19,7 @@ public class UsageDimensionsTest {
     Assert.assertEquals(UsageDimensions.AUTH_CHANNEL, "auth_channel");
     Assert.assertEquals(UsageDimensions.INGESTION_RUNNER, "ingestion_runner");
     Assert.assertEquals(UsageDimensions.ACTOR_CLASS, "actor_class");
+    Assert.assertEquals(UsageDimensions.ENTITY_TYPE, "entity_type");
   }
 
   @Test
@@ -32,7 +33,8 @@ public class UsageDimensionsTest {
             UsageDimensions.AGENT_NAME,
             UsageDimensions.AUTH_CHANNEL,
             UsageDimensions.INGESTION_RUNNER,
-            UsageDimensions.ACTOR_CLASS));
+            UsageDimensions.ACTOR_CLASS,
+            UsageDimensions.ENTITY_TYPE));
   }
 
   @Test
