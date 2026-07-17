@@ -96,7 +96,8 @@ def test_observed_queries_mapping(monkeypatch):
     assert str(observed[0].user) == "urn:li:corpuser:alice@example.com"
     # An address that already contains '@' is used verbatim.
     assert str(observed[1].user) == "urn:li:corpuser:carol@corp.example"
-    # Timestamps are made timezone-aware (UTC).
+    # Naive system.query_log timestamps are tagged as UTC (not reinterpreted as
+    # host-local time), so this holds regardless of the test machine's timezone.
     assert observed[0].timestamp == datetime(2020, 4, 14, 6, 0, 0, tzinfo=timezone.utc)
     # ClickHouse is 2-level; default_db must not be passed to the parser.
     assert observed[0].default_db is None
@@ -154,6 +155,18 @@ def test_observed_query_without_username_has_no_user(monkeypatch):
     source.close()
 
 
+def test_is_allowed_table_default_allows_system():
+    # By default the database_pattern allows everything, so is_allowed_table does not
+    # filter the system database — system queries are excluded by the SQL NOT LIKE
+    # clause when fetching, not here.
+    config = _make_config()
+    source = ClickHouseUsageSource(config=config, ctx=PipelineContext(run_id="test"))
+
+    assert source._is_allowed_table("my_db.events")
+    assert source._is_allowed_table("system.query_log")
+    source.close()
+
+
 def test_is_allowed_table_respects_patterns():
     config = ClickHouseUsageConfig.model_validate(
         {
@@ -165,6 +178,7 @@ def test_is_allowed_table_respects_patterns():
     source = ClickHouseUsageSource(config=config, ctx=PipelineContext(run_id="test"))
 
     assert source._is_allowed_table("my_db.events")
+    # An explicit database deny is what makes is_allowed_table reject system tables.
     assert not source._is_allowed_table("system.query_log")
     source.close()
 

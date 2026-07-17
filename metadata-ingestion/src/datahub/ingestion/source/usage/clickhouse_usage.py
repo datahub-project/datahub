@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -132,9 +133,15 @@ class ClickHouseUsageSource(Source):
         ) or self.config.view_pattern.allowed(name)
 
     def _make_usage_query(self) -> str:
+        # Floor start_time to the bucket boundary so the first (partial) bucket is
+        # fully populated, matching the aggregator's bucket list (buckets() floors
+        # start_time internally) and the query-log window in sql/clickhouse.py.
+        start_time = get_time_bucket(
+            self.config.start_time, self.config.bucket_duration
+        )
         return CLICKHOUSE_USAGE_SQL.format(
             query_log_table=self.config.query_log_table,
-            start_time=self.config.start_time.strftime(clickhouse_datetime_format),
+            start_time=start_time.strftime(clickhouse_datetime_format),
             end_time=self.config.end_time.strftime(clickhouse_datetime_format),
         )
 
@@ -167,16 +174,25 @@ class ClickHouseUsageSource(Source):
 
             timestamp = row_dict.get("starttime") or row_dict.get("endtime")
             if isinstance(timestamp, datetime):
-                timestamp = timestamp.astimezone(timezone.utc)
+                # system.query_log DateTime columns come back naive; they represent
+                # UTC instants, so tag them as UTC rather than astimezone(), which
+                # would (wrongly) reinterpret a naive value as the host's local time.
+                timestamp = (
+                    timestamp.replace(tzinfo=timezone.utc)
+                    if timestamp.tzinfo is None
+                    else timestamp.astimezone(timezone.utc)
+                )
 
             yield ObservedQuery(
                 query=query,
                 session_id=row_dict.get("query_id"),
                 timestamp=timestamp,
                 user=user_urn,
-                # ClickHouse uses 2-level (database.table) naming while sqlglot expects
-                # 3-level names. Passing a default_db causes it to be prepended to
-                # already-qualified names, producing incorrect URNs.
+                # Don't pass a default_db. ClickHouse uses 2-level (database.table)
+                # naming, but for a 2-level dialect sqlglot slots an existing database
+                # qualifier into `db` and lets default_db fill `catalog`, over-qualifying
+                # already-qualified names into incorrect URNs like
+                # "default.analytics_marts.table".
                 default_db=None,
                 query_hash=str(row_dict.get("normalized_query_hash", "")),
             )
