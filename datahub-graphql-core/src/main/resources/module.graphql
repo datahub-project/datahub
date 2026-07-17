@@ -264,6 +264,34 @@ enum DataHubPageModuleType {
   """
   COLUMNS
   """
+  Module displaying the datasets referenced by a semantic model
+  """
+  SEMANTIC_MODEL_DATASETS
+  """
+  Module displaying the metrics defined within a semantic model
+  """
+  SEMANTIC_MODEL_METRICS
+  """
+  Module displaying the relationships of a semantic model
+  """
+  SEMANTIC_MODEL_RELATIONSHIPS
+  """
+  Module displaying the dimensions of a semantic model
+  """
+  SEMANTIC_MODEL_DIMENSIONS
+  """
+  Module displaying AI context (synonyms, instructions, examples) for an asset
+  """
+  AI_CONTEXT
+  """
+  Module displaying the SQL expression of a metric
+  """
+  METRIC_SQL
+  """
+  Module displaying related metrics
+  """
+  RELATED_METRICS
+  """
   Unknown module type - this can occur with corrupted data or rolling back to versions without new modules
   """
   UNKNOWN
