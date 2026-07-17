@@ -285,6 +285,51 @@ class TestSnowflakeTasksExtractor:
         assert "test_db.public" in io.inputDatasets[0]
         assert "test_db.public" in io.outputDatasets[0]
 
+    def test_lineage_skipped_when_include_table_lineage_disabled(self) -> None:
+        """No dataset or column lineage should be parsed from task SQL when
+        include_table_lineage is off, regardless of include_column_lineage."""
+        config = SnowflakeV2Config(
+            account_id="test_account",
+            username="user",
+            password="pass",  # type: ignore
+            include_tasks=True,
+            include_table_lineage=False,
+            include_column_lineage=False,
+        )
+        task = _make_task(
+            name="etl_task",
+            definition="INSERT INTO target_tbl(col_a) SELECT col_a FROM source_tbl",
+        )
+        wus, _ = _collect_workunits([task], config=config)
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 0
+
+    def test_column_lineage_skipped_when_include_column_lineage_disabled(
+        self,
+    ) -> None:
+        """Dataset-level lineage is still emitted when only column lineage is
+        disabled, but no FineGrainedLineage entries are produced."""
+        config = SnowflakeV2Config(
+            account_id="test_account",
+            username="user",
+            password="pass",  # type: ignore
+            include_tasks=True,
+            include_table_lineage=True,
+            include_column_lineage=False,
+        )
+        task = _make_task(
+            name="etl_task",
+            definition="INSERT INTO target_tbl(col_a) SELECT col_a FROM source_tbl",
+        )
+        wus, _ = _collect_workunits([task], config=config)
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 1
+        assert ios[0].inputDatasets and "source_tbl" in ios[0].inputDatasets[0]
+        assert ios[0].outputDatasets and "target_tbl" in ios[0].outputDatasets[0]
+        assert ios[0].fineGrainedLineages is None
+
     def test_task_with_merge_emits_dataset_lineage(self) -> None:
         task = _make_task(
             name="merge_task",
@@ -546,10 +591,38 @@ class TestSnowflakeTasksExtractor:
         assert any("task definition" in m.lower() for m in messages), (
             f"Expected a task-definition warning; got: {messages}"
         )
+        titles = [w.title for w in report.warnings]
+        assert any("Table Lineage" in t for t in titles), (
+            f"Expected a table-lineage-extraction warning; got: {titles}"
+        )
         # The proc_task FQN should appear in the warning context, so users can
         # identify which task triggered it.
         contexts = [str(w.context) for w in report.warnings]
         assert any("proc_task" in c for c in contexts)
+
+    def test_multi_statement_task_definition_logs_warning_and_emits_no_dataset_lineage(
+        self,
+    ) -> None:
+        """Multi-statement bodies are not supported by sqlglot's lineage engine
+        (it expects a single statement); the task entity is still ingested but
+        no dataset lineage is produced."""
+        task = _make_task(
+            name="multi_stmt_task",
+            definition=(
+                "INSERT INTO target_a SELECT * FROM source_a; "
+                "INSERT INTO target_b SELECT * FROM source_b"
+            ),
+        )
+        wus, report = _collect_workunits([task])
+
+        ios = _data_job_input_outputs(wus)
+        assert len(ios) == 0
+        messages = [w.message for w in report.warnings]
+        assert any("task definition" in m.lower() for m in messages), (
+            f"Expected a task-definition warning; got: {messages}"
+        )
+        contexts = [str(w.context) for w in report.warnings]
+        assert any("multi_stmt_task" in c for c in contexts)
 
     def test_empty_definition_emits_no_dataset_lineage(self) -> None:
         task = _make_task(name="empty_task", definition="")

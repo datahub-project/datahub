@@ -47,14 +47,9 @@ from datahub.sql_parsing.sqlglot_lineage import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass
 class TaskLineage:
-    """Dataset-level inputs/outputs and column lineage parsed from a task body.
-
-    All names are URN strings. ``fine_grained`` elements are mutable
-    DictWrapper objects; ``frozen=True`` prevents rebinding the tuple fields
-    but not mutation of individual entries.
-    """
+    """Dataset-level inputs/outputs and column lineage parsed from a task body."""
 
     input_datasets: Tuple[Urn, ...] = field(default_factory=tuple)
     output_datasets: Tuple[Urn, ...] = field(default_factory=tuple)
@@ -271,17 +266,21 @@ class SnowflakeTasksExtractor:
         returned. Single-statement INSERT / MERGE / CREATE TABLE AS are cleanly
         supported.
         """
-        if not task.definition:
+        if not task.definition or not self.config.include_table_lineage:
             return TaskLineage()
 
         parsed = self._run_sql_parser(task, task_fqn, db_name, schema_name)
         if parsed is None:
             return TaskLineage()
 
+        fine_grained: Tuple[FineGrainedLineageClass, ...] = ()
+        if self.config.include_column_lineage:
+            fine_grained = self._build_fine_grained_lineages(parsed, task_fqn)
+
         return TaskLineage(
             input_datasets=tuple(parsed.in_tables),
             output_datasets=tuple(parsed.out_tables),
-            fine_grained=self._build_fine_grained_lineages(parsed, task_fqn),
+            fine_grained=fine_grained,
         )
 
     def _run_sql_parser(
@@ -334,14 +333,12 @@ class SnowflakeTasksExtractor:
             return ()
 
         fine_grained: List[FineGrainedLineageClass] = []
-        dropped = 0
         for col_lineage in parsed.column_lineage:
             if (
                 not col_lineage.downstream
                 or not col_lineage.downstream.table
                 or not col_lineage.downstream.column
             ):
-                dropped += 1
                 continue
             downstream_field = make_schema_field_urn(
                 col_lineage.downstream.table, col_lineage.downstream.column
@@ -353,7 +350,6 @@ class SnowflakeTasksExtractor:
             ]
             if not upstream_fields:
                 # An entry with no resolvable upstreams has no lineage value.
-                dropped += 1
                 continue
             fine_grained.append(
                 FineGrainedLineageClass(
@@ -365,6 +361,7 @@ class SnowflakeTasksExtractor:
             )
 
         total = len(parsed.column_lineage)
+        dropped = total - len(fine_grained)
         if dropped and not fine_grained:
             self.report.warning(
                 title="All Column Lineage Entries Dropped",
