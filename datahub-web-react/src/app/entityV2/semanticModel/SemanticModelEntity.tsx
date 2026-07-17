@@ -1,4 +1,6 @@
 import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
 import React from 'react';
 
@@ -16,8 +18,10 @@ import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/pro
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { EntityTab } from '@app/entityV2/shared/types';
+import { EntitySidebarTab, EntityTab } from '@app/entityV2/shared/types';
+import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
 
 import { useGetSemanticModelQuery } from '@graphql/semanticModel.generated';
@@ -63,6 +67,7 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
             headerDropdownItems={headerDropdownItems}
             tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
+            sidebarTabs={this.getSidebarTabs()}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
@@ -88,11 +93,32 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
         },
     ];
 
+    getSidebarTabs = (): EntitySidebarTab[] => [
+        {
+            name: i18next.t('entity.types:tab.lineage'),
+            component: LineageTab,
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
+            icon: TreeStructure,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
+        },
+        {
+            name: i18next.t('entity.types:tab.properties'),
+            component: PropertiesTab,
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
+            icon: ListBullets,
+        },
+    ];
+
     getProfileTabs = (): EntityTab[] => {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
                 component: SummaryTab,
+                properties: {
+                    hideEditDescription: true,
+                },
             },
             {
                 name: i18next.t('entity.types:tab.definition'),
