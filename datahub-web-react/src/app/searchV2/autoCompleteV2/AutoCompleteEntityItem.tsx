@@ -217,7 +217,11 @@ export default function AutoCompleteEntityItem({
                     <Icons>
                         {dragIconRenderer()}
                         <IconContainer $variant={variant}>
-                            {customIconRenderer ? customIconRenderer() : <EntityIcon entity={entity} siblings={siblings} />}
+                            {customIconRenderer ? (
+                                customIconRenderer()
+                            ) : (
+                                <EntityIcon entity={entity} siblings={siblings} />
+                            )}
                         </IconContainer>
                     </Icons>
                 ) : (

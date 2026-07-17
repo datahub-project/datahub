@@ -2,7 +2,6 @@ import { CopySimple } from '@phosphor-icons/react/dist/csr/CopySimple';
 import { message } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 

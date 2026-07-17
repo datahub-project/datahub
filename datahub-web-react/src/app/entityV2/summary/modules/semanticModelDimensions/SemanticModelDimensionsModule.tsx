@@ -1,5 +1,4 @@
 import { Pill, Text, radius } from '@components';
-import { ColorOptions } from '@components/theme/config';
 import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
 import { Function } from '@phosphor-icons/react/dist/csr/Function';
@@ -8,6 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { ColorOptions } from '@components/theme/config';
+
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
@@ -15,14 +16,7 @@ import { ModuleProps } from '@app/homeV3/module/types';
 import { PlatformIcon } from '@app/searchV2/autoCompleteV2/components/icon/PlatformIcon';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import {
-    DataPlatform,
-    Dataset,
-    EntityType,
-    ModelDataset,
-    SemanticField,
-    SemanticFieldType,
-} from '@types';
+import { DataPlatform, Dataset, EntityType, ModelDataset, SemanticField, SemanticFieldType } from '@types';
 
 type EntityDataWithDatasets = {
     platform?: DataPlatform | null;

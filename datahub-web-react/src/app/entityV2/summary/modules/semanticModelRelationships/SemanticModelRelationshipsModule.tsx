@@ -1,10 +1,11 @@
 import { Pill, Text, radius } from '@components';
-import { ColorOptions } from '@components/theme/config';
 import { ArrowsLeftRight } from '@phosphor-icons/react/dist/csr/ArrowsLeftRight';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+
+import { ColorOptions } from '@components/theme/config';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
@@ -212,9 +213,7 @@ export default function SemanticModelRelationshipsModule(props: ModuleProps) {
                             source={fromSource}
                             align="left"
                         />
-                        <CardinalityCell>
-                            {label && <Pill label={label} color={color} size="sm" />}
-                        </CardinalityCell>
+                        <CardinalityCell>{label && <Pill label={label} color={color} size="sm" />}</CardinalityCell>
                         <RelationshipEndpoint
                             datasetName={rel.to}
                             columns={rel.toColumns}
