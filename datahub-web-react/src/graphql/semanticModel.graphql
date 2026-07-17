@@ -134,6 +134,7 @@ fragment semanticModelFields on SemanticModel {
     type
     id
     path
+    lastIngested
     platform {
         ...platformFields
     }
