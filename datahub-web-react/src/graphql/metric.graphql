@@ -65,19 +65,6 @@ fragment metricUpstreamsFields on MetricUpstreams {
         destination {
             urn
             type
-            ... on Dataset {
-                name
-                platform {
-                    ...platformFields
-                }
-                editableProperties {
-                    description
-                }
-                properties {
-                    name
-                    description
-                }
-            }
         }
     }
     fieldUpstreams {
@@ -170,6 +157,12 @@ fragment metricFields on Metric {
     }
     subTypes {
         typeNames
+    }
+    metricRelationships {
+        ...metricRelationshipsFields
+    }
+    metricUpstreams {
+        ...metricUpstreamsFields
     }
     exists
     privileges {

@@ -124,4 +124,32 @@ describe('getContextPath', () => {
             ...(dataProduct.domain?.domain?.parentDomains?.domains || []),
         ]);
     });
+
+    it('walks nested parent chain for generic entities', () => {
+        const root = {
+            urn: 'urn:li:semanticModel:root',
+            type: EntityType.SemanticModel,
+            name: 'Root Model',
+        };
+        const mid = {
+            urn: 'urn:li:metric:mid',
+            type: EntityType.Metric,
+            name: 'mid',
+            parent: root,
+        };
+        const entityData = {
+            parent: {
+                urn: 'urn:li:metric:direct',
+                type: EntityType.Metric,
+                name: 'direct',
+                parent: mid,
+            },
+        };
+
+        expect(getParentEntities(entityData)).toEqual([
+            expect.objectContaining({ urn: 'urn:li:metric:direct' }),
+            expect.objectContaining({ urn: 'urn:li:metric:mid' }),
+            expect.objectContaining({ urn: 'urn:li:semanticModel:root' }),
+        ]);
+    });
 });
