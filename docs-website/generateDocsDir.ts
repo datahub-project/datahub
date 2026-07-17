@@ -5,6 +5,7 @@ import * as path from "path";
 import { Octokit } from "@octokit/rest";
 import { throttling } from "@octokit/plugin-throttling";
 import { retry } from "@octokit/plugin-retry";
+import { STAGE_META } from "./src/components/FeatureAvailability/stages";
 
 // Note: this must be executed within the docs-website directory.
 
@@ -692,21 +693,11 @@ function write_markdown_file(
   }
 }
 
-// DataHub Cloud release stages, mirrored from the FeatureAvailability React
-// component (docs-website/src/components/FeatureAvailability/index.js).
-const FEATURE_AVAILABILITY_STAGES: { [key: string]: string } = {
-  alpha: "Alpha",
-  "private-beta": "Private Beta",
-  "public-beta": "Public Beta",
-  ga: "Generally Available",
-  deprecated: "Deprecated",
-};
-
 // Built from a string so the triple-backtick fence below does not terminate
 // the surrounding template literal.
 const CODE_FENCE = "```";
 
-// Keep in sync with QuickstartCTA component (src/pages/docs/_components/QuickstartCTA/index.js)
+// Keep in sync with QuickstartCTA component (src/pages/docs/_components/QuickstartCTA/index.jsx)
 const QUICKSTART_CTA_MD = `### Get Started Now
 
 Run the following command to get started with DataHub:
@@ -720,7 +711,7 @@ ${CODE_FENCE}
 - [Quickstart with DataHub Open Source](/docs/quickstart)
 - [Try DataHub Cloud](https://datahub.com/get-datahub-cloud/)`;
 
-// Keep in sync with FeatureCardSection component (src/pages/docs/_components/FeatureCardSection/index.js)
+// Keep in sync with FeatureCardSection component (src/pages/docs/_components/FeatureCardSection/index.jsx)
 const FEATURE_CARD_SECTION_MD = `- **[Data Discovery](/docs/how/search)** — Search your entire data ecosystem, including dashboards, datasets, ML models, and raw files.
 - **[Data Governance](https://medium.com/datahub-project/the-3-must-haves-of-metadata-management-part-2-35a649f2e2fb)** — Define ownership and track PII.
 - **[Data Quality & Observability](/docs/features/feature-guides/observe)** — Detect and resolve quality issues before they impact production. Automated anomaly detection, assertions, and data contracts keep data reliable.
@@ -777,8 +768,8 @@ function clean_mdx_for_serving(content: string): string {
       }
       const stage_match = attrs.match(/stage=["']([^"']+)["']/);
       let line = `> **Availability:** ${base}`;
-      if (stage_match && FEATURE_AVAILABILITY_STAGES[stage_match[1]]) {
-        line += ` — _${FEATURE_AVAILABILITY_STAGES[stage_match[1]]}_`;
+      if (stage_match && STAGE_META[stage_match[1]]) {
+        line += ` — _${STAGE_META[stage_match[1]].label}_`;
       }
       return line;
     }
