@@ -8,6 +8,10 @@ import LineageModule from '@app/entityV2/summary/modules/lineage/LineageModule';
 import OutputPortsModule from '@app/entityV2/summary/modules/outputPorts/OutputPortsModule';
 import RelatedTermsModule from '@app/entityV2/summary/modules/relatedTerms/RelatedTermsModule';
 import ColumnsModule from '@app/entityV2/summary/modules/schemaTable/ColumnsModule';
+import SemanticModelDatasetsModule from '@app/entityV2/summary/modules/semanticModelDatasets/SemanticModelDatasetsModule';
+import SemanticModelDimensionsModule from '@app/entityV2/summary/modules/semanticModelDimensions/SemanticModelDimensionsModule';
+import SemanticModelMetricsModule from '@app/entityV2/summary/modules/semanticModelMetrics/SemanticModelMetricsModule';
+import SemanticModelRelationshipsModule from '@app/entityV2/summary/modules/semanticModelRelationships/SemanticModelRelationshipsModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
 import { ModuleProvider } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -42,10 +46,12 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.Lineage) return LineageModule;
         if (module.properties.type === DataHubPageModuleType.Columns) return ColumnsModule;
         if (module.properties.type === DataHubPageModuleType.AiContext) return AiContextModule;
-        if (module.properties.type === DataHubPageModuleType.SemanticModelDatasets) return SampleLargeModule;
-        if (module.properties.type === DataHubPageModuleType.SemanticModelMetrics) return SampleLargeModule;
-        if (module.properties.type === DataHubPageModuleType.SemanticModelRelationships) return SampleLargeModule;
-        if (module.properties.type === DataHubPageModuleType.SemanticModelDimensions) return SampleLargeModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelDatasets) return SemanticModelDatasetsModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelMetrics) return SemanticModelMetricsModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelRelationships)
+            return SemanticModelRelationshipsModule;
+        if (module.properties.type === DataHubPageModuleType.SemanticModelDimensions)
+            return SemanticModelDimensionsModule;
         if (module.properties.type === DataHubPageModuleType.MetricSql) return SampleLargeModule;
         if (module.properties.type === DataHubPageModuleType.RelatedMetrics) return SampleLargeModule;
 

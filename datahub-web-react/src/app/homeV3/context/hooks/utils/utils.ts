@@ -1,4 +1,5 @@
 import {
+    AI_CONTEXT_MODULE,
     ASSETS_MODULE,
     CHILD_HIERARCHY_MODULE,
     COLUMNS_MODULE,
@@ -6,6 +7,10 @@ import {
     LINEAGE_MODULE,
     OUTPUT_PORTS_MODULE,
     RELATED_TERMS_MODULE,
+    SEMANTIC_MODEL_DATASETS_MODULE,
+    SEMANTIC_MODEL_DIMENSIONS_MODULE,
+    SEMANTIC_MODEL_METRICS_MODULE,
+    SEMANTIC_MODEL_RELATIONSHIPS_MODULE,
 } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
@@ -45,6 +50,15 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
         case EntityType.Dataset:
             rows = [{ modules: [LINEAGE_MODULE] }, { modules: [COLUMNS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.SemanticModel:
+            rows = [
+                { modules: [LINEAGE_MODULE] },
+                { modules: [SEMANTIC_MODEL_DATASETS_MODULE, SEMANTIC_MODEL_METRICS_MODULE] },
+                { modules: [SEMANTIC_MODEL_RELATIONSHIPS_MODULE, SEMANTIC_MODEL_DIMENSIONS_MODULE] },
+                { modules: [AI_CONTEXT_MODULE] },
+            ];
+            summaryElements = [LAST_INGESTED, DOMAIN, OWNERS, GLOSSARY_TERMS];
             break;
         case EntityType.Document:
             rows = [{ modules: [] }];

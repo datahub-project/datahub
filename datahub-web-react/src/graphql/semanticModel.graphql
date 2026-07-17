@@ -56,6 +56,29 @@ fragment modelDatasetFields on ModelDataset {
     }
 }
 
+fragment modelMetricFields on Metric {
+    id
+    path
+    platform {
+        ...platformFields
+    }
+    info {
+        name
+        description
+        expression {
+            dialects {
+                dialect
+            }
+        }
+        lastModified {
+            time
+        }
+    }
+    subTypes {
+        typeNames
+    }
+}
+
 fragment semanticModelRelationshipFields on SemanticModelRelationship {
     name
     from
@@ -139,7 +162,20 @@ fragment semanticModelFields on SemanticModel {
         ...platformFields
     }
     info {
-        ...semanticModelProfileInfoFields
+        ...semanticModelInfoFields
+    }
+    metrics(input: { count: 20, query: "*" }) {
+        total
+        nextScrollId
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Metric {
+                    ...modelMetricFields
+                }
+            }
+        }
     }
     ownership {
         ...ownershipFields
@@ -176,5 +212,25 @@ fragment semanticModelFields on SemanticModel {
 query getSemanticModel($urn: String!) {
     semanticModel(urn: $urn) {
         ...semanticModelFields
+    }
+}
+
+# Pagination beyond the first page embedded in getSemanticModel's `metrics` selection.
+query getSemanticModelMetricsPage($urn: String!, $input: ScrollAcrossEntitiesInput!) {
+    semanticModel(urn: $urn) {
+        urn
+        metrics(input: $input) {
+            total
+            nextScrollId
+            searchResults {
+                entity {
+                    urn
+                    type
+                    ... on Metric {
+                        ...modelMetricFields
+                    }
+                }
+            }
+        }
     }
 }
