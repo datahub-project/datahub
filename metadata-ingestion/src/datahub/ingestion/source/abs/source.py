@@ -404,6 +404,24 @@ class ABSSource(StatefulIngestionSourceBase):
                 container_name, f"{folder}{folder_split[1]}"
             )
 
+    def _process_folders(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
+        """Emit folder Containers for a folders-only path spec, to the depth defined by
+        the wildcards in `include`. Lists only folders — never blobs."""
+        if self.source_config.azure_config is None:
+            raise ValueError("azure_config not set. Cannot browse Azure Blob Storage")
+        container_name = self.source_config.azure_config.container_name
+        relative_glob = get_container_relative_path(path_spec.glob_include)
+        logger.info(f"Processing folders-only path spec: {path_spec.include}")
+        for folder in self.resolve_templated_folders(container_name, relative_glob):
+            abs_uri = self.create_abs_path(folder.rstrip("/"))
+            if not path_spec.folder_allowed(abs_uri):
+                logger.debug(f"Skipping folder excluded by path_spec: {abs_uri}")
+                continue
+            self.report.report_folder_scanned()
+            yield from self.container_WU_creator.create_folder_containers(
+                abs_uri.rstrip("/")
+            )
+
     def get_dir_to_process(
         self,
         container_name: str,
@@ -574,6 +592,10 @@ class ABSSource(StatefulIngestionSourceBase):
         with PerfTimer():
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
+                if path_spec.emit_folders_only:
+                    yield from self._process_folders(path_spec)
+                    continue
+
                 file_browser = (
                     self.abs_browser(
                         path_spec, self.source_config.number_of_files_to_sample
