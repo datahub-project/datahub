@@ -320,6 +320,26 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
+/** Restricts an adjacency list to the given node ids, on both sides of each edge. */
+export function filterAdjacencyList(
+    adjacencyList: NodeContext['adjacencyList'],
+    keepIds: Set<Urn>,
+): NodeContext['adjacencyList'] {
+    const filterMap = (neighborMap: NeighborMap): NeighborMap => {
+        const result: NeighborMap = new Map();
+        neighborMap.forEach((neighbors, urn) => {
+            if (!keepIds.has(urn)) return;
+            const keptNeighbors = new Set(Array.from(neighbors).filter((neighbor) => keepIds.has(neighbor)));
+            if (keptNeighbors.size) result.set(urn, keptNeighbors);
+        });
+        return result;
+    };
+    return {
+        [LineageDirection.Upstream]: filterMap(adjacencyList[LineageDirection.Upstream]),
+        [LineageDirection.Downstream]: filterMap(adjacencyList[LineageDirection.Downstream]),
+    };
+}
+
 // Mapping fromRef -> toRef -> operationRef represents a column-level edge (fromRef -> toRef)
 // with an operationRef attached if this is an edge to that operation's query node
 export type FineGrainedLineageMap = Map<ColumnRef, Map<ColumnRef, FineGrainedOperationRef | null>>;
@@ -330,6 +350,10 @@ interface DisplayContext {
     // Params
     hoveredNode: Urn | null;
     setHoveredNode: Dispatch<SetStateAction<Urn | null>>;
+    /** Pagination state for each node and direction with filtered-out children, keyed by
+     * `createLineageFilterNodeId`. Used by the expand/contract controls when lineage filter
+     * nodes are not displayed. */
+    lineageFilters: Map<string, LineageFilter>;
     displayedMenuNode: Urn | null;
     setDisplayedMenuNode: Dispatch<SetStateAction<Urn | null>>;
     hoveredColumn: ColumnRef | null;
@@ -350,6 +374,7 @@ interface DisplayContext {
 export const LineageDisplayContext = React.createContext<DisplayContext>({
     hoveredNode: null,
     setHoveredNode: () => {},
+    lineageFilters: new Map(),
     displayedMenuNode: null,
     setDisplayedMenuNode: () => {},
     hoveredColumn: null,

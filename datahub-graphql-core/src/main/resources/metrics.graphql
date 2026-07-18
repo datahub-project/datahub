@@ -330,6 +330,10 @@ type MetricInfo {
   lastModified: ResolvedAuditStamp
   expression: MetricExpression
   aiContext: AiContext
+  """
+  URL of the metric in its native platform (e.g., link to the metric in dbt Cloud or Cube).
+  """
+  externalUrl: String
 }
 
 """
@@ -377,6 +381,10 @@ type SemanticModelInfo {
   aiContext: AiContext
   datasets: [ModelDataset!]!
   relationships: [SemanticModelRelationship!]
+  """
+  URL of the semantic model in its native platform (e.g., link to the Snowflake semantic view).
+  """
+  externalUrl: String
 }
 
 """
@@ -386,7 +394,8 @@ A logical dataset referenced by a SemanticModel. `source` may be a Dataset
 type ModelDataset {
   name: String!
   """
-  The backing entity — a Dataset or a Query — resolved via UrnToEntityMapper.
+  The backing entity — a Dataset or a Query. Resolved via EntityTypeResolver, which
+  hydrates the underlying entity type's DataLoader on demand.
   """
   source: Entity!
   fields: [SemanticField!]

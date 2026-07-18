@@ -13,7 +13,7 @@ import { LastRunIcon } from '@app/entityV2/dataJob/tabs/RunsTab';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import Columns from '@app/lineageV3/LineageEntityNode/Columns';
-import { ContractLineageButton } from '@app/lineageV3/LineageEntityNode/ContractLineageButton';
+import { ContractLineageControl } from '@app/lineageV3/LineageEntityNode/ContractLineageControl';
 import { ExpandLineageButton } from '@app/lineageV3/LineageEntityNode/ExpandLineageButton';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
@@ -418,12 +418,12 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             {fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE &&
                                 isExpandedUpstream &&
                                 hasUpstreamChildren && (
-                                    <ContractLineageButton urn={urn} direction={LineageDirection.Upstream} />
+                                    <ContractLineageControl urn={urn} direction={LineageDirection.Upstream} />
                                 )}
                             {fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE &&
                                 isExpandedDownstream &&
                                 hasDownstreamChildren && (
-                                    <ContractLineageButton urn={urn} direction={LineageDirection.Downstream} />
+                                    <ContractLineageControl urn={urn} direction={LineageDirection.Downstream} />
                                 )}
                             {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                                 <LoadingWrapper className="nodrag" style={{ left: -30 }}>

@@ -2,6 +2,7 @@ import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { NodeProps, NodeResizer } from 'reactflow';
 import styled from 'styled-components';
 
+import { IconStyleType } from '@app/entityV2/Entity';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
 import NodeWrapper from '@app/lineageV3/NodeWrapper';
@@ -15,6 +16,7 @@ import {
 } from '@app/lineageV3/common';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import usePrevious from '@app/shared/usePrevious';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export const LINEAGE_BOUNDING_BOX_NODE_NAME = 'lineage-bounding-box';
 export const BOUNDING_BOX_PADDING = 50;
@@ -56,6 +58,7 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
     const { data, selected, dragging } = props;
     const { urn, type, entity } = data;
 
+    const entityRegistry = useEntityRegistry();
     const { rootUrn } = useContext(LineageNodesContext);
     const { searchedEntity, setIsDraggingBoundingBox } = useContext(LineageVisualizationContext);
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
@@ -121,6 +124,7 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                         loading={!entity}
                         name={entity?.name || urn}
                         properties={entity?.genericEntityProperties}
+                        typeIcon={entityRegistry.getIcon(type, 16, IconStyleType.ACCENT)}
                         platformIcons={entity?.icon ? [entity.icon] : []}
                         childrenOpen={false}
                     />

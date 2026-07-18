@@ -2,38 +2,47 @@ import { LineageEntity, NodeContext, isUrnTransformational } from '@app/lineageV
 
 import { EntityType, LineageDirection } from '@types';
 
+export interface OrderNodesOptions {
+    /** Overrides the default ordering of a node's children. Order determines priority: pagination
+     * keeps the first children when there are too many to show. */
+    compareNodes?: (a: string, b: string) => number;
+}
+
 /**
  * Orders nodes in BFS order, starting from the root node.
  * Within a single node, children are ordered transformations last, then alphabetically.
- * Note: Transformations should be put first once show more is put at the bottom.
  * @param urn Root node urn.
  * @param direction Direction in which to perform BFS.
  * @param context Lineage node context.
+ * @param options Optional child comparator.
  */
 export default function orderNodes(
     urn: string,
     direction: LineageDirection,
     { nodes, adjacencyList, rootType }: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'rootType'>,
+    options: OrderNodesOptions = {},
 ): LineageEntity[] {
-    const compareNodes = generateCompareNodesFunction(rootType);
+    const compareNodes = options.compareNodes ?? generateCompareNodesFunction(rootType);
     const orderedNodes: string[] = [];
     const seenNodes = new Set<string>([urn]);
     const queue = [urn]; // Note: uses array for queue, slow for large graphs
+    const visit = (child: string) => {
+        if (!seenNodes.has(child)) {
+            queue.push(child);
+            seenNodes.add(child);
+            orderedNodes.push(child);
+        }
+    };
     while (queue.length > 0) {
         const current = queue.shift() as string; // Just checked length
-        const children = Array.from(adjacencyList[direction].get(current) || []).sort(compareNodes);
-        children?.forEach((child) => {
-            if (!seenNodes.has(child)) {
-                queue.push(child);
-                seenNodes.add(child);
-                orderedNodes.push(child);
-            }
-        });
+        Array.from(adjacencyList[direction].get(current) || [])
+            .sort(compareNodes)
+            .forEach(visit);
     }
     return orderedNodes.map((id) => nodes.get(id)).filter((node): node is LineageEntity => !!node);
 }
 
-function generateCompareNodesFunction(rootType: EntityType) {
+export function generateCompareNodesFunction(rootType: EntityType) {
     return function compareNodes(a: string, b: string): number {
         const isATransformation = isUrnTransformational(a, rootType);
         const isBTransformation = isUrnTransformational(b, rootType);

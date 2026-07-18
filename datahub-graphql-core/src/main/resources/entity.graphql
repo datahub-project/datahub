@@ -13544,6 +13544,11 @@ type DataProduct implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Whether the Data Product exists in DataHub
+  """
+  exists: Boolean
 }
 
 """
