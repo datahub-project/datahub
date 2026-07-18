@@ -29,9 +29,14 @@ def is_http_uri(uri: str) -> bool:
     return bool(_HTTP_URI_PATTERN.match(uri))
 
 
+class FileSizeExceededError(ValueError):
+    """A source exceeded the caller's max_bytes cap; callers may treat this as a
+    skip rather than a hard read failure."""
+
+
 def _enforce_size_cap(uri: str, size: int, max_bytes: Optional[int]) -> None:
     if max_bytes is not None and size > max_bytes:
-        raise ValueError(
+        raise FileSizeExceededError(
             f"{uri} is {size} bytes, over the configured max_bytes limit of {max_bytes}"
         )
 

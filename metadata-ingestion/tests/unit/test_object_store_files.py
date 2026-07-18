@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 
 from datahub.ingestion.source.common.object_store_files import (
+    FileSizeExceededError,
     expand_local_glob,
     expand_object_store_glob,
     has_glob_characters,
@@ -280,7 +281,7 @@ def test_read_file_as_bytes_gcs_missing_connection():
 def test_read_file_as_bytes_local_over_cap(tmp_path):
     path = tmp_path / "big.yaml"
     path.write_bytes(b"x" * 100)
-    with pytest.raises(ValueError, match="over the configured max_bytes"):
+    with pytest.raises(FileSizeExceededError, match="over the configured max_bytes"):
         read_file_as_bytes(str(path), max_bytes=10)
 
 
