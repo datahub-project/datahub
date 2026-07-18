@@ -6,6 +6,10 @@ export interface OrderNodesOptions {
     /** Overrides the default ordering of a node's children. Order determines priority: pagination
      * keeps the first children when there are too many to show. */
     compareNodes?: (a: string, b: string) => number;
+    /** Nodes to seed the traversal with, ordered directly after the root and traversed like its
+     * children. Lets a root with no lineage of its own (e.g. a data product) seed the graph with
+     * its members. */
+    seedNodes?: LineageEntity[];
 }
 
 /**
@@ -14,7 +18,7 @@ export interface OrderNodesOptions {
  * @param urn Root node urn.
  * @param direction Direction in which to perform BFS.
  * @param context Lineage node context.
- * @param options Optional child comparator.
+ * @param options Optional child comparator and seed nodes.
  */
 export default function orderNodes(
     urn: string,
@@ -33,6 +37,7 @@ export default function orderNodes(
             orderedNodes.push(child);
         }
     };
+    options.seedNodes?.forEach((seed) => visit(seed.urn));
     while (queue.length > 0) {
         const current = queue.shift() as string; // Just checked length
         Array.from(adjacencyList[direction].get(current) || [])

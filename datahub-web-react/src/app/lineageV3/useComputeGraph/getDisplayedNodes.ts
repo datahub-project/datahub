@@ -28,6 +28,10 @@ interface Output {
 }
 
 interface Options {
+    /** Nodes to seed the traversal with, displayed alongside the root and traversed further only if
+     * they are themselves expanded. Lets a root with no lineage of its own (e.g. a data product)
+     * seed the graph with its members. */
+    seedNodes?: LineageEntity[];
     /** If false, lineage filter nodes are not included in the displayed nodes;
      * their state is still returned via `lineageFilters`. Defaults to true. */
     createFilterNodes?: boolean;
@@ -38,7 +42,7 @@ interface Options {
  * @param urn The urn of the root node.
  * @param orderedNodes Nodes ordered by `orderNodes`, in BFS order.
  * @param context Lineage node context.
- * @param options Optional filter node toggle.
+ * @param options Optional seed nodes and filter node toggle.
  * @returns A list of nodes to display in rough topological order,
  *          a map of nodes to their non-transformational parents,
  *          and the pagination state of each node with filtered-out children.
@@ -67,6 +71,20 @@ export default function getDisplayedNodes(
         }
         const seenNodes = new Set<string>([urn]);
         const queue = [urn]; // Note: uses array for queue, slow for large graphs
+
+        // Seed the traversal, e.g. with a data product's members, since the root has no lineage of
+        // its own. Seeds are traversed further only if they are themselves expanded.
+        options.seedNodes?.forEach((seed) => {
+            if (seenNodes.has(seed.id)) return;
+            seenNodes.add(seed.id);
+            if (!addedNodes.has(seed.id)) {
+                addedNodes.add(seed.id);
+                displayedNodes.push(seed);
+            }
+            if (seed.isExpanded[direction]) {
+                queue.push(seed.id);
+            }
+        });
 
         while (queue.length > 0) {
             const current = queue.shift() as string; // Just checked length

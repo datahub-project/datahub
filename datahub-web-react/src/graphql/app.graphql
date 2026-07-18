@@ -124,6 +124,7 @@ query appConfig {
             documentationFileUploadV1
             contextDocumentsEnabled
             hideLineageInSearchCards
+            dataProductLineageEnabled
             glossaryBasedPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon
