@@ -88,6 +88,9 @@ def read_file_as_bytes(
     if is_http_uri(uri):
         # stream=True keeps the body out of memory until we pull it chunk by
         # chunk, so the cap can abort an oversized download partway through.
+        # NOTE: redirects are followed (requests default, capped at 30 hops).
+        # The URL comes from operator-authored recipe config, not end-user
+        # input, so redirect-based SSRF is an accepted risk here.
         resp = requests.get(uri, timeout=http_timeout_seconds, stream=True)
         resp.raise_for_status()
         declared = resp.headers.get("Content-Length")
