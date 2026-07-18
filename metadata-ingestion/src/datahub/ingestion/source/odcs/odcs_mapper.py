@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeGuard
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, TypeGuard
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
@@ -551,7 +551,7 @@ def unmapped_owner_roles(contract: ODCSContract) -> List[str]:
     source can surface it for telemetry. Mirrors the eligibility rules in
     `_make_owners` (skip departed members and members with no identifier).
     """
-    roles: set = set()
+    roles: Set[str] = set()
     for member in contract.team_members:
         if member.dateOut:
             continue
