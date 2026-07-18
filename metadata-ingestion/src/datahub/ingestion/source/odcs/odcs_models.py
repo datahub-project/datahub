@@ -2,18 +2,14 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# ---------------------------------------------------------------------------
-# Spec-valid fields the source deliberately does not map.
-#
-# The unknown-field walker in odcs_source.py classifies YAML keys three ways:
-# declared on the model (parsed), listed here (spec-valid but unmapped -- one
-# aggregate info per file, no warning), or neither (genuinely unknown -- a
-# per-field warning). These sets are the union of the property keys declared
-# in the vendored v3.0.2 and v3.1.0 JSON Schemas minus the model fields; the
-# drift-guard unit test in tests/unit/odcs/test_odcs_models.py enforces that
-# invariant so a future spec bump fails loudly instead of producing spurious
-# "check spelling" warnings.
-# ---------------------------------------------------------------------------
+# Spec-valid fields the source deliberately does not map. The unknown-field
+# walker in odcs_source.py classifies YAML keys three ways: declared on the
+# model (parsed), listed here (spec-valid but unmapped -- one aggregate info per
+# file, no warning), or neither (genuinely unknown -- a per-field warning).
+# These sets are the union of the property keys declared in the vendored v3.0.2
+# and v3.1.0 JSON Schemas minus the model fields; the drift-guard unit test in
+# tests/unit/odcs/test_odcs_models.py enforces that invariant so a future spec
+# bump fails loudly instead of producing spurious "check spelling" warnings.
 
 KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
     (

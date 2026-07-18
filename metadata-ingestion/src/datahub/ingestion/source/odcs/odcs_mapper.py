@@ -202,11 +202,6 @@ def _description_to_str(description: object) -> Optional[str]:
     return None
 
 
-# ----------------------------------------------------------------------------
-# Platform registration
-# ----------------------------------------------------------------------------
-
-
 def odcs_platform_info_mcp() -> MetadataChangeProposalWrapper:
     """Emit the `odcs` DataPlatformInfo aspect at ingestion time.
 
@@ -232,11 +227,6 @@ def odcs_platform_info_mcp() -> MetadataChangeProposalWrapper:
             logoUrl="assets/platforms/odcslogo.png",
         ),
     )
-
-
-# ----------------------------------------------------------------------------
-# URN + binding resolution
-# ----------------------------------------------------------------------------
 
 
 def odcs_to_logical_dataset_urn(
@@ -480,11 +470,6 @@ def odcs_to_physical_bindings(
     return bindings
 
 
-# ----------------------------------------------------------------------------
-# Shared owner / tag / property helpers
-# ----------------------------------------------------------------------------
-
-
 def _make_tag_associations(
     tags: Optional[List[str]], tag_prefix: Optional[str]
 ) -> List[TagAssociationClass]:
@@ -576,11 +561,6 @@ def _walk_properties(
             yield from _walk_properties(prop.properties, path)
 
 
-# ----------------------------------------------------------------------------
-# Canonical schema metadata (the new piece)
-# ----------------------------------------------------------------------------
-
-
 def _map_field_type(prop: ODCSProperty) -> Tuple[SchemaFieldDataTypeClass, bool]:
     """Map an ODCS property's logical/physical type to a SchemaFieldDataType.
 
@@ -652,11 +632,6 @@ def build_schema_metadata(
         ),
         unmapped_types=unmapped_types,
     )
-
-
-# ----------------------------------------------------------------------------
-# Logical dataset aspects
-# ----------------------------------------------------------------------------
 
 
 def _count_quality_rules(schema_entry: ODCSSchemaObject) -> int:
@@ -824,16 +799,13 @@ def odcs_to_logical_parent_mcp(
     )
 
 
-# ----------------------------------------------------------------------------
-# Assertions — emitted against the LOGICAL dataset
-#
-# ODCS quality rules are the producer's published expectations for the dataset
-# the contract describes, so the Assertion entities target the logical `odcs`
-# dataset (the assertion's `entity` is the logical URN). Propagation of those
-# expectations onto bound physical datasets is handled by a separate DataHub
-# mechanism via the PhysicalInstanceOf relationship — this source never writes
-# assertions against physical URNs.
-# ----------------------------------------------------------------------------
+# Assertions are emitted against the LOGICAL dataset: ODCS quality rules are the
+# producer's published expectations for the dataset the contract describes, so
+# the Assertion entities target the logical `odcs` dataset (the assertion's
+# `entity` is the logical URN). Propagation of those expectations onto bound
+# physical datasets is handled by a separate DataHub mechanism via the
+# PhysicalInstanceOf relationship — this source never writes assertions against
+# physical URNs.
 
 
 @dataclass

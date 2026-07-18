@@ -236,10 +236,6 @@ class ODCSSource(StatefulIngestionSourceBase):
             partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
         ]
 
-    # ------------------------------------------------------------------
-    # Schema validation + file IO
-    # ------------------------------------------------------------------
-
     def _load_validators(self) -> Dict[str, "jsonschema.Draft202012Validator"]:
         validators: Dict[str, jsonschema.Draft202012Validator] = {}
         for version, filename in _VERSION_TO_SCHEMA.items():
@@ -488,10 +484,6 @@ class ODCSSource(StatefulIngestionSourceBase):
             return None
         return raw_text, raw_dict
 
-    # ------------------------------------------------------------------
-    # Unknown-field detection
-    # ------------------------------------------------------------------
-
     def _warn_unknown_fields(self, raw_dict: dict, file_path: pathlib.Path) -> None:
         """Walk the raw YAML dict and classify keys not declared on the model.
 
@@ -557,10 +549,6 @@ class ODCSSource(StatefulIngestionSourceBase):
                 ),
                 context=f"{file_path}: {', '.join(spec_ignored)}",
             )
-
-    # ------------------------------------------------------------------
-    # Per-file processing
-    # ------------------------------------------------------------------
 
     def _urn_exists_in_graph(self, urn: str) -> Optional[bool]:
         """Best-effort, cached existence check for any URN.
