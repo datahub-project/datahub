@@ -17,6 +17,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    unmapped_owner_roles,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
@@ -611,6 +612,25 @@ def test_owners_roles_dedup_and_dateout() -> None:
     assert by_urn["urn:li:corpuser:erin"] == OwnershipTypeClass.TECHNICAL_OWNER
     assert "urn:li:corpuser:dave" not in by_urn
     assert len(owners) == 3
+
+
+def test_unmapped_owner_roles_surfaces_only_named_unknown_roles() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        team=[
+            {"username": "alice", "role": "owner"},  # mapped -> excluded
+            {"username": "bob"},  # no role -> legitimate default, excluded
+            {"username": "carol", "role": "producer"},  # named unknown -> reported
+            {"username": "dan", "role": "producer"},  # dedup
+            {"username": "eve", "role": "consumer"},  # named unknown -> reported
+            {
+                "username": "frank",
+                "role": "approver",
+                "dateOut": "2024-01-01",  # departed -> excluded
+            },
+        ],
+    )
+    assert unmapped_owner_roles(contract) == ["consumer", "producer"]
 
 
 def test_owner_strip_email_domain() -> None:
