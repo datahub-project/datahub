@@ -41,6 +41,15 @@ repos:
         files: ^datahub-actions/.*\.py$
         pass_filenames: true
 
+      - id: datahub-actions-mypy
+        name: datahub-actions Mypy
+        entry: bash .github/scripts/python_staged_mypy.sh datahub-actions
+        language: system
+        files: ^datahub-actions/.*\.py$
+        pass_filenames: true
+        stages:
+          - pre-push
+
       - id: datahub-agent-context-ruff-check
         name: datahub-agent-context Ruff Check
         entry: bash .github/scripts/python_staged_ruff.sh datahub-agent-context check
@@ -55,6 +64,15 @@ repos:
         language: system
         files: ^datahub-agent-context/.*\.py$
         pass_filenames: true
+
+      - id: datahub-agent-context-mypy
+        name: datahub-agent-context Mypy
+        entry: bash .github/scripts/python_staged_mypy.sh datahub-agent-context
+        language: system
+        files: ^datahub-agent-context/.*\.py$
+        pass_filenames: true
+        stages:
+          - pre-push
 
       - id: datahub-frontend-spotless
         name: datahub-frontend Spotless Apply
@@ -155,6 +173,15 @@ repos:
         files: ^metadata-ingestion/.*\.py$
         pass_filenames: true
 
+      - id: metadata-ingestion-mypy
+        name: metadata-ingestion Mypy
+        entry: bash .github/scripts/python_staged_mypy.sh metadata-ingestion
+        language: system
+        files: ^metadata-ingestion/.*\.py$
+        pass_filenames: true
+        stages:
+          - pre-push
+
       - id: metadata-ingestion-modules-airflow-plugin-ruff-check
         name: metadata-ingestion-modules/airflow-plugin Ruff Check
         entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/airflow-plugin
@@ -170,6 +197,15 @@ repos:
         language: system
         files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
         pass_filenames: true
+
+      - id: metadata-ingestion-modules-airflow-plugin-mypy
+        name: metadata-ingestion-modules/airflow-plugin Mypy
+        entry: bash .github/scripts/python_staged_mypy.sh metadata-ingestion-modules/airflow-plugin
+        language: system
+        files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
+        pass_filenames: true
+        stages:
+          - pre-push
 
       - id: metadata-ingestion-modules-dagster-plugin-ruff-check
         name: metadata-ingestion-modules/dagster-plugin Ruff Check
@@ -187,6 +223,15 @@ repos:
         files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
         pass_filenames: true
 
+      - id: metadata-ingestion-modules-dagster-plugin-mypy
+        name: metadata-ingestion-modules/dagster-plugin Mypy
+        entry: bash .github/scripts/python_staged_mypy.sh metadata-ingestion-modules/dagster-plugin
+        language: system
+        files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
+        pass_filenames: true
+        stages:
+          - pre-push
+
       - id: metadata-ingestion-modules-gx-plugin-ruff-check
         name: metadata-ingestion-modules/gx-plugin Ruff Check
         entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/gx-plugin
@@ -203,6 +248,15 @@ repos:
         files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
         pass_filenames: true
 
+      - id: metadata-ingestion-modules-gx-plugin-mypy
+        name: metadata-ingestion-modules/gx-plugin Mypy
+        entry: bash .github/scripts/python_staged_mypy.sh metadata-ingestion-modules/gx-plugin
+        language: system
+        files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
+        pass_filenames: true
+        stages:
+          - pre-push
+
       - id: metadata-ingestion-modules-prefect-plugin-ruff-check
         name: metadata-ingestion-modules/prefect-plugin Ruff Check
         entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/prefect-plugin
@@ -218,6 +272,15 @@ repos:
         language: system
         files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
         pass_filenames: true
+
+      - id: metadata-ingestion-modules-prefect-plugin-mypy
+        name: metadata-ingestion-modules/prefect-plugin Mypy
+        entry: bash .github/scripts/python_staged_mypy.sh metadata-ingestion-modules/prefect-plugin
+        language: system
+        files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
+        pass_filenames: true
+        stages:
+          - pre-push
 
       - id: metadata-integration-java-acryl-spark-lineage-spotless
         name: metadata-integration/java/acryl-spark-lineage Spotless Apply
@@ -590,6 +653,15 @@ repos:
         language: system
         files: ^smoke-test/.*\.py$
         pass_filenames: true
+
+      - id: smoke-test-mypy
+        name: smoke-test Mypy
+        entry: bash .github/scripts/python_staged_mypy.sh smoke-test
+        language: system
+        files: ^smoke-test/.*\.py$
+        pass_filenames: true
+        stages:
+          - pre-push
 
       - id: test-models-spotless
         name: test-models Spotless Apply
