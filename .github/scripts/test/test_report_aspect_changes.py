@@ -324,6 +324,43 @@ def test_fields_ignores_nested_record_fields():
     assert "b" not in fs  # b belongs to Inner, not Outer
 
 
+def test_fields_captures_whitelisted_annotation():
+    src = (
+        "record Foo {\n"
+        '  @Searchable = { "fieldType": "KEYWORD" }\n'
+        "  name: optional string\n"
+        "}"
+    )
+    fs = rac.fields(src)
+    assert fs["name"]["annotations"] == {"Searchable": '{ "fieldType": "KEYWORD" }'}
+
+
+def test_fields_captures_multiline_annotation_value():
+    # The naive per-line regex this delegates away from cannot strip a
+    # multi-line annotation value; the shared bsv parser handles it correctly.
+    src = (
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        '    "fieldType": "KEYWORD"\n'
+        "  }\n"
+        "  name: optional string\n"
+        "}"
+    )
+    fs = rac.fields(src)
+    assert fs["name"]["annotations"] == {"Searchable": '{ "fieldType": "KEYWORD" }'}
+
+
+def test_fields_ignores_non_whitelisted_annotation():
+    src = (
+        "record Foo {\n"
+        '  @deprecated = "use bar instead"\n'
+        "  name: optional string\n"
+        "}"
+    )
+    fs = rac.fields(src)
+    assert fs["name"]["annotations"] == {}
+
+
 def test_enums_returns_symbols_per_enum():
     es = rac.enums(ENUM_PDL)
     assert es == {"FabricType": ["PROD", "CORP", "DEV"]}
@@ -417,6 +454,49 @@ def test_analyze_type_change_is_breaking(monkeypatch):
 
     f = rac.analyze_file("path.pdl", "BASE", "HEAD")
     assert any("type change on x: string→int" in line for line in f.breaking)
+
+
+def test_analyze_searchable_annotation_change_is_breaking(monkeypatch):
+    # @Searchable drives ES index mapping — changing it on an existing field
+    # requires a reindex, so it must be bump-worthy even with no type/optional
+    # change and no schemaVersion bump (silent migration/reindex hazard).
+    old = (
+        'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\n'
+        'record A { @Searchable = { "fieldType": "KEYWORD" } x: string }'
+    )
+    new = (
+        'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\n'
+        'record A { @Searchable = { "fieldType": "TEXT" } x: string }'
+    )
+
+    monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+
+    f = rac.analyze_file("path.pdl", "BASE", "HEAD")
+    assert any("annotation change on x" in line for line in f.breaking)
+    assert f.has_structural is True
+    assert f.bump_status == rac.BUMP_NEEDED
+
+
+def test_analyze_non_whitelisted_annotation_change_is_ignored(monkeypatch):
+    # @deprecated is not reindex-relevant, so a value-only change on it must
+    # not be reported as a schema change at all.
+    old = (
+        'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\n'
+        'record A { @deprecated = "old reason" x: string }'
+    )
+    new = (
+        'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\n'
+        'record A { @deprecated = "new reason" x: string }'
+    )
+
+    monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+
+    f = rac.analyze_file("path.pdl", "BASE", "HEAD")
+    assert f.breaking == []
+    assert f.has_structural is False
+    assert f.bump_status == rac.BUMP_NOT_NEEDED
 
 
 def test_analyze_enum_removal_is_breaking(monkeypatch):

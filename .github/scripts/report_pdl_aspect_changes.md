@@ -100,22 +100,24 @@ filtered to `*.pdl`. Files that exist on only one side (added or deleted) are st
 
 ### Step 3 — Classify each changed file
 
-For every changed file the classifier compares base vs. head content and emits findings against **five breaking-change criteria** plus **two `schemaVersion` anomalies**:
+For every changed file the classifier compares base vs. head content and emits findings against **six breaking-change criteria** plus **two `schemaVersion` anomalies**:
 
-| #   | Criterion                                                                        | Bucket   | Bump required? |
-| --- | -------------------------------------------------------------------------------- | -------- | -------------- |
-| 1   | Removed fields                                                                   | breaking | yes            |
-| 2   | Renamed record without `@renamedFrom` annotation                                 | breaking | yes            |
-| 3   | `optional → required` flip                                                       | breaking | yes            |
-| 4   | Enum value removal                                                               | breaking | yes            |
-| 5   | Field type change                                                                | breaking | yes            |
-|     | Added required field                                                             | breaking | yes            |
-|     | **Breaking change without `schemaVersion` bump**                                 | breaking | (flag)         |
-|     | Added optional field                                                             | additive | **no**         |
-|     | Added enum value                                                                 | additive | **no**         |
-|     | `required → optional` flip                                                       | noisy    | yes            |
-|     | Renamed record **with** `@renamedFrom` annotation                                | noisy    | yes            |
-|     | **`schemaVersion` bump without bump-required change** (e.g. CorpUserInfo #18278) | noisy    | — (spurious)   |
+| #   | Criterion                                                                                                                                                                                                                                                 | Bucket   | Bump required? |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------- |
+| 1   | Removed fields                                                                                                                                                                                                                                            | breaking | yes            |
+| 2   | Renamed record without `@renamedFrom` annotation                                                                                                                                                                                                          | breaking | yes            |
+| 3   | `optional → required` flip                                                                                                                                                                                                                                | breaking | yes            |
+| 4   | Enum value removal                                                                                                                                                                                                                                        | breaking | yes            |
+| 5   | Field type change                                                                                                                                                                                                                                         | breaking | yes            |
+| 6   | Changed/added/removed `@Searchable`, `@Relationship`, `@SearchableRef`, `@TimeseriesField`, or `@TimeseriesFieldCollection` on an existing field (reindex-relevant — see [bump_schema_versions.md](bump_schema_versions.md#reindex-relevant-annotations)) | breaking | yes            |
+|     | Added required field                                                                                                                                                                                                                                      | breaking | yes            |
+|     | **Breaking change without `schemaVersion` bump**                                                                                                                                                                                                          | breaking | (flag)         |
+|     | Added optional field                                                                                                                                                                                                                                      | additive | **no**         |
+|     | Added enum value                                                                                                                                                                                                                                          | additive | **no**         |
+|     | `required → optional` flip                                                                                                                                                                                                                                | noisy    | yes            |
+|     | Renamed record **with** `@renamedFrom` annotation                                                                                                                                                                                                         | noisy    | yes            |
+|     | **`schemaVersion` bump without bump-required change** (e.g. CorpUserInfo #18278)                                                                                                                                                                          | noisy    | — (spurious)   |
+|     | Changed a **non-whitelisted** field annotation (e.g. `@deprecated`, `@compliance`, `@UrnValidation`)                                                                                                                                                      | _(none)_ | no             |
 
 ### Step 4 — Walk the dependency graph (transitive impact)
 

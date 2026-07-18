@@ -137,13 +137,25 @@ Before a changed file is considered for bumping (and before it can cascade a bum
 
 A change is treated as backward-compatible when **all** of the following hold (aligned with the report tool's `fields()` / Additive bucket):
 
-- Every field present on the base branch keeps the same name, type, and optional-ness (annotations and defaults are ignored, matching the report).
+- Every field present on the base branch keeps the same name, type, and optional-ness (field **defaults** are ignored, matching the report).
+- Every field's `@Searchable`, `@Relationship`, `@SearchableRef`, `@TimeseriesField`, and `@TimeseriesFieldCollection` annotations are unchanged (see [Reindex-relevant annotations](#reindex-relevant-annotations) below). All other field annotations (e.g. `@deprecated`, `@compliance`, `@UrnValidation`) are ignored.
 - Every newly added record field is declared `optional`.
 - Every enum symbol present on the base branch is still present (new symbols may be added).
 - `includes` clauses are unchanged.
 - The `@Aspect` annotation is unchanged **except** for `schemaVersion` itself (this is what lets a maintainer intentionally remove a version that was bumped for an additive-only change — e.g. CorpUserInfo / #18278).
 
-Anything else — removing or renaming a field, changing a field's type, flipping optional↔required, adding a non-optional field, removing an enum symbol, or any construct the conservative parser cannot model (e.g. `typeref`) — is treated as a real change and bumps normally. The detector **fails closed**: any parse ambiguity resolves toward bumping, because a missed bump (and its skipped migration) is far more dangerous than an unnecessary one.
+Anything else — removing or renaming a field, changing a field's type, flipping optional↔required, adding a non-optional field, removing an enum symbol, changing/adding/removing a reindex-relevant annotation on an existing field, or any construct the conservative parser cannot model (e.g. `typeref`) — is treated as a real change and bumps normally. The detector **fails closed**: any parse ambiguity resolves toward bumping, because a missed bump (and its skipped migration) is far more dangerous than an unnecessary one.
+
+#### Reindex-relevant annotations
+
+`schemaVersion` also has to catch changes that don't alter a field's serialized shape at all but do
+change how it's indexed. `@Searchable`, `@Relationship`, and `@SearchableRef` drive Elasticsearch
+field/graph-edge mapping; `@TimeseriesField` and `@TimeseriesFieldCollection` drive timeseries field
+indexing. Changing one of these on an existing field — e.g. flipping a `@Searchable` `fieldType`
+from `KEYWORD` to `TEXT` — requires a reindex, so it is bump-worthy even though the field's PDL type
+and optionality never moved. This whitelist (`BUMP_WORTHY_ANNOTATIONS` in the script) is intentionally
+narrow: every other field annotation continues to be parsed-and-discarded exactly as before, so it
+never enters the bump decision.
 
 ### Step 4 — Bump the version
 

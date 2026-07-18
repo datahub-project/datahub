@@ -221,7 +221,17 @@ _FIELD_LINE_RE = re.compile(
 
 
 def fields(src: str) -> dict[str, dict]:
-    """Return {field_name: {'optional': bool, 'type': str}} for the outermost record."""
+    """Return {field_name: {'optional': bool, 'type': str, 'annotations': dict}}
+    for the outermost record.
+
+    Delegates to bump_schema_versions.parse_record_fields — the brace-balanced
+    parser shared with the auto-bumper — so both tools capture the same
+    whitelisted reindex-relevant annotations (@Searchable, @Relationship,
+    @SearchableRef, @TimeseriesField, @TimeseriesFieldCollection) identically,
+    including values that span multiple lines. Falls back to the previous
+    naive per-line scan (no annotation capture) only when that parser returns
+    None — a construct it can't model unambiguously.
+    """
     cleaned = _strip_comments(src)
     m = _RECORD_RE.search(cleaned)
     if not m:
@@ -229,6 +239,20 @@ def fields(src: str) -> dict[str, dict]:
     body = m.group("body")
     # Drop nested record/enum/typeref bodies so we don't pick up their fields
     body = re.sub(r"(record|enum|typeref)\s+\w+[^{}]*\{[^{}]*\}", "", body)
+
+    parsed = bsv.parse_record_fields(body)
+    if parsed is not None:
+        out: dict[str, dict] = {}
+        for name, (typ, opt, ann) in parsed.items():
+            # bsv keeps a leading "optional" keyword inside its type text (so
+            # a required<->optional flip also shows up as a type difference
+            # there); this module tracks optionality separately from type so
+            # such a flip is reported as "required-ness flip", not a type
+            # change — strip the prefix to preserve that distinction.
+            type_only = re.sub(r"^optional\s+", "", typ, count=1)
+            out[name] = {"optional": opt, "type": type_only, "annotations": ann}
+        return out
+
     out: dict[str, dict] = {}
     for raw_line in body.splitlines():
         line = re.sub(r"@\w+(?:\s*=\s*(?:\{[^}]*\}|\"[^\"]*\"|\d+))?", "", raw_line)
@@ -243,6 +267,7 @@ def fields(src: str) -> dict[str, dict]:
         out[name] = {
             "optional": bool(fm.group("opt")),
             "type": fm.group("type").strip().rstrip(","),
+            "annotations": {},
         }
     return out
 
@@ -504,6 +529,7 @@ _REQ_FLIP_RE = re.compile(r"required-ness flip on (\S+): (.+)")
 _TYPE_CHANGE_RE = re.compile(r"type change on (\S+): (.+)")
 _ENUM_CHANGE_RE = re.compile(r"enum (\S+): (added|removed) value (\S+)")
 _RENAME_RE = re.compile(r"record renamed (\S+)→(\S+)")
+_ANNOTATION_CHANGE_RE = re.compile(r"annotation change on (\S+): .+")
 
 
 def _shorten_change_line(line: str) -> str:
@@ -515,6 +541,7 @@ def _shorten_change_line(line: str) -> str:
     `type change on foo: A→B`         → `type change on foo: A→B`
     `enum X: added value Y`           → `enum X: added value Y`
     `record renamed A→B (...)`        → `record renamed A→B`
+    `annotation change on foo: {..} → {..}` → `annotation changed on foo`
     Unrecognised lines pass through verbatim.
     """
     m = _FIELD_ADD_RE.match(line)
@@ -536,6 +563,9 @@ def _shorten_change_line(line: str) -> str:
     m = _RENAME_RE.match(line)
     if m:
         return f"record renamed {m.group(1)}→{m.group(2)}"
+    m = _ANNOTATION_CHANGE_RE.match(line)
+    if m:
+        return f"annotation changed on {m.group(1)}"
     return line
 
 
@@ -1021,6 +1051,10 @@ def analyze_file(path: str, base: str, head: str) -> FileFinding:
             has_structural = True
         if o["type"] != n["type"]:
             f.breaking.append(f"type change on {name}: {o['type']}→{n['type']}")
+            has_structural = True
+        o_ann, n_ann = o.get("annotations") or {}, n.get("annotations") or {}
+        if o_ann != n_ann:
+            f.breaking.append(f"annotation change on {name}: {o_ann or '{}'} → {n_ann or '{}'}")
             has_structural = True
 
     old_enums, new_enums = enums(old), enums(new)

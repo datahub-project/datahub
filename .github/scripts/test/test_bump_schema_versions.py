@@ -736,6 +736,8 @@ def test_parse_top_level_defs_record_fields_and_includes():
     assert foo["fields"]["active"][1] is False
     assert foo["fields"]["name"][1] is True
     assert foo["fields"]["flag"][1] is True
+    assert foo["fields"]["active"][2] == {}
+    assert foo["fields"]["name"][2] == {"Searchable": '{ "fieldType": "KEYWORD" }'}
 
 
 def test_parse_top_level_defs_enum_symbols():
@@ -758,9 +760,15 @@ def test_parse_record_fields_nested_annotation_braces_do_not_split():
         "a: boolean\n"
         "b: optional string\n"
     )
-    fields = bsv._parse_record_fields(body)
+    fields = bsv.parse_record_fields(body)
     assert set(fields) == {"a", "b"}
     assert fields["b"][1] is True
+    # The @Searchable annotation attaches to the field that follows it (a),
+    # and is captured (whitelisted) rather than merely skipped over.
+    assert fields["a"][2] == {
+        "Searchable": '{ "w": { "true": 2.0 }, "aliases": [ "_x" ] }'
+    }
+    assert fields["b"][2] == {}
 
 
 # ---------------------------------------------------------------------------
@@ -800,11 +808,28 @@ def test_bc_changed_field_type_is_incompatible():
     assert bsv._defs_backward_compatible(base, cur) is False
 
 
-def test_bc_changed_field_annotation_is_compatible():
-    # Annotation-only edits match the report tool (which ignores annotations)
-    # and do not require a bump.
+def test_bc_changed_searchable_annotation_is_incompatible():
+    # @Searchable drives Elasticsearch index mapping, so changing its value on
+    # an existing field requires a reindex — not a no-op, backward-compatible
+    # change — even though nothing about the field's own type/optionality moved.
     base = _record_defs('@Searchable = { "fieldType": "KEYWORD" }', "a: optional string")
     cur = _record_defs('@Searchable = { "fieldType": "TEXT" }', "a: optional string")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_added_searchable_annotation_is_incompatible():
+    # A field with no annotation in base gaining @Searchable in current is
+    # exactly as bump-worthy as changing an existing one's value.
+    base = _record_defs("a: optional string")
+    cur = _record_defs('@Searchable = { "fieldType": "KEYWORD" }', "a: optional string")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_changed_non_whitelisted_annotation_is_compatible():
+    # @deprecated is not reindex-relevant, so it stays ignored — same as
+    # before this change — even though its value differs.
+    base = _record_defs('@deprecated = "old reason"', "a: optional string")
+    cur = _record_defs('@deprecated = "new reason"', "a: optional string")
     assert bsv._defs_backward_compatible(base, cur) is True
 
 

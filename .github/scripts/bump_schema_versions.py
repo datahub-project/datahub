@@ -790,19 +790,40 @@ def _strip_field_default(type_text: str) -> str:
     return re.sub(r"\s*=\s*.*$", "", type_text).strip()
 
 
-def _parse_record_fields(body: str) -> dict[str, tuple[str, bool]] | None:
+# Field-level annotations whose value drives Elasticsearch/graph index mapping
+# (search index fields, graph edges, timeseries field indexing). Changing or
+# adding one of these on an existing field requires a reindex, so — unlike
+# other field annotations (@deprecated, @compliance, @UrnValidation, ...),
+# which carry no reindex-relevant semantics and stay ignored — these must be
+# treated as a real, bump-worthy schema change.
+BUMP_WORTHY_ANNOTATIONS = frozenset(
+    {
+        "Searchable",
+        "Relationship",
+        "SearchableRef",
+        "TimeseriesField",
+        "TimeseriesFieldCollection",
+    }
+)
+
+
+def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]] | None:
     """Parse the top-level fields of a record body (comments already stripped).
 
-    Returns {field name: (normalized type, is_optional)}, or None if the body
-    cannot be parsed unambiguously.
+    Returns {field name: (normalized type, is_optional, annotations)}, or None
+    if the body cannot be parsed unambiguously. `annotations` maps annotation
+    name -> normalized value text, but only for names in
+    `BUMP_WORTHY_ANNOTATIONS` — every other annotation (and any default value)
+    is parsed (so the scanner stays positioned correctly) but discarded, since
+    only the whitelisted annotations and the field's type/optional-ness matter
+    for bump decisions.
 
-    Comparison is aligned with report_aspect_changes.fields(): only the field's
-    type and optional-ness matter for bump decisions. Annotations and defaults
-    are parsed (so the scanner stays positioned correctly) but do not enter the
-    signature — changing a @Searchable annotation or a default alone is not
-    bump-worthy.
+    Public because `report_aspect_changes.fields()` delegates to this same
+    parser (rather than duplicating the brace-balanced scanning logic) so both
+    tools classify annotation changes identically.
     """
-    fields: dict[str, tuple[str, bool]] = {}
+    fields: dict[str, tuple[str, bool, dict[str, str]]] = {}
+    pending_annotations: dict[str, str] = {}
     n = len(body)
     i = _skip_ws(body, 0)
     while i < n:
@@ -810,11 +831,11 @@ def _parse_record_fields(body: str) -> dict[str, tuple[str, bool]] | None:
             i = _skip_ws(body, i + 1)
             continue
         if body[i] == "@":
-            # Consume the annotation but do not include it in the signature.
             i += 1
             m = _IDENT_RE.match(body, i)
             if not m:
                 return None
+            ann_name = m.group(0)
             i = m.end()
             while i < n and body[i] == ".":
                 m = _IDENT_RE.match(body, i + 1)
@@ -826,6 +847,10 @@ def _parse_record_fields(body: str) -> dict[str, tuple[str, bool]] | None:
                 nxt = _skip_value(body, j + 1)
                 if nxt is None:
                     return None
+                if ann_name in BUMP_WORTHY_ANNOTATIONS:
+                    pending_annotations[ann_name] = normalize_pdl_for_compare(
+                        body[j + 1 : nxt]
+                    )
                 i = nxt
             i = _skip_ws(body, i)
             continue
@@ -844,7 +869,8 @@ def _parse_record_fields(body: str) -> dict[str, tuple[str, bool]] | None:
         type_norm = normalize_pdl_for_compare(_strip_field_default(type_text))
         if name in fields:
             return None
-        fields[name] = (type_norm, _type_is_optional(type_text))
+        fields[name] = (type_norm, _type_is_optional(type_text), pending_annotations)
+        pending_annotations = {}
         i = _skip_ws(body, end)
     return fields
 
@@ -949,7 +975,7 @@ def parse_top_level_defs(content: str) -> dict[str, dict] | None:
             return None
         body = c[p + 1 : body_end - 1]
         if word == "record":
-            fields = _parse_record_fields(body)
+            fields = parse_record_fields(body)
             if fields is None:
                 return None
             defs[name] = {
@@ -989,10 +1015,15 @@ def _defs_backward_compatible(
       - added optional fields
       - added enum symbols
       - entirely new type definitions
-      - annotation-only / default-only edits on existing fields
+      - default-only edits on existing fields
+      - non-whitelisted annotation edits on existing fields (e.g. @deprecated,
+        @compliance, @UrnValidation)
 
     Any removal, type change, optional→required flip, added non-optional field,
-    includes change, or removed enum symbol is treated as incompatible (bump).
+    includes change, removed enum symbol, or a changed/added/removed
+    `BUMP_WORTHY_ANNOTATIONS` value on an existing field (@Searchable,
+    @Relationship, @SearchableRef, @TimeseriesField, @TimeseriesFieldCollection
+    — these drive reindexing) is treated as incompatible (bump).
     """
     for name, bdef in base_defs.items():
         cdef = cur_defs.get(name)
@@ -1003,11 +1034,11 @@ def _defs_backward_compatible(
                 return False
             base_fields = bdef["fields"]
             cur_fields = cdef["fields"]
-            for fname, (btype, bopt) in base_fields.items():
+            for fname, (btype, bopt, bann) in base_fields.items():
                 cur_field = cur_fields.get(fname)
                 if cur_field is None:
                     return False
-                ctype, copt = cur_field
+                ctype, copt, cann = cur_field
                 # Type change or optional→required is breaking (matches report).
                 if ctype != btype:
                     return False
@@ -1017,7 +1048,11 @@ def _defs_backward_compatible(
                 # has_structural there); treat as bump-worthy to stay aligned.
                 if (not bopt) and copt:
                     return False
-            for fname, (_ctype, copt) in cur_fields.items():
+                # A whitelisted annotation (index/reindex-relevant) changing
+                # value, appearing, or disappearing is a real schema change.
+                if bann != cann:
+                    return False
+            for fname, (_ctype, copt, _ann) in cur_fields.items():
                 if fname not in base_fields and not copt:
                     return False
         elif not bdef["symbols"].issubset(cdef["symbols"]):
