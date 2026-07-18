@@ -28,6 +28,9 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 4. **Test**: `scripts/dev/datahub-dev.sh test <test-path>`
 5. **Iterate**: Repeat steps 2–4
 
+**Standalone consumers:** `scripts/dev/datahub-dev.sh start --consumers` (persisted until
+`start --no-consumers`). Maps to `quickstartDebugConsumers`.
+
 **Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
 
 ## Module-to-Container Mapping

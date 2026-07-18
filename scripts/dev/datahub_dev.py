@@ -28,6 +28,7 @@ Usage:
 Remote runner (set DATAHUB_RUNNER or 'runner' in ~/.datahub/dev/config.json):
     python3 scripts/dev/datahub_dev.py setup --remote   # one-time remote init
     python3 scripts/dev/datahub_dev.py start            # sync + start remote + tunnel
+    python3 scripts/dev/datahub_dev.py start --consumers  # standalone MAE/MCE consumers
 """
 
 import argparse
@@ -124,6 +125,10 @@ DEV_ENV_SENTINEL = DEV_ENV_FILE.with_name(DEV_ENV_FILE.stem + ".applied.env")
 
 DEFAULT_TIMEOUT = 300  # seconds
 POLL_INTERVAL = 3  # seconds
+
+# Persisted in DEV_ENV_FILE so rebuild/status remember the last start profile.
+CONSUMERS_MODE_ENV_KEY = "DATAHUB_DEV_CONSUMERS"
+GRADLE_QUICKSTART_CONSUMERS_TASK = "quickstartDebugConsumers"
 
 
 # ---------------------------------------------------------------------------
@@ -387,6 +392,74 @@ def _frontend_url() -> str:
     inst = _get_instance()
     port = inst["ports"].get("DATAHUB_MAPPED_FRONTEND_PORT", 9002) if inst else 9002
     return os.environ.get("DATAHUB_FRONTEND_URL", f"http://localhost:{port}")
+
+
+def _read_env_file_var(key: str) -> Optional[str]:
+    """Return value for KEY in DEV_ENV_FILE, or None if unset."""
+    if not DEV_ENV_FILE.exists():
+        return None
+    for line in DEV_ENV_FILE.read_text().splitlines():
+        if line.strip().startswith(f"{key}="):
+            return line.split("=", 1)[1]
+    return None
+
+
+def _is_consumers_mode() -> bool:
+    """Whether this worktree is configured for standalone MAE/MCE consumers."""
+    val = _read_env_file_var(CONSUMERS_MODE_ENV_KEY)
+    if val is None:
+        return False
+    return val.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _set_consumers_mode(enabled: bool) -> None:
+    """Persist consumers start mode in DEV_ENV_FILE (and clear when disabled)."""
+    if enabled:
+        _write_env_var(CONSUMERS_MODE_ENV_KEY, "true")
+    else:
+        _clear_env_var(CONSUMERS_MODE_ENV_KEY)
+
+
+def _consumers_containers_running(services: Optional[Dict[str, Dict[str, Any]]] = None) -> bool:
+    """True if standalone MAE or MCE consumer containers are present/running."""
+    if services is None:
+        services = _get_container_info(_run_docker_compose_ps())
+    return any("mae-consumer" in name or "mce-consumer" in name for name in services)
+
+
+def _docker_service_ready(
+    services: Dict[str, Dict[str, Any]], name_substr: str
+) -> bool:
+    """True if a compose service whose name contains name_substr is running (+ healthy if reported)."""
+    for name, svc in services.items():
+        if name_substr not in name:
+            continue
+        if svc.get("state") != "running":
+            return False
+        health = svc.get("health") or ""
+        return health in ("", "healthy")
+    return False
+
+
+def _compose_down_keep_data() -> int:
+    """Stop/remove project containers but keep volumes (profile switches)."""
+    result = _run(
+        ["docker", "compose", "-p", COMPOSE_PROJECT, "down", "--remove-orphans"],
+        capture=False,
+        timeout=180,
+    )
+    return result.returncode
+
+
+def _update_instance_start_profile(consumers: bool) -> None:
+    """Record start profile on the instance registry entry (best-effort)."""
+    registry = _load_registry()
+    instance = registry.get("instances", {}).get(WORKTREE_ID)
+    if not instance:
+        return
+    instance["start_profile"] = "debug-consumers" if consumers else "debug"
+    registry["instances"][WORKTREE_ID] = instance
+    _save_registry(registry)
 
 
 # ---------------------------------------------------------------------------
@@ -699,6 +772,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     """Check environment status and output structured JSON."""
     containers = _run_docker_compose_ps()
     services = _get_container_info(containers)
+    consumers_mode = _is_consumers_mode() or _consumers_containers_running(services)
 
     # Health-check each configured service
     service_health: Dict[str, Dict[str, Any]] = {}
@@ -715,16 +789,30 @@ def cmd_status(args: argparse.Namespace) -> int:
                     pass
         service_health[svc.name] = entry
 
+    # Standalone consumers: management ports are not always published; use compose health.
+    if consumers_mode:
+        service_health["mae"] = {
+            "healthy": _docker_service_ready(services, "mae-consumer"),
+            "via": "docker",
+        }
+        service_health["mce"] = {
+            "healthy": _docker_service_ready(services, "mce-consumer"),
+            "via": "docker",
+        }
+
     # Overall readiness: all required services must be healthy
     ready = all(
         service_health[svc.name]["healthy"] for svc in CONFIG.services if svc.required
     )
+    if consumers_mode:
+        ready = ready and service_health["mae"]["healthy"] and service_health["mce"]["healthy"]
 
     gms_ok = service_health.get("gms", {}).get("healthy", False)
     suggestion = _suggest_recovery(services, gms_ok)
 
     result: Dict[str, Any] = {
         "ready": ready,
+        "start_profile": "debug-consumers" if consumers_mode else "debug",
         **service_health,
         "services": services,
     }
@@ -744,7 +832,10 @@ def cmd_wait(args: argparse.Namespace) -> int:
     """Block until the DataHub stack is ready or timeout."""
     timeout = args.timeout
     start = time.time()
+    consumers_mode = _is_consumers_mode()
     _log(f"Waiting up to {timeout}s for DataHub to become ready...")
+    if consumers_mode:
+        _log("  (consumers mode: also waiting for standalone MAE/MCE)")
 
     required = [svc for svc in CONFIG.services if svc.required]
 
@@ -761,7 +852,15 @@ def cmd_wait(args: argparse.Namespace) -> int:
             code, _ = _http_get(svc.health_url)
             checks_ok[i] = code == 200
 
-        if all(checks_ok):
+        consumers_ok = True
+        mae_ok = mce_ok = True
+        if consumers_mode:
+            services = _get_container_info(_run_docker_compose_ps())
+            mae_ok = _docker_service_ready(services, "mae-consumer")
+            mce_ok = _docker_service_ready(services, "mce-consumer")
+            consumers_ok = mae_ok and mce_ok
+
+        if all(checks_ok) and consumers_ok:
             _log(f"DataHub is ready! ({elapsed:.0f}s)")
             cmd_status(args)
             return 0
@@ -770,6 +869,9 @@ def cmd_wait(args: argparse.Namespace) -> int:
             f"{svc.name}={'ok' if ok else 'waiting'}"
             for svc, ok in zip(required, checks_ok)
         ]
+        if consumers_mode:
+            status_parts.append(f"mae={'ok' if mae_ok else 'waiting'}")
+            status_parts.append(f"mce={'ok' if mce_ok else 'waiting'}")
         _log(f"  [{elapsed:.0f}s] {', '.join(status_parts)}")
 
         time.sleep(POLL_INTERVAL)
@@ -1659,6 +1761,10 @@ def _cmd_start_remote(args: argparse.Namespace) -> int:
         start_argv.append("--ai")
     if getattr(args, "no_ai", False):
         start_argv.append("--no-ai")
+    if getattr(args, "consumers", False):
+        start_argv.append("--consumers")
+    if getattr(args, "no_consumers", False):
+        start_argv.append("--no-consumers")
     ep = getattr(args, "embeddings_endpoint", None)
     if ep:
         start_argv += ["--embeddings-endpoint", ep]
@@ -1747,6 +1853,19 @@ def cmd_start(args: argparse.Namespace) -> int:
         getattr(args, "embeddings_model", None) or _DEFAULT_EMBEDDING_MODEL
     )
 
+    # --consumers / --no-consumers: persist mode; bare `start` keeps last mode.
+    consumers_flag = getattr(args, "consumers", False)
+    no_consumers_flag = getattr(args, "no_consumers", False)
+    if consumers_flag and no_consumers_flag:
+        _log("ERROR: --consumers and --no-consumers are mutually exclusive.")
+        return 1
+    if no_consumers_flag:
+        want_consumers = False
+    elif consumers_flag:
+        want_consumers = True
+    else:
+        want_consumers = _is_consumers_mode()
+
     if no_ai_mode:
         _log("Clearing AI embedding env vars from dev env file...")
         for k in _AI_ALL_KEYS:
@@ -1767,6 +1886,13 @@ def cmd_start(args: argparse.Namespace) -> int:
             _log(f"  LOCAL_EMBEDDING_ENDPOINT={embeddings_endpoint}")
             _log(f"  LOCAL_EMBEDDING_MODEL={embeddings_model}")
         else:
+            if want_consumers:
+                _log(
+                    "ERROR: --consumers cannot be combined with managed --ai "
+                    f"({CONFIG.gradle_quickstart_task}Ai / debug-ai profile). "
+                    "Use --ai --embeddings-endpoint URL with --consumers, or omit --ai."
+                )
+                return 1
             # Managed Ollama: start the built-in container on the debug-ai profile.
             task = "quickstartDebugAi"
             _log("AI mode (managed Ollama): writing embedding env vars...")
@@ -1784,6 +1910,31 @@ def cmd_start(args: argparse.Namespace) -> int:
                 "  To reach Ollama from the host (smoke tests), use: "
                 "LOCAL_EMBEDDING_ENDPOINT=http://localhost:11434/v1/embeddings"
             )
+
+    if want_consumers:
+        task = GRADLE_QUICKSTART_CONSUMERS_TASK
+
+    running_consumers = _consumers_containers_running()
+    # Tear down only when the running stack doesn't match the requested profile
+    # (avoids port conflicts between debug vs debug-consumers service names).
+    if want_consumers != running_consumers and _get_container_info(
+        _run_docker_compose_ps()
+    ):
+        _log(
+            "Start profile change detected; tearing down existing containers "
+            "(volumes kept) to avoid port conflicts..."
+        )
+        down_rc = _compose_down_keep_data()
+        if down_rc != 0:
+            _log("WARNING: compose down returned non-zero; continuing with start.")
+
+    _set_consumers_mode(want_consumers)
+    _update_instance_start_profile(want_consumers)
+    if want_consumers:
+        _log(
+            "Consumers mode: GMS will disable in-process MAE/MCE; "
+            "standalone datahub-mae-consumer / datahub-mce-consumer will run."
+        )
 
     _log(f"Starting DataHub via {task}...")
     result = _run(
@@ -1805,8 +1956,9 @@ def cmd_start(args: argparse.Namespace) -> int:
     _log(f"\nDataHub is ready.  (instance: {COMPOSE_PROJECT})")
     _log(f"  UI:  {_frontend_url()}")
     _log(f"  GMS: {_gms_url()}")
+    if want_consumers:
+        _log("  Profile: debug-consumers (standalone MAE/MCE)")
     _log("  Set CLI env: eval $(datahub-dev.sh shell-env)")
-
     # In managed Ollama mode, wait for the model to be fully loaded before
     # returning — eliminates cold-start delay on the first semantic search query.
     if ai_mode and not no_ai_mode and embeddings_endpoint is None:
@@ -2091,6 +2243,25 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=1200,
         help="Timeout in seconds for both the Gradle build and readiness wait (default: 1200)",
+    )
+    start_p.add_argument(
+        "--consumers",
+        action="store_true",
+        help=(
+            "Start with standalone MAE/MCE consumer containers "
+            f"({GRADLE_QUICKSTART_CONSUMERS_TASK} / debug-consumers). "
+            "GMS disables in-process consumers. Persisted for subsequent "
+            "'start' / 'wait' / 'status' until --no-consumers."
+        ),
+    )
+    start_p.add_argument(
+        "--no-consumers",
+        action="store_true",
+        dest="no_consumers",
+        help=(
+            "Clear consumers mode and start the default debug stack "
+            "(consumers run inside GMS). Persisted for subsequent starts."
+        ),
     )
 
     # wait

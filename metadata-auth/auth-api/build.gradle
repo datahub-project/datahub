@@ -19,8 +19,13 @@ shadowJar {
   archiveClassifier = ""
   exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
   // metadata-utils pulls Hazelcast; GMS WAR already ships hazelcast-*.jar — bundling duplicates SPI (NodeExtension).
+  // Avro is pulled transitively (Pegasus / metadata-utils). Bundling it embeds Avro 1.11 into the fat
+  // auth-api jar and wins over newer Avro on Spring Boot nested classpaths (breaks Confluent 8.2+
+  // schema-registry-client, which needs Schema.Parser(NameValidator) from Avro 1.12+).
   dependencies {
     exclude(dependency('com.hazelcast:hazelcast:.*'))
+    exclude(dependency('org.apache.avro:avro:.*'))
+    exclude(dependency('org.apache.avro:avro-compiler:.*'))
   }
 }
 

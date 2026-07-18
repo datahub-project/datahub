@@ -171,6 +171,16 @@ public class DataHubKafkaProducerFactory {
       props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
     }
 
+    // Confluent Platform 8.2+ defaults to AssociatedNameStrategy, which HTTP-calls Schema Registry
+    // during serialize (breaks system-update before GMS is up with INTERNAL registry). Keep the
+    // historical TopicNameStrategy behavior.
+    props.put(
+        AbstractKafkaSchemaSerDeConfig.KEY_SUBJECT_NAME_STRATEGY,
+        "io.confluent.kafka.serializers.subject.TopicNameStrategy");
+    props.put(
+        AbstractKafkaSchemaSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY,
+        "io.confluent.kafka.serializers.subject.TopicNameStrategy");
+
     return props;
   }
 }

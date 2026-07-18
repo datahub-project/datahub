@@ -498,6 +498,12 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 4. **Test**: `scripts/dev/datahub-dev.sh test <test-path>`
 5. **Iterate**: Repeat steps 2–4
 
+**Standalone consumers (prod-like MAE/MCE):** `scripts/dev/datahub-dev.sh start --consumers`
+runs `quickstartDebugConsumers` (GMS with in-process consumers disabled +
+`datahub-mae-consumer` / `datahub-mce-consumer`). Mode is persisted until
+`start --no-consumers`. Cannot be combined with managed `--ai` (use
+`--ai --embeddings-endpoint` instead).
+
 **Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
 
 ### Module-to-Container Mapping

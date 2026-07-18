@@ -166,6 +166,14 @@ public class KafkaEventConsumerFactory {
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
 
+    // Confluent Platform 8.2+ defaults to AssociatedNameStrategy; keep TopicNameStrategy.
+    customizedProperties.put(
+        AbstractKafkaSchemaSerDeConfig.KEY_SUBJECT_NAME_STRATEGY,
+        "io.confluent.kafka.serializers.subject.TopicNameStrategy");
+    customizedProperties.put(
+        AbstractKafkaSchemaSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY,
+        "io.confluent.kafka.serializers.subject.TopicNameStrategy");
+
     return customizedProperties;
   }
 

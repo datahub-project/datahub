@@ -84,7 +84,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   @MockitoBean EntityRegistry entityRegistry;
   @MockitoBean MetricUtils metricUtils;
 
-  private static final String CONFLUENT_PLATFORM_VERSION = "7.4.10";
+  private static final String CONFLUENT_PLATFORM_VERSION = "8.2.2";
   private static final int SERVER_PORT = allocateFreePort();
 
   static KafkaContainer kafka =
