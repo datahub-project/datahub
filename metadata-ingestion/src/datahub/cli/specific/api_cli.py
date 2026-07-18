@@ -20,9 +20,6 @@ _SUBTYPE_CHOICES = [
     "GRPC_METHOD",
     "GRAPHQL_FIELD",
     "FUNCTION",
-    "AGENT",
-    "UI_TOOL",
-    "BUILTIN",
 ]
 
 
