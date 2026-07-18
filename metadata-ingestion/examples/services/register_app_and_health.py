@@ -2,9 +2,10 @@
 
 Demonstrates three Application relationship types:
 
-- ``checkout-app`` **composed of** ``checkout-cart-app`` (ApplicationContains)
-- ``checkout-app`` **consumes** the ``placeOrder`` api (ConsumesApi)
-- ``checkout-app`` **produces** ``commerce.orders_fct`` (ApplicationProducesDataset)
+- ``checkout-cart-app`` **part of** ``checkout-app`` (ApplicationPartOf, set on the
+  child via ``parentApplication``)
+- ``checkout-app`` **consumes** the ``placeOrder`` api (Consumes, applicationLineage input edge)
+- ``checkout-app`` **produces** ``commerce.orders_fct`` (Produces, applicationLineage output edge)
 
 Also shows:
 
@@ -34,14 +35,16 @@ from datahub.emitter.mce_builder import (
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
     AIAgentDependenciesClass,
+    ApplicationLineageClass,
     ApplicationPropertiesClass,
     AuditStampClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     DomainsClass,
+    EdgeClass,
     IncidentInfoClass,
     IncidentSourceClass,
     IncidentSourceTypeClass,
@@ -79,7 +82,7 @@ def _ownership() -> OwnershipClass:
     )
 
 
-def register_auction_service(graph) -> None:
+def register_auction_service(graph: DataHubGraph) -> None:
     """A SERVICE-subtype service on kubernetes, DEGRADED, to show a 2nd health state."""
     existing = graph.get_aspect(AUCTION_SVC_URN, ServicePropertiesClass)
     source_repository = existing.sourceRepository if existing else None
@@ -102,7 +105,7 @@ def register_auction_service(graph) -> None:
     logger.info("Registered Service %s", AUCTION_SVC_URN)
 
 
-def raise_service_incident(graph) -> None:
+def raise_service_incident(graph: DataHubGraph) -> None:
     """Raise an active OPERATIONAL incident on the auction service.
 
     Service health is derived from the shared incidents subsystem (not a bespoke
@@ -144,7 +147,7 @@ def raise_service_incident(graph) -> None:
     logger.info("Raised active incident %s on %s", incident_urn, AUCTION_SVC_URN)
 
 
-def register_orders_dataset(graph) -> None:
+def register_orders_dataset(graph: DataHubGraph) -> None:
     graph.emit_mcp(
         MetadataChangeProposalWrapper(
             entityUrn=ORDERS_FCT_URN,
@@ -160,11 +163,13 @@ def register_orders_dataset(graph) -> None:
     logger.info("Registered dataset %s", ORDERS_FCT_URN)
 
 
-def register_sub_application(graph) -> None:
+def register_sub_application(graph: DataHubGraph) -> None:
     aspects = [
         ApplicationPropertiesClass(
             name="Checkout Cart App",
             description="Manages the shopping cart within checkout.",
+            # app-of-apps: the child points at its parent (ApplicationPartOf).
+            parentApplication=CHECKOUT_APP_URN,
         ),
         _ownership(),
         DomainsClass(domains=[COMMERCE_DOMAIN]),
@@ -179,14 +184,17 @@ def register_sub_application(graph) -> None:
     logger.info("Registered sub-Application %s", CHECKOUT_CART_APP_URN)
 
 
-def register_checkout_application(graph) -> None:
+def register_checkout_application(graph: DataHubGraph) -> None:
     aspects = [
         ApplicationPropertiesClass(
             name="Checkout App",
             description="Customer-facing checkout: places orders, produces the orders fact table.",
-            subApplications=[CHECKOUT_CART_APP_URN],
-            consumesApis=[PLACE_ORDER_API_URN],
-            producesDatasets=[ORDERS_FCT_URN],
+        ),
+        # Consumes/produces edges live on the applicationLineage aspect (Edge-based,
+        # same pattern as DataJobInputOutput), not on applicationProperties.
+        ApplicationLineageClass(
+            inputEdges=[EdgeClass(destinationUrn=PLACE_ORDER_API_URN)],
+            outputEdges=[EdgeClass(destinationUrn=ORDERS_FCT_URN)],
         ),
         _ownership(),
         DomainsClass(domains=[COMMERCE_DOMAIN]),
@@ -205,7 +213,7 @@ def register_checkout_application(graph) -> None:
     )
 
 
-def wire_fx_agent_to_place_order(graph) -> None:
+def wire_fx_agent_to_place_order(graph: DataHubGraph) -> None:
     """Append placeOrder to the FX agent's tools so it shows as an api consumer."""
     deps = graph.get_aspect(FX_AGENT_URN, AIAgentDependenciesClass)
     if deps is None:

@@ -102,8 +102,8 @@ def build_mcp_tools_list_contract(tools: List[Api]) -> ServiceDefinitionClass:
             {
                 "name": t.name,
                 "description": t.description or "",
-                "inputSchema": _params_to_json_schema(t.parameters),
-                "outputSchema": _params_to_json_schema(t.returns),
+                "inputSchema": _params_to_json_schema(t.parameters or []),
+                "outputSchema": _params_to_json_schema(t.returns or []),
             }
             for t in tools
         ]

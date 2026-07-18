@@ -32,7 +32,7 @@ from datahub.emitter.mce_builder import (
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     GlossaryTermAssociationClass,
@@ -67,7 +67,7 @@ def _stamp() -> AuditStampClass:
     return AuditStampClass(time=get_sys_time(), actor=make_user_urn("datahub"))
 
 
-def register_classification_term(graph) -> None:
+def register_classification_term(graph: DataHubGraph) -> None:
     graph.emit_mcp(
         MetadataChangeProposalWrapper(
             entityUrn=TERM_URN,
@@ -84,7 +84,7 @@ def register_classification_term(graph) -> None:
     logger.info("Registered glossary term %s", TERM_URN)
 
 
-def register_dataset_schema(graph) -> None:
+def register_dataset_schema(graph: DataHubGraph) -> None:
     """Give the consumed dataset a real schema so its Columns tab isn't empty."""
 
     def _field(path: str, native: str, type_cls: type, desc: str) -> SchemaFieldClass:
@@ -145,7 +145,7 @@ def register_dataset_schema(graph) -> None:
     )
 
 
-def classify_consumed_dataset(graph) -> None:
+def classify_consumed_dataset(graph: DataHubGraph) -> None:
     existing = graph.get_aspect(CONSUMED_DATASET_URN, GlossaryTermsClass)
     terms = existing.terms if existing else []
     if TERM_URN not in {t.urn for t in terms}:
@@ -159,7 +159,7 @@ def classify_consumed_dataset(graph) -> None:
     logger.info("Classified %s as Highly Confidential", CONSUMED_DATASET_URN)
 
 
-def wait_for_propagation(graph, timeout_s: int = 90) -> None:
+def wait_for_propagation(graph: DataHubGraph, timeout_s: int = 90) -> None:
     """Block until the live automation propagates the term onto the agent.
 
     The seed does NOT write the term onto the agent — the Glossary Term
@@ -182,7 +182,7 @@ def wait_for_propagation(graph, timeout_s: int = 90) -> None:
     )
 
 
-def raise_agent_incident(graph) -> None:
+def raise_agent_incident(graph: DataHubGraph) -> None:
     incident_urn = str(IncidentUrn("fx-agent-highrisk-data"))
     stamp = _stamp()
     graph.emit_mcp(

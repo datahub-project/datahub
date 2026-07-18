@@ -40,6 +40,7 @@ from datahub.metadata.schema_classes import (
     VersionPropertiesClass,
     VersionSetPropertiesClass,
     VersionTagClass,
+    _Aspect,
 )
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ def _audit() -> AuditStampClass:
     return AuditStampClass(time=_now_ms(), actor="urn:li:corpuser:datahub")
 
 
-def _emit(graph: DataHubGraph, urn: str, aspect: object) -> None:
+def _emit(graph: DataHubGraph, urn: str, aspect: _Aspect) -> None:
     graph.emit(MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect))
 
 

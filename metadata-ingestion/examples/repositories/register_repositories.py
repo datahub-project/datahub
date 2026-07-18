@@ -36,7 +36,7 @@ import logging
 
 from datahub.emitter.mce_builder import make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     RepositoryPropertiesClass,
@@ -60,7 +60,7 @@ ORDER_ENTRY_SERVICE_URN = "urn:li:service:order-entry-api"
 GIT_REPOSITORY_SUBTYPE = "GIT_REPOSITORY"
 
 
-def register_repository(graph) -> None:
+def register_repository(graph: DataHubGraph) -> None:
     aspects = [
         RepositoryPropertiesClass(
             name="payments",
@@ -89,7 +89,7 @@ def register_repository(graph) -> None:
     logger.info("Registered Repository %s", REPOSITORY_URN)
 
 
-def wire_sourced_from(graph) -> None:
+def wire_sourced_from(graph: DataHubGraph) -> None:
     """Set the SourcedFrom edge on the order-entry-api service and its APIs.
 
     Reads the existing aspect and re-emits it with ``sourceRepository`` added so
