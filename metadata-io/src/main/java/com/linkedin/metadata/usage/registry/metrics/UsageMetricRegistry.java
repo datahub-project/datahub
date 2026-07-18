@@ -16,6 +16,9 @@ public class UsageMetricRegistry {
 
   public static final String API_USAGE_FAMILY = "api_usage";
 
+  /** Inventory gauges (entity counts) landed by GMS entity-count publisher. */
+  public static final String SYSTEM_USAGE_FAMILY = "system_usage";
+
   private final Map<String, Map<String, MetricDefinition>> families;
 
   public UsageMetricRegistry(
@@ -55,12 +58,18 @@ public class UsageMetricRegistry {
 
   public enum MergeKind {
     ADDITIVE,
-    DISTINCT;
+    DISTINCT,
+    /** Gauge snapshot quantity (compaction / inventory samples). */
+    LATEST,
+    /** High-water compaction (analytics peak gauges). */
+    MAX;
 
     static MergeKind fromYaml(String raw) {
       return switch (raw.toLowerCase()) {
         case "additive" -> ADDITIVE;
         case "distinct" -> DISTINCT;
+        case "latest" -> LATEST;
+        case "max" -> MAX;
         default -> throw new IllegalArgumentException("Unknown merge_kind: " + raw);
       };
     }

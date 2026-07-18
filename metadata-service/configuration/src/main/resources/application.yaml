@@ -328,6 +328,8 @@ datahub:
         retryAttempts: ${USAGE_AGGREGATION_FLUSH_RETRY_ATTEMPTS:3}
         retryInitialBackoffMillis: ${USAGE_AGGREGATION_FLUSH_RETRY_INITIAL_BACKOFF_MILLIS:100}
         alignmentPeriodSeconds: ${USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS:0}
+        # agent_name is client-controlled/unbounded; off by default to bound metric cardinality.
+        includeAgentNameDimension: ${USAGE_AGGREGATION_INCLUDE_AGENT_NAME:false}
 
   validation:
     aspectSize:
