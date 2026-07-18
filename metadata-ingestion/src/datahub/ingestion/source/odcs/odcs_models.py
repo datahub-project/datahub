@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 # ---------------------------------------------------------------------------
 # Spec-valid fields the source deliberately does not map.
@@ -108,16 +108,24 @@ class ODCSAuthoritativeDefinition(ODCSBaseModel):
 
 class ODCSCustomProperty(ODCSBaseModel):
     property: Optional[str] = None
-    value: Optional[object] = None
+    value: Optional[JsonValue] = None
+
+
+class ODCSDescription(ODCSBaseModel):
+    # v3.1 lets `description` be either a plain string or this object; the
+    # extra keys some producers add are kept so provenance stays faithful.
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    purpose: Optional[str] = None
+    usage: Optional[str] = None
+    limitations: Optional[str] = None
 
 
 class ODCSProperty(ODCSBaseModel):
-    """A column / property within an ODCS schema object."""
-
     name: str
     logicalType: Optional[str] = None
     physicalType: Optional[str] = None
-    description: Optional[Union[str, Dict[str, object]]] = None
+    description: Optional[Union[str, ODCSDescription]] = None
     primaryKey: Optional[bool] = None
     primaryKeyPosition: Optional[int] = None
     required: Optional[bool] = None
@@ -135,13 +143,11 @@ class ODCSProperty(ODCSBaseModel):
 
 
 class ODCSSchemaObject(ODCSBaseModel):
-    """An entry in `schema[]` — typically corresponds to a table/view."""
-
     name: str
     physicalName: Optional[str] = None
     physicalType: Optional[str] = None
     logicalType: Optional[str] = None
-    description: Optional[Union[str, Dict[str, object]]] = None
+    description: Optional[Union[str, ODCSDescription]] = None
     businessName: Optional[str] = None
     tags: Optional[List[str]] = None
     properties: Optional[List[ODCSProperty]] = None
@@ -150,18 +156,13 @@ class ODCSSchemaObject(ODCSBaseModel):
 
 
 class ODCSQualityArguments(ODCSBaseModel):
-    """v3.1 library-metric arguments (`quality[].arguments`).
-
-    The closed key set the mapper reads is typed; `extra="allow"` keeps any
-    uncommon/engine-specific keys so they still round-trip into the custom
-    assertion provenance instead of being silently dropped.
-    """
-
+    # `extra="allow"` keeps engine-specific keys so they round-trip into the
+    # custom-assertion provenance instead of being silently dropped.
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
-    validValues: Optional[List[object]] = None
+    validValues: Optional[List[JsonValue]] = None
     pattern: Optional[str] = None
-    missingValues: Optional[List[object]] = None
+    missingValues: Optional[List[JsonValue]] = None
     properties: Optional[List[str]] = None
 
 
@@ -191,7 +192,7 @@ class ODCSQualityRule(ODCSBaseModel):
     # v3.1 metric arguments: validValues, pattern, missingValues, properties.
     arguments: Optional[ODCSQualityArguments] = None
     # v3.0.x form: static list of valid values directly on the rule.
-    validValues: Optional[List[object]] = None
+    validValues: Optional[List[JsonValue]] = None
     dimension: Optional[str] = None
     severity: Optional[str] = None
     businessImpact: Optional[str] = None
@@ -200,7 +201,7 @@ class ODCSQualityRule(ODCSBaseModel):
     scheduler: Optional[str] = None
     query: Optional[str] = None
     engine: Optional[str] = None
-    implementation: Optional[Union[str, Dict[str, object]]] = None
+    implementation: Optional[Union[str, Dict[str, JsonValue]]] = None
     mustBe: Optional[Union[float, int, str, bool]] = None
     mustNotBe: Optional[Union[float, int, str, bool]] = None
     mustBeGreaterThan: Optional[float] = None
@@ -216,7 +217,7 @@ class ODCSQualityRule(ODCSBaseModel):
 
     @property
     def effective_metric(self) -> Optional[str]:
-        """The library metric/rule name, preferring the canonical v3.1 key."""
+        # Prefer the canonical v3.1 `metric` over the deprecated `rule` alias.
         value = self.metric or self.rule
         if value is None:
             return None
@@ -224,7 +225,6 @@ class ODCSQualityRule(ODCSBaseModel):
 
     @property
     def used_deprecated_rule_key(self) -> bool:
-        """True when only the legacy `rule` key carries the library name."""
         return self.metric is None and self.rule is not None
 
 
@@ -286,7 +286,7 @@ class ODCSContract(ODCSBaseModel):
     domain: Optional[str] = None
     dataProduct: Optional[str] = None
     tenant: Optional[str] = None
-    description: Optional[Union[str, Dict[str, object]]] = None
+    description: Optional[Union[str, ODCSDescription]] = None
     tags: Optional[List[str]] = None
     schema_: Optional[List[ODCSSchemaObject]] = Field(default=None, alias="schema")
     servers: Optional[List[ODCSServer]] = None
@@ -297,7 +297,6 @@ class ODCSContract(ODCSBaseModel):
 
     @property
     def team_members(self) -> List[ODCSTeamMember]:
-        """Team members regardless of which spec shape `team` used."""
         if self.team is None:
             return []
         if isinstance(self.team, ODCSTeam):

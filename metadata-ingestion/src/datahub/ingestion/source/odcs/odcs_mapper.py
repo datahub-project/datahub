@@ -21,6 +21,7 @@ from datahub.ingestion.source.odcs.odcs_config import (
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
+    ODCSDescription,
     ODCSProperty,
     ODCSQualityArguments,
     ODCSQualityRule,
@@ -186,21 +187,23 @@ class SchemaBuildResult:
     unmapped_types: List[str] = field(default_factory=list)
 
 
-def _description_to_str(description: object) -> Optional[str]:
-    """ODCS allows description to be a string or an object (e.g. {purpose, usage, limitations})."""
+def _description_to_str(
+    description: Optional[Union[str, ODCSDescription]],
+) -> Optional[str]:
     if description is None:
         return None
     if isinstance(description, str):
         return description.strip() or None
-    if isinstance(description, dict):
-        parts: List[str] = []
-        for key in ("purpose", "usage", "limitations", "summary", "description"):
-            v = description.get(key)
-            if isinstance(v, str) and v.strip():
-                parts.append(f"**{key}**: {v.strip()}")
-        if parts:
-            return "\n\n".join(parts)
-    return None
+    parts = [
+        f"**{key}**: {value.strip()}"
+        for key, value in (
+            ("purpose", description.purpose),
+            ("usage", description.usage),
+            ("limitations", description.limitations),
+        )
+        if value and value.strip()
+    ]
+    return "\n\n".join(parts) or None
 
 
 # ----------------------------------------------------------------------------
@@ -864,8 +867,10 @@ def _num(v: Union[float, int]) -> AssertionStdParameterClass:
     )
 
 
-def _is_plain_number(value: object) -> TypeGuard[float]:
-    """True for int/float but NOT bool (bool is an int subclass in Python)."""
+def _is_plain_number(
+    value: Optional[Union[float, int, str, bool]],
+) -> TypeGuard[float]:
+    # bool is an int subclass in Python, so exclude it explicitly.
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
@@ -1005,13 +1010,10 @@ def _render_thresholds(rule: ODCSQualityRule) -> List[str]:
 
 
 def _arguments_json(arguments: Optional[ODCSQualityArguments]) -> Optional[str]:
-    """Stable JSON rendering of quality-rule arguments for provenance.
-
-    Serializes by alias and drops nulls so the recorded provenance matches the
-    source document, while `extra="allow"` keeps any engine-specific keys.
-    """
     if arguments is None:
         return None
+    # by_alias + exclude_none so provenance matches the source document, and
+    # extra="allow" keeps engine-specific keys.
     payload = arguments.model_dump(by_alias=True, exclude_none=True)
     if not payload:
         return None
