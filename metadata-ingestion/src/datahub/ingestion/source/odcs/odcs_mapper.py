@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, TypeGuard
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, TypeGuard, Union
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
@@ -22,6 +22,7 @@ from datahub.ingestion.source.odcs.odcs_config import (
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
     ODCSProperty,
+    ODCSQualityArguments,
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
@@ -852,13 +853,13 @@ class _RuleContext:
         return self.rule.name or self.rule.id or f"<unnamed:{self.scope}:{self.index}>"
 
 
-def _num(v: object) -> AssertionStdParameterClass:
+def _num(v: Union[float, int]) -> AssertionStdParameterClass:
     """Normalize a numeric threshold to a stable string form.
 
     Both `5` (int) and `5.0` (float) render as `"5"`; `5.5` renders as `"5.5"`.
     """
     return AssertionStdParameterClass(
-        value=f"{float(v):g}",  # type: ignore[arg-type]
+        value=f"{float(v):g}",
         type=AssertionStdParameterTypeClass.NUMBER,
     )
 
@@ -1003,6 +1004,23 @@ def _render_thresholds(rule: ODCSQualityRule) -> List[str]:
     return parts
 
 
+def _arguments_json(arguments: Optional[ODCSQualityArguments]) -> Optional[str]:
+    """Stable JSON rendering of quality-rule arguments for provenance.
+
+    Serializes by alias and drops nulls so the recorded provenance matches the
+    source document, while `extra="allow"` keeps any engine-specific keys.
+    """
+    if arguments is None:
+        return None
+    payload = arguments.model_dump(by_alias=True, exclude_none=True)
+    if not payload:
+        return None
+    try:
+        return json.dumps(payload, sort_keys=True)
+    except (TypeError, ValueError):
+        return None
+
+
 def _library_rule_logic(rule: ODCSQualityRule) -> Optional[str]:
     """Stable, human-readable rendition of a library rule for custom `logic`.
 
@@ -1014,11 +1032,9 @@ def _library_rule_logic(rule: ODCSQualityRule) -> Optional[str]:
     if not metric:
         return None
     parts = [metric]
-    if rule.arguments:
-        try:
-            parts.append(f"arguments={json.dumps(rule.arguments, sort_keys=True)}")
-        except (TypeError, ValueError):
-            pass
+    args_json = _arguments_json(rule.arguments)
+    if args_json is not None:
+        parts.append(f"arguments={args_json}")
     if rule.validValues is not None:
         try:
             parts.append(f"validValues={json.dumps(rule.validValues)}")
@@ -1081,11 +1097,9 @@ def _custom_props_for_rule(ctx: _RuleContext) -> Dict[str, str]:
         props["odcs.rule.metric"] = metric
     if rule.unit:
         props["odcs.rule.unit"] = rule.unit
-    if rule.arguments:
-        try:
-            props["odcs.rule.arguments"] = json.dumps(rule.arguments, sort_keys=True)
-        except (TypeError, ValueError):
-            pass
+    args_json = _arguments_json(rule.arguments)
+    if args_json is not None:
+        props["odcs.rule.arguments"] = args_json
     if rule.dimension:
         props["odcs.rule.dimension"] = rule.dimension
     if rule.severity:
@@ -1303,7 +1317,7 @@ def _route_library_rule(
     rule = ctx.rule
     metric = rule.effective_metric
     unit = (rule.unit or _UNIT_ROWS).strip().lower()
-    args = rule.arguments or {}
+    args = rule.arguments
 
     if metric == _METRIC_NULL_VALUES:
         if ctx.column is None:
@@ -1333,7 +1347,7 @@ def _route_library_rule(
         )
 
     if metric in (_METRIC_DUPLICATE_VALUES, _METRIC_DUPLICATE_COUNT):
-        if args.get("properties"):
+        if args is not None and args.properties:
             # Multi-column uniqueness (schema-level duplicateValues) has no
             # native DataHub metric; preserve as custom.
             return _custom_or_skip(ctx, trace)
@@ -1350,8 +1364,10 @@ def _route_library_rule(
         return _custom_or_skip(ctx, trace)
 
     if metric in (_METRIC_INVALID_VALUES, _METRIC_VALID_VALUES):
-        valid_values = args.get("validValues") or rule.validValues
-        pattern = args.get("pattern")
+        valid_values = (
+            args.validValues if args is not None else None
+        ) or rule.validValues
+        pattern = args.pattern if args is not None else None
         if ctx.column is None or (valid_values and pattern):
             return _custom_or_skip(ctx, trace)
         fail_threshold = _fail_threshold_from_rule(rule, unit)

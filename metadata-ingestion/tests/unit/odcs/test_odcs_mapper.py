@@ -884,6 +884,21 @@ def test_missing_values_routes_to_custom_preserving_arguments() -> None:
     )
 
 
+def test_unknown_argument_keys_survive_into_provenance() -> None:
+    # `arguments` is typed but allows extras so engine-specific keys are not
+    # silently dropped -- they still round-trip into the assertion provenance.
+    _, mcps, _ = _route_single(
+        {
+            "metric": "missingValues",
+            "arguments": {"missingValues": ["N/A"], "engineOption": "strict"},
+        }
+    )
+    info = _single_info(mcps)
+    assert info.customProperties["odcs.rule.arguments"] == json.dumps(
+        {"engineOption": "strict", "missingValues": ["N/A"]}, sort_keys=True
+    )
+
+
 def test_row_count_builds_volume_assertion() -> None:
     _, mcps, _ = _route_single(
         {"metric": "rowCount", "mustBeGreaterOrEqualTo": 100}, on_column=None

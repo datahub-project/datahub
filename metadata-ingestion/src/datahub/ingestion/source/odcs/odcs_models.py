@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
     (
         "price",
+        "roles",
         "slaDefaultElement",
         "slaProperties",
         "support",
@@ -107,7 +108,7 @@ class ODCSAuthoritativeDefinition(ODCSBaseModel):
 
 class ODCSCustomProperty(ODCSBaseModel):
     property: Optional[str] = None
-    value: Optional[Any] = None
+    value: Optional[object] = None
 
 
 class ODCSProperty(ODCSBaseModel):
@@ -116,7 +117,7 @@ class ODCSProperty(ODCSBaseModel):
     name: str
     logicalType: Optional[str] = None
     physicalType: Optional[str] = None
-    description: Optional[Union[str, Dict[str, Any]]] = None
+    description: Optional[Union[str, Dict[str, object]]] = None
     primaryKey: Optional[bool] = None
     primaryKeyPosition: Optional[int] = None
     required: Optional[bool] = None
@@ -140,12 +141,28 @@ class ODCSSchemaObject(ODCSBaseModel):
     physicalName: Optional[str] = None
     physicalType: Optional[str] = None
     logicalType: Optional[str] = None
-    description: Optional[Union[str, Dict[str, Any]]] = None
+    description: Optional[Union[str, Dict[str, object]]] = None
     businessName: Optional[str] = None
     tags: Optional[List[str]] = None
     properties: Optional[List[ODCSProperty]] = None
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
+
+
+class ODCSQualityArguments(ODCSBaseModel):
+    """v3.1 library-metric arguments (`quality[].arguments`).
+
+    The closed key set the mapper reads is typed; `extra="allow"` keeps any
+    uncommon/engine-specific keys so they still round-trip into the custom
+    assertion provenance instead of being silently dropped.
+    """
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+    validValues: Optional[List[object]] = None
+    pattern: Optional[str] = None
+    missingValues: Optional[List[object]] = None
+    properties: Optional[List[str]] = None
 
 
 class ODCSQualityRule(ODCSBaseModel):
@@ -172,9 +189,9 @@ class ODCSQualityRule(ODCSBaseModel):
     # v3.0.x library rule name; deprecated alias of `metric` in v3.1.
     rule: Optional[str] = None
     # v3.1 metric arguments: validValues, pattern, missingValues, properties.
-    arguments: Optional[Dict[str, Any]] = None
+    arguments: Optional[ODCSQualityArguments] = None
     # v3.0.x form: static list of valid values directly on the rule.
-    validValues: Optional[List[Any]] = None
+    validValues: Optional[List[object]] = None
     dimension: Optional[str] = None
     severity: Optional[str] = None
     businessImpact: Optional[str] = None
@@ -183,9 +200,9 @@ class ODCSQualityRule(ODCSBaseModel):
     scheduler: Optional[str] = None
     query: Optional[str] = None
     engine: Optional[str] = None
-    implementation: Optional[Union[str, Dict[str, Any]]] = None
-    mustBe: Optional[Any] = None
-    mustNotBe: Optional[Any] = None
+    implementation: Optional[Union[str, Dict[str, object]]] = None
+    mustBe: Optional[Union[float, int, str, bool]] = None
+    mustNotBe: Optional[Union[float, int, str, bool]] = None
     mustBeGreaterThan: Optional[float] = None
     mustBeGreaterOrEqualTo: Optional[float] = None
     mustBeLessThan: Optional[float] = None
@@ -269,12 +286,11 @@ class ODCSContract(ODCSBaseModel):
     domain: Optional[str] = None
     dataProduct: Optional[str] = None
     tenant: Optional[str] = None
-    description: Optional[Union[str, Dict[str, Any]]] = None
+    description: Optional[Union[str, Dict[str, object]]] = None
     tags: Optional[List[str]] = None
     schema_: Optional[List[ODCSSchemaObject]] = Field(default=None, alias="schema")
     servers: Optional[List[ODCSServer]] = None
     team: Optional[Union[ODCSTeam, List[ODCSTeamMember]]] = None
-    roles: Optional[List[Dict[str, Any]]] = None
     customProperties: Optional[List[ODCSCustomProperty]] = None
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     contractCreatedTs: Optional[str] = None
