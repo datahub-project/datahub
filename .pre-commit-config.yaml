@@ -727,7 +727,8 @@ repos:
 
       - id: playwright-e2e-lint-and-format
         name: Playwright E2E ESLint Fix + Prettier Format
-        entry: bash .github/scripts/playwright_staged_lint.sh
+        entry: ./gradlew :e2e-test:ui:playwright:lintFix :e2e-test:ui:playwright:prettierWrite
+          -x generateGitPropertiesGlobal
         language: system
         files: ^e2e-test/ui/playwright/.*\.ts$
         pass_filenames: false
