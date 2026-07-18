@@ -33,4 +33,18 @@ test.describe('odcs ingestion source', () => {
 
     await ingestionPage.sourcesTab.cancelCreateSourceModal();
   });
+
+  test('accepts a remote object-store URI as the path', async ({ page, logger, logDir }) => {
+    const odcs = new OdcsSource(page, logger, logDir);
+
+    await ingestionPage.sourcesTab.openCreateSourceModal();
+    await ingestionPage.sourcesTab.selectSourceType('Open Data Contract Standard');
+
+    // The Path field now documents and accepts remote sources; an s3:// glob must
+    // survive into the generated recipe unchanged.
+    await odcs.fillPath('s3://my-bucket/contracts/*.odcs.yaml');
+    await odcs.expectYamlRecipe(['type: odcs', 'path: s3://my-bucket/contracts/*.odcs.yaml']);
+
+    await ingestionPage.sourcesTab.cancelCreateSourceModal();
+  });
 });

@@ -1,6 +1,15 @@
 import { FieldType } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { RECIPE_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
-import { ODCS_PATH, ODCS_SCHEMA_ASSERTION_COMPATIBILITY } from '@app/ingestV2/source/builder/RecipeForm/odcs';
+import {
+    ODCS_AWS_REGION,
+    ODCS_GCS_HMAC_KEY_ID,
+    ODCS_GCS_HMAC_KEY_SECRET,
+    ODCS_GIT_INFO_BRANCH,
+    ODCS_GIT_INFO_DEPLOY_KEY,
+    ODCS_GIT_INFO_REPO,
+    ODCS_PATH,
+    ODCS_SCHEMA_ASSERTION_COMPATIBILITY,
+} from '@app/ingestV2/source/builder/RecipeForm/odcs';
 import { ODCS } from '@app/ingestV2/source/conf/odcs/odcs';
 
 describe('ODCS recipe form fields', () => {
@@ -26,5 +35,26 @@ describe('ODCS recipe form fields', () => {
         expect(ODCS_SCHEMA_ASSERTION_COMPATIBILITY.type).toBe(FieldType.SELECT);
         const values = (ODCS_SCHEMA_ASSERTION_COMPATIBILITY.options ?? []).map((o) => o.value);
         expect(values).toEqual(['SUPERSET', 'EXACT_MATCH', 'SUBSET']);
+    });
+
+    it('exposes remote-sourcing fields (git, S3, GCS) wired to the matching config keys', () => {
+        const advanced = RECIPE_FIELDS[ODCS].advancedFields;
+        [
+            ODCS_GIT_INFO_REPO,
+            ODCS_GIT_INFO_BRANCH,
+            ODCS_GIT_INFO_DEPLOY_KEY,
+            ODCS_AWS_REGION,
+            ODCS_GCS_HMAC_KEY_ID,
+            ODCS_GCS_HMAC_KEY_SECRET,
+        ].forEach((field) => expect(advanced).toContain(field));
+
+        expect(ODCS_GIT_INFO_REPO.fieldPath).toBe('source.config.git_info.repo');
+        expect(ODCS_AWS_REGION.fieldPath).toBe('source.config.aws_connection.aws_region');
+        expect(ODCS_GCS_HMAC_KEY_ID.fieldPath).toBe('source.config.gcs_connection.hmac_key_id');
+    });
+
+    it('treats the git deploy key and GCS secret as secrets', () => {
+        expect(ODCS_GIT_INFO_DEPLOY_KEY.type).toBe(FieldType.SECRET);
+        expect(ODCS_GCS_HMAC_KEY_SECRET.type).toBe(FieldType.SECRET);
     });
 });

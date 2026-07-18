@@ -293,9 +293,15 @@ import {
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingestV2/source/builder/RecipeForm/mysql';
 import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingestV2/source/builder/RecipeForm/notion';
 import {
+    ODCS_AWS_REGION,
     ODCS_EMIT_ASSERTIONS,
     ODCS_EMIT_LOGICAL_PARENT,
     ODCS_EMIT_SCHEMA_ASSERTION,
+    ODCS_GCS_HMAC_KEY_ID,
+    ODCS_GCS_HMAC_KEY_SECRET,
+    ODCS_GIT_INFO_BRANCH,
+    ODCS_GIT_INFO_DEPLOY_KEY,
+    ODCS_GIT_INFO_REPO,
     ODCS_PATH,
     ODCS_REPLICATE_CONTRACT_METADATA,
     ODCS_SCHEMA_ASSERTION_COMPATIBILITY,
@@ -594,6 +600,12 @@ export const RECIPE_FIELDS: RecipeFields = {
             ODCS_STRICT_VALIDATION,
             ODCS_REPLICATE_CONTRACT_METADATA,
             ODCS_TAG_PREFIX,
+            ODCS_GIT_INFO_REPO,
+            ODCS_GIT_INFO_BRANCH,
+            ODCS_GIT_INFO_DEPLOY_KEY,
+            ODCS_AWS_REGION,
+            ODCS_GCS_HMAC_KEY_ID,
+            ODCS_GCS_HMAC_KEY_SECRET,
             ENV,
             STATEFUL_INGESTION_ENABLED,
         ],
