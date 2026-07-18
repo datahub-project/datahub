@@ -219,7 +219,7 @@ class HookGenerator:
         """
         files_regex = f"^{project.path}/.*\\.py$"
         wrapper = "bash .github/scripts/python_staged_ruff.sh"
-        return [
+        hooks = [
             {
                 "id": f"{project.project_id}-ruff-check",
                 "name": f"{project.path} Ruff Check",
@@ -237,6 +237,39 @@ class HookGenerator:
                 "pass_filenames": True,
             },
         ]
+        # mypy is slow, so it runs at pre-push (not pre-commit) and only on the
+        # staged files. Only emit a mypy hook for modules whose Gradle lint
+        # task actually runs mypy (detected via `"mypy` in build.gradle).
+        if self._module_has_mypy(project):
+            hooks.append(
+                {
+                    "id": f"{project.project_id}-mypy",
+                    "name": f"{project.path} Mypy",
+                    "entry": f"bash .github/scripts/python_staged_mypy.sh {project.path}",
+                    "language": "system",
+                    "files": files_regex,
+                    "pass_filenames": True,
+                    # mypy is slow; run it at pre-push on staged files only.
+                    # CI still runs the full module-wide mypy via
+                    # `./gradlew :<module>:lint`. See PFP-5002.
+                    "stages": ["pre-push"],
+                }
+            )
+        return hooks
+
+    def _module_has_mypy(self, project: Project) -> bool:
+        """Return True if the module's build.gradle runs mypy in a lint task.
+
+        Detects the ``"mypy`` token (a double-quoted mypy command string in the
+        Gradle Exec commandLine), which is present in lint/pythonLint tasks that
+        invoke mypy and absent from modules that only run ruff.
+        """
+        gradle_file = os.path.join(project.path, "build.gradle")
+        try:
+            with open(gradle_file) as f:
+                return '"mypy' in f.read()
+        except OSError:
+            return False
 
     def _generate_spotless_hook(self, project: Project) -> dict:
         """Generate a spotless hook for Java projects."""
