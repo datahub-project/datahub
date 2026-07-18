@@ -39,6 +39,8 @@ repos:
         language: system
         files: ^datahub-actions/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-commit
 
       - id: datahub-actions-ruff-format
         name: datahub-actions Ruff Format
@@ -46,6 +48,8 @@ repos:
         language: system
         files: ^datahub-actions/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-push
 
       - id: datahub-actions-mypy
         name: datahub-actions Mypy
@@ -63,6 +67,8 @@ repos:
         language: system
         files: ^datahub-agent-context/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-commit
 
       - id: datahub-agent-context-ruff-format
         name: datahub-agent-context Ruff Format
@@ -70,6 +76,8 @@ repos:
         language: system
         files: ^datahub-agent-context/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-push
 
       - id: datahub-agent-context-mypy
         name: datahub-agent-context Mypy
@@ -195,6 +203,8 @@ repos:
         language: system
         files: ^metadata-ingestion/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-commit
 
       - id: metadata-ingestion-ruff-format
         name: metadata-ingestion Ruff Format
@@ -202,6 +212,8 @@ repos:
         language: system
         files: ^metadata-ingestion/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-push
 
       - id: metadata-ingestion-mypy
         name: metadata-ingestion Mypy
@@ -219,6 +231,8 @@ repos:
         language: system
         files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-commit
 
       - id: metadata-ingestion-modules-airflow-plugin-ruff-format
         name: metadata-ingestion-modules/airflow-plugin Ruff Format
@@ -227,6 +241,8 @@ repos:
         language: system
         files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-push
 
       - id: metadata-ingestion-modules-airflow-plugin-mypy
         name: metadata-ingestion-modules/airflow-plugin Mypy
@@ -244,6 +260,8 @@ repos:
         language: system
         files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-commit
 
       - id: metadata-ingestion-modules-dagster-plugin-ruff-format
         name: metadata-ingestion-modules/dagster-plugin Ruff Format
@@ -252,6 +270,8 @@ repos:
         language: system
         files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-push
 
       - id: metadata-ingestion-modules-dagster-plugin-mypy
         name: metadata-ingestion-modules/dagster-plugin Mypy
@@ -269,6 +289,8 @@ repos:
         language: system
         files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-commit
 
       - id: metadata-ingestion-modules-gx-plugin-ruff-format
         name: metadata-ingestion-modules/gx-plugin Ruff Format
@@ -277,6 +299,8 @@ repos:
         language: system
         files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-push
 
       - id: metadata-ingestion-modules-gx-plugin-mypy
         name: metadata-ingestion-modules/gx-plugin Mypy
@@ -294,6 +318,8 @@ repos:
         language: system
         files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-commit
 
       - id: metadata-ingestion-modules-prefect-plugin-ruff-format
         name: metadata-ingestion-modules/prefect-plugin Ruff Format
@@ -302,6 +328,8 @@ repos:
         language: system
         files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-push
 
       - id: metadata-ingestion-modules-prefect-plugin-mypy
         name: metadata-ingestion-modules/prefect-plugin Mypy
@@ -587,6 +615,8 @@ repos:
         language: system
         files: ^metadata-service/iceberg-catalog/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-commit
 
       - id: metadata-service-iceberg-catalog-ruff-format
         name: metadata-service/iceberg-catalog Ruff Format
@@ -595,6 +625,8 @@ repos:
         language: system
         files: ^metadata-service/iceberg-catalog/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-push
 
       - id: metadata-service-openapi-analytics-servlet-spotless
         name: metadata-service/openapi-analytics-servlet Spotless Apply
@@ -770,6 +802,8 @@ repos:
         language: system
         files: ^smoke-test/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-commit
 
       - id: smoke-test-ruff-format
         name: smoke-test Ruff Format
@@ -777,6 +811,8 @@ repos:
         language: system
         files: ^smoke-test/.*\.py$
         pass_filenames: true
+        stages:
+          - pre-push
 
       - id: smoke-test-mypy
         name: smoke-test Mypy
@@ -796,6 +832,15 @@ repos:
         stages:
           - pre-push
 
+      - id: guard-push-file-count
+        name: Guard against massive pushes (>500 files)
+        entry: bash .github/scripts/guard_push_file_count.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages:
+          - pre-push
+
       - id: smoke-test-cypress-lint-fix
         name: smoke-test cypress Lint Fix
         entry: ./gradlew :smoke-test:cypressLintFix -x generateGitPropertiesGlobal
@@ -811,6 +856,8 @@ repos:
         language: system
         files: ^(metadata-ingestion-modules/.*|metadata-models/.*)$
         pass_filenames: false
+        stages:
+          - pre-commit
 
       - id: check-gradle-lockfiles
         name: Check gradle lockfiles are updated
@@ -818,6 +865,8 @@ repos:
         language: system
         files: ^.*build\.gradle(\.kts)?$
         pass_filenames: false
+        stages:
+          - pre-commit
 
       - id: check-quickstart-compose
         name: Check quickstart docker-compose config is up-to-date
@@ -825,6 +874,8 @@ repos:
         language: system
         files: ^docker/.*$
         pass_filenames: false
+        stages:
+          - pre-commit
 
       - id: validate-post-workflow-list
         name: Validate post-workflow-actions.yml workflow list
@@ -834,6 +885,8 @@ repos:
           - pyyaml
         files: ^\.github/workflows/.*\.yml$
         pass_filenames: false
+        stages:
+          - pre-commit
 
       - id: actionlint-docker
         name: Lint GitHub Actions workflow files
@@ -844,6 +897,8 @@ repos:
           - yaml
         files: ^\.github/workflows/
         entry: docker.io/rhysd/actionlint:1.7.11
+        stages:
+          - pre-commit
 
       - id: docusaurus-markdown-lint
         name: Lint Docusaurus Markdown
@@ -852,6 +907,8 @@ repos:
         language: system
         files: ^.*\.mdx?$
         entry: python3 .github/scripts/check_docusaurus_markdown.py
+        stages:
+          - pre-commit
 
       - id: playwright-e2e-lint-and-format
         name: Playwright E2E ESLint Fix + Prettier Format
@@ -868,6 +925,8 @@ repos:
         entry: python .github/scripts/bump_schema_versions.py
         language: python
         pass_filenames: false
+        stages:
+          - pre-commit
 
       - id: betterleaks
         name: Detect hardcoded secrets
@@ -876,3 +935,5 @@ repos:
         entry: betterleaks git --staged --redact --verbose --config .betterleaks.toml
         language: system
         pass_filenames: false
+        stages:
+          - pre-commit

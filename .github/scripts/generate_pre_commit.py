@@ -227,6 +227,9 @@ class HookGenerator:
                 "language": "system",
                 "files": files_regex,
                 "pass_filenames": True,
+                # ruff check --fix applies safe lint fixes (can change code);
+                # keep it at pre-commit so issues are caught before commit.
+                "stages": ["pre-commit"],
             },
             {
                 "id": f"{project.project_id}-ruff-format",
@@ -235,6 +238,8 @@ class HookGenerator:
                 "language": "system",
                 "files": files_regex,
                 "pass_filenames": True,
+                # ruff format is a pure formatter (no meaning change); pre-push.
+                "stages": ["pre-push"],
             },
         ]
         # mypy is slow, so it runs at pre-push (not pre-commit) and only on the
