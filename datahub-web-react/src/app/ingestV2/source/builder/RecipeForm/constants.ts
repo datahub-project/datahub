@@ -293,6 +293,17 @@ import {
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingestV2/source/builder/RecipeForm/mysql';
 import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingestV2/source/builder/RecipeForm/notion';
 import {
+    ODCS_EMIT_ASSERTIONS,
+    ODCS_EMIT_LOGICAL_PARENT,
+    ODCS_EMIT_SCHEMA_ASSERTION,
+    ODCS_PATH,
+    ODCS_REPLICATE_CONTRACT_METADATA,
+    ODCS_SCHEMA_ASSERTION_COMPATIBILITY,
+    ODCS_STRICT_VALIDATION,
+    ODCS_TAG_PREFIX,
+    ODCS_VERIFY_PHYSICAL_URNS_EXIST,
+} from '@app/ingestV2/source/builder/RecipeForm/odcs';
+import {
     INCLUDE_DEPROVISIONED_USERS,
     INCLUDE_SUSPENDED_USERS,
     INGEST_GROUPS,
@@ -457,6 +468,7 @@ import { HEX } from '@app/ingestV2/source/conf/hex/hex';
 import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
 import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
 import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
+import { ODCS } from '@app/ingestV2/source/conf/odcs/odcs';
 import { POSTGRES } from '@app/ingestV2/source/conf/postgres/postgres';
 import { REDSHIFT } from '@app/ingestV2/source/conf/redshift/redshift';
 import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
@@ -569,6 +581,22 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific Projects, Entries, and Entry Groups from ingestion.',
+    },
+    [ODCS]: {
+        fields: [ODCS_PATH],
+        filterFields: [],
+        advancedFields: [
+            ODCS_EMIT_ASSERTIONS,
+            ODCS_EMIT_SCHEMA_ASSERTION,
+            ODCS_SCHEMA_ASSERTION_COMPATIBILITY,
+            ODCS_EMIT_LOGICAL_PARENT,
+            ODCS_VERIFY_PHYSICAL_URNS_EXIST,
+            ODCS_STRICT_VALIDATION,
+            ODCS_REPLICATE_CONTRACT_METADATA,
+            ODCS_TAG_PREFIX,
+            ENV,
+            STATEFUL_INGESTION_ENABLED,
+        ],
     },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
