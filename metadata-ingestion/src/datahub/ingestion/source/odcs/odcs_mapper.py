@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, TypeGuard, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeGuard, Union
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
@@ -20,6 +20,50 @@ from datahub.ingestion.source.odcs.odcs_config import (
     SchemaAssertionCompatibility,
     ServerMapping,
 )
+from datahub.ingestion.source.odcs.odcs_constants import (
+    ASSERTION_SCHEMA_COMPLIANCE,
+    LOGICAL_TYPE_MAP,
+    METRIC_DUPLICATE_COUNT,
+    METRIC_DUPLICATE_VALUES,
+    METRIC_INVALID_VALUES,
+    METRIC_MISSING_VALUES,
+    METRIC_NULL_VALUES,
+    METRIC_ROW_COUNT,
+    METRIC_VALID_VALUES,
+    OWNER_ROLE_MAP,
+    PLATFORM_NAME_PARTS,
+    PROP_API_VERSION,
+    PROP_ASSERTION,
+    PROP_DATA_PRODUCT,
+    PROP_DOMAIN,
+    PROP_ID,
+    PROP_PHYSICAL_NAME,
+    PROP_QUALITY_RULE_COUNT,
+    PROP_RULE,
+    PROP_RULE_ARGUMENTS,
+    PROP_RULE_BUSINESS_IMPACT,
+    PROP_RULE_DIMENSION,
+    PROP_RULE_ID,
+    PROP_RULE_METRIC,
+    PROP_RULE_NAME,
+    PROP_RULE_SEVERITY,
+    PROP_RULE_TYPE,
+    PROP_RULE_UNIT,
+    PROP_SCHEMA_NAME,
+    PROP_SCOPE,
+    PROP_SOURCE_FILE,
+    PROP_STATUS,
+    PROP_TENANT,
+    PROP_VERSION,
+    RULE_TYPE_CUSTOM,
+    RULE_TYPE_LIBRARY,
+    RULE_TYPE_SQL,
+    RULE_TYPE_TEXT,
+    SCOPE_PROPERTY,
+    SCOPE_SCHEMA,
+    UNIT_PERCENT,
+    UNIT_ROWS,
+)
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
     ODCSDescription,
@@ -30,7 +74,6 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSServer,
 )
 from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
     AssertionInfoClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -38,15 +81,11 @@ from datahub.metadata.schema_classes import (
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
     AuditStampClass,
-    BooleanTypeClass,
-    BytesTypeClass,
     CustomAssertionInfoClass,
     DataPlatformInfoClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    DateTypeClass,
     EdgeClass,
-    EnumTypeClass,
     FieldAssertionInfoClass,
     FieldAssertionTypeClass,
     FieldMetricAssertionClass,
@@ -58,15 +97,12 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     LogicalParentClass,
-    MapTypeClass,
     NullTypeClass,
-    NumberTypeClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     PlatformTypeClass,
-    RecordTypeClass,
     RowCountTotalClass,
     SchemaAssertionInfoClass,
     SchemaFieldClass,
@@ -75,124 +111,10 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
-    StringTypeClass,
     TagAssociationClass,
-    TimeTypeClass,
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
-
-# ODCS team `role` value -> DataHub OwnershipType. Anything not listed here
-# falls back to TECHNICAL_OWNER.
-_OWNER_ROLE_MAP: Dict[str, str] = {
-    "owner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "dataOwner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "data_owner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "technical_owner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "technicalOwner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "business_owner": OwnershipTypeClass.BUSINESS_OWNER,
-    "businessOwner": OwnershipTypeClass.BUSINESS_OWNER,
-    "steward": OwnershipTypeClass.DATA_STEWARD,
-    "data_steward": OwnershipTypeClass.DATA_STEWARD,
-    "dataSteward": OwnershipTypeClass.DATA_STEWARD,
-}
-
-# ODCS library metric vocabulary, spec-exact. v3.1 names the library key
-# `metric` (with `rule` as a deprecated alias); v3.0.x used `rule`. The names
-# below are the only library rules either spec version defines — anything else
-# falls through to a CustomAssertion so intent is preserved, never guessed.
-_METRIC_NULL_VALUES = "nullValues"  # v3.1, property-level
-_METRIC_MISSING_VALUES = "missingValues"  # v3.1, property-level
-_METRIC_INVALID_VALUES = "invalidValues"  # v3.1, property-level
-_METRIC_DUPLICATE_VALUES = "duplicateValues"  # v3.1, property- or schema-level
-_METRIC_ROW_COUNT = "rowCount"  # v3.0 + v3.1, schema-level
-_METRIC_DUPLICATE_COUNT = "duplicateCount"  # v3.0 name for duplicateValues
-_METRIC_VALID_VALUES = "validValues"  # v3.0 name for invalidValues
-
-_UNIT_ROWS = "rows"
-_UNIT_PERCENT = "percent"
-
-# ODCS rule types.
-_RULE_TYPE_LIBRARY = "library"
-_RULE_TYPE_TEXT = "text"
-_RULE_TYPE_SQL = "sql"
-_RULE_TYPE_CUSTOM = "custom"
-
-# ODCS provenance customProperty keys. Hoisted so a typo produces a reference
-# error rather than a silently divergent property key no test would catch.
-_PROP_ID = "odcs.id"
-_PROP_SCHEMA_NAME = "odcs.schemaName"
-_PROP_QUALITY_RULE_COUNT = "odcs.qualityRuleCount"
-_PROP_VERSION = "odcs.version"
-_PROP_API_VERSION = "odcs.apiVersion"
-_PROP_STATUS = "odcs.status"
-_PROP_PHYSICAL_NAME = "odcs.physicalName"
-_PROP_SOURCE_FILE = "odcs.sourceFile"
-_PROP_DOMAIN = "odcs.domain"
-_PROP_DATA_PRODUCT = "odcs.dataProduct"
-_PROP_TENANT = "odcs.tenant"
-_PROP_SCOPE = "odcs.scope"
-_PROP_ASSERTION = "odcs.assertion"
-# Per-rule provenance keys (grouped under the odcs.rule.* namespace).
-_PROP_RULE = "odcs.rule"
-_PROP_RULE_ID = "odcs.rule.id"
-_PROP_RULE_NAME = "odcs.rule.name"
-_PROP_RULE_METRIC = "odcs.rule.metric"
-_PROP_RULE_UNIT = "odcs.rule.unit"
-_PROP_RULE_ARGUMENTS = "odcs.rule.arguments"
-_PROP_RULE_DIMENSION = "odcs.rule.dimension"
-_PROP_RULE_SEVERITY = "odcs.rule.severity"
-_PROP_RULE_BUSINESS_IMPACT = "odcs.rule.businessImpact"
-_PROP_RULE_TYPE = "odcs.rule.type"
-
-# Rule/assertion scope: where in the contract the item originates.
-_SCOPE_SCHEMA = "schema"
-_SCOPE_PROPERTY = "property"
-
-# Marker value written to _PROP_ASSERTION for schema-compliance assertions.
-_ASSERTION_SCHEMA_COMPLIANCE = "schema-compliance"
-
-# ODCS `logicalType` (and a few common `physicalType` spellings) -> the DataHub
-# SchemaFieldDataType union member. ODCS logical/physical types are free-form
-# strings, so this is a best-effort mapping; unmapped types fall back to
-# NullType and are surfaced via SchemaBuildResult.unmapped_types rather than
-# silently swallowed (a silent NullType hides real type information).
-_LOGICAL_TYPE_MAP: Dict[str, Type] = {
-    "string": StringTypeClass,
-    "text": StringTypeClass,
-    "varchar": StringTypeClass,
-    "char": StringTypeClass,
-    "uuid": StringTypeClass,
-    "integer": NumberTypeClass,
-    "int": NumberTypeClass,
-    "bigint": NumberTypeClass,
-    "smallint": NumberTypeClass,
-    "long": NumberTypeClass,
-    "number": NumberTypeClass,
-    "numeric": NumberTypeClass,
-    "decimal": NumberTypeClass,
-    "double": NumberTypeClass,
-    "float": NumberTypeClass,
-    "boolean": BooleanTypeClass,
-    "bool": BooleanTypeClass,
-    "date": DateTypeClass,
-    "timestamp": TimeTypeClass,
-    "timestamp_tz": TimeTypeClass,
-    "timestamp_ntz": TimeTypeClass,
-    "datetime": TimeTypeClass,
-    "time": TimeTypeClass,
-    "object": RecordTypeClass,
-    "record": RecordTypeClass,
-    "struct": RecordTypeClass,
-    "json": RecordTypeClass,
-    "variant": RecordTypeClass,
-    "array": ArrayTypeClass,
-    "list": ArrayTypeClass,
-    "map": MapTypeClass,
-    "bytes": BytesTypeClass,
-    "binary": BytesTypeClass,
-    "enum": EnumTypeClass,
-}
 
 
 @dataclass
@@ -314,23 +236,6 @@ class ResolvedServer:
     mapping: Optional[ServerMapping]
 
 
-# DataHub platform id -> the ODCSServer fields (in order) that qualify a table
-# name, matching each platform connector's URN naming convention. `schema_` is
-# the pydantic-safe name of the ODCS `schema` server field. Platforms absent
-# here (e.g. oracle, whose ODCS server entry carries only host/port/serviceName)
-# cannot be composed — a dotted physicalName or an explicit override is needed.
-_PLATFORM_NAME_PARTS: Dict[str, Tuple[str, ...]] = {
-    "postgres": ("database", "schema_"),
-    "redshift": ("database", "schema_"),
-    "mssql": ("database", "schema_"),
-    "snowflake": ("database", "schema_"),
-    "trino": ("catalog", "schema_"),
-    "databricks": ("catalog", "schema_"),
-    "bigquery": ("project", "dataset"),
-    "mysql": ("database",),
-}
-
-
 def _override_for_server(
     server_name: str, overrides: List[ServerMapping]
 ) -> Optional[ServerMapping]:
@@ -390,7 +295,7 @@ def _compose_physical_name(
     lowercase = convert_to_lowercase and platform in LOWERCASE_BY_DEFAULT_PLATFORMS
     if "." in table:
         return table.lower() if lowercase else table, None, True
-    parts_spec = _PLATFORM_NAME_PARTS.get(platform)
+    parts_spec = PLATFORM_NAME_PARTS.get(platform)
     if parts_spec is None:
         return (
             None,
@@ -566,7 +471,7 @@ def _make_owners(
         if not username:
             continue
         role_key = (member.role or "").strip()
-        ownership_type = _OWNER_ROLE_MAP.get(
+        ownership_type = OWNER_ROLE_MAP.get(
             role_key, OwnershipTypeClass.TECHNICAL_OWNER
         )
         if username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
@@ -601,7 +506,7 @@ def unmapped_owner_roles(contract: ODCSContract) -> List[str]:
         if not (member.username or member.name):
             continue
         role_key = (member.role or "").strip()
-        if role_key and role_key not in _OWNER_ROLE_MAP:
+        if role_key and role_key not in OWNER_ROLE_MAP:
             roles.add(role_key)
     return sorted(roles)
 
@@ -634,7 +539,7 @@ def _map_field_type(prop: ODCSProperty) -> Tuple[SchemaFieldDataTypeClass, bool]
     for candidate in (prop.logicalType, prop.physicalType):
         if not candidate:
             continue
-        type_cls = _LOGICAL_TYPE_MAP.get(candidate.strip().lower())
+        type_cls = LOGICAL_TYPE_MAP.get(candidate.strip().lower())
         if type_cls is not None:
             return SchemaFieldDataTypeClass(type=type_cls()), False
     return SchemaFieldDataTypeClass(type=NullTypeClass()), True
@@ -772,20 +677,20 @@ def odcs_to_logical_dataset_mcps(
         contract.description
     )
     custom_props: Dict[str, str] = {
-        _PROP_ID: contract.id,
-        _PROP_SCHEMA_NAME: schema_entry.name,
-        _PROP_QUALITY_RULE_COUNT: str(_count_quality_rules(schema_entry)),
+        PROP_ID: contract.id,
+        PROP_SCHEMA_NAME: schema_entry.name,
+        PROP_QUALITY_RULE_COUNT: str(_count_quality_rules(schema_entry)),
     }
     # (key, value) pairs emitted only when the value is truthy.
     for key, value in (
-        (_PROP_VERSION, contract.version),
-        (_PROP_API_VERSION, contract.apiVersion),
-        (_PROP_STATUS, contract.status),
-        (_PROP_PHYSICAL_NAME, schema_entry.physicalName),
-        (_PROP_SOURCE_FILE, source_file),
-        (_PROP_DOMAIN, contract.domain),
-        (_PROP_DATA_PRODUCT, contract.dataProduct),
-        (_PROP_TENANT, contract.tenant),
+        (PROP_VERSION, contract.version),
+        (PROP_API_VERSION, contract.apiVersion),
+        (PROP_STATUS, contract.status),
+        (PROP_PHYSICAL_NAME, schema_entry.physicalName),
+        (PROP_SOURCE_FILE, source_file),
+        (PROP_DOMAIN, contract.domain),
+        (PROP_DATA_PRODUCT, contract.dataProduct),
+        (PROP_TENANT, contract.tenant),
     ):
         if value:
             custom_props[key] = value
@@ -1004,7 +909,7 @@ def _fail_threshold_from_rule(
     ):
         threshold_type = (
             FieldValuesFailThresholdTypeClass.PERCENTAGE
-            if unit == _UNIT_PERCENT
+            if unit == UNIT_PERCENT
             else FieldValuesFailThresholdTypeClass.COUNT
         )
         return FieldValuesFailThresholdClass(type=threshold_type, value=int(tolerance))
@@ -1122,20 +1027,20 @@ def _custom_props_for_rule(ctx: _RuleContext) -> Dict[str, str]:
     """
     rule = ctx.rule
     props: Dict[str, str] = {
-        _PROP_RULE: "true",
-        _PROP_SCOPE: ctx.scope,
-        _PROP_ID: ctx.contract_id,
+        PROP_RULE: "true",
+        PROP_SCOPE: ctx.scope,
+        PROP_ID: ctx.contract_id,
     }
     # (key, value) pairs emitted only when the value is truthy.
     for key, value in (
-        (_PROP_RULE_ID, rule.id),
-        (_PROP_RULE_NAME, rule.name),
-        (_PROP_RULE_METRIC, rule.effective_metric),
-        (_PROP_RULE_UNIT, rule.unit),
-        (_PROP_RULE_DIMENSION, rule.dimension),
-        (_PROP_RULE_SEVERITY, rule.severity),
-        (_PROP_RULE_BUSINESS_IMPACT, rule.businessImpact),
-        (_PROP_RULE_TYPE, rule.type),
+        (PROP_RULE_ID, rule.id),
+        (PROP_RULE_NAME, rule.name),
+        (PROP_RULE_METRIC, rule.effective_metric),
+        (PROP_RULE_UNIT, rule.unit),
+        (PROP_RULE_DIMENSION, rule.dimension),
+        (PROP_RULE_SEVERITY, rule.severity),
+        (PROP_RULE_BUSINESS_IMPACT, rule.businessImpact),
+        (PROP_RULE_TYPE, rule.type),
     ):
         if value:
             props[key] = value
@@ -1143,7 +1048,7 @@ def _custom_props_for_rule(ctx: _RuleContext) -> Dict[str, str]:
     # _arguments_json, which returns None when there is nothing to emit.
     args_json = _arguments_json(rule.arguments)
     if args_json is not None:
-        props[_PROP_RULE_ARGUMENTS] = args_json
+        props[PROP_RULE_ARGUMENTS] = args_json
     return props
 
 
@@ -1318,10 +1223,10 @@ def _iter_schema_rules(
     field path).
     """
     for rule in schema_entry.quality or []:
-        yield rule, None, _SCOPE_SCHEMA
+        yield rule, None, SCOPE_SCHEMA
     for field_path, prop in _walk_properties(schema_entry.properties):
         for rule in prop.quality or []:
-            yield rule, field_path, _SCOPE_PROPERTY
+            yield rule, field_path, SCOPE_PROPERTY
 
 
 @dataclass
@@ -1352,10 +1257,10 @@ def _route_library_rule(
 ) -> Optional[Tuple[str, MetadataChangeProposalWrapper]]:
     rule = ctx.rule
     metric = rule.effective_metric
-    unit = (rule.unit or _UNIT_ROWS).strip().lower()
+    unit = (rule.unit or UNIT_ROWS).strip().lower()
     args = rule.arguments
 
-    if metric == _METRIC_NULL_VALUES:
+    if metric == METRIC_NULL_VALUES:
         if ctx.column is None:
             return _custom_or_skip(ctx, trace)
         if _must_be_zero(rule):
@@ -1375,14 +1280,14 @@ def _route_library_rule(
             return _custom_or_skip(ctx, trace)
         metric_type = (
             FieldMetricTypeClass.NULL_PERCENTAGE
-            if unit == _UNIT_PERCENT
+            if unit == UNIT_PERCENT
             else FieldMetricTypeClass.NULL_COUNT
         )
         return _build_field_metric_assertion(
             ctx, metric=metric_type, operator=op_opt, params=params_opt
         )
 
-    if metric in (_METRIC_DUPLICATE_VALUES, _METRIC_DUPLICATE_COUNT):
+    if metric in (METRIC_DUPLICATE_VALUES, METRIC_DUPLICATE_COUNT):
         if args is not None and args.properties:
             # Multi-column uniqueness (schema-level duplicateValues) has no
             # native DataHub metric; preserve as custom.
@@ -1399,7 +1304,7 @@ def _route_library_rule(
         # inverting it into a unique-percentage bound would change semantics.
         return _custom_or_skip(ctx, trace)
 
-    if metric in (_METRIC_INVALID_VALUES, _METRIC_VALID_VALUES):
+    if metric in (METRIC_INVALID_VALUES, METRIC_VALID_VALUES):
         valid_values = (
             args.validValues if args is not None else None
         ) or rule.validValues
@@ -1439,14 +1344,14 @@ def _route_library_rule(
             )
         return _custom_or_skip(ctx, trace)
 
-    if metric == _METRIC_MISSING_VALUES:
+    if metric == METRIC_MISSING_VALUES:
         # "value is in an author-defined missing list (possibly including
         # null)" has no native metric; NOT_IN plus null handling would change
         # semantics, so the rule is preserved as custom.
         return _custom_or_skip(ctx, trace)
 
-    if metric == _METRIC_ROW_COUNT:
-        if unit == _UNIT_PERCENT:
+    if metric == METRIC_ROW_COUNT:
+        if unit == UNIT_PERCENT:
             # A relative row count only makes sense against some baseline the
             # contract does not define; preserve as custom.
             return _custom_or_skip(ctx, trace)
@@ -1470,20 +1375,20 @@ def _route_and_build(
     in-place so the source can report aggregate counters.
     """
     rule = ctx.rule
-    rule_type = (rule.type or _RULE_TYPE_LIBRARY).strip().lower()
+    rule_type = (rule.type or RULE_TYPE_LIBRARY).strip().lower()
 
-    if rule_type == _RULE_TYPE_SQL:
+    if rule_type == RULE_TYPE_SQL:
         if rule.query:
             op_opt, params_opt = _operator_and_params_from_threshold(rule)
             if op_opt is not None and params_opt is not None:
                 return _build_sql_assertion(ctx, operator=op_opt, params=params_opt)
         return _custom_or_skip(ctx, trace)
 
-    if rule_type == _RULE_TYPE_CUSTOM:
+    if rule_type == RULE_TYPE_CUSTOM:
         return _custom_or_skip(ctx, trace, custom_type=rule.engine)
 
-    if rule_type == _RULE_TYPE_TEXT:
-        return _custom_or_skip(ctx, trace, custom_type=_RULE_TYPE_TEXT)
+    if rule_type == RULE_TYPE_TEXT:
+        return _custom_or_skip(ctx, trace, custom_type=RULE_TYPE_TEXT)
 
     # library (the default)
     if rule.used_deprecated_rule_key and api_version.startswith("3.1"):
@@ -1563,9 +1468,9 @@ def odcs_to_schema_assertion_mcps(
             f"schema '{schema_entry.name}'"
         ),
         customProperties={
-            _PROP_ID: contract.id,
-            _PROP_SCOPE: _SCOPE_SCHEMA,
-            _PROP_ASSERTION: _ASSERTION_SCHEMA_COMPLIANCE,
+            PROP_ID: contract.id,
+            PROP_SCOPE: SCOPE_SCHEMA,
+            PROP_ASSERTION: ASSERTION_SCHEMA_COMPLIANCE,
         },
         schemaAssertion=SchemaAssertionInfoClass(
             entity=logical_urn,
