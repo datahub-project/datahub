@@ -4431,3 +4431,16 @@ def test_skip_missing_upstreams_filters_cll():
     assert not any(missing_urn in u for u in cll_upstream_urns), (
         "CLL still references the missing upstream — ghost node would still be created"
     )
+
+
+def test_load_file_as_json_handles_utf8_bom():
+    # A manifest served with a UTF-8 BOM used to parse via requests.json(); the
+    # object-store extraction must keep parsing it rather than choking on the BOM.
+    payload = b"\xef\xbb\xbf" + b'{"nodes": {}}'
+    with mock.patch(
+        "datahub.ingestion.source.dbt.dbt_core.read_file_as_bytes",
+        return_value=payload,
+    ):
+        assert DBTCoreSource.load_file_as_json(
+            "https://example.com/manifest.json", None
+        ) == {"nodes": {}}

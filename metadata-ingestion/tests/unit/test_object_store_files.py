@@ -186,13 +186,53 @@ def test_read_file_as_bytes_local(tmp_path):
     assert read_file_as_bytes(str(path)) == b"apiVersion: v3"
 
 
+def _mock_http_response(chunks, headers=None):
+    resp = mock.MagicMock()
+    resp.headers = headers or {}
+    resp.iter_content.return_value = iter(chunks)
+    return resp
+
+
 def test_read_file_as_bytes_http():
     with mock.patch(
         "datahub.ingestion.source.common.object_store_files.requests.get"
     ) as mock_get:
-        mock_get.return_value = mock.MagicMock(content=b"payload")
+        mock_get.return_value = _mock_http_response([b"pay", b"load"])
         assert read_file_as_bytes("https://example.com/contract.yaml") == b"payload"
         mock_get.return_value.raise_for_status.assert_called_once()
+        assert mock_get.call_args.kwargs["stream"] is True
+
+
+def test_read_file_as_bytes_http_returns_raw_bytes_with_bom():
+    # The reader is charset-agnostic: a UTF-8 BOM (or any encoding) must survive
+    # untouched so the caller can decode/sniff it — a forced utf-8 decode here
+    # would corrupt BOM-prefixed payloads.
+    payload = b'\xef\xbb\xbf{"apiVersion": "v3"}'
+    with mock.patch(
+        "datahub.ingestion.source.common.object_store_files.requests.get"
+    ) as mock_get:
+        mock_get.return_value = _mock_http_response([payload])
+        assert read_file_as_bytes("https://example.com/manifest.json") == payload
+
+
+def test_read_file_as_bytes_http_over_declared_size():
+    with mock.patch(
+        "datahub.ingestion.source.common.object_store_files.requests.get"
+    ) as mock_get:
+        mock_get.return_value = _mock_http_response(
+            [b"x" * 100], headers={"Content-Length": "100"}
+        )
+        with pytest.raises(ValueError, match="over the configured max_bytes"):
+            read_file_as_bytes("https://example.com/big.json", max_bytes=10)
+
+
+def test_read_file_as_bytes_http_over_cap_without_content_length():
+    with mock.patch(
+        "datahub.ingestion.source.common.object_store_files.requests.get"
+    ) as mock_get:
+        mock_get.return_value = _mock_http_response([b"x" * 6, b"x" * 6])
+        with pytest.raises(ValueError, match="over the configured max_bytes"):
+            read_file_as_bytes("https://example.com/big.json", max_bytes=10)
 
 
 def test_read_file_as_bytes_s3():
@@ -216,6 +256,57 @@ def test_read_file_as_bytes_s3_missing_connection():
         read_file_as_bytes("s3://my-bucket/manifest.json")
 
 
+def test_read_file_as_bytes_gcs():
+    connection = mock.MagicMock()
+    s3_client = mock.MagicMock()
+    connection.s3_compatible_connection.get_s3_client.return_value = s3_client
+    s3_client.get_object.return_value = {
+        "Body": mock.MagicMock(read=mock.MagicMock(return_value=b"apiVersion: v3"))
+    }
+    result = read_file_as_bytes(
+        "gs://my-gcs-bucket/contracts/contract.yaml", gcs_connection=connection
+    )
+    assert result == b"apiVersion: v3"
+    s3_client.get_object.assert_called_once_with(
+        Bucket="my-gcs-bucket", Key="contracts/contract.yaml"
+    )
+
+
 def test_read_file_as_bytes_gcs_missing_connection():
     with pytest.raises(ValueError, match="GCS connection required"):
         read_file_as_bytes("gs://my-bucket/manifest.json")
+
+
+def test_read_file_as_bytes_local_over_cap(tmp_path):
+    path = tmp_path / "big.yaml"
+    path.write_bytes(b"x" * 100)
+    with pytest.raises(ValueError, match="over the configured max_bytes"):
+        read_file_as_bytes(str(path), max_bytes=10)
+
+
+def test_read_file_as_bytes_s3_over_declared_size():
+    connection = mock.MagicMock()
+    s3_client = mock.MagicMock()
+    connection.get_s3_client.return_value = s3_client
+    body = mock.MagicMock()
+    s3_client.get_object.return_value = {"Body": body, "ContentLength": 100}
+    with pytest.raises(ValueError, match="over the configured max_bytes"):
+        read_file_as_bytes(
+            "s3://my-bucket/big.json", aws_connection=connection, max_bytes=10
+        )
+    # rejected from the declared size, never streamed.
+    body.read.assert_not_called()
+
+
+def test_read_file_as_bytes_s3_capped_read_when_size_undeclared():
+    connection = mock.MagicMock()
+    s3_client = mock.MagicMock()
+    connection.get_s3_client.return_value = s3_client
+    body = mock.MagicMock(read=mock.MagicMock(return_value=b"x" * 11))
+    s3_client.get_object.return_value = {"Body": body}
+    with pytest.raises(ValueError, match="over the configured max_bytes"):
+        read_file_as_bytes(
+            "s3://my-bucket/big.json", aws_connection=connection, max_bytes=10
+        )
+    # bounded read: pulls at most max_bytes+1, not the whole body.
+    body.read.assert_called_once_with(11)

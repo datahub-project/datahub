@@ -762,7 +762,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         gcs_connection: Optional[GCSConnectionConfig] = None,
     ) -> Dict:
         raw = read_file_as_bytes(uri, aws_connection, gcs_connection)
-        return json.loads(raw.decode("utf-8"))
+        # Hand json.loads the raw bytes: it sniffs the BOM and picks UTF-8/16/32
+        # accordingly (RFC 4627), matching the old requests.json() behaviour a
+        # forced decode("utf-8") had regressed on BOM-prefixed manifests.
+        return json.loads(raw)
 
     def _expand_cloud_glob(
         self,

@@ -1,8 +1,9 @@
 import fnmatch
 import glob as glob_module
 import logging
+import os
 import re
-from typing import List, Optional
+from typing import Iterable, List, Optional, Protocol
 from urllib.parse import urlparse
 
 import requests
@@ -17,6 +18,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 _GLOB_CHARACTERS = frozenset("*?[]")
 _HTTP_URI_PATTERN = re.compile("^https?://")
 DEFAULT_HTTP_TIMEOUT_SECONDS = 30
+_STREAM_CHUNK_BYTES = 1024 * 1024
 
 
 def has_glob_characters(path: str) -> bool:
@@ -27,20 +29,68 @@ def is_http_uri(uri: str) -> bool:
     return bool(_HTTP_URI_PATTERN.match(uri))
 
 
+def _enforce_size_cap(uri: str, size: int, max_bytes: Optional[int]) -> None:
+    if max_bytes is not None and size > max_bytes:
+        raise ValueError(
+            f"{uri} is {size} bytes, over the configured max_bytes limit of {max_bytes}"
+        )
+
+
+def _read_chunks_capped(
+    uri: str, chunks: Iterable[bytes], max_bytes: Optional[int]
+) -> bytes:
+    buffer = bytearray()
+    for chunk in chunks:
+        buffer.extend(chunk)
+        _enforce_size_cap(uri, len(buffer), max_bytes)
+    return bytes(buffer)
+
+
+class _ReadableBody(Protocol):
+    def read(self, amt: Optional[int] = ...) -> bytes: ...
+
+
+def _read_object_store_body(
+    uri: str,
+    body: _ReadableBody,
+    declared_size: Optional[int],
+    max_bytes: Optional[int],
+) -> bytes:
+    if declared_size is not None:
+        _enforce_size_cap(uri, declared_size, max_bytes)
+    if max_bytes is None:
+        return body.read()
+    # read at most max_bytes+1 so an oversized object trips the cap without
+    # pulling the whole body into memory (a lying/absent ContentLength above).
+    data = body.read(max_bytes + 1)
+    _enforce_size_cap(uri, len(data), max_bytes)
+    return data
+
+
 def read_file_as_bytes(
     uri: str,
     aws_connection: Optional[AwsConnectionConfig] = None,
     gcs_connection: Optional[GCSConnectionConfig] = None,
     http_timeout_seconds: int = DEFAULT_HTTP_TIMEOUT_SECONDS,
+    max_bytes: Optional[int] = None,
 ) -> bytes:
     """Read a single file from a local path, http(s):// URL, s3:// URI, or gs:// URI.
 
     Object-store URIs require the matching connection config for credentials.
+    When max_bytes is set the read is bounded — an oversized source is rejected
+    from its declared size, or mid-stream, before it is fully buffered.
     """
     if is_http_uri(uri):
-        resp = requests.get(uri, timeout=http_timeout_seconds)
+        # stream=True keeps the body out of memory until we pull it chunk by
+        # chunk, so the cap can abort an oversized download partway through.
+        resp = requests.get(uri, timeout=http_timeout_seconds, stream=True)
         resp.raise_for_status()
-        return resp.content
+        declared = resp.headers.get("Content-Length")
+        if declared is not None and declared.isdigit():
+            _enforce_size_cap(uri, int(declared), max_bytes)
+        return _read_chunks_capped(
+            uri, resp.iter_content(chunk_size=_STREAM_CHUNK_BYTES), max_bytes
+        )
     if is_s3_uri(uri):
         if not aws_connection:
             raise ValueError(f"AWS connection required for S3 URI: {uri}")
@@ -51,7 +101,9 @@ def read_file_as_bytes(
             )
         except Exception as e:
             raise ValueError(f"Failed to read {uri} from object store: {e}") from e
-        return response["Body"].read()
+        return _read_object_store_body(
+            uri, response["Body"], response.get("ContentLength"), max_bytes
+        )
     if is_gcs_uri(uri):
         if not gcs_connection:
             raise ValueError(f"GCS connection required for GCS URI: {uri}")
@@ -64,7 +116,10 @@ def read_file_as_bytes(
             )
         except Exception as e:
             raise ValueError(f"Failed to read {uri} from object store: {e}") from e
-        return response["Body"].read()
+        return _read_object_store_body(
+            uri, response["Body"], response.get("ContentLength"), max_bytes
+        )
+    _enforce_size_cap(uri, os.path.getsize(uri), max_bytes)
     with open(uri, "rb") as f:
         return f.read()
 
