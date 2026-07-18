@@ -27,6 +27,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_mapper import (
+    PhysicalBinding,
     odcs_platform_info_mcp,
     odcs_to_assertion_mcps,
     odcs_to_logical_dataset_mcps,
@@ -710,194 +711,222 @@ class ODCSSource(StatefulIngestionSourceBase):
     def _emit_bindings(
         self,
         contract: ODCSContract,
-        bindings: list,
+        bindings: List[PhysicalBinding],
         file_path: pathlib.Path,
         source_file: str,
     ) -> Iterable[MetadataWorkUnit]:
+        # One binding == one ODCS schema entry. Each concern is a focused
+        # helper; the physical-binding helper is last because it depends on the
+        # logical dataset the first helper emits.
         for binding in bindings:
-            schema_entry = binding.schema_entry
-            logical_urn = binding.logical_urn
-            self.report.logical_datasets_emitted += 1
-
-            if logical_urn in self._seen_logical_urns:
-                self.report.warning(
-                    title="Duplicate logical ODCS dataset URN",
-                    message=(
-                        "Two ODCS schema entries resolved to the same logical "
-                        "dataset URN; their aspects collide (last-writer-wins). "
-                        "Use distinct contract `id`/schema names or set "
-                        "logical_dataset_name_template to include {contract_version}."
-                    ),
-                    context=f"file={file_path} urn={logical_urn}",
-                )
-            self._seen_logical_urns.add(logical_urn)
-
-            logical_mcps, unmapped_types = odcs_to_logical_dataset_mcps(
-                contract=contract,
-                schema_entry=schema_entry,
-                logical_urn=logical_urn,
-                source_file=source_file,
-                tag_prefix=self.config.tag_prefix,
-                replicate_contract_metadata=self.config.replicate_contract_metadata,
-                strip_owner_email_domain=self.config.strip_owner_email_domain,
-                owner_email_domain=self.config.owner_email_domain,
+            yield from self._emit_logical_dataset(
+                contract, binding, file_path, source_file
             )
-            self._check_owner_resolution(logical_mcps, file_path)
-            for mcp in logical_mcps:
-                yield mcp.as_workunit()
-            for unmapped in unmapped_types:
-                self.report.schema_type_fallbacks.append(
-                    f"{contract.id}/{schema_entry.name}: {unmapped}"
-                )
-
-            # Assertions target the LOGICAL dataset and are emitted whether or
-            # not a physical binding resolved. Propagation of these
-            # expectations onto bound physical datasets is handled by a
-            # separate DataHub mechanism via the PhysicalInstanceOf link.
             if self.config.emit_assertions:
-                assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
-                    contract=contract,
-                    schema_entry=schema_entry,
-                    logical_urn=logical_urn,
-                )
-                self.report.rules_routed_to_custom.extend(trace.routed_to_custom)
-                if trace.deprecated_rule_key:
-                    self.report.info(
-                        title="ODCS quality rules use the deprecated `rule` key",
-                        message=(
-                            "This v3.1 contract names library rules via the "
-                            "deprecated `rule` key; use `metric` instead."
-                        ),
-                        context=(
-                            f"file={file_path} schema={schema_entry.name} "
-                            f"rules={', '.join(trace.deprecated_rule_key)}"
-                        ),
-                    )
-                for skipped in trace.skipped_no_body:
-                    self.report.rules_skipped_no_threshold.append(skipped)
-                    self.report.warning(
-                        title="ODCS quality rule skipped — no modelable body",
-                        message=(
-                            "Rule has no operator/threshold and no query / "
-                            "implementation / description / name to use as "
-                            "custom assertion logic; skipping."
-                        ),
-                        context=(
-                            f"file={file_path} schema={schema_entry.name} "
-                            f"rule={skipped}"
-                        ),
-                    )
-                self.report.assertions_emitted += len(assertion_urns)
-                for mcp in assertion_mcps:
-                    yield mcp.as_workunit()
-
+                yield from self._emit_assertions(contract, binding, file_path)
             if self.config.emit_schema_assertion:
-                schema_assertion_urn, schema_assertion_mcps = (
-                    odcs_to_schema_assertion_mcps(
-                        contract=contract,
-                        schema_entry=schema_entry,
-                        logical_urn=logical_urn,
-                        compatibility=self.config.schema_assertion_compatibility,
-                    )
-                )
-                if schema_assertion_urn is not None:
-                    self.report.schema_assertions_emitted += 1
-                    for mcp in schema_assertion_mcps:
-                        yield mcp.as_workunit()
+                yield from self._emit_schema_assertion(contract, binding)
+            yield from self._emit_logical_parent(contract, binding, file_path)
 
-            if binding.physical_urn is None:
-                # No binding costs only the logicalParent link — never the
-                # assertions. The unmapped reason is informational.
-                if binding.unmapped_reason:
-                    self.report.unmappable_servers += 1
-                    self.report.info(
-                        title="ODCS schema entry has no physical binding",
-                        message=(
-                            f"{binding.unmapped_reason}. Emitted the logical "
-                            "dataset and its assertions; no logicalParent link."
-                        ),
-                        context=(
-                            f"file={file_path} schema_index={binding.index} "
-                            f"schema_name={schema_entry.name}"
-                        ),
-                    )
-                continue
+    def _emit_logical_dataset(
+        self,
+        contract: ODCSContract,
+        binding: PhysicalBinding,
+        file_path: pathlib.Path,
+        source_file: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_entry = binding.schema_entry
+        logical_urn = binding.logical_urn
+        self.report.logical_datasets_emitted += 1
 
-            physical_urn = binding.physical_urn
-            if binding.name_passthrough:
-                self.report.physical_names_passthrough += 1
+        if logical_urn in self._seen_logical_urns:
+            self.report.warning(
+                title="Duplicate logical ODCS dataset URN",
+                message=(
+                    "Two ODCS schema entries resolved to the same logical "
+                    "dataset URN; their aspects collide (last-writer-wins). "
+                    "Use distinct contract `id`/schema names or set "
+                    "logical_dataset_name_template to include {contract_version}."
+                ),
+                context=f"file={file_path} urn={logical_urn}",
+            )
+        self._seen_logical_urns.add(logical_urn)
 
-            if self.config.verify_physical_urns_exist and not self._physical_urn_exists(
-                physical_urn
-            ):
-                self.report.physical_urns_unverified += 1
-                self.report.warning(
-                    title="Derived physical dataset not found in DataHub",
+        logical_mcps, unmapped_types = odcs_to_logical_dataset_mcps(
+            contract=contract,
+            schema_entry=schema_entry,
+            logical_urn=logical_urn,
+            source_file=source_file,
+            tag_prefix=self.config.tag_prefix,
+            replicate_contract_metadata=self.config.replicate_contract_metadata,
+            strip_owner_email_domain=self.config.strip_owner_email_domain,
+            owner_email_domain=self.config.owner_email_domain,
+        )
+        self._check_owner_resolution(logical_mcps, file_path)
+        for mcp in logical_mcps:
+            yield mcp.as_workunit()
+        for unmapped in unmapped_types:
+            self.report.schema_type_fallbacks.append(
+                f"{contract.id}/{schema_entry.name}: {unmapped}"
+            )
+
+    def _emit_assertions(
+        self,
+        contract: ODCSContract,
+        binding: PhysicalBinding,
+        file_path: pathlib.Path,
+    ) -> Iterable[MetadataWorkUnit]:
+        # Assertions target the LOGICAL dataset and are emitted whether or not a
+        # physical binding resolved. Propagation onto bound physical datasets is
+        # handled by a separate DataHub mechanism via the PhysicalInstanceOf link.
+        schema_entry = binding.schema_entry
+        assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
+            contract=contract,
+            schema_entry=schema_entry,
+            logical_urn=binding.logical_urn,
+        )
+        self.report.rules_routed_to_custom.extend(trace.routed_to_custom)
+        if trace.deprecated_rule_key:
+            self.report.info(
+                title="ODCS quality rules use the deprecated `rule` key",
+                message=(
+                    "This v3.1 contract names library rules via the "
+                    "deprecated `rule` key; use `metric` instead."
+                ),
+                context=(
+                    f"file={file_path} schema={schema_entry.name} "
+                    f"rules={', '.join(trace.deprecated_rule_key)}"
+                ),
+            )
+        for skipped in trace.skipped_no_body:
+            self.report.rules_skipped_no_threshold.append(skipped)
+            self.report.warning(
+                title="ODCS quality rule skipped — no modelable body",
+                message=(
+                    "Rule has no operator/threshold and no query / "
+                    "implementation / description / name to use as "
+                    "custom assertion logic; skipping."
+                ),
+                context=(f"file={file_path} schema={schema_entry.name} rule={skipped}"),
+            )
+        self.report.assertions_emitted += len(assertion_urns)
+        for mcp in assertion_mcps:
+            yield mcp.as_workunit()
+
+    def _emit_schema_assertion(
+        self,
+        contract: ODCSContract,
+        binding: PhysicalBinding,
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_assertion_urn, schema_assertion_mcps = odcs_to_schema_assertion_mcps(
+            contract=contract,
+            schema_entry=binding.schema_entry,
+            logical_urn=binding.logical_urn,
+            compatibility=self.config.schema_assertion_compatibility,
+        )
+        if schema_assertion_urn is not None:
+            self.report.schema_assertions_emitted += 1
+            for mcp in schema_assertion_mcps:
+                yield mcp.as_workunit()
+
+    def _emit_logical_parent(
+        self,
+        contract: ODCSContract,
+        binding: PhysicalBinding,
+        file_path: pathlib.Path,
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_entry = binding.schema_entry
+        if binding.physical_urn is None:
+            # No binding costs only the logicalParent link — never the
+            # assertions. The unmapped reason is informational.
+            if binding.unmapped_reason:
+                self.report.unmappable_servers += 1
+                self.report.info(
+                    title="ODCS schema entry has no physical binding",
                     message=(
-                        "The physical URN derived from the contract's servers[] "
-                        "does not exist in DataHub, so no logicalParent link was "
-                        "emitted (this avoids creating a stub dataset). Ingest "
-                        "the physical platform first, fix the derived name via "
-                        "physical_urn_overrides, or set "
-                        "verify_physical_urns_exist=false to emit optimistically."
+                        f"{binding.unmapped_reason}. Emitted the logical "
+                        "dataset and its assertions; no logicalParent link."
                     ),
                     context=(
-                        f"file={file_path} schema_name={schema_entry.name} "
-                        f"urn={physical_urn}"
+                        f"file={file_path} schema_index={binding.index} "
+                        f"schema_name={schema_entry.name}"
                     ),
                 )
-                continue
+            return
 
-            self.report.physical_bindings_resolved += 1
+        physical_urn = binding.physical_urn
+        if binding.name_passthrough:
+            self.report.physical_names_passthrough += 1
 
-            prior_claim = self._seen_physical_urns.get(physical_urn)
-            if prior_claim is not None:
-                self.report.warning(
-                    title="Physical dataset bound by multiple ODCS schema entries",
-                    message=(
-                        "logicalParent is single-valued; the last writer wins "
-                        f"(already bound by {prior_claim})."
-                    ),
-                    context=f"file={file_path} urn={physical_urn}",
-                )
-            self._seen_physical_urns[physical_urn] = (
-                f"{contract.id}/{schema_entry.name}"
+        if self.config.verify_physical_urns_exist and not self._physical_urn_exists(
+            physical_urn
+        ):
+            self.report.physical_urns_unverified += 1
+            self.report.warning(
+                title="Derived physical dataset not found in DataHub",
+                message=(
+                    "The physical URN derived from the contract's servers[] "
+                    "does not exist in DataHub, so no logicalParent link was "
+                    "emitted (this avoids creating a stub dataset). Ingest "
+                    "the physical platform first, fix the derived name via "
+                    "physical_urn_overrides, or set "
+                    "verify_physical_urns_exist=false to emit optimistically."
+                ),
+                context=(
+                    f"file={file_path} schema_name={schema_entry.name} "
+                    f"urn={physical_urn}"
+                ),
             )
+            return
 
-            if self.config.emit_logical_parent:
-                # `logicalParent` is single-valued and physical URNs are kept out
-                # of the stateful checkpoint, so an in-run collision
-                # (last-writer-wins) is caught above via _seen_physical_urns, but
-                # a link written by a *prior* run to a different contract would
-                # otherwise be overwritten with no signal. Read the persisted
-                # link and warn on a genuine cross-run conflict.
-                existing_parent = self._existing_logical_parent(physical_urn)
-                if existing_parent is not None and existing_parent != logical_urn:
-                    self.report.physical_urns_link_conflicts += 1
-                    self.report.warning(
-                        title="Physical dataset already linked to a different ODCS contract",
-                        message=(
-                            "logicalParent is single-valued, so this run's link "
-                            "overwrites one written by a previous run for a "
-                            "different logical ODCS dataset. In DataHub a physical "
-                            "table carries exactly one ODCS contract link; if "
-                            "multiple contracts legitimately describe this table, "
-                            "keep only one bound (e.g. via physical_urn_overrides) "
-                            "until multi-contract support lands."
-                        ),
-                        context=(
-                            f"file={file_path} urn={physical_urn} "
-                            f"existing={existing_parent} new={logical_urn}"
-                        ),
-                    )
-                # is_primary_source=False: the physical dataset belongs to its
-                # platform-of-record source. This keeps the URN out of ODCS's
-                # stateful-ingestion checkpoint so stale-entity removal can
-                # never soft-delete a physical dataset.
-                yield odcs_to_logical_parent_mcp(physical_urn, logical_urn).as_workunit(
-                    is_primary_source=False
+        self.report.physical_bindings_resolved += 1
+
+        prior_claim = self._seen_physical_urns.get(physical_urn)
+        if prior_claim is not None:
+            self.report.warning(
+                title="Physical dataset bound by multiple ODCS schema entries",
+                message=(
+                    "logicalParent is single-valued; the last writer wins "
+                    f"(already bound by {prior_claim})."
+                ),
+                context=f"file={file_path} urn={physical_urn}",
+            )
+        self._seen_physical_urns[physical_urn] = f"{contract.id}/{schema_entry.name}"
+
+        if self.config.emit_logical_parent:
+            # `logicalParent` is single-valued and physical URNs are kept out of
+            # the stateful checkpoint, so an in-run collision (last-writer-wins)
+            # is caught above via _seen_physical_urns, but a link written by a
+            # *prior* run to a different contract would otherwise be overwritten
+            # with no signal. Read the persisted link and warn on a genuine
+            # cross-run conflict.
+            existing_parent = self._existing_logical_parent(physical_urn)
+            if existing_parent is not None and existing_parent != binding.logical_urn:
+                self.report.physical_urns_link_conflicts += 1
+                self.report.warning(
+                    title="Physical dataset already linked to a different ODCS contract",
+                    message=(
+                        "logicalParent is single-valued, so this run's link "
+                        "overwrites one written by a previous run for a "
+                        "different logical ODCS dataset. In DataHub a physical "
+                        "table carries exactly one ODCS contract link; if "
+                        "multiple contracts legitimately describe this table, "
+                        "keep only one bound (e.g. via physical_urn_overrides) "
+                        "until multi-contract support lands."
+                    ),
+                    context=(
+                        f"file={file_path} urn={physical_urn} "
+                        f"existing={existing_parent} new={binding.logical_urn}"
+                    ),
                 )
-                self.report.logical_parents_emitted += 1
+            # is_primary_source=False: the physical dataset belongs to its
+            # platform-of-record source. This keeps the URN out of ODCS's
+            # stateful-ingestion checkpoint so stale-entity removal can
+            # never soft-delete a physical dataset.
+            yield odcs_to_logical_parent_mcp(
+                physical_urn, binding.logical_urn
+            ).as_workunit(is_primary_source=False)
+            self.report.logical_parents_emitted += 1
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Emit the odcs platform aspect once per run. Also registered at GMS

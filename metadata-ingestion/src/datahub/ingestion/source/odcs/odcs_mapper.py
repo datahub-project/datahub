@@ -118,6 +118,40 @@ _RULE_TYPE_TEXT = "text"
 _RULE_TYPE_SQL = "sql"
 _RULE_TYPE_CUSTOM = "custom"
 
+# ODCS provenance customProperty keys. Hoisted so a typo produces a reference
+# error rather than a silently divergent property key no test would catch.
+_PROP_ID = "odcs.id"
+_PROP_SCHEMA_NAME = "odcs.schemaName"
+_PROP_QUALITY_RULE_COUNT = "odcs.qualityRuleCount"
+_PROP_VERSION = "odcs.version"
+_PROP_API_VERSION = "odcs.apiVersion"
+_PROP_STATUS = "odcs.status"
+_PROP_PHYSICAL_NAME = "odcs.physicalName"
+_PROP_SOURCE_FILE = "odcs.sourceFile"
+_PROP_DOMAIN = "odcs.domain"
+_PROP_DATA_PRODUCT = "odcs.dataProduct"
+_PROP_TENANT = "odcs.tenant"
+_PROP_SCOPE = "odcs.scope"
+_PROP_ASSERTION = "odcs.assertion"
+# Per-rule provenance keys (grouped under the odcs.rule.* namespace).
+_PROP_RULE = "odcs.rule"
+_PROP_RULE_ID = "odcs.rule.id"
+_PROP_RULE_NAME = "odcs.rule.name"
+_PROP_RULE_METRIC = "odcs.rule.metric"
+_PROP_RULE_UNIT = "odcs.rule.unit"
+_PROP_RULE_ARGUMENTS = "odcs.rule.arguments"
+_PROP_RULE_DIMENSION = "odcs.rule.dimension"
+_PROP_RULE_SEVERITY = "odcs.rule.severity"
+_PROP_RULE_BUSINESS_IMPACT = "odcs.rule.businessImpact"
+_PROP_RULE_TYPE = "odcs.rule.type"
+
+# Rule/assertion scope: where in the contract the item originates.
+_SCOPE_SCHEMA = "schema"
+_SCOPE_PROPERTY = "property"
+
+# Marker value written to _PROP_ASSERTION for schema-compliance assertions.
+_ASSERTION_SCHEMA_COMPLIANCE = "schema-compliance"
+
 # ODCS `logicalType` (and a few common `physicalType` spellings) -> the DataHub
 # SchemaFieldDataType union member. ODCS logical/physical types are free-form
 # strings, so this is a best-effort mapping; unmapped types fall back to
@@ -738,26 +772,23 @@ def odcs_to_logical_dataset_mcps(
         contract.description
     )
     custom_props: Dict[str, str] = {
-        "odcs.id": contract.id,
-        "odcs.schemaName": schema_entry.name,
-        "odcs.qualityRuleCount": str(_count_quality_rules(schema_entry)),
+        _PROP_ID: contract.id,
+        _PROP_SCHEMA_NAME: schema_entry.name,
+        _PROP_QUALITY_RULE_COUNT: str(_count_quality_rules(schema_entry)),
     }
-    if contract.version:
-        custom_props["odcs.version"] = contract.version
-    if contract.apiVersion:
-        custom_props["odcs.apiVersion"] = contract.apiVersion
-    if contract.status:
-        custom_props["odcs.status"] = contract.status
-    if schema_entry.physicalName:
-        custom_props["odcs.physicalName"] = schema_entry.physicalName
-    if source_file:
-        custom_props["odcs.sourceFile"] = source_file
-    if contract.domain:
-        custom_props["odcs.domain"] = contract.domain
-    if contract.dataProduct:
-        custom_props["odcs.dataProduct"] = contract.dataProduct
-    if contract.tenant:
-        custom_props["odcs.tenant"] = contract.tenant
+    # (key, value) pairs emitted only when the value is truthy.
+    for key, value in (
+        (_PROP_VERSION, contract.version),
+        (_PROP_API_VERSION, contract.apiVersion),
+        (_PROP_STATUS, contract.status),
+        (_PROP_PHYSICAL_NAME, schema_entry.physicalName),
+        (_PROP_SOURCE_FILE, source_file),
+        (_PROP_DOMAIN, contract.domain),
+        (_PROP_DATA_PRODUCT, contract.dataProduct),
+        (_PROP_TENANT, contract.tenant),
+    ):
+        if value:
+            custom_props[key] = value
 
     if contract.name and schema_entry.name:
         display_name: Optional[str] = f"{contract.name} — {schema_entry.name}"
@@ -1091,30 +1122,28 @@ def _custom_props_for_rule(ctx: _RuleContext) -> Dict[str, str]:
     """
     rule = ctx.rule
     props: Dict[str, str] = {
-        "odcs.rule": "true",
-        "odcs.scope": ctx.scope,
-        "odcs.id": ctx.contract_id,
+        _PROP_RULE: "true",
+        _PROP_SCOPE: ctx.scope,
+        _PROP_ID: ctx.contract_id,
     }
-    if rule.id:
-        props["odcs.rule.id"] = rule.id
-    if rule.name:
-        props["odcs.rule.name"] = rule.name
-    metric = rule.effective_metric
-    if metric:
-        props["odcs.rule.metric"] = metric
-    if rule.unit:
-        props["odcs.rule.unit"] = rule.unit
+    # (key, value) pairs emitted only when the value is truthy.
+    for key, value in (
+        (_PROP_RULE_ID, rule.id),
+        (_PROP_RULE_NAME, rule.name),
+        (_PROP_RULE_METRIC, rule.effective_metric),
+        (_PROP_RULE_UNIT, rule.unit),
+        (_PROP_RULE_DIMENSION, rule.dimension),
+        (_PROP_RULE_SEVERITY, rule.severity),
+        (_PROP_RULE_BUSINESS_IMPACT, rule.businessImpact),
+        (_PROP_RULE_TYPE, rule.type),
+    ):
+        if value:
+            props[key] = value
+    # arguments stays special-cased: the typed model is serialized via
+    # _arguments_json, which returns None when there is nothing to emit.
     args_json = _arguments_json(rule.arguments)
     if args_json is not None:
-        props["odcs.rule.arguments"] = args_json
-    if rule.dimension:
-        props["odcs.rule.dimension"] = rule.dimension
-    if rule.severity:
-        props["odcs.rule.severity"] = rule.severity
-    if rule.businessImpact:
-        props["odcs.rule.businessImpact"] = rule.businessImpact
-    if rule.type:
-        props["odcs.rule.type"] = rule.type
+        props[_PROP_RULE_ARGUMENTS] = args_json
     return props
 
 
@@ -1289,10 +1318,10 @@ def _iter_schema_rules(
     field path).
     """
     for rule in schema_entry.quality or []:
-        yield rule, None, "schema"
+        yield rule, None, _SCOPE_SCHEMA
     for field_path, prop in _walk_properties(schema_entry.properties):
         for rule in prop.quality or []:
-            yield rule, field_path, "property"
+            yield rule, field_path, _SCOPE_PROPERTY
 
 
 @dataclass
@@ -1534,9 +1563,9 @@ def odcs_to_schema_assertion_mcps(
             f"schema '{schema_entry.name}'"
         ),
         customProperties={
-            "odcs.id": contract.id,
-            "odcs.scope": "schema",
-            "odcs.assertion": "schema-compliance",
+            _PROP_ID: contract.id,
+            _PROP_SCOPE: _SCOPE_SCHEMA,
+            _PROP_ASSERTION: _ASSERTION_SCHEMA_COMPLIANCE,
         },
         schemaAssertion=SchemaAssertionInfoClass(
             entity=logical_urn,
