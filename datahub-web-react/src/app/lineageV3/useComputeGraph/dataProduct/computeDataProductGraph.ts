@@ -13,7 +13,10 @@ import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBui
 import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGraph';
 import buildFlowEdges from '@app/lineageV3/useComputeGraph/dataProduct/buildFlowEdges';
 import { BoxLayout, GraphStore } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.types';
-import { collectDataProductGroups, computeMembership } from '@app/lineageV3/useComputeGraph/dataProduct/dataProductGroups';
+import {
+    collectDataProductGroups,
+    computeMembership,
+} from '@app/lineageV3/useComputeGraph/dataProduct/dataProductGroups';
 import layoutDataProductInterior, {
     createBoundingBoxNode,
 } from '@app/lineageV3/useComputeGraph/dataProduct/layoutDataProductInterior';

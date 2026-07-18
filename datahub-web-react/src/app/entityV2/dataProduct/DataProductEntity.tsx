@@ -7,7 +7,6 @@ import {
 } from '@ant-design/icons';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
-import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
 import * as React from 'react';
 
@@ -34,10 +33,8 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
-import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { useAppConfig } from '@app/useAppConfig';

@@ -1,8 +1,8 @@
 import { NodeContext, buildHighlightAdjacencyList, createEdgeId } from '@app/lineageV3/common';
-import { computeHighlights } from '@app/lineageV3/useNodeHighlighting';
 import buildFlowEdges from '@app/lineageV3/useComputeGraph/dataProduct/buildFlowEdges';
 import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.utils';
 import filterToRevealedEdges from '@app/lineageV3/useComputeGraph/dataProduct/revealedEdges';
+import { computeHighlights } from '@app/lineageV3/useNodeHighlighting';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -40,14 +40,22 @@ function isEdgeHighlighted(edge: any, highlightedEdges: Set<string>): boolean {
 }
 
 /** Runs the real DP pipeline for one hovered urn, returning the rendered edges + highlight set. */
-function run(nodes: Map<string, any>, edges: NodeContext['edges'], hovered: string, opts: {
-    membership: Map<string, string[]>;
-    freeIds: Set<string>;
-    displayedIds: Set<string>;
-}) {
+function run(
+    nodes: Map<string, any>,
+    edges: NodeContext['edges'],
+    hovered: string,
+    opts: {
+        membership: Map<string, string[]>;
+        freeIds: Set<string>;
+        displayedIds: Set<string>;
+    },
+) {
     const revealed = filterToRevealedEdges(store(nodes, edges));
     const flowEdges = buildFlowEdges(revealed, opts.membership, opts.freeIds, []);
-    const { highlightedEdges } = computeHighlights(hovered, buildHighlightAdjacencyList(revealed.edges, opts.displayedIds));
+    const { highlightedEdges } = computeHighlights(
+        hovered,
+        buildHighlightAdjacencyList(revealed.edges, opts.displayedIds),
+    );
     return { flowEdges, highlightedEdges };
 }
 
@@ -58,7 +66,11 @@ describe('data product lineage highlighting through query nodes', () => {
     const memberEdgeId = createEdgeId(Q, createMemberNodeId(DP, B));
 
     it('single A->B edge with via=Q: crossing edge into box highlights', () => {
-        const nodes = new Map([[A, node(A, EntityType.Dataset)], [Q, node(Q, EntityType.Query)], [B, node(B, EntityType.Dataset)]]);
+        const nodes = new Map([
+            [A, node(A, EntityType.Dataset)],
+            [Q, node(Q, EntityType.Query)],
+            [B, node(B, EntityType.Dataset)],
+        ]);
         const edges: NodeContext['edges'] = new Map([[createEdgeId(A, B), { isDisplayed: true, via: Q }]]);
         const { flowEdges, highlightedEdges } = run(nodes, edges, A, { membership, freeIds, displayedIds });
         const crossing = flowEdges.find((e) => e.id === memberEdgeId);
@@ -67,7 +79,11 @@ describe('data product lineage highlighting through query nodes', () => {
     });
 
     it('reverse direction: B(box) -> Q -> A(free), hover A upstream', () => {
-        const nodes = new Map([[A, node(A, EntityType.Dataset)], [Q, node(Q, EntityType.Query)], [B, node(B, EntityType.Dataset)]]);
+        const nodes = new Map([
+            [A, node(A, EntityType.Dataset)],
+            [Q, node(Q, EntityType.Query)],
+            [B, node(B, EntityType.Dataset)],
+        ]);
         const edges: NodeContext['edges'] = new Map([[createEdgeId(B, A), { isDisplayed: true, via: Q }]]);
         const { flowEdges, highlightedEdges } = run(nodes, edges, A, { membership, freeIds, displayedIds });
         const crossing = flowEdges.find((e) => e.id === createEdgeId(createMemberNodeId(DP, B), Q));
@@ -119,7 +135,14 @@ describe('data product lineage highlighting through query nodes', () => {
             [createEdgeId(A, B), { isDisplayed: true }],
             [createEdgeId(B, C), { isDisplayed: true, via: Q }],
         ]);
-        const opts = { membership: new Map([[B, [DP]], [C, [DP2]]]), freeIds: new Set([A, Q]), displayedIds: new Set([A, B, Q, C]) };
+        const opts = {
+            membership: new Map([
+                [B, [DP]],
+                [C, [DP2]],
+            ]),
+            freeIds: new Set([A, Q]),
+            displayedIds: new Set([A, B, Q, C]),
+        };
         const { flowEdges, highlightedEdges } = run(nodes, edges, A, opts);
         const farCrossing = flowEdges.find((e) => e.id === createEdgeId(Q, createMemberNodeId(DP2, C)));
         expect(farCrossing).toBeDefined();
@@ -138,7 +161,14 @@ describe('data product lineage highlighting through query nodes', () => {
             [createEdgeId(A, B), { isDisplayed: true }],
             [createEdgeId(B, C), { isDisplayed: true, via: Q }],
         ]);
-        const opts = { membership: new Map([[B, [DP]], [C, [DP]]]), freeIds: new Set([A, Q]), displayedIds: new Set([A, B, Q, C]) };
+        const opts = {
+            membership: new Map([
+                [B, [DP]],
+                [C, [DP]],
+            ]),
+            freeIds: new Set([A, Q]),
+            displayedIds: new Set([A, B, Q, C]),
+        };
         const { flowEdges, highlightedEdges } = run(nodes, edges, A, opts);
         const intoC = flowEdges.find((e) => e.id === createEdgeId(Q, createMemberNodeId(DP, C)));
         expect(intoC).toBeDefined();
