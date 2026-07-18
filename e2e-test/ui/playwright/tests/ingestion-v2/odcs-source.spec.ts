@@ -41,9 +41,11 @@ test.describe('odcs ingestion source', () => {
     await ingestionPage.sourcesTab.selectSourceType('Open Data Contract Standard');
 
     // The Path field now documents and accepts remote sources; an s3:// glob must
-    // survive into the generated recipe unchanged.
+    // survive into the generated recipe unchanged. yamljs single-quotes scalars
+    // containing YAML-special characters (the `:` and `*` here), so the recipe
+    // renders the value quoted.
     await odcs.fillPath('s3://my-bucket/contracts/*.odcs.yaml');
-    await odcs.expectYamlRecipe(['type: odcs', 'path: s3://my-bucket/contracts/*.odcs.yaml']);
+    await odcs.expectYamlRecipe(['type: odcs', "path: 's3://my-bucket/contracts/*.odcs.yaml'"]);
 
     await ingestionPage.sourcesTab.cancelCreateSourceModal();
   });
