@@ -1517,6 +1517,40 @@ def _is_comment_only_change(path: str, base: str, head: str) -> bool:
     return bsv.normalize_pdl_for_compare(old) == bsv.normalize_pdl_for_compare(new)
 
 
+def _is_backward_compatible_change(path: str, base: str, head: str) -> bool:
+    """True if path's only diff between base and head is backward-compatible —
+    additive optional fields, added enum symbols, new type definitions, or
+    default-only edits on existing fields.
+
+    Mirrors bump_schema_versions.is_backward_compatible_change so the report and
+    the actual bumper agree on which non-aspect edits cascade a schemaVersion
+    bump. Without this filter the report over-flags: any textual change (e.g. an
+    added enum value, an added optional field) that is NOT comment-only would
+    seed the transitive BFS and wrongly mark downstream aspects bump_done, even
+    though the bumper drops such additive changes before cascading.
+
+    The only difference from the bumper is that this compares two git refs (the
+    report's base and head) rather than the working tree, reusing bsv's pure
+    content parsers (parse_top_level_defs, _defs_backward_compatible). Fails
+    closed (returns False → treated as bump-worthy) on created/deleted files,
+    @Aspect changes beyond schemaVersion, or any parse ambiguity — matching the
+    bumper's conservative stance.
+    """
+    old = file_at(base, path)
+    new = file_at(head, path)
+    if not old or not new:
+        return False
+    if bsv._aspect_annotation_without_version(
+        old
+    ) != bsv._aspect_annotation_without_version(new):
+        return False
+    old_defs = bsv.parse_top_level_defs(old)
+    new_defs = bsv.parse_top_level_defs(new)
+    if old_defs is None or new_defs is None:
+        return False
+    return bsv._defs_backward_compatible(old_defs, new_defs)
+
+
 def _classify_window(base: str, head: str) -> list[FileFinding]:
     """Run the full classification for a single base..head window.
 
@@ -1528,16 +1562,25 @@ def _classify_window(base: str, head: str) -> list[FileFinding]:
     findings = [analyze_file(p_, base, head) for p_ in paths]
 
     direct_set = set(paths)
-    # Drop non-aspect records whose only change is comments/whitespace from the
-    # transitive BFS seed: a doc-comment edit carries no schema semantics, so it
-    # must not cascade a schemaVersion bump into aspects that reference it. This
-    # reuses bump_schema_versions' normalize-and-compare so the report classifies
-    # comment-only edits exactly as the bumper does — a real (non-comment) change
-    # to a field default, includes clause, annotation, etc. still seeds the BFS.
+    # Drop non-aspect records whose change does not warrant a downstream bump
+    # from the transitive BFS seed, mirroring the two filters the actual bumper
+    # (bump_schema_versions.main) applies before it cascades:
+    #   1. comment-only / whitespace edits — no schema semantics, and
+    #   2. backward-compatible edits — added optional fields, added enum symbols,
+    #      new type defs, or default-only changes.
+    # Neither requires a migration, so neither must cascade a schemaVersion bump
+    # into aspects that reference the record. Without filter (2) the report would
+    # over-flag: an additive-only upstream change (e.g. a new enum value) would
+    # seed the BFS and mark downstream aspects bump_done, even though the bumper
+    # never bumps them — the exact disagreement this alignment closes. A genuinely
+    # breaking change (removal, type change, required-ness flip, includes change,
+    # reindex-relevant annotation edit) still seeds the BFS.
     non_aspect_changed = [
         f.path
         for f in findings
-        if not f.is_aspect and not _is_comment_only_change(f.path, base, head)
+        if not f.is_aspect
+        and not _is_comment_only_change(f.path, base, head)
+        and not _is_backward_compatible_change(f.path, base, head)
     ]
     if not non_aspect_changed:
         return findings
