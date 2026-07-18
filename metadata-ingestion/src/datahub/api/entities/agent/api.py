@@ -196,6 +196,29 @@ class Api(ConfigModel):
                 )
         return normalized
 
+    @staticmethod
+    def rest_id(service_id: str, method: str, path: str) -> str:
+        """Canonical id for a REST endpoint: ``<service_id>/<METHOD>/<path>``.
+
+        Use this everywhere a REST ``api`` id is minted so the same endpoint
+        always resolves to the same urn, regardless of who registers it (a
+        hand-written script or the OpenAPI importer).
+
+        The path is kept verbatim — slashes and ``{param}`` braces are
+        preserved — so the id is lossless and collision-free: ``/orders/{orderId}``
+        and a literal ``/orders/orderId`` map to distinct ids, and a path
+        containing a ``.`` no longer collides with a path separator. The method
+        is upper-cased to match ``restApiProperties.method``, keeping the id and
+        the aspect in sync. Deterministic: equal ``(service_id, method, path)``
+        always yields the same id.
+        """
+        m = str(method).upper()
+        if m not in _VALID_HTTP_METHODS:
+            raise ValueError(
+                f"HTTP method {m!r} is not one of {sorted(_VALID_HTTP_METHODS)}"
+            )
+        return f"{service_id}/{m}/{path.lstrip('/')}"
+
     @property
     def urn(self) -> str:
         if self.id.startswith("urn:li:api:"):

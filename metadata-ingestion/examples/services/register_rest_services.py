@@ -129,12 +129,12 @@ components:
         side: { type: string, enum: [BUY, SELL] }
 """
 
-# The operations, as first-class api(REST_ENDPOINT) entities. URN ids follow
-# `<service_id>.<method>.<normalized-path>` (braces stripped) so they mint
-# identically on every run.
+# The operations, as first-class api(REST_ENDPOINT) entities. Ids are minted via
+# Api.rest_id so they resolve identically on every run and match the OpenAPI
+# importer's ids for the same endpoints.
 ORDER_ENTRY_APIS: List[Api] = [
     Api(
-        id=f"{SERVICE_ID}.post.orders",
+        id=Api.rest_id(SERVICE_ID, "POST", "/orders"),
         name="POST /orders",
         subtypes=[API_SUBTYPE_REST_ENDPOINT],
         method="POST",
@@ -171,7 +171,7 @@ ORDER_ENTRY_APIS: List[Api] = [
         ],
     ),
     Api(
-        id=f"{SERVICE_ID}.get.orders.orderId",
+        id=Api.rest_id(SERVICE_ID, "GET", "/orders/{orderId}"),
         name="GET /orders/{orderId}",
         subtypes=[API_SUBTYPE_REST_ENDPOINT],
         method="GET",
@@ -207,7 +207,7 @@ ORDER_ENTRY_APIS: List[Api] = [
         ],
     ),
     Api(
-        id=f"{SERVICE_ID}.delete.orders.orderId",
+        id=Api.rest_id(SERVICE_ID, "DELETE", "/orders/{orderId}"),
         name="DELETE /orders/{orderId}",
         subtypes=[API_SUBTYPE_REST_ENDPOINT],
         method="DELETE",

@@ -181,3 +181,25 @@ def test_emit_sends_all_mcps_and_returns_urn() -> None:
     assert urn == "urn:li:api:get_order"
     assert len(emitter.emitted) == len(_mcps(api))
     assert all(m.entityUrn == urn for m in emitter.emitted)
+
+
+def test_rest_id_is_canonical_and_lossless() -> None:
+    # Method is upper-cased (matches restApiProperties.method); leading slash
+    # on the path is optional and normalized away.
+    assert Api.rest_id("svc", "get", "/orders") == "svc/GET/orders"
+    assert Api.rest_id("svc", "GET", "orders") == "svc/GET/orders"
+
+    # A path parameter and a same-shaped literal path do NOT collide — the
+    # braces are preserved rather than stripped.
+    templated = Api.rest_id("svc", "GET", "/orders/{orderId}")
+    literal = Api.rest_id("svc", "GET", "/orders/orderId")
+    assert templated == "svc/GET/orders/{orderId}"
+    assert templated != literal
+
+    # The id is a valid, round-trippable api urn.
+    assert Api(id=templated, name="x").urn == "urn:li:api:svc/GET/orders/{orderId}"
+
+
+def test_rest_id_rejects_invalid_method() -> None:
+    with pytest.raises(ValueError):
+        Api.rest_id("svc", "FETCH", "/orders")

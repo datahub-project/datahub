@@ -89,7 +89,8 @@ class SpecSource:
 class ParsedOperation:
     """One OpenAPI path+method projected into an Api-ready shape."""
 
-    api_id: str
+    method: str  # HTTP verb, e.g. "get"
+    path: str  # raw OpenAPI path, e.g. "/orders/{orderId}"
     name: str  # display name, e.g. "GET /entities/{urn}"
     description: Optional[str]
     parameters: List[ApiParam] = field(default_factory=list)
@@ -190,21 +191,6 @@ def fetch_spec(
 # --------------------------------------------------------------------------- #
 # 2. Parse operations (one Api per path+method)
 # --------------------------------------------------------------------------- #
-def _normalize_path(path: str) -> str:
-    """`/entities/{urn}` -> `entities.urn` (leading slash off, / -> ., braces gone).
-
-    Spring wildcard mappings (``/admin/dashboard/**``) also drop their ``*`` so the
-    minted urn id stays clean.
-    """
-    stripped = path.lstrip("/")
-    stripped = stripped.replace("{", "").replace("}", "").replace("*", "")
-    stripped = stripped.replace("/", ".")
-    # Collapse any doubled dots left by stripped segments and trim edges.
-    while ".." in stripped:
-        stripped = stripped.replace("..", ".")
-    return stripped.strip(".")
-
-
 def _pick_json_content(content: Dict[str, dict]) -> Optional[dict]:
     """Pick the JSON media type from a content map, tolerating charset suffixes.
 
@@ -289,7 +275,6 @@ def parse_operations(source: SpecSource) -> List[ParsedOperation]:
             if not isinstance(op, dict):
                 continue
 
-            api_id = f"{{sid}}.{method}.{_normalize_path(path)}"
             name = f"{method.upper()} {path}"
             description = op.get("summary") or op.get("description")
 
@@ -330,7 +315,8 @@ def parse_operations(source: SpecSource) -> List[ParsedOperation]:
 
             service_id_ops.append(
                 ParsedOperation(
-                    api_id=api_id,
+                    method=method,
+                    path=path,
                     name=name,
                     description=description,
                     parameters=in_params,
@@ -386,7 +372,7 @@ def build_service(
 
     apis: List[Api] = [
         Api(
-            id=op.api_id.format(sid=service_id),
+            id=Api.rest_id(service_id, op.method, op.path),
             name=op.name,
             subtypes=[API_SUBTYPE_REST_ENDPOINT],
             description=op.description,
