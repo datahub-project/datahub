@@ -22,8 +22,9 @@ import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filte
 
 import { EntityType, LineageDirection } from '@types';
 
-// Vertical gap between separate connected components within a data product bounding box.
-const COMPONENT_SEPARATION = 100 + LINEAGE_NODE_HEIGHT;
+// Vertical gap between separate connected components within a data product bounding box: one node
+// height (to clear the component above) plus a small gap.
+const COMPONENT_SEPARATION = 24 + LINEAGE_NODE_HEIGHT;
 
 /**
  * Lays out the displayed members of one data product via NodeBuilder, as in the standard
@@ -132,6 +133,7 @@ export function createBoundingBoxNode(box: BoxLayout, position: XYPosition | und
             type: EntityType.DataProduct,
             entity: group.entity,
             colorHex: group.colorHex,
+            memberCount: box.memberNodes.length,
         },
         selectable: true,
         draggable: true,

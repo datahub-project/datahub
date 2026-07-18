@@ -1,4 +1,5 @@
 import {
+    DATA_PRODUCT_MEMBER_PAGE_SIZE,
     GraphStoreFields,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
@@ -12,11 +13,7 @@ import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBui
 import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGraph';
 import buildFlowEdges from '@app/lineageV3/useComputeGraph/dataProduct/buildFlowEdges';
 import { BoxLayout, GraphStore } from '@app/lineageV3/useComputeGraph/dataProduct/dataProduct.types';
-import {
-    MAX_DISPLAYED_DATA_PRODUCT_MEMBERS,
-    collectDataProductGroups,
-    computeMembership,
-} from '@app/lineageV3/useComputeGraph/dataProduct/dataProductGroups';
+import { collectDataProductGroups, computeMembership } from '@app/lineageV3/useComputeGraph/dataProduct/dataProductGroups';
 import layoutDataProductInterior, {
     createBoundingBoxNode,
 } from '@app/lineageV3/useComputeGraph/dataProduct/layoutDataProductInterior';
@@ -46,7 +43,7 @@ function createDataProductNodeFilter(
 /**
  * Computes the lineage graph for a DataProduct, arranged as a graph of bounding-box containers:
  * 1. Displayed nodes are computed globally via `computeLineageGraph`, seeded by the home data
- *    product's members (up to MAX_DISPLAYED_DATA_PRODUCT_MEMBERS, since the home product has no
+ *    product's members (up to the home box's `boundingBoxLimit`, since the home product has no
  *    lineage of its own), using the standard impact analysis display rules (per-node filters,
  *    expansion state, lineage filter nodes). Members of data products sort before other children,
  *    so they're prioritized by pagination.
@@ -108,9 +105,11 @@ export default function computeDataProductGraph(
     const membership = computeMembership(groups);
 
     // The home data product has no lineage of its own, so seed the traversal with its members (up to
-    // MAX_DISPLAYED_DATA_PRODUCT_MEMBERS); the rest of the graph is reached through their lineage.
+    // the home box's `boundingBoxLimit`, raised by the "Show more" control); the rest of the graph is
+    // reached through their lineage.
+    const seedLimit = nodes.get(urn)?.boundingBoxLimit ?? DATA_PRODUCT_MEMBER_PAGE_SIZE;
     const seedNodes = Array.from(groups.get(urn)?.memberUrns ?? [])
-        .slice(0, MAX_DISPLAYED_DATA_PRODUCT_MEMBERS)
+        .slice(0, seedLimit)
         .map((memberUrn) => graphStore.nodes.get(memberUrn))
         .filter((node): node is LineageEntity => !!node);
 

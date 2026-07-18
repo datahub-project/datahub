@@ -7,9 +7,6 @@ type Urn = string;
 const colorOf = (entity?: FetchedEntityV2): string | undefined =>
     entity?.genericEntityProperties?.domain?.domain?.displayProperties?.colorHex ?? undefined;
 
-// TODO: Add a control allowing users to display more members of a data product
-export const MAX_DISPLAYED_DATA_PRODUCT_MEMBERS = 20;
-
 /**
  * Groups displayed entities by the data products they belong to, using the membership on each
  * entity's `dataProducts` (fetched by `useBulkDataProductMemberships`). Each product's display

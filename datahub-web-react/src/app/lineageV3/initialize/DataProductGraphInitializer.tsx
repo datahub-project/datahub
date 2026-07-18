@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 
 import LineageDisplay from '@app/lineageV3/LineageDisplay';
-import { FetchStatus, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
+import { DATA_PRODUCT_MEMBER_PAGE_SIZE, FetchStatus, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
 import useFetchDataProductEntities from '@app/lineageV3/initialize/useFetchDataProductEntities';
 import useResetLineageGraph from '@app/lineageV3/initialize/useResetLineageGraph';
 
@@ -58,5 +58,6 @@ function makeRootNode(urn: string, type: EntityType): LineageEntity {
             [LineageDirection.Upstream]: { facetFilters: new Map() },
             [LineageDirection.Downstream]: { facetFilters: new Map() },
         },
+        boundingBoxLimit: DATA_PRODUCT_MEMBER_PAGE_SIZE,
     };
 }

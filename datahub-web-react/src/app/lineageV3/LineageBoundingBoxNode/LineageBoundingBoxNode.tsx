@@ -4,6 +4,7 @@ import { NodeProps, NodeResizer, useReactFlow, useStore } from 'reactflow';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
+import BoundingBoxMemberCount from '@app/lineageV3/LineageBoundingBoxNode/BoundingBoxMemberCount';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
 import NodeWrapper from '@app/lineageV3/NodeWrapper';
@@ -34,6 +35,8 @@ const StyledNodeWrapper = styled(NodeWrapper)<{ $colorHex?: string }>`
     transform: none;
 `;
 
+// Full-width header strip above the box: the data product card on the left, the member counter on
+// the right, vertically centered.
 const CardWrapper = styled(NodeWrapper)`
     box-shadow: none;
     border-bottom-left-radius: 0;
@@ -43,6 +46,24 @@ const CardWrapper = styled(NodeWrapper)`
     position: absolute;
     left: 0;
     transform: translateY(-100%);
+
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+`;
+
+// Holds the card content; grows to fill the header so the counter is pushed to the right edge.
+const HeaderCardSlot = styled.div`
+    flex: 1 1 auto;
+    min-width: 0;
+`;
+
+const MemberCountWrapper = styled.div`
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    padding-right: 12px;
 `;
 
 const HomeIndicatorWrapper = styled.div<{ $cardHeight: number }>`
@@ -161,20 +182,29 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                     isGhost={isGhost}
                     isSearchedEntity={isSearchedEntity}
                 >
-                    <LineageCard
-                        ref={ref}
-                        urn={urn}
-                        type={type}
-                        loading={!entity}
-                        name={entity?.name || urn}
-                        properties={entity?.genericEntityProperties}
-                        typeIcon={entityRegistry.getIcon(type, 16, IconStyleType.ACCENT)}
-                        platformIcons={entity?.icon ? [entity.icon] : []}
-                        childrenOpen={false}
-                        onDoubleClick={
-                            isGhost ? undefined : () => history.push(getLineageUrl(urn, type, location, entityRegistry))
-                        }
-                    />
+                    <HeaderCardSlot>
+                        <LineageCard
+                            ref={ref}
+                            urn={urn}
+                            type={type}
+                            loading={!entity}
+                            name={entity?.name || urn}
+                            properties={entity?.genericEntityProperties}
+                            typeIcon={entityRegistry.getIcon(type, 16, IconStyleType.ACCENT)}
+                            platformIcons={entity?.icon ? [entity.icon] : []}
+                            childrenOpen={false}
+                            onDoubleClick={
+                                isGhost
+                                    ? undefined
+                                    : () => history.push(getLineageUrl(urn, type, location, entityRegistry))
+                            }
+                        />
+                    </HeaderCardSlot>
+                    {data.memberCount !== undefined && (
+                        <MemberCountWrapper>
+                            <BoundingBoxMemberCount urn={urn} memberCount={data.memberCount} />
+                        </MemberCountWrapper>
+                    )}
                 </CardWrapper>
             </StyledNodeWrapper>
         </>

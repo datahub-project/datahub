@@ -1,28 +1,36 @@
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 
-import { FetchStatus, LineageEntity, LineageNodesContext, setDefault } from '@app/lineageV3/common';
+import {
+    DATA_PRODUCT_MEMBER_PAGE_SIZE,
+    FetchStatus,
+    LineageEntity,
+    LineageNodesContext,
+    setDefault,
+} from '@app/lineageV3/common';
 
 import { useGetDataProductEntitiesForLineageQuery } from '@graphql/dataProduct.generated';
 import { Entity, LineageDirection } from '@types';
 
-const DATA_PRODUCT_ENTITIES_PAGE_SIZE = 50;
-
 /**
- * Fetches the entities belonging to a DataProduct and registers them as lineage nodes.
- * Each entity node is initialised as expanded and fetched: their first-hop lineage is loaded by
+ * Fetches the entities belonging to a DataProduct and registers them as lineage nodes, in pages of
+ * `DATA_PRODUCT_MEMBER_PAGE_SIZE`. Only fetches up to the home box's `boundingBoxLimit`, which the
+ * "Show more" control raises a page at a time — so large data products aren't loaded eagerly. Each
+ * entity node is initialised as expanded and fetched: their first-hop lineage is loaded by
  * `useBulkEntityLineage` (via the upstream/downstream fields in entityLineageV2), so no separate
  * lineage fetch is needed.
  */
 export default function useFetchDataProductEntities(): boolean {
     const { rootUrn, nodes, setNodeVersion } = useContext(LineageNodesContext);
     const [start, setStart] = useState(0);
+    const [total, setTotal] = useState<number | undefined>(undefined);
     const [initialized, setInitialized] = useState(false);
+    const limit = nodes.get(rootUrn)?.boundingBoxLimit ?? DATA_PRODUCT_MEMBER_PAGE_SIZE;
 
     useGetDataProductEntitiesForLineageQuery({
         variables: {
             urn: rootUrn,
             start,
-            count: DATA_PRODUCT_ENTITIES_PAGE_SIZE,
+            count: DATA_PRODUCT_MEMBER_PAGE_SIZE,
         },
         onCompleted: (data) => {
             let addedNode = false;
@@ -35,15 +43,21 @@ export default function useFetchDataProductEntities(): boolean {
                 setDefault(nodes, result.entity.urn, makeEntityNode(result.entity));
             });
 
-            if (entities?.total && entities.total > start + DATA_PRODUCT_ENTITIES_PAGE_SIZE) {
-                setStart((prev) => prev + DATA_PRODUCT_ENTITIES_PAGE_SIZE);
-            }
-
+            if (entities?.total !== undefined) setTotal(entities.total);
             setInitialized(true);
 
             if (addedNode) setNodeVersion((version) => version + 1);
         },
     });
+
+    // Advance one page at a time until we've fetched up to the current limit (or run out of members).
+    // Runs on limit increases too, so clicking "Show more" pulls in the next page.
+    const target = Math.min(limit, total ?? limit);
+    useEffect(() => {
+        if (start + DATA_PRODUCT_MEMBER_PAGE_SIZE < target) {
+            setStart((prev) => prev + DATA_PRODUCT_MEMBER_PAGE_SIZE);
+        }
+    }, [start, target]);
 
     return initialized;
 }

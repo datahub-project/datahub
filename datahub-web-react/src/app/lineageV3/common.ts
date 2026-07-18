@@ -18,6 +18,9 @@ import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
 
+// Page size for fetching/displaying a data product's members, and the initial home member limit.
+export const DATA_PRODUCT_MEMBER_PAGE_SIZE = 2;
+
 export const LINEAGE_NODE_WIDTH = 320; // Fixed width
 export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
 export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handles
@@ -63,6 +66,10 @@ export interface LineageEntity extends NodeBase {
      * means membership is not yet known; fetched for the data product graph by `useBulkDataProductMemberships`.
      * Not fetched as part of `entity` because data product lookup requires querying the graph index. */
     dataProducts?: { urn: Urn; isOutputPort: boolean }[];
+    /** For a data product rendered as a bounding box: how many of its members to fetch and display,
+     * raised a page at a time by the box header's "Show more" control. Currently set on the home
+     * product only; other boxes show all their connected members. */
+    boundingBoxLimit?: number;
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
@@ -91,6 +98,9 @@ export interface LineageBoundingBox {
     entity?: FetchedEntityV2;
     dragged?: boolean;
     colorHex?: string;
+    /** Number of this data product's members currently shown inside the box. Data-product graphs
+     * only; undefined for data-flow bounding boxes, which have no member counter. */
+    memberCount?: number;
 }
 
 export interface LineageAnnotationNode {
