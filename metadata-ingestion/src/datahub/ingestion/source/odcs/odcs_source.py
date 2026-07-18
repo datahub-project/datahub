@@ -64,7 +64,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
-from datahub.metadata.schema_classes import OwnershipClass
+from datahub.metadata.schema_classes import LogicalParentClass, OwnershipClass
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +137,7 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     unmappable_servers: int = 0
     physical_urns_verified: int = 0
     physical_urns_unverified: int = 0
+    physical_urns_link_conflicts: int = 0
     physical_names_passthrough: int = 0
     owners_unresolved: int = 0
     files_skipped: List[str] = field(default_factory=list)
@@ -205,6 +206,10 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._seen_physical_urns: Dict[str, str] = {}
         # Per-run cache for graph existence checks (one lookup per unique URN).
         self._urn_exists_cache: Dict[str, bool] = {}
+        # Per-run cache of the persisted `logicalParent` target already on each
+        # physical URN (one get_aspect per unique URN), for cross-run conflict
+        # detection. `None` means "no existing link" (or lookup unavailable).
+        self._physical_parent_cache: Dict[str, Optional[str]] = {}
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
 
@@ -548,6 +553,31 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.physical_urns_verified += 1
         return exists
 
+    def _existing_logical_parent(self, physical_urn: str) -> Optional[str]:
+        """The logical URN a physical dataset is *already* linked to, if any.
+
+        Best-effort, cached graph read of the persisted `logicalParent` aspect.
+        Returns None when no graph is attached, when there is no existing link,
+        or when the lookup fails — conflict detection is advisory and must
+        never abort or alter emission.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+        if physical_urn in self._physical_parent_cache:
+            return self._physical_parent_cache[physical_urn]
+        target: Optional[str] = None
+        try:
+            existing = graph.get_aspect(physical_urn, LogicalParentClass)
+        except Exception:
+            # Advisory-only: a flaky read must not change behavior or spam the
+            # report (the existence check already surfaces graph errors).
+            existing = None
+        if isinstance(existing, LogicalParentClass) and existing.parent is not None:
+            target = existing.parent.destinationUrn
+        self._physical_parent_cache[physical_urn] = target
+        return target
+
     def _check_owner_resolution(
         self, mcps: List[MetadataChangeProposalWrapper], file_path: pathlib.Path
     ) -> None:
@@ -783,6 +813,31 @@ class ODCSSource(StatefulIngestionSourceBase):
             )
 
             if self.config.emit_logical_parent:
+                # `logicalParent` is single-valued and physical URNs are kept out
+                # of the stateful checkpoint, so an in-run collision
+                # (last-writer-wins) is caught above via _seen_physical_urns, but
+                # a link written by a *prior* run to a different contract would
+                # otherwise be overwritten with no signal. Read the persisted
+                # link and warn on a genuine cross-run conflict.
+                existing_parent = self._existing_logical_parent(physical_urn)
+                if existing_parent is not None and existing_parent != logical_urn:
+                    self.report.physical_urns_link_conflicts += 1
+                    self.report.warning(
+                        title="Physical dataset already linked to a different ODCS contract",
+                        message=(
+                            "logicalParent is single-valued, so this run's link "
+                            "overwrites one written by a previous run for a "
+                            "different logical ODCS dataset. In DataHub a physical "
+                            "table carries exactly one ODCS contract link; if "
+                            "multiple contracts legitimately describe this table, "
+                            "keep only one bound (e.g. via physical_urn_overrides) "
+                            "until multi-contract support lands."
+                        ),
+                        context=(
+                            f"file={file_path} urn={physical_urn} "
+                            f"existing={existing_parent} new={logical_urn}"
+                        ),
+                    )
                 # is_primary_source=False: the physical dataset belongs to its
                 # platform-of-record source. This keeps the URN out of ODCS's
                 # stateful-ingestion checkpoint so stale-entity removal can
