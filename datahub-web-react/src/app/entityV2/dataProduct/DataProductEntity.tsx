@@ -204,19 +204,6 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     getSidebarTabs = () => [
         {
-            name: i18next.t('entity.types:tab.lineage'),
-            component: LineageTab,
-            description: i18next.t('entity.types:sidebar.lineageDescription'),
-            icon: TreeStructure,
-            properties: {
-                actionType: SidebarTitleActionType.LineageExplore,
-            },
-            display: {
-                visible: (_, _1) => this.appconfig().config.featureFlags.dataProductLineageEnabled,
-                enabled: (_, _2) => true,
-            },
-        },
-        {
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
