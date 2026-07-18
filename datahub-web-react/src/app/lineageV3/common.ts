@@ -19,7 +19,7 @@ export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
 
 // Page size for fetching/displaying a data product's members, and the initial home member limit.
-export const DATA_PRODUCT_MEMBER_PAGE_SIZE = 2;
+export const DATA_PRODUCT_MEMBER_PAGE_SIZE = 50;
 
 export const LINEAGE_NODE_WIDTH = 320; // Fixed width
 export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
