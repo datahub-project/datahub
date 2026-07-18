@@ -1,0 +1,17 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an API entity — a named callable with a typed input and output
+ * schema (an MCP tool, REST endpoint, gRPC method, GraphQL field, function,
+ * etc.) that can be invoked by humans, services, or AI agents.
+ */
+@Aspect = {
+  "name": "apiKey"
+}
+record ApiKey {
+  /**
+   * Unique identifier for the API, e.g. "order-lookup-mcp" or a generated UUID.
+   */
+  @Searchable = {}
+  id: string
+}

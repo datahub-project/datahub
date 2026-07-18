@@ -39,7 +39,6 @@ public class Constants {
   public static final String DOCUMENTS_SCHEMA_FILE = "documents.graphql";
   public static final String METRICS_SCHEMA_FILE = "metrics.graphql";
   public static final String RUNS_SCHEMA_FILE = "runs.graphql";
-
   public static final String QUERY_SCHEMA_FILE = "query.graphql";
   public static final String TEMPLATE_SCHEMA_FILE = "template.graphql";
   public static final String MODULE_SCHEMA_FILE = "module.graphql";

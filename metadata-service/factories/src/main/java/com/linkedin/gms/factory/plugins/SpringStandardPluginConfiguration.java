@@ -28,6 +28,7 @@ import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
+import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.UrlValidator;
@@ -834,5 +835,22 @@ public class SpringStandardPluginConfiguration {
         config.getPrePatch(),
         config.getPostPatch());
     return validator;
+  }
+
+  @Bean
+  public AspectPayloadValidator serviceDefinitionLargeStringValidator() {
+    return new ServiceDefinitionLargeStringValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ServiceDefinitionLargeStringValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(SERVICE_ENTITY_NAME)
+                            .aspectName(SERVICE_DEFINITION_ASPECT_NAME)
+                            .build()))
+                .build());
   }
 }
