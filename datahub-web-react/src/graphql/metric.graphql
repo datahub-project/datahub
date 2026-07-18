@@ -132,6 +132,13 @@ fragment metricFields on Metric {
             }
         }
     }
+    parentMetrics {
+        urn
+        type
+        semanticModel {
+            urn
+        }
+    }
     ownership {
         ...ownershipFields
     }
