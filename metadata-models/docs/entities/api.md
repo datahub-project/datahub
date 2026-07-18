@@ -32,7 +32,7 @@ The `apiProperties` aspect holds catalog identity:
 - **name**: Display name, searchable with autocomplete.
 - **description**: What the API does and when to use it.
 - **externalUrl**: Optional link to the API's registry entry, documentation, or source.
-- **sourceRepository**: The [Repository](repository.md) the API is produced from
+- **sourceRepository**: The [Repository](./repository.md) the API is produced from
   (`SourcedFrom`), lighting up the `repo → service → api → app → dataset` chain.
 - **created** / **lastModified**: Audit stamps.
 
@@ -60,9 +60,9 @@ a path.
 
 An API is connected to the rest of the software-to-data graph through incoming edges:
 
-- A [Service](service.md) composes it (`ServiceComposesApi`).
-- [AI Agents](aiAgent.md) invoke it as a tool (`AgentUsesTool`).
-- [Agent Skills](agentSkill.md) require it (`SkillRequiresTool`).
+- A [Service](./service.md) composes it (`ServiceComposesApi`).
+- [AI Agents](./aiAgent.md) invoke it as a tool (`AgentUsesTool`).
+- [Agent Skills](./agentSkill.md) require it (`SkillRequiresTool`).
 
 ### Governance and Versioning
 

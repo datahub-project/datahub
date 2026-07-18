@@ -29,13 +29,13 @@ The `agentSkillInfo` aspect holds the skill's definition:
 - **instructions**: The markdown body of the skill's `SKILL.md` file (excluding YAML frontmatter) —
   the execution guidance loaded when the skill is activated.
 - **sourceRepository**: Where the skill is defined (see below).
-- **requiredTools**: The [API](api.md) entities the skill needs to operate (`SkillRequiresTool`).
+- **requiredTools**: The [API](./api.md) entities the skill needs to operate (`SkillRequiresTool`).
 - **created** / **lastModified**: Audit stamps.
 
 ### Source Repository
 
 The `sourceRepository` field (a `SkillSourceRepository`) points to the git location that owns the
-skill definition. It carries either a `repositoryUrn` (preferred, when the [Repository](repository.md)
+skill definition. It carries either a `repositoryUrn` (preferred, when the [Repository](./repository.md)
 is already cataloged in DataHub) or an external `url`, plus a `path` to the definition file within the
 repository (e.g. `customer-service/SKILL.md`).
 

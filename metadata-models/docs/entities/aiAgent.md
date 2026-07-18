@@ -55,8 +55,8 @@ manage. Grouping a base agent and its clones this way forms an **Agent Family**.
 The `aiAgentDependencies` aspect captures what the agent relies on, as typed relationships to other
 first-class entities:
 
-- **skills** → [Agent Skill](agentSkill.md) entities the agent adopts (`AgentHasSkill`).
-- **tools** → [API](api.md) entities the agent invokes (`AgentUsesTool`). This is a lineage edge: the
+- **skills** → [Agent Skill](./agentSkill.md) entities the agent adopts (`AgentHasSkill`).
+- **tools** → [API](./api.md) entities the agent invokes (`AgentUsesTool`). This is a lineage edge: the
   tools are upstream of the agent, contributing to the `repo → service → api → agent` chain.
 - **models** → `mlModel` entities (the LLMs) the agent runs on (`AgentUsesModel`).
 

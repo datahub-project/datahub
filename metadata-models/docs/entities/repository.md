@@ -2,8 +2,8 @@
 
 A Repository is a first-class representation of a source-code repository (GitHub, GitLab, an internal
 SCM, etc.). It is the **genesis node of the software-to-data lifecycle** —
-`repo → service → api → app → dataset` — and produces the [Services](service.md), [APIs](api.md), and
-[Applications](application.md) cataloged elsewhere. A Repository is not a tabular asset: it has no
+`repo → service → api → app → dataset` — and produces the [Services](./service.md), [APIs](./api.md), and
+[Applications](./application.md) cataloged elsewhere. A Repository is not a tabular asset: it has no
 columns, queries, statistics, quality, or preview.
 
 ## Identity
@@ -45,7 +45,7 @@ The `repositoryLineage` aspect records provenance between repositories — curre
 repository this one is a git fork of (`RepositoryForkOf`).
 
 Beyond fork lineage, a Repository is the upstream anchor of the software-to-data chain: the Services
-and APIs it produces point back to it via their `SourcedFrom` edges, and [Agent Skills](agentSkill.md)
+and APIs it produces point back to it via their `SourcedFrom` edges, and [Agent Skills](./agentSkill.md)
 may name it as their source of truth. A Repository profile therefore surfaces "what it produces" as
 incoming `SourcedFrom` relationships.
 

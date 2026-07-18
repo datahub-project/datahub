@@ -1,9 +1,9 @@
 # Service
 
 A Service is a catalog entry for an external service that exposes callable APIs — an MCP server, a
-REST API, a GraphQL API, a gRPC service, and so on. A Service groups the [APIs](api.md) it exposes,
-carries the full interface definition, and sits between the [Repository](repository.md) that produces
-it and the [Applications](application.md)/agents that consume it in the
+REST API, a GraphQL API, a gRPC service, and so on. A Service groups the [APIs](./api.md) it exposes,
+carries the full interface definition, and sits between the [Repository](./repository.md) that produces
+it and the [Applications](./application.md)/agents that consume it in the
 `repo → service → api → app → dataset` chain.
 
 The specific kind of service is recorded with the standard `subTypes` aspect (e.g. `MCP`, `REST_API`,
@@ -30,9 +30,9 @@ The `serviceProperties` aspect holds catalog identity and the service's place in
 - **description**: What the service provides.
 - **lifecycle**: Lifecycle stage — `EXPERIMENTAL`, `PRODUCTION`, or `DEPRECATED` — rendered as a badge
   so consumers can see at a glance whether the service is safe to depend on.
-- **apis**: The [APIs](api.md) this service composes/exposes (`ServiceComposesApi`). This is a lineage
+- **apis**: The [APIs](./api.md) this service composes/exposes (`ServiceComposesApi`). This is a lineage
   edge with the API downstream of the service, so endpoints nest correctly under their service.
-- **sourceRepository**: The [Repository](repository.md) the service is produced from (`SourcedFrom`).
+- **sourceRepository**: The [Repository](./repository.md) the service is produced from (`SourcedFrom`).
 
 ### Service Definition
 
