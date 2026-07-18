@@ -10,16 +10,27 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 
+/**
+ * Semantic-search index copy upgrade. Only loaded when Elasticsearch is enabled — the upgrade
+ * directly writes to the search backend via {@link SearchClientShim}, which is not registered in
+ * Postgres-only profiles ({@code elasticsearch.enabled=false}).
+ */
 @Configuration
 @Conditional(SystemUpdateCondition.BlockingSystemUpdateCondition.class)
+@ConditionalOnProperty(
+    prefix = "elasticsearch",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class CopyDocumentsToSemanticIndicesConfig {
 
-  @Order(3) // After BuildIndices (order 2)
+  @Order(4) // After BuildIndices (order 3)
   @Bean(name = "copyDocumentsToSemanticIndices")
   public BlockingSystemUpgrade copyDocumentsToSemanticIndices(
       @Qualifier("systemOperationContext") final OperationContext opContext,

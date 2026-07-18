@@ -55,8 +55,8 @@ public class CreateUsersStepTest {
             3306, // port
             "testdb", // databaseName
             null, // postgresMetadataSchema
-            false, // createSchemaVersionIndex
-            null);
+            false // createSchemaVersionIndex
+            );
     createUsersStep = new CreateUsersStep(mockDatabase, defaultSetupArgs);
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
 
@@ -119,8 +119,7 @@ public class CreateUsersStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     CreateUsersStep disabledUserStep = new CreateUsersStep(mockDatabase, disabledUserArgs);
 
     Function<UpgradeContext, UpgradeStepResult> executable = disabledUserStep.executable();
@@ -258,8 +257,7 @@ public class CreateUsersStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     createUsersStep.createIamUser(testArgs, result);
 
     assertEquals(result.getUsersCreated(), 1);
@@ -290,8 +288,7 @@ public class CreateUsersStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     createUsersStep.createTraditionalUser(testArgs, result);
 
     assertEquals(result.getUsersCreated(), 1);
@@ -380,8 +377,7 @@ public class CreateUsersStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     SqlSetupResult result = createUsersStep.createUsers(testArgs);
 
     assertNotNull(result);
@@ -408,8 +404,7 @@ public class CreateUsersStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     SqlSetupResult result = createUsersStep.createUsers(testArgs);
 
     assertNotNull(result);
@@ -436,8 +431,7 @@ public class CreateUsersStepTest {
             3306,
             "testdb",
             null,
-            false,
-            null);
+            false);
     SqlSetupResult result = createUsersStep.createUsers(testArgs);
 
     assertNotNull(result);
@@ -469,8 +463,7 @@ public class CreateUsersStepTest {
               3306,
               "testdb",
               null,
-              false,
-              null);
+              false);
       createUsersStep.createIamUser(testArgs, result);
       assertTrue(false, "Expected SQLException to be thrown");
     } catch (Exception e) {
@@ -502,8 +495,7 @@ public class CreateUsersStepTest {
               3306,
               "testdb",
               null,
-              false,
-              null);
+              false);
       createUsersStep.createTraditionalUser(testArgs, result);
       assertTrue(false, "Expected SQLException to be thrown");
     } catch (Exception e) {

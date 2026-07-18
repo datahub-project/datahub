@@ -9,7 +9,8 @@ import com.linkedin.common.VersionTag
  * Properties associated with a MLPrimaryKey
  */
 @Aspect = {
-  "name": "mlPrimaryKeyProperties"
+  "name": "mlPrimaryKeyProperties",
+  "schemaVersion": 2
 }
 record MLPrimaryKeyProperties includes CustomProperties {
 

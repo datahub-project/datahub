@@ -6,7 +6,8 @@ import com.linkedin.common.ExternalReference
  * The main properties of a Data Product
  */
 @Aspect = {
-  "name": "dataProductProperties"
+  "name": "dataProductProperties",
+  "schemaVersion": 2
 }
 record DataProductProperties includes CustomProperties, ExternalReference  {
   /**

@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -38,6 +39,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/openapi/operations/elasticSearch")
 @Slf4j
+// /openapi/operations/elasticSearch endpoints depend on EntitySearchService, GraphService etc.
+// which are only registered when elasticsearch.enabled=true.
+@ConditionalOnProperty(
+    prefix = "elasticsearch",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 @Tag(name = "ElasticSearch Raw Operations", description = "An API debugging raw ES documents")
 public class ElasticsearchRawController {
   private final AuthorizerChain authorizerChain;

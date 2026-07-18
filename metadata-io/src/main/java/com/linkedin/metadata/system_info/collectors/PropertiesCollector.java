@@ -181,8 +181,26 @@ public class PropertiesCollector {
     boolean isBooleanValue =
         value != null && (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false"));
 
+    if (isPostgresPgCronIamCredentialKey(lowerKey)) {
+      return false;
+    }
+
     return isBooleanValue
         || ALLOWED_PATTERNS.stream().anyMatch(pattern -> pattern.matcher(lowerKey).find())
         || SENSITIVE_PATTERNS.stream().noneMatch(lowerKey::endsWith);
+  }
+
+  /**
+   * Credential-related keys under {@code postgres.pgCron.iam} (RDS / Cloud SQL IAM env mirrors);
+   * suffix heuristics alone do not redact {@code awsAccessKeyId} etc.
+   */
+  private static boolean isPostgresPgCronIamCredentialKey(String lowerKey) {
+    if (!lowerKey.startsWith("postgres.pgcron.iam.")) {
+      return false;
+    }
+    return lowerKey.endsWith("awsaccesskeyid")
+        || lowerKey.endsWith("awssecretaccesskey")
+        || lowerKey.endsWith("awssessiontoken")
+        || lowerKey.endsWith("googleapplicationcredentials");
   }
 }

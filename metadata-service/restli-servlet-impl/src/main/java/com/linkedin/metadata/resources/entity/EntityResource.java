@@ -21,7 +21,6 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.metadata.config.ConfigUtils;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
@@ -71,7 +70,6 @@ import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -188,9 +186,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("restrictedService")
   private RestrictedService restrictedService;
-
-  @Inject
-  private ElasticSearchConfiguration searchConfiguration;
 
   @VisibleForTesting
   void setEntityService(EntityService<?> entityService) {

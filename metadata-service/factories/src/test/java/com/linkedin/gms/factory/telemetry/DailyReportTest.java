@@ -3,17 +3,14 @@ package com.linkedin.gms.factory.telemetry;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.ProductAnalytics;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.RequestOptions;
-import org.opensearch.search.SearchHits;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -27,7 +24,8 @@ import org.testng.annotations.Test;
 public class DailyReportTest {
 
   private OperationContext mockOperationContext;
-  private SearchClientShim<?> mockElasticClient;
+  private ProductAnalytics mockProductAnalytics;
+  private AnalyticsService mockAnalyticsService;
   private ConfigurationProvider mockConfigurationProvider;
   private EntityService<?> mockEntityService;
   private GitVersion mockGitVersion;
@@ -37,7 +35,9 @@ public class DailyReportTest {
   @BeforeMethod
   public void setUp() {
     mockOperationContext = mock(OperationContext.class);
-    mockElasticClient = mock(SearchClientShim.class);
+    mockProductAnalytics = mock(ProductAnalytics.class);
+    mockAnalyticsService = mock(AnalyticsService.class);
+    when(mockProductAnalytics.analyticsService()).thenReturn(mockAnalyticsService);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
     mockEntityService = mock(EntityService.class);
     mockGitVersion = mock(GitVersion.class);
@@ -169,106 +169,10 @@ public class DailyReportTest {
   private DailyReport createDailyReportForTesting() {
     return new DailyReport(
         mockOperationContext,
-        mockElasticClient,
+        mockProductAnalytics,
         mockConfigurationProvider,
         mockEntityService,
         mockGitVersion);
-  }
-
-  @Test
-  public void testGetTotalUserCountHandlesSearchError() throws Exception {
-    // Set up mock to throw exception
-    when(mockElasticClient.search(
-            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
-        .thenThrow(new RuntimeException("Search failed"));
-
-    DailyReport dailyReport = createDailyReportForTesting();
-
-    // Use reflection to call the private method
-    java.lang.reflect.Method getTotalUserCountMethod =
-        DailyReport.class.getDeclaredMethod("getTotalUserCount");
-    getTotalUserCountMethod.setAccessible(true);
-
-    int result = (int) getTotalUserCountMethod.invoke(dailyReport);
-
-    // Should return 0 when search fails
-    assertEquals(result, 0, "getTotalUserCount should return 0 when search fails");
-  }
-
-  @Test
-  public void testGetServiceAccountCountHandlesSearchError() throws Exception {
-    // Set up mock to throw exception
-    when(mockElasticClient.search(
-            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
-        .thenThrow(new RuntimeException("Search failed"));
-
-    DailyReport dailyReport = createDailyReportForTesting();
-
-    // Use reflection to call the private method
-    java.lang.reflect.Method getServiceAccountCountMethod =
-        DailyReport.class.getDeclaredMethod("getServiceAccountCount");
-    getServiceAccountCountMethod.setAccessible(true);
-
-    int result = (int) getServiceAccountCountMethod.invoke(dailyReport);
-
-    // Should return 0 when search fails
-    assertEquals(result, 0, "getServiceAccountCount should return 0 when search fails");
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  public void testGetTotalUserCountReturnsCorrectCount() throws Exception {
-    // Set up mock search response
-    SearchResponse mockSearchResponse = mock(SearchResponse.class);
-    SearchHits mockSearchHits = mock(SearchHits.class);
-    org.apache.lucene.search.TotalHits mockTotalHits =
-        new org.apache.lucene.search.TotalHits(
-            42, org.apache.lucene.search.TotalHits.Relation.EQUAL_TO);
-
-    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
-    when(mockSearchHits.getTotalHits()).thenReturn(mockTotalHits);
-    when(mockElasticClient.search(
-            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
-        .thenReturn(mockSearchResponse);
-
-    DailyReport dailyReport = createDailyReportForTesting();
-
-    // Use reflection to call the private method
-    java.lang.reflect.Method getTotalUserCountMethod =
-        DailyReport.class.getDeclaredMethod("getTotalUserCount");
-    getTotalUserCountMethod.setAccessible(true);
-
-    int result = (int) getTotalUserCountMethod.invoke(dailyReport);
-
-    assertEquals(result, 42, "getTotalUserCount should return the total hits count");
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  public void testGetServiceAccountCountReturnsCorrectCount() throws Exception {
-    // Set up mock search response
-    SearchResponse mockSearchResponse = mock(SearchResponse.class);
-    SearchHits mockSearchHits = mock(SearchHits.class);
-    org.apache.lucene.search.TotalHits mockTotalHits =
-        new org.apache.lucene.search.TotalHits(
-            5, org.apache.lucene.search.TotalHits.Relation.EQUAL_TO);
-
-    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
-    when(mockSearchHits.getTotalHits()).thenReturn(mockTotalHits);
-    when(mockElasticClient.search(
-            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
-        .thenReturn(mockSearchResponse);
-
-    DailyReport dailyReport = createDailyReportForTesting();
-
-    // Use reflection to call the private method
-    java.lang.reflect.Method getServiceAccountCountMethod =
-        DailyReport.class.getDeclaredMethod("getServiceAccountCount");
-    getServiceAccountCountMethod.setAccessible(true);
-
-    int result = (int) getServiceAccountCountMethod.invoke(dailyReport);
-
-    assertEquals(result, 5, "getServiceAccountCount should return the total hits count");
   }
 
   /**

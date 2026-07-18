@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -36,6 +37,8 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -58,6 +61,7 @@ public class UpdateIndicesV3StrategyTest {
   @Mock private ElasticSearchService elasticSearchService;
   @Mock private SearchDocumentTransformer searchDocumentTransformer;
   @Mock private TimeseriesAspectService timeseriesAspectService;
+  @Mock private TimeseriesAspectWriteSink timeseriesAspectWriteSink;
   @Mock private EntitySpec mockEntitySpec;
   @Mock private AspectSpec mockAspectSpec;
   @Mock private MCLItem mockEvent;
@@ -110,9 +114,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            timeseriesAspectWriteSink,
             "MD5",
-            false, // v2Enabled = false
-            null);
+            false); // v2Enabled = false
   }
 
   @Test
@@ -222,7 +226,7 @@ public class UpdateIndicesV3StrategyTest {
 
   @Test
   public void testProcessBatch_TimeseriesAspect() throws Exception {
-    // Setup for timeseries aspect
+    // Setup for timeseries aspect (V3-only: dedicated TS indices are updated here when V2 is off)
     when(mockAspectSpec.isTimeseries()).thenReturn(true);
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
@@ -233,14 +237,44 @@ public class UpdateIndicesV3StrategyTest {
             any(AuditStamp.class)))
         .thenReturn(Optional.of(mockSearchDocument));
 
+    ObjectNode tsDoc = JsonNodeFactory.instance.objectNode();
+    tsDoc.set(
+        com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.IS_EXPLODED_FIELD,
+        JsonNodeFactory.instance.booleanNode(false));
+
     Map<Urn, List<MCLItem>> groupedEvents =
         Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
 
-    // Execute
-    strategy.processBatch(operationContext, groupedEvents, true);
+    try (var tsStatic = mockStatic(TimeseriesAspectTransformer.class)) {
+      tsStatic
+          .when(
+              () ->
+                  TimeseriesAspectTransformer.transform(
+                      any(Urn.class),
+                      any(RecordTemplate.class),
+                      any(AspectSpec.class),
+                      nullable(SystemMetadata.class),
+                      anyString()))
+          .thenReturn(Collections.singletonMap("ts-doc-id", tsDoc));
 
-    // Verify upsert was called with search group (timeseries aspects are treated like regular
-    // aspects in V3)
+      strategy.processBatch(operationContext, groupedEvents, true);
+    }
+
+    verify(timeseriesAspectService)
+        .upsertDocument(
+            eq(operationContext),
+            eq(DATASET_ENTITY_NAME),
+            nullable(String.class),
+            eq("ts-doc-id"),
+            eq(tsDoc));
+    verify(timeseriesAspectWriteSink)
+        .upsertDocument(
+            eq(operationContext),
+            eq(DATASET_ENTITY_NAME),
+            nullable(String.class),
+            eq("ts-doc-id"),
+            eq(tsDoc));
+
     verify(elasticSearchService)
         .upsertDocumentBySearchGroup(
             eq(operationContext),
@@ -258,9 +292,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            timeseriesAspectWriteSink,
             "MD5",
-            true, // v2Enabled = true
-            null);
+            true); // v2Enabled = true
 
     // Setup for structured property
     when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
@@ -355,9 +389,9 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    timeseriesAspectWriteSink,
                     "MD5",
-                    false,
-                    null));
+                    false));
 
     // Verify the exception message and cause
     assertTrue(exception.getMessage().contains("Failed to initialize V3 mappings builder"));
@@ -380,9 +414,9 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    timeseriesAspectWriteSink,
                     "MD5",
-                    false,
-                    null));
+                    false));
 
     // Verify the exception message and cause
     assertTrue(exception.getMessage().contains("Failed to initialize V3 mappings builder"));
@@ -404,9 +438,9 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    timeseriesAspectWriteSink,
                     "MD5",
-                    false,
-                    null));
+                    false));
 
     // Verify the exception message and cause
     assertTrue(exception.getMessage().contains("Failed to initialize V3 mappings builder"));
@@ -427,9 +461,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            timeseriesAspectWriteSink,
             "MD5",
-            false,
-            null);
+            false);
 
     // Verify strategy was created successfully
     assertTrue(strategyWithNullConfig.isEnabled());
@@ -447,9 +481,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            timeseriesAspectWriteSink,
             "MD5",
-            false,
-            null);
+            false);
 
     // Verify strategy was created successfully
     assertTrue(strategyWithEmptyConfig.isEnabled());
@@ -467,9 +501,9 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            timeseriesAspectWriteSink,
             "MD5",
-            false,
-            null);
+            false);
 
     // Verify strategy was created successfully
     assertTrue(strategyWithWhitespaceConfig.isEnabled());
@@ -684,216 +718,6 @@ public class UpdateIndicesV3StrategyTest {
     // Verify that no upsert operation was performed due to the exception
     verify(elasticSearchService, never())
         .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
-  }
-
-  // ==================== Timeseries throttle tests ====================
-
-  private TimeseriesWriteThrottleCache buildThrottleCache(
-      boolean entityEnabled, boolean tsEnabled, boolean observeEnabled) {
-    return new TimeseriesWriteThrottleCache(
-        com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration.builder()
-            .entityIndex(
-                com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration
-                    .IndexThrottleConfig.builder()
-                    .enabled(entityEnabled)
-                    .build())
-            .timeseriesIndex(
-                com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration
-                    .IndexThrottleConfig.builder()
-                    .enabled(tsEnabled)
-                    .build())
-            .observe(
-                com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration
-                    .IndexThrottleConfig.builder()
-                    .enabled(observeEnabled)
-                    .build())
-            .refreshPeriodSeconds(3600)
-            .maxCacheUrns(10_000)
-            .build());
-  }
-
-  @Test
-  public void testThrottle_EntityIndexSuppressesTimeseriesAspect() throws Exception {
-    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, false);
-    UpdateIndicesV3Strategy throttledStrategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            "MD5",
-            false,
-            cache);
-
-    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
-    when(mockAspectSpec.isTimeseries()).thenReturn(true);
-    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
-    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
-
-    // Prime cache
-    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
-
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(mockSearchDocument));
-
-    Map<Urn, List<MCLItem>> groupedEvents =
-        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
-
-    throttledStrategy.processBatch(operationContext, groupedEvents, true);
-
-    // Timeseries aspect should be excluded from the document (throttled)
-    // Since it's the only aspect, no upsert should happen
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
-  }
-
-  @Test
-  public void testThrottle_ObserveModeDoesNotSuppressInV3() throws Exception {
-    TimeseriesWriteThrottleCache cache = buildThrottleCache(false, false, true);
-    UpdateIndicesV3Strategy throttledStrategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            "MD5",
-            false,
-            cache);
-
-    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
-    when(mockAspectSpec.isTimeseries()).thenReturn(true);
-    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
-    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
-
-    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
-
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(mockSearchDocument));
-
-    Map<Urn, List<MCLItem>> groupedEvents =
-        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
-
-    throttledStrategy.processBatch(operationContext, groupedEvents, true);
-
-    // Observe mode should NOT suppress — the write should proceed
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(eq(operationContext), anyString(), anyString(), anyString());
-  }
-
-  @Test
-  public void testThrottle_FirstWritePassesThroughInV3() throws Exception {
-    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, false);
-    UpdateIndicesV3Strategy throttledStrategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            "MD5",
-            false,
-            cache);
-
-    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
-    when(mockAspectSpec.isTimeseries()).thenReturn(true);
-    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
-    when(mockAuditStamp.getTime()).thenReturn(1_000_000_000L);
-    // No prior cache entry → not throttled
-
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(mockSearchDocument));
-
-    Map<Urn, List<MCLItem>> groupedEvents =
-        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
-
-    throttledStrategy.processBatch(operationContext, groupedEvents, true);
-
-    // First write should not be throttled
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(eq(operationContext), anyString(), anyString(), anyString());
-  }
-
-  @Test
-  public void testThrottle_EntityAndObserveBothEnabledInV3() throws Exception {
-    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, true);
-    UpdateIndicesV3Strategy throttledStrategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            "MD5",
-            false,
-            cache);
-
-    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
-    when(mockAspectSpec.isTimeseries()).thenReturn(true);
-    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
-    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
-
-    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
-
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(mockSearchDocument));
-
-    Map<Urn, List<MCLItem>> groupedEvents =
-        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
-
-    throttledStrategy.processBatch(operationContext, groupedEvents, true);
-
-    // Entity index enabled suppresses the write, observe mode logs but doesn't write
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
-  }
-
-  @Test
-  public void testThrottle_NullCacheNoThrottling() throws Exception {
-    // Default strategy (null cache) should not throttle timeseries aspects
-    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
-    when(mockAspectSpec.isTimeseries()).thenReturn(true);
-    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
-    when(mockAuditStamp.getTime()).thenReturn(1_000_000_000L);
-
-    when(searchDocumentTransformer.transformAspect(
-            any(OperationContext.class),
-            any(Urn.class),
-            any(RecordTemplate.class),
-            any(AspectSpec.class),
-            anyBoolean(),
-            any(AuditStamp.class)))
-        .thenReturn(Optional.of(mockSearchDocument));
-
-    Map<Urn, List<MCLItem>> groupedEvents =
-        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
-
-    strategy.processBatch(operationContext, groupedEvents, true);
-
-    // With null throttle cache, all writes proceed
-    verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(eq(operationContext), anyString(), anyString(), anyString());
   }
 
   @Test

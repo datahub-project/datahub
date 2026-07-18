@@ -4,7 +4,8 @@ import com.linkedin.common.CustomProperties
 import com.linkedin.common.Urn
 
 @Aspect = {
-  "name": "versionSetProperties"
+  "name": "versionSetProperties",
+  "schemaVersion": 2
 }
 record VersionSetProperties includes CustomProperties {
   /**

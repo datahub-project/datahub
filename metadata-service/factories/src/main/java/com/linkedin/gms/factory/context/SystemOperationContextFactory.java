@@ -29,6 +29,7 @@ import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEn
 import io.datahubproject.metadata.services.RestrictedService;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -59,12 +60,14 @@ public class SystemOperationContextFactory {
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
       @Nonnull final ConfigurationProvider configurationProvider,
       @Qualifier("systemEntityClient") @Nonnull final SystemEntityClient systemEntityClient,
-      @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
+      @Qualifier("mappingsBuilder") ObjectProvider<MappingsBuilder> mappingsBuilderProvider,
       @Nonnull final SystemTelemetryContext systemTelemetryContext,
       @Autowired(required = false) @Qualifier("groupService") @Nullable
           final GroupService groupService,
       @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
       @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache) {
+
+    @Nullable final MappingsBuilder mappingsBuilder = mappingsBuilderProvider.getIfAvailable();
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -143,11 +146,13 @@ public class SystemOperationContextFactory {
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
       @Nonnull final ConfigurationProvider configurationProvider,
       @Nonnull final SystemTelemetryContext systemTelemetryContext,
-      @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
+      @Qualifier("mappingsBuilder") ObjectProvider<MappingsBuilder> mappingsBuilderProvider,
       @Autowired(required = false) @Qualifier("groupService") @Nullable
           final GroupService groupService,
       @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
       @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache) {
+
+    @Nullable final MappingsBuilder mappingsBuilder = mappingsBuilderProvider.getIfAvailable();
 
     EntityClientAspectRetriever entityClientAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();

@@ -31,6 +31,6 @@ public class IndexConventionFactory {
                     .getSchemaField()
                     .isHashIdEnabled())
             .build(),
-        elasticSearchConfiguration.getEntityIndex());
+        elasticSearchConfiguration.effectiveEntityIndex());
   }
 }

@@ -3,7 +3,7 @@ package com.linkedin.datahub.upgrade;
 import com.linkedin.datahub.upgrade.cleanup.CleanupCondition;
 import com.linkedin.datahub.upgrade.cleanup.CleanupUpgradeConfig;
 import com.linkedin.datahub.upgrade.conditions.GeneralUpgradeCondition;
-import com.linkedin.datahub.upgrade.conditions.LoadIndicesCondition;
+import com.linkedin.datahub.upgrade.conditions.LoadIndicesWithElasticsearchEnabledCondition;
 import com.linkedin.datahub.upgrade.conditions.SqlSetupCondition;
 import com.linkedin.datahub.upgrade.config.GeneralUpgradeConfiguration;
 import com.linkedin.datahub.upgrade.loadindices.LoadIndicesUpgradeConfig;
@@ -21,7 +21,7 @@ public class UpgradeConfigurationSelector {
 
   /** Configuration for LoadIndices upgrade - excludes Kafka components */
   @Configuration
-  @Conditional(LoadIndicesCondition.class)
+  @Conditional(LoadIndicesWithElasticsearchEnabledCondition.class)
   @Import(LoadIndicesUpgradeConfig.class)
   public static class LoadIndicesConfiguration {}
 

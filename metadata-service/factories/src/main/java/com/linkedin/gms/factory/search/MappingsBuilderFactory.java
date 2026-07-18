@@ -21,10 +21,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @Slf4j
+@ConditionalOnProperty(
+    prefix = "elasticsearch",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class MappingsBuilderFactory {
 
   @Bean("legacyMappingsBuilder")
@@ -39,7 +45,7 @@ public class MappingsBuilderFactory {
   }
 
   @Bean("multiEntityMappingsBuilder")
-  @ConditionalOnProperty(name = "elasticsearch.entityIndex.v3.enabled", havingValue = "true")
+  @Conditional(EntityIndexV3EnabledCondition.class)
   @Nonnull
   protected MappingsBuilder createMultiEntityMappingsBuilder(ConfigurationProvider configProvider) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();

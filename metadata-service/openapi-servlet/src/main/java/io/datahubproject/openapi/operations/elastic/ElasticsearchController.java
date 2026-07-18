@@ -72,6 +72,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -88,6 +89,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/openapi/operations/elasticSearch")
 @Slf4j
+// /openapi/operations/elasticSearch endpoints depend on ESSearchDAO and other ES-only beans;
+// disable on Postgres-only profiles to avoid startup failures.
+@ConditionalOnProperty(
+    prefix = "elasticsearch",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class ElasticsearchController {
   private static final String ES_DEBUG_DESCRIPTION =
       "An API for debugging your elasticsearch requests";

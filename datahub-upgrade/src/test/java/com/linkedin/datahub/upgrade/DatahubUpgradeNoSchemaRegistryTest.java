@@ -11,8 +11,8 @@ import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializer;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
-import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.mxe.Topics;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -45,11 +45,11 @@ public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringCont
 
   @Autowired
   @Named("kafkaEventProducer")
-  private KafkaEventProducer kafkaEventProducer;
+  private EventProducer kafkaEventProducer;
 
   @Autowired
   @Named("duheKafkaEventProducer")
-  private KafkaEventProducer duheKafkaEventProducer;
+  private EventProducer duheKafkaEventProducer;
 
   @Autowired private EntityServiceImpl entityService;
 

@@ -67,7 +67,8 @@ public class LineageSearchServiceTest {
     _lineageRegistry = mock(LineageRegistry.class);
 
     // Create actual configuration objects instead of mocking
-    ElasticSearchConfiguration elasticSearchConfig = ElasticSearchConfiguration.builder().build();
+    ElasticSearchConfiguration elasticSearchConfig =
+        ElasticSearchConfiguration.builder().enabled(true).build();
     SearchConfiguration searchConfig = SearchConfiguration.builder().build();
     GraphQueryConfiguration graphConfig = GraphQueryConfiguration.builder().build();
     ImpactConfiguration impactConfig =

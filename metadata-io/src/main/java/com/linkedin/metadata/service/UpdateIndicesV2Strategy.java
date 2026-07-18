@@ -2,6 +2,7 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.search.transformer.SearchDocumentTransformer.withSystemCreated;
 import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
+import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.IS_EXPLODED_FIELD;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -26,6 +27,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuil
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.timeseries.write.TimeseriesAspectWriteSink;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -61,6 +63,10 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>The entity type is in the list of enabled entities for semantic search
  *   <li>The semantic index exists in OpenSearch
  * </ol>
+ *
+ * <p>Timeseries aspects: {@link TimeseriesAspectService} writes to Elasticsearch; {@link
+ * TimeseriesAspectWriteSink} writes to PostgreSQL when {@code postgres.pgTimeseries.enabled} is
+ * true (independent of Elasticsearch configuration).
  */
 @Slf4j
 public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
@@ -72,6 +78,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
   private final TimeseriesAspectService timeseriesAspectService;
+  private final TimeseriesAspectWriteSink timeseriesAspectWriteSink;
+
   private final String idHashAlgo;
   private final V2MappingsBuilder mappingsBuilder;
   private final boolean coalesceBatchUpdates;
@@ -93,6 +101,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    * @param elasticSearchService Elasticsearch service for index operations
    * @param searchDocumentTransformer Document transformer for search documents
    * @param timeseriesAspectService Service for timeseries aspect operations
+   * @param timeseriesAspectWriteSink Optional PostgreSQL timeseries write sink (noop when disabled)
    * @param idHashAlgo Hash algorithm for document IDs
    * @param semanticSearchConfig Semantic search configuration (null to disable dual-write)
    * @param indexConvention Index naming convention for deriving semantic index names (required)
@@ -111,6 +120,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull TimeseriesAspectWriteSink timeseriesAspectWriteSink,
       @Nonnull String idHashAlgo,
       @Nullable SemanticSearchConfiguration semanticSearchConfig,
       @Nonnull IndexConvention indexConvention,
@@ -121,6 +131,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.timeseriesAspectService = timeseriesAspectService;
+    this.timeseriesAspectWriteSink = timeseriesAspectWriteSink;
     this.idHashAlgo = idHashAlgo;
     this.semanticSearchConfig = semanticSearchConfig;
     this.indexConvention = indexConvention;
@@ -197,7 +208,9 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
         boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
 
-        if (!specPair.getSecond().isTimeseries()) {
+        if (specPair.getSecond().isTimeseries()) {
+          deleteTimeseriesFieldsForDeleteEvent(opContext, deleteEvent);
+        } else {
           deleteSearchData(
               opContext,
               deleteEvent.getUrn(),
@@ -465,20 +478,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     // Write to V2 index
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
 
-    // #region agent debug log - dual-write decision point
-    log.debug(
-        "[DEBUG-DUALWRITE] About to check shouldWriteToSemanticIndex for entity='{}', docId='{}'",
-        entityName,
-        docId);
-    boolean shouldWrite = shouldWriteToSemanticIndex(opContext, entityName);
-    log.debug(
-        "[DEBUG-DUALWRITE] shouldWriteToSemanticIndex returned: {} for entity='{}'",
-        shouldWrite,
-        entityName);
-    // #endregion
-
     // Dual-write to semantic index if enabled for this entity
-    if (shouldWrite) {
+    if (shouldWriteToSemanticIndex(opContext, entityName)) {
       writeToSemanticIndex(opContext, entityName, finalDocument, docId);
     }
 
@@ -537,6 +538,49 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     elasticSearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
   }
 
+  void deleteTimeseriesFieldsForDeleteEvent(
+      @Nonnull OperationContext opContext, @Nonnull MCLItem deleteEvent) {
+    AspectSpec aspectSpec = deleteEvent.getAspectSpec();
+    if (!aspectSpec.isTimeseries()) {
+      return;
+    }
+    RecordTemplate previous = deleteEvent.getPreviousRecordTemplate();
+    if (previous == null) {
+      log.debug(
+          "Timeseries delete has no previous aspect snapshot; skipping timeseries index delete for urn {} aspect {}",
+          deleteEvent.getUrn(),
+          aspectSpec.getName());
+      return;
+    }
+    Urn urn = deleteEvent.getUrn();
+    String entityType = deleteEvent.getEntitySpec().getName();
+    String aspectName = aspectSpec.getName();
+    SystemMetadata prevSys =
+        deleteEvent.getPreviousSystemMetadata() != null
+            ? deleteEvent.getPreviousSystemMetadata()
+            : deleteEvent.getSystemMetadata();
+    Map<String, JsonNode> documents;
+    try {
+      documents =
+          TimeseriesAspectTransformer.transform(urn, previous, aspectSpec, prevSys, idHashAlgo);
+    } catch (JsonProcessingException e) {
+      log.error(
+          "Failed to resolve timeseries documents for delete event for urn {} aspect {}: {}",
+          urn,
+          aspectName,
+          e.toString());
+      return;
+    }
+    for (Map.Entry<String, JsonNode> entry : documents.entrySet()) {
+      JsonNode doc = entry.getValue();
+      boolean exploded = doc.has(IS_EXPLODED_FIELD) && doc.get(IS_EXPLODED_FIELD).asBoolean(false);
+      timeseriesAspectService.deleteDocument(
+          opContext, entityType, aspectName, entry.getKey(), exploded);
+      timeseriesAspectWriteSink.deleteDocument(
+          opContext, entityType, aspectName, entry.getKey(), doc, exploded);
+    }
+  }
+
   void updateTimeseriesFieldsForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     // V2 timeseries update logic - uses the existing TimeseriesAspectTransformer
     log.debug(
@@ -572,6 +616,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         .forEach(
             document -> {
               timeseriesAspectService.upsertDocument(
+                  opContext, entityType, aspectName, document.getKey(), document.getValue());
+              timeseriesAspectWriteSink.upsertDocument(
                   opContext, entityType, aspectName, document.getKey(), document.getValue());
             });
   }

@@ -676,4 +676,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   public ESIndexBuilder getIndexBuilder() {
     return indexBuilder;
   }
+
+  /**
+   * Flushes pending bulk write requests to OpenSearch / Elasticsearch (for example after
+   * load-indices). Only meaningful when this service is registered ({@code elasticsearch.enabled}).
+   */
+  public void flush() {
+    esWriteDAO.getBulkProcessor().flush();
+  }
 }

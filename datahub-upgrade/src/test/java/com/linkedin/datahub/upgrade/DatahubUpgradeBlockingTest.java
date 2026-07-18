@@ -12,6 +12,7 @@ import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCPStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaSetup;
+import com.linkedin.datahub.upgrade.system.postgres.PostgresPgSearchEntitySchema;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.inject.Named;
 import java.util.List;
@@ -52,9 +53,30 @@ public class DatahubUpgradeBlockingTest extends AbstractTestNGSpringContextTests
   }
 
   @Test
-  public void testBuildIndicesOrder() {
+  public void testBuildIndicesRunsAfterKafkaAndOptionalPostgresPgSearch() {
     assertNotNull(blockingSystemUpgrades);
-    assertTrue(blockingSystemUpgrades.get(2) instanceof BuildIndices);
+    int kafkaIdx = -1;
+    int pgSearchIdx = -1;
+    int buildIndicesIdx = -1;
+    for (int i = 0; i < blockingSystemUpgrades.size(); i++) {
+      BlockingSystemUpgrade u = blockingSystemUpgrades.get(i);
+      if (u instanceof KafkaSetup) {
+        kafkaIdx = i;
+      } else if (u instanceof PostgresPgSearchEntitySchema) {
+        pgSearchIdx = i;
+      } else if (u instanceof BuildIndices) {
+        buildIndicesIdx = i;
+      }
+    }
+    assertTrue(kafkaIdx >= 0, "KafkaSetup should be present");
+    assertTrue(buildIndicesIdx > kafkaIdx, "BuildIndices should run after KafkaSetup");
+    if (pgSearchIdx >= 0) {
+      assertTrue(
+          pgSearchIdx > kafkaIdx, "PostgresPgSearchEntitySchema should run after KafkaSetup");
+      assertTrue(
+          buildIndicesIdx > pgSearchIdx,
+          "BuildIndices should run after PostgresPgSearchEntitySchema when pgSearch is enabled");
+    }
   }
 
   @Test
@@ -66,7 +88,11 @@ public class DatahubUpgradeBlockingTest extends AbstractTestNGSpringContextTests
 
   @Test
   public void testBuildIndicesRequiresK8ScaleDownRunsWithoutThrow() {
-    BlockingSystemUpgrade buildIndicesUpgrade = blockingSystemUpgrades.get(2);
+    BlockingSystemUpgrade buildIndicesUpgrade =
+        blockingSystemUpgrades.stream()
+            .filter(BuildIndices.class::isInstance)
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("BuildIndices not in blocking upgrades"));
     UpgradeContext ctx = mock(UpgradeContext.class);
     when(ctx.opContext()).thenReturn(systemOperationContext);
     boolean result = buildIndicesUpgrade.requiresK8ScaleDown(ctx);

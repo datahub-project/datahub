@@ -1,6 +1,8 @@
 package io.datahubproject.openapi.health;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -11,8 +13,14 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.config.HealthCheckConfiguration;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.GracefulShutdownHandler;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.health.DatastoreHealthStatus;
+import com.linkedin.metadata.health.PrimaryDatastoreHealthProbe;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
+import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
+import org.opensearch.client.RequestOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
@@ -27,6 +35,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -60,6 +69,8 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
 
   @Autowired private MockMvc mockMvc;
 
+  @Autowired private ConfigurationProvider configurationProvider;
+
   @SpringBootConfiguration
   @Import({HealthCheckControllerTestConfig.class})
   @ComponentScan(basePackages = {"io.datahubproject.openapi.health"})
@@ -74,9 +85,25 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
       ConfigurationProvider config = mock(ConfigurationProvider.class);
       HealthCheckConfiguration healthCheck = mock(HealthCheckConfiguration.class);
       when(config.getHealthCheck()).thenReturn(healthCheck);
-      when(healthCheck.getCacheDurationSeconds()).thenReturn(30);
+      when(healthCheck.getCacheDurationSeconds()).thenReturn(0);
+      when(config.getElasticSearch()).thenReturn(null);
       return config;
     }
+
+    @Bean
+    @Primary
+    public PrimaryDatastoreHealthProbe testPrimaryDatastoreHealthProbe() {
+      return () -> DatastoreHealthStatus.ok("test primary datastore");
+    }
+  }
+
+  @BeforeMethod
+  public void resetElasticsearchHealthMocks() {
+    reset(configurationProvider, elasticClient);
+    HealthCheckConfiguration healthCheck = mock(HealthCheckConfiguration.class);
+    when(configurationProvider.getHealthCheck()).thenReturn(healthCheck);
+    when(healthCheck.getCacheDurationSeconds()).thenReturn(0);
+    when(configurationProvider.getElasticSearch()).thenReturn(null);
   }
 
   /**
@@ -155,17 +182,14 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
   @Test
   public void testElasticSearchHealthEndpointsStillWork() throws Exception {
     // When: Request existing ElasticSearch health endpoints
-    // Then: Should not throw exceptions and return proper responses
-    // Note: We're not mocking ElasticSearch responses here as that would require
-    // complex setup, but we verify the endpoints are accessible
+    // Then: Should not throw (e.g. NPE when ConfigurationProvider has no elasticsearch section);
+    // with ES disabled/absent/unavailable in this lightweight context, readiness reports OK — same
+    // as
+    // elasticsearch.enabled=false in production.
 
-    mockMvc
-        .perform(get("/check/ready"))
-        .andExpect(status().isServiceUnavailable()); // Expected since ES is mocked/unavailable
+    mockMvc.perform(get("/check/ready")).andExpect(status().isOk());
 
-    mockMvc
-        .perform(get("/debug/ready"))
-        .andExpect(status().isServiceUnavailable()); // Expected since ES is mocked/unavailable
+    mockMvc.perform(get("/debug/ready")).andExpect(status().isOk());
   }
 
   /**
@@ -241,6 +265,8 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.bootstrapped").value(true))
         .andExpect(jsonPath("$.elasticsearch").exists())
+        .andExpect(jsonPath("$.primary_metadata_store").exists())
+        .andExpect(jsonPath("$.primary_metadata_store_detail").exists())
         .andExpect(jsonPath("$.ready").exists())
         .andExpect(jsonPath("$.timestamp").exists());
   }
@@ -261,8 +287,15 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
   @Test
   public void testDetailedHealthEndpoint_notReady_when_bootstrapped_but_ES_unhealthy()
       throws Exception {
-    // Bootstrap is complete but ES is unavailable (elasticClient throws by default mock)
     when(bootstrapManager.areBlockingStepsComplete()).thenReturn(true);
+    ElasticSearchConfiguration esConfig = mock(ElasticSearchConfiguration.class);
+    when(configurationProvider.getElasticSearch()).thenReturn(esConfig);
+    when(esConfig.isEnabled()).thenReturn(true);
+    when(elasticClient.clusterHealth(
+            any(OperationContext.class),
+            any(ClusterHealthRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(new IOException("Elasticsearch unavailable"));
 
     mockMvc
         .perform(get("/health/detailed"))

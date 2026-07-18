@@ -62,8 +62,7 @@ public class DropDatabaseStepTest {
         dbType == DatabaseType.POSTGRES ? 5432 : 3306,
         dbName,
         dbType == DatabaseType.POSTGRES ? dbName : null,
-        false,
-        null);
+        false);
   }
 
   @Test

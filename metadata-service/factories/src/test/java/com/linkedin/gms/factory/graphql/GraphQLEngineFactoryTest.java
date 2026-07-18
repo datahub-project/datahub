@@ -366,8 +366,11 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     GraphQLEngineFactory factoryWithAnalytics = new GraphQLEngineFactory();
 
     // Set up dependencies using reflection
-    setField(factoryWithAnalytics, "elasticClient", elasticClient);
-    setField(factoryWithAnalytics, "indexConvention", indexConvention);
+    setField(
+        factoryWithAnalytics,
+        "graphqlAnalyticsService",
+        PlatformAnalyticsConfiguration.createAnalyticsService(
+            elasticClient, indexConvention, null));
     setField(factoryWithAnalytics, "graphClient", graphClient);
     setField(factoryWithAnalytics, "entityService", entityService);
     setField(factoryWithAnalytics, "graphService", graphService);
@@ -403,7 +406,6 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "pageModuleService", pageModuleService);
     setField(factoryWithAnalytics, "dataHubFileService", dataHubFileService);
     setField(factoryWithAnalytics, "s3Util", s3Util);
-    setField(factoryWithAnalytics, "isAnalyticsEnabled", true);
 
     // When
     GraphQLEngine engineWithAnalytics =

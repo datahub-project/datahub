@@ -9,7 +9,8 @@ import com.linkedin.schema.PrimitiveValueDataType
  * Properties associated with a GlossaryTerm
  */
 @Aspect = {
-   "name": "glossaryTermInfo"
+   "name": "glossaryTermInfo",
+   "schemaVersion": 2
 }
 record GlossaryTermInfo includes CustomProperties {
   /**

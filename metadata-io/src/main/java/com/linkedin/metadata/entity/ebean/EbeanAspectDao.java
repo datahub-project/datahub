@@ -71,6 +71,15 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
+  /**
+   * Preferred isolation for aspect writes (matches {@link
+   * java.sql.Connection#TRANSACTION_READ_COMMITTED}). Ingest transactions use {@link
+   * TxScope#requiresNew()} without per-scope {@link TxScope#setIsolation} so Ebean does not call
+   * {@link java.sql.Connection#setTransactionIsolation} on each begin (PostgreSQL forbids changing
+   * isolation mid-transaction). Connection pools pin READ COMMITTED in GMS configuration ({@code
+   * EbeanPoolDefaults}).
+   */
+  public static final TxIsolation TX_ISOLATION = TxIsolation.READ_COMMITED;
 
   /** Primary pool for writes, transactions, and {@code FOR UPDATE} reads. */
   @Getter private final Database server;

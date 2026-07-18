@@ -257,9 +257,13 @@ public class LoadIndicesConditionTest {
   }
 
   @Test
-  public void testLoadIndicesArgsSet() {
-    // Verify the LOAD_INDICES_ARGS set contains the expected value
-    assertTrue(LoadIndicesCondition.LOAD_INDICES_ARGS.contains("LoadIndices"));
-    assertEquals(LoadIndicesCondition.LOAD_INDICES_ARGS.size(), 1);
+  public void testIsLoadIndicesRequested() {
+    assertTrue(LoadIndicesCondition.isLoadIndicesRequested(Arrays.asList("LoadIndices")));
+    assertTrue(LoadIndicesCondition.isLoadIndicesRequested(Arrays.asList("foo", "LoadIndices")));
+    assertFalse(LoadIndicesCondition.isLoadIndicesRequested(Arrays.asList("foo", "bar")));
+    assertFalse(LoadIndicesCondition.isLoadIndicesRequested(Collections.emptyList()));
+    assertFalse(LoadIndicesCondition.isLoadIndicesRequested(null));
+    assertTrue(
+        LoadIndicesCondition.isLoadIndicesRequested(Arrays.asList(null, "LoadIndices", null)));
   }
 }

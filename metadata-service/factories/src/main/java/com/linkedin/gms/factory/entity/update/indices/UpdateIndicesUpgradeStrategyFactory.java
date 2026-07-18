@@ -37,6 +37,11 @@ public class UpdateIndicesUpgradeStrategyFactory {
 
   @Bean("updateIndicesUpgradeStrategy")
   @ConditionalOnProperty(
+      prefix = "elasticsearch",
+      name = "enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  @ConditionalOnProperty(
       name = "elasticsearch.buildIndices.rollbackDualWriteEnabled",
       havingValue = "true")
   @Nonnull

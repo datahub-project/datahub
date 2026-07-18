@@ -6,8 +6,6 @@ import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
 import com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatforms;
-import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
-import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
@@ -21,22 +19,16 @@ import com.linkedin.datahub.upgrade.system.restoreindices.forminfo.RestoreFormIn
 import com.linkedin.datahub.upgrade.system.restoreindices.glossary.RestoreGlossaryIndices;
 import com.linkedin.datahub.upgrade.system.retention.IngestRetentionPolicies;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
-import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
-import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,21 +42,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @Conditional(SystemUpdateCondition.NonBlockingSystemUpdateCondition.class)
 public class NonBlockingConfigs {
-
-  @Bean
-  public NonBlockingSystemUpgrade removeQueryEdges(
-      final OperationContext opContext,
-      final ConfigurationProvider configurationProvider,
-      EntityService<?> entityService,
-      ESWriteDAO esWriteDao,
-      @Value("${systemUpdate.removeQueryEdges.enabled}") final boolean enabled,
-      @Value("${systemUpdate.removeQueryEdges.numRetries}") final int numRetries) {
-    BulkDeleteConfiguration override =
-        configurationProvider.getElasticSearch().getBulkDelete().toBuilder()
-            .numRetries(numRetries)
-            .build();
-    return new RemoveQueryEdges(opContext, entityService, esWriteDao, enabled, override);
-  }
 
   @Bean
   public NonBlockingSystemUpgrade backfillBrowsePathsV2(
@@ -87,32 +64,6 @@ public class NonBlockingConfigs {
       @Value("${systemUpdate.browsePathsV2Iceberg.batchSize}") final Integer batchSize) {
     return new BackfillIcebergBrowsePathsV2(
         opContext, entityService, searchService, enabled, batchSize);
-  }
-
-  @Bean
-  public NonBlockingSystemUpgrade backfillProcessInstancesHasRunEvents(
-      final OperationContext opContext,
-      EntityService<?> entityService,
-      ElasticSearchService elasticSearchService,
-      SearchClientShim<?> restHighLevelClient,
-      @Value("${systemUpdate.processInstanceHasRunEvents.enabled}") final boolean enabled,
-      @Value("${systemUpdate.processInstanceHasRunEvents.reprocess.enabled}")
-          boolean reprocessEnabled,
-      @Value("${systemUpdate.processInstanceHasRunEvents.batchSize}") final Integer batchSize,
-      @Value("${systemUpdate.processInstanceHasRunEvents.delayMs}") final Integer delayMs,
-      @Value("${systemUpdate.processInstanceHasRunEvents.totalDays}") Integer totalDays,
-      @Value("${systemUpdate.processInstanceHasRunEvents.windowDays}") Integer windowDays) {
-    return new BackfillDataProcessInstances(
-        opContext,
-        entityService,
-        elasticSearchService,
-        restHighLevelClient,
-        enabled,
-        reprocessEnabled,
-        batchSize,
-        delayMs,
-        totalDays,
-        windowDays);
   }
 
   @Bean
@@ -145,36 +96,12 @@ public class NonBlockingConfigs {
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
       final AspectDao aspectDao,
-      // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.enabled}") final boolean enabled,
-      // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.batchSize}") final Integer batchSize,
-      // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.delayMs}") final Integer delayMs,
-      // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit) {
     return new GenerateSchemaFieldsFromSchemaMetadata(
         opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
-  }
-
-  @Bean
-  public NonBlockingSystemUpgrade schemaFieldsDocIds(
-      @Qualifier("systemOperationContext") final OperationContext opContext,
-      @Qualifier("baseElasticSearchComponents")
-          final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
-      final EntityService<?> entityService,
-      // ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED
-      @Value("${elasticsearch.index.docIds.schemaField.hashIdEnabled}") final boolean hashEnabled,
-      // SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_ENABLED
-      @Value("${systemUpdate.schemaFieldsDocIds.enabled}") final boolean enabled,
-      // SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_BATCH_SIZE
-      @Value("${systemUpdate.schemaFieldsDocIds.batchSize}") final Integer batchSize,
-      // SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_DELAY_MS
-      @Value("${systemUpdate.schemaFieldsDocIds.delayMs}") final Integer delayMs,
-      // SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_LIMIT
-      @Value("${systemUpdate.schemaFieldsDocIds.limit}") final Integer limit) {
-    return new MigrateSchemaFieldDocIds(
-        opContext, components, entityService, enabled && hashEnabled, batchSize, delayMs, limit);
   }
 
   @Autowired private OperationContext opContext;
@@ -186,6 +113,9 @@ public class NonBlockingConfigs {
     return new KafkaNonBlockingSetup(opContext, configurationProvider.getKafka(), properties);
   }
 
+  // ConsistencyService walks the system-metadata catalog through SystemMetadataScrollClient,
+  // which has both Elasticsearch and PostgreSQL implementations - so this upgrade runs on either
+  // deployment profile.
   @Bean
   public NonBlockingSystemUpgrade fixEntityConsistency(
       @Qualifier("systemOperationContext") final OperationContext opContext,
@@ -205,8 +135,9 @@ public class NonBlockingConfigs {
       @Qualifier("entityService") final EntityService<?> entityService,
       @Value("${entityService.retention.enabled}") final boolean enabled,
       @Value("${entityService.retention.applyOnBootstrap}") final boolean applyAfterIngest,
-      @Value("${entityService.retention.applyOnPolicyChange}") final boolean applyOnPolicyChange,
-      @Value("${entityService.retention.overwriteNonSystemPolicies}")
+      @Value("${entityService.retention.applyOnPolicyChange:true}")
+          final boolean applyOnPolicyChange,
+      @Value("${entityService.retention.overwriteNonSystemPolicies:false}")
           final boolean overwriteNonSystemPolicies,
       @Value("${datahub.plugin.retention.path}") final String pluginPath) {
     return new IngestRetentionPolicies(

@@ -8,7 +8,7 @@ import com.linkedin.datahub.upgrade.UpgradeCliApplicationTestConfiguration;
 import com.linkedin.metadata.aspect.consistency.ConsistencyCheckRegistry;
 import com.linkedin.metadata.aspect.consistency.ConsistencyFixRegistry;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
-import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollClient;
 import jakarta.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,8 +20,10 @@ import org.testng.annotations.Test;
  * Tests that the ConsistencyService and its dependencies are correctly wired in the system-update
  * context.
  *
- * <p>This verifies that ESSystemMetadataDAO is properly exposed as a bean and can be injected into
- * ConsistencyService.
+ * <p>Verifies the backend-agnostic {@link SystemMetadataScrollClient} bean is exposed and that
+ * {@link ConsistencyService} resolves with it. The chosen scroll-client implementation
+ * (Elasticsearch- or PostgreSQL-backed) depends on the active profile - we just assert one is
+ * present.
  */
 @ActiveProfiles("test")
 @SpringBootTest(
@@ -30,8 +32,8 @@ import org.testng.annotations.Test;
 public class ConsistencyServiceBeanTest extends AbstractTestNGSpringContextTests {
 
   @Autowired
-  @Named("esSystemMetadataDAO")
-  private ESSystemMetadataDAO esSystemMetadataDAO;
+  @Named("systemMetadataScrollClient")
+  private SystemMetadataScrollClient systemMetadataScrollClient;
 
   @Autowired
   @Named("consistencyService")
@@ -46,8 +48,8 @@ public class ConsistencyServiceBeanTest extends AbstractTestNGSpringContextTests
   private ConsistencyFixRegistry fixRegistry;
 
   @Test
-  public void testESSystemMetadataDAOBeanExists() {
-    assertNotNull(esSystemMetadataDAO, "ESSystemMetadataDAO bean should be created");
+  public void testSystemMetadataScrollClientBeanExists() {
+    assertNotNull(systemMetadataScrollClient, "SystemMetadataScrollClient bean should be created");
   }
 
   @Test

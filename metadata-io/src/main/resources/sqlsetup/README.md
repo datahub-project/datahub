@@ -34,3 +34,5 @@ SELECT * FROM queue.metadata_queue_schema_migration ORDER BY version_rank;
 ## pgQueue
 
 See [pgQueue design doc](../../../../../docs/pgqueue-design.md) and `PgQueueSqlMigrationModules`.
+
+Other features use the same layout under `sqlsetup/{pgrouting,pgsearch_entity,pgtimeseries,pg_system_metadata,usage_events}/migrations/`.

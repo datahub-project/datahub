@@ -6,7 +6,8 @@ import com.linkedin.common.ExternalReference
  * The main properties of an Application
  */
 @Aspect = {
-  "name": "applicationProperties"
+  "name": "applicationProperties",
+  "schemaVersion": 2
 }
 record ApplicationProperties includes CustomProperties, ExternalReference  {
   /**

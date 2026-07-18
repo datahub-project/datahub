@@ -1,13 +1,17 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.graph.CompositeGraphService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
+import com.linkedin.metadata.graph.write.GraphWriteSink;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import java.util.List;
 import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.SessionConfig;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,7 +34,9 @@ public class Neo4jGraphServiceFactory {
   @Bean(name = "graphService")
   @Nonnull
   protected GraphService getInstance(
-      final EntityRegistry entityRegistry, final ConfigurationProvider configurationProvider) {
+      final EntityRegistry entityRegistry,
+      final ConfigurationProvider configurationProvider,
+      final ObjectProvider<GraphWriteSink> graphWriteSinkProvider) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     Neo4jGraphService neo4jGraphService =
         new Neo4jGraphService(
@@ -42,6 +48,11 @@ public class Neo4jGraphServiceFactory {
     if (configurationProvider.getDatahub().isReadOnly()) {
       neo4jGraphService.setWritable(false);
     }
-    return neo4jGraphService;
+    GraphWriteSink graphWriteSink =
+        graphWriteSinkProvider.getIfAvailable(() -> GraphWriteSink.NOOP);
+    if (graphWriteSink == GraphWriteSink.NOOP || configurationProvider.getDatahub().isReadOnly()) {
+      return neo4jGraphService;
+    }
+    return new CompositeGraphService(neo4jGraphService, List.of(graphWriteSink));
   }
 }

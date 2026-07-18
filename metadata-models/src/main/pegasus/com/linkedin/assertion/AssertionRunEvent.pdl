@@ -12,6 +12,7 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "assertionRunEvent",
   "type": "timeseries",
+  "schemaVersion": 2
 }
 record AssertionRunEvent {
 

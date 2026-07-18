@@ -15,9 +15,9 @@ import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixResult;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
-import com.linkedin.metadata.search.utils.UrnExtractionUtils;
-import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollClient;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollRequest;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollResult;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,10 +30,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 import lombok.extern.slf4j.Slf4j;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.search.SearchHit;
 
 /**
  * Generic service for checking and fixing consistency issues across entity types.
@@ -50,14 +46,15 @@ import org.opensearch.search.SearchHit;
  * <p>Key methods:
  *
  * <ul>
- *   <li>{@link #checkBatch(OperationContext, String, List, int, String, SystemMetadataFilterConfig,
- *       CheckContext)} - Run checks for a single entity type
+ *   <li>{@link #checkBatch(OperationContext, CheckBatchRequest)} - Run checks for a single entity
+ *       type
  *   <li>{@link #fixIssues} - Apply fixes to a list of issues
  * </ul>
  *
- * <p><b>Fetch Strategy:</b> Uses the system metadata Elasticsearch index which stores (URN, aspect)
- * pairs. This enables filtering by entity type (via URN prefix), aspect existence, and timestamps
- * (aspectModifiedTime/aspectCreatedTime). Entity data is then fetched from SQL via EntityService.
+ * <p><b>Fetch Strategy:</b> The system metadata catalog of (URN, aspect) pairs is enumerated via
+ * {@link SystemMetadataScrollClient}, which has both Elasticsearch and PostgreSQL backed
+ * implementations. Entity data is then fetched from SQL via {@link EntityService}. This makes the
+ * consistency framework agnostic to the deployment's metadata backend.
  *
  * <p><b>Thread Safety:</b> This class is thread-safe. Each method call creates its own {@link
  * CheckContext} which is not shared between threads.
@@ -67,7 +64,7 @@ import org.opensearch.search.SearchHit;
 public class ConsistencyService {
 
   private final EntityService<?> entityService;
-  private final ESSystemMetadataDAO esSystemMetadataDAO;
+  private final SystemMetadataScrollClient scrollClient;
   @Nullable private final GraphClient graphClient;
   private final ConsistencyCheckRegistry checkRegistry;
   private final ConsistencyFixRegistry fixRegistry;
@@ -79,25 +76,25 @@ public class ConsistencyService {
    * Create a ConsistencyService without check-specific configuration.
    *
    * @param entityService entity service for fetching entity data from SQL
-   * @param esSystemMetadataDAO system metadata DAO for querying the system metadata index
+   * @param scrollClient backend-agnostic system-metadata scroll client (ES or Postgres)
    * @param graphClient graph client (may be null)
    * @param checkRegistry registry of consistency checks
    * @param fixRegistry registry of consistency fixes
    */
   public ConsistencyService(
       @Nonnull EntityService<?> entityService,
-      @Nonnull ESSystemMetadataDAO esSystemMetadataDAO,
+      @Nonnull SystemMetadataScrollClient scrollClient,
       @Nullable GraphClient graphClient,
       @Nonnull ConsistencyCheckRegistry checkRegistry,
       @Nonnull ConsistencyFixRegistry fixRegistry) {
-    this(entityService, esSystemMetadataDAO, graphClient, checkRegistry, fixRegistry, Map.of());
+    this(entityService, scrollClient, graphClient, checkRegistry, fixRegistry, Map.of());
   }
 
   /**
    * Create a ConsistencyService with full configuration.
    *
    * @param entityService entity service for fetching entity data from SQL
-   * @param esSystemMetadataDAO system metadata DAO for querying the system metadata index
+   * @param scrollClient backend-agnostic system-metadata scroll client (ES or Postgres)
    * @param graphClient graph client (may be null)
    * @param checkRegistry registry of consistency checks
    * @param fixRegistry registry of consistency fixes
@@ -105,20 +102,21 @@ public class ConsistencyService {
    */
   public ConsistencyService(
       @Nonnull EntityService<?> entityService,
-      @Nonnull ESSystemMetadataDAO esSystemMetadataDAO,
+      @Nonnull SystemMetadataScrollClient scrollClient,
       @Nullable GraphClient graphClient,
       @Nonnull ConsistencyCheckRegistry checkRegistry,
       @Nonnull ConsistencyFixRegistry fixRegistry,
       @Nonnull Map<String, Map<String, String>> checkConfigs) {
     this.entityService = entityService;
-    this.esSystemMetadataDAO = esSystemMetadataDAO;
+    this.scrollClient = scrollClient;
     this.graphClient = graphClient;
     this.checkRegistry = checkRegistry;
     this.fixRegistry = fixRegistry;
     this.checkConfigs = checkConfigs;
 
     log.info(
-        "ConsistencyService initialized with {} checks, {} fixes, {} check configs",
+        "ConsistencyService initialized with scroll backend {}, {} checks, {} fixes, {} check configs",
+        scrollClient.getClass().getSimpleName(),
         checkRegistry.size(),
         fixRegistry.size(),
         checkConfigs.size());
@@ -319,32 +317,21 @@ public class ConsistencyService {
               .keySet();
     }
 
-    // Build query for system metadata index (URNs are just another filter)
-    BoolQueryBuilder query =
-        buildSystemMetadataQuery(
-            opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
-
-    // Scroll system metadata index
-    SearchResponse response =
-        esSystemMetadataDAO.scroll(
+    // Scroll the system metadata catalog (ES or Postgres) for matching (urn, aspect) entries.
+    SystemMetadataScrollResult scrollResult =
+        scrollClient.scrollUrns(
             opContext,
-            query,
-            request.isIncludeSoftDeleted(),
-            request.getScrollId(),
-            null, // pitId
-            "5m", // keepAlive
-            request.getBatchSize());
+            buildScrollRequest(
+                opContext,
+                resolvedEntityType,
+                checks,
+                request.getFilter(),
+                request.getUrns(),
+                request.getScrollId(),
+                request.getBatchSize()));
 
-    if (response == null
-        || response.getHits() == null
-        || response.getHits().getHits().length == 0) {
-      return CheckResult.empty();
-    }
-
-    // Extract unique URNs from results
-    Set<Urn> urnsFromEs = UrnExtractionUtils.extractUniqueUrns(response);
-
-    if (urnsFromEs.isEmpty()) {
+    Set<Urn> urnsFromIndex = scrollResult.getUrns();
+    if (urnsFromIndex.isEmpty()) {
       return CheckResult.empty();
     }
 
@@ -353,14 +340,14 @@ public class ConsistencyService {
     try {
       entityResponses =
           entityService.getEntitiesV2(
-              opContext, resolvedEntityType, urnsFromEs, requiredAspects, false);
+              opContext, resolvedEntityType, urnsFromIndex, requiredAspects, false);
     } catch (java.net.URISyntaxException e) {
       log.error("Failed to fetch entities for type {}: {}", resolvedEntityType, e.getMessage(), e);
       return CheckResult.empty();
     }
 
-    // Identify orphan URNs - entities in ES index but not in SQL (uses key aspect check)
-    Set<Urn> orphanUrns = identifyOrphanUrns(opContext, urnsFromEs);
+    // Identify orphan URNs - entities in the index but not in SQL (uses key aspect check)
+    Set<Urn> orphanUrns = identifyOrphanUrns(opContext, urnsFromIndex);
 
     // Run checks
     CheckContext ctx = existingCtx != null ? existingCtx : buildContext(opContext);
@@ -369,7 +356,7 @@ public class ConsistencyService {
     if (!orphanUrns.isEmpty()) {
       ctx.addOrphanUrns(resolvedEntityType, orphanUrns);
       log.info(
-          "Found {} orphan URNs for entity type {} (exist in ES but not SQL)",
+          "Found {} orphan URNs for entity type {} (exist in index but not SQL)",
           orphanUrns.size(),
           resolvedEntityType);
     }
@@ -382,14 +369,11 @@ public class ConsistencyService {
       issues.addAll(orphanIssues);
     }
 
-    // Extract next scrollId from search response
-    String nextScrollId = extractNextScrollId(response);
-
     return CheckResult.builder()
-        .entitiesScanned(urnsFromEs.size())
+        .entitiesScanned(urnsFromIndex.size())
         .issuesFound(issues.size())
         .issues(issues)
-        .scrollId(nextScrollId)
+        .scrollId(scrollResult.getNextScrollId())
         .build();
   }
 
@@ -622,86 +606,45 @@ public class ConsistencyService {
   }
 
   // ============================================================================
-  // System Metadata Query Building
+  // System Metadata Scroll Request Building
   // ============================================================================
 
   /**
-   * Build a BoolQueryBuilder for the system metadata index.
+   * Build a backend-agnostic scroll request from the consistency-service inputs.
    *
-   * <p>Package-private for testing.
+   * <p>Package-private to allow unit-test inspection without going through a live scroll client.
    *
    * @param opContext operation context (used to resolve key aspect when keyAspectOnly)
    * @param entityType entity type
    * @param checks checks to run
    * @param filter optional filter configuration
    * @param urns optional URN filter - when provided, limits query to these specific URNs
-   * @return BoolQueryBuilder for the system metadata index
+   * @param scrollId pagination continuation
+   * @param batchSize page size
+   * @return scroll request for {@link SystemMetadataScrollClient}
    */
-  BoolQueryBuilder buildSystemMetadataQuery(
+  @Nonnull
+  SystemMetadataScrollRequest buildScrollRequest(
       @Nullable OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull List<ConsistencyCheck> checks,
       @Nullable SystemMetadataFilter filter,
-      @Nullable Set<Urn> urns) {
+      @Nullable Set<Urn> urns,
+      @Nullable String scrollId,
+      int batchSize) {
 
-    BoolQueryBuilder query = QueryBuilders.boolQuery();
+    List<String> aspects = getTargetAspects(opContext, entityType, checks, filter);
 
-    // Filter by entity type via URN prefix
-    query.filter(QueryBuilders.prefixQuery("urn", "urn:li:" + entityType + ":"));
-
-    // Filter by specific URNs if provided
-    if (urns != null && !urns.isEmpty()) {
-      Set<String> urnStrings =
-          urns.stream().map(Urn::toString).collect(java.util.stream.Collectors.toSet());
-      query.filter(QueryBuilders.termsQuery("urn", urnStrings));
-    }
-
-    // Filter by aspect if check or config requires it
-    Set<String> targetAspects = getTargetAspects(opContext, entityType, checks, filter);
-    if (!targetAspects.isEmpty()) {
-      if (targetAspects.size() == 1) {
-        query.filter(QueryBuilders.termQuery("aspect", targetAspects.iterator().next()));
-      } else {
-        query.filter(QueryBuilders.termsQuery("aspect", targetAspects));
-      }
-    }
-
-    // Timestamp filters - use aspectModifiedTime (preferred) with aspectCreatedTime fallback
-    if (filter != null && (filter.getGePitEpochMs() != null || filter.getLePitEpochMs() != null)) {
-      BoolQueryBuilder timestampQuery = QueryBuilders.boolQuery();
-
-      // Try aspectModifiedTime first
-      BoolQueryBuilder modifiedTimeQuery = QueryBuilders.boolQuery();
-      modifiedTimeQuery.must(QueryBuilders.existsQuery("aspectModifiedTime"));
-      if (filter.getGePitEpochMs() != null) {
-        modifiedTimeQuery.must(
-            QueryBuilders.rangeQuery("aspectModifiedTime").gte(filter.getGePitEpochMs()));
-      }
-      if (filter.getLePitEpochMs() != null) {
-        modifiedTimeQuery.must(
-            QueryBuilders.rangeQuery("aspectModifiedTime").lte(filter.getLePitEpochMs()));
-      }
-
-      // Fallback to aspectCreatedTime if aspectModifiedTime doesn't exist
-      BoolQueryBuilder createdTimeQuery = QueryBuilders.boolQuery();
-      createdTimeQuery.mustNot(QueryBuilders.existsQuery("aspectModifiedTime"));
-      if (filter.getGePitEpochMs() != null) {
-        createdTimeQuery.must(
-            QueryBuilders.rangeQuery("aspectCreatedTime").gte(filter.getGePitEpochMs()));
-      }
-      if (filter.getLePitEpochMs() != null) {
-        createdTimeQuery.must(
-            QueryBuilders.rangeQuery("aspectCreatedTime").lte(filter.getLePitEpochMs()));
-      }
-
-      timestampQuery.should(modifiedTimeQuery);
-      timestampQuery.should(createdTimeQuery);
-      timestampQuery.minimumShouldMatch(1);
-
-      query.filter(timestampQuery);
-    }
-
-    return query;
+    return SystemMetadataScrollRequest.builder()
+        .entityType(entityType)
+        .urns(urns)
+        .aspects(aspects.isEmpty() ? null : aspects)
+        .gePitEpochMs(filter != null ? filter.getGePitEpochMs() : null)
+        .lePitEpochMs(filter != null ? filter.getLePitEpochMs() : null)
+        .includeSoftDeleted(filter != null && filter.isIncludeSoftDeleted())
+        .scrollId(scrollId)
+        .batchSize(batchSize)
+        .build();
   }
 
   /**
@@ -714,10 +657,10 @@ public class ConsistencyService {
    * @param entityType entity type being scrolled
    * @param checks list of checks
    * @param filter optional filter configuration
-   * @return set of target aspect names (may be empty)
+   * @return list of target aspect names (may be empty), in deterministic insertion order
    */
   @Nonnull
-  Set<String> getTargetAspects(
+  List<String> getTargetAspects(
       @Nullable OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull List<ConsistencyCheck> checks,
@@ -732,7 +675,7 @@ public class ConsistencyService {
           String keyAspectName =
               opContext.getEntityRegistry().getEntitySpec(entityType).getKeyAspectName();
           if (keyAspectName != null && !keyAspectName.isEmpty()) {
-            return Set.of(keyAspectName);
+            return List.of(keyAspectName);
           }
         } catch (Exception e) {
           log.warn(
@@ -741,48 +684,20 @@ public class ConsistencyService {
       }
     }
 
-    Set<String> aspects = new HashSet<>();
+    // LinkedHashSet preserves insertion order for stable test assertions while still deduping.
+    Set<String> aspects = new java.util.LinkedHashSet<>();
 
-    // Add from filter config first (now supports list)
     if (filter != null
         && filter.getAspectFilters() != null
         && !filter.getAspectFilters().isEmpty()) {
       aspects.addAll(filter.getAspectFilters());
     }
 
-    // Add target aspects from all checks
     for (ConsistencyCheck check : checks) {
       aspects.addAll(check.getTargetAspects());
     }
 
-    return aspects;
-  }
-
-  /**
-   * Extract next scroll ID from search response for pagination.
-   *
-   * <p>Package-private for testing.
-   *
-   * @param response search response
-   * @return scroll ID or null if no more results
-   */
-  @Nullable
-  String extractNextScrollId(@Nonnull SearchResponse response) {
-    SearchHit[] hits = response.getHits().getHits();
-    if (hits.length == 0) {
-      return null;
-    }
-
-    // Get sort values from last hit for search_after pagination
-    SearchHit lastHit = hits[hits.length - 1];
-    Object[] sortValues = lastHit.getSortValues();
-    if (sortValues == null || sortValues.length == 0) {
-      return null;
-    }
-
-    // Create SearchAfterWrapper and encode as scrollId
-    SearchAfterWrapper wrapper = new SearchAfterWrapper(sortValues, null, 0);
-    return wrapper.toScrollId();
+    return new ArrayList<>(aspects);
   }
 
   /**

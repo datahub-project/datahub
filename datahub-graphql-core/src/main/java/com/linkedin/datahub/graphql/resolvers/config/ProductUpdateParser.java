@@ -88,13 +88,17 @@ public class ProductUpdateParser {
       productUpdate.setImage(json.get("image").asText());
     }
 
-    // Parse primary CTA (new format) - preferred over legacy ctaText/ctaLink
+    // Parse primary CTA (new format) - preferred over legacy ctaText/ctaLink in JSON
     if (json.has("primaryCtaText") && json.has("primaryCtaLink")) {
       String primaryCtaText = json.get("primaryCtaText").asText();
       String primaryCtaLink = maybeDecorateUrl(json.get("primaryCtaLink").asText(), clientId);
 
       productUpdate.setPrimaryCtaText(primaryCtaText);
       productUpdate.setPrimaryCtaLink(primaryCtaLink);
+
+      // GraphQL still exposes deprecated ctaText/ctaLink as non-null; mirror primary for clients
+      productUpdate.setCtaText(primaryCtaText);
+      productUpdate.setCtaLink(primaryCtaLink);
     }
 
     // Parse secondary CTA (optional)

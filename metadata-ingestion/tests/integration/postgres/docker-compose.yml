@@ -3,7 +3,7 @@ services:
   testpostgres:
     container_name: "testpostgres"
     hostname: postgres
-    image: postgres:15.2
+    image: postgres:17.5
     environment:
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "example"

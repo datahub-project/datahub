@@ -1,19 +1,9 @@
 package com.linkedin.datahub.upgrade.sqlsetup.postgres;
 
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
 public class PgCronMaintenanceTest {
@@ -99,52 +89,5 @@ public class PgCronMaintenanceTest {
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testSanitizeCronSegmentRejectsWhitespaceOnly() {
     PgCronMaintenance.sanitizeCronSegment("   ");
-  }
-
-  @Test(expectedExceptions = IllegalArgumentException.class)
-  public void testBuildScopedCronJobNameRejectsBlankTablePrefix() {
-    PgCronMaintenance.buildScopedCronJobName(
-        PgCronMaintenance.PGQUEUE_CRON_ROLE, "db", "schema", "  ");
-  }
-
-  @Test
-  public void testIsExtensionInstalledReturnsTrueWhenPresent() throws Exception {
-    Connection connection = mock(Connection.class);
-    Statement statement = mock(Statement.class);
-    ResultSet resultSet = mock(ResultSet.class);
-    when(connection.createStatement()).thenReturn(statement);
-    when(statement.executeQuery(anyString())).thenReturn(resultSet);
-    when(resultSet.next()).thenReturn(true);
-
-    assertTrue(PgCronMaintenance.isExtensionInstalled(connection, "pg_cron"));
-  }
-
-  @Test
-  public void testIsExtensionInstalledReturnsFalseWhenAbsent() throws Exception {
-    Connection connection = mock(Connection.class);
-    Statement statement = mock(Statement.class);
-    ResultSet resultSet = mock(ResultSet.class);
-    when(connection.createStatement()).thenReturn(statement);
-    when(statement.executeQuery(anyString())).thenReturn(resultSet);
-    when(resultSet.next()).thenReturn(false);
-
-    assertFalse(PgCronMaintenance.isExtensionInstalled(connection, "pg_cron"));
-  }
-
-  @Test
-  public void testReplaceCronJobInDatabaseUnschedulesThenSchedules() throws Exception {
-    Connection connection = mock(Connection.class);
-    Statement statement = mock(Statement.class);
-    when(connection.createStatement()).thenReturn(statement);
-
-    PgCronMaintenance.replaceCronJobInDatabase(
-        connection, "cron", "job'name", "0 * * * *", "SELECT 1", "app'db");
-
-    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-    verify(statement, times(2)).execute(sqlCaptor.capture());
-
-    assertTrue(sqlCaptor.getAllValues().get(0).contains("job''name"));
-    assertTrue(sqlCaptor.getAllValues().get(1).contains("schedule_in_database"));
-    assertTrue(sqlCaptor.getAllValues().get(1).contains("app''db"));
   }
 }

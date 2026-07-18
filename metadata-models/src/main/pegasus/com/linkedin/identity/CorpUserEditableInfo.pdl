@@ -7,7 +7,8 @@ import com.linkedin.common.Urn
  * Linkedin corp user information that can be edited from UI
  */
 @Aspect = {
-  "name": "corpUserEditableInfo"
+  "name": "corpUserEditableInfo",
+  "schemaVersion": 2
 }
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
 record CorpUserEditableInfo {
@@ -48,7 +49,8 @@ record CorpUserEditableInfo {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "queryByDefault": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "searchTier": 1
   }
   displayName: optional string
 

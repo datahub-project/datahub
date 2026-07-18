@@ -21,6 +21,7 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -63,6 +64,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateRequest;
@@ -84,7 +86,6 @@ import org.opensearch.search.aggregations.metrics.ParsedTopHits;
 import org.opensearch.search.aggregations.metrics.TopHitsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortBuilders;
-import org.opensearch.search.sort.SortOrder;
 
 @Slf4j
 public class ElasticSearchTimeseriesAspectService
@@ -337,6 +338,22 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   @Override
+  public void deleteDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull String docId,
+      @SuppressWarnings("unused") boolean isExploded) {
+    String indexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName);
+    DeleteRequest deleteRequest = new DeleteRequest(indexName, docId);
+    bulkProcessor.add(opContext, docId, deleteRequest);
+  }
+
+  @Override
   public List<TimeseriesIndexSizeResult> getIndexSizes(@Nonnull OperationContext opContext) {
     List<TimeseriesIndexSizeResult> res = new ArrayList<>();
     try {
@@ -455,14 +472,15 @@ public class ElasticSearchTimeseriesAspectService
     searchSourceBuilder.size(ConfigUtils.applyLimit(timeseriesAspectServiceConfig, limit));
 
     if (sort != null) {
-      final SortOrder esSortOrder =
-          (sort.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING)
-              ? SortOrder.ASC
-              : SortOrder.DESC;
+      final org.opensearch.search.sort.SortOrder esSortOrder =
+          (sort.getOrder() == SortOrder.ASCENDING)
+              ? org.opensearch.search.sort.SortOrder.ASC
+              : org.opensearch.search.sort.SortOrder.DESC;
       searchSourceBuilder.sort(SortBuilders.fieldSort(sort.getField()).order(esSortOrder));
     } else {
       // By default, sort by the timestampMillis descending.
-      searchSourceBuilder.sort(SortBuilders.fieldSort("@timestamp").order(SortOrder.DESC));
+      searchSourceBuilder.sort(
+          SortBuilders.fieldSort("@timestamp").order(org.opensearch.search.sort.SortOrder.DESC));
     }
 
     final SearchRequest searchRequest = new SearchRequest();
@@ -591,13 +609,14 @@ public class ElasticSearchTimeseriesAspectService
       TopHitsAggregationBuilder topHitsAgg =
           AggregationBuilders.topHits("top_hits").size(effectiveLimit);
       if (sort != null) {
-        SortOrder esSortOrder =
-            sort.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING
-                ? SortOrder.ASC
-                : SortOrder.DESC;
+        org.opensearch.search.sort.SortOrder esSortOrder =
+            sort.getOrder() == SortOrder.ASCENDING
+                ? org.opensearch.search.sort.SortOrder.ASC
+                : org.opensearch.search.sort.SortOrder.DESC;
         topHitsAgg.sort(SortBuilders.fieldSort(sort.getField()).order(esSortOrder));
       } else {
-        topHitsAgg.sort(SortBuilders.fieldSort("@timestamp").order(SortOrder.DESC));
+        topHitsAgg.sort(
+            SortBuilders.fieldSort("@timestamp").order(org.opensearch.search.sort.SortOrder.DESC));
       }
 
       SearchSourceBuilder sourceBuilder =
@@ -1095,7 +1114,8 @@ public class ElasticSearchTimeseriesAspectService
             searchSourceBuilder.size(1); // Only need the latest document
             // Sort by timestamp descending to get the most recent document
             searchSourceBuilder.sort(
-                SortBuilders.fieldSort(MappingsBuilder.TIMESTAMP_FIELD).order(SortOrder.DESC));
+                SortBuilders.fieldSort(MappingsBuilder.TIMESTAMP_FIELD)
+                    .order(org.opensearch.search.sort.SortOrder.DESC));
 
             searchRequest.source(searchSourceBuilder);
 
