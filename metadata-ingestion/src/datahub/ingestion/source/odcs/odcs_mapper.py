@@ -2,12 +2,13 @@ import json
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, TypeGuard
 
-from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     datahub_guid,
+    make_assertion_source,
     make_assertion_urn,
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
     make_tag_urn,
     make_user_urn,
 )
@@ -1082,7 +1083,7 @@ def _assertion_info_template(
     """Shared header for an AssertionInfoClass; caller sets the sub-aspect."""
     return AssertionInfoClass(
         type=assertion_type,
-        source=mce_builder.make_assertion_source(),
+        source=make_assertion_source(),
         description=_description_to_str(ctx.rule.description),
         customProperties=_custom_props_for_rule(ctx),
         externalUrl=_rule_external_url(ctx.rule),
@@ -1214,9 +1215,7 @@ def _build_custom_assertion(
     assertion_urn = _stable_assertion_urn(ctx, rule_kind="custom")
     resolved_type = custom_type or ctx.rule.effective_metric or ctx.rule.type or "odcs"
     field_urn = (
-        mce_builder.make_schema_field_urn(ctx.entity_urn, ctx.column)
-        if ctx.column
-        else None
+        make_schema_field_urn(ctx.entity_urn, ctx.column) if ctx.column else None
     )
     info = _assertion_info_template(ctx, AssertionTypeClass.CUSTOM)
     info.customAssertion = CustomAssertionInfoClass(
@@ -1484,7 +1483,7 @@ def odcs_to_schema_assertion_mcps(
     )
     info = AssertionInfoClass(
         type=AssertionTypeClass.DATA_SCHEMA,
-        source=mce_builder.make_assertion_source(),
+        source=make_assertion_source(),
         description=(
             f"Schema compliance with ODCS contract '{contract.id}' "
             f"schema '{schema_entry.name}'"
