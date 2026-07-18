@@ -344,9 +344,11 @@ public class GraphIndexUtils {
   }
 
   // The platform exclusion list (fineGrainedLineageNotAllowedForPlatforms) only makes sense for
-  // Dataset-backed schemaFields (e.g. hdfs, s3). FineGrainedLineage can also point at schemaFields
-  // whose parent is a non-Dataset entity (e.g. SemanticModel), which have no platform concept —
-  // treat those as "not excluded" instead of crashing on the cast to DatasetKey.
+  // Dataset-backed schemaFields (e.g. hdfs, s3), where platform is available from the DatasetKey
+  // in the parent URN. FineGrainedLineage can also point at schemaFields whose parent is a
+  // non-Dataset entity (e.g. SemanticModel): those may have a platform, but it is not embedded
+  // in the URN, so we cannot resolve it here — treat those as "not excluded" instead of crashing
+  // on the cast to DatasetKey.
   @Nullable
   private static String getDatasetPlatformName(EntityRegistry entityRegistry, Urn parentUrn) {
     if (!parentUrn.getEntityType().equals(DATASET_ENTITY_NAME)) {
