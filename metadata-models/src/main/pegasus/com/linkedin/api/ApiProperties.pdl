@@ -5,7 +5,7 @@ import com.linkedin.common.Urn
 
 /**
  * Properties of an API — a named callable with a typed input and output schema
- * (an MCP tool, REST endpoint, gRPC method, GraphQL field, function, etc.).
+ * (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.).
  * APIs are cataloged as first-class entities so both humans and agents can
  * discover them before building new ones, and so caller -> API dependencies
  * (services that compose APIs, agents that invoke them) are visible in the

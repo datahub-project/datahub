@@ -2,7 +2,7 @@
 
 Proves the Service/api/serviceContract model is protocol-agnostic: the same
 typed shape covers REST (register_rest_services.py), **GraphQL** (SDL contract,
-GRAPHQL_FIELD operations), and **gRPC** (protobuf contract, GRPC_METHOD
+GRAPHQL_OPERATION operations), and **gRPC** (protobuf contract, GRPC_METHOD
 operations). Each service carries its whole contract as a ``serviceContract``
 (GRAPHQL_SDL / GRPC_PROTO) and composes its operations as ``api`` entities with
 typed input/output.
@@ -17,7 +17,7 @@ import logging
 from typing import List
 
 from datahub.api.entities.agent.api import (
-    API_SUBTYPE_GRAPHQL_FIELD,
+    API_SUBTYPE_GRAPHQL_OPERATION,
     API_SUBTYPE_GRPC_METHOD,
     Api,
     ApiParam,
@@ -77,7 +77,7 @@ GRAPH_API_OPS: List[Api] = [
     Api(
         id=f"{GRAPH_API_ID}.query.orders",
         name="Query.orders",
-        subtypes=[API_SUBTYPE_GRAPHQL_FIELD],
+        subtypes=[API_SUBTYPE_GRAPHQL_OPERATION],
         description="Look up orders for a customer.",
         platform="graphql",
         parameters=[
@@ -89,7 +89,7 @@ GRAPH_API_OPS: List[Api] = [
     Api(
         id=f"{GRAPH_API_ID}.mutation.placeOrder",
         name="Mutation.placeOrder",
-        subtypes=[API_SUBTYPE_GRAPHQL_FIELD],
+        subtypes=[API_SUBTYPE_GRAPHQL_OPERATION],
         description="Place a new trade order.",
         platform="graphql",
         parameters=[

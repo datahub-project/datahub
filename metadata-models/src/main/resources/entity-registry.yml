@@ -879,7 +879,7 @@ entities:
       - incidentsSummary
       - versionProperties
   - name: api
-    doc: A named callable with a typed input and output schema (an MCP tool, REST endpoint, gRPC method, GraphQL field, function, etc.). Cataloged as a first-class entity for discovery and caller-to-API dependency tracking (services that compose APIs, agents that invoke them).
+    doc: A named callable with a typed input and output schema (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.). Cataloged as a first-class entity for discovery and caller-to-API dependency tracking (services that compose APIs, agents that invoke them).
     category: core
     keyAspect: apiKey
     searchGroup: primary

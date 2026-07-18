@@ -2,7 +2,7 @@ namespace com.linkedin.metadata.key
 
 /**
  * Key for an API entity — a named callable with a typed input and output
- * schema (an MCP tool, REST endpoint, gRPC method, GraphQL field, function,
+ * schema (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function,
  * etc.) that can be invoked by humans, services, or AI agents.
  */
 @Aspect = {

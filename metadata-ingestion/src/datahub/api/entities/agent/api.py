@@ -33,14 +33,14 @@ from datahub.metadata.urns import ApiUrn
 API_SUBTYPE_MCP_TOOL = "MCP_TOOL"
 API_SUBTYPE_REST_ENDPOINT = "REST_ENDPOINT"
 API_SUBTYPE_GRPC_METHOD = "GRPC_METHOD"
-API_SUBTYPE_GRAPHQL_FIELD = "GRAPHQL_FIELD"
+API_SUBTYPE_GRAPHQL_OPERATION = "GRAPHQL_OPERATION"
 API_SUBTYPE_FUNCTION = "FUNCTION"
 
 _VALID_SUBTYPES: Set[str] = {
     API_SUBTYPE_MCP_TOOL,
     API_SUBTYPE_REST_ENDPOINT,
     API_SUBTYPE_GRPC_METHOD,
-    API_SUBTYPE_GRAPHQL_FIELD,
+    API_SUBTYPE_GRAPHQL_OPERATION,
     API_SUBTYPE_FUNCTION,
 }
 
@@ -119,7 +119,7 @@ class Api(ConfigModel):
     """High-level helper for registering an API with DataHub.
 
     An API is a named callable with a typed input and output schema — an MCP
-    tool, a REST endpoint, a gRPC method, a GraphQL field, a function, etc.
+    tool, a REST endpoint, a gRPC method, a GraphQL operation, a function, etc.
     Cataloging APIs as first-class entities makes caller -> API dependencies
     (services that compose them, agents that invoke them) visible in the graph.
 
