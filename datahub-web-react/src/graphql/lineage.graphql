@@ -416,6 +416,108 @@ fragment lineageNodeProperties on EntityWithRelationships {
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
     }
+    ... on Metric {
+        exists
+        path
+        id
+        info {
+            name
+            description
+            externalUrl
+        }
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on SemanticModel {
+        exists
+        path
+        id
+        info {
+            name
+            description
+            externalUrl
+        }
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        fineGrainedLineages {
+            upstreams {
+                urn
+                path
+            }
+            downstreams {
+                urn
+                path
+            }
+            query
+            transformOperation
+        }
+    }
     ... on ERModelRelationship {
         urn
         type

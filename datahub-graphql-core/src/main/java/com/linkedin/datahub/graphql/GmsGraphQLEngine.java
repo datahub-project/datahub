@@ -4089,7 +4089,11 @@ public class GmsGraphQLEngine {
                         }))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration)));
   }
 
   private void configureSemanticModelResolvers(final RuntimeWiring.Builder builder) {
@@ -4115,7 +4119,11 @@ public class GmsGraphQLEngine {
                         }))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration)));
     builder.type(
         "ModelDataset",
         typeWiring ->

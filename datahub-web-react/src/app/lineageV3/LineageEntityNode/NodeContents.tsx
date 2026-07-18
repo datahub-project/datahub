@@ -9,6 +9,7 @@ import styled, { useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { LastRunIcon } from '@app/entityV2/dataJob/tabs/RunsTab';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
@@ -361,6 +362,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                     }
                     extraDetails={extraDetails}
                     properties={properties}
+                    typeIcon={entityRegistry.getIcon(type, 16, IconStyleType.ACCENT)}
                     platformIcons={platformIcons}
                     childrenOpen={showColumns}
                     childrenText={
