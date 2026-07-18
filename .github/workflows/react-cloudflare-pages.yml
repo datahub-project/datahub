@@ -69,65 +69,11 @@ jobs:
       - name: Check sourcemap sizes against Cloudflare limit
         # Must run immediately after the -Psourcemap build and BEFORE "Report initial JS bundle
         # size", which rebuilds dist/ from the base commit without sourcemaps and would wipe the
-        # maps this step inspects. Cloudflare Pages rejects any single file over 25 MiB
-        # (26,214,400 bytes — it markets this as "26.2 MB" using decimal MB), which silently
-        # breaks the deploy after merge (this is why -Psourcemap was hotfix-removed once). Catch
-        # it on the PR instead: hard-fail if any *.map reaches the limit, warn earlier so a chunk
-        # can be split (see manualChunks in vite.config.ts) before it ever hard-fails. Comparisons
-        # are in BYTES against Cloudflare's exact ceiling — do NOT use 26.2*1024*1024, which is
-        # ~1.26 MB too generous and would pass files Cloudflare then rejects.
+        # maps this step inspects. See .github/scripts/check_sourcemap_sizes.py for why the limit
+        # matters (a rejected map silently breaks the Meticulous preview deploy — the reason
+        # -Psourcemap was hotfix-removed once).
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
-        run: |
-          python3 - <<'PY'
-          import glob, os, sys
-
-          HARD_LIMIT = 26_214_400             # Cloudflare Pages per-file limit: 25 MiB, byte-exact.
-          WARN_LIMIT = int(HARD_LIMIT * 0.9)  # early-warning threshold (~90% of the hard limit)
-          MIB = 1024 * 1024
-
-          maps = sorted(glob.glob('datahub-web-react/dist/assets/*.map'),
-                        key=os.path.getsize, reverse=True)
-          if not maps:
-              # The build ran with -Psourcemap, so maps must exist here. None means generation
-              # silently broke (e.g. a stale build cache) — fail loudly rather than skip, since a
-              # mapless deploy is exactly the Meticulous-coverage regression this guards against.
-              print('::error title=No source maps generated::The -Psourcemap build produced no '
-                    '*.js.map in datahub-web-react/dist/assets. Source-map generation is broken.')
-              print('FAIL: expected source maps after a -Psourcemap build, found none.')
-              sys.exit(1)
-
-          over, warn = [], []
-          for m in maps:
-              size = os.path.getsize(m)
-              name = os.path.basename(m)
-              print(f'  {size / MIB:6.2f} MiB  {name}')
-              if size >= HARD_LIMIT:
-                  over.append((name, size))
-              elif size >= WARN_LIMIT:
-                  warn.append((name, size))
-
-          # GitHub Actions annotations surface in the PR "Files changed" / checks UI.
-          for name, size in warn:
-              print(f'::warning title=Sourcemap approaching Cloudflare limit::'
-                    f'{name} is {size / MIB:.2f} MiB (warn >= {WARN_LIMIT / MIB:.2f} MiB, hard '
-                    f'limit {HARD_LIMIT / MIB:.2f} MiB). Split a chunk in vite.config.ts '
-                    f'manualChunks soon.')
-
-          if over:
-              for name, size in over:
-                  print(f'::error title=Sourcemap over Cloudflare limit::'
-                        f'{name} is {size / MIB:.2f} MiB ({size} bytes), exceeding the Cloudflare '
-                        f'Pages {HARD_LIMIT / MIB:.2f} MiB ({HARD_LIMIT} bytes) per-file limit. '
-                        f'Split this chunk in vite.config.ts manualChunks.')
-              print(f'\nFAIL: {len(over)} source map(s) exceed the {HARD_LIMIT / MIB:.2f} MiB '
-                    f'Cloudflare Pages limit.')
-              sys.exit(1)
-
-          biggest = os.path.getsize(maps[0])
-          print(f'\nOK: all {len(maps)} source maps under {HARD_LIMIT / MIB:.2f} MiB '
-                f'(largest {biggest / MIB:.2f} MiB, {(HARD_LIMIT - biggest) / MIB:.2f} MiB '
-                f'headroom).')
-          PY
+        run: python3 .github/scripts/check_sourcemap_sizes.py datahub-web-react/dist/assets/*.map
       - name: Publish
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
         uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1
