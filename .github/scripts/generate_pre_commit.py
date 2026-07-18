@@ -153,6 +153,17 @@ class HookGenerator:
 
         for project in self.projects:
             if project.type == ProjectType.PYTHON:
+                # The ruff hooks run the module's own pinned ruff from its
+                # Gradle-managed venv (<module>/venv/bin/ruff). Only emit them
+                # for modules that actually have a build.gradle (and thus an
+                # installDev task that builds that venv); modules without one
+                # have no module ruff to use, so they get no ruff hook.
+                if not os.path.exists(os.path.join(project.path, "build.gradle")):
+                    print(
+                        f"Skipping ruff hooks for {project.path}: "
+                        "no build.gradle (no Gradle-managed venv / module ruff)"
+                    )
+                    continue
                 hooks.extend(self._generate_python_hooks(project))
             elif project.type == ProjectType.JAVA:
                 hooks.append(self._generate_spotless_hook(project))
@@ -194,19 +205,25 @@ class HookGenerator:
         Replaces the previous module-wide ``gradle :<module>:lintFix`` hook
         (which lint-fixed the entire module on every commit, with
         ``pass_filenames: false``) with two fast staged-file ruff hooks that
-        only check/format the files actually staged for commit. Ruff resolves
-        its configuration by walking up from each staged file to the nearest
-        ``pyproject.toml``, so each module's pinned ruff config applies
-        automatically. The ruff version is the one pinned in the module's
-        ``setup.py``/``pyproject.toml`` (currently 0.15.18); no remote hook
-        repo is introduced.
+        only check/format the files actually staged for commit.
+
+        Each hook runs the module's own pinned ruff via
+        ``.github/scripts/python_staged_ruff.sh``: the wrapper invokes
+        ``<module>/venv/bin/ruff`` (the version installed by the module's
+        Gradle ``installDev`` task, e.g. 0.15.18 for metadata-ingestion and
+        0.11.7 for the other modules), and fails fast with an ``installDev``
+        instruction if that venv hasn't been built. Ruff resolves its
+        configuration by walking up from each staged file to the nearest
+        ``pyproject.toml``, so each module's ``[tool.ruff]`` config applies
+        automatically. No remote hook repo is introduced.
         """
         files_regex = f"^{project.path}/.*\\.py$"
+        wrapper = "bash .github/scripts/python_staged_ruff.sh"
         return [
             {
                 "id": f"{project.project_id}-ruff-check",
                 "name": f"{project.path} Ruff Check",
-                "entry": "ruff check --fix",
+                "entry": f"{wrapper} {project.path} check --fix",
                 "language": "system",
                 "files": files_regex,
                 "pass_filenames": True,
@@ -214,7 +231,7 @@ class HookGenerator:
             {
                 "id": f"{project.project_id}-ruff-format",
                 "name": f"{project.path} Ruff Format",
-                "entry": "ruff format",
+                "entry": f"{wrapper} {project.path} format",
                 "language": "system",
                 "files": files_regex,
                 "pass_filenames": True,
