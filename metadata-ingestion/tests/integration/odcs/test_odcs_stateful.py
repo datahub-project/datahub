@@ -1,18 +1,16 @@
-"""Two-run stateful soft-delete behaviour for the ODCS source.
-
-Guards the exact invariant the `is_primary_source=False` design protects:
-when a contract drops a schema entry, the logical `odcs` dataset (and its
-assertions) for the dropped entry are soft-deleted, while the physical dataset
-and its `logicalParent` link are NEVER checkpointed and therefore can never be
-soft-deleted. A regression that flipped those flags to primary would soft-delete
-a customer's physical dataset — the flag-level wiring tests would still pass, so
-this behavioural test is the real guard.
-"""
+# Two-run stateful soft-delete behaviour for the ODCS source. Guards the exact
+# invariant the `is_primary_source=False` design protects: when a contract drops
+# a schema entry, the logical `odcs` dataset (and its assertions) for the dropped
+# entry are soft-deleted, while the physical dataset and its `logicalParent` link
+# are NEVER checkpointed and therefore can never be soft-deleted. A regression
+# that flipped those flags to primary would soft-delete a customer's physical
+# dataset — the flag-level wiring tests would still pass, so this behavioural
+# test is the real guard.
 
 import json
 import pathlib
 from typing import Any, Dict, List
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import time_machine
 
@@ -119,7 +117,7 @@ def _status_removed_urns(output_path: pathlib.Path) -> List[str]:
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_stateful_two_run_soft_deletes_dropped_logical_dataset_only(
     tmp_path: pathlib.Path,
-    mock_datahub_graph,  # noqa: F811
+    mock_datahub_graph: MagicMock,  # noqa: F811
 ) -> None:
     contract_dir = tmp_path / "contracts"
     contract_dir.mkdir()

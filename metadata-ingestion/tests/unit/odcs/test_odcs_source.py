@@ -689,7 +689,11 @@ def test_bad_file_is_skipped_and_run_continues(
 
 def test_unsupported_api_version_is_skipped(tmp_path: pathlib.Path) -> None:
     src = _make_source(tmp_path)
-    raw_dict: dict = {"apiVersion": "v2.0.0", "kind": "DataContract", "id": "x"}
+    raw_dict: Dict[str, str] = {
+        "apiVersion": "v2.0.0",
+        "kind": "DataContract",
+        "id": "x",
+    }
     assert not src._validate(raw_dict, tmp_path / "old.yaml")
     assert any(
         "Unsupported ODCS apiVersion" in str(getattr(w, "title", ""))
