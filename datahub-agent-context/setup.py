@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-from typing import Dict, Set
 
 import setuptools
 
@@ -45,7 +44,7 @@ def get_long_description():
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.7",
+    "ruff==0.15.22",
     "mypy==1.17.1",
 }
 
