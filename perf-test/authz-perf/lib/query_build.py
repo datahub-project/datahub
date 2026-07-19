@@ -126,8 +126,8 @@ def _expand_type_paths(
         return []
     prefix = expand.parent_path.rstrip(".")
     paths: List[str] = []
-    for field_name, field in gql_type.fields.items():
-        if _is_scalar_or_enum(_unwrap_type(field.type)):
+    for field_name, field_details in gql_type.fields.items():
+        if _is_scalar_or_enum(_unwrap_type(field_details.type)):
             paths.append(f"{prefix}.{field_name}")
     return paths
 
