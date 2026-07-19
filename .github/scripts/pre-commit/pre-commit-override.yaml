@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: guard-push-file-count
         name: Guard against massive pushes (>500 files)
-        entry: bash .github/scripts/guard_push_file_count.sh
+        entry: bash .github/scripts/pre-commit/guard_push_file_count.sh
         language: system
         pass_filenames: false
         always_run: true
