@@ -857,6 +857,7 @@ entities:
       - ownership
       - status
       - globalTags
+      - semanticContent
       - dataPlatformInstance
   - name: aiAgent
     doc: An AI agent with custom instructions, tools, and scoping. Supports native (DataHub-managed), system (bootstrapped), and external (cataloged) agents.
@@ -874,6 +875,7 @@ entities:
       - upstreamLineage
       - globalTags
       - glossaryTerms
+      - semanticContent
       - institutionalMemory
       - domains
       - incidentsSummary
@@ -893,6 +895,7 @@ entities:
       - status
       - globalTags
       - glossaryTerms
+      - semanticContent
       - institutionalMemory
       - domains
       - structuredProperties
@@ -912,6 +915,7 @@ entities:
       - status
       - globalTags
       - glossaryTerms
+      - semanticContent
       - domains
       - institutionalMemory
       - structuredProperties
@@ -928,6 +932,7 @@ entities:
       - status
       - globalTags
       - glossaryTerms
+      - semanticContent
       - institutionalMemory
       - domains
       - structuredProperties
