@@ -104,6 +104,12 @@ type Metric implements EntityWithRelationships & Entity {
   parentMetric: Metric
 
   """
+  All ancestor metrics from immediate parent up to the root, ordered nearest-first.
+  Used by the sidebar to auto-expand the tree to the currently-viewed metric.
+  """
+  parentMetrics: [Metric!]
+
+  """
   Child metrics in the metric hierarchy.
   """
   childMetrics(input: ScrollAcrossEntitiesInput!): ScrollResults

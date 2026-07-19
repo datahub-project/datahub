@@ -163,6 +163,7 @@ import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetRootMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetSemanticModelsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.MetricChildMetricsResolver;
+import com.linkedin.datahub.graphql.resolvers.metrics.ParentMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.SemanticModelMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.module.DeletePageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.module.UpsertPageModuleResolver;
@@ -4073,6 +4074,7 @@ public class GmsGraphQLEngine {
                           final Metric m = env.getSource();
                           return m.getParentMetric() != null ? m.getParentMetric().getUrn() : null;
                         }))
+                .dataFetcher("parentMetrics", new ParentMetricsResolver(entityClient))
                 .dataFetcher(
                     "platform",
                     new LoadableTypeResolver<>(

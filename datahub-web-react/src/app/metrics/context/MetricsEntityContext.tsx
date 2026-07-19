@@ -3,51 +3,49 @@ import { matchPath, useLocation } from 'react-router-dom';
 
 import { PageRoutes } from '@conf/Global';
 
-import { GetSemanticModelMetricsQuery } from '@graphql/metricsBrowse.generated';
+import { EntityType } from '@types';
 
-type SearchResultEntity = NonNullable<
-    NonNullable<
-        NonNullable<GetSemanticModelMetricsQuery['semanticModel']>['metrics']
-    >['searchResults'][number]['entity']
->;
-type MetricSearchResult = Extract<SearchResultEntity, { __typename?: 'Metric' }>;
+/** Minimal entity data needed by the sidebar to auto-expand the tree to the active entity. */
+export type MetricsEntityData = {
+    urn: string;
+    entityType: EntityType;
+    /** The semantic model that owns this metric (present when entityType === Metric). */
+    semanticModel?: { urn: string } | null;
+    /** Ancestor metrics from immediate parent to root, nearest first. */
+    parentMetrics?: Array<{ urn: string }> | null;
+};
 
 type MetricsEntityContextType = {
     expandedSemanticModelUrns: Set<string>;
     expandedMetricUrns: Set<string>;
     selectedUrn: string | null;
-    /** Cached per-semantic-model metric fetch results, keyed by model URN. */
-    childMetricsByModelUrn: Record<string, MetricSearchResult[]>;
-    /** Cached per-metric child metrics fetch results, keyed by parent metric URN. */
-    childMetricsByParentUrn: Record<string, MetricSearchResult[]>;
     toggleSemanticModel: (urn: string) => void;
     toggleMetric: (urn: string) => void;
     /** Expand every semantic model in `urns` (union with current). */
     expandAllSemanticModels: (urns: string[]) => void;
     /** Collapse every expanded semantic model and metric. */
     collapseAllExpanded: () => void;
-    setChildMetricsForModel: (modelUrn: string, metrics: MetricSearchResult[]) => void;
-    setChildMetricsForParent: (parentUrn: string, metrics: MetricSearchResult[]) => void;
     /** Signal the sidebar to refetch root + all expanded children. */
     refetchTree: () => void;
     /** Incremented each time refetchTree() is called; consumers subscribe via useEffect. */
     refetchKey: number;
+    /** Entity currently viewed in the profile pane; null on the /metrics home page. */
+    entityData: MetricsEntityData | null;
+    setEntityData: (data: MetricsEntityData | null) => void;
 };
 
 const MetricsEntityContext = createContext<MetricsEntityContextType>({
     expandedSemanticModelUrns: new Set(),
     expandedMetricUrns: new Set(),
     selectedUrn: null,
-    childMetricsByModelUrn: {},
-    childMetricsByParentUrn: {},
     toggleSemanticModel: () => {},
     toggleMetric: () => {},
     expandAllSemanticModels: () => {},
     collapseAllExpanded: () => {},
-    setChildMetricsForModel: () => {},
-    setChildMetricsForParent: () => {},
     refetchTree: () => {},
     refetchKey: 0,
+    entityData: null,
+    setEntityData: () => {},
 });
 
 type Props = {
@@ -68,9 +66,8 @@ export function MetricsEntityContextProvider({ children }: Props) {
     const location = useLocation();
     const [expandedSemanticModelUrns, setExpandedSemanticModelUrns] = useState<Set<string>>(new Set());
     const [expandedMetricUrns, setExpandedMetricUrns] = useState<Set<string>>(new Set());
-    const [childMetricsByModelUrn, setChildMetricsByModelUrn] = useState<Record<string, MetricSearchResult[]>>({});
-    const [childMetricsByParentUrn, setChildMetricsByParentUrn] = useState<Record<string, MetricSearchResult[]>>({});
     const [refetchKey, setRefetchKey] = useState(0);
+    const [entityData, setEntityData] = useState<MetricsEntityData | null>(null);
 
     // Derive selectedUrn from the current route without extra renders.
     const selectedUrn = useMemo(() => {
@@ -108,21 +105,10 @@ export function MetricsEntityContextProvider({ children }: Props) {
         setExpandedMetricUrns(new Set());
     }, []);
 
-    const setChildMetricsForModel = useCallback((modelUrn: string, metrics: MetricSearchResult[]) => {
-        setChildMetricsByModelUrn((prev) => ({ ...prev, [modelUrn]: metrics }));
-    }, []);
-
-    const setChildMetricsForParent = useCallback((parentUrn: string, metrics: MetricSearchResult[]) => {
-        setChildMetricsByParentUrn((prev) => ({ ...prev, [parentUrn]: metrics }));
-    }, []);
-
-    // Use a ref to avoid stale-closure captures in the callback.
     const refetchKeyRef = useRef(0);
     const refetchTree = useCallback(() => {
         refetchKeyRef.current += 1;
         setRefetchKey(refetchKeyRef.current);
-        setChildMetricsByModelUrn({});
-        setChildMetricsByParentUrn({});
     }, []);
 
     const value = useMemo(
@@ -130,31 +116,26 @@ export function MetricsEntityContextProvider({ children }: Props) {
             expandedSemanticModelUrns,
             expandedMetricUrns,
             selectedUrn,
-            childMetricsByModelUrn,
-            childMetricsByParentUrn,
             toggleSemanticModel,
             toggleMetric,
             expandAllSemanticModels,
             collapseAllExpanded,
-            setChildMetricsForModel,
-            setChildMetricsForParent,
             refetchTree,
             refetchKey,
+            entityData,
+            setEntityData,
         }),
         [
             expandedSemanticModelUrns,
             expandedMetricUrns,
             selectedUrn,
-            childMetricsByModelUrn,
-            childMetricsByParentUrn,
             toggleSemanticModel,
             toggleMetric,
             expandAllSemanticModels,
             collapseAllExpanded,
-            setChildMetricsForModel,
-            setChildMetricsForParent,
             refetchTree,
             refetchKey,
+            entityData,
         ],
     );
 
