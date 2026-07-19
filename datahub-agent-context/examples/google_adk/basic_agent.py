@@ -27,13 +27,19 @@ import os
 import sys
 import warnings
 
-import google.auth
-from google.adk.agents import Agent
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.adk.tools.bigquery import BigQueryCredentialsConfig, BigQueryToolset
-from google.adk.tools.bigquery.config import BigQueryToolConfig, WriteMode
-from google.genai import types
+import google.auth  # type: ignore[import-not-found]
+from google.adk.agents import Agent  # type: ignore[import-not-found]
+from google.adk.runners import Runner  # type: ignore[import-not-found]
+from google.adk.sessions import InMemorySessionService  # type: ignore[import-not-found]
+from google.adk.tools.bigquery import (  # type: ignore[import-not-found]
+    BigQueryCredentialsConfig,
+    BigQueryToolset,
+)
+from google.adk.tools.bigquery.config import (  # type: ignore[import-not-found]
+    BigQueryToolConfig,
+    WriteMode,
+)
+from google.genai import types  # type: ignore[import-not-found]
 
 from datahub.sdk.main_client import DataHubClient
 from datahub_agent_context.google_adk_tools import (
