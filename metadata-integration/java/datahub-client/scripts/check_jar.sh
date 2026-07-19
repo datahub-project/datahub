@@ -30,7 +30,6 @@ jar -tvf $jarFile |\
       grep -v "com/google/" |\
       grep -v "org/codehaus/" |\
       grep -v "client.properties" |\
-      grep -v "schema-registry-client-app.properties" |\
       grep -v "kafka" |\
       grep -v "win/" |\
       grep -v "include/" |\

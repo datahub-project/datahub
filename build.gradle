@@ -84,8 +84,11 @@ buildscript {
   ext.hadoopShadedProtobuf_3_25_Version = '1.5.0'
   // CVE-2024-23454 (RunJar temp dir permissions) is fixed in hadoop-common 3.4.0+; pin thirdparty jar beyond Hadoop’s transitive 1.3.0 for scanner hygiene.
   ext.hadoopShadedGuavaVersion = '1.5.0'
-  // Confluent Platform 8.2.x tracks Apache Kafka 4.2.x (share groups production-ready)
+  // kafka-clients + broker images: CP 8.2 / Kafka 4.2 (share groups production-ready).
+  // Confluent Avro SerDe / schema-registry-client stay on 8.1 — 8.2+ needs Avro 1.12
+  // (NameValidator), which breaks LinkedIn avro-util / Pegasus (Avro 1.4–1.11 only).
   ext.kafkaVersion = '8.2.2'
+  ext.confluentSerdeVersion = '8.1.0'
   // at.yawk.lz4 fork (CVE-2025-12183); single version for externalDependency.lz4Java + resolutionStrategy
   ext.lz4JavaVersion = '1.11.0'
   // Hazelcast shades Jackson 2.x/3.x inside hazelcast-*.jar (v5.7.0: jackson-databind 2.21.2, 3.1.2).
@@ -273,9 +276,9 @@ project.ext.externalDependency = [
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
-    // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
-    'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$kafkaVersion",
-    'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$kafkaVersion",
+    // Avro SerDe / SR client: pin separately from kafka-clients (see confluentSerdeVersion).
+    'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$confluentSerdeVersion",
+    'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$confluentSerdeVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.7',
     'janino': "org.codehaus.janino:janino:$janinoVersion",
@@ -564,6 +567,15 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "org.bouncycastle:bcprov-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
     resolutionStrategy.force "org.bouncycastle:bcutil-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
     resolutionStrategy.force "org.springframework.kafka:spring-kafka:${rootProject.ext.springKafkaVersion}"
+    // Keep Confluent Avro SerDe / SR client on 8.1 while kafka-clients is 8.2 (see confluentSerdeVersion).
+    // Force kafka-clients up so SerDe 8.1 cannot downgrade it via its transitive 8.1.0-ccs dep.
+    resolutionStrategy.force "org.apache.kafka:kafka-clients:${rootProject.ext.kafkaVersion}-ccs"
+    resolutionStrategy.force "io.confluent:kafka-avro-serializer:${rootProject.ext.confluentSerdeVersion}"
+    resolutionStrategy.force "io.confluent:kafka-streams-avro-serde:${rootProject.ext.confluentSerdeVersion}"
+    resolutionStrategy.force "io.confluent:kafka-schema-registry-client:${rootProject.ext.confluentSerdeVersion}"
+    resolutionStrategy.force "io.confluent:kafka-schema-serializer:${rootProject.ext.confluentSerdeVersion}"
+    resolutionStrategy.force "io.confluent:kafka-avro-types:${rootProject.ext.confluentSerdeVersion}"
+    resolutionStrategy.force "io.confluent:kafka-schema-types:${rootProject.ext.confluentSerdeVersion}"
     resolutionStrategy.force "org.jline:jline:${rootProject.ext.jlineVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981; overrides d2's 3.6.3
