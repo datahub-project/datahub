@@ -79,49 +79,6 @@ The `queryUsageStatistics` aspect is a timeseries aspect that tracks execution s
 
 This aspect is typically populated automatically by ingestion connectors that process query logs from data platforms. The timeseries nature allows for tracking trends and patterns in query usage over time.
 
-### Tags and Glossary Terms
-
-Like other DataHub entities, queries can have Tags or Terms attached to them. Tags are informal labels for categorizing queries (e.g., "production", "experimental", "deprecated"), while Terms are formal vocabulary from a business glossary (e.g., "Customer Data", "Financial Reporting").
-
-#### Adding Tags to a Query
-
-Tags are added to queries using the `globalTags` aspect.
-
-<details>
-<summary>Python SDK: Add a tag to a query</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/query_add_tag.py show_path_as_comment }}
-```
-
-</details>
-
-#### Adding Glossary Terms to a Query
-
-Terms are added using the `glossaryTerms` aspect.
-
-<details>
-<summary>Python SDK: Add a term to a query</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/query_add_term.py show_path_as_comment }}
-```
-
-</details>
-
-### Ownership
-
-Ownership is associated to a query using the `ownership` aspect. Owners can be of different types such as `TECHNICAL_OWNER`, `BUSINESS_OWNER`, `DATA_STEWARD`, etc. Ownership helps identify who is responsible for maintaining and understanding specific queries.
-
-<details>
-<summary>Python SDK: Add an owner to a query</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/query_add_owner.py show_path_as_comment }}
-```
-
-</details>
-
 ### Platform Instance
 
 The `dataPlatformInstance` aspect allows you to specify which specific instance of a data platform the query is associated with. This is useful when you have multiple instances of the same platform (e.g., multiple Snowflake accounts or BigQuery projects).
