@@ -1483,22 +1483,24 @@ class SQLServerSource(SQLAlchemySource):
         if name in self._discovered_table_cache:
             return self._discovered_table_cache[name]
 
+        result = self._compute_is_discovered_table(name)
+        self._discovered_table_cache[name] = result
+        return result
+
+    def _compute_is_discovered_table(self, name: str) -> bool:
+        """Branch logic without caching; the caller caches the result."""
         if any(
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
-            result = False
-            self._discovered_table_cache[name] = result
-            return result
+            return False
 
         try:
             parts = name.split(".")
             table_name = parts[-1]
 
             if table_name.startswith("#"):
-                result = False
-                self._discovered_table_cache[name] = result
-                return result
+                return False
 
             standardized_name = self.standardize_identifier_case(name)
 
@@ -1513,9 +1515,7 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
                 if schema_resolver.has_urn(urn):
-                    result = True
-                    self._discovered_table_cache[name] = result
-                    return result
+                    return True
 
             if len(parts) >= MSSQL_QUALIFIED_NAME_PARTS:
                 schema_name = parts[-2]
@@ -1526,16 +1526,8 @@ class SQLServerSource(SQLAlchemySource):
                     and self.config.schema_pattern.allowed(schema_name)
                     and self.config.table_pattern.allowed(name)
                 ):
-                    if standardized_name not in self.discovered_datasets:
-                        result = False
-                    else:
-                        result = True
-                    self._discovered_table_cache[name] = result
-                    return result
-                else:
-                    result = False
-                    self._discovered_table_cache[name] = result
-                    return result
+                    return standardized_name in self.discovered_datasets
+                return False
 
             # TSQL procedures reference tables as `schema.table` even though
             # discovery records them as `db.schema.table`; match on the
@@ -1548,21 +1540,15 @@ class SQLServerSource(SQLAlchemySource):
                     # Leading "." requires a db-qualified match on a segment
                     # boundary (so "dbo" won't match schema "xdbo").
                     if discovered_name.endswith(f".{standardized_name}"):
-                        result = True
-                        self._discovered_table_cache[name] = result
-                        return result
+                        return True
 
             # For names with fewer than MSSQL_QUALIFIED_NAME_PARTS,
             # treat as undiscovered since we can't verify
-            result = False
-            self._discovered_table_cache[name] = result
-            return result
+            return False
 
         except Exception as e:
             logger.warning("Error parsing table name %s: %s", name, e)
-            result = False
-            self._discovered_table_cache[name] = result
-            return result
+            return False
 
     def standardize_identifier_case(self, table_ref_str: str) -> str:
         return (
