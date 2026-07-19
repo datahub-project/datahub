@@ -611,10 +611,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | usage_common,
     "bigid": {"requests>=2.28.0,<3.0"},
-    "bigquery": sql_common
-    | bigquery_common
-    | sqlglot_lib
-    | datacatalog_lineage_common,
+    "bigquery": sql_common | bigquery_common | sqlglot_lib | datacatalog_lineage_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
