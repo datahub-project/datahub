@@ -63,7 +63,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.kafka.ConfluentKafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.Test;
 
@@ -87,12 +87,14 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   private static final String CONFLUENT_PLATFORM_VERSION = "8.2.2";
   private static final int SERVER_PORT = allocateFreePort();
 
-  static KafkaContainer kafka =
-      new KafkaContainer(
+  // ConfluentKafkaContainer is KRaft-aware; the deprecated containers.KafkaContainer wait
+  // still looks for classic [KafkaServer id=…] logs and fails on cp-kafka 8.x.
+  static ConfluentKafkaContainer kafka =
+      new ConfluentKafkaContainer(
               DockerImageName.parse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
           .withReuse(true)
           .withStartupAttempts(5)
-          .withStartupTimeout(Duration.of(30, ChronoUnit.SECONDS));
+          .withStartupTimeout(Duration.of(60, ChronoUnit.SECONDS));
 
   @DynamicPropertySource
   static void kafkaProperties(DynamicPropertyRegistry registry) {
