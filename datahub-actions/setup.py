@@ -79,9 +79,7 @@ plugins: Dict[str, Set[str]] = {
         "confluent-kafka[schemaregistry]<2.13.0",
     },
     # Action Plugins
-    "executor": {
-        "acryl-executor>=0.3.11,<1"
-    },
+    "executor": {"acryl-executor>=0.3.11,<1"},
     "slack": {
         "slack-bolt>=1.15.5",
     },
