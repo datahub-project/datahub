@@ -197,7 +197,12 @@ class HookGenerator:
         # config) is not newly linted.
         if ruff_module_dirs:
             dirs_alt = "|".join(d.replace(".", r"\.") for d in ruff_module_dirs)
-            files_regex = f"^({dirs_alt})/.*\\.py$"
+            # Match .py plus pyproject.toml/ruff.toml in these modules: ruff config
+            # lives in those toml files, so editing them can change lint/format
+            # results and must retrigger the hook (not just .py edits).
+            files_regex = (
+                f"^({dirs_alt})/(?:.*\\.py$|(?:.*/)?(?:pyproject|ruff)\\.toml$)"
+            )
             exclude_re = r"(^|/)(venv|build|dist|node_modules|\.git)/"
             ruff_image = "ghcr.io/astral-sh/ruff:0.15.22"
             ruff_hooks = [
