@@ -264,7 +264,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
         )
 
         # If dashboard is in a folder, add it to folder container
-        if dashboard.folder_id:
+        if dashboard.folder_id and dashboard.folder_id != "0":
             folder_key = FolderKey(
                 platform=self.config.platform,
                 instance=self.config.platform_instance,
