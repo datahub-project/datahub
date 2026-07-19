@@ -4,6 +4,26 @@
 repos:
   - repo: local
     hooks:
+      - id: ruff-check
+        name: Ruff Check (all Python modules)
+        entry: ghcr.io/astral-sh/ruff:0.15.18 check --fix
+        language: docker_image
+        files: ^(datahub-actions|datahub-agent-context|metadata-ingestion|metadata-ingestion-modules/airflow-plugin|metadata-ingestion-modules/dagster-plugin|metadata-ingestion-modules/gx-plugin|metadata-ingestion-modules/prefect-plugin|metadata-service/iceberg-catalog|smoke-test)/.*\.py$
+        exclude: (^|/)(venv|build|dist|node_modules|\.git)/
+        pass_filenames: true
+        stages:
+          - pre-commit
+
+      - id: ruff-format
+        name: Ruff Format (all Python modules)
+        entry: ghcr.io/astral-sh/ruff:0.15.18 format
+        language: docker_image
+        files: ^(datahub-actions|datahub-agent-context|metadata-ingestion|metadata-ingestion-modules/airflow-plugin|metadata-ingestion-modules/dagster-plugin|metadata-ingestion-modules/gx-plugin|metadata-ingestion-modules/prefect-plugin|metadata-service/iceberg-catalog|smoke-test)/.*\.py$
+        exclude: (^|/)(venv|build|dist|node_modules|\.git)/
+        pass_filenames: true
+        stages:
+          - pre-push
+
       - id: datahub-web-react-mdPrettierWriteChanged
         name: mdPrettierWriteChanged
         entry: ./gradlew :datahub-web-react:mdPrettierWriteChanged -x generateGitPropertiesGlobal
@@ -30,61 +50,6 @@ repos:
         language: system
         files: ^contrib/metadata-model-extensions/datahub-demo-dataset-governance-validator/.*\.java$
         pass_filenames: false
-        stages:
-          - pre-push
-
-      - id: datahub-actions-ruff-check
-        name: datahub-actions Ruff Check
-        entry: bash .github/scripts/python_staged_ruff.sh datahub-actions check --fix
-        language: system
-        files: ^datahub-actions/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-commit
-
-      - id: datahub-actions-ruff-format
-        name: datahub-actions Ruff Format
-        entry: bash .github/scripts/python_staged_ruff.sh datahub-actions format
-        language: system
-        files: ^datahub-actions/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: datahub-actions-mypy
-        name: datahub-actions Mypy
-        entry: bash .github/scripts/python_staged_mypy.sh datahub-actions
-        language: system
-        files: ^datahub-actions/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: datahub-agent-context-ruff-check
-        name: datahub-agent-context Ruff Check
-        entry: bash .github/scripts/python_staged_ruff.sh datahub-agent-context check
-          --fix
-        language: system
-        files: ^datahub-agent-context/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-commit
-
-      - id: datahub-agent-context-ruff-format
-        name: datahub-agent-context Ruff Format
-        entry: bash .github/scripts/python_staged_ruff.sh datahub-agent-context format
-        language: system
-        files: ^datahub-agent-context/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: datahub-agent-context-mypy
-        name: datahub-agent-context Mypy
-        entry: bash .github/scripts/python_staged_mypy.sh datahub-agent-context
-        language: system
-        files: ^datahub-agent-context/.*\.py$
-        pass_filenames: true
         stages:
           - pre-push
 
@@ -193,150 +158,6 @@ repos:
         language: system
         files: ^metadata-events/mxe-utils-avro/.*\.java$
         pass_filenames: false
-        stages:
-          - pre-push
-
-      - id: metadata-ingestion-ruff-check
-        name: metadata-ingestion Ruff Check
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion check
-          --fix
-        language: system
-        files: ^metadata-ingestion/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-commit
-
-      - id: metadata-ingestion-ruff-format
-        name: metadata-ingestion Ruff Format
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion format
-        language: system
-        files: ^metadata-ingestion/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: metadata-ingestion-mypy
-        name: metadata-ingestion Mypy
-        entry: bash .github/scripts/python_staged_mypy.sh metadata-ingestion
-        language: system
-        files: ^metadata-ingestion/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: metadata-ingestion-modules-airflow-plugin-ruff-check
-        name: metadata-ingestion-modules/airflow-plugin Ruff Check
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/airflow-plugin
-          check --fix
-        language: system
-        files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-commit
-
-      - id: metadata-ingestion-modules-airflow-plugin-ruff-format
-        name: metadata-ingestion-modules/airflow-plugin Ruff Format
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/airflow-plugin
-          format
-        language: system
-        files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: metadata-ingestion-modules-airflow-plugin-mypy
-        name: metadata-ingestion-modules/airflow-plugin Mypy
-        entry: bash .github/scripts/python_staged_mypy.sh metadata-ingestion-modules/airflow-plugin
-        language: system
-        files: ^metadata-ingestion-modules/airflow-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: metadata-ingestion-modules-dagster-plugin-ruff-check
-        name: metadata-ingestion-modules/dagster-plugin Ruff Check
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/dagster-plugin
-          check --fix
-        language: system
-        files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-commit
-
-      - id: metadata-ingestion-modules-dagster-plugin-ruff-format
-        name: metadata-ingestion-modules/dagster-plugin Ruff Format
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/dagster-plugin
-          format
-        language: system
-        files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: metadata-ingestion-modules-dagster-plugin-mypy
-        name: metadata-ingestion-modules/dagster-plugin Mypy
-        entry: bash .github/scripts/python_staged_mypy.sh metadata-ingestion-modules/dagster-plugin
-        language: system
-        files: ^metadata-ingestion-modules/dagster-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: metadata-ingestion-modules-gx-plugin-ruff-check
-        name: metadata-ingestion-modules/gx-plugin Ruff Check
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/gx-plugin
-          check --fix
-        language: system
-        files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-commit
-
-      - id: metadata-ingestion-modules-gx-plugin-ruff-format
-        name: metadata-ingestion-modules/gx-plugin Ruff Format
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/gx-plugin
-          format
-        language: system
-        files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: metadata-ingestion-modules-gx-plugin-mypy
-        name: metadata-ingestion-modules/gx-plugin Mypy
-        entry: bash .github/scripts/python_staged_mypy.sh metadata-ingestion-modules/gx-plugin
-        language: system
-        files: ^metadata-ingestion-modules/gx-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: metadata-ingestion-modules-prefect-plugin-ruff-check
-        name: metadata-ingestion-modules/prefect-plugin Ruff Check
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/prefect-plugin
-          check --fix
-        language: system
-        files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-commit
-
-      - id: metadata-ingestion-modules-prefect-plugin-ruff-format
-        name: metadata-ingestion-modules/prefect-plugin Ruff Format
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-ingestion-modules/prefect-plugin
-          format
-        language: system
-        files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: metadata-ingestion-modules-prefect-plugin-mypy
-        name: metadata-ingestion-modules/prefect-plugin Mypy
-        entry: bash .github/scripts/python_staged_mypy.sh metadata-ingestion-modules/prefect-plugin
-        language: system
-        files: ^metadata-ingestion-modules/prefect-plugin/.*\.py$
-        pass_filenames: true
         stages:
           - pre-push
 
@@ -608,26 +429,6 @@ repos:
         stages:
           - pre-push
 
-      - id: metadata-service-iceberg-catalog-ruff-check
-        name: metadata-service/iceberg-catalog Ruff Check
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-service/iceberg-catalog
-          check --fix
-        language: system
-        files: ^metadata-service/iceberg-catalog/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-commit
-
-      - id: metadata-service-iceberg-catalog-ruff-format
-        name: metadata-service/iceberg-catalog Ruff Format
-        entry: bash .github/scripts/python_staged_ruff.sh metadata-service/iceberg-catalog
-          format
-        language: system
-        files: ^metadata-service/iceberg-catalog/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
       - id: metadata-service-openapi-analytics-servlet-spotless
         name: metadata-service/openapi-analytics-servlet Spotless Apply
         entry: ./gradlew :metadata-service:openapi-analytics-servlet:spotlessApply
@@ -796,39 +597,22 @@ repos:
         stages:
           - pre-push
 
-      - id: smoke-test-ruff-check
-        name: smoke-test Ruff Check
-        entry: bash .github/scripts/python_staged_ruff.sh smoke-test check --fix
-        language: system
-        files: ^smoke-test/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-commit
-
-      - id: smoke-test-ruff-format
-        name: smoke-test Ruff Format
-        entry: bash .github/scripts/python_staged_ruff.sh smoke-test format
-        language: system
-        files: ^smoke-test/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
-      - id: smoke-test-mypy
-        name: smoke-test Mypy
-        entry: bash .github/scripts/python_staged_mypy.sh smoke-test
-        language: system
-        files: ^smoke-test/.*\.py$
-        pass_filenames: true
-        stages:
-          - pre-push
-
       - id: test-models-spotless
         name: test-models Spotless Apply
         entry: ./gradlew :test-models:spotlessApply -x generateGitPropertiesGlobal
         language: system
         files: ^test-models/.*\.java$
         pass_filenames: false
+        stages:
+          - pre-push
+
+      - id: mypy
+        name: Mypy (all Python modules)
+        entry: bash .github/scripts/python_staged_mypy.sh --modules datahub-actions,datahub-agent-context,metadata-ingestion,metadata-ingestion-modules/airflow-plugin,metadata-ingestion-modules/dagster-plugin,metadata-ingestion-modules/gx-plugin,metadata-ingestion-modules/prefect-plugin,smoke-test
+        language: system
+        files: ^(datahub-actions|datahub-agent-context|metadata-ingestion|metadata-ingestion-modules/airflow-plugin|metadata-ingestion-modules/dagster-plugin|metadata-ingestion-modules/gx-plugin|metadata-ingestion-modules/prefect-plugin|smoke-test)/.*\.py$
+        exclude: (^|/)(venv|build|dist|node_modules|\.git)/
+        pass_filenames: true
         stages:
           - pre-push
 

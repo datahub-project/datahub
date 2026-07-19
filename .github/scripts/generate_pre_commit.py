@@ -150,27 +150,110 @@ class HookGenerator:
     def generate_config(self) -> dict:
         """Generate the complete pre-commit config."""
         hooks = []
+        # Python module dirs that have a build.gradle (and thus a Gradle-managed
+        # venv). These are the dirs the collapsed repo-wide ruff hooks cover.
+        # Non-module .py (e.g. .github/scripts/, docker/, python-build/) is
+        # intentionally NOT covered — it had no ruff coverage before and would
+        # fail under ruff's default rules.
+        ruff_module_dirs: list[str] = []
+        # Subset of ruff_module_dirs whose build.gradle lint task runs mypy.
+        # These are the dirs the single repo-wide mypy hook covers.
+        mypy_module_dirs: list[str] = []
 
         for project in self.projects:
             if project.type == ProjectType.PYTHON:
-                # The ruff hooks run the module's own pinned ruff from its
-                # Gradle-managed venv (<module>/venv/bin/ruff). Only emit them
-                # for modules that actually have a build.gradle (and thus an
-                # installDev task that builds that venv); modules without one
-                # have no module ruff to use, so they get no ruff hook.
+                # The mypy hook runs each module's own pinned mypy from its
+                # Gradle-managed venv (<module>/venv/bin/mypy), which needs the
+                # module's deps installed. Only emit it for modules that actually
+                # have a build.gradle (and thus an installDev task that builds
+                # that venv); modules without one have no module mypy to use, so
+                # they get no mypy coverage. (ruff is repo-wide and needs no
+                # module venv — it is emitted once below.)
                 if not os.path.exists(os.path.join(project.path, "build.gradle")):
                     print(
-                        f"Skipping ruff hooks for {project.path}: "
-                        "no build.gradle (no Gradle-managed venv / module ruff)"
+                        f"Skipping mypy hook for {project.path}: "
+                        "no build.gradle (no Gradle-managed venv / module mypy)"
                     )
                     continue
-                hooks.extend(self._generate_python_hooks(project))
+                ruff_module_dirs.append(project.path)
+                if self._module_has_mypy(project):
+                    mypy_module_dirs.append(project.path)
             elif project.type == ProjectType.JAVA:
                 hooks.append(self._generate_spotless_hook(project))
             elif project.type == ProjectType.PRETTIER:
                 hooks.append(self._generate_prettier_hook(project))
             else:
                 print(f"Warning: Unsupported project type {project.type} for {project.path}")
+
+        # Collapse all per-module ruff hooks into two repo-wide hooks (one check,
+        # one format) using the official ruff Docker image (pinned to the latest
+        # version pinned across modules — metadata-ingestion pins 0.15.18, the
+        # rest 0.11.7). Using the Docker image (language: docker_image) avoids
+        # needing any system/venv ruff install and gives a reproducible version
+        # across all machines. ruff does per-file config discovery, so each
+        # module's own [tool.ruff] in its pyproject.toml still applies (the repo
+        # is mounted into the container at the same path). ruff never imports
+        # the code or its deps, so no module venv is required. The `files` regex
+        # is a union of the module dirs so non-module .py (which has no ruff
+        # config) is not newly linted.
+        if ruff_module_dirs:
+            dirs_alt = "|".join(d.replace(".", r"\.") for d in ruff_module_dirs)
+            files_regex = f"^({dirs_alt})/.*\\.py$"
+            exclude_re = r"(^|/)(venv|build|dist|node_modules|\.git)/"
+            ruff_image = "ghcr.io/astral-sh/ruff:0.15.18"
+            ruff_hooks = [
+                {
+                    "id": "ruff-check",
+                    "name": "Ruff Check (all Python modules)",
+                    # ruff check --fix applies safe lint fixes (can change code);
+                    # keep it at pre-commit so issues are caught before commit.
+                    "entry": f"{ruff_image} check --fix",
+                    "language": "docker_image",
+                    "files": files_regex,
+                    "exclude": exclude_re,
+                    "pass_filenames": True,
+                    "stages": ["pre-commit"],
+                },
+                {
+                    "id": "ruff-format",
+                    "name": "Ruff Format (all Python modules)",
+                    # ruff format is a pure formatter (no meaning change); pre-push.
+                    "entry": f"{ruff_image} format",
+                    "language": "docker_image",
+                    "files": files_regex,
+                    "exclude": exclude_re,
+                    "pass_filenames": True,
+                    "stages": ["pre-push"],
+                },
+            ]
+            # Generated hooks are emitted before override hooks; prepend ruff so
+            # ruff check runs first among the generated python hooks.
+            hooks = ruff_hooks + hooks
+
+        # Collapse all per-module mypy hooks into one repo-wide hook (pre-push).
+        # mypy uses single-config (CWD-based) discovery and resolves imports
+        # against the module's installed deps, so it cannot be a single process
+        # across modules — the wrapper groups staged files by module and invokes
+        # each module's own <module>/venv/bin/mypy from the module dir (so each
+        # module's mypy config still applies). The `files` regex is a union of
+        # the mypy module dirs so non-module .py is not type-checked. mypy is
+        # slow, so it stays at pre-push; CI still runs the full module-wide mypy
+        # via `./gradlew :<module>:lint`. See PFP-5002.
+        if mypy_module_dirs:
+            m_dirs_alt = "|".join(d.replace(".", r"\.") for d in mypy_module_dirs)
+            m_files_regex = f"^({m_dirs_alt})/.*\\.py$"
+            modules_arg = ",".join(mypy_module_dirs)
+            mypy_hook = {
+                "id": "mypy",
+                "name": "Mypy (all Python modules)",
+                "entry": f"bash .github/scripts/python_staged_mypy.sh --modules {modules_arg}",
+                "language": "system",
+                "files": m_files_regex,
+                "exclude": r"(^|/)(venv|build|dist|node_modules|\.git)/",
+                "pass_filenames": True,
+                "stages": ["pre-push"],
+            }
+            hooks = hooks + [mypy_hook]
 
         config = {"repos": [{"repo": "local", "hooks": hooks}]}
         
@@ -198,69 +281,6 @@ class HookGenerator:
                 print(f"Warning: Error reading override file {self.override_file}: {e}")
 
         return config
-
-    def _generate_python_hooks(self, project: Project) -> list[dict]:
-        """Generate staged-file ruff hooks for a Python project.
-
-        Replaces the previous module-wide ``gradle :<module>:lintFix`` hook
-        (which lint-fixed the entire module on every commit, with
-        ``pass_filenames: false``) with two fast staged-file ruff hooks that
-        only check/format the files actually staged for commit.
-
-        Each hook runs the module's own pinned ruff via
-        ``.github/scripts/python_staged_ruff.sh``: the wrapper invokes
-        ``<module>/venv/bin/ruff`` (the version installed by the module's
-        Gradle ``installDev`` task, e.g. 0.15.18 for metadata-ingestion and
-        0.11.7 for the other modules), and fails fast with an ``installDev``
-        instruction if that venv hasn't been built. Ruff resolves its
-        configuration by walking up from each staged file to the nearest
-        ``pyproject.toml``, so each module's ``[tool.ruff]`` config applies
-        automatically. No remote hook repo is introduced.
-        """
-        files_regex = f"^{project.path}/.*\\.py$"
-        wrapper = "bash .github/scripts/python_staged_ruff.sh"
-        hooks = [
-            {
-                "id": f"{project.project_id}-ruff-check",
-                "name": f"{project.path} Ruff Check",
-                "entry": f"{wrapper} {project.path} check --fix",
-                "language": "system",
-                "files": files_regex,
-                "pass_filenames": True,
-                # ruff check --fix applies safe lint fixes (can change code);
-                # keep it at pre-commit so issues are caught before commit.
-                "stages": ["pre-commit"],
-            },
-            {
-                "id": f"{project.project_id}-ruff-format",
-                "name": f"{project.path} Ruff Format",
-                "entry": f"{wrapper} {project.path} format",
-                "language": "system",
-                "files": files_regex,
-                "pass_filenames": True,
-                # ruff format is a pure formatter (no meaning change); pre-push.
-                "stages": ["pre-push"],
-            },
-        ]
-        # mypy is slow, so it runs at pre-push (not pre-commit) and only on the
-        # staged files. Only emit a mypy hook for modules whose Gradle lint
-        # task actually runs mypy (detected via `"mypy` in build.gradle).
-        if self._module_has_mypy(project):
-            hooks.append(
-                {
-                    "id": f"{project.project_id}-mypy",
-                    "name": f"{project.path} Mypy",
-                    "entry": f"bash .github/scripts/python_staged_mypy.sh {project.path}",
-                    "language": "system",
-                    "files": files_regex,
-                    "pass_filenames": True,
-                    # mypy is slow; run it at pre-push on staged files only.
-                    # CI still runs the full module-wide mypy via
-                    # `./gradlew :<module>:lint`. See PFP-5002.
-                    "stages": ["pre-push"],
-                }
-            )
-        return hooks
 
     def _module_has_mypy(self, project: Project) -> bool:
         """Return True if the module's build.gradle runs mypy in a lint task.
