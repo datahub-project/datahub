@@ -23,13 +23,16 @@ Environment variables:
 import json
 import os
 
-import mlflow
-from databricks.sdk import WorkspaceClient
-from databricks_mcp import DatabricksMCPClient
-from mlflow.entities import SpanType
-from mlflow.pyfunc import ResponsesAgent
-from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
-from openai import OpenAI
+import mlflow  # type: ignore[import-not-found]
+from databricks.sdk import WorkspaceClient  # type: ignore[import-not-found]
+from databricks_mcp import DatabricksMCPClient  # type: ignore[import-not-found]
+from mlflow.entities import SpanType  # type: ignore[import-not-found]
+from mlflow.pyfunc import ResponsesAgent  # type: ignore[import-not-found]
+from mlflow.types.responses import (  # type: ignore[import-not-found]
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+)
+from openai import OpenAI  # type: ignore[import-not-found]
 
 SYSTEM_PROMPT = """\
 You are a data analyst assistant with access to two tool sources:

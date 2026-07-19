@@ -14,7 +14,7 @@
 
 import os
 
-import setuptools
+import setuptools  # type: ignore[import-untyped]
 
 package_metadata: dict = {}
 with open("./src/datahub_agent_context/_version.py") as fp:
