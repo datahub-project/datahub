@@ -7,7 +7,6 @@ and checks if they differ from the committed versions.
 
 import subprocess
 import sys
-import os
 
 
 def run_command(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess:

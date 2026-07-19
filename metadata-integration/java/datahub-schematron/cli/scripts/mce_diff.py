@@ -2,8 +2,6 @@ import json
 from typing import Dict, Any, Optional, Tuple
 import click
 
-import json
-from typing import Dict, Any
 
 
 def diff_lists(list1, list2):

@@ -5,8 +5,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
-from unittest import mock
+from typing import Any, List
 
 import pytest
 
