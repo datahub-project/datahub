@@ -65,6 +65,7 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"conftest.py" = ["E402"]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]

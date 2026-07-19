@@ -99,7 +99,7 @@ def restore_lockfiles():
     print("Restoring lockfiles to original state...")
     try:
         run_command(["git", "checkout", "**gradle.lockfile"], check=False)
-    except:
+    except subprocess.CalledProcessError as _:
         pass
 
 
