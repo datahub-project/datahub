@@ -8,7 +8,7 @@ task installRuff(type: Exec) {
   description = 'Create .venv and install ruff'
   outputs.file(venv_ruff)
   commandLine 'bash', '-c',
-    "python3 -m venv ${projectDir}/${venv_name} && ${venv_python} -m pip install --quiet ruff"
+    "python3 -m venv ${projectDir}/${venv_name} && ${venv_python} -m pip install --quiet ruff==0.15.22"
 }
 
 task lint(type: Exec, dependsOn: installRuff) {

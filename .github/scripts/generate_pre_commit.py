@@ -200,7 +200,7 @@ class HookGenerator:
             dirs_alt = "|".join(d.replace(".", r"\.") for d in ruff_module_dirs)
             files_regex = f"^({dirs_alt})/.*\\.py$"
             exclude_re = r"(^|/)(venv|build|dist|node_modules|\.git)/"
-            ruff_image = "ghcr.io/astral-sh/ruff:0.15.18"
+            ruff_image = "ghcr.io/astral-sh/ruff:0.15.22"
             ruff_hooks = [
                 {
                     "id": "ruff-check",

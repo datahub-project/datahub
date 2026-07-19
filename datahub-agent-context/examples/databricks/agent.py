@@ -28,10 +28,7 @@ from databricks.sdk import WorkspaceClient
 from databricks_mcp import DatabricksMCPClient
 from mlflow.entities import SpanType
 from mlflow.pyfunc import ResponsesAgent
-from mlflow.types.responses import (
-    ResponsesAgentRequest,
-    ResponsesAgentResponse,
-)
+from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
 from openai import OpenAI
 
 SYSTEM_PROMPT = """\
@@ -66,9 +63,7 @@ def _collect_mcp_tools(workspace_client: WorkspaceClient):
     all_tools = []
     clients = {}
     for url in server_urls:
-        client = DatabricksMCPClient(
-            server_url=url, workspace_client=workspace_client
-        )
+        client = DatabricksMCPClient(server_url=url, workspace_client=workspace_client)
         for tool in client.list_tools():
             all_tools.append(tool)
             clients[tool.name] = client
@@ -116,9 +111,7 @@ class DataHubGeniAgent(ResponsesAgent):
                 for tc in choice.message.tool_calls:
                     mcp_client = self.clients[tc.function.name]
                     args = json.loads(tc.function.arguments)
-                    result = mcp_client.call_tool(
-                        tc.function.name, args
-                    )
+                    result = mcp_client.call_tool(tc.function.name, args)
                     messages.append(
                         {
                             "role": "tool",

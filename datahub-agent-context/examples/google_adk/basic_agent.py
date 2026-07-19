@@ -177,13 +177,17 @@ async def main() -> None:
             ),
         )
         extra_tools.append(bigquery_toolset)
-        print(f"{GREEN}BigQuery tools enabled{' (project: ' + compute_project + ')' if compute_project else ''}{RESET}")
+        print(
+            f"{GREEN}BigQuery tools enabled{' (project: ' + compute_project + ')' if compute_project else ''}{RESET}"
+        )
     except google.auth.exceptions.DefaultCredentialsError:
-        print(f"{DIM}BigQuery tools disabled (no GCP credentials found — run 'gcloud auth application-default login' to enable){RESET}")
+        print(
+            f"{DIM}BigQuery tools disabled (no GCP credentials found — run 'gcloud auth application-default login' to enable){RESET}"
+        )
 
     # Add Cloud-only tools (Ask DataHub AI assistant) — requires DataHub Cloud
     # Remove this line if connecting to an OSS DataHub instance
-    tools += build_google_adk_cloud_tools(client, ask_datahub=True)
+    datahub_tools += build_google_adk_cloud_tools(client, ask_datahub=True)
 
     # Create agent
     agent = Agent(
