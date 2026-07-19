@@ -4,7 +4,7 @@
 # is kept out of the pre-commit path; see PFP-5002).
 #
 # pre-commit entry form:
-#   bash .github/scripts/python_staged_mypy.sh --modules <comma-list>
+#   bash .github/scripts/pre-commit/python_staged_mypy.sh --modules <comma-list>
 # pre-commit appends the matching staged file paths.
 #
 # Groups the staged files by module, then runs each module's
