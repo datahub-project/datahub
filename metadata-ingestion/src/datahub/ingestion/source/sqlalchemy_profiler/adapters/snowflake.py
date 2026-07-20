@@ -194,6 +194,7 @@ class SnowflakeAdapter(PlatformAdapter):
         metadata = sa.MetaData()
         context.sql_table = sa.Table(temp_name, metadata, autoload_with=conn)
         context.is_sampled = True
+        context.sample_percentage = bernoulli_pc
         context.temp_table = temp_name
 
         logger.info(f"Created temp table {temp_name} for {context.pretty_name}")
