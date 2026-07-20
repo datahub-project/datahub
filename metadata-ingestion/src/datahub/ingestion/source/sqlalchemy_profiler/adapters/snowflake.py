@@ -170,10 +170,12 @@ class SnowflakeAdapter(PlatformAdapter):
             conn.execute(sa.text(create_sql))
         except SQLAlchemyError as e:
             if use_block_presample:
-                # BLOCK sampling may fail on views; retry with BERNOULLI only
-                logger.info(
-                    f"BLOCK sampling failed for {context.pretty_name}, falling back to BERNOULLI: "
-                    f"{type(e).__name__}: {e}"
+                self.report.warning(
+                    title="BLOCK+BERNOULLI sampling failed, retrying with BERNOULLI-only",
+                    message="Initial two-tier sampling query failed. "
+                    "This can happen on views, with insufficient permissions, "
+                    "or when the warehouse is suspended. Retrying with BERNOULLI-only.",
+                    context=f"{context.pretty_name}: {type(e).__name__}: {e}",
                 )
                 bernoulli_pc = 100 * sample_pc
                 fallback_sql = (
