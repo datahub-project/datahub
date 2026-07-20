@@ -63,7 +63,9 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                     )}
                     {assertion.info?.sqlAssertion && <SqlAssertionDescription assertionInfo={assertion.info} />}
                     {assertion.info?.type === AssertionType.Custom && (
-                        <Typography.Text>{assertion.info?.description}</Typography.Text>
+                        <Typography.Text>
+                            {assertion.info?.description || assertion.info?.customAssertion?.type}
+                        </Typography.Text>
                     )}
                 </>
             ),
