@@ -9,12 +9,13 @@ Discovery uses ``importlib.metadata`` to scan installed packages for
 import functools
 import importlib
 import importlib.metadata
+import importlib.util
 import logging
 import os
 import re
 import subprocess
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Type
 
 import yaml
 
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
 # pydantic.ValidationError does NOT inherit from ValueError in Pydantic v2,
 # so it must be listed explicitly to prevent one bad manifest from crashing
 # all plugin discovery.
-_MANIFEST_LOAD_ERRORS = (
+_MANIFEST_LOAD_ERRORS: Tuple[Type[BaseException], ...] = (
     yaml.YAMLError,
     ValueError,
     TypeError,
@@ -175,7 +176,7 @@ def _load_plugin_from_dist(
     return DiscoveredPlugin(
         manifest=manifest,
         package_name=package_name,
-        version=dist.metadata.get("Version") or "0.0.0",
+        version=dist.version or "0.0.0",
         location=os.path.dirname(manifest_path),
     )
 

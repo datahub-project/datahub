@@ -1,6 +1,6 @@
 """Tests for the plugin loader."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from datahub.plugin.plugin_config import PluginCapabilityType
 from datahub.plugin.plugin_loader import PluginLoader
@@ -12,13 +12,13 @@ class TestPluginLoader:
         loader = PluginLoader()
         loader._plugins = {"test-source": make_discovered_plugin()}
 
-        assert loader.can_load("test-source", "source")
+        assert loader.can_load("test-source", PluginCapabilityType.SOURCE)
 
     def test_can_load_returns_false_for_unknown(self) -> None:
         loader = PluginLoader()
         loader._plugins = {}
 
-        assert not loader.can_load("nonexistent", "source")
+        assert not loader.can_load("nonexistent", PluginCapabilityType.SOURCE)
 
     def test_can_load_respects_registry_type(self) -> None:
         loader = PluginLoader()
@@ -28,17 +28,17 @@ class TestPluginLoader:
             )
         }
 
-        assert loader.can_load("test-source", "source")
-        assert not loader.can_load("test-source", "sink")
+        assert loader.can_load("test-source", PluginCapabilityType.SOURCE)
+        assert not loader.can_load("test-source", PluginCapabilityType.SINK)
 
     def test_try_load_returns_none_for_unknown(self) -> None:
         loader = PluginLoader()
         loader._plugins = {}
 
-        assert loader.try_load("nonexistent", "source") is None
+        assert loader.try_load("nonexistent", PluginCapabilityType.SOURCE) is None
 
     @patch("datahub.ingestion.api.registry.import_path")
-    def test_try_load_success(self, mock_import_path) -> None:
+    def test_try_load_success(self, mock_import_path: MagicMock) -> None:
         """Verify the success path returns the imported class."""
 
         class FakeSource:
@@ -53,7 +53,7 @@ class TestPluginLoader:
             )
         }
 
-        result = loader.try_load("test-source", "source")
+        result = loader.try_load("test-source", PluginCapabilityType.SOURCE)
         assert result is FakeSource
         mock_import_path.assert_called_once_with("test_module.source:TestSource")
 
@@ -77,12 +77,12 @@ class TestPluginLoader:
             ),
         }
 
-        sources = loader.get_all_capabilities("source")
+        sources = loader.get_all_capabilities(PluginCapabilityType.SOURCE)
         assert len(sources) == 2
         assert "src-a" in sources
         assert "src-b" in sources
 
-        sinks = loader.get_all_capabilities("sink")
+        sinks = loader.get_all_capabilities(PluginCapabilityType.SINK)
         assert len(sinks) == 1
         assert "my-sink" in sinks
 
@@ -94,7 +94,7 @@ class TestPluginLoader:
         assert loader._plugins is None
 
     @patch("datahub.plugin.plugin_manager.discover_plugins")
-    def test_lazy_discovery(self, mock_discover) -> None:
+    def test_lazy_discovery(self, mock_discover: MagicMock) -> None:
         """Verify plugins property triggers discovery on first access."""
         mock_discover.return_value = {"test-source": make_discovered_plugin()}
 

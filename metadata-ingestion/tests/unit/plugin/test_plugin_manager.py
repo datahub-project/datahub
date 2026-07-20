@@ -50,12 +50,12 @@ class TestExtractPackageName:
 
 class TestPipCmd:
     @patch("datahub.plugin.plugin_manager._has_uv", return_value=True)
-    def test_returns_uv_cmd_when_available(self, _mock_has_uv) -> None:
+    def test_returns_uv_cmd_when_available(self, _mock_has_uv: MagicMock) -> None:
         cmd = _pip_cmd()
         assert cmd[1:] == ["-m", "uv", "pip"]
 
     @patch("datahub.plugin.plugin_manager._has_uv", return_value=False)
-    def test_returns_pip_cmd_as_fallback(self, _mock_has_uv) -> None:
+    def test_returns_pip_cmd_as_fallback(self, _mock_has_uv: MagicMock) -> None:
         cmd = _pip_cmd()
         assert cmd[1:] == ["-m", "pip"]
 
@@ -66,7 +66,7 @@ class TestDiscoverPluginsErrorBoundary:
     @patch("datahub.plugin.plugin_manager.distributions")
     @patch("datahub.plugin.plugin_manager._load_plugin_from_dist")
     def test_corrupted_manifest_does_not_block_others(
-        self, mock_load, mock_dists
+        self, mock_load: MagicMock, mock_dists: MagicMock
     ) -> None:
         """A distribution with a corrupted manifest should be skipped,
         not block discovery of valid plugins from other distributions."""
@@ -95,7 +95,7 @@ class TestDiscoverPluginsErrorBoundary:
         assert len(result) == 1
 
     @patch("datahub.plugin.plugin_manager.distributions")
-    def test_exception_in_one_dist_skips_it(self, mock_dists) -> None:
+    def test_exception_in_one_dist_skips_it(self, mock_dists: MagicMock) -> None:
         """A distribution that raises during loading should be skipped."""
         from datahub.plugin.plugin_manager import discover_plugins
 
@@ -111,7 +111,9 @@ class TestDiscoverPluginsErrorBoundary:
 
 class TestDiscoverPlugins:
     @patch("datahub.plugin.plugin_manager.discover_plugins")
-    def test_list_installed_delegates_to_discover(self, mock_discover) -> None:
+    def test_list_installed_delegates_to_discover(
+        self, mock_discover: MagicMock
+    ) -> None:
         plugins = {"test-source": make_discovered_plugin()}
         mock_discover.return_value = plugins
 
@@ -121,7 +123,7 @@ class TestDiscoverPlugins:
         mock_discover.assert_called_once()
 
     @patch("datahub.plugin.plugin_manager.discover_plugins")
-    def test_get_installed_found(self, mock_discover) -> None:
+    def test_get_installed_found(self, mock_discover: MagicMock) -> None:
         plugins = {"test-source": make_discovered_plugin()}
         mock_discover.return_value = plugins
 
@@ -131,14 +133,14 @@ class TestDiscoverPlugins:
         assert result.manifest.id == "test-source"
 
     @patch("datahub.plugin.plugin_manager.discover_plugins")
-    def test_get_installed_not_found(self, mock_discover) -> None:
+    def test_get_installed_not_found(self, mock_discover: MagicMock) -> None:
         mock_discover.return_value = {}
 
         manager = PluginManager()
         assert manager.get_installed("nonexistent") is None
 
     @patch("datahub.plugin.plugin_manager.discover_plugins")
-    def test_is_installed(self, mock_discover) -> None:
+    def test_is_installed(self, mock_discover: MagicMock) -> None:
         plugins = {"test-source": make_discovered_plugin()}
         mock_discover.return_value = plugins
 
@@ -147,7 +149,7 @@ class TestDiscoverPlugins:
         assert not manager.is_installed("other-source")
 
     @patch("datahub.plugin.plugin_manager.discover_plugins")
-    def test_uninstall_missing_plugin(self, mock_discover) -> None:
+    def test_uninstall_missing_plugin(self, mock_discover: MagicMock) -> None:
         mock_discover.return_value = {}
 
         manager = PluginManager()
@@ -182,7 +184,9 @@ class TestResolveSpec:
 
     @patch("datahub.plugin.plugin_manager.download_wheel", return_value="/tmp/a.whl")
     @patch("datahub.plugin.plugin_manager.resolve_github_spec")
-    def test_resolve_spec_github_wheel(self, mock_resolve, mock_download) -> None:
+    def test_resolve_spec_github_wheel(
+        self, mock_resolve: MagicMock, mock_download: MagicMock
+    ) -> None:
         from datahub.plugin.github_resolver import ResolvedWheel
 
         fake = ResolvedWheel(
@@ -200,7 +204,9 @@ class TestResolveSpec:
 
     @patch("datahub.plugin.plugin_manager.download_wheel")
     @patch("datahub.plugin.plugin_manager.resolve_github_spec")
-    def test_resolve_spec_github_git_source(self, mock_resolve, mock_download) -> None:
+    def test_resolve_spec_github_git_source(
+        self, mock_resolve: MagicMock, mock_download: MagicMock
+    ) -> None:
         from datahub.plugin.github_resolver import ResolvedGitSource
 
         fake = ResolvedGitSource(
@@ -219,7 +225,7 @@ class TestResolveSpec:
     @patch("datahub.plugin.plugin_manager.download_wheel", return_value="/tmp/a.whl")
     @patch("datahub.plugin.plugin_manager.resolve_github_spec")
     def test_resolve_spec_github_version_override(
-        self, mock_resolve, mock_download
+        self, mock_resolve: MagicMock, mock_download: MagicMock
     ) -> None:
         from datahub.plugin.github_resolver import ResolvedWheel
 
@@ -240,7 +246,9 @@ class TestInstall:
     @patch("datahub.plugin.plugin_manager._find_plugin_in_package")
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
-    def test_install_success(self, _mock_pip_cmd, mock_run, mock_find) -> None:
+    def test_install_success(
+        self, _mock_pip_cmd: MagicMock, mock_run: MagicMock, mock_find: MagicMock
+    ) -> None:
         mock_run.return_value = subprocess.CompletedProcess(
             args=["pip", "install", "my-plugin"],
             returncode=0,
@@ -255,7 +263,9 @@ class TestInstall:
 
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
-    def test_install_timeout(self, _mock_pip_cmd, mock_run) -> None:
+    def test_install_timeout(
+        self, _mock_pip_cmd: MagicMock, mock_run: MagicMock
+    ) -> None:
         mock_run.side_effect = subprocess.TimeoutExpired(cmd=["pip"], timeout=300)
 
         manager = PluginManager()
@@ -264,7 +274,9 @@ class TestInstall:
 
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
-    def test_install_pip_failure(self, _mock_pip_cmd, mock_run) -> None:
+    def test_install_pip_failure(
+        self, _mock_pip_cmd: MagicMock, mock_run: MagicMock
+    ) -> None:
         mock_run.return_value = subprocess.CompletedProcess(
             args=["pip", "install", "bad-plugin"],
             returncode=1,
@@ -279,7 +291,9 @@ class TestInstall:
     @patch("datahub.plugin.plugin_manager._find_plugin_in_package")
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
-    def test_install_missing_manifest(self, _mock_pip_cmd, mock_run, mock_find) -> None:
+    def test_install_missing_manifest(
+        self, _mock_pip_cmd: MagicMock, mock_run: MagicMock, mock_find: MagicMock
+    ) -> None:
         mock_run.return_value = subprocess.CompletedProcess(
             args=["pip", "install", "no-manifest-plugin"],
             returncode=0,
@@ -297,7 +311,9 @@ class TestUninstall:
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager.discover_plugins")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
-    def test_uninstall_success(self, _mock_pip_cmd, mock_discover, mock_run) -> None:
+    def test_uninstall_success(
+        self, _mock_pip_cmd: MagicMock, mock_discover: MagicMock, mock_run: MagicMock
+    ) -> None:
         mock_discover.return_value = {"test-source": make_discovered_plugin()}
         mock_run.return_value = subprocess.CompletedProcess(
             args=["pip", "uninstall", "datahub-test-source"],
@@ -314,7 +330,7 @@ class TestUninstall:
     @patch("datahub.plugin.plugin_manager.discover_plugins")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
     def test_uninstall_pip_failure(
-        self, _mock_pip_cmd, mock_discover, mock_run
+        self, _mock_pip_cmd: MagicMock, mock_discover: MagicMock, mock_run: MagicMock
     ) -> None:
         mock_discover.return_value = {"test-source": make_discovered_plugin()}
         mock_run.return_value = subprocess.CompletedProcess(
@@ -331,7 +347,9 @@ class TestUninstall:
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager.discover_plugins")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
-    def test_uninstall_timeout(self, _mock_pip_cmd, mock_discover, mock_run) -> None:
+    def test_uninstall_timeout(
+        self, _mock_pip_cmd: MagicMock, mock_discover: MagicMock, mock_run: MagicMock
+    ) -> None:
         mock_discover.return_value = {"test-source": make_discovered_plugin()}
         mock_run.side_effect = subprocess.TimeoutExpired(cmd=["pip"], timeout=120)
 

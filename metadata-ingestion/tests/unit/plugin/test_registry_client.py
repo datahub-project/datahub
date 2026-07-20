@@ -6,9 +6,10 @@ import os
 import time
 from unittest.mock import MagicMock, patch
 
+import pytest
 import requests
 
-from datahub.plugin.plugin_config import RegistryConfig
+from datahub.plugin.plugin_config import PluginCapabilityType, RegistryConfig
 from datahub.plugin.registry_client import CACHE_DIR, CACHE_TTL_SECONDS, RegistryClient
 
 
@@ -115,7 +116,7 @@ class TestRegistryClient:
         )
         client.refresh()
 
-        results = client.search("", type_filter="sink")
+        results = client.search("", type_filter=PluginCapabilityType.SINK)
         assert len(results) == 1
         assert results[0].type == "sink"
 
@@ -187,7 +188,9 @@ class TestRegistryClient:
         with __import__("pytest").raises(dataclasses.FrozenInstanceError):
             results_a[0].registry_name = "mutated"  # type: ignore
 
-    def test_bearer_auth_missing_token_returns_empty(self, monkeypatch) -> None:
+    def test_bearer_auth_missing_token_returns_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Registry with bearer auth returns [] when the token env var is unset."""
         monkeypatch.delenv("MY_SECRET_TOKEN", raising=False)
         registry = RegistryConfig(

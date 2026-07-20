@@ -1,6 +1,7 @@
 """Tests for plugin configuration models."""
 
 import os
+from pathlib import Path
 
 import pytest
 import yaml
@@ -273,7 +274,7 @@ class TestPluginSystemConfig:
 
 class TestPluginSystemConfigLoad:
     def test_load_returns_defaults_for_missing_file(
-        self, tmp_path, monkeypatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
             "datahub.plugin.plugin_config.PLUGIN_CONFIG_PATH",
@@ -283,7 +284,7 @@ class TestPluginSystemConfigLoad:
         assert config.registries == []
 
     def test_load_returns_defaults_for_corrupt_yaml(
-        self, tmp_path, monkeypatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         corrupt = tmp_path / "config.yaml"
         corrupt.write_text(": : : not valid yaml [[[")
@@ -294,7 +295,7 @@ class TestPluginSystemConfigLoad:
         assert config.registries == []
 
     def test_load_returns_defaults_for_invalid_schema(
-        self, tmp_path, monkeypatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Valid YAML but invalid PluginSystemConfig (extra fields with forbid)."""
         bad_schema = tmp_path / "config.yaml"
@@ -305,7 +306,9 @@ class TestPluginSystemConfigLoad:
         config = PluginSystemConfig.load()
         assert config.registries == []
 
-    def test_load_parses_valid_config(self, tmp_path, monkeypatch) -> None:
+    def test_load_parses_valid_config(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         valid = tmp_path / "config.yaml"
         valid.write_text(
             "registries:\n  - name: test\n    url: https://example.com/index.json\n"
@@ -319,7 +322,9 @@ class TestPluginSystemConfigLoad:
 
 
 class TestPluginSystemConfigSave:
-    def test_save_then_load_round_trip(self, tmp_path, monkeypatch) -> None:
+    def test_save_then_load_round_trip(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """save() followed by load() returns an equivalent config."""
         config_path = str(tmp_path / "plugins" / "config.yaml")
         monkeypatch.setattr(
@@ -352,7 +357,9 @@ class TestPluginSystemConfigSave:
         assert loaded.registries[0].token_env == "INTERNAL_TOKEN"
         assert loaded.registries[1].name == "community"
 
-    def test_save_creates_directory(self, tmp_path, monkeypatch) -> None:
+    def test_save_creates_directory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """save() creates the plugins directory if it does not exist."""
         plugins_dir = str(tmp_path / "new_dir" / "plugins")
         config_path = str(tmp_path / "new_dir" / "plugins" / "config.yaml")
@@ -372,7 +379,9 @@ class TestPluginSystemConfigSave:
         loaded = PluginSystemConfig.load()
         assert len(loaded.registries) == 1
 
-    def test_save_no_leftover_tmp_file(self, tmp_path, monkeypatch) -> None:
+    def test_save_no_leftover_tmp_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Atomic save via os.replace should not leave a .tmp file behind."""
         config_path = str(tmp_path / "config.yaml")
         monkeypatch.setattr(

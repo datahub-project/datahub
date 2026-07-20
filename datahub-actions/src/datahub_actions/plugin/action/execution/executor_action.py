@@ -323,7 +323,8 @@ class ExecutorAction(Action):
                 )
                 # uv/pip can't send GitHub auth headers on its own,
                 # so download wheels locally with auth for private repos.
-                if is_wheel:
+                # Use isinstance directly (not the is_wheel bool) so mypy narrows the type.
+                if isinstance(resolved, ResolvedWheel):
                     local_path = download_wheel(resolved)
                     existing_reqs.append(local_path)
                 else:
@@ -419,6 +420,12 @@ class ExecutorAction(Action):
                 entityKeyAspect=key,
                 aspect=result,
             )
+            if self.ctx.graph is None:
+                logger.warning(
+                    "No DataHub graph available; cannot report execution failure for %s",
+                    exec_id,
+                )
+                return
             graph = self.ctx.graph.graph
             graph.emit_mcp(mcp, async_flag=False)
             logger.info("Reported execution failure for %s to GMS", exec_id)

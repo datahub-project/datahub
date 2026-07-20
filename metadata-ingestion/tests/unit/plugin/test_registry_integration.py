@@ -7,6 +7,7 @@ import pytest
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.registry import PluginRegistry
+from datahub.plugin.plugin_config import PluginCapabilityType
 
 
 class FakeBase:
@@ -41,7 +42,7 @@ class TestRegistryPluginLoaderFallback:
 
         registry = FakeRegistry(
             plugin_loader=loader,
-            registry_type="source",
+            registry_type=PluginCapabilityType.SOURCE,
         )
 
         # Mock _check_cls to succeed (typing_inspect can't resolve generic
@@ -64,7 +65,7 @@ class TestRegistryPluginLoaderFallback:
 
         registry = FakeRegistry(
             plugin_loader=loader,
-            registry_type="source",
+            registry_type=PluginCapabilityType.SOURCE,
         )
 
         # _check_cls fails naturally in test environment (typing_inspect
@@ -86,7 +87,7 @@ class TestRegistryPluginLoaderFallback:
 
         registry = FakeRegistry(
             plugin_loader=loader,
-            registry_type="source",
+            registry_type=PluginCapabilityType.SOURCE,
         )
 
         with pytest.raises(KeyError, match="Did not find"):
@@ -99,7 +100,7 @@ class TestRegistryPluginLoaderFallback:
 
         registry = FakeRegistry(
             plugin_loader=loader,
-            registry_type="source",
+            registry_type=PluginCapabilityType.SOURCE,
         )
 
         with pytest.raises(ConfigurationError, match="failed to load"):
@@ -114,7 +115,7 @@ class TestRegistryPluginLoaderFallback:
 
         registry = FakeRegistry(
             plugin_loader=loader,
-            registry_type="source",
+            registry_type=PluginCapabilityType.SOURCE,
         )
 
         summary = registry.summary(verbose=False)
@@ -130,7 +131,7 @@ class TestRegistryPluginLoaderFallback:
 
         registry = FakeRegistry(
             plugin_loader=loader,
-            registry_type="source",
+            registry_type=PluginCapabilityType.SOURCE,
         )
         # Use _register to bypass type check (typing_inspect can't resolve
         # generic args in test subclasses the way it can for PluginRegistry[Source]())
