@@ -6,27 +6,41 @@ from datahub.ingestion.agent.recipe import scaffold, validate_recipe
 def test_scaffold_uses_secret_refs():
     pytest.importorskip("snowflake.connector")
     recipe = scaffold("snowflake")
-    assert recipe["source"]["type"] == "snowflake"
+    source = recipe["source"]
+    assert isinstance(source, dict)
+    assert source["type"] == "snowflake"
     # every secret field is a ${...} ref, never a literal
-    config_text = str(recipe["source"]["config"])
+    config_text = str(source["config"])
     assert "${" in config_text
 
 
 def test_validate_flags_inline_secret():
     pytest.importorskip("snowflake.connector")
     recipe = scaffold("snowflake")
+    source = recipe["source"]
+    assert isinstance(source, dict)
+    config = source["config"]
+    assert isinstance(config, dict)
     # Force a plaintext secret into a known secret field.
-    recipe["source"]["config"]["password"] = "hunter2"
+    config["password"] = "hunter2"
     result = validate_recipe(recipe)
-    assert any("plaintext" in w.lower() for w in result["warnings"])
+    warnings = result["warnings"]
+    assert isinstance(warnings, list)
+    assert any("plaintext" in w.lower() for w in warnings)
 
 
 def test_validate_ref_secret_no_warning():
     pytest.importorskip("snowflake.connector")
     recipe = scaffold("snowflake")
-    recipe["source"]["config"]["password"] = "${SNOWFLAKE_PASSWORD}"
+    source = recipe["source"]
+    assert isinstance(source, dict)
+    config = source["config"]
+    assert isinstance(config, dict)
+    config["password"] = "${SNOWFLAKE_PASSWORD}"
     result = validate_recipe(recipe)
-    assert not any("plaintext" in w.lower() for w in result["warnings"])
+    warnings = result["warnings"]
+    assert isinstance(warnings, list)
+    assert not any("plaintext" in w.lower() for w in warnings)
 
 
 def test_validate_bad_config_reports_errors():

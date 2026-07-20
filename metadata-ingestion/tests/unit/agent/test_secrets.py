@@ -20,7 +20,9 @@ def test_nested_and_list_refs(monkeypatch):
         {"a": {"host": "${H}"}, "hosts": ["${H}", "plain"]},
         [EnvVarResolver()],
     )
-    assert out["a"]["host"] == "host1"
+    nested = out["a"]
+    assert isinstance(nested, dict)
+    assert nested["host"] == "host1"
     assert out["hosts"] == ["host1", "plain"]
 
 

@@ -57,7 +57,11 @@ def test_probe_result_round_trips_nodes():
     )
     d = result.to_dict()
     assert d["supported"] is True
-    assert d["nodes"][0]["kind"] == "Schema"
+    nodes = d["nodes"]
+    assert isinstance(nodes, list)
+    first_node = nodes[0]
+    assert isinstance(first_node, dict)
+    assert first_node["kind"] == "Schema"
     assert d["parent_path"] == ["MY_DB"]
 
 
@@ -71,8 +75,16 @@ def test_source_spec_to_dict():
     )
     d = spec.to_dict()
     assert d["source_type"] == "mysql"
-    assert d["fields"][0]["kind"] == "plain"
-    assert d["capabilities"][0]["supported"] is True
+    fields = d["fields"]
+    assert isinstance(fields, list)
+    first_field = fields[0]
+    assert isinstance(first_field, dict)
+    assert first_field["kind"] == "plain"
+    capabilities = d["capabilities"]
+    assert isinstance(capabilities, list)
+    first_capability = capabilities[0]
+    assert isinstance(first_capability, dict)
+    assert first_capability["supported"] is True
 
 
 def test_probe_leaf_kind_column():
