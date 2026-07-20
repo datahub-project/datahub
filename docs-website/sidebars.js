@@ -760,6 +760,11 @@ module.exports = {
     },
     {
       type: "doc",
+      id: "docs/managed-datahub/sharing",
+      className: "saasOnly",
+    },
+    {
+      type: "doc",
       id: "docs/managed-datahub/chrome-extension",
     },
     {
