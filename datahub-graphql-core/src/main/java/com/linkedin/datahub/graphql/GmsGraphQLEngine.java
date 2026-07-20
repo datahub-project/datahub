@@ -71,6 +71,7 @@ import com.linkedin.datahub.graphql.resolvers.datacontract.UpsertDataContractRes
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchAddToDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchRemoveFromDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchSetDataProductResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.BulkEntityDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
@@ -162,6 +163,7 @@ import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetRootMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetSemanticModelsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.MetricChildMetricsResolver;
+import com.linkedin.datahub.graphql.resolvers.metrics.ParentMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.SemanticModelMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.module.DeletePageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.module.UpsertPageModuleResolver;
@@ -922,7 +924,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(DOCUMENTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(METRICS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1203,6 +1206,8 @@ public class GmsGraphQLEngine {
                     "getQuickFilters",
                     new GetQuickFiltersResolver(this.entityClient, this.viewService))
                 .dataFetcher("dataProduct", getResolver(dataProductType))
+                .dataFetcher(
+                    "bulkEntityDataProducts", new BulkEntityDataProductsResolver(this.entityClient))
                 .dataFetcher("application", getResolver(applicationType))
                 .dataFetcher(
                     "listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
@@ -1739,6 +1744,17 @@ public class GmsGraphQLEngine {
                                   ? relationship.getUpdatedActor()
                                   : null;
                             })))
+        .type(
+            "EntityDataProductAssociation",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "dataProduct",
+                    new LoadableTypeResolver<>(
+                        dataProductType,
+                        (env) ->
+                            ((EntityDataProductAssociation) env.getSource())
+                                .getDataProduct()
+                                .getUrn())))
         .type(
             "ListDomainsResult",
             typeWiring ->
@@ -3279,6 +3295,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
@@ -4057,6 +4074,7 @@ public class GmsGraphQLEngine {
                           final Metric m = env.getSource();
                           return m.getParentMetric() != null ? m.getParentMetric().getUrn() : null;
                         }))
+                .dataFetcher("parentMetrics", new ParentMetricsResolver(entityClient))
                 .dataFetcher(
                     "platform",
                     new LoadableTypeResolver<>(
@@ -4073,7 +4091,11 @@ public class GmsGraphQLEngine {
                         }))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration)));
   }
 
   private void configureSemanticModelResolvers(final RuntimeWiring.Builder builder) {
@@ -4099,6 +4121,17 @@ public class GmsGraphQLEngine {
                         }))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration)));
+    builder.type(
+        "ModelDataset",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "source",
+                new EntityTypeResolver(
+                    entityTypes, (env) -> ((ModelDataset) env.getSource()).getSource())));
   }
 }

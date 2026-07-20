@@ -1,0 +1,91 @@
+namespace com.linkedin.agent
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Configuration and metadata for an AI agent.
+ *
+ * Agents can be:
+ * 1. System (SYSTEM): bootstrapped at deployment time via YAML, not editable
+ * 2. Native (NATIVE): created by end users through the UI or API
+ * 3. External (EXTERNAL): cataloged on DataHub but managed externally
+ *
+ */
+@Aspect = {
+  "name": "aiAgentInfo",
+  "schemaVersion": 8
+}
+record AIAgentInfo {
+  /**
+   * Display name of the agent
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+
+  /**
+   * Short, user-facing tagline shown on agent cards, hero subtitles, and
+   * picker dropdowns. Should be a one-line summary (~120 chars). When
+   * absent, surfaces fall back to truncating `description`.
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasTagline",
+    "queryByDefault": false
+  }
+  tagline: optional string
+
+  /**
+   * Description of what this agent does AND when Ask DataHub should
+   * route to it. Style: "X does Y. Use when Z." The router reads this
+   * verbatim when deciding whether to delegate to this agent, so the
+   * "Use when..." tail is load-bearing — not optional prose. Roughly
+   * 300-1000 chars is the right length.
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Custom base instructions for the agent, beyond the standard DataHub boilerplate.
+   * Injected into the agent's system prompt.
+   */
+  instructions: optional string
+
+  /**
+   * The source or origin of the agent definition.
+   * System agents (source.type = SYSTEM) are bootstrapped at deployment time
+   * and are not editable by end users.
+   */
+  source: optional AIAgentSource
+
+  /**
+   * When this agent was created
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME",
+      "queryByDefault": false
+    }
+  }
+  created: AuditStamp
+
+  /**
+   * When this agent was last modified
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME",
+      "queryByDefault": false
+    }
+  }
+  lastModified: AuditStamp
+}

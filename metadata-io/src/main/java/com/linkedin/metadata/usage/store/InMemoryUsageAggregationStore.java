@@ -57,6 +57,7 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
   private final int retryAttempts;
   private final long retryInitialBackoffMillis;
   @Nullable private final Duration alignmentPeriod;
+  private final boolean includeAgentNameDimension;
   @Nonnull private final Clock clock;
 
   /** Protects active-window swap; concurrent recorders share the read lock. */
@@ -101,6 +102,7 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
         retryAttempts,
         retryInitialBackoffMillis,
         null,
+        false,
         Clock.systemUTC());
   }
 
@@ -124,6 +126,31 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
         retryAttempts,
         retryInitialBackoffMillis,
         alignmentPeriodSeconds,
+        false);
+  }
+
+  public InMemoryUsageAggregationStore(
+      @Nonnull UsageOperationsRegistry usageOperationsRegistry,
+      @Nonnull UsageMetricRegistry metricRegistry,
+      @Nonnull UsageActorClassResolver actorClassResolver,
+      @Nonnull UsageFlushSink flushSink,
+      int maxCardinality,
+      long maxWindowSeconds,
+      int retryAttempts,
+      long retryInitialBackoffMillis,
+      long alignmentPeriodSeconds,
+      boolean includeAgentNameDimension) {
+    this(
+        usageOperationsRegistry,
+        metricRegistry,
+        actorClassResolver,
+        flushSink,
+        maxCardinality,
+        maxWindowSeconds,
+        retryAttempts,
+        retryInitialBackoffMillis,
+        alignmentPeriodSeconds,
+        includeAgentNameDimension,
         Clock.systemUTC());
   }
 
@@ -138,6 +165,32 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
       long retryInitialBackoffMillis,
       @Nullable Long alignmentPeriodSeconds,
       @Nonnull Clock clock) {
+    this(
+        usageOperationsRegistry,
+        metricRegistry,
+        actorClassResolver,
+        flushSink,
+        maxCardinality,
+        maxWindowSeconds,
+        retryAttempts,
+        retryInitialBackoffMillis,
+        alignmentPeriodSeconds,
+        false,
+        clock);
+  }
+
+  public InMemoryUsageAggregationStore(
+      @Nonnull UsageOperationsRegistry usageOperationsRegistry,
+      @Nonnull UsageMetricRegistry metricRegistry,
+      @Nonnull UsageActorClassResolver actorClassResolver,
+      @Nonnull UsageFlushSink flushSink,
+      int maxCardinality,
+      long maxWindowSeconds,
+      int retryAttempts,
+      long retryInitialBackoffMillis,
+      @Nullable Long alignmentPeriodSeconds,
+      boolean includeAgentNameDimension,
+      @Nonnull Clock clock) {
     this.usageOperationsRegistry = usageOperationsRegistry;
     this.metricRegistry = metricRegistry;
     this.actorClassResolver = actorClassResolver;
@@ -150,6 +203,7 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
         alignmentPeriodSeconds != null && alignmentPeriodSeconds > 0
             ? Duration.ofSeconds(alignmentPeriodSeconds)
             : null;
+    this.includeAgentNameDimension = includeAgentNameDimension;
     this.clock = clock;
     this.activeWindow = newActiveWindow(null);
   }
@@ -173,7 +227,10 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
 
     Map<String, String> dimensions =
         UsageDimensions.fromRequestContext(
-            requestContext, requestContext.getUsageOperation(), actorClass.dimensionValue());
+            requestContext,
+            requestContext.getUsageOperation(),
+            actorClass.dimensionValue(),
+            includeAgentNameDimension);
 
     ActivitySnapshot activitySnapshot = ActivitySnapshot.fromActivityClass(activityClass);
 
@@ -240,7 +297,10 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
     Map<String, String> resolvedDimensions =
         new HashMap<>(
             UsageDimensions.fromRequestContext(
-                requestContext, requestContext.getUsageOperation(), null));
+                requestContext,
+                requestContext.getUsageOperation(),
+                null,
+                includeAgentNameDimension));
     resolvedDimensions.putIfAbsent(UsageDimensions.ACTOR_CLASS, actorClass.dimensionValue());
     Map<String, String> dimKey = Map.copyOf(resolvedDimensions);
 
@@ -297,7 +357,10 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
       String windowId = window.windowId();
       Map<String, String> dimensions =
           UsageDimensions.fromRequestContext(
-              requestContext, requestContext.getUsageOperation(), actorClass.dimensionValue());
+              requestContext,
+              requestContext.getUsageOperation(),
+              actorClass.dimensionValue(),
+              includeAgentNameDimension);
       for (UsageMetricRegistry.MetricDefinition metric :
           metricRegistry.apiUsageMetrics().values()) {
         long increment =
@@ -332,7 +395,9 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
       ActiveWindow retired;
       windowLock.writeLock().lock();
       try {
-        retired = swapActiveWindowLocked(splitAtBoundary ? boundary : null);
+        // Mid-period and boundary: next window opens at batchEnd (process-relative or grid
+        // Instant).
+        retired = swapActiveWindowLocked(batchEnd);
       } finally {
         windowLock.writeLock().unlock();
       }
@@ -463,10 +528,9 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
 
   @Nonnull
   private ActiveWindow newActiveWindow(@Nullable Instant explicitStart) {
+    // Process-relative: never floor open time to the alignment grid. Alignment only splits
+    // closed windows at nextBoundary via flush / publishExtractedWindow.
     Instant windowStart = explicitStart != null ? explicitStart : clock.instant();
-    if (alignmentPeriod != null && explicitStart == null) {
-      windowStart = UsageFlushBoundaryUtils.alignDown(windowStart, alignmentPeriod, ALIGNMENT_ZONE);
-    }
     return new ActiveWindow(windowStart);
   }
 
