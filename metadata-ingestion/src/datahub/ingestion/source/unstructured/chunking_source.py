@@ -237,6 +237,22 @@ class DocumentChunkingSource(Source):
             self._provider = create_embedding_provider(self.config.embedding)
         return self._provider
 
+    def get_model_embedding_key(self) -> Optional[str]:
+        """Return the SemanticContent embeddings map key for the active embedding model.
+
+        Mirrors the key derivation used when emitting SemanticContent. Returns None when
+        no embedding provider/model is configured (nothing will be embedded).
+        """
+        if not self.embedding_model or not self.config.embedding.model:
+            return None
+        if self.config.embedding.model_embedding_key:
+            return self.config.embedding.model_embedding_key
+        if "embed-english-v3" in self.config.embedding.model:
+            return "cohere_embed_v3"
+        # Map any non-alphanumeric character to '_' so the result is a legal
+        # Elasticsearch field name (matches _emit_semantic_content).
+        return re.sub(r"[^a-zA-Z0-9_]", "_", self.config.embedding.model)
+
     def process_elements_inline(
         self, document_urn: str, elements: list[dict[str, Any]]
     ) -> Iterable[MetadataWorkUnit]:
@@ -847,7 +863,12 @@ class DocumentChunkingSource(Source):
             aspect=semantic_content,
         )
 
-        workunit = MetadataWorkUnit(id=f"{document_urn}-semanticContent", mcp=mcp)
+        # Mark as non-primary so AutoStatusAspectProcessor does not emit a
+        # StatusClass UPSERT for these document URNs — that would overwrite
+        # lifecycleStage / lifecycleState set by other sources or users.
+        workunit = MetadataWorkUnit(
+            id=f"{document_urn}-semanticContent", mcp=mcp, is_primary_source=False
+        )
 
         logger.info(
             f"Emitting SemanticContent for {document_urn} with {len(chunks)} chunks"

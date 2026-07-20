@@ -2,9 +2,17 @@ import logging
 from unittest.mock import MagicMock
 
 import pytest
-from looker_sdk.sdk.api40.models import LookmlModelExplore, LookmlModelExploreField
+from looker_sdk.sdk.api40.models import (
+    LookmlModelExplore,
+    LookmlModelExploreField,
+    LookmlModelExploreJoins,
+)
 
-from datahub.ingestion.source.looker.looker_common import ExploreUpstreamViewField
+from datahub.ingestion.source.looker.looker_common import (
+    ExploreUpstreamViewField,
+    LookerExplore,
+    LookerExploreJoin,
+)
 from datahub.ingestion.source.looker.looker_config import LookerCommonConfig
 
 
@@ -91,3 +99,74 @@ class TestExploreUpstreamViewFieldFormFieldName:
 
             assert result is None
             assert "Empty field name detected" in caplog.text
+
+
+class TestLookerExploreJoinReconstruction:
+    """Explore joins carry the relationship semantics needed to reconstruct the
+    semantic model. These tests cover capturing them and serializing them back
+    to LookML view logic."""
+
+    def test_from_api_join_captures_relationship_semantics(self):
+        join = LookerExploreJoin.from_api_join(
+            LookmlModelExploreJoins(
+                name="orders",
+                from_="orders_base",
+                sql_on="${orders.customer_id} = ${customers.id}",
+                relationship="many_to_one",
+                type="left_outer",
+                foreign_key="customer_id",
+            )
+        )
+        assert join is not None
+        assert join.name == "orders"
+        assert join.from_view == "orders_base"
+        assert join.sql_on == "${orders.customer_id} = ${customers.id}"
+        assert join.relationship == "many_to_one"
+        assert join.join_type == "left_outer"
+        assert join.foreign_key == "customer_id"
+
+    def test_from_lkml_join_reads_from_key(self):
+        join = LookerExploreJoin.from_lkml_join(
+            {"name": "orders", "from": "orders_base", "sql_on": "1=1"}
+        )
+        assert join is not None
+        assert join.from_view == "orders_base"
+        assert join.sql_on == "1=1"
+
+    def test_build_explore_view_logic_renders_joins(self):
+        explore = LookerExplore(
+            name="customer_orders",
+            model_name="ecommerce",
+            label="Customer Orders",
+            join_definitions=[
+                LookerExploreJoin(
+                    name="orders",
+                    sql_on="${orders.customer_id} = ${customers.id}",
+                    relationship="many_to_one",
+                    join_type="left_outer",
+                ),
+            ],
+        )
+        view_logic = explore._build_explore_view_logic()
+        assert view_logic is not None
+        assert "explore: customer_orders {" in view_logic
+        assert 'label: "Customer Orders"' in view_logic
+        assert "join: orders {" in view_logic
+        assert "type: left_outer" in view_logic
+        assert "relationship: many_to_one" in view_logic
+        assert "sql_on: ${orders.customer_id} = ${customers.id} ;;" in view_logic
+
+    def test_build_explore_view_logic_none_without_joins(self):
+        explore = LookerExplore(name="passthrough", model_name="ecommerce")
+        assert explore._build_explore_view_logic() is None
+
+    def test_build_explore_view_logic_escapes_label_quotes(self):
+        explore = LookerExplore(
+            name="customer_orders",
+            model_name="ecommerce",
+            label='My "Q3" Explore',
+            join_definitions=[LookerExploreJoin(name="orders")],
+        )
+        view_logic = explore._build_explore_view_logic()
+        assert view_logic is not None
+        assert r'label: "My \"Q3\" Explore"' in view_logic

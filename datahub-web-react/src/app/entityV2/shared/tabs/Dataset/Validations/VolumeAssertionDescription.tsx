@@ -1,42 +1,77 @@
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     getIsRowCountChange,
-    getOperatorDescription,
     getParameterDescription,
-    getValueChangeTypeDescription,
-    getVolumeTypeDescription,
+    getParameterInterpolation,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 
-import { IncrementingSegmentRowCountChange, RowCountChange, VolumeAssertionInfo } from '@types';
+import {
+    AssertionStdOperator,
+    AssertionValueChangeType,
+    IncrementingSegmentRowCountChange,
+    RowCountChange,
+    VolumeAssertionInfo,
+} from '@types';
 
 type Props = {
     assertionInfo: VolumeAssertionInfo;
+};
+
+// Maps the assertion operator to the operator portion of the description translation key. Returns a
+// literal union (not `string`) so the composed `volumeDescription.*` key stays statically checkable
+// once i18next typed resources are re-enabled. Returns null for operators outside the three that
+// volume assertions are built with, so the caller renders a generic fallback rather than throwing.
+const getOperatorKeyPart = (operator: AssertionStdOperator): 'AtLeast' | 'AtMost' | 'Between' | null => {
+    switch (operator) {
+        case AssertionStdOperator.GreaterThanOrEqualTo:
+            return 'AtLeast';
+        case AssertionStdOperator.LessThanOrEqualTo:
+            return 'AtMost';
+        case AssertionStdOperator.Between:
+            return 'Between';
+        default:
+            return null;
+    }
 };
 
 /**
  * A human-readable description of a Volume Assertion.
  */
 export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
-    const volumeTypeDescription = getVolumeTypeDescription(volumeType);
-    const operatorDescription = volumeTypeInfo ? getOperatorDescription(volumeTypeInfo.operator) : '';
-    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : '';
-    const valueChangeTypeDescription = getIsRowCountChange(volumeType)
-        ? getValueChangeTypeDescription((volumeTypeInfo as RowCountChange | IncrementingSegmentRowCountChange).type)
-        : 'rows';
+    const isChange = getIsRowCountChange(volumeType);
+    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : undefined;
+    const operatorKeyPart = volumeTypeInfo ? getOperatorKeyPart(volumeTypeInfo.operator) : null;
+    const interpolation = getParameterInterpolation(parameterDescription);
 
-    /* eslint-disable i18next/no-literal-string -- (untranslated-text) Sentence assembled from type/operator/parameter/unit fragments in
-       English word order; cannot be split for translation */
+    let key: string;
+    if (!operatorKeyPart) {
+        // Missing volume info or an operator outside the supported set — render a generic
+        // description rather than composing a key that has no translation. A present volumeTypeInfo
+        // with an unrecognized operator is genuinely unexpected (e.g. from a direct API write), so
+        // surface it for debugging; a missing volumeTypeInfo is a normal empty state and stays quiet.
+        if (volumeTypeInfo) {
+            console.warn(`Unsupported volume assertion operator: ${volumeTypeInfo.operator}`);
+        }
+        key = 'volumeDescription.unknown';
+    } else if (isChange) {
+        const isPercentage =
+            (volumeTypeInfo as RowCountChange | IncrementingSegmentRowCountChange).type ===
+            AssertionValueChangeType.Percentage;
+        key = `volumeDescription.change${operatorKeyPart}${isPercentage ? 'Percent' : 'Rows'}`;
+    } else {
+        key = `volumeDescription.total${operatorKeyPart}`;
+    }
+
     return (
         <div>
-            <Typography.Text>
-                Table {volumeTypeDescription} {operatorDescription} {parameterDescription} {valueChangeTypeDescription}
-            </Typography.Text>
+            <Typography.Text>{t(key, interpolation)}</Typography.Text>
         </div>
     );
-    /* eslint-enable i18next/no-literal-string */
 };

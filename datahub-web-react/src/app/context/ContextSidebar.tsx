@@ -181,7 +181,11 @@ const TreeContainer = styled.div`
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px;
+    /* Trimmed right padding: scrollbar-gutter already reserves space on the right,
+       so the rows/labels can sit closer to the edge without shifting. */
+    padding: 8px 2px 8px 8px;
+    /* Reserve the scrollbar's space so rows don't shift left when it appears. */
+    scrollbar-gutter: stable;
 
     /* Custom scrollbar styling */
     &::-webkit-scrollbar {
@@ -189,20 +193,20 @@ const TreeContainer = styled.div`
     }
 
     &::-webkit-scrollbar-track {
-        background: transparent;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.textTertiary};
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${(props) => props.theme.colors.textTertiary};
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 
     scrollbar-width: thin;
-    scrollbar-color: ${(props) => props.theme.colors.textTertiary} transparent;
+    scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} ${(props) => props.theme.colors.scrollbarTrack};
 `;
 
 type Props = {
@@ -220,6 +224,7 @@ export default function ContextSidebar({
 }: Props) {
     const { t } = useTranslation('misc');
     const { t: tc } = useTranslation('common.actions');
+    const { t: tet } = useTranslation('entity.types');
     const [creating, setCreating] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -468,11 +473,11 @@ export default function ContextSidebar({
                                 {searchResults.map((doc) => {
                                     // Build breadcrumb from parentDocuments array
                                     let breadcrumb: string | null = null;
-                                    /* eslint-disable i18next/no-literal-string -- (untranslated-text) 'Untitled' is a fallback default for a missing document title (data, not UI chrome); ' > ' is a punctuation separator */
+                                    /* eslint-disable i18next/no-literal-string -- (untranslated-text) ' > ' is a decorative punctuation separator between breadcrumb segments */
                                     if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
                                         const parents = [...doc.parentDocuments.documents].reverse();
                                         breadcrumb = parents
-                                            .map((parent) => parent.info?.title || 'Untitled')
+                                            .map((parent) => parent.info?.title || tet('document.untitledFallback'))
                                             .join(' > ');
                                     }
                                     /* eslint-enable i18next/no-literal-string */

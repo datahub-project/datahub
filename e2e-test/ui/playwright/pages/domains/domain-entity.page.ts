@@ -35,7 +35,6 @@ export class DomainEntityPage extends BasePage {
   readonly descriptionViewer: Locator;
   readonly addRelatedButton: Locator;
   readonly addLinkMenuItem: Locator;
-  readonly linkLabel: Locator;
   readonly sidebarCollapseTab: Locator;
   readonly addOwnersButton: Locator;
   readonly addOwnersSelect: Locator;
@@ -72,7 +71,6 @@ export class DomainEntityPage extends BasePage {
     this.descriptionViewer = page.getByTestId('description-viewer');
     this.addRelatedButton = page.getByTestId('add-related-button');
     this.addLinkMenuItem = page.getByTestId('menu-item-add-link');
-    this.linkLabel = page.getByTestId('link-label');
     this.sidebarCollapseTab = page.getByTestId('entity-sidebar-collapse-tab');
     this.addOwnersButton = page.getByTestId('add-owners-button');
     this.addOwnersSelect = page.getByTestId('add-owners-select');
@@ -125,7 +123,7 @@ export class DomainEntityPage extends BasePage {
     await this.createDomainConfirmButton.click();
 
     // Wait for success message indicating domain was created
-    await expect(this.page.getByText('Created domain!')).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await this.toast.expectVisible('Created domain!', { timeout: TIMEOUTS.LONG });
 
     // Get URN from GraphQL response
     const response = await responsePromise;
@@ -155,7 +153,7 @@ export class DomainEntityPage extends BasePage {
     await this.moveDomainConfirmButton.click();
 
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await expect(this.page.getByText('Moved Domain!')).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await this.toast.expectVisible('Moved Domain!', { timeout: TIMEOUTS.MEDIUM });
   }
 
   async addDocumentation(description: string): Promise<void> {
@@ -191,7 +189,9 @@ export class DomainEntityPage extends BasePage {
     await this.labelInput.fill(label);
     await this.linkFormSubmitButton.click();
 
-    await expect(this.linkLabel.getByText(label)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    // Links render as a ResourceLinkPill whose dataTestId is `${url}-${label}`.
+    // .first() because the same pill can also appear in the sidebar (same testid).
+    await expect(this.page.getByTestId(`${url}-${label}`).first()).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
   }
 
   async addOwner(displayName: string): Promise<void> {
@@ -250,9 +250,14 @@ export class DomainEntityPage extends BasePage {
     await editInput.fill(newName);
     await editInput.press(KEYS.ENTER);
 
-    // Wait for mutation to complete and verify the new name is visible
+    // Wait for mutation to complete and verify the new name is applied.
+    // antd's Typography.Text ellipsizes the visible text in the header (the
+    // available width shrunk after icon/color chrome was added), so the visible
+    // textContent may be a truncated form like "EditedXXXX...". The full name is
+    // mirrored in `aria-label` (antd adds it when the ellipsis tooltip is on),
+    // which is what we assert against.
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    await expect(editableContainer).toContainText(newName, { timeout: TIMEOUTS.MEDIUM });
+    await expect(editableContainer).toHaveAttribute('aria-label', newName, { timeout: TIMEOUTS.MEDIUM });
   }
 }

@@ -805,6 +805,12 @@ type FeatureFlagsConfig {
   showStatsTabRedesign: Boolean!
 
   """
+  If enabled, render lineage filter nodes ("N shown of M" cards) in the lineage graph.
+  If disabled, pagination and search controls live on the expand/contract buttons instead.
+  """
+  showLineageFilterNodes: Boolean!
+
+  """
   If turned on, show the re-designed home page
   """
   showHomePageRedesign: Boolean!
@@ -845,6 +851,13 @@ type FeatureFlagsConfig {
   datasetSummaryPageV1: Boolean!
 
   """
+  If turned on, enables the Metrics feature end-to-end: the Metrics page in the nav, the
+  /metrics route, and downstream backend wiring once the Metric entity ships.
+  Defaults off in OSS while the feature is in development.
+  """
+  metricsEnabled: Boolean!
+
+  """
   Enables displaying the ingestion onboarding redesign
   """
   ingestionOnboardingRedesignV1: Boolean!
@@ -875,6 +888,13 @@ type FeatureFlagsConfig {
   hideLineageInSearchCards: Boolean!
 
   """
+  Whether the data product lineage view is enabled.
+  When enabled, navigating to lineage from a Data Product shows its member entities
+  and their upstream/downstream connections.
+  """
+  dataProductLineageEnabled: Boolean!
+
+  """
   If enabled, shows tests in the health icon on entity pages.
   """
   showTestsInHealthIcon: Boolean!
@@ -883,6 +903,19 @@ type FeatureFlagsConfig {
   If enabled, internationalization (i18n) features are active.
   """
   i18nEnabled: Boolean!
+
+  """
+  If enabled, the React app emits browser (RUM) OpenTelemetry spans (page load, route changes,
+  fetch/GraphQL), exported through the frontend /otel/v1/traces proxy and correlated with backend
+  traces. Controlled by BROWSER_TRACING_ENABLED.
+  """
+  browserTracingEnabled: Boolean!
+
+  """
+  If enabled, the React app emits Core Web Vitals (LCP/CLS/FID/FCP/TTFB) as OpenTelemetry spans.
+  Requires browserTracingEnabled. Controlled by BROWSER_WEB_VITALS_ENABLED.
+  """
+  browserWebVitalsEnabled: Boolean!
 }
 
 """

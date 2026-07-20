@@ -116,11 +116,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     """Source to ingest metadata from Google Dataplex Universal Catalog.
 
     To add support for a new Dataplex entry type, first define its identity model
-    in ``dataplex_ids.py`` by adding a SchemaKey class at the correct level in the
-    existing hierarchy (for example project -> instance -> database -> table). Then
-    register the entry type in ``DATAPLEX_ENTRY_TYPE_MAPPINGS`` with required fields:
-    DataHub platform, DataHub entity type (Container or Dataset), subtype constant
-    from ``subtypes.py``, FQN regex, parent-entry regex (if applicable), and key classes.
+    in ``dataplex_ids.py`` by adding a ContainerKey class at the correct level in
+    the existing hierarchy (for example project -> instance -> database -> table)
+    and the FQN / parent-entry regexes it needs. Then add a small ``EntryMapper``
+    subclass in ``dataplex_mappers.py`` that declares the DataHub platform, its
+    main entity type (Container or Dataset), the subtype constant from
+    ``subtypes.py``, and delegates to the shared ``build_dataset`` /
+    ``build_container`` helper; finally register the mapper in ``ENTRY_MAPPERS``.
     FQN formats and parent hierarchy must be derived from:
     https://cloud.google.com/dataplex/docs/fully-qualified-names
 

@@ -23,8 +23,10 @@ export const TIMEOUTS = {
   EXTRA_LONG: 20000, // Slow operations, async operations, dynamic content loading
   MEDIUM: 10000, // Standard element visibility
   SHORT: 5000, // Quick interactions, menu closes
+  OPERATION: 1500, // Async operations (document updates, searches, input debounce delays)
   BETWEEN_OPS: 500, // Wait between sequential operations
   QUICK: 300, // Brief pause for rendering
+  INGESTION_EXECUTION: 100000, // Ingestion source execution completion
 } as const;
 
 // Interaction delays
@@ -74,3 +76,10 @@ export const DATA_SOURCES = {
   MYSQL: 'mysql',
   SNOWFLAKE: 'snowflake',
 };
+
+// Pinned datahub CLI version for ingestion run/execute tests. Pinning a fixed
+// version keeps the executor's package resolution deterministic and fast enough
+// to finish within the test's status timeout. Must stay in sync with the
+// `config.version` pinned on the seeded execute sources in the
+// ingestion-v2/v3 fixtures.
+export const INGESTION_CLI_VERSION = '1.6.0.10';

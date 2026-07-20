@@ -41,17 +41,19 @@ const DescriptionContainer = styled.div`
 
 interface Props {
     hideLinksButton: boolean;
+    hideEditDescription?: boolean;
 }
 
-export default function AboutSection({ hideLinksButton }: Props) {
+export default function AboutSection({ hideLinksButton, hideEditDescription }: Props) {
     const { t } = useTranslation('entity.profile.summary');
     const history = useHistory();
     const { search, pathname } = useLocation();
-    const isEditingDescription = !!queryString.parse(search, { parseBooleans: true }).editingDescription;
+    const isEditingDescription =
+        !hideEditDescription && !!queryString.parse(search, { parseBooleans: true }).editingDescription;
 
     const [showAddDescriptionModal, setShowDescriptionModal] = useState(isEditingDescription);
 
-    const canEditDescription = useDocumentationPermission();
+    const canEditDescription = useDocumentationPermission() && !hideEditDescription;
     const {
         displayedDescription,
         updatedDescription,

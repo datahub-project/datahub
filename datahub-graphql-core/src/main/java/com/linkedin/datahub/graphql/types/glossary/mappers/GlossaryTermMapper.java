@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Forms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
@@ -19,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -115,6 +117,11 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
         ASSET_SETTINGS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
+    mappingHelper.mapToResult(
+        DISPLAY_PROPERTIES_ASPECT_NAME,
+        ((glossaryTerm, dataMap) ->
+            glossaryTerm.setDisplayProperties(
+                DisplayPropertiesMapper.map(context, new DisplayProperties(dataMap)))));
 
     // If there's no name property, resort to the legacy name computation.
     if (result.getGlossaryTermInfo() != null && result.getGlossaryTermInfo().getName() == null) {

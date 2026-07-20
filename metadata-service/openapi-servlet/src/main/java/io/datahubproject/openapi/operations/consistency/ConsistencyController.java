@@ -18,6 +18,7 @@ import com.linkedin.metadata.config.ConsistencyChecksConfiguration;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.operations.consistency.models.ConsistencyCheckInfo;
 import io.datahubproject.openapi.operations.consistency.models.ConsistencyCheckRequest;
@@ -550,7 +551,9 @@ public class ConsistencyController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actorUrnStr, request, operationName, List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, operationName, List.of())
+                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
             authorizerChain,
             authentication,
             true);
@@ -609,6 +612,8 @@ public class ConsistencyController {
           .lePitEpochMs(lePitEpochMs)
           .aspectFilters(requestFilter.getAspectFilters())
           .includeSoftDeleted(requestFilter.isIncludeSoftDeleted())
+          .keyAspectOnly(requestFilter.isKeyAspectOnly())
+          .entityTypes(requestFilter.getEntityTypes())
           .build();
     } else {
       // Create new filter with just the grace period

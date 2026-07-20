@@ -159,7 +159,9 @@ def _extract_answer_chart_type(answer_tml: Dict[str, Any]) -> Optional[str]:
 _TS_TO_DATAHUB_PLATFORM: Dict[str, str] = {
     "DATABRICKS": "databricks",
     "SNOWFLAKE": "snowflake",
-    "BIGQUERY": "bigquery",
+    "BIGQUERY": "bigquery",  # keep for backwards compatibility
+    "GOOGLE_BIGQUERY": "bigquery",  # used in connections
+    "GCP_BIGQUERY": "bigquery",  # used in tables
     "REDSHIFT": "redshift",
     "SYNAPSE": "mssql",  # Synapse uses MSSQL URN conventions.
     "ORACLE": "oracle",
@@ -173,6 +175,25 @@ _TS_TO_DATAHUB_PLATFORM: Dict[str, str] = {
     "SAPHANA": "hana",
     "DENODO": "denodo",
 }
+
+
+# TS prefixes a LogicalTable's ``dataSourceTypeEnum`` with the connection
+# category (``RDBMS_`` / ``NOSQL_`` / ``FILE_``) — e.g. ``RDBMS_SNOWFLAKE`` —
+# whereas ConnectionResponse reports the bare name (``SNOWFLAKE``). Note this
+# is orthogonal to vendor aliasing (``GCP_BIGQUERY`` on tables vs
+# ``GOOGLE_BIGQUERY`` on connections), which is handled by the map above.
+_TS_TABLE_TYPE_PREFIXES = ("RDBMS_", "NOSQL_", "FILE_")
+
+
+def normalize_ts_table_type(data_source_type: Optional[str]) -> str:
+    """Uppercase a table's ``data_source_type`` and strip the TS category
+    prefix so it resolves against ``_TS_TO_DATAHUB_PLATFORM`` (keyed by bare
+    warehouse names). Returns ``""`` when ``data_source_type`` is None/empty."""
+    ts_type = (data_source_type or "").upper()
+    for prefix in _TS_TABLE_TYPE_PREFIXES:
+        if ts_type.startswith(prefix):
+            return ts_type[len(prefix) :]
+    return ts_type
 
 
 # Each platform has its own canonical dataset-key shape; this table is
@@ -780,6 +801,33 @@ class ThoughtSpotClient:
                     ids.append(tid)
         return ids
 
+    def _coerce_metadata_detail(
+        self,
+        raw_detail: Any,
+        *,
+        obj_id: Optional[str],
+        obj_name: Optional[str],
+    ) -> Dict[str, Any]:
+        """Coerce a raw ``metadata_detail`` value into a dict.
+
+        TS occasionally returns a string error message (e.g. 'Error fetching
+        details for ...') instead of the detail object. Surface it in the
+        report and fall back to ``{}`` so the object still ingests (without
+        columns/lineage) rather than crashing the run.
+        """
+        if isinstance(raw_detail, str):
+            self.report.warning(
+                title="Metadata Detail Unavailable",
+                message=(
+                    "ThoughtSpot returned an error instead of object details; "
+                    "the object is ingested without columns/lineage. Check "
+                    "ThoughtSpot-side permissions or object health."
+                ),
+                context=f"id={obj_id}, name={obj_name}, detail={raw_detail}",
+            )
+            return {}
+        return raw_detail or {}
+
     @staticmethod
     def _parse_columns_from_metadata_detail(
         detail: Dict[str, Any],
@@ -927,7 +975,12 @@ class ThoughtSpotClient:
                             flattened["stats"] = item["stats"]
 
                         if include_details:
-                            detail = item.get("metadata_detail") or {}
+                            header = item.get("metadata_header") or {}
+                            detail = self._coerce_metadata_detail(
+                                item.get("metadata_detail"),
+                                obj_id=item.get("metadata_id") or header.get("id"),
+                                obj_name=header.get("name"),
+                            )
                             if object_type == "LOGICAL_TABLE":
                                 flattened["columns"] = (
                                     self._parse_columns_from_metadata_detail(detail)
@@ -1099,9 +1152,11 @@ class ThoughtSpotClient:
                     continue
 
                 header = item.get("metadata_header") or {}
-                detail = item.get("metadata_detail") or {}
                 obj_id = item.get("metadata_id") or header.get("id")
                 obj_name = header.get("name", "")
+                detail = self._coerce_metadata_detail(
+                    item.get("metadata_detail"), obj_id=obj_id, obj_name=obj_name
+                )
 
                 columns: List[Dict[str, str]] = []
                 for col in detail.get("columns") or []:

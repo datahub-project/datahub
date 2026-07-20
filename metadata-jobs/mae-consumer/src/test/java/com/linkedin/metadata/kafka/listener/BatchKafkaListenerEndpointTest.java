@@ -86,7 +86,7 @@ public class BatchKafkaListenerEndpointTest {
     assertTrue(endpoint.getBatchListener());
     assertFalse(endpoint.getAutoStartup());
     assertFalse(endpoint.isSplitIterables());
-    assertNull(endpoint.getGroup());
+    assertEquals(endpoint.getGroup(), "my-group");
     assertNull(endpoint.getTopicPartitionsToAssign());
     assertNull(endpoint.getTopicPattern());
     assertNull(endpoint.getClientIdPrefix());

@@ -552,12 +552,25 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return owners_info
 
-    def build_owner_urn(self, data: Dict[str, Any]) -> List[str]:
-        return [
-            make_user_urn(self.owner_info.get(owner.get("id"), ""))
-            for owner in data.get("owners", [])
-            if owner.get("id")
-        ]
+    def build_owner_urn(self, data: Dict[str, Any], entity_type: str) -> List[str]:
+        # owner_info can be missing an entry (e.g. the related/owners API is
+        # unavailable, as on newer Superset builds, or the owner has no email);
+        # skip unresolvable owners rather than emitting an invalid
+        # urn:li:corpuser: with no username.
+        owner_urns = []
+        for owner in data.get("owners", []):
+            owner_id = owner.get("id")
+            if owner_id:
+                owner_email = self.owner_info.get(owner_id)
+                if owner_email:
+                    owner_urns.append(make_user_urn(owner_email))
+                else:
+                    self.report.warning(
+                        title="Unresolvable Superset owner",
+                        message="Skipped an owner with no resolvable email; ownership may be incomplete",
+                        context=f"Owner ID: {owner_id}, Entity Type: {entity_type}, Entity ID: {data.get('id', 'unknown')}",
+                    )
+        return owner_urns
 
     # Permissive ``something@something.something`` matcher for redacting
     # email addresses out of log previews. NOT an RFC validator.
@@ -970,7 +983,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         # Create DashboardInfo object
         dashboard_info = DashboardInfoClass(
-            description="",
+            description=dashboard_data.get("description") or "",
             title=title,
             charts=chart_urns,
             dashboardUrl=dashboard_url,
@@ -979,18 +992,19 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dashboard_snapshot.aspects.append(dashboard_info)
 
-        dashboard_owners_list = self.build_owner_urn(dashboard_data)
-        owners_info = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=urn,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-                for urn in (dashboard_owners_list or [])
-            ],
-            lastModified=last_modified,
-        )
-        dashboard_snapshot.aspects.append(owners_info)
+        dashboard_owners_list = self.build_owner_urn(dashboard_data, "dashboard")
+        if dashboard_owners_list:
+            owners_info = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                    for urn in dashboard_owners_list
+                ],
+                lastModified=last_modified,
+            )
+            dashboard_snapshot.aspects.append(owners_info)
 
         superset_tags = self._extract_and_map_tags(dashboard_data.get("tags", []))
         tags = self._merge_tags_with_existing(dashboard_urn, superset_tags)
@@ -1641,7 +1655,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         chart_info = ChartInfoClass(
             type=chart_type,
-            description="",
+            description=chart_data.get("description") or "",
             title=title,
             chartUrl=chart_url,
             inputs=[datasource_urn] if datasource_urn else None,
@@ -1662,18 +1676,19 @@ class SupersetSource(StatefulIngestionSourceBase):
                 ),
             ).as_workunit()
 
-        chart_owners_list = self.build_owner_urn(chart_data)
-        owners_info = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=urn,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-                for urn in (chart_owners_list or [])
-            ],
-            lastModified=last_modified,
-        )
-        chart_snapshot.aspects.append(owners_info)
+        chart_owners_list = self.build_owner_urn(chart_data, "chart")
+        if chart_owners_list:
+            owners_info = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                    for urn in chart_owners_list
+                ],
+                lastModified=last_modified,
+            )
+            chart_snapshot.aspects.append(owners_info)
 
         superset_tags = self._extract_and_map_tags(chart_data.get("tags", []))
         tags = self._merge_tags_with_existing(chart_urn, superset_tags)
@@ -2123,18 +2138,19 @@ class SupersetSource(StatefulIngestionSourceBase):
             aspects=aspects_items,
         )
 
-        dataset_owners_list = self.build_owner_urn(dataset_data)
-        owners_info = OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=urn,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-                for urn in (dataset_owners_list or [])
-            ],
-            lastModified=last_modified,
-        )
-        aspects_items.append(owners_info)
+        dataset_owners_list = self.build_owner_urn(dataset_data, "dataset")
+        if dataset_owners_list:
+            owners_info = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                    for urn in dataset_owners_list
+                ],
+                lastModified=last_modified,
+            )
+            aspects_items.append(owners_info)
 
         return dataset_snapshot
 

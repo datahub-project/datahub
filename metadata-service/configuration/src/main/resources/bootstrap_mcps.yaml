@@ -13,7 +13,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/root-user.yaml"
 
     - name: data-platforms
-      version: v12
+      version: v14
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/data-platforms.yaml"
@@ -43,7 +43,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/roles.yaml"
 
     - name: page-modules
-      version: v8
+      version: v9
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/page-modules.yaml"
@@ -56,7 +56,7 @@ bootstrap:
 
     # Ingestion Recipes
     - name: ingestion-datahub-gc
-      version: v6
+      version: v8
       optional: false
       mcps_location: "bootstrap_mcps/ingestion-datahub-gc.yaml"
       values_env: "DATAHUB_GC_BOOTSTRAP_VALUES"

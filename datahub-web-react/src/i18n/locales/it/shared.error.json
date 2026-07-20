@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "Segnalare i messaggi di errore del browser all'amministratore DataHub",
+    "bulkEditUnauthorized": "La selezione per la modifica collettiva includeva entità per le quali l'aggiornamento non è autorizzato. La modifica collettiva non verrà salvata.",
+    "fallback.defaultMessage": "Il nostro team è stato informato di questo errore imprevisto e sta lavorando a una soluzione.",
+    "fallback.subtitle": "Qualcosa non è andato come previsto.",
+    "fallback.title": "Ops!",
+    "section.description": "Si è verificato un errore imprevisto. Riprovare più tardi o contattare l'amministratore",
+    "section.needSupport": "<bold>Serve assistenza?</bold> Consulta queste risorse:",
+    "section.title": "Qualcosa è andato storto.",
+    "unauthorized": "Non autorizzato. Contattare l'amministratore DataHub."
+}
