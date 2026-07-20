@@ -21,6 +21,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.lang.reflect.Method;
 import java.net.ServerSocket;
 import java.net.URI;
@@ -465,7 +466,7 @@ public class OidcUserInfoEndpointValidationTest {
     when(mockOidcConfigs.isPreProvisioningRequired()).thenReturn(false);
 
     // Mock other dependencies
-    OperationContext mockOpContext = mock(OperationContext.class);
+    OperationContext mockOpContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Result mockResult = mock(Result.class);
     when(mockResult.withSession(any(Map.class))).thenReturn(mockResult);
     when(mockResult.withCookies(any(Http.Cookie[].class))).thenReturn(mockResult);

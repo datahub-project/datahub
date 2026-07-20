@@ -603,7 +603,6 @@ public class AuthServiceController {
   CompletableFuture<ResponseEntity<String>> getSsoSettings(
       final HttpServletRequest request, final HttpEntity<String> httpEntity) {
     Authentication auth = AuthenticationContext.getAuthentication();
-  CompletableFuture<ResponseEntity<String>> getSsoSettings(final HttpEntity<String> httpEntity) {
     recordUsageSession(
         httpEntity != null ? httpEntity.getHeaders() : null,
         "getSsoSettings",
