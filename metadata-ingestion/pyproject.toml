@@ -2020,6 +2020,8 @@ line-length = 88
 exclude = [
     ".git",
     "src/datahub/metadata",
+    "build",
+    "dist",
     "venv",
     ".tox",
     "__pycache__",

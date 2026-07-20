@@ -15,7 +15,7 @@ requires-python = "==3.11.*"
 # Enable ruff format
 target-version = "py311"
 line-length = 88
-extend-exclude = ["tmp", "venv"]
+extend-exclude = ["tmp", "build", "dist", "venv"]
 
 [tool.ruff.format]
 quote-style = "double"

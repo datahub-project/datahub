@@ -95,7 +95,7 @@ def map_capability_name_to_enum(capability_name: str) -> SourceCapability:
 
 
 def does_extra_exist(extra_name: str) -> bool:
-    for key, value in metadata("acryl-datahub").items():
+    for key, value in metadata("acryl-datahub").items():  # type: ignore[attr-defined]
         if key == "Provides-Extra" and value == extra_name:
             return True
     return False
@@ -260,7 +260,7 @@ def load_connector_registry(connector_registry_dir: str) -> Dict:
                 package_data = json.load(f)
                 package_name = json_file.stem
                 plugin_count = len(package_data.get("plugin_details", {}))
-                merged_data["plugin_details"].update(
+                merged_data["plugin_details"].update(  # type: ignore[attr-defined]
                     package_data.get("plugin_details", {})
                 )
                 logger.info(
@@ -353,7 +353,8 @@ def create_plugin_from_capability_data(
                 source_config_class.model_json_schema(), indent=2
             )
             plugin.config_md = gen_md_table_from_pydantic(
-                source_config_class, current_source=plugin_name
+                source_config_class,
+                current_source=plugin_name,  # type: ignore[arg-type]
             )
 
             # Write the config json schema to the out_dir.
@@ -582,7 +583,7 @@ def generate_filter_tag_indexes(
 
         features_list = meta.get("extra_features", [])
         connection_type = "API" if is_api else meta.get("connection_type", "Pull")
-        tags: Dict[str, str] = {
+        tags = {
             "Platform Type": _resolve_platform_type(meta),
             "Connection Type": connection_type,
             "Features": ", ".join(features_list),
@@ -885,7 +886,7 @@ def generate(  # noqa: C901
                 f.write("</table>\n\n")
             # Insert platform-level authored docs from README.md before module docs.
             f.write("\n")
-            f.write(platform.custom_docs_pre.strip())
+            f.write((platform.custom_docs_pre or "").strip())
             f.write("\n")
 
             for plugin_name, plugin in platform.plugins.items():
@@ -917,7 +918,7 @@ def generate(  # noqa: C901
                 f.write("\n")
 
                 # PRE authored module docs (<module>_pre.md).
-                f.write(f"{plugin.custom_docs_pre.strip()}\n\n")
+                f.write(f"{(plugin.custom_docs_pre or '').strip()}\n\n")
 
                 # Always show Install the Plugin section
                 f.write(f"\n{section_heading} Install the Plugin\n")
@@ -975,7 +976,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                     )
 
                 # POST authored module docs (<module>_post.md).
-                f.write(f"{plugin.custom_docs_post.strip()}\n\n")
+                f.write(f"{(plugin.custom_docs_post or '').strip()}\n\n")
 
                 if plugin.classname:
                     f.write(f"\n{section_heading} Code Coordinates\n")

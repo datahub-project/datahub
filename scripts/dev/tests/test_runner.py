@@ -103,14 +103,14 @@ class TestPortsAndTunnels:
 
     def test_slot1_adds_1000(self):
         ports = datahub_dev._compute_ports(1)
-        assert ports["DATAHUB_MAPPED_GMS_PORT"] == 9080   # 8080 + 1*1000
+        assert ports["DATAHUB_MAPPED_GMS_PORT"] == 9080  # 8080 + 1*1000
         assert ports["DATAHUB_MAPPED_FRONTEND_PORT"] == 10002  # 9002 + 1*1000
 
     def test_slot2_used_for_first_remote(self, monkeypatch):
         # SLOT_OFFSET=1000; slot 2 → base + 2000
         _patch_config(monkeypatch, max_local=2)
         ports = datahub_dev._compute_ports(2)
-        assert ports["DATAHUB_MAPPED_GMS_PORT"] == 10080   # 8080 + 2*1000
+        assert ports["DATAHUB_MAPPED_GMS_PORT"] == 10080  # 8080 + 2*1000
         assert ports["DATAHUB_MAPPED_FRONTEND_PORT"] == 11002  # 9002 + 2*1000
 
     def test_tunnel_pairs_map_local_to_remote_default(self):
@@ -225,7 +225,9 @@ class TestCmdStartRemote:
         defaults.update(kwargs)
         return argparse.Namespace(**defaults)
 
-    def _setup(self, tmp_path, monkeypatch, runner="/fake/runner.sh") -> List[List[str]]:
+    def _setup(
+        self, tmp_path, monkeypatch, runner="/fake/runner.sh"
+    ) -> List[List[str]]:
         """Wire up all the patches and return the list that records _run() calls."""
         calls: List[List[str]] = []
 
@@ -377,7 +379,9 @@ class TestCmdStartRemote:
         datahub_dev._cmd_start_remote(self._make_args())
         second_slot = datahub_dev._get_instance()["slot"]
 
-        assert first_slot == second_slot, "Slot changed on second start — port instability"
+        assert first_slot == second_slot, (
+            "Slot changed on second start — port instability"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -404,7 +408,9 @@ class TestRemoteExecGuard:
             # Not in remote-exec mode — RUNNER may be set or empty, both valid.
             pass
 
-    def test_cmd_start_dispatches_to_remote_when_runner_set(self, tmp_path, monkeypatch):
+    def test_cmd_start_dispatches_to_remote_when_runner_set(
+        self, tmp_path, monkeypatch
+    ):
         """cmd_start() calls _cmd_start_remote() when RUNNER is non-empty."""
         called = []
 
@@ -416,8 +422,11 @@ class TestRemoteExecGuard:
         monkeypatch.setattr(datahub_dev, "_cmd_start_remote", fake_remote)
 
         args = argparse.Namespace(
-            ai=False, no_ai=False, embeddings_endpoint=None,
-            embeddings_model=None, timeout=300,
+            ai=False,
+            no_ai=False,
+            embeddings_endpoint=None,
+            embeddings_model=None,
+            timeout=300,
         )
         datahub_dev.cmd_start(args)
         assert called == ["remote"]
@@ -434,15 +443,20 @@ class TestRemoteExecGuard:
         monkeypatch.setattr(datahub_dev, "_cmd_start_remote", fake_remote)
         # Patch the local path to exit immediately without real docker
         monkeypatch.setattr(datahub_dev, "_load_registry", lambda: {"instances": {}})
-        monkeypatch.setattr(datahub_dev, "_load_dev_config", lambda: {
-            "max_local_instances": 2, "max_remote_instances": 10
-        })
+        monkeypatch.setattr(
+            datahub_dev,
+            "_load_dev_config",
+            lambda: {"max_local_instances": 2, "max_remote_instances": 10},
+        )
         monkeypatch.setattr(datahub_dev, "_count_running_dh_instances", lambda: 99)
         # count >= max_local → returns early with error, but never calls fake_remote
 
         args = argparse.Namespace(
-            ai=False, no_ai=False, embeddings_endpoint=None,
-            embeddings_model=None, timeout=300,
+            ai=False,
+            no_ai=False,
+            embeddings_endpoint=None,
+            embeddings_model=None,
+            timeout=300,
         )
         datahub_dev.cmd_start(args)
         assert called == [], "Remote path invoked despite RUNNER being empty"
@@ -457,10 +471,14 @@ class TestSetupRemote:
     def test_calls_runner_init(self, tmp_path, monkeypatch):
         calls: List[List[str]] = []
         monkeypatch.setattr(datahub_dev, "RUNNER", "/fake/runner.sh")
-        monkeypatch.setattr(datahub_dev, "_run", lambda cmd, **kw: (
-            calls.append(list(cmd)),
-            subprocess.CompletedProcess(cmd, 0),
-        )[-1])
+        monkeypatch.setattr(
+            datahub_dev,
+            "_run",
+            lambda cmd, **kw: (
+                calls.append(list(cmd)),
+                subprocess.CompletedProcess(cmd, 0),
+            )[-1],
+        )
 
         args = argparse.Namespace(remote=True, module="ingestion")
         rc = datahub_dev.cmd_setup(args)

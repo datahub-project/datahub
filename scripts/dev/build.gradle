@@ -13,14 +13,14 @@ task installRuff(type: Exec) {
 
 task lint(type: Exec, dependsOn: installRuff) {
   description = 'Check formatting of Python scripts'
-  inputs.files(fileTree('.').include('*.py'))
+  inputs.files(fileTree('.').include('**/*.py'))
   commandLine 'bash', '-c',
-    "${venv_ruff} check *.py && ${venv_ruff} format --check *.py"
+    "${venv_ruff} check . && ${venv_ruff} format --check ."
 }
 
 task lintFix(type: Exec, dependsOn: installRuff) {
   description = 'Auto-fix formatting of Python scripts'
-  inputs.files(fileTree('.').include('*.py'))
+  inputs.files(fileTree('.').include('**/*.py'))
   commandLine 'bash', '-c',
-    "${venv_ruff} check --fix *.py && ${venv_ruff} format *.py"
+    "${venv_ruff} check --fix . && ${venv_ruff} format ."
 }

@@ -7,6 +7,8 @@ line-length = 88
 target-version = "py39"
 exclude = [
     ".git",
+    "build",
+    "dist",
     "venv",
     ".tox",
     "__pycache__",
