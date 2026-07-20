@@ -70,7 +70,7 @@ async def get_mcp_tools() -> list:
         connection_config["headers"] = {"Authorization": f"Bearer {mcp_token}"}
 
     print(f"{DIM}Connecting to DataHub MCP server at {mcp_url}...{RESET}")
-    client = MultiServerMCPClient({"datahub": connection_config})
+    client = MultiServerMCPClient({"datahub": connection_config})  # type: ignore[dict-item]
     return await client.get_tools()
 
 
