@@ -299,6 +299,70 @@ def test_semantic_views_upstream_of_physical_tables() -> None:
 
 
 @time_machine.travel(FROZEN_TIME)
+def test_view_to_physical_table_column_lineage() -> None:
+    """Semantic view → physical table lineage must include field-level edges.
+
+    The orders view has dimensions (order_id, customer_id, created_at) and
+    measures (total_revenue). Each should produce a fine-grained edge mapping
+    the physical table column to the semantic view field.
+    """
+    source = _build_source()
+    events = _collect_workunits(source)
+
+    orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
+    orders_physical_urn = source._physical_dataset_urn(
+        "snowflake", "ANALYTICS_PROD", "PUBLIC", "ORDERS", platform_instance="snowflake"
+    )
+
+    view_lineage = [
+        e
+        for e in events
+        if e["entityUrn"] == orders_view_urn and e["aspectName"] == "upstreamLineage"
+    ]
+    assert view_lineage, f"No upstreamLineage emitted for {orders_view_urn}"
+
+    fine_grained = view_lineage[-1]["aspect"].get("fineGrainedLineages") or []
+    assert len(fine_grained) == 4, (
+        f"Expected 4 fine-grained edges (3 dimensions + 1 measure); got {len(fine_grained)}"
+    )
+
+    edges = {(edge["upstreams"][0], edge["downstreams"][0]) for edge in fine_grained}
+    expected_fields = ["created_at", "customer_id", "order_id", "total_revenue"]
+    expected_edges = {
+        (
+            f"urn:li:schemaField:({orders_physical_urn},{field})",
+            f"urn:li:schemaField:({orders_view_urn},{field})",
+        )
+        for field in expected_fields
+    }
+    assert edges == expected_edges, (
+        f"View → physical column lineage mismatch.\n"
+        f"Missing: {expected_edges - edges}\n"
+        f"Extra: {edges - expected_edges}"
+    )
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_view_to_physical_column_lineage_disabled_when_flag_off() -> None:
+    """No fine-grained lineage on view → physical when include_column_lineage=False."""
+    source = _build_source(extra_config={"include_column_lineage": False})
+    events = _collect_workunits(source)
+
+    orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
+    view_lineage = [
+        e
+        for e in events
+        if e["entityUrn"] == orders_view_urn and e["aspectName"] == "upstreamLineage"
+    ]
+    assert view_lineage, f"No upstreamLineage emitted for {orders_view_urn}"
+    fine_grained = view_lineage[-1]["aspect"].get("fineGrainedLineages") or []
+    assert not fine_grained, (
+        f"Fine-grained lineage should be empty when include_column_lineage=False; "
+        f"got {len(fine_grained)} edges"
+    )
+
+
+@time_machine.travel(FROZEN_TIME)
 def test_dashboard_tiles_reference_topics() -> None:
     """Chart/tile entities must list the related topic URN as an input dataset."""
     source = _build_source()

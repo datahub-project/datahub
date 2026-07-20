@@ -236,6 +236,37 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn, aspect=lineage
         ).as_workunit()
 
+    def _build_view_to_physical_lineage(
+        self,
+        model_id: str,
+        view_name: str,
+        physical_urn: str,
+        view_fields: Set[str],
+    ) -> List[FineGrainedLineageClass]:
+        """Build field-level lineage edges from a semantic view to its physical table.
+
+        For each dimension/measure in the view, creates an edge mapping:
+          physical_table.field_name → semantic_view.field_name
+        """
+        semantic_urn = self._semantic_dataset_urn(model_id, view_name)
+        edges: List[FineGrainedLineageClass] = []
+        for field_name in sorted(view_fields):
+            upstream_field = make_schema_field_urn(physical_urn, field_name)
+            downstream_field = make_schema_field_urn(semantic_urn, field_name)
+            edges.append(
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[upstream_field],
+                    downstreams=[downstream_field],
+                    transformOperation="OMNI_VIEW_FIELD_MAPPING",
+                )
+            )
+        self.report.increment_counter(
+            "view_to_physical_column_lineage_edges", len(edges)
+        )
+        return edges
+
     def _clear_upstream_lineage(self, dataset_urn: str) -> Iterator[MetadataWorkUnit]:
         """Emit an explicit empty lineage to clear stale edges from prior runs."""
         yield MetadataChangeProposalWrapper(
@@ -782,18 +813,25 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
             view_upstreams: Optional[UpstreamLineageClass] = None
             if physical_urn:
+                view_fine_grained: Optional[List[FineGrainedLineageClass]] = None
+                if self.config.include_column_lineage:
+                    view_fine_grained = self._build_view_to_physical_lineage(
+                        model_id, view_name, physical_urn, seen_fields
+                    )
                 view_upstreams = UpstreamLineageClass(
                     upstreams=[
                         UpstreamClass(
                             dataset=physical_urn,
                             type=DatasetLineageTypeClass.COPY,
                         )
-                    ]
+                    ],
+                    fineGrainedLineages=view_fine_grained or None,
                 )
                 logger.debug(
-                    "Creating lineage for view: semantic_view=%s upstream_physical=%s",
+                    "Creating lineage for view: semantic_view=%s upstream_physical=%s fine_grained_edges=%d",
                     f"{model_id}.{view_name}",
                     physical_urn,
+                    len(view_fine_grained) if view_fine_grained else 0,
                 )
             else:
                 logger.debug(
@@ -1053,7 +1091,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
                 # Now apply filter - if model doesn't match pattern, skip entity emission
                 if not self.config.model_pattern.allowed(model_id):
-                    self.report.report_dropped(model_id)
+                    self.report.report_model_filtered(model_id)
                     continue
 
                 self.report.increment_counter("models_scanned")
@@ -1411,7 +1449,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
             if not self.config.document_pattern.allowed(doc_id):
                 with self.report._report_lock:
-                    self.report.report_dropped(doc_id)
+                    self.report.report_document_filtered(doc_id)
                 return []
 
             self.report.increment_counter("documents_scanned")

@@ -58,7 +58,8 @@ class OmniClientReport:
 class OmniSourceReport(StaleEntityRemovalSourceReport):
     """Ingestion report for the Omni BI platform source."""
 
-    filtered: LossyList[str] = field(default_factory=LossyList)
+    filtered_models: LossyList[str] = field(default_factory=LossyList)
+    filtered_documents: LossyList[str] = field(default_factory=LossyList)
     connections_scanned: int = 0
     models_scanned: int = 0
     topics_scanned: int = 0
@@ -66,6 +67,7 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
     dashboards_scanned: int = 0
     semantic_datasets_emitted: int = 0
     dataset_lineage_edges_emitted: int = 0
+    view_to_physical_column_lineage_edges: int = 0
     fine_grained_lineage_edges_exact: int = 0
     fine_grained_lineage_edges_derived: int = 0
     fine_grained_lineage_edges_unresolved: int = 0
@@ -90,5 +92,8 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
             current = getattr(self, name)
             setattr(self, name, current + delta)
 
-    def report_dropped(self, name: str) -> None:
-        self.filtered.append(name)
+    def report_model_filtered(self, model_id: str) -> None:
+        self.filtered_models.append(model_id)
+
+    def report_document_filtered(self, doc_id: str) -> None:
+        self.filtered_documents.append(doc_id)
