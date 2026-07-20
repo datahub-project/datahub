@@ -10,11 +10,7 @@ import auth.CookieConfigs;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import client.SessionTokenDeniedException;
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.LoginDenialReason;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -50,8 +46,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
-import io.datahubproject.metadata.context.usage.UsageOperation;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -237,7 +231,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
   }
 
   private Result handleOidcCallback(
-      final OperationContext systemOperationContext,
+      final OperationContext opContext,
       final CallContext ctx,
       final OidcConfigs oidcConfigs,
       final Result result) {
@@ -266,32 +260,6 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       // If RequiredGroups has groups, ensure that the user belongs to at least one of the required
       // groups.
       checkRequiredGroups(profile, userName, oidcConfigs);
-
-      Authentication sessionAuthentication =
-          new Authentication(new Actor(ActorType.USER, userName), "");
-      WebContext webContext = ctx.webContext();
-      String sourceIP =
-          webContext
-              .getRequestHeader("X-Forwarded-For")
-              .orElseGet(
-                  () -> {
-                    String remote = webContext.getRemoteAddr();
-                    return remote != null ? remote : "";
-                  });
-      String userAgent = webContext.getRequestHeader("User-Agent").orElse("");
-      final OperationContext opContext =
-          OperationContext.asSession(
-              systemOperationContext,
-              RequestContext.builder()
-                  .actorUrn(corpUserUrn.toString())
-                  .sourceIP(sourceIP)
-                  .userAgent(userAgent)
-                  .requestAPI(RequestContext.RequestAPI.OPENAPI)
-                  .requestID("oidcCallback")
-                  .withUsageOperation(UsageOperation.METADATA_WRITE),
-              Authorizer.EMPTY,
-              sessionAuthentication,
-              true);
 
       try {
         // If just-in-time User Provisioning is enabled, try to create the DataHub user if it does
