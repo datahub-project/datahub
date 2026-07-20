@@ -45,6 +45,24 @@ def validate_recipe(recipe: Dict[str, object]) -> Dict[str, object]:
             "warnings": [],
         }
 
+    # Resolve source class once, up front, and degrade gracefully on failure.
+    try:
+        source_cls = source_registry.get(source_type)
+        # get_config_class is injected by the @config_class decorator at runtime, so it is
+        # not declared on the Source base class and mypy cannot see it statically.
+        get_config_class = getattr(source_cls, "get_config_class", None)
+        if get_config_class is None:
+            raise TypeError(f"Source {source_type!r} does not define a config class")
+        config_cls = get_config_class()
+    except Exception as exc:
+        # Catch KeyError, ConfigurationError, TypeError, and any other exception from
+        # source resolution. Degrade to invalid recipe.
+        return {
+            "valid": False,
+            "errors": [f"unknown or unloadable source type '{source_type}': {exc}"],
+            "warnings": [],
+        }
+
     # Plaintext-secret detection reuses Task 2's secret classification (FieldKind.SECRET).
     for name in _secret_field_names(source_type):
         value = config.get(name)
@@ -56,13 +74,6 @@ def validate_recipe(recipe: Dict[str, object]) -> Dict[str, object]:
             )
 
     try:
-        source_cls = source_registry.get(source_type)
-        # get_config_class is injected by the @config_class decorator at runtime, so it is
-        # not declared on the Source base class and mypy cannot see it statically.
-        get_config_class = getattr(source_cls, "get_config_class", None)
-        if get_config_class is None:
-            raise TypeError(f"Source {source_type!r} does not define a config class")
-        config_cls = get_config_class()
         config_cls.model_validate(config)
     except (ValueError, TypeError, AssertionError) as exc:
         errors.append(str(exc))

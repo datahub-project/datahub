@@ -35,3 +35,12 @@ def test_validate_bad_config_reports_errors():
     result = validate_recipe({"source": {"type": "snowflake", "config": {}}})
     assert result["valid"] is False
     assert result["errors"]
+
+
+def test_validate_unknown_source_type_no_crash():
+    # An unknown source type must not crash; instead, degrade to invalid recipe.
+    result = validate_recipe(
+        {"source": {"type": "this-source-does-not-exist", "config": {}}}
+    )
+    assert result["valid"] is False
+    assert result["errors"]
