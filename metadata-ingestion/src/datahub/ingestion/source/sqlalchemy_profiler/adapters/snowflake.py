@@ -130,7 +130,7 @@ class SnowflakeAdapter(PlatformAdapter):
 
         if use_block_presample:
             # Two-tier: BLOCK first to reduce to ~1000x sample, then BERNOULLI
-            block_pc = 100 * overgeneration_factor * sample_pc
+            block_pc = min(100 * overgeneration_factor * sample_pc, 100)
             bernoulli_pc = 100 / overgeneration_factor
             sample_sql = (
                 f"SELECT * FROM"

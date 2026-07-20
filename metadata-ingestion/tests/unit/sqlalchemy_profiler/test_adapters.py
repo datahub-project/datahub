@@ -875,11 +875,12 @@ class TestSnowflakeAdapter:
             mock_table_class.return_value = MagicMock()
             adapter._create_sampled_temp_table(context, mock_conn, row_count=100_000)
 
-        # Verify CREATE TEMPORARY TABLE with TABLESAMPLE BERNOULLI
+        # Verify CREATE TEMPORARY TABLE with exact BERNOULLI percentage
+        # sample_size=10_000, row_count=100_000 → bernoulli_pc = 100 * 10_000/100_000 = 10%
         executed_sql = str(mock_conn.execute.call_args[0][0])
         assert "CREATE OR REPLACE TEMPORARY TABLE" in executed_sql
         assert "dh_sample_" in executed_sql
-        assert "TABLESAMPLE BERNOULLI" in executed_sql
+        assert "TABLESAMPLE BERNOULLI (10.00000000)" in executed_sql
         assert "BLOCK" not in executed_sql
         assert context.is_sampled
         assert context.temp_table is not None
@@ -902,9 +903,11 @@ class TestSnowflakeAdapter:
                 context, mock_conn, row_count=100_000_000
             )
 
+        # sample_size=10_000, row_count=100M → block_pc = 100*1000*(10_000/100M) = 10%
+        # bernoulli_pc = 100/1000 = 0.1%
         executed_sql = str(mock_conn.execute.call_args[0][0])
-        assert "TABLESAMPLE BLOCK" in executed_sql
-        assert "TABLESAMPLE BERNOULLI" in executed_sql
+        assert "TABLESAMPLE BLOCK (10.00000000)" in executed_sql
+        assert "TABLESAMPLE BERNOULLI (0.10000000)" in executed_sql
 
     def test_sampled_temp_table_block_fallback_to_bernoulli(self, adapter, config):
         """When BLOCK sampling fails (views), falls back to BERNOULLI-only."""
