@@ -9,6 +9,9 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
@@ -130,7 +133,9 @@ class SnowflakeAdapter(PlatformAdapter):
         block_profiling_min_rows = 100 * estimated_block_row_count
         overgeneration_factor = 1000
 
-        tablename = f'"{context.schema}"."{context.table}"'
+        tablename = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            db_name=None, schema_name=context.schema, table_name=context.table
+        )
         use_block_presample = (
             row_count > block_profiling_min_rows
             and row_count > self.config.sample_size * overgeneration_factor
