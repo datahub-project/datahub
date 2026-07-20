@@ -429,7 +429,9 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     // Verify native user service was called with correct parameters
     verify(mockNativeUserService)
         .createNativeUser(
-            any(OperationContext.class),
+            argThat(
+                ctx ->
+                    ctx.getAuthentication() != null && ctx.getAuthentication().getActor() != null),
             eq(userUrn),
             eq(fullName),
             eq(email),
@@ -515,7 +517,9 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     // Verify native user service was called with null title
     verify(mockNativeUserService)
         .createNativeUser(
-            any(OperationContext.class),
+            argThat(
+                ctx ->
+                    ctx.getAuthentication() != null && ctx.getAuthentication().getActor() != null),
             eq(userUrn),
             eq(fullName),
             eq(email),

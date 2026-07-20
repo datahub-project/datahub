@@ -173,20 +173,19 @@ public class AuthServiceController {
     Authentication authentication = AuthenticationContext.getAuthentication();
     final String actorId = authentication.getActor().getId();
     final String actorUrn = authentication.getActor().toUrnStr();
+    final OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(actorUrn, request, "generateSessionTokenForUser", List.of()),
+            Authorizer.EMPTY,
+            authentication,
+            true);
     return CompletableFuture.supplyAsync(
         () -> {
           // 1. Verify that only those authorized to generate a token (datahub system) are able to.
           if (isAuthorizedToGenerateSessionToken(actorId)) {
             try {
-              final OperationContext opContext =
-                  OperationContext.asSession(
-                      systemOperationContext,
-                      RequestContext.builder()
-                          .buildOpenapi(
-                              actorUrn, request, "generateSessionTokenForUser", List.of()),
-                      Authorizer.EMPTY,
-                      authentication,
-                      true);
               final boolean verboseAuthFailureLogging =
                   _configProvider.getAuthentication().isVerboseAuthFailureLogging();
               final boolean enforceExistence =
@@ -318,17 +317,17 @@ public class AuthServiceController {
     String inviteTokenString = inviteToken.asText();
     Authentication auth = AuthenticationContext.getAuthentication();
     log.info("Attempting to create native user {}", userUrnString);
+    final OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(auth.getActor().toUrnStr(), request, "signUp", List.of()),
+            Authorizer.EMPTY,
+            auth,
+            true);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            final OperationContext opContext =
-                OperationContext.asSession(
-                    systemOperationContext,
-                    RequestContext.builder()
-                        .buildOpenapi(auth.getActor().toUrnStr(), request, "signUp", List.of()),
-                    Authorizer.EMPTY,
-                    auth,
-                    true);
             Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenString);
             if (!_inviteTokenService.isInviteTokenValid(opContext, inviteTokenUrn)) {
               log.error("Invalid invite token");
@@ -393,21 +392,18 @@ public class AuthServiceController {
     recordUsageSession(
         httpEntity.getHeaders(), "resetNativeUserCredentials", UsageOperation.OTHER_WRITE);
     log.info("Attempting to reset credentials for native user {}", userUrnString);
+    final OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    auth.getActor().toUrnStr(), request, "resetNativeUserCredentials", List.of()),
+            Authorizer.EMPTY,
+            auth,
+            true);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            final OperationContext opContext =
-                OperationContext.asSession(
-                    systemOperationContext,
-                    RequestContext.builder()
-                        .buildOpenapi(
-                            auth.getActor().toUrnStr(),
-                            request,
-                            "resetNativeUserCredentials",
-                            List.of()),
-                    Authorizer.EMPTY,
-                    auth,
-                    true);
             _nativeUserService.resetCorpUserCredentials(
                 opContext, userUrnString, passwordString, resetTokenString);
             String response = buildResetNativeUserCredentialsResponse();
@@ -465,21 +461,18 @@ public class AuthServiceController {
     log.info(
         "Attempting to verify credentials for native userRef={}",
         LoginIdentityMask.mask(userUrnString));
+    final OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    auth.getActor().toUrnStr(), request, "verifyNativeUserCredentials", List.of()),
+            Authorizer.EMPTY,
+            auth,
+            true);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            final OperationContext opContext =
-                OperationContext.asSession(
-                    systemOperationContext,
-                    RequestContext.builder()
-                        .buildOpenapi(
-                            auth.getActor().toUrnStr(),
-                            request,
-                            "verifyNativeUserCredentials",
-                            List.of()),
-                    Authorizer.EMPTY,
-                    auth,
-                    true);
             boolean doesPasswordMatch =
                 _nativeUserService.doesPasswordMatch(opContext, userUrnString, passwordString);
             final boolean verboseAuthFailureLogging =
@@ -607,18 +600,17 @@ public class AuthServiceController {
         httpEntity != null ? httpEntity.getHeaders() : null,
         "getSsoSettings",
         UsageOperation.OTHER_READ);
+    final OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(auth.getActor().toUrnStr(), request, "getSsoSettings", List.of()),
+            Authorizer.EMPTY,
+            auth,
+            true);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            final OperationContext opContext =
-                OperationContext.asSession(
-                    systemOperationContext,
-                    RequestContext.builder()
-                        .buildOpenapi(
-                            auth.getActor().toUrnStr(), request, "getSsoSettings", List.of()),
-                    Authorizer.EMPTY,
-                    auth,
-                    true);
             GlobalSettingsInfo globalSettingsInfo =
                 (GlobalSettingsInfo)
                     _entityService.getLatestAspect(

@@ -138,7 +138,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    ACTION_GET_ES_TASK_STATUS), _authorizer, auth, true);
+                    ACTION_GET_ES_TASK_STATUS).withUsageOperation(UsageOperation.OTHER_READ), _authorizer, auth, true);
 
     if (!isAPIOperationsAuthorized(
             opContext,
@@ -149,18 +149,6 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
 
     return RestliUtils.toTask(opContext,
         () -> {
-
-          final Authentication auth = AuthenticationContext.getAuthentication();
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          ACTION_GET_ES_TASK_STATUS).withUsageOperation(UsageOperation.OTHER_READ), _authorizer, auth, true);
-
-          if (!isAPIOperationsAuthorized(
-                  opContext,
-                  PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE)) {
-            throw new RestLiServiceException(
-                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get ES task status");
-          }
           boolean taskSpecified = task != null;
           boolean nodeAndTaskIdSpecified = nodeId != null && taskId > 0;
           if (!taskSpecified && !nodeAndTaskIdSpecified) {
@@ -213,7 +201,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    ACTION_GET_INDEX_SIZES, List.of()), _authorizer, auth, true);
+                    ACTION_GET_INDEX_SIZES, List.of()).withUsageOperation(UsageOperation.OTHER_READ), _authorizer, auth, true);
 
     if (!isAPIOperationsAuthorized(
             opContext,
@@ -225,20 +213,6 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
     return RestliUtils.toTask(opContext,
         () -> {
           TimeseriesIndicesSizesResult result = new TimeseriesIndicesSizesResult();
-
-            final Authentication auth = AuthenticationContext.getAuthentication();
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          ACTION_GET_INDEX_SIZES, List.of()).withUsageOperation(UsageOperation.OTHER_READ), _authorizer, auth, true);
-
-          if (!isAPIOperationsAuthorized(
-                  opContext,
-                  PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE)) {
-            throw new RestLiServiceException(
-                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get index sizes.");
-          }
-
-            TimeseriesIndicesSizesResult result = new TimeseriesIndicesSizesResult();
           result.setIndexSizes(
               new TimeseriesIndexSizeResultArray(_timeseriesAspectService.getIndexSizes(opContext)));
           return result;

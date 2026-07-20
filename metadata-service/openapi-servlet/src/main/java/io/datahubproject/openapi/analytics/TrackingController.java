@@ -10,6 +10,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,7 +33,7 @@ public class TrackingController {
   public TrackingController(
       @Qualifier("trackingService") TrackingService trackingService,
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      @Qualifier("authorizerChain") AuthorizerChain authorizerChain) {
+      @Autowired(required = false) @Qualifier("authorizerChain") AuthorizerChain authorizerChain) {
     this.trackingService = trackingService;
     this.systemOperationContext = systemOperationContext;
     this.authorizer = authorizerChain != null ? authorizerChain : Authorizer.EMPTY;

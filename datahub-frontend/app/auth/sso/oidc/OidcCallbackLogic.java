@@ -269,13 +269,23 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
 
       Authentication sessionAuthentication =
           new Authentication(new Actor(ActorType.USER, userName), "");
+      WebContext webContext = ctx.webContext();
+      String sourceIP =
+          webContext
+              .getRequestHeader("X-Forwarded-For")
+              .orElseGet(
+                  () -> {
+                    String remote = webContext.getRemoteAddr();
+                    return remote != null ? remote : "";
+                  });
+      String userAgent = webContext.getRequestHeader("User-Agent").orElse("");
       final OperationContext opContext =
           OperationContext.asSession(
               systemOperationContext,
               RequestContext.builder()
                   .actorUrn(corpUserUrn.toString())
-                  .sourceIP("")
-                  .userAgent("")
+                  .sourceIP(sourceIP)
+                  .userAgent(userAgent)
                   .requestAPI(RequestContext.RequestAPI.OPENAPI)
                   .requestID("oidcCallback")
                   .withUsageOperation(UsageOperation.METADATA_WRITE),

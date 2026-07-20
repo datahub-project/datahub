@@ -147,15 +147,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "authorizerChain", urn.getEntityType()), _authorizer, auth, true);
+                    "get", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
         () -> {
-
-            Authentication auth = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            "authorizerChain", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
-
             if (!isAPIAuthorizedEntityUrns(
                   opContext,
                   READ,
@@ -201,15 +195,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()), _authorizer, auth, true);
+                    ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
         () -> {
-
-            Authentication auth = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
-
             if (!isAPIAuthorizedUrns(
                   opContext,
                   TIMESERIES, READ,
@@ -353,15 +341,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final Authentication authentication = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
-                    getContext(), ACTION_GET_COUNT), _authorizer, authentication, true);
+                    getContext(), ACTION_GET_COUNT).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, authentication, true);
     return RestliUtils.toTask(opContext,
         () -> {
-
-            Authentication authentication = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
-                            getContext(), ACTION_GET_COUNT).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, authentication, true);
-
             if (!isAPIAuthorized(
                   opContext,
                   COUNTS, READ)) {
@@ -390,23 +372,16 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final Authentication authentication = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
-                    getContext(), ACTION_RESTORE_INDICES), _authorizer, authentication, true);
+                    getContext(), ACTION_RESTORE_INDICES).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, authentication, true);
     return RestliUtils.toTask(opContext,
         () -> {
-
-            Authentication authentication = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
-                            getContext(), ACTION_RESTORE_INDICES).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, authentication, true);
-
             if (!isAPIOperationsAuthorized(
                     opContext,
                     PoliciesConfig.RESTORE_INDICES_PRIVILEGE)) {
                 throw new RestLiServiceException(
                         HttpStatus.S_403_FORBIDDEN, "User is unauthorized to update entities.");
             }
-            // TODO(opContext-review): dual context — please review
-            return Utils.restoreIndices(systemOperationContext, getContext(),
+            return Utils.restoreIndices(opContext, getContext(),
               aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService, createDefaultAspects != null ? createDefaultAspects : false);
         },
         MetricRegistry.name(this.getClass(), "restoreIndices"));
