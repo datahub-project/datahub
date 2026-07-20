@@ -10,6 +10,7 @@ from sqlalchemy.engine.reflection import Inspector
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey, SchemaKey
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, logger
 from datahub.ingestion.source.sql.sql_config import (
@@ -37,6 +38,21 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
     _schema_pattern_deprecated = pydantic_renamed_field(
         "schema_pattern", "database_pattern"
     )
+
+    # Two-tier sources have no schema layer: the database is the top container,
+    # filtered by database_pattern. Override the generic (schema-top) probe.
+    @classmethod
+    def probe_hierarchy(cls) -> typing.List[ProbeNodeKind]:
+        from datahub.ingestion.source.sql.sql_probe import TWO_TIER_PROBE_HIERARCHY
+
+        return TWO_TIER_PROBE_HIERARCHY
+
+    def list_probe_children(
+        self, parent_path: typing.List[str], limit: int
+    ) -> ProbeResult:
+        from datahub.ingestion.source.sql.sql_probe import list_two_tier_children
+
+        return list_two_tier_children(self, parent_path, limit)
 
     def get_sql_alchemy_url(
         self,

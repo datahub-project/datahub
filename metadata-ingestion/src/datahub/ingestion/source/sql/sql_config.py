@@ -1,6 +1,6 @@
 import logging
 from abc import abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, FrozenSet, List, Optional
 
 import pydantic
 from pydantic import Field, model_validator
@@ -12,6 +12,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -137,6 +138,27 @@ class SQLCommonConfig(
     @abstractmethod
     def get_sql_alchemy_url(self):
         pass
+
+    # --- Agent probe contract (see datahub.ingestion.agent.probe) ---
+    # Generic SQL sources are a 2-level namespace (schema -> table -> column).
+    # Database-aware sources (Snowflake, BigQuery) override these.
+    # Schemas the source drops regardless of schema_pattern (system catalogs like
+    # information_schema / pg_catalog). Empty by default; subclasses override to
+    # reuse their own list — see RedshiftConfig.default_schemas().
+    @classmethod
+    def default_schemas(cls) -> FrozenSet[str]:
+        return frozenset()
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        from datahub.ingestion.source.sql.sql_probe import SQL_PROBE_HIERARCHY
+
+        return SQL_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.sql.sql_probe import list_sql_children
+
+        return list_sql_children(self, parent_path, limit)
 
 
 class SQLAlchemyConnectionConfig(ConfigModel):
