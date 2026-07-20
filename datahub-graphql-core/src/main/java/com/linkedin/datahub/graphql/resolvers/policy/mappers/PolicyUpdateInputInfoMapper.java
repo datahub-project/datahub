@@ -70,6 +70,27 @@ public class PolicyUpdateInputInfoMapper
           new UrnArray(
               actorInput.getUsers().stream().map(this::createUrn).collect(Collectors.toList())));
     }
+    if (actorInput.getExcludedUsers() != null) {
+      result.setExcludedUsers(
+          new UrnArray(
+              actorInput.getExcludedUsers().stream()
+                  .map(this::createUrn)
+                  .collect(Collectors.toList())));
+    }
+    if (actorInput.getExcludedGroups() != null) {
+      result.setExcludedGroups(
+          new UrnArray(
+              actorInput.getExcludedGroups().stream()
+                  .map(this::createUrn)
+                  .collect(Collectors.toList())));
+    }
+    if (actorInput.getExcludedResourceOwnersTypes() != null) {
+      result.setExcludedResourceOwnersTypes(
+          new UrnArray(
+              actorInput.getExcludedResourceOwnersTypes().stream()
+                  .map(this::createUrn)
+                  .collect(Collectors.toList())));
+    }
     return result;
   }
 
