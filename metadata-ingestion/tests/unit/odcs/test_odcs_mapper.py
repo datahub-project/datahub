@@ -554,6 +554,23 @@ def test_contract_description_is_fallback() -> None:
     assert props.description == "Contract-level description."
 
 
+def test_description_object_renders_non_spec_extra_prose_keys() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        description={"purpose": "P", "summary": "S", "authoritativeDefinitions": []},
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+    )
+    props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
+    assert props.description is not None
+    assert "**purpose**: P" in props.description
+    assert "**summary**: S" in props.description
+    assert "authoritativeDefinitions" not in props.description
+
+
 def test_institutional_memory_includes_root_authoritative_definitions() -> None:
     contract = _make_contract(
         schema=[
@@ -884,6 +901,21 @@ def test_missing_values_routes_to_custom_preserving_arguments() -> None:
     assert "missingValues" in _custom_logic(info)
     assert info.customProperties["odcs.rule.arguments"] == json.dumps(
         {"missingValues": [None, "", "N/A"]}, sort_keys=True
+    )
+
+
+def test_unknown_argument_keys_survive_into_provenance() -> None:
+    # `arguments` is typed but allows extras so engine-specific keys are not
+    # silently dropped -- they still round-trip into the assertion provenance.
+    _, mcps, _ = _route_single(
+        {
+            "metric": "missingValues",
+            "arguments": {"missingValues": ["N/A"], "engineOption": "strict"},
+        }
+    )
+    info = _single_info(mcps)
+    assert info.customProperties["odcs.rule.arguments"] == json.dumps(
+        {"engineOption": "strict", "missingValues": ["N/A"]}, sort_keys=True
     )
 
 
