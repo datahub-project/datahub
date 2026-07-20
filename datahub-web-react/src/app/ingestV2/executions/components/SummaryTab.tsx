@@ -85,6 +85,25 @@ function buildIssueUrl(sourceUrl: string, sourceType: string | undefined, errorS
     return baseUrl;
 }
 
+// The source URL is community-plugin-controlled, so only open http(s) URLs — this
+// rejects javascript:/data: schemes that would otherwise be an XSS vector. Opens in
+// a new tab with noopener/noreferrer.
+function openExternalUrl(rawUrl: string | undefined): void {
+    if (!rawUrl) {
+        return;
+    }
+    let parsed: URL;
+    try {
+        parsed = new URL(rawUrl, window.location.origin);
+    } catch {
+        return;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return;
+    }
+    window.open(parsed.href, '_blank', 'noopener,noreferrer');
+}
+
 export const SummaryTab = ({
     urn,
     status,
@@ -158,7 +177,7 @@ export const SummaryTab = ({
                     <Button
                         variant="text"
                         onClick={() => {
-                            window.open(pluginSourceUrl, '_blank');
+                            openExternalUrl(pluginSourceUrl);
                         }}
                     >
                         <FileTextOutlined /> {t('executions.viewDocumentation')}
@@ -166,7 +185,7 @@ export const SummaryTab = ({
                     <Button
                         variant="text"
                         onClick={() => {
-                            window.open(buildIssueUrl(pluginSourceUrl, parsedSourceType, errorSummary), '_blank');
+                            openExternalUrl(buildIssueUrl(pluginSourceUrl, parsedSourceType, errorSummary));
                         }}
                     >
                         <BugOutlined /> {t('executions.reportAnIssue')}
