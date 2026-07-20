@@ -1,6 +1,7 @@
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import { Alert } from 'antd';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import { matchPath } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -38,6 +39,7 @@ import LineageExplorer from '@app/lineage/LineageExplorer';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import LineageGraph from '@app/lineageV2/LineageGraph';
 import { useLineageV2 } from '@app/lineageV2/useLineageV2';
+import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     LINEAGE_GRAPH_INTRO_ID,
@@ -197,6 +199,7 @@ export const EntityProfile = <T, U>({
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizeContext);
     const isLineageMode = useIsLineageMode();
     const isLineageV2 = useLineageV2();
+    const { t } = useTranslation('entity.shared.containers');
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
@@ -240,7 +243,7 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
-    const { data: formsData } = useGetFormsForEntityQuery({
+    const { data: formsData, refetch: refetchForms } = useGetFormsForEntityQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
         skip: !entityRegistry.getSupportedEntityCapabilities(entityType).has(EntityCapabilityType.FORMS),
@@ -258,6 +261,7 @@ export const EntityProfile = <T, U>({
 
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChangeV2(entityData, entityType);
+    useUpdateMetricsEntityDataOnChange(entityData, entityType);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -331,6 +335,7 @@ export const EntityProfile = <T, U>({
                     updateEntity,
                     routeToTab,
                     refetch,
+                    refetchForms,
                     lineage,
                     shouldRefetchEmbeddedListSearch,
                     setShouldRefetchEmbeddedListSearch,
@@ -379,7 +384,7 @@ export const EntityProfile = <T, U>({
         >
             {entityData?.status?.removed && (
                 <StyledAlert
-                    message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
+                    message={t('profile.notDiscoverableAlert')}
                     banner
                     closable
                     onClose={() => setShowAlert(false)}

@@ -39,6 +39,7 @@ import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -123,7 +124,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "getRelationships", urn.getEntityType()), _authorizer, auth, true);
+                    "getRelationships", urn.getEntityType()).withUsageOperation(UsageOperation.LINEAGE_QUERY), _authorizer, auth, true);
 
     if (!isAPIAuthorizedUrns(
             opContext,
@@ -173,7 +174,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "deleteRelationships", urn.getEntityType()), _authorizer, auth, true);
+                    "deleteRelationships", urn.getEntityType()).withUsageOperation(UsageOperation.ENTITY_DELETE), _authorizer, auth, true);
 
     if (!isAPIAuthorizedUrns(
             opContext,
@@ -202,7 +203,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "getLineage", urn.getEntityType()), _authorizer, auth, true);
+                    "getLineage", urn.getEntityType()).withUsageOperation(UsageOperation.LINEAGE_QUERY), _authorizer, auth, true);
 
     if (!isAPIAuthorizedUrns(
             opContext,

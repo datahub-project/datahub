@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -37,6 +38,7 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
 
@@ -53,7 +55,7 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
       }
 
       Urn stageUrn = status.getLifecycleStage();
-      LifecycleStageTypeInfo info = fetchStageInfo(stageUrn, retrieverContext);
+      LifecycleStageTypeInfo info = fetchStageInfo(operationContext, stageUrn, retrieverContext);
 
       if (info == null) {
         exceptions.addException(
@@ -86,16 +88,19 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 
-  private LifecycleStageTypeInfo fetchStageInfo(Urn stageUrn, RetrieverContext retrieverContext) {
+  private LifecycleStageTypeInfo fetchStageInfo(
+      OperationFingerprint operationContext, Urn stageUrn, RetrieverContext retrieverContext) {
     try {
       RecordTemplate aspect =
           retrieverContext
               .getAspectRetriever()
-              .getLatestAspectObject(stageUrn, LIFECYCLE_STAGE_TYPE_INFO_ASPECT);
+              .getLatestAspectObject(operationContext, stageUrn, LIFECYCLE_STAGE_TYPE_INFO_ASPECT);
       if (aspect == null) {
         return null;
       }

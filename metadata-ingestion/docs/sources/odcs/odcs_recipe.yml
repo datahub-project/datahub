@@ -1,0 +1,64 @@
+source:
+  type: odcs
+  config:
+    # Path to a single ODCS YAML file, a directory of contracts, or a glob.
+    # May also be a list of any of the above. Each file may describe multiple
+    # tables (one `schema[]` entry per table) — every entry becomes its own
+    # logical `odcs` Dataset carrying the contract's schema and assertions.
+    path: ./contracts/
+
+    # Physical binding (the logicalParent link) is derived automatically from
+    # each contract's spec-required `servers[].type` — no mapping is needed for
+    # postgres / mysql / snowflake / bigquery / redshift / databricks /
+    # sqlserver / trino servers. Optional overrides refine env or
+    # platform_instance for a named `servers[].server` value:
+    # server_overrides:
+    #   - server: prod-snowflake
+    #     env: PROD
+    #     platform_instance: prod
+
+    # Explicit per-table physical URNs (contract id -> schema entry name -> URN).
+    # An empty string deliberately leaves that entry unbound; absent names fall
+    # back to server-based derivation.
+    # physical_urn_overrides:
+    #   "orders.v1":
+    #     orders: "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.sales.orders,PROD)"
+    #     legacy_orders: ""
+
+    # Standard stateful ingestion: removing a schema[] entry from a contract
+    # marks its logical dataset + assertions removed on the next run. Physical
+    # datasets are never touched.
+    # stateful_ingestion:
+    #   enabled: true
+    #   remove_stale_metadata: true
+
+    # Optional knobs — uncomment to override defaults.
+    #
+    # verify_physical_urns_exist: true   # with a DataHub graph: skip logicalParent links whose derived URN doesn't exist
+    # lowercase_physical_urns: true      # lowercase composed physical names for platforms that lowercase by default (snowflake)
+    # emit_assertions: true              # assertions from quality[] rules, attached to the logical dataset
+    # emit_schema_assertion: true        # one DATA_SCHEMA assertion per schema[] entry pinning the contract's schema
+    # schema_assertion_compatibility: SUPERSET   # or EXACT_MATCH / SUBSET
+    # emit_logical_parent: true          # the physical->logical PhysicalInstanceOf link
+    # tag_prefix: "odcs."                # prepend to every emitted tag
+    # strict_validation: false           # set true to reject contracts that fail JSON Schema validation
+    #
+    # Owner identity normalization: ODCS `team[].username` is a username OR an
+    # email. Pick at most one of these to match how your identity source keys
+    # users. Unresolved owners are reported (report.owners_unresolved) but
+    # still emitted — they resolve once the user is provisioned.
+    # strip_owner_email_domain: false    # alice@acme.com -> corpuser alice
+    # owner_email_domain: acme.com       # alice -> corpuser alice@acme.com
+    # odcs_versions: ["3.0.0", "3.0.1", "3.0.2", "3.1.0"]
+    # logical_dataset_name_template: "{contract_id}.{schema_name}"  # logical odcs dataset URN name
+    # follow_symlinks: false             # follow symlinks when scanning a directory
+    # file_extensions: [".yaml", ".yml", ".odcs.yaml", ".odcs.yml"]
+    # max_input_file_bytes: 5242880      # 5 MB; larger files are skipped with a warning
+    #
+    # Replicate contract-level ownership/tags to every logical dataset on each
+    # ingest. Set false to emit these aspects only at first sight, which
+    # preserves manual UI edits but means contract changes don't propagate.
+    # replicate_contract_metadata: true
+
+# Default sink is datahub-rest and doesn't need to be configured.
+# See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization.

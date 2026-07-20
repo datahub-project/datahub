@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
@@ -6,6 +7,7 @@ import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/style
 import { UnionType } from '@app/search/utils/constants';
 
 export default function GlossaryRelatedEntity() {
+    const { t } = useTranslation('entity.types');
     const { entityData } = useEntityData();
 
     const entityUrn = entityData?.urn;
@@ -47,7 +49,7 @@ export default function GlossaryRelatedEntity() {
                     filters: fixedOrFilters,
                 }}
                 emptySearchQuery="*"
-                placeholderText="Filter assets..."
+                placeholderText={t('shared.filterAssetsPlaceholder')}
                 skipCache
                 applyView
             />

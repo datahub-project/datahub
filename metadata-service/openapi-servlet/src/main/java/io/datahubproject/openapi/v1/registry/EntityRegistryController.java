@@ -10,6 +10,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.v1.models.registry.AspectSpecDto;
 import io.datahubproject.openapi.v1.models.registry.EntitySpecDto;
 import io.datahubproject.openapi.v1.models.registry.EntitySpecResponse;
@@ -73,7 +74,8 @@ public class EntityRegistryController {
     OperationContext opContext =
         systemOperationContext.asSession(
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getEntitySpecs", Collections.emptyList()),
+                .buildOpenapi(actorUrnStr, request, "getEntitySpecs", Collections.emptyList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -126,7 +128,8 @@ public class EntityRegistryController {
     OperationContext opContext =
         systemOperationContext.asSession(
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getEntitySpec", Collections.emptyList()),
+                .buildOpenapi(actorUrnStr, request, "getEntitySpec", Collections.emptyList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -173,7 +176,8 @@ public class EntityRegistryController {
     OperationContext opContext =
         systemOperationContext.asSession(
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getEntityAspecSpecs", Collections.emptyList()),
+                .buildOpenapi(actorUrnStr, request, "getEntityAspecSpecs", Collections.emptyList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -228,7 +232,8 @@ public class EntityRegistryController {
     OperationContext opContext =
         systemOperationContext.asSession(
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getAspectSpecs", Collections.emptyList()),
+                .buildOpenapi(actorUrnStr, request, "getAspectSpecs", Collections.emptyList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -271,7 +276,8 @@ public class EntityRegistryController {
     OperationContext opContext =
         systemOperationContext.asSession(
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getAspectSpec", Collections.emptyList()),
+                .buildOpenapi(actorUrnStr, request, "getAspectSpec", Collections.emptyList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -318,7 +324,8 @@ public class EntityRegistryController {
     OperationContext opContext =
         systemOperationContext.asSession(
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getEventSpecs", Collections.emptyList()),
+                .buildOpenapi(actorUrnStr, request, "getEventSpecs", Collections.emptyList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 

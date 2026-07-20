@@ -64,8 +64,7 @@ describe('getDefaultSummaryPageTemplate', () => {
             },
         });
 
-        // Verify modules array has content (but don't test specific content since it will change)
-        expect(result.properties.rows[0].modules).toHaveLength(1);
+        expect(result.properties.rows[0].modules).toHaveLength(2);
     });
 
     it('should return correct template for GlossaryTerm entity type', () => {
@@ -225,6 +224,27 @@ describe('getDefaultSummaryPageTemplate', () => {
         expect(domainResult?.properties?.assetSummary?.summaryElements).not.toEqual(
             glossaryTermResult?.properties?.assetSummary?.summaryElements,
         );
+    });
+
+    it('should return correct template for Document entity type', () => {
+        const result = getDefaultSummaryPageTemplate(EntityType.Document);
+
+        expect(result.properties.rows).toEqual([{ modules: [] }]);
+
+        const elements = result.properties.assetSummary?.summaryElements ?? [];
+        const elementTypes = elements.map((el) => el.elementType);
+
+        expect(elementTypes).toContain(SummaryElementType.DocumentType);
+        expect(elementTypes).toContain(SummaryElementType.DocumentStatus);
+        expect(elementTypes).toContain(SummaryElementType.Created);
+        expect(elementTypes).toContain(SummaryElementType.LastModified);
+        expect(elementTypes).toContain(SummaryElementType.LastIngested);
+        expect(elementTypes).toContain(SummaryElementType.Owners);
+
+        // LastIngested must appear after LastModified
+        const lastModifiedIdx = elementTypes.indexOf(SummaryElementType.LastModified);
+        const lastIngestedIdx = elementTypes.indexOf(SummaryElementType.LastIngested);
+        expect(lastIngestedIdx).toBeGreaterThan(lastModifiedIdx);
     });
 });
 

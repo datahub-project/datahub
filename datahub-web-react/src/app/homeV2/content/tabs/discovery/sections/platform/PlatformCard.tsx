@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -22,7 +23,7 @@ const Card = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) => props.$isShowNavBarRedesign && 'border-radius: 8px;'}
     :hover {
         border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid
-            ${(props) => props.theme.colors.hyperlinks};
+            ${(props) => props.theme.colors.borderHover};
         cursor: pointer;
     }
     display: flex;
@@ -56,6 +57,7 @@ type Props = {
 };
 
 export const PlatformCard = ({ platform, count }: Props) => {
+    const { t } = useTranslation('home.v2');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -75,7 +77,11 @@ export const PlatformCard = ({ platform, count }: Props) => {
 
     return (
         <Tooltip
-            title={`View ${formatNumberWithoutAbbreviation(count)} ${name} assets`}
+            title={t('platforms.viewAssetsTooltip', {
+                count,
+                formattedCount: formatNumberWithoutAbbreviation(count),
+                name,
+            })}
             showArrow={false}
             placement="bottom"
         >

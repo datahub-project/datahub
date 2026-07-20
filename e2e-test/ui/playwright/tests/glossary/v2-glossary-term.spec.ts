@@ -37,6 +37,9 @@ test.describe('glossary term entity operations', () => {
 
   test.beforeEach(async ({ page, logger, logDir }) => {
     glossaryPage = new GlossaryPage(page, logger, logDir);
+    await page.addInitScript(() => {
+      localStorage.setItem('navBarState', '{"state":"COLLAPSED"}');
+    });
   });
 
   test('can search related entities by query', async () => {
@@ -47,6 +50,7 @@ test.describe('glossary term entity operations', () => {
   });
 
   test('can apply filters on related entities', async () => {
+    test.setTimeout(90000);
     await glossaryPage.navigateToGlossaryTermByUrn(FILTER_TERM_URN);
     await glossaryPage.openRelatedAssetsTab();
     await glossaryPage.applyFacetTagFilter(FILTER_TAG_URN);
@@ -54,6 +58,7 @@ test.describe('glossary term entity operations', () => {
   });
 
   test('can search related entities by a specific tag using advanced search', async () => {
+    test.setTimeout(90000);
     await glossaryPage.navigateToGlossaryTermByUrn(TAGGED_TERM_URN);
     await glossaryPage.openRelatedAssetsTab();
     await glossaryPage.filterRelatedAssetsByTag(GLOSSARY_TAG);

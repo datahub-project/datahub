@@ -1,4 +1,5 @@
 import { message } from 'antd';
+import i18next from 'i18next';
 import { useCallback } from 'react';
 
 import { useRollbackIngestionMutation } from '@graphql/ingestion.generated';
@@ -10,18 +11,18 @@ export default function useRollbackExecution(refetch: () => void) {
 
     const rollbackExecution = useCallback(
         (runId: string) => {
-            message.loading('Requesting rollback...');
+            message.loading(i18next.t('ingestion:executions.rollbackLoading'));
 
             rollbackIngestion({ variables: { input: { runId } } })
                 .then(() => {
                     setTimeout(() => {
                         message.destroy();
                         refetch();
-                        message.success('Successfully requested ingestion rollback');
+                        message.success(i18next.t('ingestion:executions.rollbackSuccess'));
                     }, REFETCH_TIMEOUT_MS);
                 })
                 .catch(() => {
-                    message.error('Error requesting ingestion rollback');
+                    message.error(i18next.t('ingestion:executions.rollbackError'));
                 });
         },
         [refetch, rollbackIngestion],

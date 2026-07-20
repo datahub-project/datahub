@@ -1,0 +1,89 @@
+namespace com.linkedin.semanticmodel
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.ExternalReference
+import com.linkedin.metric.AiContext
+
+/**
+ * Core information about a SemanticModel entity.
+ */
+@Aspect = {
+  "name": "semanticModelInfo",
+  "schemaVersion": 3
+}
+record SemanticModelInfo includes ExternalReference {
+
+  /**
+   * Display name of the semantic model.
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
+  }
+  name: string
+
+  /**
+   * Human-readable description of the semantic model.
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2
+  }
+  description: optional string
+
+  /**
+   * Audit stamp capturing when this semantic model was created and by whom
+   * (as reported by the source platform / ingestor).
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME",
+      "searchLabel": "createdAt"
+    }
+  }
+  created: optional AuditStamp
+
+  /**
+   * Audit stamp capturing when this semantic model was last modified and by whom.
+   * Equals `created` when no modification has occurred since ingestion.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME",
+      "searchLabel": "lastModifiedAt"
+    }
+  }
+  lastModified: optional AuditStamp
+
+  /**
+   * The raw, native definition of this semantic model as authored on the
+   * source platform (e.g. the Snowflake `CREATE SEMANTIC VIEW` DDL, the
+   * dbt `semantic_model` YAML, or the Databricks `CREATE METRIC VIEW`
+   * DDL). Preserved verbatim so consumers can round-trip / debug against
+   * the original source; not itself parsed by DataHub.
+   */
+  nativeDefinition: optional string
+
+  /**
+   * AI-specific context for improved disambiguation and retrieval.
+   */
+  aiContext: optional AiContext
+
+  /**
+   * The logical datasets that this semantic model exposes.
+   */
+  datasets: array[ModelDataset] = [ ]
+
+  /**
+   * Join relationships between the datasets of this semantic model.
+   */
+  relationships: optional array[SemanticModelRelationship]
+
+}

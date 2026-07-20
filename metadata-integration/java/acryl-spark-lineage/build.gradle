@@ -9,6 +9,11 @@ apply plugin: 'maven-publish'
 apply from: '../../../gradle/coverage/java-coverage.gradle'
 apply from: '../versioning.gradle'
 
+// Pin Java 17 bytecode: this agent shadow jar (and the modules it bundles) must run on managed
+// Spark whose default JVM is Java 17 (Amazon EMR 7.x, Databricks Runtime 16-17). The rest of the
+// repo targets Java 21; the bundled dependency chain is pinned to 17 via ext.javaClassVersionOverride.
+ext.javaClassVersionOverride = 17
+
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
 // Define supported Scala versions - always build for both
@@ -19,6 +24,36 @@ def scalaVersions = ['2.12', '2.13']
 configurations {
   provided
   implementation.extendsFrom provided
+
+  // Spark 4.x is Scala 2.13 + Java 17 only, so its smoke test lives in a separate source set. It
+  // runs against the real *shaded* 2.13 agent jar (shadowJar_2_13) — the artifact users deploy —
+  // where our bundled deps (antlr, jackson, etc.) are relocated under io.acryl.shaded and so cannot
+  // clash with Spark 4's own copies. Fresh configs (no `extendsFrom implementation`) keep the
+  // unshaded plugin classpath out.
+  sparkSmoke4Implementation
+  sparkSmoke4RuntimeOnly
+}
+
+sourceSets {
+  sparkSmoke4 {
+    java.srcDir 'src/sparkSmoke4/java'
+  }
+}
+
+// The repo pins antlr4-runtime to 4.9.3, but Spark 4's SqlBaseLexer ships an ATN v4 grammar that
+// only deserializes against antlr4-runtime 4.13.x ("Could not deserialize ATN with version 4").
+// Force the Spark-4-aligned runtime on this test's classpath only.
+//
+// Also opt these test-only configs out of dependency locking (the module locks all configurations):
+// the Spark 4 / Scala 2.13 test dependencies are not part of the shipped artifact and shouldn't
+// enter the production lockfile — mirroring the detached-configuration approach used for the
+// per-Scala shadow jars.
+configurations.sparkSmoke4RuntimeClasspath {
+  resolutionStrategy.force 'org.antlr:antlr4-runtime:4.13.1'
+  resolutionStrategy.deactivateDependencyLocking()
+}
+configurations.sparkSmoke4CompileClasspath {
+  resolutionStrategy.deactivateDependencyLocking()
 }
 
 dependencies {
@@ -104,6 +139,39 @@ dependencies {
   } // older version to allow older guava
 
   testImplementation(externalDependency.testContainersPostgresql)
+
+  // A real SparkSession for the @Tag("integration") smoke test (main declares spark-sql as
+  // compileOnly; the test JVM needs it on the runtime classpath to actually start Spark).
+  testImplementation("org.apache.spark:spark-sql_2.12:3.5.0") {
+    exclude group: 'org.eclipse.jetty', module: 'jetty-servlet'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-server'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-util'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-webapp'
+    exclude group: 'org.eclipse.jetty', module: 'jetty-security'
+  }
+
+  // Iceberg + AWS SDK (shaded uber-jars) for the Glue connection-instance smoke test: a real Spark
+  // job reads an Iceberg table via GlueCatalog pointed at a mocked Glue/S3 (moto), so OpenLineage
+  // emits an `arn:aws:glue:<region>:<account>` symlink the listener resolves to a platform_instance.
+  testImplementation "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.6.1"
+  testImplementation "org.apache.iceberg:iceberg-aws-bundle:1.6.1"
+
+  // Spark 4.x compatibility smoke test (Scala 2.13, first stable Spark 4 release). OpenLineage's
+  // spark40 module + our plugin come from the shaded shadowJar_2_13 (added as a runtime file below),
+  // so only Spark 4 itself and JUnit are needed to compile/run the test.
+  sparkSmoke4Implementation "org.apache.spark:spark-sql_2.13:4.0.0"
+  // Align jupiter-api/engine + platform-launcher via the BOM (a custom source set doesn't get
+  // Gradle's auto-aligned launcher, which otherwise fails discovery with "OutputDirectoryProvider
+  // not available").
+  sparkSmoke4Implementation enforcedPlatform("org.junit:junit-bom:${rootProject.ext.junitJupiterVersion}")
+  sparkSmoke4Implementation "org.junit.jupiter:junit-jupiter-api"
+  sparkSmoke4RuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
+  sparkSmoke4RuntimeOnly "org.junit.platform:junit-platform-launcher"
+  // The real deployed agent: the shaded Scala 2.13 jar (plugin + relocated bundled deps + bundled
+  // openlineage-spark). Deferred via a closure because shadowJar_2_13 is registered later in the
+  // scalaVersions loop. Spark's Hadoop needs the legacy commons-collections 3.x at runtime.
+  sparkSmoke4RuntimeOnly files({ tasks.named('shadowJar_2_13').get().archiveFile })
+  sparkSmoke4RuntimeOnly 'commons-collections:commons-collections:3.2.2'
 }
 
 tasks.register('checkShadowJar', Exec) {
@@ -223,6 +291,10 @@ scalaVersions.each { sv ->
     relocate 'org.springframework', 'io.acryl.shaded.org.springframework'
     relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
     relocate 'org.yaml', 'io.acryl.shaded.org.yaml'
+    relocate('io.openlineage', 'io.acryl.shaded.io.openlineage') {
+      // Extension SPI must stay unrelocated: connectors implement it at its canonical name.
+      exclude 'io.openlineage.spark.extension.**'
+    }
     relocate 'net.jcip.annotations', 'io.acryl.shaded.annotations'
     relocate 'javassist', 'io.acryl.shaded.javassist'
     relocate 'edu.umd.cs.findbugs', 'io.acryl.shaded.findbugs'
@@ -236,6 +308,46 @@ scalaVersions.each { sv ->
     relocate 'org.checkerframework', 'io.acryl.shaded.org.checkerframework'
     relocate 'com.google.errorprone', 'io.acryl.shaded.com.google.errorprone'
     relocate 'com.sun.jna', 'io.acryl.shaded.com.sun.jna'
+
+    // Additional relocations to prevent classloading conflicts (issue #14989)
+    relocate 'antlr', 'io.acryl.shaded.antlr'
+    relocate 'org.antlr', 'io.acryl.shaded.org.antlr'
+    relocate 'org.apache.avro', 'io.acryl.shaded.org.apache.avro'
+    relocate 'org.codehaus.jackson', 'io.acryl.shaded.org.codehaus.jackson'
+    relocate 'org.eclipse.jetty', 'io.acryl.shaded.org.eclipse.jetty'
+    relocate 'jakarta.json', 'io.acryl.shaded.jakarta.json'
+    relocate 'org.reactivestreams', 'io.acryl.shaded.org.reactivestreams'
+    relocate 'net.jpountz', 'io.acryl.shaded.net.jpountz'
+    relocate 'org.xerial', 'io.acryl.shaded.org.xerial'
+    relocate 'software.amazon', 'io.acryl.shaded.software.amazon'
+    relocate 'nonapi.io', 'io.acryl.shaded.nonapi.io'
+    relocate 'org.publicsuffix', 'io.acryl.shaded.org.publicsuffix'
+    relocate 'io.swagger', 'io.acryl.shaded.io.swagger'
+    relocate 'io.micrometer', 'io.acryl.shaded.io.micrometer'
+    relocate 'io.confluent', 'io.acryl.shaded.io.confluent'
+    relocate 'io.github', 'io.acryl.shaded.io.github'
+    relocate 'io.datahubproject', 'io.acryl.shaded.io.datahubproject'
+    // Relocate io.openlineage to prevent conflicts when another openlineage-spark version
+    // is on the classpath (Databricks, EMR, Glue). DataHub's customized classes in
+    // src/main/java/io/openlineage/ are also relocated by the shadow plugin, so the
+    // override mechanism (project classes beat dependency classes) still works.
+    relocate 'io.openlineage', 'io.acryl.shaded.io.openlineage'
+    relocate 'com.eclipsesource', 'io.acryl.shaded.com.eclipsesource'
+
+    // Relocate packages that conflict with Spark's runtime classpath
+    relocate 'org.apache.kafka', 'io.acryl.shaded.org.apache.kafka'
+    relocate 'org.apache.http', 'io.acryl.shaded.org.apache.http'  // httpcomponents 4.x (not caught by org.apache.hc rule)
+    relocate 'org.apache.log4j', 'io.acryl.shaded.org.apache.log4j'
+    relocate 'org.apache.commons.text', 'io.acryl.shaded.org.apache.commons.text'
+    relocate 'com.google.re2j', 'io.acryl.shaded.com.google.re2j'
+    relocate 'org.eclipse.parsson', 'io.acryl.shaded.org.eclipse.parsson'
+    relocate 'org.codehaus.plexus', 'io.acryl.shaded.org.codehaus.plexus'
+    relocate 'org.apache.maven', 'io.acryl.shaded.org.apache.maven'
+    relocate 'org.jspecify', 'io.acryl.shaded.org.jspecify'
+    // NOTE: Do NOT relocate com.linkedin — Pegasus data framework uses reflection/class names
+    // internally for serialization. Relocating it breaks DataEncodingException.
+    // com.datahub also references com.linkedin types so must stay unrelocated too.
+    relocate 'com.google.thirdparty', 'io.acryl.shaded.com.google.thirdparty'
 
     // Debug output to verify we're using the right dependency
     doFirst {
@@ -273,17 +385,80 @@ tasks.register('buildAllScalaVersions') {
   dependsOn scalaVersions.collect { "shadowJar_${it.replace('.', '_')}" }
 }
 
+// Spark needs these JDK 17+ module opens to run.
+ext.sparkJava21CompatibleJvmArgs = [
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "--add-opens=java.base/java.net=ALL-UNNAMED",
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+]
+
 test {
   forkEvery = 1
-  useJUnitPlatform()
+  // Keep the default unit-test run fast and Docker-free: the real-Spark smoke test is tagged
+  // "integration" and runs via the sparkRealSmokeTest task below.
+  useJUnitPlatform {
+    excludeTags 'integration'
+  }
+  jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
+}
 
-  def sparkJava21CompatibleJvmArgs = [
-          "--add-opens=java.base/java.lang=ALL-UNNAMED",
-          "--add-opens=java.base/java.net=ALL-UNNAMED",
-          "--add-opens=java.base/java.nio=ALL-UNNAMED",
-          "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-  ]
-  jvmArgs = sparkJava21CompatibleJvmArgs
+// Self-contained real-Spark smoke test (@Tag("integration")): starts a local SparkSession + the
+// DataHub listener and a Postgres testcontainer. Requires Docker. Not part of `test`/CI unit runs.
+tasks.register('sparkRealSmokeTest', Test) {
+  description = 'Runs the real-Spark + testcontainers smoke test (requires Docker).'
+  group = 'verification'
+  testClassesDirs = sourceSets.test.output.classesDirs
+  // commons-collections 3.x is globally excluded for this module (the build prefers
+  // commons-collections4), but Spark's Hadoop needs the legacy 3.x classes at runtime. A detached
+  // configuration is outside the project's configuration container, so the project-wide exclude
+  // doesn't strip it.
+  def legacyCommonsCollections =
+      project.configurations.detachedConfiguration(
+          project.dependencies.create('commons-collections:commons-collections:3.2.2'))
+  classpath = sourceSets.test.runtimeClasspath + legacyCommonsCollections
+  forkEvery = 1
+  useJUnitPlatform {
+    includeTags 'integration'
+  }
+  jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
+  // OpenLineage's Glue ARN resolution reads the region from the AWS_REGION env var only (not a
+  // system property or Spark conf), so the Glue smoke test needs it set on the forked test JVM.
+  // Harmless for the non-AWS integration tests.
+  environment 'AWS_REGION', 'us-east-1'
+  environment 'AWS_DEFAULT_REGION', 'us-east-1'
+}
+
+// Apache Spark 4.x compatibility smoke test (Scala 2.13, Java 17+). Runs a real local Spark 4
+// SparkSession with the DataHub listener and asserts lineage is emitted — i.e. that the plugin
+// (OpenLineage 1.50 + our vendored classes) attaches and works on Spark 4. Kept out of `test`/CI
+// unit runs; run explicitly via `./gradlew :...:acryl-spark-lineage:sparkSmoke4Test`.
+tasks.register('sparkSmoke4Test', Test) {
+  description = 'Runs a real Apache Spark 4.x (Scala 2.13) lineage smoke test against the shaded agent jar.'
+  group = 'verification'
+  dependsOn 'shadowJar_2_13'
+  testClassesDirs = sourceSets.sparkSmoke4.output.classesDirs
+  classpath = sourceSets.sparkSmoke4.runtimeClasspath
+  forkEvery = 1
+  useJUnitPlatform()
+  jvmArgs = project.ext.sparkJava21CompatibleJvmArgs
+  testLogging {
+    exceptionFormat = 'full'
+    events 'failed', 'skipped'
+  }
+}
+
+// Most of the listener lifecycle is exercised by the real-Spark integration suite, not the unit
+// tests, so fold its coverage into jacocoTestReport — otherwise the reported number reflects only
+// unit tests and badly understates reality. The report picks up whatever .exec files are present
+// (test.exec always; sparkRealSmokeTest.exec / sparkSmoke4Test.exec when those suites ran).
+// mustRunAfter keeps the ordering correct — and, since the report consumes their .exec outputs,
+// avoids Gradle's implicit-dependency validation failure — when they're scheduled together (e.g.
+// the spark smoke-test CI workflow).
+jacocoTestReport {
+  executionData.from(fileTree(dir: "${buildDir}/jacoco", includes: ['*.exec']))
+  mustRunAfter('sparkRealSmokeTest')
+  mustRunAfter('sparkSmoke4Test')
 }
 
 assemble {

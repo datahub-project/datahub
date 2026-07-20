@@ -1,6 +1,6 @@
 import { ReactFlowInstance } from '@reactflow/core/dist/esm/types';
 import { useContext, useEffect } from 'react';
-import { Node, useReactFlow } from 'reactflow';
+import { Node, XYPosition, useReactFlow } from 'reactflow';
 
 import {
     LINEAGE_NODE_HEIGHT,
@@ -16,9 +16,9 @@ export default function useAvoidIntersections(id: string, expandHeight: number, 
     const { getNode, getNodes, setNodes } = useReactFlow();
 
     useEffect(() => {
-        if (!skip) {
-            avoidIntersections({ id, expandHeight, rootType, getNode, getNodes, setNodes });
-        }
+        if (skip) return undefined;
+        // Returned as the effect cleanup, so nodes move back on retract (or unmount)
+        return avoidIntersections({ id, expandHeight, rootType, getNode, getNodes, setNodes });
     }, [id, expandHeight, rootType, getNode, getNodes, setNodes, skip]);
 }
 
@@ -51,21 +51,28 @@ function avoidIntersections({ id, expandHeight, rootType, getNode, getNodes, set
     if (!self) {
         return () => {};
     }
+    const selfPosition = absolutePosition(self);
 
     const nodesToMove: Map<string, number> = new Map();
-    // Iterate nodes top down
+    // Iterate nodes top down, comparing absolute positions so nodes inside bounding boxes are
+    // comparable to top-level nodes. Children of other bounding boxes are skipped: they move with
+    // their parent box; children of the same box move individually. The node's own bounding box is
+    // never pushed: it resizes to fit its contents instead, and pushing it would move the node
+    // itself (and double-move its pushed siblings) along with it.
     const nodes = getNodes()
         .filter((node) => !isTransformational(node.data, rootType))
-        .filter((node) => node.id !== self.id && node.position.y >= self.position.y && overlapsX(self, node));
-    nodes.sort((a, b) => a.position.y - b.position.y);
+        .filter((node) => (!node.parentId || node.parentId === self.parentId) && node.id !== self.parentId)
+        .filter((node) => node.id !== self.id && absolutePosition(node).y >= selfPosition.y && overlapsX(self, node));
+    nodes.sort((a, b) => absolutePosition(a).y - absolutePosition(b).y);
 
-    let newY = self.position.y + expandHeight;
+    let newY = selfPosition.y + expandHeight;
     // eslint-disable-next-line no-restricted-syntax -- so I can break
     for (const node of nodes) {
-        const distance = pushDownDistance(newY, node.position.y);
-        if (pushDownDistance(newY, node.position.y)) {
+        const nodeY = absolutePosition(node).y;
+        const distance = pushDownDistance(newY, nodeY);
+        if (distance) {
             nodesToMove.set(node.id, distance);
-            newY = node.position.y + distance + (node.height || LINEAGE_NODE_HEIGHT);
+            newY = nodeY + distance + (node.height || LINEAGE_NODE_HEIGHT);
         } else {
             break;
         }
@@ -79,10 +86,16 @@ function avoidIntersections({ id, expandHeight, rootType, getNode, getNodes, set
     return () => {};
 }
 
+function absolutePosition(node: Node): XYPosition {
+    return node.positionAbsolute ?? node.position;
+}
+
 function overlapsX(a: Node, b: Node): boolean {
+    const aPosition = absolutePosition(a);
+    const bPosition = absolutePosition(b);
     return (
-        Math.min(a.position.x + (a.width || LINEAGE_NODE_WIDTH), b.position.x + (b.width || LINEAGE_NODE_WIDTH)) >
-        Math.max(a.position.x, b.position.x)
+        Math.min(aPosition.x + (a.width || LINEAGE_NODE_WIDTH), bPosition.x + (b.width || LINEAGE_NODE_WIDTH)) >
+        Math.max(aPosition.x, bPosition.x)
     );
 }
 

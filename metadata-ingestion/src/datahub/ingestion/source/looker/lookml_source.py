@@ -21,7 +21,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
@@ -70,9 +70,6 @@ from datahub.ingestion.source.looker.view_upstream import (
     AbstractViewUpstream,
     create_view_upstream,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -93,7 +90,10 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
-from datahub.sql_parsing.sqlglot_lineage import ColumnRef
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnRef,
+    column_refs_to_schema_field_urns,
+)
 
 VIEW_LANGUAGE_LOOKML: str = "lookml"
 VIEW_LANGUAGE_SQL: str = "sql"
@@ -367,10 +367,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             fine_grained_lineages.append(
                 FineGrainedLineageClass(
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=[
-                        make_schema_field_urn(cll_ref.table, cll_ref.column)
-                        for cll_ref in field.upstream_fields
-                    ],
+                    upstreams=column_refs_to_schema_field_urns(field.upstream_fields),
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
                     downstreams=[
                         make_schema_field_urn(
@@ -519,14 +516,6 @@ class LookMLSource(StatefulIngestionSourceBase):
         )
         return manifest
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         with tempfile.TemporaryDirectory("lookml_tmp") as tmp_dir:
             # Clone the base_folder if necessary.
@@ -534,11 +523,20 @@ class LookMLSource(StatefulIngestionSourceBase):
                 assert self.source_config.git_info
                 # we don't have a base_folder, so we need to clone the repo and process it locally
                 start_time = datetime.now()
-                checkout_dir = self.source_config.git_info.clone(
-                    tmp_path=tmp_dir,
-                )
-                self.reporter.git_clone_latency = datetime.now() - start_time
-                self.source_config.base_folder = checkout_dir.resolve()
+                try:
+                    checkout_dir = self.source_config.git_info.clone(
+                        tmp_path=tmp_dir,
+                    )
+                    self.reporter.git_clone_latency = datetime.now() - start_time
+                    self.source_config.base_folder = checkout_dir.resolve()
+                except Exception as e:
+                    self.reporter.failure(
+                        title="Failed to clone LookML repository",
+                        message="Unable to clone the git repository.",
+                        context=self.source_config.git_info.repo,
+                        exc=e,
+                    )
+                    return
 
             self.base_projects_folder[BASE_PROJECT_NAME] = (
                 self.source_config.base_folder

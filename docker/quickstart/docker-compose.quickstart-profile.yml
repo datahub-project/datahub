@@ -89,8 +89,11 @@ services:
       JAVA_OPTS: -Xms1g -Xmx1g
       KAFKA_BOOTSTRAP_SERVER: broker:29092
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+      LOG_AGGREGATOR_ENDPOINT: ''
       MAE_CONSUMER_ENABLED: 'true'
       MCE_CONSUMER_ENABLED: 'true'
+      MCL_CONSUMER_BATCH_ENABLED: 'true'
+      MCP_CONSUMER_BATCH_ENABLED: 'true'
       METADATA_SERVICE_AUTH_ENABLED: 'false'
       NEO4J_HOST: http://neo4j:7474
       NEO4J_PASSWORD: datahub
@@ -108,6 +111,10 @@ services:
       STRICT_URN_VALIDATION_ENABLED: 'true'
       THEME_V2_DEFAULT: 'true'
       UI_INGESTION_ENABLED: 'true'
+      USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS: '3600'
+      USAGE_AGGREGATION_ENABLED: 'true'
+      USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS: '30'
+      USAGE_AGGREGATION_INCLUDE_AGENT_NAME: 'true'
       UI_INGESTION_DEFAULT_CLI_VERSION: ${UI_INGESTION_DEFAULT_CLI_VERSION}
     expose:
     - '4319'
@@ -171,6 +178,7 @@ services:
       JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf
         -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
       KAFKA_BOOTSTRAP_SERVER: broker:29092
+      LOG_AGGREGATOR_ENDPOINT: ''
       PLAY_HTTP_CONTEXT: /
       THEME_V2_DEFAULT: 'true'
     expose:
@@ -191,6 +199,28 @@ services:
       bind:
         create_host_path: true
   kafka-broker:
+    profiles:
+    - quickstart
+    - quickstart-backend
+    - quickstart-actions
+    - quickstart-frontend
+    - quickstart-storage
+    - quickstart-cassandra
+    - quickstart-postgres-cdc
+    - quickstart-consumers
+    - quickstart-consumers-cdc
+    - debug
+    - debug-min
+    - debug-datahub-actions
+    - debug-frontend
+    - debug-backend
+    - debug-postgres-cdc
+    - debug-cassandra
+    - debug-consumers
+    - debug-consumers-cdc
+    - debug-neo4j
+    - debug-backend-aws
+    - debug-aws
     command:
     - /bin/bash
     - -c
@@ -310,6 +340,7 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-consumers
     - quickstart-postgres-cdc
     - quickstart-consumers
     - quickstart-consumers-cdc
@@ -320,6 +351,7 @@ services:
     - debug-backend
     - debug-postgres
     - debug-postgres-cdc
+    - debug-postgres-consumers
     - debug-cassandra
     - debug-consumers
     - debug-consumers-cdc
@@ -405,6 +437,7 @@ services:
       GRAPH_SERVICE_IMPL: elasticsearch
       KAFKA_BOOTSTRAP_SERVER: broker:29092
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+      LOG_AGGREGATOR_ENDPOINT: ''
       NEO4J_HOST: http://neo4j:7474
       NEO4J_PASSWORD: datahub
       NEO4J_URI: bolt://neo4j

@@ -23,6 +23,10 @@ test.describe('glossary sidebar navigation', () => {
   });
 
   test('can move a term into its parent term group', async ({ cleanup }) => {
+    // moveCurrentEntityTo polls autocomplete for up to 90 s (ES indexing latency on the
+    // freshly-created target group), expectEntityInContentsTab retries for up to 90 s, plus
+    // create/navigate overhead.
+    test.setTimeout(240000);
     const termGroup = withRandomSuffix('NavGroup');
     const term = withRandomSuffix('NavTerm');
 
@@ -44,6 +48,7 @@ test.describe('glossary sidebar navigation', () => {
   });
 
   test('Properties tab persists when switching between terms', async () => {
+    test.setTimeout(90000);
     await glossaryPage.navigateToGlossaryTermByUrn(PROPS_TEST_TERM1_URN);
     await glossaryPage.openPropertiesTab();
     await glossaryPage.expectPropertiesTabActive();
@@ -53,6 +58,10 @@ test.describe('glossary sidebar navigation', () => {
   });
 
   test('can move a term group under a parent node', async ({ cleanup }) => {
+    // moveCurrentEntityTo polls autocomplete for up to 90 s (ES indexing latency on the
+    // freshly-created target group), expectEntityInContentsTab retries for up to 90 s, plus
+    // create/navigate overhead.
+    test.setTimeout(240000);
     const parentNode = withRandomSuffix('NavParent');
     const termGroup = withRandomSuffix('NavGroup');
 

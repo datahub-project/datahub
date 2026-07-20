@@ -245,6 +245,10 @@ class BigQuerySchemaGenerator:
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
 
+        # Dataset locations seen during schema extraction; consumed downstream
+        # to auto-extend region_qualifiers and avoid silent INFORMATION_SCHEMA misses.
+        self.discovered_locations: Set[str] = set()
+
         # Maps project -> view_ref, so we can find all views in a project
         self.view_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
         # Maps project -> snapshot_ref, so we can find all snapshots in a project
@@ -559,6 +563,14 @@ class BigQuerySchemaGenerator:
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = bigquery_dataset.name
 
+        if bigquery_dataset.location:
+            # BigLake/Omni locations (aws-*, azure-*) are not valid
+            # INFORMATION_SCHEMA region qualifiers, so skip auto-detection.
+            if bigquery_dataset.is_biglake_dataset():
+                self.report.num_biglake_datasets_skipped_for_region_autodetect += 1
+            else:
+                self.discovered_locations.add(bigquery_dataset.location)
+
         if self.config.include_schema_metadata:
             yield from self.gen_dataset_containers(
                 dataset=dataset_name,
@@ -690,12 +702,16 @@ class BigQuerySchemaGenerator:
                     ),
                 )
 
+        # Views/snapshots get last_altered/row/size only from the undocumented __TABLES__
+        # (PARTITIONS does not cover them), so gate that solely on the legacy opt-in.
+        fetch_legacy_table_stats = self.config.use_legacy_table_stats
+
         if self.config.include_views:
             db_views[dataset_name] = list(
                 self.schema_api.get_views_for_dataset(
                     project_id,
                     dataset_name,
-                    self.config.is_profiling_enabled(),
+                    fetch_legacy_table_stats,
                     self.report,
                 )
             )
@@ -714,7 +730,7 @@ class BigQuerySchemaGenerator:
                 self.schema_api.get_snapshots_for_dataset(
                     project_id,
                     dataset_name,
-                    self.config.is_profiling_enabled(),
+                    fetch_legacy_table_stats,
                     self.report,
                 )
             )
@@ -1372,6 +1388,7 @@ class BigQuerySchemaGenerator:
                         dataset.name,
                         items_to_get,
                         with_partitions=with_partitions,
+                        use_legacy_table_stats=self.config.use_legacy_table_stats,
                         report=self.report,
                     )
                     items_to_get.clear()
@@ -1382,6 +1399,7 @@ class BigQuerySchemaGenerator:
                     dataset.name,
                     items_to_get,
                     with_partitions=with_partitions,
+                    use_legacy_table_stats=self.config.use_legacy_table_stats,
                     report=self.report,
                 )
 

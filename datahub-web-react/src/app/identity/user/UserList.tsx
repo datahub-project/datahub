@@ -2,6 +2,7 @@ import { UsergroupAddOutlined } from '@ant-design/icons';
 import { Button, Empty, List, Pagination } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -49,6 +50,7 @@ const UserPaginationContainer = styled.div`
 `;
 
 export const UserList = () => {
+    const { t } = useTranslation('entity.identity');
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -114,8 +116,8 @@ export const UserList = () => {
     return (
         <>
             <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_INVITE_LINK_ID, USERS_ASSIGN_ROLE_ID]} />
-            {!usersData && loading && <Message type="loading" content="Loading users..." />}
-            {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
+            {!usersData && loading && <Message type="loading" content={t('users.loading')} />}
+            {error && <Message type="error" content={t('users.loadError')} />}
             <UserContainer>
                 <TabToolbar>
                     <div>
@@ -125,12 +127,12 @@ export const UserList = () => {
                             type="text"
                             onClick={() => setIsViewingInviteToken(true)}
                         >
-                            <UsergroupAddOutlined /> Invite Users
+                            <UsergroupAddOutlined /> {t('users.inviteButton')}
                         </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search users..."
+                        placeholderText={t('users.searchPlaceholder')}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -153,7 +155,7 @@ export const UserList = () => {
                 <UserStyledList
                     bordered
                     locale={{
-                        emptyText: <Empty description="No Users!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description={t('users.emptyTitle')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     dataSource={usersList}
                     renderItem={(item: any) => (

@@ -155,11 +155,15 @@ public class AggregationQueryBuilder {
             aggBuilder =
                 INDEX_VIRTUAL_FIELD.equalsIgnoreCase(specialTypeFields.get(1))
                     ? AggregationBuilders.missing(inputFacet)
-                        .field(getAggregationField(ES_INDEX_FIELD, opContext.getAspectRetriever()))
+                        .field(
+                            getAggregationField(
+                                opContext, ES_INDEX_FIELD, opContext.getAspectRetriever()))
                     : AggregationBuilders.missing(inputFacet)
                         .field(
                             getAggregationField(
-                                specialTypeFields.get(1), opContext.getAspectRetriever()));
+                                opContext,
+                                specialTypeFields.get(1),
+                                opContext.getAspectRetriever()));
             break;
           default:
             throw new UnsupportedOperationException(
@@ -169,11 +173,13 @@ public class AggregationQueryBuilder {
         aggBuilder =
             facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
                 ? AggregationBuilders.terms(inputFacet)
-                    .field(getAggregationField(ES_INDEX_FIELD, opContext.getAspectRetriever()))
+                    .field(
+                        getAggregationField(
+                            opContext, ES_INDEX_FIELD, opContext.getAspectRetriever()))
                     .size(maxTermBuckets)
                     .minDocCount(0)
                 : AggregationBuilders.terms(inputFacet)
-                    .field(getAggregationField(facet, opContext.getAspectRetriever()))
+                    .field(getAggregationField(opContext, facet, opContext.getAspectRetriever()))
                     .size(maxTermBuckets);
       }
       if (lastAggBuilder != null) {
@@ -186,15 +192,18 @@ public class AggregationQueryBuilder {
   }
 
   private String getAggregationField(
-      final String facet, @Nullable AspectRetriever aspectRetriever) {
+      @Nullable final Object opContext,
+      final String facet,
+      @Nullable AspectRetriever aspectRetriever) {
     if (facet.startsWith("has")) {
       // Boolean hasX field, not a keyword field. Return the name of the original facet.
       return facet;
     }
     // intercept structured property if it exists
-    return toStructuredPropertyFacetName(facet, aspectRetriever)
+    return toStructuredPropertyFacetName(
+            (com.datahub.context.OperationFingerprint) opContext, facet, aspectRetriever)
         // Otherwise assume that this field is of keyword type.
-        .orElse(ESUtils.toKeywordField(facet, false, aspectRetriever));
+        .orElse(ESUtils.toKeywordField(opContext, facet, false, aspectRetriever));
   }
 
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {
@@ -239,10 +248,12 @@ public class AggregationQueryBuilder {
   List<AggregationMetadata> extractAggregationMetadata(
       @Nonnull SearchResponse searchResponse,
       @Nullable Filter filter,
+      @Nullable final OperationContext opContext,
       @Nullable AspectRetriever aspectRetriever) {
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
     if (searchResponse.getAggregations() == null) {
-      return addFiltersToAggregationMetadata(aggregationMetadataList, filter, aspectRetriever);
+      return addFiltersToAggregationMetadata(
+          aggregationMetadataList, filter, opContext, aspectRetriever);
     }
     for (Map.Entry<String, Aggregation> entry :
         searchResponse.getAggregations().getAsMap().entrySet()) {
@@ -253,7 +264,8 @@ public class AggregationQueryBuilder {
         processMissingAggregations(entry, aggregationMetadataList);
       }
     }
-    return addFiltersToAggregationMetadata(aggregationMetadataList, filter, aspectRetriever);
+    return addFiltersToAggregationMetadata(
+        aggregationMetadataList, filter, opContext, aspectRetriever);
   }
 
   public void processTermAggregations(
@@ -364,15 +376,17 @@ public class AggregationQueryBuilder {
   public List<AggregationMetadata> addFiltersToAggregationMetadata(
       @Nonnull final List<AggregationMetadata> originalMetadata,
       @Nullable final Filter filter,
+      @Nullable final OperationContext opContext,
       @Nullable AspectRetriever aspectRetriever) {
     if (filter == null) {
       return originalMetadata;
     }
     if (filter.getOr() != null) {
-      addOrFiltersToAggregationMetadata(filter.getOr(), originalMetadata, aspectRetriever);
+      addOrFiltersToAggregationMetadata(
+          filter.getOr(), originalMetadata, opContext, aspectRetriever);
     } else if (filter.getCriteria() != null) {
       addCriteriaFiltersToAggregationMetadata(
-          filter.getCriteria(), originalMetadata, aspectRetriever);
+          filter.getCriteria(), originalMetadata, opContext, aspectRetriever);
     }
     return originalMetadata;
   }
@@ -380,26 +394,30 @@ public class AggregationQueryBuilder {
   void addOrFiltersToAggregationMetadata(
       @Nonnull final ConjunctiveCriterionArray or,
       @Nonnull final List<AggregationMetadata> originalMetadata,
+      @Nullable final OperationContext opContext,
       @Nullable AspectRetriever aspectRetriever) {
     for (ConjunctiveCriterion conjunction : or) {
       // For each item in the conjunction, inject an empty aggregation if necessary
       addCriteriaFiltersToAggregationMetadata(
-          conjunction.getAnd(), originalMetadata, aspectRetriever);
+          conjunction.getAnd(), originalMetadata, opContext, aspectRetriever);
     }
   }
 
   private void addCriteriaFiltersToAggregationMetadata(
       @Nonnull final CriterionArray criteria,
       @Nonnull final List<AggregationMetadata> originalMetadata,
+      @Nullable final OperationContext opContext,
       @Nullable AspectRetriever aspectRetriever) {
     for (Criterion criterion : criteria) {
-      addCriterionFiltersToAggregationMetadata(criterion, originalMetadata, aspectRetriever);
+      addCriterionFiltersToAggregationMetadata(
+          criterion, originalMetadata, opContext, aspectRetriever);
     }
   }
 
   public void addCriterionFiltersToAggregationMetadata(
       @Nonnull final Criterion criterion,
       @Nonnull final List<AggregationMetadata> aggregationMetadata,
+      @Nullable final OperationContext opContext,
       @Nullable AspectRetriever aspectRetriever) {
 
     // We should never see duplicate aggregation for the same field in aggregation metadata list.
@@ -408,7 +426,7 @@ public class AggregationQueryBuilder {
             .collect(Collectors.toMap(AggregationMetadata::getName, agg -> agg));
 
     // Map a filter criterion to a facet field (e.g. domains.keyword -> domains)
-    final String finalFacetField = toParentField(criterion.getField(), aspectRetriever);
+    final String finalFacetField = toParentField(opContext, criterion.getField(), aspectRetriever);
 
     if (finalFacetField == null) {
       log.warn(

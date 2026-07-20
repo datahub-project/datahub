@@ -79,12 +79,12 @@ const StyledTabsPrimary = styled(AntTabs)<{
             }
         `}
     .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
         font-weight: 600;
     }
 
     .ant-tabs-ink-bar {
-        background-color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 
     .ant-tabs-content-holder {
@@ -161,11 +161,11 @@ const StyledTabsSecondary = styled(AntTabs)<{
             }
         `}
     .ant-tabs-tab-active {
-        background-color: ${(props) => props.theme.styles['primary-color-light']}80;
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand}80;
     }
 
     .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
         font-weight: 600;
     }
 

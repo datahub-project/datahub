@@ -63,10 +63,12 @@ export function getActorDisplayName(
     entityRegistry: { getDisplayName: (type: EntityType, data: any) => string },
 ): string {
     if (!actor) {
+        /* untranslated-text -- actor display name fallback when no actor present */
         return 'System';
     }
 
     if (isSystemActor(actor)) {
+        /* untranslated-text -- DataHub system actor display name (proper noun) */
         return 'DataHub AI';
     }
 

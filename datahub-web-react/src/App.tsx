@@ -4,7 +4,7 @@ import '@src/AppV2.less';
 import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 
@@ -15,11 +15,13 @@ import { Routes } from '@app/Routes';
 import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
+import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
 import { ErrorCodes } from '@app/shared/constants';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
+import { otelOperationLink } from '@src/otelApollo';
 import possibleTypesResult from '@src/possibleTypes.generated';
 import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -43,6 +45,7 @@ const errorLink = onError((error) => {
         }
     }
     // Disabled behavior for now -> Components are expected to handle their errors.
+    //
     // if (graphQLErrors && graphQLErrors.length) {
     //     const firstError = graphQLErrors[0];
     //     const { extensions } = firstError;
@@ -65,7 +68,7 @@ const injectVariablesLink = new ApolloLink((operation, forward) => {
 
 const client = new ApolloClient({
     connectToDevTools: true,
-    link: ApolloLink.from([injectVariablesLink, errorLink, httpLink]),
+    link: ApolloLink.from([otelOperationLink, injectVariablesLink, errorLink, httpLink]),
     cache: new InMemoryCache({
         typePolicies: {
             Query: {
@@ -109,7 +112,9 @@ export const InnerApp: React.VFC = () => {
                     <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
                 <Router basename={getRuntimeBasePath()}>
-                    <Routes />
+                    <Suspense fallback={<SuspenseGlobal />}>
+                        <Routes />
+                    </Suspense>
                 </Router>
             </CustomThemeProvider>
         </HelmetProvider>

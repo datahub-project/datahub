@@ -1,12 +1,14 @@
 import { InfiniteScrollList } from '@components';
 import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
+import useAssetCollectionViewAll from '@app/homeV3/modules/assetCollection/useAssetCollectionViewAll';
 import { sortByUrnOrder } from '@app/homeV3/modules/assetCollection/utils';
 import { excludeEmptyAndFilters } from '@app/searchV2/utils/filterUtils';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
@@ -22,6 +24,7 @@ const ContentWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 const AssetCollectionModule = (props: ModuleProps) => {
+    const { t } = useTranslation('modules');
     const [isFirstFetch, setIsFirstFetch] = useState(true);
     const assetUrns = useMemo(
         () =>
@@ -156,8 +159,10 @@ const AssetCollectionModule = (props: ModuleProps) => {
         ],
     );
 
+    const onClickViewAll = useAssetCollectionViewAll(props.module);
+
     return (
-        <LargeModule {...props} loading={loading} dataTestId="asset-collection-module">
+        <LargeModule {...props} loading={loading} onClickViewAll={onClickViewAll} dataTestId="asset-collection-module">
             <ContentWrapper data-testid="asset-collection-entities">
                 <InfiniteScrollList<Entity>
                     key={assetUrns.join(',')}
@@ -173,8 +178,8 @@ const AssetCollectionModule = (props: ModuleProps) => {
                     emptyState={
                         <EmptyContent
                             icon={Stack}
-                            title="No Assets"
-                            description="Edit the module and add assets to see them in this list"
+                            title={t('assetCollection.emptyTitle')}
+                            description={t('assetCollection.emptyDescription')}
                         />
                     }
                     totalItemCount={totalForInfiniteScroll}

@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeseries.search;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_TIMESERIES_ASPECT_SERVICE_CONFIG;
 import static org.mockito.Mockito.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,6 +12,7 @@ import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
@@ -29,6 +31,11 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.pegasus2avro.entity.EnvelopedAspect;
+import com.linkedin.timeseries.AggregationSpec;
+import com.linkedin.timeseries.AggregationType;
+import com.linkedin.timeseries.GenericTable;
+import com.linkedin.timeseries.GroupingBucket;
+import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -58,6 +65,10 @@ import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.Request;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.metrics.ParsedTopHits;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -99,7 +110,8 @@ public class TimeseriesAspectServiceUnitTest {
   @Test
   public void testGetIndicesIntegerWrap() throws IOException {
     when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn(INDEX_PATTERN);
-    when(searchClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(response);
     ObjectNode jsonNode = JsonNodeFactory.instance.objectNode();
     ObjectNode indicesNode = JsonNodeFactory.instance.objectNode();
     ObjectNode indexNode = JsonNodeFactory.instance.objectNode();
@@ -129,7 +141,7 @@ public class TimeseriesAspectServiceUnitTest {
         .thenReturn("dataset_testAspect_index_v1");
 
     // Setup search request that will fail
-    when(searchClient.search(any(), any())).thenThrow(new IOException("Search failed"));
+    when(searchClient.search(any(), any(), any())).thenThrow(new IOException("Search failed"));
 
     Filter filter = QueryUtils.newFilter("field", "value");
 
@@ -160,7 +172,8 @@ public class TimeseriesAspectServiceUnitTest {
         .thenReturn("dataset_testAspect_index_v1");
 
     // Setup search request that will fail
-    when(searchClient.search(any(), any())).thenThrow(new IOException("Scroll search failed"));
+    when(searchClient.search(any(), any(), any()))
+        .thenThrow(new IOException("Scroll search failed"));
 
     Filter filter = QueryUtils.newFilter("field", "value");
     List<SortCriterion> sortCriteria =
@@ -213,7 +226,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute and verify RuntimeException is thrown
     try {
@@ -257,7 +270,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute and verify RuntimeException is thrown
     try {
@@ -286,7 +299,8 @@ public class TimeseriesAspectServiceUnitTest {
 
     // Setup mock to throw IOException when reading JSON response
     when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn(INDEX_PATTERN);
-    when(searchClient.performLowLevelRequest(any(Request.class))).thenReturn(response);
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(response);
 
     HttpEntity responseEntity = mock(HttpEntity.class);
     when(response.getEntity()).thenReturn(responseEntity);
@@ -321,7 +335,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute
     TimeseriesScrollResult result =
@@ -374,7 +388,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute with count = 2 (same as number of hits)
     TimeseriesScrollResult result =
@@ -431,7 +445,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute with count = 10 but only 1 result returned
     TimeseriesScrollResult result =
@@ -467,7 +481,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute
     TimeseriesScrollResult result =
@@ -521,7 +535,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute and verify RuntimeException is thrown
     try {
@@ -563,7 +577,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     // Execute
     TimeseriesScrollResult result =
@@ -598,6 +612,19 @@ public class TimeseriesAspectServiceUnitTest {
     when(indexConvention.getTimeseriesAspectIndexName(anyString(), anyString()))
         .thenReturn("test_index");
 
+    // Build a service with batchLoadEnabled=false so the thread-pool fan-out path is exercised.
+    ElasticSearchTimeseriesAspectService fanOutService =
+        new ElasticSearchTimeseriesAspectService(
+            searchClient,
+            bulkProcessor,
+            0,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_TIMESERIES_ASPECT_SERVICE_CONFIG.toBuilder().batchLoadEnabled(false).build(),
+            entityRegistry,
+            indexConvention,
+            indexBuilder,
+            null);
+
     // Mock the executor to throw InterruptedException
     ExecutorService mockExecutor = mock(ExecutorService.class);
     Future<Pair<String, EnvelopedAspect>> mockFuture = mock(Future.class);
@@ -607,7 +634,7 @@ public class TimeseriesAspectServiceUnitTest {
     // Use reflection to inject the mock executor
     Field queryPoolField = ElasticSearchTimeseriesAspectService.class.getDeclaredField("queryPool");
     queryPoolField.setAccessible(true);
-    queryPoolField.set(_timeseriesAspectService, mockExecutor);
+    queryPoolField.set(fanOutService, mockExecutor);
 
     Set<Urn> urns = new HashSet<>();
     urns.add(UrnUtils.getUrn("urn:li:dataset:123"));
@@ -616,7 +643,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     // Execute and verify
     try {
-      _timeseriesAspectService.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, null);
+      fanOutService.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, null);
       Assert.fail("Expected RuntimeException to be thrown");
     } catch (RuntimeException e) {
       Assert.assertTrue(e.getCause() instanceof InterruptedException);
@@ -629,6 +656,19 @@ public class TimeseriesAspectServiceUnitTest {
     when(indexConvention.getTimeseriesAspectIndexName(anyString(), anyString()))
         .thenReturn("test_index");
 
+    // Build a service with batchLoadEnabled=false so the thread-pool fan-out path is exercised.
+    ElasticSearchTimeseriesAspectService fanOutService =
+        new ElasticSearchTimeseriesAspectService(
+            searchClient,
+            bulkProcessor,
+            0,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_TIMESERIES_ASPECT_SERVICE_CONFIG.toBuilder().batchLoadEnabled(false).build(),
+            entityRegistry,
+            indexConvention,
+            indexBuilder,
+            null);
+
     // Mock the executor to throw ExecutionException
     ExecutorService mockExecutor = mock(ExecutorService.class);
     Future<Pair<String, EnvelopedAspect>> mockFuture = mock(Future.class);
@@ -639,7 +679,7 @@ public class TimeseriesAspectServiceUnitTest {
     // Use reflection to inject the mock executor
     Field queryPoolField = ElasticSearchTimeseriesAspectService.class.getDeclaredField("queryPool");
     queryPoolField.setAccessible(true);
-    queryPoolField.set(_timeseriesAspectService, mockExecutor);
+    queryPoolField.set(fanOutService, mockExecutor);
 
     Set<Urn> urns = new HashSet<>();
     urns.add(UrnUtils.getUrn("urn:li:dataset:123"));
@@ -648,7 +688,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     // Execute and verify
     try {
-      _timeseriesAspectService.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, null);
+      fanOutService.getLatestTimeseriesAspectValues(opContext, urns, aspectNames, null);
       Assert.fail("Expected RuntimeException to be thrown");
     } catch (RuntimeException e) {
       Assert.assertTrue(e.getCause() instanceof ExecutionException);
@@ -709,7 +749,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName)));
@@ -773,7 +813,9 @@ public class TimeseriesAspectServiceUnitTest {
     SearchResponse mockResponse2 = mock(SearchResponse.class);
     when(mockResponse2.getHits()).thenReturn(mockHits2);
 
-    when(searchClient.search(any(), any())).thenReturn(mockResponse1).thenReturn(mockResponse2);
+    when(searchClient.search(any(), any(), any()))
+        .thenReturn(mockResponse1)
+        .thenReturn(mockResponse2);
 
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName1, aspectName2)));
@@ -809,7 +851,7 @@ public class TimeseriesAspectServiceUnitTest {
 
     SearchResponse mockResponse = mock(SearchResponse.class);
     when(mockResponse.getHits()).thenReturn(mockHits);
-    when(searchClient.search(any(), any())).thenReturn(mockResponse);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
 
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName)));
@@ -832,7 +874,7 @@ public class TimeseriesAspectServiceUnitTest {
         .thenReturn("dataset_datasetProfile_index_v1");
 
     // Mock search to throw IOException
-    when(searchClient.search(any(), any())).thenThrow(new IOException("Search failed"));
+    when(searchClient.search(any(), any(), any())).thenThrow(new IOException("Search failed"));
 
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put(urnString, new HashSet<>(Arrays.asList(aspectName)));
@@ -915,7 +957,9 @@ public class TimeseriesAspectServiceUnitTest {
     SearchResponse mockResponse2 = mock(SearchResponse.class);
     when(mockResponse2.getHits()).thenReturn(mockHits2);
 
-    when(searchClient.search(any(), any())).thenReturn(mockResponse1).thenReturn(mockResponse2);
+    when(searchClient.search(any(), any(), any()))
+        .thenReturn(mockResponse1)
+        .thenReturn(mockResponse2);
 
     Map<String, Set<String>> urnAspects = new HashMap<>();
     urnAspects.put(urnString1, new HashSet<>(Arrays.asList(aspectName)));
@@ -936,6 +980,159 @@ public class TimeseriesAspectServiceUnitTest {
   }
 
   @Test
+  public void testBatchGetAspectValuesEmptyUrns() throws IOException {
+    // Empty URN set must return immediately without touching ES.
+    Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.batchGetAspectValues(
+            opContext,
+            Collections.emptySet(),
+            "dataset",
+            "datasetProfile",
+            null,
+            null,
+            10,
+            null,
+            null);
+
+    Assert.assertNotNull(result);
+    Assert.assertTrue(result.isEmpty());
+    verify(searchClient, never()).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAspectValuesLimitExceedsPerBucketLimit() throws IOException {
+    // limit=200 > topHitsPerBucketLimit=100 → falls back to per-URN getAspectValues path.
+    String urnString = "urn:li:dataset:123";
+    Urn urn = UrnUtils.getUrn(urnString);
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    SearchHits emptyHits = mock(SearchHits.class);
+    when(emptyHits.getHits()).thenReturn(new SearchHit[] {});
+    when(emptyHits.getTotalHits()).thenReturn(new TotalHits(0, TotalHits.Relation.EQUAL_TO));
+
+    SearchResponse emptyResponse = mock(SearchResponse.class);
+    when(emptyResponse.getHits()).thenReturn(emptyHits);
+    when(searchClient.search(any(), any(), any())).thenReturn(emptyResponse);
+
+    Set<Urn> urns = new HashSet<>(Collections.singletonList(urn));
+    Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.batchGetAspectValues(
+            opContext, urns, "dataset", "datasetProfile", null, null, 200, null, null);
+
+    // The fallback issues one search per URN (here just one URN).
+    verify(searchClient, times(1)).search(any(), any(), any());
+    Assert.assertNotNull(result.get(urn));
+    Assert.assertTrue(result.get(urn).isEmpty());
+  }
+
+  @Test
+  public void testBatchGetAspectValuesSubBatchFailure() throws IOException {
+    // When searchClient.search throws, the failed URN is still present with emptyList.
+    String urnString = "urn:li:dataset:123";
+    Urn urn = UrnUtils.getUrn(urnString);
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+        .thenReturn("dataset_datasetProfile_index_v1");
+    when(searchClient.search(any(), any(), any())).thenThrow(new IOException("ES unavailable"));
+
+    Set<Urn> urns = new HashSet<>(Collections.singletonList(urn));
+    Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.batchGetAspectValues(
+            opContext, urns, "dataset", "datasetProfile", null, null, 10, null, null);
+
+    // Partial failure: all input URNs must still be present with emptyList.
+    Assert.assertTrue(result.containsKey(urn));
+    Assert.assertTrue(result.get(urn).isEmpty());
+  }
+
+  @Test
+  public void testBatchGetAspectValuesResultMapping() throws IOException {
+    // Verify that a full aggregation response is mapped correctly.
+    String urnString = "urn:li:dataset:123";
+    Urn urn = UrnUtils.getUrn(urnString);
+    String urnString2 = "urn:li:dataset:456";
+    Urn urn2 = UrnUtils.getUrn(urnString2);
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetProfile")))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    // Build the mock hit with an event payload.
+    SearchHit mockHit = mock(SearchHit.class);
+    Map<String, Object> sourceMap = new HashMap<>();
+    sourceMap.put(MappingsBuilder.EVENT_FIELD, Map.of("rowCount", 100));
+    when(mockHit.getSourceAsMap()).thenReturn(sourceMap);
+
+    SearchHits topHitsResult = mock(SearchHits.class);
+    when(topHitsResult.getHits()).thenReturn(new SearchHit[] {mockHit});
+
+    ParsedTopHits parsedTopHits = mock(ParsedTopHits.class);
+    when(parsedTopHits.getHits()).thenReturn(topHitsResult);
+
+    Aggregations bucketAggs = mock(Aggregations.class);
+    when(bucketAggs.get("top_hits")).thenReturn(parsedTopHits);
+
+    Terms.Bucket bucket = mock(Terms.Bucket.class);
+    when(bucket.getKeyAsString()).thenReturn(urnString);
+    when(bucket.getAggregations()).thenReturn(bucketAggs);
+
+    ParsedTerms parsedTerms = mock(ParsedTerms.class);
+    // getBuckets() returns List<? extends Terms.Bucket>; use doReturn to bypass wildcard check.
+    doReturn(Collections.singletonList(bucket)).when(parsedTerms).getBuckets();
+
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("urn_buckets")).thenReturn(parsedTerms);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
+
+    Set<Urn> urns = new HashSet<>(Arrays.asList(urn, urn2));
+    Map<Urn, List<com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.batchGetAspectValues(
+            opContext, urns, "dataset", "datasetProfile", null, null, 10, null, null);
+
+    // urn1 has one aspect (from the mock hit); urn2 was not in ES response → emptyList.
+    Assert.assertEquals(result.get(urn).size(), 1);
+    Assert.assertNotNull(result.get(urn2));
+    Assert.assertTrue(result.get(urn2).isEmpty());
+  }
+
+  @Test
+  public void testGetLatestTimeseriesAspectValuesBatchPath() throws IOException {
+    // When batchLoadEnabled=true (default), getLatestTimeseriesAspectValues uses the aggregation
+    // query path, not the thread pool, so exactly one search call is made.
+    String urnString = "urn:li:dataset:123";
+    Urn urn = UrnUtils.getUrn(urnString);
+    String aspectName = "datasetProfile";
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq(aspectName)))
+        .thenReturn("dataset_datasetProfile_index_v1");
+
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("urn_buckets")).thenReturn(emptyTerms);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(mockResponse);
+
+    Set<Urn> urns = new HashSet<>(Collections.singletonList(urn));
+    Set<String> aspectNames = new HashSet<>(Collections.singletonList(aspectName));
+
+    Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+        _timeseriesAspectService.getLatestTimeseriesAspectValues(
+            opContext, urns, aspectNames, null);
+
+    // Exactly one aggregation search issued (batch path, not fan-out).
+    verify(searchClient, times(1)).search(any(), any(), any());
+    Assert.assertNotNull(result);
+  }
+
+  @Test
   public void testUpsertDocumentRoutesByDocId() {
     String entityName = "dataset";
     String aspectName = "datasetProfile";
@@ -950,7 +1147,206 @@ public class TimeseriesAspectServiceUnitTest {
     _timeseriesAspectService.upsertDocument(opContext, entityName, aspectName, docId, document);
 
     ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
-    verify(bulkProcessor).add(eq(docId), captor.capture());
+    verify(bulkProcessor).add(any(OperationContext.class), eq(docId), captor.capture());
     Assert.assertEquals(captor.getValue().id(), docId);
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsEmptyUrns() throws IOException {
+    // Empty URN list must return immediately without touching ES.
+    Map<Urn, GenericTable> result =
+        _timeseriesAspectService.batchGetAggregatedStats(
+            opContext,
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[0],
+            Collections.emptyList(),
+            null,
+            null,
+            "urn");
+
+    Assert.assertNotNull(result);
+    Assert.assertTrue(result.isEmpty());
+    verify(searchClient, never()).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsBatchPathSingleCall() throws IOException {
+    // With batchLoadEnabled=true (default) all URNs in one sub-batch → exactly 1 ES call
+    // regardless of N (contrast: per-URN path would call N times).
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+        .thenReturn("dataset_datasetusagestatistics_v1");
+
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("batch_urn_outer")).thenReturn(emptyTerms);
+    SearchResponse batchResponse = mock(SearchResponse.class);
+    when(batchResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(batchResponse);
+
+    List<Urn> urns =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:111"),
+            UrnUtils.getUrn("urn:li:dataset:222"),
+            UrnUtils.getUrn("urn:li:dataset:333"));
+
+    Map<Urn, GenericTable> result =
+        _timeseriesAspectService.batchGetAggregatedStats(
+            opContext,
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[0],
+            urns,
+            null,
+            null,
+            "urn");
+
+    Assert.assertEquals(result.size(), 3);
+    // 3 URNs fit in one sub-batch → exactly 1 ES call.
+    verify(searchClient, times(1)).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsSubBatching() throws IOException {
+    // With maxUrnsPerBatch=2 and 5 URNs the service issues ceil(5/2)=3 ES calls.
+    TimeseriesAspectServiceConfig subBatchConfig =
+        TEST_TIMESERIES_ASPECT_SERVICE_CONFIG.toBuilder().batchAggMaxUrnsPerBatch(2).build();
+    ElasticSearchTimeseriesAspectService subBatchService =
+        new ElasticSearchTimeseriesAspectService(
+            searchClient,
+            bulkProcessor,
+            0,
+            QueryFilterRewriteChain.EMPTY,
+            subBatchConfig,
+            entityRegistry,
+            indexConvention,
+            indexBuilder,
+            null);
+
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+        .thenReturn("dataset_datasetusagestatistics_v1");
+
+    // Minimal valid response: outer URN agg with no buckets (all input URNs → empty tables).
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("batch_urn_outer")).thenReturn(emptyTerms);
+    SearchResponse batchResponse = mock(SearchResponse.class);
+    when(batchResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(batchResponse);
+
+    List<Urn> urns =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:1"),
+            UrnUtils.getUrn("urn:li:dataset:2"),
+            UrnUtils.getUrn("urn:li:dataset:3"),
+            UrnUtils.getUrn("urn:li:dataset:4"),
+            UrnUtils.getUrn("urn:li:dataset:5"));
+
+    Map<Urn, GenericTable> result =
+        subBatchService.batchGetAggregatedStats(
+            opContext,
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[0],
+            urns,
+            null,
+            null,
+            "urn");
+
+    // All 5 URNs present (each got an empty table from the absent-from-ES fallback).
+    Assert.assertEquals(result.size(), 5);
+    // 3 sub-batches: [1,2] [3,4] [5] → 3 ES calls.
+    verify(searchClient, times(3)).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsWithMetricOrdering() throws IOException {
+    // Exercises: findOrderBySpec returning non-null, BucketOrder.aggregation(metric, asc),
+    // ascending=false path, hasSize()→getSize(), and the innerRoot!=null branch.
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+        .thenReturn("dataset_datasetusagestatistics_v1");
+
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("batch_urn_outer")).thenReturn(emptyTerms);
+    SearchResponse batchResponse = mock(SearchResponse.class);
+    when(batchResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(batchResponse);
+
+    GroupingBucket userBucket =
+        new GroupingBucket()
+            .setType(GroupingBucketType.STRING_GROUPING_BUCKET)
+            .setKey("userCounts.user")
+            .setSize(5)
+            .setOrderByMetric(true)
+            .setAscending(false);
+    AggregationSpec cardSpec =
+        new AggregationSpec()
+            .setAggregationType(AggregationType.CARDINALITY)
+            .setFieldPath("userCounts.user");
+
+    List<Urn> urns =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:a1"),
+            UrnUtils.getUrn("urn:li:dataset:a2"),
+            UrnUtils.getUrn("urn:li:dataset:a3"));
+
+    Map<Urn, GenericTable> result =
+        _timeseriesAspectService.batchGetAggregatedStats(
+            opContext,
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[] {cardSpec},
+            urns,
+            null,
+            new GroupingBucket[] {userBucket},
+            "urn");
+
+    Assert.assertEquals(result.size(), 3);
+    verify(searchClient, times(1)).search(any(), any(), any());
+  }
+
+  @Test
+  public void testBatchGetAggregatedStatsWithDefaultBucketOrderingAndSharedFilter()
+      throws IOException {
+    // Exercises: BucketOrder.aggregation("_key", asc) path, !hasSize()→MAX_TERM_BUCKETS,
+    // default ascending (asc=true), and the sharedFilter!=null path.
+    when(indexConvention.getTimeseriesAspectIndexName(eq("dataset"), eq("datasetUsageStatistics")))
+        .thenReturn("dataset_datasetusagestatistics_v1");
+
+    ParsedTerms emptyTerms = mock(ParsedTerms.class);
+    doReturn(Collections.emptyList()).when(emptyTerms).getBuckets();
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get("batch_urn_outer")).thenReturn(emptyTerms);
+    SearchResponse batchResponse = mock(SearchResponse.class);
+    when(batchResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(searchClient.search(any(), any(), any())).thenReturn(batchResponse);
+
+    // No size, no orderByMetric, no ascending — exercises all default-ordering branches.
+    GroupingBucket plainBucket =
+        new GroupingBucket()
+            .setType(GroupingBucketType.STRING_GROUPING_BUCKET)
+            .setKey("userCounts.user");
+    Filter sharedFilter = QueryUtils.newFilter("urn", "urn:li:dataset:b1");
+
+    List<Urn> urns =
+        List.of(UrnUtils.getUrn("urn:li:dataset:b1"), UrnUtils.getUrn("urn:li:dataset:b2"));
+
+    Map<Urn, GenericTable> result =
+        _timeseriesAspectService.batchGetAggregatedStats(
+            opContext,
+            "dataset",
+            "datasetUsageStatistics",
+            new AggregationSpec[0],
+            urns,
+            sharedFilter,
+            new GroupingBucket[] {plainBucket},
+            "urn");
+
+    Assert.assertEquals(result.size(), 2);
+    verify(searchClient, times(1)).search(any(), any(), any());
   }
 }
