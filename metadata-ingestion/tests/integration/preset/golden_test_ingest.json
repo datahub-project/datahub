@@ -36,16 +36,6 @@
                         ],
                         "type": "BAR"
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1720594800000,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
-                        }
-                    }
                 }
             ]
         }
@@ -92,16 +82,6 @@
                             }
                         ],
                         "type": "AREA"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1720594800000,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
                     }
                 }
             ]
@@ -150,16 +130,6 @@
                         ],
                         "type": "PIE"
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1720594800000,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
-                        }
-                    }
                 }
             ]
         }
@@ -206,16 +176,6 @@
                             }
                         ],
                         "type": "HISTOGRAM"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1720594800000,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
                     }
                 }
             ]
