@@ -9,6 +9,7 @@ from typing import ContextManager, Optional
 import click
 
 import datahub._version as datahub_version
+from datahub.cli.agent_cli import agent as ingestion_agent
 from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     enable_auto_decorators,
@@ -582,6 +583,9 @@ datahub.add_command(recording)
 datahub.add_command(datapack)
 datahub.add_command(api)
 datahub.add_command(agent_skill)
+# Registered as "ingestion-agent" (its click.Group name), not "agent" -- the top-level
+# "agent" name is already claimed below by the AI Agent metadata-entity CLI.
+datahub.add_command(ingestion_agent)
 
 try:
     from datahub.cli.iceberg_cli import iceberg
