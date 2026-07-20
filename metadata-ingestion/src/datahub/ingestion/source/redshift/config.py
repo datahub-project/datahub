@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, FrozenSet, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -252,6 +252,14 @@ class RedshiftConfig(
             or self.include_share_lineage
             or self.include_table_rename_lineage
         )
+
+    @classmethod
+    def default_schemas(cls) -> FrozenSet[str]:
+        # Reuse the same list the schema-listing SQL excludes, so the agent probe
+        # marks pg_catalog / information_schema as auto-dropped, not user-filtered.
+        from datahub.ingestion.source.redshift.query import REDSHIFT_DEFAULT_SCHEMAS
+
+        return frozenset(REDSHIFT_DEFAULT_SCHEMAS)
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":

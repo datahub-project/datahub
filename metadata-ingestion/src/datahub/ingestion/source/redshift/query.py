@@ -3,6 +3,14 @@ from typing import List
 
 redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 
+# System catalogs Redshift exposes but ingestion never emits. Single source of
+# truth shared by the schema-listing SQL below and the agent probe
+# (RedshiftConfig.default_schemas()). Ordered so the generated SQL is stable.
+REDSHIFT_DEFAULT_SCHEMAS = ("pg_catalog", "information_schema")
+_DEFAULT_SCHEMA_EXCLUSION = " and ".join(
+    f"schema_name != '{schema}'" for schema in REDSHIFT_DEFAULT_SCHEMAS
+)
+
 
 # See https://stackoverflow.com/questions/72770890/redshift-result-size-exceeds-listagg-limit-on-svl-statementtext
 # for why we need to limit the size of the query text.
@@ -67,7 +75,7 @@ class RedshiftCommonQuery:
         {from_clause}
         {owner_join}
         WHERE database_name = '{database}'
-          AND schema_name != 'pg_catalog' and schema_name != 'information_schema'
+          AND {_DEFAULT_SCHEMA_EXCLUSION}
     UNION ALL
         SELECT 
             schemaname as schema_name,
