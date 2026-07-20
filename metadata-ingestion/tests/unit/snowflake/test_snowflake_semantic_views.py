@@ -844,6 +844,14 @@ def test_parse_base_tables_from_ddl_doubled_quote_escape_in_comment():
     assert result == {"T": ("DB", "S", "T")}
 
 
+def test_parse_base_tables_from_ddl_malformed_ddl_returns_empty():
+    """Malformed DDL (an unterminated quote makes the tokenizer raise) must
+    return an empty mapping rather than crash the ingestion run."""
+    ddl = "CREATE SEMANTIC VIEW v AS TABLES ( DB.S.T comment='unterminated )"
+    result = SnowflakeDataDictionary._parse_base_tables_from_ddl(ddl)
+    assert result == {}
+
+
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
 def test_populate_semantic_view_base_tables_ddl_fallback(mock_connection):
     """When INFORMATION_SCHEMA.SEMANTIC_TABLES returns 0 rows, base tables

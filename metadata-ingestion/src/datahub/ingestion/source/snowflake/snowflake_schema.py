@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -17,6 +16,9 @@ from typing import (
     Set,
     Tuple,
 )
+
+import sqlglot
+from sqlglot.tokens import Token, TokenType
 
 from datahub.configuration.env_vars import get_snowflake_schema_parallelism
 from datahub.ingestion.api.report import SupportsAsObj
@@ -53,24 +55,13 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 SCHEMA_PARALLELISM = get_snowflake_schema_parallelism()
 
-# Regexes for the semantic-view DDL fallback parser
-# (SnowflakeDataDictionary._parse_base_tables_from_ddl). A Snowflake identifier is
-# either a double-quoted string or a bare [\w$] token.
-_SEM_VIEW_IDENT = r'(?:"[^"]+"|[\w$]+)'
-_SEM_VIEW_QUALIFIED_RE = re.compile(
-    rf"^\s*({_SEM_VIEW_IDENT}(?:\.{_SEM_VIEW_IDENT}){{0,2}})\s*$", re.DOTALL
-)
-_SEM_VIEW_ALIASED_RE = re.compile(
-    rf"^\s*({_SEM_VIEW_IDENT})\s+AS\s+(.+)$", re.IGNORECASE | re.DOTALL
-)
-_SEM_VIEW_TABLES_BLOCK_RE = re.compile(r"\bTABLES\s*\(", re.IGNORECASE)
-# Optional trailing clauses after a logical table; always preceded by whitespace, so
-# the lookbehind avoids clipping a table whose name ends in one of these words
-# (e.g. DB.SCHEMA.TAG, where TAG follows a '.').
-_SEM_VIEW_TRAILING_CLAUSE_RE = re.compile(
-    r"(?<=\s)(PRIMARY\s+KEY|UNIQUE|CONSTRAINT|WITH\s+SYNONYMS|WITH\s+TAG|COMMENT|TAG)\b",
-    re.IGNORECASE,
-)
+# CREATE SEMANTIC VIEW is not part of sqlglot's grammar (parse_one raises, and
+# lenient mode returns an opaque Command with no tables), so the DDL fallback parser
+# below tokenizes the statement and walks the TABLES ( ... ) clause structurally. We
+# still rely on sqlglot's tokenizer for the error-prone parts - quoted identifiers,
+# doubled-quote escapes, string literals and nested parens - which a regex gets wrong.
+_SEMANTIC_VIEW_TABLES_KEYWORD = "TABLES"
+_SNOWFLAKE_DIALECT = sqlglot.Dialect.get_or_raise("snowflake")
 
 
 @dataclass
@@ -1385,9 +1376,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
         returns no rows (the ingestion role has USAGE but not REFERENCES on a
         cross-database base table).
 
-        Each entry in the ``TABLES ( ... )`` clause is ``[ <alias> AS ]
-        <table_name>`` plus optional trailing clauses (PRIMARY KEY / UNIQUE /
-        CONSTRAINT / WITH SYNONYMS / COMMENT / WITH TAG), e.g.
+        sqlglot has no grammar for CREATE SEMANTIC VIEW, so we tokenize the DDL
+        and walk the ``TABLES ( ... )`` clause. Each entry is ``[ <alias> AS ]
+        <db>.<schema>.<table>`` followed by optional clauses (PRIMARY KEY /
+        UNIQUE / CONSTRAINT / WITH SYNONYMS / WITH TAG / COMMENT), e.g.
         ``orders AS DB.SCH.T PRIMARY KEY (id)`` or just ``DB.SCH.T COMMENT='x'``.
 
         Keyed by the logical alias (or table name when no alias is given),
@@ -1399,106 +1391,119 @@ class SnowflakeDataDictionary(SupportsAsObj):
         Returns {LOGICAL_NAME_UPPER: (database, schema, table)}.
         """
         result: Dict[str, Tuple[str, str, str]] = {}
-        for head in SnowflakeDataDictionary._semantic_view_table_heads(view_definition):
-            am = _SEM_VIEW_ALIASED_RE.match(head)
-            if am:
-                alias_part: Optional[str] = am.group(1)
-                ref_part = am.group(2).strip()
-            else:
-                alias_part = None
-                ref_part = head
-
-            # SQL-query logical table: `alias AS (SELECT ...)` -> no base table.
-            if ref_part.startswith("("):
-                continue
-
-            qm = _SEM_VIEW_QUALIFIED_RE.match(ref_part)
-            if not qm:
-                continue
-            parts = [p.strip('"') for p in re.findall(_SEM_VIEW_IDENT, qm.group(1))]
+        for alias, parts in SnowflakeDataDictionary._semantic_view_table_entries(
+            view_definition
+        ):
+            # Only a fully-qualified name yields a cross-database URN; skip
+            # partially-qualified names and SQL-query logical tables (empty parts).
             if len(parts) != 3:
-                # Not fully qualified -> cannot build a cross-database URN.
                 continue
             db, schema, table = parts
-            logical_name = (alias_part.strip('"') if alias_part else table).upper()
+            logical_name = (alias if alias else table).upper()
             result[logical_name] = (db, schema, table)
         return result
 
     @staticmethod
-    def _mask_quoted_spans(text: str) -> str:
-        """Blank out single-/double-quoted spans (preserving length so indices
-        stay aligned) so structural scanning never trips on commas, parens or
-        keywords inside string literals / quoted identifiers."""
-        masked_chars: List[str] = []
-        pos, length = 0, len(text)
-        while pos < length:
-            char = text[pos]
-            if char not in ("'", '"'):
-                masked_chars.append(char)
-                pos += 1
-                continue
-            masked_chars.append(" ")
-            pos += 1
-            while pos < length:
-                if text[pos] == char:
-                    if (
-                        pos + 1 < length and text[pos + 1] == char
-                    ):  # doubled-quote escape
-                        masked_chars.append("  ")
-                        pos += 2
-                        continue
-                    masked_chars.append(" ")
-                    pos += 1
-                    break
-                masked_chars.append(" ")
-                pos += 1
-        return "".join(masked_chars)
+    def _semantic_view_table_entries(
+        view_definition: str,
+    ) -> List[Tuple[Optional[str], List[str]]]:
+        """Tokenize the semantic-view DDL and return one ``(alias, name_parts)``
+        pair per entry in the ``TABLES ( ... )`` clause. ``alias`` is the logical
+        alias when the entry is ``alias AS <table>`` (else None); ``name_parts``
+        are the dotted identifier components of the referenced table.
 
-    @staticmethod
-    def _semantic_view_table_heads(view_definition: str) -> List[str]:
-        """Return each logical-table entry from the ``TABLES ( ... )`` clause,
-        trimmed of its optional trailing clauses so only ``[alias AS] table``
-        remains. Scanning is done on a quote-masked copy so commas/parens inside
-        COMMENT strings or WITH SYNONYMS lists are not treated as structure."""
-        masked = SnowflakeDataDictionary._mask_quoted_spans(view_definition)
-        block_match = _SEM_VIEW_TABLES_BLOCK_RE.search(masked)
-        if not block_match:
+        Splitting is done on the token stream, so string comments, doubled-quote
+        escapes and nested parens in PRIMARY KEY (...) / WITH SYNONYMS (...) /
+        subqueries need no special handling."""
+        try:
+            tokens = _SNOWFLAKE_DIALECT.tokenize(view_definition)
+        except Exception:
             return []
 
-        # Walk to the close paren matching TABLES( so we don't bleed into the
-        # RELATIONSHIPS/FACTS/DIMENSIONS/METRICS clauses that follow.
-        block_start = block_match.end()
-        block_depth = 1
-        scan_pos = block_start
-        while scan_pos < len(masked) and block_depth > 0:
-            if masked[scan_pos] == "(":
-                block_depth += 1
-            elif masked[scan_pos] == ")":
-                block_depth -= 1
-            scan_pos += 1
-        block_end = scan_pos - 1
+        # Locate the `TABLES (` that opens the base-table clause.
+        block_start = None
+        for idx in range(len(tokens) - 1):
+            if (
+                tokens[idx].token_type == TokenType.VAR
+                and tokens[idx].text.upper() == _SEMANTIC_VIEW_TABLES_KEYWORD
+                and tokens[idx + 1].token_type == TokenType.L_PAREN
+            ):
+                block_start = idx + 2
+                break
+        if block_start is None:
+            return []
 
-        heads: List[str] = []
-        seg_start = block_start
-        paren_depth = 0
-        for cursor in range(block_start, block_end + 1):
-            at_end = cursor == block_end
-            char = masked[cursor] if not at_end else ","
-            if char == "(":
-                paren_depth += 1
-            elif char == ")":
-                paren_depth -= 1
-            elif char == "," and paren_depth == 0:
-                clause_match = _SEM_VIEW_TRAILING_CLAUSE_RE.search(
-                    masked, seg_start, cursor
+        # Split the clause into comma-separated entries, tracking paren depth so
+        # commas inside PRIMARY KEY (...) / WITH SYNONYMS (...) / subqueries are not
+        # mistaken for separators, and stopping at the paren that closes TABLES(
+        # (before the RELATIONSHIPS/FACTS/DIMENSIONS/METRICS clauses).
+        entries: List[List[Token]] = []
+        current: List[Token] = []
+        depth = 1
+        for token in tokens[block_start:]:
+            if token.token_type == TokenType.L_PAREN:
+                depth += 1
+            elif token.token_type == TokenType.R_PAREN:
+                depth -= 1
+                if depth == 0:
+                    break
+            if depth == 1 and token.token_type == TokenType.COMMA:
+                entries.append(current)
+                current = []
+            else:
+                current.append(token)
+        if current:
+            entries.append(current)
+
+        return [
+            SnowflakeDataDictionary._entry_alias_and_name(entry) for entry in entries
+        ]
+
+    @staticmethod
+    def _entry_alias_and_name(
+        entry_tokens: List[Token],
+    ) -> Tuple[Optional[str], List[str]]:
+        """Split one TABLES-clause entry into its optional alias and the dotted
+        components of the referenced table: ``alias AS db.sch.tab`` -> (alias,
+        [db, sch, tab]); ``db.sch.tab`` -> (None, [db, sch, tab])."""
+        alias: Optional[str] = None
+        ref_tokens = entry_tokens
+        # A top-level `AS` separates the alias from the table reference.
+        depth = 0
+        for idx, token in enumerate(entry_tokens):
+            if token.token_type == TokenType.L_PAREN:
+                depth += 1
+            elif token.token_type == TokenType.R_PAREN:
+                depth -= 1
+            elif depth == 0 and token.token_type == TokenType.ALIAS:
+                alias_parts = SnowflakeDataDictionary._leading_identifier(
+                    entry_tokens[:idx]
                 )
-                head = view_definition[
-                    seg_start : (clause_match.start() if clause_match else cursor)
-                ].strip()
-                if head:
-                    heads.append(head)
-                seg_start = cursor + 1
-        return heads
+                alias = alias_parts[-1] if alias_parts else None
+                ref_tokens = entry_tokens[idx + 1 :]
+                break
+        return alias, SnowflakeDataDictionary._leading_identifier(ref_tokens)
+
+    @staticmethod
+    def _leading_identifier(tokens: List[Token]) -> List[str]:
+        """Collect the leading ``a.b.c`` identifier from a token run, stopping at
+        the first token that is not part of a dotted name (a keyword such as
+        PRIMARY KEY / COMMENT, or an opening paren for a subquery). Quoted
+        identifiers arrive already unquoted from the tokenizer."""
+        parts: List[str] = []
+        want_identifier = True
+        for token in tokens:
+            if want_identifier:
+                if token.token_type in (TokenType.VAR, TokenType.IDENTIFIER):
+                    parts.append(token.text)
+                    want_identifier = False
+                else:
+                    break
+            elif token.token_type == TokenType.DOT:
+                want_identifier = True
+            else:
+                break
+        return parts
 
     def _fetch_semantic_columns(
         self,
