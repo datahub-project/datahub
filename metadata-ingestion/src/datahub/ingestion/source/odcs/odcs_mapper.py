@@ -17,6 +17,7 @@ from datahub.ingestion.source.odcs.odcs_config import (
     ODCS_PLATFORM,
     SERVER_TYPE_TO_PLATFORM,
     ODCSSourceConfig,
+    SchemaAssertionCompatibility,
     ServerMapping,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
@@ -67,7 +68,6 @@ from datahub.metadata.schema_classes import (
     PlatformTypeClass,
     RecordTypeClass,
     RowCountTotalClass,
-    SchemaAssertionCompatibilityClass,
     SchemaAssertionInfoClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -1499,18 +1499,11 @@ def odcs_to_assertion_mcps(
     return assertion_urns, mcps, trace
 
 
-_SCHEMA_ASSERTION_COMPATIBILITY = {
-    "EXACT_MATCH": SchemaAssertionCompatibilityClass.EXACT_MATCH,
-    "SUPERSET": SchemaAssertionCompatibilityClass.SUPERSET,
-    "SUBSET": SchemaAssertionCompatibilityClass.SUBSET,
-}
-
-
 def odcs_to_schema_assertion_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
     logical_urn: str,
-    compatibility: str,
+    compatibility: SchemaAssertionCompatibility,
 ) -> Tuple[Optional[str], List[MetadataChangeProposalWrapper]]:
     """Emit one DATA_SCHEMA assertion pinning the contract's schema.
 
@@ -1548,7 +1541,7 @@ def odcs_to_schema_assertion_mcps(
         schemaAssertion=SchemaAssertionInfoClass(
             entity=logical_urn,
             schema=schema_result.schema_metadata,
-            compatibility=_SCHEMA_ASSERTION_COMPATIBILITY[compatibility],
+            compatibility=compatibility.value,
         ),
     )
     return assertion_urn, [
