@@ -149,6 +149,16 @@ export class MetricEntity implements Entity<Metric> {
         return data?.info?.name || data?.id || data?.urn;
     };
 
+    getLineageVizConfig = (entity: Metric) => {
+        return {
+            urn: entity?.urn,
+            name: entity?.info?.name || entity?.id || entity?.urn,
+            type: EntityType.Metric,
+            platform: entity?.platform,
+            deprecation: entity?.deprecation,
+        };
+    };
+
     getOverridePropertiesFromEntity = (data: Metric): GenericEntityProperties => {
         return {
             name: data?.info?.name,
@@ -173,6 +183,7 @@ export class MetricEntity implements Entity<Metric> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.LINEAGE,
         ]);
     };
 

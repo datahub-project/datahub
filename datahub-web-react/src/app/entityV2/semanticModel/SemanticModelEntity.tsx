@@ -176,6 +176,17 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
         return data?.info?.name || data?.id || data?.urn;
     };
 
+    getLineageVizConfig = (entity: SemanticModel) => {
+        return {
+            urn: entity?.urn,
+            name: entity?.info?.name || entity?.id || entity?.urn,
+            type: EntityType.SemanticModel,
+            icon: entity?.platform?.properties?.logoUrl || undefined,
+            platform: entity?.platform,
+            deprecation: entity?.deprecation,
+        };
+    };
+
     getOverridePropertiesFromEntity = (data: SemanticModel): GenericEntityProperties => {
         return {
             name: data?.info?.name,
@@ -199,6 +210,7 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.LINEAGE,
         ]);
     };
 

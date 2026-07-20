@@ -6,6 +6,7 @@ import { LineageFilter, LineageNodesContext, NodeContext, useIgnoreSchemaFieldSt
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeDataFlowGraph from '@app/lineageV3/useComputeGraph/computeDataFlowGraph';
 import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
+import computeDataProductGraph from '@app/lineageV3/useComputeGraph/dataProduct/computeDataProductGraph';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 import { useAppConfig } from '@app/useAppConfig';
@@ -47,6 +48,8 @@ export default function useComputeGraph(): ProcessedData {
         hideTransformations,
         showDataProcessInstances,
         showGhostEntities,
+        outputPortsOnly,
+        dataProductEntities,
     } = useContext(LineageNodesContext);
     const displayVersionNumber = displayVersion[0];
     const { isModuleView } = useContext(LineageGraphContext);
@@ -78,12 +81,28 @@ export default function useComputeGraph(): ProcessedData {
                 hideTransformations,
                 showDataProcessInstances,
                 showGhostEntities,
+                outputPortsOnly,
+                dataProductEntities,
             };
 
             if (rootType === EntityType.DataFlow) {
                 const result = computeDataFlowGraph(
                     rootUrn,
                     rootType,
+                    context,
+                    ignoreSchemaFieldStatus,
+                    showLineageFilterNodes,
+                );
+                return {
+                    ...result,
+                    levelsInfo: {},
+                    levelsMap: new Map(),
+                };
+            }
+
+            if (rootType === EntityType.DataProduct) {
+                const result = computeDataProductGraph(
+                    rootUrn,
                     context,
                     ignoreSchemaFieldStatus,
                     showLineageFilterNodes,
@@ -118,6 +137,7 @@ export default function useComputeGraph(): ProcessedData {
             hideTransformations,
             showDataProcessInstances,
             showGhostEntities,
+            outputPortsOnly,
             ignoreSchemaFieldStatus,
             dataVersion,
             isModuleView,

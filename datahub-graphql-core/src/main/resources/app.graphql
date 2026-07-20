@@ -888,6 +888,13 @@ type FeatureFlagsConfig {
   hideLineageInSearchCards: Boolean!
 
   """
+  Whether the data product lineage view is enabled.
+  When enabled, navigating to lineage from a Data Product shows its member entities
+  and their upstream/downstream connections.
+  """
+  dataProductLineageEnabled: Boolean!
+
+  """
   If enabled, shows tests in the health icon on entity pages.
   """
   showTestsInHealthIcon: Boolean!

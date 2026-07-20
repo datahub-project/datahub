@@ -20,6 +20,9 @@ interface Options {
     /** Overrides the default ordering of a node's children. Order determines priority:
      * pagination keeps the first children when there are too many to show. */
     compareNodes?: (a: string, b: string) => number;
+    /** Nodes to seed the traversal with, e.g. a data product's members, since the root has no
+     * lineage of its own. */
+    seedNodes?: LineageEntity[];
     /** If false, lineage filter nodes are not included in the displayed nodes;
      * their state is still returned via `lineageFilters`. Defaults to true. */
     createFilterNodes?: boolean;
@@ -61,7 +64,7 @@ export default function computeLineageGraph(
     urn: string,
     context: Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType'>,
     ignoreSchemaFieldStatus: boolean,
-    { nodeFilter, transformDisplayedNodes, compareNodes, createFilterNodes }: Options = {},
+    { nodeFilter, transformDisplayedNodes, compareNodes, seedNodes, createFilterNodes }: Options = {},
 ): LineageGraph {
     const { nodes, edges, adjacencyList, rootType, hideTransformations, showDataProcessInstances, showGhostEntities } =
         context;
@@ -69,7 +72,7 @@ export default function computeLineageGraph(
 
     // Computed before nodes are hidden by `hideNodes`, to keep node order consistent.
     // Includes nodes that will be hidden, but they'll be filtered out by `getDisplayedNodes`.
-    const orderNodesOptions = { compareNodes };
+    const orderNodesOptions = { compareNodes, seedNodes };
     const orderedNodes = {
         [LineageDirection.Upstream]: orderNodes(urn, LineageDirection.Upstream, graphStore, orderNodesOptions),
         [LineageDirection.Downstream]: orderNodes(urn, LineageDirection.Downstream, graphStore, orderNodesOptions),
@@ -85,6 +88,7 @@ export default function computeLineageGraph(
     console.debug(newGraphStore);
 
     const { displayedNodes, parents, lineageFilters } = getDisplayedNodes(urn, orderedNodes, newGraphStore, {
+        seedNodes,
         createFilterNodes,
     });
     const rootNode = nodes.get(urn);

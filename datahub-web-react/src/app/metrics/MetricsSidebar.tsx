@@ -1,4 +1,4 @@
-import { Button, EmptyState, SearchBar } from '@components';
+import { Button, EmptyState } from '@components';
 import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { House } from '@phosphor-icons/react/dist/csr/House';
@@ -12,14 +12,17 @@ import styled from 'styled-components';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 
 import { TreeSectionHeader } from '@app/homeV2/layout/sidebar/documents/TreeSectionHeader';
+import MetricsSearch from '@app/metrics/MetricsSearch';
 import { SemanticModelRow } from '@app/metrics/SemanticModelRow';
 import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
+import { SemanticModel } from '@app/metrics/metricsTypes';
+import useSemanticModelRoots from '@app/metrics/useSemanticModelRoots';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
 
-import { useGetSemanticModelsBrowseQuery } from '@graphql/metricsBrowse.generated';
-import { DataPlatform } from '@types';
+import { useScrollSemanticModelsQuery } from '@graphql/metricsBrowse.generated';
+import { DataPlatform, EntityType } from '@types';
 
 const SIDEBAR_TRANSITION_MS = 300;
 export const SIDEBAR_COLLAPSED_WIDTH = 63;
@@ -67,11 +70,6 @@ const HeaderButtons = styled.div`
 const Separator = styled.div`
     height: 1px;
     background: ${(props) => props.theme.colors.border};
-`;
-
-const SearchInputWrapper = styled.div`
-    padding: 12px;
-    flex-shrink: 0;
 `;
 
 const FiltersWrapper = styled.div`
@@ -268,7 +266,6 @@ function CollapsedMetricsSidebar({
 function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () => void }) {
     const { t } = useTranslation('misc');
     const location = useLocation();
-    const [searchInput, setSearchInput] = useState('');
     const [platformFilter, setPlatformFilter] = useState(ALL_OPTION);
     const [isModelsExpanded, setIsModelsExpanded] = useState(true);
 
@@ -276,23 +273,49 @@ function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () =
         expandedSemanticModelUrns,
         expandedMetricUrns,
         selectedUrn,
-        childMetricsByModelUrn,
-        childMetricsByParentUrn,
         toggleSemanticModel,
         toggleMetric,
         expandAllSemanticModels,
         collapseAllExpanded,
-        setChildMetricsForModel,
-        setChildMetricsForParent,
         refetchKey,
+        entityData,
     } = useMetricsEntityContext();
 
     const isHomeSelected = !!matchPath(location.pathname, { path: PageRoutes.METRICS, exact: true });
 
-    // Fetch root semantic models.
-    const { data: modelsData, refetch: refetchModels } = useGetSemanticModelsBrowseQuery({
-        variables: { input: { count: 100, start: 0 } },
+    const { data: rootModels, scrollRef: rootScrollRef, refetch: refetchModels } = useSemanticModelRoots();
+
+    // Fallback: if the entity currently in the profile lives in a semantic model that hasn't
+    // been fetched into the root list yet (e.g. it's beyond the first page), issue a targeted
+    // search for just that model and prepend it so the auto-expand cascade can start.
+    const missingModelUrn =
+        entityData?.entityType === EntityType.Metric && entityData.semanticModel?.urn
+            ? entityData.semanticModel.urn
+            : null;
+    const isMissingFromRoots = missingModelUrn != null && !rootModels.some((m) => m.urn === missingModelUrn);
+
+    const { data: fallbackData } = useScrollSemanticModelsQuery({
+        skip: !isMissingFromRoots || missingModelUrn == null,
+        variables: {
+            input: {
+                query: '*',
+                types: [EntityType.SemanticModel],
+                count: 1,
+                orFilters: [{ and: [{ field: 'urn', condition: 'EQUAL' as any, values: [missingModelUrn ?? ''] }] }],
+            },
+        },
     });
+
+    const allModels: SemanticModel[] = useMemo(() => {
+        if (!isMissingFromRoots) return rootModels;
+        const fallbackModels = (fallbackData?.scrollAcrossEntities?.searchResults ?? [])
+            .map((r) => r.entity)
+            .filter((e): e is SemanticModel => e?.__typename === 'SemanticModel');
+        if (fallbackModels.length === 0) return rootModels;
+        const existingUrns = new Set(rootModels.map((m) => m.urn));
+        const newModels = fallbackModels.filter((m) => !existingUrns.has(m.urn));
+        return newModels.length > 0 ? [...newModels, ...rootModels] : rootModels;
+    }, [rootModels, fallbackData, isMissingFromRoots]);
 
     // Re-fetch root when refetchKey changes.
     useEffect(() => {
@@ -301,8 +324,6 @@ function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () =
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [refetchKey]);
-
-    const allModels = useMemo(() => modelsData?.getSemanticModels?.semanticModels ?? [], [modelsData]);
 
     // Derive unique platforms for the Platform filter.
     const platformOptions = useMemo(() => {
@@ -325,53 +346,23 @@ function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () =
         }));
     }, [allModels]);
 
-    // Filter semantic models by platform + search.
+    // Apply platform filter (client-side facet over loaded roots).
     const visibleModels = useMemo(() => {
-        return allModels.filter((m) => {
-            if (platformFilter !== ALL_OPTION && m.platform?.urn !== platformFilter) return false;
-            if (searchInput) {
-                const q = searchInput.toLowerCase();
-                const nameMatch = (m.info?.name ?? '').toLowerCase().includes(q);
-                if (!nameMatch) {
-                    // Keep the model visible if any of its cached child metrics match.
-                    const childMetrics = childMetricsByModelUrn[m.urn] ?? [];
-                    const childMatch = childMetrics.some((metric) =>
-                        (metric.info?.name ?? '').toLowerCase().includes(q),
-                    );
-                    if (!childMatch) return false;
-                }
-            }
-            return true;
-        });
-    }, [allModels, platformFilter, searchInput, childMetricsByModelUrn]);
+        if (platformFilter === ALL_OPTION) return allModels;
+        return allModels.filter((m) => m.platform?.urn === platformFilter);
+    }, [allModels, platformFilter]);
 
-    // Expand-all / collapse-all for the "Semantic Models" section. Any expanded
-    // model means the section is "open" → the toggle reads as Collapse all.
+    // Expand-all / collapse-all for the "Semantic Models" section.
     const isSectionExpanded = expandedSemanticModelUrns.size > 0 || expandedMetricUrns.size > 0;
     const handleToggleExpandAll = useCallback(() => {
         if (isSectionExpanded) {
             collapseAllExpanded();
             return;
         }
-        // Open the section so the freshly-expanded rows are visible.
         setIsModelsExpanded(true);
         const expandable = visibleModels.filter((m) => (m.metrics?.total ?? 0) > 0).map((m) => m.urn);
         expandAllSemanticModels(expandable);
     }, [isSectionExpanded, visibleModels, collapseAllExpanded, expandAllSemanticModels]);
-
-    // Auto-expand the semantic model that directly contains the selected metric.
-    // Deeper metric-in-metric ancestors are handled properly in subsequent PR.
-    useEffect(() => {
-        if (!selectedUrn) return;
-        allModels.forEach((m) => {
-            const topLevelMetrics = childMetricsByModelUrn[m.urn] ?? [];
-            const isDirectChild = topLevelMetrics.some((metric) => metric.urn === selectedUrn);
-            if (isDirectChild && !expandedSemanticModelUrns.has(m.urn)) {
-                toggleSemanticModel(m.urn);
-            }
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedUrn, allModels, childMetricsByModelUrn]);
 
     return (
         <>
@@ -392,14 +383,7 @@ function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () =
             </HeaderControls>
             <Separator />
 
-            <SearchInputWrapper>
-                <SearchBar
-                    placeholder={t('metrics.searchPlaceholder')}
-                    value={searchInput}
-                    onChange={setSearchInput}
-                    data-testid="metrics-sidebar-search-input"
-                />
-            </SearchInputWrapper>
+            <MetricsSearch />
 
             {platformOptions.length > 1 && (
                 <FiltersWrapper>
@@ -439,7 +423,7 @@ function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () =
                 />
                 {isModelsExpanded && (
                     <>
-                        {modelsData && visibleModels.length === 0 && (
+                        {allModels.length === 0 && (
                             <EmptyStateWrapper>
                                 <EmptyState
                                     icon={Sigma}
@@ -453,19 +437,15 @@ function ExpandedMetricsSidebar({ onToggleCollapsed }: { onToggleCollapsed: () =
                             <SemanticModelRow
                                 key={model.urn}
                                 model={model}
-                                searchInput={searchInput}
                                 isExpanded={expandedSemanticModelUrns.has(model.urn)}
                                 isSelected={selectedUrn === model.urn}
-                                cachedMetrics={childMetricsByModelUrn[model.urn]}
                                 expandedMetricUrns={expandedMetricUrns}
-                                childMetricsByParentUrn={childMetricsByParentUrn}
                                 selectedUrn={selectedUrn}
                                 onToggle={() => toggleSemanticModel(model.urn)}
-                                onMetricsFetched={setChildMetricsForModel}
                                 onToggleMetric={toggleMetric}
-                                onChildMetricsFetched={setChildMetricsForParent}
                             />
                         ))}
+                        <div ref={rootScrollRef} style={{ height: 1 }} />
                     </>
                 )}
             </TreeContainer>

@@ -30,7 +30,7 @@ export default function useNodeHighlighting(
 }
 
 /** Compute highlighted nodes and table->table edges. */
-function computeHighlights(
+export function computeHighlights(
     hoveredUrn: string | null,
     adjacencyList: NodeContext['adjacencyList'],
 ): {

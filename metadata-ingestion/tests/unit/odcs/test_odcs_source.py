@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     DataPlatformInfoClass,
     DatasetPropertiesClass,
+    EdgeClass,
     LogicalParentClass,
     OwnershipClass,
 )
@@ -234,6 +235,69 @@ def test_validate_lenient_default_proceeds_on_invalid_doc(
     ok = src._validate(raw_dict, tmp_path / "deprecated.yaml")
     assert ok
     assert len(src.report.warnings) >= 1
+
+
+def test_validate_sorts_mixed_type_error_paths_without_crashing(
+    tmp_path: pathlib.Path,
+) -> None:
+    """JSON Schema error paths mix str property names and int array indices.
+    Sorting the raw deques compares str-vs-int and raises TypeError in Py3,
+    which would demote actionable validation feedback to an opaque skip. The
+    source sorts by the stringified path instead."""
+    from collections import deque
+
+    class _FakeErr:
+        def __init__(self, path: list, message: str) -> None:
+            self.absolute_path = deque(path)
+            self.path = deque(path)
+            self.message = message
+
+    class _FakeValidator:
+        def __init__(self, errors: list) -> None:
+            self._errors = errors
+
+        def iter_errors(self, raw_dict: dict) -> Any:
+            return iter(self._errors)
+
+    errors = [_FakeErr(["schema", 0], "a"), _FakeErr(["schema", "x"], "b")]
+    # Document the underlying footgun the fix guards against.
+    with pytest.raises(TypeError):
+        sorted(errors, key=lambda e: e.path)
+
+    src = _make_source(tmp_path)
+    src._validators = {"3.1.0": _FakeValidator(errors)}  # type: ignore[dict-item]
+    ok = src._validate({"apiVersion": "3.1.0", "id": "x"}, tmp_path / "f.yaml")
+    assert ok  # lenient default proceeds after reporting
+    assert src.report.validation_errors == 2
+
+
+def test_validate_counts_skips_when_no_validator_available(
+    tmp_path: pathlib.Path,
+) -> None:
+    """With no validators loaded, strict_validation is a silent no-op; the
+    per-contract skip is counted so a zero-validation run is visible."""
+    src = _make_source(tmp_path)
+    src._validators = {}
+    ok = src._validate({"apiVersion": "3.1.0", "id": "x"}, tmp_path / "f.yaml")
+    assert ok
+    assert src.report.contracts_validation_skipped == 1
+
+
+def test_missing_schema_dir_warns_once(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A vendored-schema packaging/checkout regression must surface a warning,
+    not silently disable validation for the whole run."""
+    import datahub.ingestion.source.odcs.odcs_source as mod
+
+    src = _make_source(tmp_path)
+    monkeypatch.setattr(mod, "_SCHEMA_DIR", tmp_path / "does-not-exist")
+    validators = src._load_validators()
+    assert validators == {}
+    assert any(
+        "validators unavailable" in str(getattr(w, "title", "")).lower()
+        for w in src.report.warnings
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -467,6 +531,67 @@ def test_verification_fails_open_on_graph_error(tmp_path: pathlib.Path) -> None:
         "Could not verify URN existence" in str(getattr(w, "title", ""))
         for w in src.report.warnings
     )
+    # A fail-open must not be tallied as genuinely verified.
+    assert src.report.physical_urns_verify_failed == 1
+    assert src.report.physical_urns_verified == 0
+
+
+def _link_conflict_warnings(src: ODCSSource) -> List:
+    return [
+        w
+        for w in src.report.warnings
+        if "already linked to a different ODCS contract" in str(getattr(w, "title", ""))
+    ]
+
+
+def test_cross_run_conflict_warns_and_still_emits(tmp_path: pathlib.Path) -> None:
+    """A logicalParent written by a PRIOR run for a different contract would be
+    silently overwritten (logicalParent is single-valued and physical URNs are
+    kept out of the checkpoint). The overwrite is now surfaced."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.return_value = True
+    other_logical = "urn:li:dataset:(urn:li:dataPlatform:odcs,other-contract.t,PROD)"
+    graph.get_aspect.return_value = LogicalParentClass(
+        parent=EdgeClass(destinationUrn=other_logical)
+    )
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    # Last-writer-wins is preserved, but now visible.
+    assert _aspects_of(workunits, LogicalParentClass)
+    assert src.report.physical_urns_link_conflicts == 1
+    assert len(_link_conflict_warnings(src)) == 1
+
+
+def test_cross_run_same_contract_relink_is_silent(tmp_path: pathlib.Path) -> None:
+    """Re-ingesting the same contract re-writes the same link — idempotent, no
+    conflict warning."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    same_logical = "urn:li:dataset:(urn:li:dataPlatform:odcs,test-contract-1.t,PROD)"
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.return_value = LogicalParentClass(
+        parent=EdgeClass(destinationUrn=same_logical)
+    )
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert src.report.physical_urns_link_conflicts == 0
+    assert not _link_conflict_warnings(src)
+
+
+def test_no_prior_link_no_conflict(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.return_value = None
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert src.report.physical_urns_link_conflicts == 0
+    assert not _link_conflict_warnings(src)
 
 
 def test_verification_without_graph_links(tmp_path: pathlib.Path) -> None:
@@ -638,6 +763,25 @@ def test_owner_normalization_knobs_reach_emitted_ownership(
     workunits = list(src.get_workunits_internal())
     ownerships = _aspects_of(workunits, OwnershipClass)
     assert ownerships[0].owners[0].owner == "urn:li:corpuser:alice@acme.example"
+
+
+def test_unmapped_owner_role_is_recorded(tmp_path: pathlib.Path) -> None:
+    """A named role the map does not know is silently coerced to
+    TECHNICAL_OWNER; the source records it so the coercion is visible."""
+    body = _VALID_CONTRACT_BODY.replace(
+        "\nschema:\n",
+        """
+team:
+  - username: alice
+    role: producer
+schema:
+""",
+    )
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert src.report.owners_role_defaulted == ["test-contract-1: producer"]
 
 
 def test_owner_normalization_knobs_are_mutually_exclusive() -> None:

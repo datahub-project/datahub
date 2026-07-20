@@ -2533,8 +2533,7 @@
     } ],
     "Aspect" : {
       "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
-      "name" : "corpUserInfo",
-      "schemaVersion" : 2
+      "name" : "corpUserInfo"
     }
   }, {
     "type" : "record",

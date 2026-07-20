@@ -114,7 +114,8 @@ public class UsageAggregationFactory {
         flush.getMaxWindowSeconds(),
         flush.getRetryAttempts(),
         flush.getRetryInitialBackoffMillis(),
-        flush.getAlignmentPeriodSeconds());
+        flush.getAlignmentPeriodSeconds(),
+        flush.isIncludeAgentNameDimension());
   }
 
   @Bean

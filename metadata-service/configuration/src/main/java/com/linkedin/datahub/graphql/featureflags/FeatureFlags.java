@@ -59,6 +59,7 @@ public class FeatureFlags {
   private boolean documentationFileUploadV1 = false;
   private boolean multipleDataProductsPerAsset = false;
   private boolean hideLineageInSearchCards = false;
+  private boolean dataProductLineageEnabled = false;
   private boolean contextDocumentsEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
   private boolean showTestsInHealthIcon = false;
