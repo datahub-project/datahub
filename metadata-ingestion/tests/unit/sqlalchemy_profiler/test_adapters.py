@@ -840,8 +840,8 @@ class TestSnowflakeAdapter:
         assert not result.is_sampled
         mock_create.assert_called_once()
 
-    def test_setup_profiling_custom_sql_creates_temp_table(self, adapter):
-        """custom_sql is materialized into a temp table."""
+    def test_setup_profiling_custom_sql_rejected(self, adapter):
+        """custom_sql is GE-only; the SQLAlchemy adapter rejects it."""
         context = ProfilingContext(
             schema="MY_SCHEMA",
             table="MY_TABLE",
@@ -850,12 +850,8 @@ class TestSnowflakeAdapter:
         )
         mock_conn = MagicMock()
 
-        with patch.object(
-            adapter, "_create_temp_table_from_custom_sql", return_value=context
-        ) as mock_custom:
+        with pytest.raises(AssertionError, match="custom_sql is not supported"):
             adapter.setup_profiling(context, mock_conn)
-
-        mock_custom.assert_called_once_with(context, mock_conn)
 
     # =========================================================================
     # _create_sampled_temp_table SQL generation tests

@@ -38,15 +38,13 @@ class SnowflakeAdapter(PlatformAdapter):
                 f"Cannot profile {context.pretty_name}: table name required"
             )
 
-        # custom_sql is or may still be used for some use cases (not non-sampling).
-        # Materialize it into a temp table so profiling queries run against a small
-        # concrete table, same as what GX does internally.
-        if context.custom_sql:
-            logger.info(
-                f"Creating temp table from custom_sql for {context.pretty_name}"
-            )
-            context = self._create_temp_table_from_custom_sql(context, conn)
-            return context
+        # custom_sql is only set on the GE profiler path (snowflake_profiler.py
+        # gates it behind `method == "ge"`). The SQLAlchemy adapter should never
+        # receive it — if it does, something upstream changed without updating this code.
+        assert not context.custom_sql, (
+            f"custom_sql is not supported on the SQLAlchemy profiler path "
+            f"(table: {context.pretty_name})"
+        )
 
         # Determine if sampling is needed
         row_count = self._get_row_count_from_metadata(context, conn)
@@ -183,25 +181,6 @@ class SnowflakeAdapter(PlatformAdapter):
 
         logger.info(f"Created temp table {temp_name} for {context.pretty_name}")
 
-        return context
-
-    def _create_temp_table_from_custom_sql(
-        self, context: ProfilingContext, conn: Connection
-    ) -> ProfilingContext:
-        """Materialize custom_sql into a temp table."""
-        assert context.custom_sql is not None
-
-        temp_name = f"dh_customsql_{uuid.uuid4().hex[:8]}"
-        create_sql = (
-            f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS {context.custom_sql}"
-        )
-        logger.debug(f"custom_sql temp table SQL: {create_sql}")
-        conn.execute(sa.text(create_sql))
-
-        metadata = sa.MetaData()
-        context.sql_table = sa.Table(temp_name, metadata, autoload_with=conn)
-        context.is_sampled = True
-        context.temp_table = temp_name
         return context
 
     def cleanup(self, context: ProfilingContext) -> None:
