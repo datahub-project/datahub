@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     DataPlatformInfoClass,
     DatasetPropertiesClass,
+    EdgeClass,
     LogicalParentClass,
     OwnershipClass,
 )
@@ -467,6 +468,64 @@ def test_verification_fails_open_on_graph_error(tmp_path: pathlib.Path) -> None:
         "Could not verify URN existence" in str(getattr(w, "title", ""))
         for w in src.report.warnings
     )
+
+
+def _link_conflict_warnings(src: ODCSSource) -> List:
+    return [
+        w
+        for w in src.report.warnings
+        if "already linked to a different ODCS contract" in str(getattr(w, "title", ""))
+    ]
+
+
+def test_cross_run_conflict_warns_and_still_emits(tmp_path: pathlib.Path) -> None:
+    """A logicalParent written by a PRIOR run for a different contract would be
+    silently overwritten (logicalParent is single-valued and physical URNs are
+    kept out of the checkpoint). The overwrite is now surfaced."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.return_value = True
+    other_logical = "urn:li:dataset:(urn:li:dataPlatform:odcs,other-contract.t,PROD)"
+    graph.get_aspect.return_value = LogicalParentClass(
+        parent=EdgeClass(destinationUrn=other_logical)
+    )
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    # Last-writer-wins is preserved, but now visible.
+    assert _aspects_of(workunits, LogicalParentClass)
+    assert src.report.physical_urns_link_conflicts == 1
+    assert len(_link_conflict_warnings(src)) == 1
+
+
+def test_cross_run_same_contract_relink_is_silent(tmp_path: pathlib.Path) -> None:
+    """Re-ingesting the same contract re-writes the same link — idempotent, no
+    conflict warning."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    same_logical = "urn:li:dataset:(urn:li:dataPlatform:odcs,test-contract-1.t,PROD)"
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.return_value = LogicalParentClass(
+        parent=EdgeClass(destinationUrn=same_logical)
+    )
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert src.report.physical_urns_link_conflicts == 0
+    assert not _link_conflict_warnings(src)
+
+
+def test_no_prior_link_no_conflict(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.return_value = None
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert src.report.physical_urns_link_conflicts == 0
+    assert not _link_conflict_warnings(src)
 
 
 def test_verification_without_graph_links(tmp_path: pathlib.Path) -> None:
