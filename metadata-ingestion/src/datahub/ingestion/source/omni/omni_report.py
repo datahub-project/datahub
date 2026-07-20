@@ -60,12 +60,20 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
 
     filtered_models: LossyList[str] = field(default_factory=LossyList)
     filtered_documents: LossyList[str] = field(default_factory=LossyList)
+
+    # Scanned = discovered from API, emitted = produced as DataHub entities
     connections_scanned: int = 0
+    connections_emitted: int = 0
     models_scanned: int = 0
+    models_emitted: int = 0
     topics_scanned: int = 0
+    topics_emitted: int = 0
+    views_emitted: int = 0
     documents_scanned: int = 0
-    dashboards_scanned: int = 0
-    semantic_datasets_emitted: int = 0
+    dashboards_emitted: int = 0
+    charts_emitted: int = 0
+
+    # Lineage metrics
     dataset_lineage_edges_emitted: int = 0
     view_to_physical_column_lineage_edges: int = 0
     fine_grained_lineage_edges_exact: int = 0

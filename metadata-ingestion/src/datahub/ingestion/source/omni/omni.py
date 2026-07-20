@@ -581,7 +581,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             subtype="Connection",
         )
         self._connection_dataset_urns.add(connection_urn)
-        self.report.increment_counter("semantic_datasets_emitted")
+        self.report.increment_counter("connections_emitted")
 
     # ------------------------------------------------------------------
     # Topic / view ingestion
@@ -632,7 +632,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             custom_properties=topic_props,
             subtype=DatasetSubTypes.TOPIC,
         )
-        self.report.increment_counter("semantic_datasets_emitted")
+        self.report.increment_counter("topics_emitted")
 
         topic_view_urns: Set[str] = set()
         views_raw = topic.get("views", [])
@@ -848,7 +848,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 upstreams=view_upstreams,
             )
             topic_view_urns.add(semantic_urn)
-            self.report.increment_counter("semantic_datasets_emitted")
+            self.report.increment_counter("views_emitted")
 
         # Topic is built from its views — emit topic upstream lineage
         if topic_view_urns:
@@ -1006,7 +1006,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                             )
                         )
                         self._model_dataset_urns.add(base_model_urn)
-                        self.report.increment_counter("semantic_datasets_emitted")
+                        self.report.increment_counter("models_emitted")
 
             model_upstreams_aspect: Optional[UpstreamLineageClass] = None
             if model_upstream_urns:
@@ -1028,7 +1028,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     upstreams=model_upstreams_aspect,
                 )
             )
-            self.report.increment_counter("semantic_datasets_emitted")
+            self.report.increment_counter("models_emitted")
 
             return work_units
 
@@ -1321,7 +1321,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                             },
                             subtype=DatasetSubTypes.TOPIC,
                         )
-                        self.report.increment_counter("semantic_datasets_emitted")
+                        self.report.increment_counter("topics_emitted")
                     chart_inputs[qp_id].add(topic_urn)
                     dashboard_topic_urns.add(topic_urn)
                     # Track which topic each view belongs to
@@ -1380,7 +1380,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     subtype="View",
                     schema_fields=inferred_schema_fields or None,
                 )
-                self.report.increment_counter("semantic_datasets_emitted")
+                self.report.increment_counter("views_emitted")
                 # Register this inferred view as upstream of its topic(s)
                 for topic_urn in view_topic_urns:
                     topic_to_inferred_views.setdefault(topic_urn, set()).add(
@@ -1485,7 +1485,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 str(lb.get("name") if isinstance(lb, dict) else lb)
                 for lb in (labels if isinstance(labels, list) else [])
             ]
-            self.report.increment_counter("dashboards_scanned")
+            self.report.increment_counter("dashboards_emitted")
 
             if folder_id:
                 work_units.extend(
@@ -1603,6 +1603,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         updated_at=document.get("updatedAt"),
                     )
                 )
+                self.report.increment_counter("charts_emitted")
 
             work_units.extend(
                 self._emit_dashboard(
