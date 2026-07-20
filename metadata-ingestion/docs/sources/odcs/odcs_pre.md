@@ -3,8 +3,9 @@
 The `odcs` module ingests Open Data Contract Standard (ODCS) v3.0 and v3.1 YAML files from
 a path, directory, or glob, and models each contract as a **logical dataset** on the `odcs`
 platform: dataset properties, canonical schema metadata, ownership, top-level and
-column-level tags, a link to the source document, and the contract's `quality[]` rules as
-Assertions attached to the logical dataset. When a `schema[]` entry resolves to a physical
+column-level tags, a link to the source document, the contract's `quality[]` rules as
+Assertions attached to the logical dataset, and a FRESHNESS assertion derived from the
+contract's `slaProperties[]` `frequency` SLA. When a `schema[]` entry resolves to a physical
 dataset (derived from the contract's typed `servers[]`), the source also emits a
 `logicalParent` link from the physical dataset to the logical one. ODCS is governed by
 the Linux Foundation under the Bitol project; see [bitol.io](https://bitol.io/) and the
@@ -29,11 +30,16 @@ how to disable replication.
 - ODCS v3.0 and v3.1 are supported (any `3.0.x` patch level validates against the same
   v3.0.2 JSON Schema; `3.1.0` against the v3.1 schema). Contracts whose `apiVersion` reports
   v2.x — or any value outside `odcs_versions` — are skipped with a warning.
-- **Assertions always attach to the logical dataset.** Quality rules and the
-  schema-compliance assertion are emitted whether or not a physical table exists yet, so
-  contract-first workflows keep their expectations. Propagation of those expectations onto
-  bound physical datasets is handled by DataHub via the `PhysicalInstanceOf` relationship —
-  not by this source.
+- **Assertions always attach to the logical dataset.** Quality rules, the
+  schema-compliance assertion, and the freshness SLA assertion are emitted whether or not a
+  physical table exists yet, so contract-first workflows keep their expectations.
+  Propagation of those expectations onto bound physical datasets is handled by DataHub via
+  the `PhysicalInstanceOf` relationship — not by this source.
+- **Freshness comes from the `frequency` SLA.** A contract-level `slaProperties[]` entry
+  with `property: frequency` (e.g. `value: 1`, `unit: d`) becomes a `DATASET_CHANGE`
+  freshness assertion on a fixed-interval schedule, referenced by the native data contract.
+  Other SLA dimensions (latency, retention, availability windows) are not modeled, and a
+  `frequency` whose `unit` is not a calendar interval is skipped rather than guessed.
 - **Physical binding is derived from the contract itself.** The spec requires
   `servers[].type`; the source maps supported types (postgres, mysql, snowflake, bigquery,
   redshift, databricks, sqlserver, trino) to DataHub platforms and composes fully-qualified

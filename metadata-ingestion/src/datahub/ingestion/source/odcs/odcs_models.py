@@ -15,8 +15,6 @@ KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
     (
         "price",
         "roles",
-        "slaDefaultElement",
-        "slaProperties",
         "support",
     )
 )
@@ -264,6 +262,17 @@ class ODCSServer(ODCSBaseModel):
     warehouse: Optional[str] = None
 
 
+class ODCSSlaProperty(ODCSBaseModel):
+    """One entry in the contract-level `slaProperties[]` (QoS) list."""
+
+    property: Optional[str] = None
+    value: Optional[Union[str, int, float, bool]] = None
+    valueExt: Optional[Union[str, int, float, bool]] = None
+    unit: Optional[str] = None
+    element: Optional[str] = None
+    driver: Optional[str] = None
+
+
 class ODCSContract(ODCSBaseModel):
     """Top-level ODCS contract document.
 
@@ -289,6 +298,8 @@ class ODCSContract(ODCSBaseModel):
     team: Optional[Union[ODCSTeam, List[ODCSTeamMember]]] = None
     customProperties: Optional[List[ODCSCustomProperty]] = None
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
+    slaDefaultElement: Optional[str] = None
+    slaProperties: Optional[List[ODCSSlaProperty]] = None
     contractCreatedTs: Optional[str] = None
 
     @property

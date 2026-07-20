@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
+from datahub.ingestion.source.odcs.odcs_mapper import odcs_data_contract_urn
 from datahub.ingestion.source.odcs.odcs_source import ODCSSource
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     auto_stale_entity_removal,
@@ -20,8 +21,14 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionTypeClass,
+    CalendarIntervalClass,
+    DataContractPropertiesClass,
+    DataContractStateClass,
+    DataContractStatusClass,
     DatasetPropertiesClass,
     EdgeClass,
+    FreshnessAssertionScheduleTypeClass,
     LogicalParentClass,
     OwnershipClass,
 )
@@ -320,22 +327,21 @@ def test_unknown_field_increments_counter_and_warns(tmp_path: pathlib.Path) -> N
 
 
 def test_spec_valid_unmapped_field_is_info_not_warning(tmp_path: pathlib.Path) -> None:
-    """`support` / `slaProperties` etc. are valid ODCS the source deliberately
-    does not map — they produce ONE info per file, never a 'check spelling'
-    warning."""
+    """`support` / `price` etc. are valid ODCS the source deliberately does not
+    map — they produce ONE info per file, never a 'check spelling' warning."""
     src = _make_source(tmp_path)
     raw_dict: dict = {
         "apiVersion": "v3.1.0",
         "id": "x",
         "support": [{"channel": "slack", "url": "https://x.example/slack"}],
-        "slaProperties": [{"property": "latency", "value": 4}],
+        "price": {"priceAmount": 9.95, "priceCurrency": "USD"},
         "schema": [{"name": "t", "relationships": []}],
     }
     src._warn_unknown_fields(raw_dict, tmp_path / "f.yaml")
     assert src.report.unknown_fields_count == 0
     assert not src.report.warnings
     assert any("support" in entry for entry in src.report.spec_fields_ignored)
-    assert any("slaProperties" in entry for entry in src.report.spec_fields_ignored)
+    assert any("price" in entry for entry in src.report.spec_fields_ignored)
     assert any("relationships" in entry for entry in src.report.spec_fields_ignored)
 
 
@@ -409,6 +415,262 @@ def test_emit_flags(tmp_path: pathlib.Path) -> None:
     workunits = list(src.get_workunits_internal())
     assert not _aspects_of(workunits, LogicalParentClass)
     assert not _aspects_of(workunits, AssertionInfoClass)
+
+
+def _physical_urn_of(workunits: List) -> str:
+    parent = [
+        wu
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), LogicalParentClass)
+    ]
+    assert len(parent) == 1
+    urn = _mcp(parent[0]).entityUrn
+    assert urn is not None
+    return urn
+
+
+def test_data_contract_logical_only_by_default_when_bound(
+    tmp_path: pathlib.Path,
+) -> None:
+    """By default (emit_physical_data_contract=False) a bound entry gets only the
+    logical `odcs` contract — nothing is written onto the physical dataset's
+    contract, whose urn collides with the hand-authored SDK convention."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    props = _aspects_of(workunits, DataContractPropertiesClass)
+    assert len(props) == 1
+    assert "urn:li:dataPlatform:odcs" in props[0].entity
+    assert src.report.data_contracts_emitted == 1
+
+
+def test_data_contract_emitted_on_both_when_physical_opted_in(
+    tmp_path: pathlib.Path,
+) -> None:
+    """With emit_physical_data_contract=True a bound entry yields two native
+    dataContracts: the logical one (primary, ODCS-owned) and the physical one
+    (non-primary, so stale removal never soft-deletes a hand-authored contract).
+    Both reference the same schema + data-quality assertions and mirror the ODCS
+    `active` status."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path, path=str(contract_file), emit_physical_data_contract=True
+    )
+    workunits = list(src.get_workunits_internal())
+
+    physical_urn = _physical_urn_of(workunits)
+    contract_wus = [
+        wu
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), DataContractPropertiesClass)
+    ]
+    props = _aspects_of(workunits, DataContractPropertiesClass)
+    by_entity = {p.entity: p for p in props}
+    logical_urn = next(u for u in by_entity if "urn:li:dataPlatform:odcs" in u)
+    assert set(by_entity) == {logical_urn, physical_urn}
+
+    # Each contract urn is derived from its own entity; the logical contract is
+    # primary (ODCS-owned) while the physical one is non-primary.
+    primary_by_contract_urn = {
+        _mcp(wu).entityUrn: wu.is_primary_source for wu in contract_wus
+    }
+    assert primary_by_contract_urn[odcs_data_contract_urn(logical_urn)] is True
+    assert primary_by_contract_urn[odcs_data_contract_urn(physical_urn)] is False
+
+    # Both reference the same assertions, each of which this run actually emitted.
+    emitted_assertion_urns = {
+        _mcp(wu).entityUrn
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
+    }
+    for contract in by_entity.values():
+        assert contract.schema and len(contract.schema) == 1
+        assert contract.schema[0].assertion in emitted_assertion_urns
+        assert contract.dataQuality and len(contract.dataQuality) == 1
+        assert contract.dataQuality[0].assertion in emitted_assertion_urns
+
+    states = {a.state for a in _aspects_of(workunits, DataContractStatusClass)}
+    assert states == {DataContractStateClass.ACTIVE}
+    assert src.report.data_contracts_emitted == 2
+
+
+def test_physical_data_contract_requires_emit_logical_parent(
+    tmp_path: pathlib.Path,
+) -> None:
+    """emit_physical_data_contract only writes onto the physical dataset when
+    emit_logical_parent (the master switch for physical writes) is also on."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        path=str(contract_file),
+        emit_physical_data_contract=True,
+        emit_logical_parent=False,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    props = _aspects_of(workunits, DataContractPropertiesClass)
+    assert len(props) == 1
+    assert "urn:li:dataPlatform:odcs" in props[0].entity
+    assert src.report.data_contracts_emitted == 1
+
+
+def test_data_contract_state_pending_when_status_not_active(
+    tmp_path: pathlib.Path,
+) -> None:
+    body = _VALID_CONTRACT_BODY.replace("status: active", "status: draft")
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    status = _aspects_of(workunits, DataContractStatusClass)
+    assert status and status[0].state == DataContractStateClass.PENDING
+
+
+_FRESHNESS_SLA = """\
+slaDefaultElement: t.id
+slaProperties:
+  - property: frequency
+    value: 1
+    unit: d
+    element: t.id
+  - property: latency
+    value: 4
+    unit: d
+"""
+
+
+def _freshness_infos(workunits: List) -> List[AssertionInfoClass]:
+    return [
+        a
+        for a in _aspects_of(workunits, AssertionInfoClass)
+        if a.type == AssertionTypeClass.FRESHNESS
+    ]
+
+
+def test_freshness_assertion_emitted_from_frequency_sla(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A contract-level `frequency` SLA becomes a FRESHNESS assertion on the
+    logical dataset (DATASET_CHANGE / fixed interval), referenced by the native
+    contract's `freshness`."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY + _FRESHNESS_SLA, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    freshness = _freshness_infos(workunits)
+    assert len(freshness) == 1
+    freshness_assertion = freshness[0].freshnessAssertion
+    assert freshness_assertion is not None
+    schedule = freshness_assertion.schedule
+    assert schedule.type == FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL
+    assert schedule.fixedInterval is not None
+    assert schedule.fixedInterval.unit == CalendarIntervalClass.DAY
+    assert schedule.fixedInterval.multiple == 1
+    assert src.report.freshness_assertions_emitted == 1
+
+    freshness_urn = _mcp(
+        next(
+            wu for wu in workunits if getattr(wu.metadata, "aspect", None) in freshness
+        )
+    ).entityUrn
+    props = _aspects_of(workunits, DataContractPropertiesClass)
+    assert props[0].freshness and props[0].freshness[0].assertion == freshness_urn
+
+
+def test_no_freshness_without_frequency_sla(tmp_path: pathlib.Path) -> None:
+    """Non-frequency SLA properties (latency, retention, …) are not freshness."""
+    latency_only = """\
+slaProperties:
+  - property: latency
+    value: 4
+    unit: d
+"""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY + latency_only, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    assert _freshness_infos(workunits) == []
+    assert src.report.freshness_assertions_emitted == 0
+    props = _aspects_of(workunits, DataContractPropertiesClass)
+    assert props[0].freshness is None
+
+
+def test_freshness_unmappable_unit_skipped(tmp_path: pathlib.Path) -> None:
+    """An SLA unit that is not a calendar interval is skipped, not guessed."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    body = (_VALID_CONTRACT_BODY + _FRESHNESS_SLA).replace("unit: d", "unit: fortnight")
+    contract_file.write_text(body, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    assert _freshness_infos(workunits) == []
+    assert src.report.freshness_assertions_emitted == 0
+
+
+def test_freshness_assertion_disabled_by_flag(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY + _FRESHNESS_SLA, encoding="utf-8")
+    src = _make_source(
+        tmp_path, path=str(contract_file), emit_freshness_assertion=False
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _freshness_infos(workunits) == []
+    props = _aspects_of(workunits, DataContractPropertiesClass)
+    assert props[0].freshness is None
+
+
+def test_data_contract_logical_only_without_binding(tmp_path: pathlib.Path) -> None:
+    """No physical binding (kafka server) => the logical dataset still gets its
+    self-consistent contract, but there is no physical contract."""
+    body = _VALID_CONTRACT_BODY.replace("type: postgres", "type: kafka")
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    assert not _aspects_of(workunits, LogicalParentClass)
+    props = _aspects_of(workunits, DataContractPropertiesClass)
+    assert len(props) == 1
+    assert "urn:li:dataPlatform:odcs" in props[0].entity
+    assert src.report.data_contracts_emitted == 1
+
+
+def test_data_contract_skipped_when_no_assertions(tmp_path: pathlib.Path) -> None:
+    """With nothing to reference (assertions + schema assertion disabled), a
+    bound entry gets a logicalParent link but no empty contract."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        path=str(contract_file),
+        emit_assertions=False,
+        emit_schema_assertion=False,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _aspects_of(workunits, LogicalParentClass)
+    assert not _aspects_of(workunits, DataContractPropertiesClass)
+    assert src.report.data_contracts_emitted == 0
+    assert src.report.data_contracts_skipped_no_assertions == 1
+
+
+def test_emit_data_contract_flag_disables(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file), emit_data_contract=False)
+    workunits = list(src.get_workunits_internal())
+
+    assert _aspects_of(workunits, LogicalParentClass)
+    assert not _aspects_of(workunits, DataContractPropertiesClass)
+    assert src.report.data_contracts_emitted == 0
 
 
 def test_multiple_files_emit_all_logical_datasets(
@@ -499,15 +761,21 @@ def test_verification_disabled_links_optimistically(tmp_path: pathlib.Path) -> N
     graph.exists.assert_not_called()
 
 
-def test_verification_fails_open_on_graph_error(tmp_path: pathlib.Path) -> None:
+def test_physical_verification_fails_closed_on_graph_error(
+    tmp_path: pathlib.Path,
+) -> None:
+    """verify_physical_urns_exist is a strict gate: a graph error must NOT be
+    treated as "exists". The logicalParent link is withheld (fail-closed) so a
+    flaky GMS can't silently defeat the setting."""
     contract_file = tmp_path / "c.odcs.yaml"
     contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
     graph = MagicMock()
     graph.exists.side_effect = RuntimeError("gms hiccup")
     src = _make_source(tmp_path, graph=graph, path=str(contract_file))
     workunits = list(src.get_workunits_internal())
-    # Fail-open: the link is still emitted, with a warning.
-    assert _aspects_of(workunits, LogicalParentClass)
+    # Fail-closed: no link, and the lookup itself is reported.
+    assert not _aspects_of(workunits, LogicalParentClass)
+    assert src.report.physical_urns_unverified == 1
     assert any(
         "Could not verify URN existence" in str(getattr(w, "title", ""))
         for w in src.report.warnings

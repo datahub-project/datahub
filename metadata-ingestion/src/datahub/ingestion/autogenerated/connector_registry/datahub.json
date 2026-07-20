@@ -2998,7 +2998,7 @@
         },
         {
           "capability": "DELETION_DETECTION",
-          "description": "Via standard stateful ingestion (`stateful_ingestion.remove_stale_metadata`): only the logical `odcs` Datasets and Assertions ODCS owns are stale-removed; physical datasets and their `logicalParent` links are never marked removed.",
+          "description": "Via standard stateful ingestion (`stateful_ingestion.remove_stale_metadata`): only the logical `odcs` Datasets, Assertions, and native data contracts ODCS owns are stale-removed; physical datasets, their `logicalParent` links, and the optional physical-dataset contract are never marked removed.",
           "subtype_modifier": null,
           "supported": true
         },

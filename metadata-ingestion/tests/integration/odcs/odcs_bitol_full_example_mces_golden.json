@@ -478,6 +478,129 @@
     }
 },
 {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:195068a268531b0dec7ca023f7068c96",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "53581432-6c55-4ba2-a65f-72344a91553a",
+                "odcs.sla": "frequency",
+                "odcs.sla.element": "tab1.txn_ref_dt"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.tbl,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "DAY",
+                        "multiple": 1
+                    }
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Freshness SLA from ODCS contract '53581432-6c55-4ba2-a65f-72344a91553a': data changes at least every 1 day"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:195068a268531b0dec7ca023f7068c96",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:9b7fd934a6433fa271bfc3b4cc6571af",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.tbl,PROD)",
+            "schema": [
+                {
+                    "assertion": "urn:li:assertion:45137d08416fbfdb694c9d3b16a03359"
+                }
+            ],
+            "freshness": [
+                {
+                    "assertion": "urn:li:assertion:195068a268531b0dec7ca023f7068c96"
+                }
+            ],
+            "dataQuality": [
+                {
+                    "assertion": "urn:li:assertion:6cf441d05ae1fd79e4d07c5c149f565b"
+                },
+                {
+                    "assertion": "urn:li:assertion:329314d3c75736d97869a6a09243a8fc"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:9b7fd934a6433fa271bfc3b4cc6571af",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:9b7fd934a6433fa271bfc3b4cc6571af",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "ACTIVE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pypl-edw.pp_access_views.tbl_1,PROD)",
     "changeType": "UPSERT",
@@ -816,6 +939,121 @@
     }
 },
 {
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:2d1863c87eeec3d46935ef2cbccbd6f2",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.receivers,PROD)",
+            "schema": [
+                {
+                    "assertion": "urn:li:assertion:98ae7533f9bd48ba3fb5cb63068ea997"
+                }
+            ],
+            "freshness": [
+                {
+                    "assertion": "urn:li:assertion:726ec90277c608474ac72f047ee5f75e"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:2d1863c87eeec3d46935ef2cbccbd6f2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:726ec90277c608474ac72f047ee5f75e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "53581432-6c55-4ba2-a65f-72344a91553a",
+                "odcs.sla": "frequency",
+                "odcs.sla.element": "tab1.txn_ref_dt"
+            },
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553a.receivers,PROD)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "DAY",
+                        "multiple": 1
+                    }
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Freshness SLA from ODCS contract '53581432-6c55-4ba2-a65f-72344a91553a': data changes at least every 1 day"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:726ec90277c608474ac72f047ee5f75e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:2d1863c87eeec3d46935ef2cbccbd6f2",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "ACTIVE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pypl-edw.pp_access_views.receivers_master,PROD)",
     "changeType": "UPSERT",
@@ -852,6 +1090,22 @@
 {
     "entityType": "assertion",
     "entityUrn": "urn:li:assertion:45137d08416fbfdb694c9d3b16a03359",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:195068a268531b0dec7ca023f7068c96",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -953,6 +1207,22 @@
     "aspect": {
         "json": {
             "name": "master-data"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_bitol_full_example_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:726ec90277c608474ac72f047ee5f75e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
