@@ -141,17 +141,18 @@ public class BatchIngestionRunResource
     log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
 
     Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "list", List.of()), authorizer, auth, true);
-    return RestliUtils.toTask(systemOperationContext,
-        () -> {
-          Authentication auth = AuthenticationContext.getAuthentication();
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          "list", List.of()).withUsageOperation(UsageOperation.OTHER_READ), authorizer, auth, true);
+    final OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildRestli(auth.getActor().toUrnStr(), getContext(), "list", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
+            authorizer,
+            auth,
+            true);
 
-    return RestliUtils.toTask(opContext,
+    return RestliUtils.toTask(
+        opContext,
         () -> {
           List<IngestionRunSummary> summaries =
               systemMetadataService.listRuns(
@@ -177,32 +178,25 @@ public class BatchIngestionRunResource
     log.info("DESCRIBE RUN runId: {}, start: {}, count: {}", runId, start, count);
 
     final Authentication describeAuth = AuthenticationContext.getAuthentication();
-    final OperationContext describeOpContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(describeAuth.getActor().toUrnStr(), getContext(),
-                    "describe", List.of()), authorizer, describeAuth, true);
+    final OperationContext describeOpContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildRestli(
+                    describeAuth.getActor().toUrnStr(), getContext(), "describe", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
+            authorizer,
+            describeAuth,
+            true);
 
-    if (!AuthUtil.isAPIAuthorized(
-            describeOpContext,
-            ENTITY, READ)) {
-        throw new RestLiServiceException(
-                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
+    if (!AuthUtil.isAPIAuthorized(describeOpContext, ENTITY, READ)) {
+      throw new RestLiServiceException(
+          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
     }
 
-    return RestliUtils.toTask(describeOpContext,
+    return RestliUtils.toTask(
+        describeOpContext,
         () -> {
-
-            Authentication auth = AuthenticationContext.getAuthentication();
-            final OperationContext opContext = OperationContext.asSession(
-                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            "describe", List.of()).withUsageOperation(UsageOperation.OTHER_READ), authorizer, auth, true);
-
-            if (!AuthUtil.isAPIAuthorized(
-                    opContext,
-                    ENTITY, READ)) {
-                throw new RestLiServiceException(
-                        HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
-            }
-
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(
                   describeOpContext, runId, includeSoft != null && includeSoft, start, count);
@@ -213,8 +207,8 @@ public class BatchIngestionRunResource
                   Urn urn = UrnUtils.getUrn(summary.getUrn());
                   try {
                     EnvelopedAspect aspect =
-                        entityService.getLatestEnvelopedAspect(describeOpContext,
-                            urn.getEntityType(), urn, summary.getAspectName());
+                        entityService.getLatestEnvelopedAspect(
+                            describeOpContext, urn.getEntityType(), urn, summary.getAspectName());
                     if (aspect == null) {
                       log.error("Aspect for summary {} not found", summary);
                     } else {

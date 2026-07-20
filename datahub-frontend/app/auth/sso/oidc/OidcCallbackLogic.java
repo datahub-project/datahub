@@ -273,8 +273,11 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
           OperationContext.asSession(
               systemOperationContext,
               RequestContext.builder()
-                  .buildOpenapi(
-                      corpUserUrn.toString(), null, "oidcCallback", List.of(CORP_USER_ENTITY_NAME))
+                  .actorUrn(corpUserUrn.toString())
+                  .sourceIP("")
+                  .userAgent("")
+                  .requestAPI(RequestContext.RequestAPI.OPENAPI)
+                  .requestID("oidcCallback")
                   .withUsageOperation(UsageOperation.METADATA_WRITE),
               Authorizer.EMPTY,
               sessionAuthentication,
