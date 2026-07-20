@@ -399,6 +399,17 @@ import {
     TABLEAU_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/tableau';
 import {
+    TIBCO_BW_APPLICATION_ALLOW,
+    TIBCO_BW_APPLICATION_DENY,
+    TIBCO_BW_BASE_URL,
+    TIBCO_BW_DEPLOYMENT,
+    TIBCO_BW_INCLUDE_APPNODES,
+    TIBCO_BW_PASSWORD,
+    TIBCO_BW_TOKEN,
+    TIBCO_BW_USERNAME,
+    TIBCO_BW_VERIFY_SSL,
+} from '@app/ingestV2/source/builder/RecipeForm/tibco-bw';
+import {
     TIDB,
     TIDB_DATABASE,
     TIDB_HOST_PORT,
@@ -449,6 +460,7 @@ import {
     POWER_BI,
     RDF,
     SAC,
+    TIBCO_BW,
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
@@ -949,6 +961,13 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip:
             'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
         defaultOpenSections: [RecipeSections.Filter],
+    },
+    [TIBCO_BW]: {
+        fields: [TIBCO_BW_DEPLOYMENT, TIBCO_BW_BASE_URL, TIBCO_BW_USERNAME, TIBCO_BW_PASSWORD, TIBCO_BW_TOKEN],
+        filterFields: [TIBCO_BW_APPLICATION_ALLOW, TIBCO_BW_APPLICATION_DENY],
+        advancedFields: [TIBCO_BW_VERIFY_SSL, TIBCO_BW_INCLUDE_APPNODES],
+        filterSectionTooltip:
+            'Control which TIBCO applications are ingested by filtering on application name. Leave empty to ingest all applications.',
     },
     [AZURE]: {
         fields: [

@@ -469,6 +469,16 @@
     displayName: Teradata
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/teradatalogo.png"
+- entityUrn: urn:li:dataPlatform:tibco-bw
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: tibco-bw
+    displayName: TIBCO BusinessWorks
+    type: OTHERS
+    logoUrl: "assets/platforms/tibcobwlogo.png"
 - entityUrn: urn:li:dataPlatform:voldemort
   entityType: dataPlatform
   aspectName: dataPlatformInfo
