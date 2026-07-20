@@ -367,30 +367,62 @@ def test_dashboard_upstream_is_folder_not_topic() -> None:
 
 @time_machine.travel(FROZEN_TIME)
 def test_fine_grained_lineage_emitted_for_dashboard() -> None:
-    """Dashboard dataset must have fine-grained lineage edges from semantic fields."""
+    """Dashboard must have fine-grained lineage mapping semantic view fields to dashboard fields.
+
+    Tile "Revenue by Month" references orders.created_at and orders.total_revenue.
+    Tile "Top Customers" references customers.customer_id and customers.lifetime_value.
+    Each produces a fine-grained edge: upstream = semantic view schemaField,
+    downstream = dashboard schemaField named <view>.<field>.
+    """
     source = _build_source()
     events = _collect_workunits(source)
 
     dashboard_dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD)"
     )
+    orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
+    customers_view_urn = source._semantic_dataset_urn("shared-model-1", "customers")
+
     lineage_events = [
         e
         for e in events
         if e["entityUrn"] == dashboard_dataset_urn
         and e["aspectName"] == "upstreamLineage"
     ]
-    if lineage_events:
-        fine_grained = lineage_events[0]["aspect"].get("fineGrainedLineages") or []
-        assert fine_grained, (
-            "No fine-grained lineage edges emitted for dashboard dataset"
-        )
-        upstream_fields = {
-            u for edge in fine_grained for u in (edge.get("upstreams") or [])
-        }
-        assert any("schemaField" in u for u in upstream_fields), (
-            f"Fine-grained lineage should reference semantic view fields; got: {upstream_fields}"
-        )
+    assert lineage_events, "No upstreamLineage emitted for dashboard dataset"
+
+    fine_grained = lineage_events[0]["aspect"].get("fineGrainedLineages") or []
+    assert len(fine_grained) == 4, (
+        f"Expected 4 fine-grained lineage edges (one per dashboard field); got {len(fine_grained)}"
+    )
+
+    # Collect all edges as (upstream_urn, downstream_urn) pairs
+    edges = {(edge["upstreams"][0], edge["downstreams"][0]) for edge in fine_grained}
+
+    # Verify each semantic view field maps to its dashboard field
+    expected_edges = {
+        (
+            f"urn:li:schemaField:({orders_view_urn},created_at)",
+            f"urn:li:schemaField:({dashboard_dataset_urn},orders.created_at)",
+        ),
+        (
+            f"urn:li:schemaField:({orders_view_urn},total_revenue)",
+            f"urn:li:schemaField:({dashboard_dataset_urn},orders.total_revenue)",
+        ),
+        (
+            f"urn:li:schemaField:({customers_view_urn},customer_id)",
+            f"urn:li:schemaField:({dashboard_dataset_urn},customers.customer_id)",
+        ),
+        (
+            f"urn:li:schemaField:({customers_view_urn},lifetime_value)",
+            f"urn:li:schemaField:({dashboard_dataset_urn},customers.lifetime_value)",
+        ),
+    }
+    assert edges == expected_edges, (
+        f"Fine-grained lineage edges don't match expected.\n"
+        f"Missing: {expected_edges - edges}\n"
+        f"Extra: {edges - expected_edges}"
+    )
 
 
 @time_machine.travel(FROZEN_TIME)
