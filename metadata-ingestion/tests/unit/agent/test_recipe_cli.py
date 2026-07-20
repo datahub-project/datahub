@@ -94,3 +94,113 @@ def test_json_default_masks_secret_str():
     serialized = json.dumps(report, default=_json_default)
     assert "topsecret" not in serialized
     assert "***" in serialized
+
+
+def _snowflake_recipe(tmp_path):
+    recipe_file = tmp_path / "sf.yml"
+    recipe_file.write_text(
+        "source:\n  type: snowflake\n  config:\n    account_id: acct\n"
+    )
+    return recipe_file
+
+
+def test_probe_databases_builds_empty_parent_path(tmp_path, monkeypatch):
+    pytest.importorskip("snowflake.connector")
+    import datahub.cli.recipe_cli as mod
+    from datahub.ingestion.agent.models import ProbeResult
+
+    captured = {}
+
+    def fake_probe(source_type, config, parent_path, limit):
+        captured["parent_path"] = parent_path
+        return ProbeResult(
+            source_type=source_type, supported=True, parent_path=parent_path
+        )
+
+    monkeypatch.setattr(mod, "probe", fake_probe)
+    result = CliRunner().invoke(
+        recipe, ["probe", "databases", "--recipe", str(_snowflake_recipe(tmp_path))]
+    )
+    assert result.exit_code == 0
+    assert captured["parent_path"] == []
+
+
+def test_probe_schemas_on_snowflake_requires_database(tmp_path):
+    pytest.importorskip("snowflake.connector")
+    result = CliRunner().invoke(
+        recipe, ["probe", "schemas", "--recipe", str(_snowflake_recipe(tmp_path))]
+    )
+    # Snowflake's schema level sits under a database, so --database is mandatory.
+    assert result.exit_code == 2
+    assert "--database" in (result.output + (result.stderr or ""))
+
+
+def test_probe_tables_on_snowflake_qualifies_parent_path(tmp_path, monkeypatch):
+    pytest.importorskip("snowflake.connector")
+    import datahub.cli.recipe_cli as mod
+    from datahub.ingestion.agent.models import ProbeResult
+
+    captured = {}
+
+    def fake_probe(source_type, config, parent_path, limit):
+        captured["parent_path"] = parent_path
+        return ProbeResult(
+            source_type=source_type, supported=True, parent_path=parent_path
+        )
+
+    monkeypatch.setattr(mod, "probe", fake_probe)
+    result = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "tables",
+            "--recipe",
+            str(_snowflake_recipe(tmp_path)),
+            "--database",
+            "DEMO_DB",
+            "--schema",
+            "PUBLIC",
+        ],
+    )
+    assert result.exit_code == 0
+    assert captured["parent_path"] == ["DEMO_DB", "PUBLIC"]
+
+
+def _bigquery_recipe(tmp_path):
+    recipe_file = tmp_path / "bq.yml"
+    recipe_file.write_text(
+        "source:\n  type: bigquery\n  config:\n    project_ids: [my-project]\n"
+    )
+    return recipe_file
+
+
+def test_probe_databases_on_bigquery_lists_projects(tmp_path, monkeypatch):
+    pytest.importorskip("google.cloud.bigquery")
+    import datahub.cli.recipe_cli as mod
+    from datahub.ingestion.agent.models import ProbeResult
+
+    captured = {}
+
+    def fake_probe(source_type, config, parent_path, limit):
+        captured["parent_path"] = parent_path
+        return ProbeResult(
+            source_type=source_type, supported=True, parent_path=parent_path
+        )
+
+    monkeypatch.setattr(mod, "probe", fake_probe)
+    result = CliRunner().invoke(
+        recipe, ["probe", "databases", "--recipe", str(_bigquery_recipe(tmp_path))]
+    )
+    # BigQuery's top container is a project, which `probe databases` accepts.
+    assert result.exit_code == 0
+    assert captured["parent_path"] == []
+
+
+def test_probe_schemas_on_bigquery_requires_database(tmp_path):
+    pytest.importorskip("google.cloud.bigquery")
+    result = CliRunner().invoke(
+        recipe, ["probe", "schemas", "--recipe", str(_bigquery_recipe(tmp_path))]
+    )
+    # A BigQuery dataset sits under a project, so --database is mandatory.
+    assert result.exit_code == 2
+    assert "--database" in (result.output + (result.stderr or ""))
