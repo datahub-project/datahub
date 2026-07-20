@@ -9,15 +9,19 @@ from unittest.mock import MagicMock, patch
 
 import click
 import pytest
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.cli.datapack.loader import (
     EMIT_MODE_ENV,
     IndexFileEntry,
     _apply_schema_filter,
     _build_datapack_sink_config,
+    _build_fetch_session,
     _cache_key,
     _cached_path,
     _datapack_emit_mode,
+    _DatapackSinkConfig,
     _run_pipeline_for_file,
     _sha256_file,
     check_trust,
@@ -32,6 +36,20 @@ from datahub.cli.datapack.loader import (
 from datahub.cli.datapack.models import DataPackInfo, TrustTier
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
+
+
+class TestFetchSession:
+    def test_retries_transient_statuses_with_backoff(self) -> None:
+        # Guards the fix for CDN rate-limiting: a transient 429 must be retried
+        # instead of silently dropping a datapack file into a broken load.
+        session = _build_fetch_session()
+        adapter = session.get_adapter("https://raw.githubusercontent.com/x")
+        assert isinstance(adapter, HTTPAdapter)
+        retry = adapter.max_retries
+        assert isinstance(retry, Retry)
+        assert {429, 500, 502, 503, 504}.issubset(set(retry.status_forcelist or []))
+        assert retry.total is not None and retry.total >= 1
+        assert retry.backoff_factor > 0
 
 
 class TestDatapackSinkConfig:
@@ -89,7 +107,7 @@ class TestDatapackSinkConfig:
         mock_pipeline = MagicMock()
         mock_pipeline_cls.create.return_value = mock_pipeline
 
-        sink_config = {
+        sink_config: _DatapackSinkConfig = {
             "server": "http://localhost:8080",
             "endpoint": "openapi",
             "mode": "async_batch",
@@ -117,7 +135,7 @@ class TestDatapackSinkConfig:
         data_file.write_text("[]")
         mock_pipeline_cls.create.return_value = MagicMock()
 
-        sink_config = {
+        sink_config: _DatapackSinkConfig = {
             "server": "http://localhost:8080",
             "endpoint": "openapi",
             "mode": "async_batch",
@@ -141,7 +159,7 @@ class TestDatapackSinkConfig:
         data_file.write_text("[]")
         mock_pipeline_cls.create.return_value = MagicMock()
 
-        sink_config = {
+        sink_config: _DatapackSinkConfig = {
             "server": "http://localhost:8080",
             "endpoint": "openapi",
             "mode": "async_batch",

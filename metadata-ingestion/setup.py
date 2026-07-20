@@ -146,10 +146,12 @@ sqlglot_lib = {
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
     # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
     # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
-    # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
-    # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
-    # upstream, so we restore [c] here for performance.
-    "sqlglot[c]==30.8.0",
+    # sqlglot[c] ships mypyc-compiled extensions for performance, but the native
+    # C lib has caused memory leaks in the past. Rather than dropping [c] from
+    # the release when that happens, keep it here and set DATAHUB_SQLGLOT_DISABLE_C
+    # to force pure-Python sqlglot at runtime (see
+    # datahub/_force_pure_python_sqlglot.py).
+    "sqlglot[c]==30.12.0",
     "patchy==2.8.0",
 }
 
@@ -671,7 +673,8 @@ plugins: Dict[str, Set[str]] = {
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
     "omni": {"requests<3.0.0", "PyYAML>=5.4"},
-    "glue": aws_common | cachetools_lib | sqlglot_lib,
+    # usage_common (sqlparse) is required by SqlParsingAggregator, used for view lineage.
+    "glue": aws_common | cachetools_lib | sqlglot_lib | usage_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
@@ -957,6 +960,7 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
+    "hypothesis>=6.0.0,<7.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
     "time-machine<4.0.0",
@@ -1224,6 +1228,7 @@ entry_points = {
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
+        "odcs = datahub.ingestion.source.odcs.odcs_source:ODCSSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
         "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
@@ -1343,10 +1348,19 @@ setuptools.setup(
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
     },
-    # Install .pth so setproctitle is patched at interpreter startup on macOS (avoids
-    # SIGSEGV when a multi-threaded process forks and something calls setproctitle).
+    # Install .pth files that run at interpreter startup:
+    # - setproctitle patch avoids a SIGSEGV when a multi-threaded process forks
+    #   and something calls setproctitle (macOS).
+    # - force_pure_python_sqlglot honours DATAHUB_SQLGLOT_DISABLE_C by loading
+    #   sqlglot from .py instead of the mypyc .so extensions.
     data_files=[
-        (sysconfig.get_path("purelib"), ["datahub_setproctitle_patch.pth"]),
+        (
+            sysconfig.get_path("purelib"),
+            [
+                "datahub_setproctitle_patch.pth",
+                "datahub_force_pure_python_sqlglot.pth",
+            ],
+        ),
     ],
     entry_points=entry_points,
     # Dependencies.

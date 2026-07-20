@@ -145,7 +145,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.TAG,
             ChangeOperation.ADD,
             newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}"),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -177,7 +177,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.TAG,
             ChangeOperation.REMOVE,
             newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}"),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -213,7 +213,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.GLOSSARY_TERM,
             ChangeOperation.ADD,
             glossaryTermUrn.toString(),
-            ImmutableMap.of("termUrn", glossaryTermUrn.toString(), "context", "{}"),
+            ImmutableMap.of(
+                "termUrn", glossaryTermUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -249,7 +250,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.GLOSSARY_TERM,
             ChangeOperation.REMOVE,
             glossaryTermUrn.toString(),
-            ImmutableMap.of("termUrn", glossaryTermUrn.toString(), "context", "{}"),
+            ImmutableMap.of(
+                "termUrn", glossaryTermUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -280,7 +282,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOMAIN,
             ChangeOperation.ADD,
             domainUrn.toString(),
-            ImmutableMap.of("domainUrn", domainUrn.toString(), "context", "{}"),
+            ImmutableMap.of(
+                "domainUrn", domainUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -311,7 +314,8 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOMAIN,
             ChangeOperation.REMOVE,
             domainUrn.toString(),
-            ImmutableMap.of("domainUrn", domainUrn.toString(), "context", "{}"),
+            ImmutableMap.of(
+                "domainUrn", domainUrn.toString(), "context", "{}", "sourceDetails", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -359,7 +363,9 @@ public class PlatformEventGeneratorHookTest {
                 "ownerUrn",
                 ownerUrn1.toString(),
                 "ownerType",
-                OwnershipType.TECHNICAL_OWNER.toString()),
+                OwnershipType.TECHNICAL_OWNER.toString(),
+                "sourceDetails",
+                "{}"),
             actorUrn);
     verifyProducePlatformEvent(mockProducer, platformEvent1, false);
 
@@ -374,7 +380,9 @@ public class PlatformEventGeneratorHookTest {
                 "ownerUrn",
                 ownerUrn2.toString(),
                 "ownerType",
-                OwnershipType.BUSINESS_OWNER.toString()),
+                OwnershipType.BUSINESS_OWNER.toString(),
+                "sourceDetails",
+                "{}"),
             actorUrn);
     verifyProducePlatformEvent(mockProducer, platformEvent2, false);
 
@@ -391,7 +399,9 @@ public class PlatformEventGeneratorHookTest {
                 "ownerType",
                 OwnershipType.CUSTOM.toString(),
                 "ownerTypeUrn",
-                "urn:li:ownershipType:my_custom_type"),
+                "urn:li:ownershipType:my_custom_type",
+                "sourceDetails",
+                "{}"),
             actorUrn);
     verifyProducePlatformEvent(mockProducer, platformEvent3, true);
   }
@@ -1897,7 +1907,12 @@ public class PlatformEventGeneratorHookTest {
             ChangeOperation.ADD,
             propertyUrn.toString(),
             ImmutableMap.of(
-                "propertyUrn", propertyUrn.toString(), "propertyValues", "[\"testValue\"]"),
+                "propertyUrn",
+                propertyUrn.toString(),
+                "propertyValues",
+                "[\"testValue\"]",
+                "sourceDetails",
+                "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -1936,7 +1951,12 @@ public class PlatformEventGeneratorHookTest {
             ChangeOperation.REMOVE,
             propertyUrn.toString(),
             ImmutableMap.of(
-                "propertyUrn", propertyUrn.toString(), "propertyValues", "[\"testValue\"]"),
+                "propertyUrn",
+                propertyUrn.toString(),
+                "propertyValues",
+                "[\"testValue\"]",
+                "sourceDetails",
+                "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);
@@ -1985,7 +2005,12 @@ public class PlatformEventGeneratorHookTest {
             ChangeOperation.MODIFY,
             propertyUrn.toString(),
             ImmutableMap.of(
-                "propertyUrn", propertyUrn.toString(), "propertyValues", "[\"newValue\"]"),
+                "propertyUrn",
+                propertyUrn.toString(),
+                "propertyValues",
+                "[\"newValue\"]",
+                "sourceDetails",
+                "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(mockProducer, platformEvent);

@@ -67,3 +67,12 @@ coverage:
       default:
         target: 75% # for new code added in the patch
         only_pulls: true
+
+ignore:
+  # Import-time / interpreter-startup hooks: their behaviour only manifests in a
+  # fresh interpreter (before/at startup), so in-process coverage can't observe
+  # them. They are exercised via subprocess tests instead (see
+  # tests/unit/sql_parsing/test_force_pure_python_sqlglot.py). datahub/__init__.py
+  # only wires up these startup imports, so it is excluded for the same reason.
+  - "metadata-ingestion/src/datahub/_force_pure_python_sqlglot.py"
+  - "metadata-ingestion/src/datahub/__init__.py"
