@@ -133,6 +133,9 @@ class SnowflakeAdapter(PlatformAdapter):
         block_profiling_min_rows = 100 * estimated_block_row_count
         overgeneration_factor = 1000
 
+        assert context.schema is not None, (
+            f"schema is required for sampling {context.pretty_name}"
+        )
         tablename = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
             db_name=None, schema_name=context.schema, table_name=context.table
         )
