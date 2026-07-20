@@ -793,3 +793,106 @@ def test_owner_normalization_knobs_are_mutually_exclusive() -> None:
                 "owner_email_domain": "acme.example",
             }
         )
+
+
+# ---------------------------------------------------------------------------
+# Skip / error paths (one bad file must not abort the run)
+# ---------------------------------------------------------------------------
+
+
+def test_bad_file_is_skipped_and_run_continues(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A mid-file crash on one contract is contained: it is reported and
+    skipped, and the next file still emits its metadata."""
+    body_b = _VALID_CONTRACT_BODY.replace("id: test-contract-1", "id: test-contract-2")
+    first = _write(tmp_path / "a.odcs.yaml", _VALID_CONTRACT_BODY)
+    _write(tmp_path / "b.odcs.yaml", body_b)
+    src = _make_source(tmp_path, path=str(tmp_path))
+
+    original = src._emit_bindings
+
+    def emit_or_raise(contract, bindings, file_path, source_file):  # type: ignore[no-untyped-def]
+        if source_file == first.name:
+            raise RuntimeError("boom in first file")
+        yield from original(contract, bindings, file_path, source_file)
+
+    monkeypatch.setattr(src, "_emit_bindings", emit_or_raise)
+    workunits = list(src.get_workunits_internal())
+
+    assert str(first) in src.report.files_skipped
+    assert src.report.contracts_skipped >= 1
+    assert any(
+        "Unhandled error processing ODCS file" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+    # The second contract still produced its logical dataset.
+    props = _aspects_of(workunits, DatasetPropertiesClass)
+    assert any(p.customProperties.get("odcs.id") == "test-contract-2" for p in props)
+
+
+def test_unsupported_api_version_is_skipped(tmp_path: pathlib.Path) -> None:
+    src = _make_source(tmp_path)
+    raw_dict: Dict[str, str] = {
+        "apiVersion": "v2.0.0",
+        "kind": "DataContract",
+        "id": "x",
+    }
+    assert not src._validate(raw_dict, tmp_path / "old.yaml")
+    assert any(
+        "Unsupported ODCS apiVersion" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_contract_missing_required_id_is_skipped(tmp_path: pathlib.Path) -> None:
+    """A document that passes lenient schema validation but cannot be coerced
+    into the model (missing required `id`) is skipped, not crashed."""
+    _write(
+        tmp_path / "no-id.odcs.yaml",
+        "apiVersion: v3.1.0\nkind: DataContract\nschema:\n  - name: t\n",
+    )
+    src = _make_source(tmp_path, path=str(tmp_path))
+    list(src.get_workunits_internal())
+    assert src.report.contracts_skipped >= 1
+    assert any(
+        "failed Pydantic validation" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_load_yaml_top_level_list_is_skipped(tmp_path: pathlib.Path) -> None:
+    f = _write(tmp_path / "list.odcs.yaml", "- one\n- two\n")
+    src = _make_source(tmp_path, path=str(tmp_path))
+    assert src._load_yaml(f) is None
+    assert str(f) in src.report.files_skipped
+    assert any(
+        "not a YAML object" in str(getattr(w, "title", "")) for w in src.report.warnings
+    )
+
+
+def test_load_yaml_malformed_is_skipped(tmp_path: pathlib.Path) -> None:
+    f = _write(tmp_path / "broken.odcs.yaml", "id: x\n  bad: [unclosed\n")
+    src = _make_source(tmp_path, path=str(tmp_path))
+    assert src._load_yaml(f) is None
+    assert str(f) in src.report.files_skipped
+    assert any(
+        "Failed to read ODCS file" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_duplicate_logical_urn_collision_warns(tmp_path: pathlib.Path) -> None:
+    """Two schema entries resolving to the same logical URN collide
+    (last-writer-wins) and must warn — the twin of the physical collision."""
+    body = _VALID_CONTRACT_BODY.replace(
+        "schema:\n  - name: t\n    physicalName: t\n",
+        "schema:\n  - name: t\n    physicalName: t\n  - name: t\n    physicalName: t2\n",
+    )
+    contract_file = _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(tmp_path, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert any(
+        "Duplicate logical ODCS dataset URN" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
