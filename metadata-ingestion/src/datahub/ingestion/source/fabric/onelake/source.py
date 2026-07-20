@@ -590,6 +590,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     else FABRIC_SQL_DEFAULT_SCHEMA
                 )
 
+                # Filter schemas
+                if not self.config.schema_pattern.allowed(normalized_schema):
+                    self.report.report_schema_filtered(normalized_schema)
+                    continue
+
                 # Filter tables
                 table_full_name = f"{normalized_schema}.{table.name}"
 
@@ -896,6 +901,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             normalized_schema = (
                 view.schema_name if view.schema_name else FABRIC_SQL_DEFAULT_SCHEMA
             )
+
+            # Filter schemas
+            if not self.config.schema_pattern.allowed(normalized_schema):
+                self.report.report_schema_filtered(normalized_schema)
+                continue
 
             view_full_name = f"{normalized_schema}.{view.name}"
             if not self.config.view_pattern.allowed(view_full_name):
