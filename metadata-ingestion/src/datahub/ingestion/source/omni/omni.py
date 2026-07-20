@@ -1604,13 +1604,37 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
             return []
 
-    def _ingest_documents(self) -> Iterator[MetadataWorkUnit]:
-        """Ingest Omni documents (dashboards/workbooks) in parallel.
+    def _process_document_batch(
+        self, documents: List[Dict[str, Any]]
+    ) -> Iterator[MetadataWorkUnit]:
+        """Process a batch of documents in parallel."""
+        if not documents:
+            return
+        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
+            future_to_doc = {
+                executor.submit(self._process_document_worker, doc): doc
+                for doc in documents
+            }
+            for future in as_completed(future_to_doc):
+                try:
+                    yield from future.result()
+                except Exception as exc:
+                    doc = future_to_doc[future]
+                    self.report.warning(
+                        title="Document processing error",
+                        message="Failed to process document",
+                        context=f"doc_id={doc.get('identifier')}",
+                        exc=exc,
+                    )
 
-        Collects all documents from the API, then processes them in parallel
-        using ThreadPoolExecutor with the configured max_workers.
+    def _ingest_documents(self) -> Iterator[MetadataWorkUnit]:
+        """Ingest Omni documents (dashboards/workbooks).
+
+        Dashboard documents are processed first because they discover topics and
+        populate ``_semantic_fields`` via ``get_topic`` API calls.  Workbook-only
+        documents depend on that data for fine-grained lineage resolution, so
+        they run in a second batch.
         """
-        # Collect all documents first
         try:
             documents: List[Dict[str, Any]] = list(
                 self.client.list_documents(
@@ -1626,27 +1650,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
-        # Process documents in parallel
-        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-            # Submit all document processing tasks
-            future_to_doc = {
-                executor.submit(self._process_document_worker, doc): doc
-                for doc in documents
-            }
+        dashboard_docs = [d for d in documents if d.get("hasDashboard")]
+        workbook_docs = [d for d in documents if not d.get("hasDashboard")]
 
-            # Yield work units as they complete
-            for future in as_completed(future_to_doc):
-                try:
-                    work_units = future.result()
-                    yield from work_units
-                except Exception as exc:
-                    doc = future_to_doc[future]
-                    self.report.warning(
-                        title="Document processing error",
-                        message="Failed to process document",
-                        context=f"doc_id={doc.get('identifier')}",
-                        exc=exc,
-                    )
+        yield from self._process_document_batch(dashboard_docs)
+        yield from self._process_document_batch(workbook_docs)
 
     # ------------------------------------------------------------------
     # Main entrypoint
