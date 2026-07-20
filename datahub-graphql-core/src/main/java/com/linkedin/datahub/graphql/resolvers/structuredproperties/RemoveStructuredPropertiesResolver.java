@@ -19,8 +19,10 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.StructuredProperties;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class RemoveStructuredPropertiesResolver
@@ -45,11 +47,16 @@ public class RemoveStructuredPropertiesResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            // check authorization first
-            if (!AuthorizationUtils.canEditProperties(assetUrn, context)) {
+            // check authorization
+            final List<Urn> propertyUrns =
+                input.getStructuredPropertyUrns().stream()
+                    .map(UrnUtils::getUrn)
+                    .collect(Collectors.toList());
+
+            if (!AuthorizationUtils.canEditProperties(assetUrn, context, propertyUrns)) {
               throw new AuthorizationException(
                   String.format(
-                      "Not authorized to update properties on the gives urn %s", assetUrn));
+                      "Not authorized to update properties on the given urn %s", assetUrn));
             }
 
             if (!_entityClient.exists(context.getOperationContext(), assetUrn)) {
