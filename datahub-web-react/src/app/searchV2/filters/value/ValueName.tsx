@@ -2,7 +2,7 @@ import { Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FieldType, FilterField, FilterValue } from '@app/searchV2/filters/types';
 import { getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
 import { getEntityTypeFilterValueDisplayName } from '@app/searchV2/filters/value/utils';

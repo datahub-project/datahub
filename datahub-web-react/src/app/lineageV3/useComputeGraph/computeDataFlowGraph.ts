@@ -1,7 +1,6 @@
 import type { XYPosition } from '@reactflow/core/dist/esm/types';
 import { Edge, Node } from 'reactflow';
 
-import { LINEAGE_NODE_HEIGHT } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
 import {
     BOUNDING_BOX_PADDING,
     LINEAGE_BOUNDING_BOX_NODE_NAME,
@@ -27,6 +26,9 @@ import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filte
 
 import { EntityType, LineageDirection } from '@types';
 
+// Node height used for data flow graph layout. Preserved from the former lineageV2 node height
+// so this layout stays unchanged after the lineageV2 removal.
+const LINEAGE_NODE_HEIGHT = 80;
 const ROOT_SEPARATION = 50 + LINEAGE_NODE_HEIGHT;
 
 /**

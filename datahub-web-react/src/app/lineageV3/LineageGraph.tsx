@@ -3,11 +3,7 @@ import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import LineageExplorerV2 from '@app/lineageV2/LineageExplorer';
-import LineageExplorerV3 from '@app/lineageV3/LineageExplorer';
-import { useAppConfig } from '@app/useAppConfig';
-
-import { EntityType } from '@types';
+import LineageExplorer from '@app/lineageV3/LineageExplorer';
 
 const LineageFullscreenWrapper = styled.div`
     background-color: ${(props) => props.theme.colors.bg};
@@ -20,22 +16,11 @@ interface Props {
 }
 
 export default function LineageGraph({ isFullscreen }: Props) {
-    const {
-        config: {
-            featureFlags: { lineageGraphV3 },
-        },
-    } = useAppConfig();
     const { urn, entityType, entityData } = useEntityData();
     const onIndividualSiblingPage = useIsSeparateSiblingsMode();
 
     const lineageUrn = (!onIndividualSiblingPage && entityData?.lineageUrn) || urn;
-    const props = { urn: lineageUrn, type: entityType };
-    const explorer =
-        lineageGraphV3 || entityType === EntityType.DataFlow ? (
-            <LineageExplorerV3 {...props} />
-        ) : (
-            <LineageExplorerV2 {...props} />
-        );
+    const explorer = <LineageExplorer urn={lineageUrn} type={entityType} />;
     if (isFullscreen) {
         return <LineageFullscreenWrapper>{explorer}</LineageFullscreenWrapper>;
     }

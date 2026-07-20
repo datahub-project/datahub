@@ -1,5 +1,4 @@
-import { expandColumns } from "../lineageV2/utils";
-import { setLineageV3FeatureFlags } from "./utils";
+import { expandColumns, setLineageV3FeatureFlags } from "./utils";
 
 const DATASET_ENTITY_TYPE = "dataset";
 const DATASET_URN =

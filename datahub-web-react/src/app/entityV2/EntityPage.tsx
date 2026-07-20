@@ -7,9 +7,7 @@ import { BrowsableEntityPage } from '@app/browse/BrowsableEntityPage';
 import { useUserContext } from '@app/context/useUserContext';
 import { VIEW_ENTITY_PAGE } from '@app/entityV2/shared/constants';
 import { decodeUrn } from '@app/entityV2/shared/utils';
-import LineageExplorer from '@app/lineage/LineageExplorer';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
-import { useLineageV2 } from '@app/lineageV2/useLineageV2';
 import TabFullSizedContext from '@app/shared/TabFullsizedContext';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
@@ -81,7 +79,6 @@ export const EntityPage = ({ entityType }: Props) => {
     const canViewEntityPage = privileges.find((privilege) => privilege === VIEW_ENTITY_PAGE);
     const showNewPage = ALLOWED_ENTITY_TYPES.includes(entityType);
 
-    const isLineageV2 = useLineageV2();
     const showLineage = isLineageMode && isLineageSupported;
     const [isSidebarClosed, setIsSidebarClosed] = useState(false);
     const [isTabFullsize, setTabFullsize] = useState(false);
@@ -109,8 +106,7 @@ export const EntityPage = ({ entityType }: Props) => {
                     <TabFullSizedContext.Provider
                         value={{
                             isTabFullsize,
-                            // TODO: Clean up logic after removing lineageGraphV2 flag
-                            setTabFullsize: isLineageV2 && showLineage ? undefined : setTabFullsize,
+                            setTabFullsize: showLineage ? undefined : setTabFullsize,
                         }}
                     >
                         {showNewPage && profile}
@@ -121,8 +117,7 @@ export const EntityPage = ({ entityType }: Props) => {
                                 type={entityType}
                                 lineageSupported={isLineageSupported}
                             >
-                                {showLineage && !isLineageV2 && <LineageExplorer type={entityType} urn={urn} />}
-                                {(!showLineage || isLineageV2) && profile}
+                                {profile}
                             </BrowsableEntityPage>
                         )}
                     </TabFullSizedContext.Provider>

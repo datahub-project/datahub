@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { getChangeEventString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
-import { processDocumentationString } from '@src/app/lineageV2/lineageUtils';
+import { processDocumentationString } from '@src/app/lineageV3/utils/lineageUtils';
 
 import { ChangeEvent } from '@types';
 

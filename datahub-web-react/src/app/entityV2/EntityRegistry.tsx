@@ -16,8 +16,8 @@ import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entityV2/shared/utils';
 import { FetchedEntity } from '@app/lineage/types';
-import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
-import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '@app/lineageV2/types';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
+import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '@app/lineageV3/types';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
 
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';

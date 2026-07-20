@@ -226,7 +226,6 @@ const SEARCH_TERMS = {
 
 // showLineageFilterNodes is omitted so most tests run on the backend default; only the filter test overrides it.
 const BASE_FEATURE_FLAGS = {
-  lineageGraphV3: true,
   themeV2Enabled: true,
   themeV2Default: true,
   showNavBarRedesign: true,
