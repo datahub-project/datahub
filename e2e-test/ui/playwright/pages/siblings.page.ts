@@ -14,7 +14,6 @@ export class SiblingsPage extends BasePage {
   private addTermsButton: Locator;
   private searchResults: Locator;
   private mergedIndicator: Locator;
-  private termAddedToast: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -28,7 +27,6 @@ export class SiblingsPage extends BasePage {
     this.modalConfirmButton = page.getByTestId('modal-confirm-button');
     this.searchResults = page.getByTestId('search-result-item');
     this.mergedIndicator = this.entityHeader.getByText('&');
-    this.termAddedToast = page.getByText(/Added Terms/i);
   }
 
   // ── Private helper methods ────────────────────────────────────────────────
@@ -131,7 +129,7 @@ export class SiblingsPage extends BasePage {
   }
 
   async verifyTermAddedToast(): Promise<void> {
-    await expect(this.termAddedToast).toBeVisible();
+    await this.toast.expectVisible(/Added Terms/i);
   }
 
   // ── Interaction methods ───────────────────────────────────────────────────

@@ -63,6 +63,8 @@ dependencies {
   runtimeOnly externalDependency.log4jCore
   runtimeOnly externalDependency.log4j2Api
   implementation externalDependency.logbackClassic
+  runtimeOnly externalDependency.janino
+  runtimeOnly externalDependency.lokiLogbackAppender
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity

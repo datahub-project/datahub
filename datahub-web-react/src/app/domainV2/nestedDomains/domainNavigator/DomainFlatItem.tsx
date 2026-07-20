@@ -5,6 +5,7 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -61,6 +62,26 @@ const TextStack = styled.div`
     flex: 1;
     min-width: 0;
     overflow: hidden;
+`;
+
+const TitleRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+`;
+
+const DeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    line-height: 0;
+
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
 `;
 
 const Title = styled.span<{ $isSelected: boolean }>`
@@ -125,6 +146,7 @@ export default function DomainFlatItem({ domain }: Props) {
 
     const isOnEntityPage = !!entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
+    const deprecation = isOnEntityPage ? entityData?.deprecation : domain.deprecation;
 
     // `parentDomains.domains` is returned by GMS in leaf→root order (the
     // immediate parent first). Reverse to display as root→leaf, which is
@@ -144,9 +166,21 @@ export default function DomainFlatItem({ domain }: Props) {
                 <DomainColoredIcon domain={domain as Domain} size={20} fontSize={12} />
             </IconSlot>
             <TextStack>
-                <Tooltip placement="right" title={displayName} mouseEnterDelay={0.7} mouseLeaveDelay={0}>
-                    <Title $isSelected={isOnEntityPage}>{displayName}</Title>
-                </Tooltip>
+                <TitleRow>
+                    <Tooltip placement="right" title={displayName} mouseEnterDelay={0.7} mouseLeaveDelay={0}>
+                        <Title $isSelected={isOnEntityPage}>{displayName}</Title>
+                    </Tooltip>
+                    {deprecation?.deprecated && (
+                        <DeprecationSlot>
+                            <DeprecationIcon
+                                urn={domain.urn}
+                                deprecation={deprecation}
+                                showUndeprecate={false}
+                                showText={false}
+                            />
+                        </DeprecationSlot>
+                    )}
+                </TitleRow>
                 {ancestorNames.length > 0 && (
                     <Tooltip
                         placement="bottom"

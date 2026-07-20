@@ -1,0 +1,72 @@
+[
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,PlaywrightBrowseEntity.test_schema.customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.dataset.DatasetProperties": {
+              "name": "customers",
+              "description": "BigQuery customers test dataset for Browse V2 testing"
+            }
+          },
+          {
+            "com.linkedin.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.common.BrowsePathsV2": {
+              "path": [
+                {
+                  "id": "PlaywrightBrowseEntity",
+                  "urn": "urn:li:container:playwright_browse_entity_project_container"
+                },
+                {
+                  "id": "test_schema",
+                  "urn": "urn:li:container:playwright_browse_entity_schema_container"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,PlaywrightBrowseEntity.test_schema.orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.dataset.DatasetProperties": {
+              "name": "orders",
+              "description": "dbt orders test dataset for Browse V2 testing"
+            }
+          },
+          {
+            "com.linkedin.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.common.BrowsePathsV2": {
+              "path": [
+                {
+                  "id": "PlaywrightBrowseEntity",
+                  "urn": "urn:li:container:playwright_browse_entity_project_container"
+                },
+                {
+                  "id": "test_schema",
+                  "urn": "urn:li:container:playwright_browse_entity_schema_container"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]

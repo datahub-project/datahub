@@ -9,6 +9,8 @@ import io.datahubproject.metadata.context.usage.AuthChannel;
 import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEnricher;
 import io.datahubproject.metadata.exception.OperationContextException;
 import java.util.Deque;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,13 @@ public class UsageMetricsSessionEnricher implements SessionContextEnricher {
 
   private final UsageAggregationStore usageStore;
   private final boolean enabled;
+
+  /**
+   * Sessions that already received positive {@code output_bytes} via {@link
+   * #recordResponseWithBytes} on an async worker thread. {@link #completeResponse} skips
+   * re-counting on the servlet thread.
+   */
+  private final Set<OperationContext> outOfBandOutputBytesRecorded = ConcurrentHashMap.newKeySet();
 
   @Override
   public void enrichBeforeBuild(
@@ -106,8 +115,16 @@ public class UsageMetricsSessionEnricher implements SessionContextEnricher {
       boolean assignOutputBytes = true;
       while (!sessions.isEmpty()) {
         OperationContext sessionContext = sessions.pop();
+        boolean alreadyRecordedOutOfBand = outOfBandOutputBytesRecorded.remove(sessionContext);
+        Long bytesForSession = assignOutputBytes ? outputBytes : null;
+        if (assignOutputBytes
+            && bytesForSession != null
+            && bytesForSession > 0
+            && alreadyRecordedOutOfBand) {
+          bytesForSession = null;
+        }
         try {
-          usageStore.recordResponse(sessionContext, assignOutputBytes ? outputBytes : null);
+          usageStore.recordResponse(sessionContext, bytesForSession);
         } catch (RuntimeException e) {
           log.warn("Failed to record usage response metrics", e);
         }
@@ -132,11 +149,14 @@ public class UsageMetricsSessionEnricher implements SessionContextEnricher {
     } catch (RuntimeException e) {
       log.warn("Failed to record usage response metrics", e);
     }
+    if (outputBytes != null && outputBytes > 0) {
+      outOfBandOutputBytesRecorded.add(sessionContext);
+    }
   }
 
   /**
-   * Records usage for servlet paths (e.g. SCIM) without {@link OperationContext#asSession}. Uses
-   * the system context's {@code Authorizer.SYSTEM} instead of running the full authorizer chain.
+   * Records usage for servlet paths without {@link OperationContext#asSession}. Uses the system
+   * context's {@code Authorizer.SYSTEM} instead of running the full authorizer chain.
    */
   public void recordTaggedServletRequest(
       @Nonnull OperationContext systemOperationContext,

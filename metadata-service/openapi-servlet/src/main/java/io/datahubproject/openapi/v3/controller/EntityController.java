@@ -418,7 +418,7 @@ public class EntityController
       throws InvalidUrnException, JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    int usageQuantity =
+    long usageQuantity =
         RequestContext.resolveIngestUsageQuantity(jsonEntityPatchList, objectMapper);
     OperationContext opContext =
         OperationContext.asSession(
