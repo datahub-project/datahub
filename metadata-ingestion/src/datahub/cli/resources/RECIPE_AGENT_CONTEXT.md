@@ -6,6 +6,32 @@ Best practices for AI agents building and validating DataHub ingestion recipes u
 
 Build or fix an ingestion recipe without ever handling a resolved secret value.
 
+## Credential Boundary — What You Can and Cannot See
+
+This interface is built so a resolved secret value never reaches you. The guarantee holds
+only if you follow these rules — the boundary is a shared responsibility.
+
+**What the CLI guarantees:** Secrets are resolved from `${ENV_VAR}` references **inside the
+CLI process**, never in your context. All `datahub recipe` output is redacted — on success
+and on error, on stdout and stderr, for top-level and nested secret fields. So you may run
+`probe` and `test-connection` freely and will only ever see redacted results.
+
+**What you MUST NOT do (these break the boundary):**
+- **Never inline a secret value** into a recipe. Always use `${ENV_VAR}` references. If you
+  see a plaintext secret in a recipe, you have already been exposed to it — do not copy it;
+  recommend switching that field to `${ENV_VAR}` and rerun `validate`.
+- **Never set, read, or print a secret value yourself.** Do not `export SECRET=<value>`, do
+  not `echo $SECRET`, do not run `env`, and do not read files that contain literal secret
+  values (e.g. an `.env` file holding real credentials). The operator sets the environment
+  variables out of band before your session; the CLI inherits them without your involvement.
+- **Never obtain credentials outside `datahub recipe`.** Redaction lives in this command
+  group only. Running any other command that prints a resolved credential (a raw driver call,
+  an ingestion run with verbose logging, etc.) can leak it into your context.
+
+**Inline secrets:** a recipe with a plaintext secret is still probeable, and `validate` will
+warn about it — but the boundary is already broken for that recipe because reading the file
+exposed the value. Treat the warning as a prompt to externalize the secret to `${ENV_VAR}`.
+
 ## Workflow: Required Order
 
 Follow these steps in sequence:
