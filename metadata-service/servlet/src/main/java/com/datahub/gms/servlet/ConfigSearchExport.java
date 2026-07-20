@@ -3,7 +3,6 @@ package com.datahub.gms.servlet;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_ANALYZER;
 
-import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.gms.util.CSVWriter;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -53,25 +52,29 @@ public class ConfigSearchExport extends HttpServlet {
       WebApplicationContext ctx, HttpServletRequest request, PrintWriter pw) {
     OperationContext systemOperationContext =
         ctx.getBean("systemOperationContext", OperationContext.class);
-    Authentication auth = AuthenticationContext.getAuthentication();
     // When AuthenticationContext is unset (anonymous path, filter not yet run, or tests without a
     // filter chain), fall back to systemOperationContext so the call still proceeds safely.
-    final OperationContext opContext;
-    if (auth != null) {
-      opContext =
-          OperationContext.asSession(
-              systemOperationContext,
-              RequestContext.builder()
-                  .buildOpenapi(
-                      auth.getActor().toUrnStr(), request, "configSearchExport", "configSearch"),
-              Authorizer.EMPTY,
-              auth,
-              true);
-    } else {
-      log.warn(
-          "No AuthenticationContext for configSearchExport; falling back to systemOperationContext");
-      opContext = systemOperationContext;
-    }
+    final OperationContext opContext =
+        AuthenticationContext.maybeAuthentication()
+            .map(
+                auth ->
+                    OperationContext.asSession(
+                        systemOperationContext,
+                        RequestContext.builder()
+                            .buildOpenapi(
+                                auth.getActor().toUrnStr(),
+                                request,
+                                "configSearchExport",
+                                "configSearch"),
+                        Authorizer.EMPTY,
+                        auth,
+                        true))
+            .orElseGet(
+                () -> {
+                  log.warn(
+                      "No AuthenticationContext for configSearchExport; falling back to systemOperationContext");
+                  return systemOperationContext;
+                });
     ConfigurationProvider configurationProvider = getConfigProvider(ctx);
     ElasticSearchConfiguration searchConfiguration = configurationProvider.getElasticSearch();
     EntityRegistry entityRegistry = opContext.getEntityRegistry();

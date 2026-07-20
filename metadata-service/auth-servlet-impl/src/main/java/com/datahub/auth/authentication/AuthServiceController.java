@@ -171,7 +171,11 @@ public class AuthServiceController {
         LoginIdentityMask.mask(userId.asText()));
     recordUsageSession(
         httpEntity.getHeaders(), "generateSessionTokenForUser", UsageOperation.OTHER_WRITE);
-    Authentication authentication = AuthenticationContext.getAuthentication();
+    final Optional<Authentication> auth = AuthenticationContext.maybeAuthentication();
+    if (auth.isEmpty()) {
+      return unauthorized();
+    }
+    final Authentication authentication = auth.get();
     final String actorId = authentication.getActor().getId();
     final String actorUrn = authentication.getActor().toUrnStr();
     final OperationContext opContext =
@@ -316,15 +320,18 @@ public class AuthServiceController {
     String titleString = title == null ? null : title.asText();
     String passwordString = password.asText();
     String inviteTokenString = inviteToken.asText();
-    Authentication auth = AuthenticationContext.getAuthentication();
+    final Optional<Authentication> auth = AuthenticationContext.maybeAuthentication();
+    if (auth.isEmpty()) {
+      return unauthorized();
+    }
     log.info("Attempting to create native user {}", userUrnString);
     final OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(auth.getActor().toUrnStr(), request, "signUp", List.of()),
+                .buildOpenapi(auth.get().getActor().toUrnStr(), request, "signUp", List.of()),
             Authorizer.EMPTY,
-            auth,
+            auth.get(),
             true);
     return CompletableFuture.supplyAsync(
         () -> {
@@ -389,7 +396,10 @@ public class AuthServiceController {
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
     String resetTokenString = resetToken.asText();
-    Authentication auth = AuthenticationContext.getAuthentication();
+    final Optional<Authentication> auth = AuthenticationContext.maybeAuthentication();
+    if (auth.isEmpty()) {
+      return unauthorized();
+    }
     recordUsageSession(
         httpEntity.getHeaders(), "resetNativeUserCredentials", UsageOperation.OTHER_WRITE);
     log.info("Attempting to reset credentials for native user {}", userUrnString);
@@ -398,9 +408,12 @@ public class AuthServiceController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    auth.getActor().toUrnStr(), request, "resetNativeUserCredentials", List.of()),
+                    auth.get().getActor().toUrnStr(),
+                    request,
+                    "resetNativeUserCredentials",
+                    List.of()),
             Authorizer.EMPTY,
-            auth,
+            auth.get(),
             true);
     return CompletableFuture.supplyAsync(
         () -> {
@@ -456,7 +469,10 @@ public class AuthServiceController {
 
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
-    Authentication auth = AuthenticationContext.getAuthentication();
+    final Optional<Authentication> auth = AuthenticationContext.maybeAuthentication();
+    if (auth.isEmpty()) {
+      return unauthorized();
+    }
     recordUsageSession(
         httpEntity.getHeaders(), "verifyNativeUserCredentials", UsageOperation.OTHER_READ);
     log.info(
@@ -467,9 +483,12 @@ public class AuthServiceController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    auth.getActor().toUrnStr(), request, "verifyNativeUserCredentials", List.of()),
+                    auth.get().getActor().toUrnStr(),
+                    request,
+                    "verifyNativeUserCredentials",
+                    List.of()),
             Authorizer.EMPTY,
-            auth,
+            auth.get(),
             true);
     return CompletableFuture.supplyAsync(
         () -> {
@@ -596,7 +615,10 @@ public class AuthServiceController {
   @PostMapping(value = "/getSsoSettings", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> getSsoSettings(
       final HttpServletRequest request, final HttpEntity<String> httpEntity) {
-    Authentication auth = AuthenticationContext.getAuthentication();
+    final Optional<Authentication> auth = AuthenticationContext.maybeAuthentication();
+    if (auth.isEmpty()) {
+      return unauthorized();
+    }
     recordUsageSession(
         httpEntity != null ? httpEntity.getHeaders() : null,
         "getSsoSettings",
@@ -605,9 +627,10 @@ public class AuthServiceController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(auth.getActor().toUrnStr(), request, "getSsoSettings", List.of()),
+                .buildOpenapi(
+                    auth.get().getActor().toUrnStr(), request, "getSsoSettings", List.of()),
             Authorizer.EMPTY,
-            auth,
+            auth.get(),
             true);
     return CompletableFuture.supplyAsync(
         () -> {
@@ -633,8 +656,12 @@ public class AuthServiceController {
   // Currently, only internal system is authorized to generate a token on behalf of a user!
   private void recordUsageSession(
       HttpHeaders headers, String operation, UsageOperation usageOperation) {
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    if (authentication == null || authentication.getActor() == null) {
+    final Optional<Authentication> maybeAuth = AuthenticationContext.maybeAuthentication();
+    if (maybeAuth.isEmpty()) {
+      return;
+    }
+    Authentication authentication = maybeAuth.get();
+    if (authentication.getActor() == null) {
       return;
     }
     OperationContext.asSession(
@@ -644,6 +671,10 @@ public class AuthServiceController {
         authorizerChain,
         authentication,
         true);
+  }
+
+  private static CompletableFuture<ResponseEntity<String>> unauthorized() {
+    return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
   }
 
   private boolean isAuthorizedToGenerateSessionToken(final String actorId) {
