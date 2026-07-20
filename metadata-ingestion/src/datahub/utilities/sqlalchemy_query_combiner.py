@@ -348,8 +348,9 @@ class SQLAlchemyQueryCombiner:
             query_id = SQLAlchemyQueryCombiner._generate_query_id()
             self.report.combined_queries_issued += 1
             logger.info(
-                f"[{query_id}] Executing combined query ({len(pending_queue)} queries combined): {str(combined_query)}"
+                f"[{query_id}] Executing combined query ({len(pending_queue)} queries combined)"
             )
+            logger.debug(f"[{query_id}] SQL: {str(combined_query)}")
             with PerfTimer() as timer:
                 sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
 
@@ -394,9 +395,8 @@ class SQLAlchemyQueryCombiner:
             query_id = SQLAlchemyQueryCombiner._generate_query_id()
             self.report.uncombined_queries_issued += 1
 
-            logger.info(
-                f"[{query_id}] Executing fallback query: {str(query_future.query)}"
-            )
+            logger.info(f"[{query_id}] Executing fallback query")
+            logger.debug(f"[{query_id}] SQL: {str(query_future.query)}")
 
             with PerfTimer() as timer:
                 try:
