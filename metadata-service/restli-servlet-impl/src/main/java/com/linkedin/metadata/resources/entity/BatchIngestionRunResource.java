@@ -177,29 +177,29 @@ public class BatchIngestionRunResource
       @ActionParam("includeAspect") @Optional @Nullable Boolean includeAspect) {
     log.info("DESCRIBE RUN runId: {}, start: {}, count: {}", runId, start, count);
 
-    final Authentication describeAuth = AuthenticationContext.getAuthentication();
-    final OperationContext describeOpContext =
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
                 .buildRestli(
-                    describeAuth.getActor().toUrnStr(), getContext(), "describe", List.of())
+                    auth.getActor().toUrnStr(), getContext(), "describe", List.of())
                 .withUsageOperation(UsageOperation.OTHER_READ),
             authorizer,
-            describeAuth,
+            auth,
             true);
 
-    if (!AuthUtil.isAPIAuthorized(describeOpContext, ENTITY, READ)) {
+    if (!AuthUtil.isAPIAuthorized(opContext, ENTITY, READ)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity");
     }
 
     return RestliUtils.toTask(
-        describeOpContext,
+        opContext,
         () -> {
           List<AspectRowSummary> summaries =
               systemMetadataService.findByRunId(
-                  describeOpContext, runId, includeSoft != null && includeSoft, start, count);
+                  opContext, runId, includeSoft != null && includeSoft, start, count);
 
           if (includeAspect != null && includeAspect) {
             summaries.forEach(
@@ -208,7 +208,7 @@ public class BatchIngestionRunResource
                   try {
                     EnvelopedAspect aspect =
                         entityService.getLatestEnvelopedAspect(
-                            describeOpContext, urn.getEntityType(), urn, summary.getAspectName());
+                            opContext, urn.getEntityType(), urn, summary.getAspectName());
                     if (aspect == null) {
                       log.error("Aspect for summary {} not found", summary);
                     } else {

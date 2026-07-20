@@ -3,8 +3,6 @@ package io.datahubproject.iceberg.catalog.rest.secure;
 import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.iceberg.catalog.Utils.*;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
@@ -186,9 +184,7 @@ public class AbstractIcebergController {
   }
 
   protected OperationContext opContext(HttpServletRequest request, UsageOperation usageOperation) {
-    Authentication auth =
-        AuthenticationContext.maybeAuthentication()
-            .orElseThrow(() -> new ForbiddenException("No authentication found"));
+    Authentication auth = AuthenticationContext.getAuthentication();
     return OperationContext.asSession(
         systemOperationContext,
         RequestContext.builder()
@@ -199,21 +195,9 @@ public class AbstractIcebergController {
         true);
   }
 
-  /**
-   * Builds a session {@link OperationContext} for anonymous/public endpoints that require no
-   * authorization. Uses {@link Authorizer#EMPTY} so no authorizerChain evaluation is triggered.
-   */
+  /** Public Iceberg endpoints use the system context (same as master). */
   protected OperationContext publicOpContext(HttpServletRequest request, String operationName) {
-    Authentication auth =
-        AuthenticationContext.maybeAuthentication()
-            .orElseGet(() -> new Authentication(new Actor(ActorType.USER, ANONYMOUS_ACTOR_ID), ""));
-    return OperationContext.asSession(
-        systemOperationContext,
-        RequestContext.builder()
-            .buildOpenapi(auth.getActor().toUrnStr(), request, operationName, "dataset"),
-        Authorizer.EMPTY,
-        auth,
-        true);
+    return systemOperationContext;
   }
 
   protected DataHubRestCatalog catalog(

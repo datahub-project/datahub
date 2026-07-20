@@ -2,15 +2,11 @@ package io.datahubproject.openapi.analytics;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizerChain;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,18 +21,12 @@ public class TrackingController {
 
   private final TrackingService trackingService;
   private final OperationContext systemOperationContext;
-  // Stored as Authorizer (supertype) so we can fall back to Authorizer.EMPTY when the
-  // AuthorizerChain bean isn't wired (e.g. in tests, or in a future "telemetry-disabled"
-  // wiring profile that doesn't ship the full chain).
-  private final Authorizer authorizer;
 
   public TrackingController(
       @Qualifier("trackingService") TrackingService trackingService,
-      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      @Autowired(required = false) @Qualifier("authorizerChain") AuthorizerChain authorizerChain) {
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
     this.trackingService = trackingService;
     this.systemOperationContext = systemOperationContext;
-    this.authorizer = authorizerChain != null ? authorizerChain : Authorizer.EMPTY;
     log.info(
         "TrackingController initialized with trackingService: {}",
         trackingService != null ? "present" : "null");
@@ -63,19 +53,9 @@ public class TrackingController {
     }
     log.debug("Authentication verified for user: {}", authentication.getActor());
 
-    OperationContext opContext =
-        OperationContext.asSession(
-            systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "trackEvent", "tracking"),
-            authorizer,
-            authentication,
-            true);
-
     try {
       log.debug("Forwarding tracking event to TrackingService");
-      trackingService.track(event.get("type").asText(), opContext, null, null, event);
+      trackingService.track(event.get("type").asText(), systemOperationContext, null, null, event);
       log.debug("Successfully emitted analytics event");
       return ResponseEntity.ok().build();
     } catch (Exception e) {

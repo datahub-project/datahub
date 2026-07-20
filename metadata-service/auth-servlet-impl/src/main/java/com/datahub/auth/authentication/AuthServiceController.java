@@ -168,11 +168,7 @@ public class AuthServiceController {
         LoginIdentityMask.mask(userId.asText()));
     recordUsageSession(
         httpEntity.getHeaders(), "generateSessionTokenForUser", UsageOperation.OTHER_WRITE);
-    final Optional<Authentication> auth = AuthenticationContext.maybeAuthentication();
-    if (auth.isEmpty()) {
-      return unauthorized();
-    }
-    final Authentication authentication = auth.get();
+    final Authentication authentication = AuthenticationContext.getAuthentication();
     final String actorId = authentication.getActor().getId();
     final String actorUrn = authentication.getActor().toUrnStr();
     final OperationContext opContext =
@@ -180,6 +176,10 @@ public class AuthServiceController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrn, request, "generateSessionTokenForUser", List.of()),
+            // Authorizer.SYSTEM: these /auth endpoints are called with system Basic credentials;
+            // matches
+            // pre-refactor systemOperationContext authorizer (not Authorizer.EMPTY which
+            // deny-alls).
             Authorizer.SYSTEM,
             authentication,
             true);
@@ -317,18 +317,15 @@ public class AuthServiceController {
     String titleString = title == null ? null : title.asText();
     String passwordString = password.asText();
     String inviteTokenString = inviteToken.asText();
-    final Optional<Authentication> auth = AuthenticationContext.maybeAuthentication();
-    if (auth.isEmpty()) {
-      return unauthorized();
-    }
+    final Authentication auth = AuthenticationContext.getAuthentication();
     log.info("Attempting to create native user {}", userUrnString);
     final OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(auth.get().getActor().toUrnStr(), request, "signUp", List.of()),
+                .buildOpenapi(auth.getActor().toUrnStr(), request, "signUp", List.of()),
             Authorizer.SYSTEM,
-            auth.get(),
+            auth,
             true);
     return CompletableFuture.supplyAsync(
         () -> {
@@ -393,10 +390,7 @@ public class AuthServiceController {
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
     String resetTokenString = resetToken.asText();
-    final Optional<Authentication> auth = AuthenticationContext.maybeAuthentication();
-    if (auth.isEmpty()) {
-      return unauthorized();
-    }
+    final Authentication auth = AuthenticationContext.getAuthentication();
     recordUsageSession(
         httpEntity.getHeaders(), "resetNativeUserCredentials", UsageOperation.OTHER_WRITE);
     log.info("Attempting to reset credentials for native user {}", userUrnString);
@@ -405,12 +399,9 @@ public class AuthServiceController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    auth.get().getActor().toUrnStr(),
-                    request,
-                    "resetNativeUserCredentials",
-                    List.of()),
+                    auth.getActor().toUrnStr(), request, "resetNativeUserCredentials", List.of()),
             Authorizer.SYSTEM,
-            auth.get(),
+            auth,
             true);
     return CompletableFuture.supplyAsync(
         () -> {
@@ -466,10 +457,7 @@ public class AuthServiceController {
 
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
-    final Optional<Authentication> auth = AuthenticationContext.maybeAuthentication();
-    if (auth.isEmpty()) {
-      return unauthorized();
-    }
+    final Authentication auth = AuthenticationContext.getAuthentication();
     recordUsageSession(
         httpEntity.getHeaders(), "verifyNativeUserCredentials", UsageOperation.OTHER_READ);
     log.info(
@@ -480,12 +468,9 @@ public class AuthServiceController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    auth.get().getActor().toUrnStr(),
-                    request,
-                    "verifyNativeUserCredentials",
-                    List.of()),
+                    auth.getActor().toUrnStr(), request, "verifyNativeUserCredentials", List.of()),
             Authorizer.SYSTEM,
-            auth.get(),
+            auth,
             true);
     return CompletableFuture.supplyAsync(
         () -> {
@@ -612,10 +597,7 @@ public class AuthServiceController {
   @PostMapping(value = "/getSsoSettings", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> getSsoSettings(
       final HttpServletRequest request, final HttpEntity<String> httpEntity) {
-    final Optional<Authentication> auth = AuthenticationContext.maybeAuthentication();
-    if (auth.isEmpty()) {
-      return unauthorized();
-    }
+    final Authentication auth = AuthenticationContext.getAuthentication();
     recordUsageSession(
         httpEntity != null ? httpEntity.getHeaders() : null,
         "getSsoSettings",
@@ -624,10 +606,9 @@ public class AuthServiceController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(
-                    auth.get().getActor().toUrnStr(), request, "getSsoSettings", List.of()),
+                .buildOpenapi(auth.getActor().toUrnStr(), request, "getSsoSettings", List.of()),
             Authorizer.SYSTEM,
-            auth.get(),
+            auth,
             true);
     return CompletableFuture.supplyAsync(
         () -> {
@@ -665,10 +646,6 @@ public class AuthServiceController {
         authorizerChain,
         authentication,
         true);
-  }
-
-  private static CompletableFuture<ResponseEntity<String>> unauthorized() {
-    return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
   }
 
   private boolean isAuthorizedToGenerateSessionToken(final String actorId) {

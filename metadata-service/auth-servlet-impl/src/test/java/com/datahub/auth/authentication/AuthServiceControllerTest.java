@@ -622,13 +622,6 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   }
 
   @Test
-  public void testEndpointReturns401WhenNoAuthContext() {
-    AuthenticationContext.remove();
-    ResponseEntity<String> resp = authServiceController.getSsoSettings(request, null).join();
-    assertEquals(resp.getStatusCode(), HttpStatus.UNAUTHORIZED);
-  }
-
-  @Test
   public void testGetSsoSettingsNotFound() throws Exception {
     // Mock entity service to return null (no SSO settings available)
     when(mockEntityService.getLatestAspect(

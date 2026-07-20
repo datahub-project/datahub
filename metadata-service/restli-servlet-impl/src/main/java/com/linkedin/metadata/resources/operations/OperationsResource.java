@@ -109,7 +109,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    ACTION_RESTORE_INDICES), _authorizer, auth, true);
+                    ACTION_RESTORE_INDICES).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
       () ->  Utils.restoreIndices(opContext, getContext(),
                   aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService, createDefaultAspects != null ? createDefaultAspects : false),

@@ -370,6 +370,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs,
       @ActionParam("createDefaultAspects") @Optional @Nullable Boolean createDefaultAspects) {
     final Authentication authentication = AuthenticationContext.getAuthentication();
+    // Session opContext for privilege check + usage; passed into Utils.restoreIndices (no nested
+    // asSession, no silent systemOperationContext).
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
                     getContext(), ACTION_RESTORE_INDICES).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, authentication, true);

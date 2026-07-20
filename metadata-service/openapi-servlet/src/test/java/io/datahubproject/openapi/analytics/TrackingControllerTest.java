@@ -4,21 +4,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 
-import com.datahub.authentication.Actor;
-import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizerChain;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.ResponseEntity;
 import org.testng.annotations.BeforeMethod;
@@ -28,24 +21,20 @@ public class TrackingControllerTest {
 
   @Mock private TrackingService trackingService;
 
-  @Mock private AuthorizerChain authorizerChain;
+  @Mock private OperationContext systemOperationContext;
 
   @Mock private HttpServletRequest request;
 
   @Mock private Authentication authentication;
 
-  private OperationContext systemOperationContext;
   private TrackingController controller;
   private ObjectMapper objectMapper;
 
   @BeforeMethod
   public void setUp() {
     MockitoAnnotations.initMocks(this);
-    systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    controller = new TrackingController(trackingService, systemOperationContext, authorizerChain);
+    controller = new TrackingController(trackingService, systemOperationContext);
     objectMapper = new ObjectMapper();
-    // Provide a real actor so OperationContext.asSession can build a session context
-    Mockito.when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "testUser"));
   }
 
   @Test
@@ -67,15 +56,9 @@ public class TrackingControllerTest {
     // Verify response
     assertEquals(response.getStatusCode().value(), 200);
 
-    // Verify tracking service was called with a session-derived opContext (not the raw system
-    // context)
-    ArgumentCaptor<OperationContext> opContextCaptor =
-        ArgumentCaptor.forClass(OperationContext.class);
+    // Verify tracking service was called with the event
     verify(trackingService)
-        .track(eq("TestEvent"), opContextCaptor.capture(), eq(null), eq(null), eq(event));
-    OperationContext sessionCtx = opContextCaptor.getValue();
-    assertEquals(sessionCtx.getSessionAuthentication().getActor().getId(), "testUser");
-    assertEquals(sessionCtx.getAuthorizationContext().getAuthorizer(), authorizerChain);
+        .track(eq("TestEvent"), eq(systemOperationContext), eq(null), eq(null), eq(event));
   }
 
   @Test
@@ -95,7 +78,7 @@ public class TrackingControllerTest {
     TrackingService disabledTrackingService =
         new TrackingService(null, null, null, null, null, null, null);
     TrackingController disabledController =
-        new TrackingController(disabledTrackingService, systemOperationContext, authorizerChain);
+        new TrackingController(disabledTrackingService, systemOperationContext);
 
     // Call the endpoint
     ResponseEntity<Void> response = disabledController.trackEvent(request, event);
@@ -134,34 +117,5 @@ public class TrackingControllerTest {
 
     // Verify response is bad request
     assertEquals(response.getStatusCode().value(), 400);
-  }
-
-  /**
-   * Confirms that the controller falls back to Authorizer.EMPTY when the AuthorizerChain bean isn't
-   * wired (constructor passes null). Mirrors the wiring shape of a "telemetry-disabled" deployment
-   * profile that ships without the authorizer chain.
-   */
-  @Test
-  public void testTrackEventNullAuthorizerChainFallsBackToEmpty() throws Exception {
-    ObjectNode event = objectMapper.createObjectNode();
-    event.put("type", "TestEvent");
-
-    AuthenticationContext.setAuthentication(authentication);
-
-    // Construct with null authorizerChain — should NOT NPE; controller falls back to
-    // Authorizer.EMPTY.
-    TrackingController controllerWithoutAuthorizer =
-        new TrackingController(trackingService, systemOperationContext, null);
-
-    ResponseEntity<Void> response = controllerWithoutAuthorizer.trackEvent(request, event);
-
-    assertEquals(response.getStatusCode().value(), 200);
-    ArgumentCaptor<OperationContext> opContextCaptor =
-        ArgumentCaptor.forClass(OperationContext.class);
-    verify(trackingService)
-        .track(eq("TestEvent"), opContextCaptor.capture(), eq(null), eq(null), eq(event));
-    OperationContext sessionCtx = opContextCaptor.getValue();
-    assertEquals(sessionCtx.getSessionAuthentication().getActor().getId(), "testUser");
-    assertEquals(sessionCtx.getAuthorizationContext().getAuthorizer(), Authorizer.EMPTY);
   }
 }
