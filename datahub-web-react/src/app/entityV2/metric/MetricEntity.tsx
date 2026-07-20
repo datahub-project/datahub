@@ -4,6 +4,7 @@ import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { buildMetricContextParent } from '@app/entityV2/metric/MetricEntity.utils';
 import MetricPreview from '@app/entityV2/metric/preview/MetricPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
@@ -17,6 +18,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
 
 import { useGetMetricQuery } from '@graphql/metric.generated';
 import { EntityType, Metric, SearchResult } from '@types';
@@ -89,6 +91,13 @@ export class MetricEntity implements Entity<Metric> {
     getProfileTabs = (): EntityTab[] => {
         return [
             {
+                name: i18next.t('entity.types:tab.summary'),
+                component: SummaryTab,
+                properties: {
+                    hideEditDescription: true,
+                },
+            },
+            {
                 name: i18next.t('entity.types:tab.properties', 'Properties'),
                 component: PropertiesTab,
             },
@@ -140,9 +149,23 @@ export class MetricEntity implements Entity<Metric> {
         return data?.info?.name || data?.id || data?.urn;
     };
 
+    getLineageVizConfig = (entity: Metric) => {
+        return {
+            urn: entity?.urn,
+            name: entity?.info?.name || entity?.id || entity?.urn,
+            type: EntityType.Metric,
+            platform: entity?.platform,
+            deprecation: entity?.deprecation,
+        };
+    };
+
     getOverridePropertiesFromEntity = (data: Metric): GenericEntityProperties => {
         return {
             name: data?.info?.name,
+            properties: {
+                description: data?.info?.description ?? undefined,
+            },
+            parent: buildMetricContextParent(data),
         };
     };
 
@@ -160,6 +183,7 @@ export class MetricEntity implements Entity<Metric> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.LINEAGE,
         ]);
     };
 

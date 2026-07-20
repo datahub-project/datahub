@@ -535,6 +535,21 @@ public class RequestContextTest {
   }
 
   @Test
+  public void testRequestContextWithDataHubBotPreservesAgentName() {
+    when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT))
+        .thenReturn("DataHub-Client/1.0.0 (bot; dh/automation-client; 1.0.1)");
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    assertEquals(context.getAgentClass(), AgentClass.ROBOT);
+    assertEquals(context.getAgentName(), "DH/Automation-Client");
+  }
+
+  @Test
   public void testBuildRestliAppliesWireInputFromContentLengthHeader() {
     ResourceContext resourceContext = Mockito.mock(ResourceContext.class);
     Map<String, String> headers = new HashMap<>();

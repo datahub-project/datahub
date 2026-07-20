@@ -177,7 +177,6 @@ all = [
     { name = "packaging" },
     { name = "pandas" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "pinecone-client" },
     { name = "protobuf" },
     { name = "psycopg2-binary" },
@@ -241,7 +240,6 @@ all = [
 athena = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pyathena", extra = ["sqlalchemy"] },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-bigquery" },
@@ -275,7 +273,6 @@ bigquery = [
     { name = "greenlet" },
     { name = "more-itertools" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "protobuf" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-bigquery" },
@@ -292,7 +289,6 @@ bigquery-queries = [
     { name = "greenlet" },
     { name = "more-itertools" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-bigquery" },
     { name = "sqlglot", extra = ["c"] },
@@ -321,7 +317,6 @@ clickhouse = [
     { name = "cachetools" },
     { name = "clickhouse-sqlalchemy" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -331,7 +326,6 @@ clickhouse-usage = [
     { name = "cachetools" },
     { name = "clickhouse-sqlalchemy" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -346,7 +340,6 @@ cockroachdb = [
     { name = "cachetools" },
     { name = "geoalchemy2" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-cockroachdb" },
@@ -367,7 +360,6 @@ confluence = [
     { name = "urllib3" },
 ]
 cube = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -377,7 +369,6 @@ databricks = [
     { name = "databricks-sql-connector" },
     { name = "greenlet" },
     { name = "pandas" },
-    { name = "patchy" },
     { name = "pyspark" },
     { name = "requests" },
     { name = "sqlalchemy" },
@@ -389,7 +380,6 @@ datahub = [
     { name = "confluent-kafka", extra = ["avro", "schemaregistry"] },
     { name = "fastavro" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -440,7 +430,6 @@ db2 = [
     { name = "cachetools" },
     { name = "greenlet" },
     { name = "ibm-db-sa", marker = "platform_machine == 'x86_64' or sys_platform == 'darwin'" },
-    { name = "patchy" },
     { name = "pyodbc" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -450,14 +439,12 @@ dbt = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "more-itertools" },
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
     { name = "urllib3" },
 ]
 dbt-cloud = [
     { name = "more-itertools" },
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -582,7 +569,6 @@ dev = [
     { name = "packaging" },
     { name = "pandas" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "pinecone-client" },
     { name = "pip" },
     { name = "progressbar2" },
@@ -775,7 +761,6 @@ docs = [
     { name = "packaging" },
     { name = "pandas" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "pinecone-client" },
     { name = "pip" },
     { name = "progressbar2" },
@@ -877,7 +862,6 @@ doris = [
     { name = "botocore" },
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -887,7 +871,6 @@ doris = [
 dremio = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -896,7 +879,6 @@ dremio = [
 druid = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pydruid" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -939,7 +921,6 @@ fabric-data-factory = [
 ]
 fabric-onelake = [
     { name = "azure-identity" },
-    { name = "patchy" },
     { name = "pyodbc" },
     { name = "requests" },
     { name = "sqlalchemy" },
@@ -966,7 +947,6 @@ fivetran = [
     { name = "msal" },
     { name = "pandas" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
@@ -1015,13 +995,11 @@ glue = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "cachetools" },
-    { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "urllib3" },
 ]
 grafana = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1030,14 +1008,12 @@ hana = [
     { name = "defusedxml" },
     { name = "greenlet" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-hana", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 hex = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1046,7 +1022,6 @@ hive = [
     { name = "cachetools" },
     { name = "databricks-dbapi" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1056,7 +1031,6 @@ hive-metastore = [
     { name = "cachetools" },
     { name = "greenlet" },
     { name = "kerberos" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "pymetastore" },
     { name = "pymysql" },
@@ -1110,7 +1084,6 @@ integration-tests = [
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
@@ -1165,7 +1138,6 @@ kafka-connect = [
     { name = "greenlet" },
     { name = "jdk4py" },
     { name = "jpype1" },
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1192,7 +1164,6 @@ looker = [
     { name = "gitpython" },
     { name = "lkml" },
     { name = "looker-sdk" },
-    { name = "patchy" },
     { name = "python-liquid" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1201,7 +1172,6 @@ lookml = [
     { name = "gitpython" },
     { name = "lkml" },
     { name = "looker-sdk" },
-    { name = "patchy" },
     { name = "python-liquid" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1210,7 +1180,6 @@ mariadb = [
     { name = "botocore" },
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1218,18 +1187,15 @@ mariadb = [
     { name = "urllib3" },
 ]
 matillion-dpc = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 metabase = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
 microstrategy = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1239,7 +1205,6 @@ mlflow = [
 ]
 mode = [
     { name = "cachetools" },
-    { name = "patchy" },
     { name = "python-liquid" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
@@ -1252,7 +1217,6 @@ mongodb = [
 mssql = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pyopenssl" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-pytds" },
@@ -1262,7 +1226,6 @@ mssql = [
 mssql-odbc = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pyodbc" },
     { name = "pyopenssl" },
     { name = "sqlalchemy" },
@@ -1275,7 +1238,6 @@ mysql = [
     { name = "botocore" },
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1314,7 +1276,6 @@ oracle = [
     { name = "cachetools" },
     { name = "greenlet" },
     { name = "oracledb" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1328,7 +1289,6 @@ postgres = [
     { name = "cachetools" },
     { name = "geoalchemy2" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1339,7 +1299,6 @@ powerbi = [
     { name = "mini-racer" },
     { name = "more-itertools" },
     { name = "msal" },
-    { name = "patchy" },
     { name = "setuptools" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1350,7 +1309,6 @@ powerbi-report-server = [
     { name = "requests-ntlm" },
 ]
 preset = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1358,7 +1316,6 @@ presto = [
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1369,7 +1326,6 @@ presto-on-hive = [
     { name = "cachetools" },
     { name = "greenlet" },
     { name = "kerberos" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "pymetastore" },
     { name = "pymysql" },
@@ -1390,7 +1346,6 @@ pulsar = [
     { name = "requests" },
 ]
 qlik-sense = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
     { name = "websocket-client" },
@@ -1398,7 +1353,6 @@ qlik-sense = [
 quicksight = [
     { name = "boto3" },
     { name = "botocore" },
-    { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "urllib3" },
 ]
@@ -1408,7 +1362,6 @@ rdf = [
     { name = "requests-file" },
 ]
 redash = [
-    { name = "patchy" },
     { name = "redash-toolbelt" },
     { name = "sql-metadata" },
     { name = "sqlglot", extra = ["c"] },
@@ -1419,7 +1372,6 @@ redshift = [
     { name = "geoalchemy2" },
     { name = "greenlet" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "redshift-connector" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-redshift" },
@@ -1432,7 +1384,6 @@ redshift-slim = [
     { name = "db-dtypes" },
     { name = "geoalchemy2" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "redshift-connector" },
     { name = "sqlalchemy-redshift" },
     { name = "sqlglot", extra = ["c"] },
@@ -1481,7 +1432,6 @@ salesforce = [
     { name = "simple-salesforce" },
 ]
 sigma = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1496,7 +1446,6 @@ snowflake = [
     { name = "greenlet" },
     { name = "msal" },
     { name = "pandas" },
-    { name = "patchy" },
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
@@ -1510,7 +1459,6 @@ snowflake-queries = [
     { name = "greenlet" },
     { name = "msal" },
     { name = "pandas" },
-    { name = "patchy" },
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
@@ -1533,7 +1481,6 @@ snowflake-summary = [
     { name = "greenlet" },
     { name = "msal" },
     { name = "pandas" },
-    { name = "patchy" },
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
@@ -1545,13 +1492,11 @@ snowplow = [
     { name = "cachetools" },
 ]
 sql-parser = [
-    { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
 ]
 sql-queries = [
     { name = "boto3" },
     { name = "botocore" },
-    { name = "patchy" },
     { name = "smart-open", extra = ["s3"] },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1560,7 +1505,6 @@ sql-queries = [
 sqlalchemy = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1568,7 +1512,6 @@ sqlalchemy = [
 starburst-trino-usage = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1578,14 +1521,12 @@ starrocks = [
     { name = "cachetools" },
     { name = "greenlet" },
     { name = "lark" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "starrocks" },
 ]
 superset = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1593,14 +1534,12 @@ sync-file-emitter = [
     { name = "filelock" },
 ]
 tableau = [
-    { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "tableauserverclient" },
 ]
 teradata = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1615,7 +1554,6 @@ testing-utils = [
     { name = "pyyaml" },
 ]
 thoughtspot = [
-    { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "thoughtspot-rest-api" },
 ]
@@ -1624,7 +1562,6 @@ tidb = [
     { name = "botocore" },
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1637,7 +1574,6 @@ timescaledb = [
     { name = "cachetools" },
     { name = "geoalchemy2" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1647,7 +1583,6 @@ timescaledb = [
 trino = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1659,7 +1594,6 @@ unity-catalog = [
     { name = "databricks-sql-connector" },
     { name = "greenlet" },
     { name = "pandas" },
-    { name = "patchy" },
     { name = "pyspark" },
     { name = "requests" },
     { name = "sqlalchemy" },
@@ -1681,7 +1615,6 @@ vertexai = [
 vertica = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -2334,73 +2267,6 @@ requires-dist = [
     { name = "parse", marker = "extra == 'redshift-slim'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 's3'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 's3-slim'", specifier = ">=1.19.0,<2.0.0" },
-    { name = "patchy", marker = "extra == 'all'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'athena'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'bigquery'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'bigquery-queries'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'clickhouse'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'clickhouse-usage'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'cockroachdb'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'cube'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'databricks'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'datahub'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'db2'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'dbt'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'dbt-cloud'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'dev'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'docs'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'doris'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'dremio'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'druid'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'fabric-onelake'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'fivetran'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'glue'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'grafana'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'hana'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'hex'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'hive'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'hive-metastore'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'integration-tests'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'kafka-connect'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'looker'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'lookml'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'mariadb'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'matillion-dpc'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'metabase'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'microstrategy'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'mode'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'mssql'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'mssql-odbc'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'mysql'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'oracle'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'postgres'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'powerbi'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'preset'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'presto'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'presto-on-hive'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'qlik-sense'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'quicksight'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'redash'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'redshift'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'redshift-slim'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'sigma'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'snowflake'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'snowflake-queries'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'snowflake-summary'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'sql-parser'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'sql-queries'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'sqlalchemy'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'starburst-trino-usage'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'starrocks'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'superset'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'tableau'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'teradata'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'thoughtspot'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'tidb'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'timescaledb'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'trino'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'unity-catalog'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'vertica'", specifier = "==2.8.0" },
     { name = "pinecone-client", marker = "extra == 'all'", specifier = ">=3.0.0,<6.0.0" },
     { name = "pinecone-client", marker = "extra == 'dev'", specifier = ">=3.0.0,<6.0.0" },
     { name = "pinecone-client", marker = "extra == 'docs'", specifier = ">=3.0.0,<6.0.0" },
@@ -8896,15 +8762,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b2/3a/3f06f34820a31257ddcabdfafc2672c5816be79c7e353b02c1f318daa7d4/partd-1.4.2.tar.gz", hash = "sha256:d022c33afbdc8405c226621b015e8067888173d85f7f5ecebb3cafed9a20f02c", size = 21029, upload-time = "2024-05-06T19:51:41.945Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/71/e7/40fb618334dcdf7c5a316c0e7343c5cd82d3d866edc100d98e29bc945ecd/partd-1.4.2-py3-none-any.whl", hash = "sha256:978e4ac767ec4ba5b86c6eaa52e5a2a3bc748a2ca839e8cc798f1cc6ce6efb0f", size = 18905, upload-time = "2024-05-06T19:51:39.271Z" },
-]
-
-[[package]]
-name = "patchy"
-version = "2.8.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5a/a7/f3b5da86aaf27deb76b7b6af73ad82bb8827371492b855b28da8127c44ca/patchy-2.8.0.tar.gz", hash = "sha256:0b7837f90f9729361a2a8ae7daef3a42bb81a8346d27945c125e312c3fe0fd05", size = 50159, upload-time = "2023-07-10T14:05:15.166Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/2e/0a93a1597c43d5f077184151a8bc60a5a6e1c019e0173e8494f435fea084/patchy-2.8.0-py3-none-any.whl", hash = "sha256:ae7fbcdde436272fb32485e4392c2b3cd2d0c1ac91b0af76b41242e92ff084ec", size = 9660, upload-time = "2023-07-10T14:05:13.866Z" },
 ]
 
 [[package]]

@@ -1,11 +1,18 @@
-import { EmptyState } from '@components';
+import { Button, Card, EmptyState, borders } from '@components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
+import { ModuleHeader } from '@app/homeV3/module/components/LargeModule';
+import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
+import ModuleName from '@app/homeV3/module/components/ModuleName';
+import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
+import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { PageRoutes } from '@conf/Global';
 
@@ -15,6 +22,11 @@ import {
     useGetRootMetricsBrowseQuery,
     useGetSemanticModelsBrowseQuery,
 } from '@graphql/metricsBrowse.generated';
+import { Entity } from '@types';
+
+// Cap the recent lists at the same count the home modules use, with a
+// "show more" toggle — mirrors `EntityLinkList` / `AssetsYouOwn`.
+const MAX_RECENT = 5;
 
 const ContentCard = styled.div`
     flex: 1;
@@ -24,8 +36,8 @@ const ContentCard = styled.div`
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 32px 40px;
-    gap: 24px;
+    padding: 16px 20px;
+    gap: 8px;
 `;
 
 const PageHeader = styled.div`
@@ -47,129 +59,55 @@ const HomeBlurb = styled.div`
 
 const SummaryCards = styled.div`
     display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-`;
-
-const CountCard = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 20px 24px;
-    min-width: 160px;
-    background: ${(props) => props.theme.colors.bgSurface};
-    border-radius: 10px;
-    border: 1px solid ${(props) => props.theme.colors.border};
-    gap: 4px;
-`;
-
-const CountNumber = styled.div`
-    font-size: 32px;
-    font-weight: 700;
-    color: ${(props) => props.theme.colors.text};
-    line-height: 1.1;
-`;
-
-const CountLabel = styled.div`
-    font-size: 14px;
-    color: ${(props) => props.theme.colors.textTertiary};
-`;
-
-const CountIconRow = styled.div`
-    display: flex;
-    align-items: center;
     gap: 8px;
-    color: ${(props) => props.theme.colors.icon};
-    margin-bottom: 4px;
+    flex-wrap: wrap;
 `;
 
 const RecentLists = styled.div`
     display: flex;
-    gap: 24px;
+    gap: 8px;
     flex: 1;
     overflow: hidden;
     flex-wrap: wrap;
 `;
 
-const RecentList = styled.div`
-    flex: 1;
-    min-width: 240px;
+// Content area mirrors homeV3's `Content`: fixed height + scroll so the card
+// matches the home module dimensions. `$hasFooter` reserves room for the
+// "show more" row, exactly like `Content`'s `$hasViewAll`.
+const ModuleContent = styled.div<{ $hasFooter?: boolean }>`
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    overflow: hidden;
-`;
-
-const RecentListTitle = styled.div`
-    font-size: 15px;
-    font-weight: 600;
-    color: ${(props) => props.theme.colors.text};
-`;
-
-const RecentItems = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    margin: 0 0 8px 8px;
+    padding-right: 5px;
     overflow-y: auto;
-    max-height: 320px;
+    scrollbar-gutter: stable;
+    height: ${(props) => (props.$hasFooter ? '234px' : '246px')};
 
     &::-webkit-scrollbar {
-        width: 4px;
+        width: 6px;
     }
     &::-webkit-scrollbar-thumb {
         background: ${(props) => props.theme.colors.scrollbarThumb};
-        border-radius: 2px;
+        border-radius: 3px;
     }
     scrollbar-width: thin;
     scrollbar-color: ${(props) => props.theme.colors.scrollbarThumb} transparent;
 `;
 
-const RecentItem = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.12s ease;
-    border: 1px solid transparent;
-
+// Non-draggable header: reuse the home `ModuleHeader` but neutralize its
+// hover highlight (which exists to signal draggability on the home page).
+const MetricsModuleHeader = styled(ModuleHeader)`
     &:hover {
-        background: ${(props) => props.theme.colors.bgHover};
-        border-color: ${(props) => props.theme.colors.border};
+        background: transparent;
+        border-bottom: ${borders['1px']} ${(props) => props.theme.colors.bg};
     }
 `;
 
-const RecentItemIcon = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    color: ${(props) => props.theme.colors.icon};
-`;
-
-const RecentItemText = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    overflow: hidden;
-`;
-
-const RecentItemName = styled.div`
-    font-size: 14px;
-    font-weight: 500;
-    color: ${(props) => props.theme.colors.text};
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-`;
-
-const RecentItemMeta = styled.div`
-    font-size: 12px;
-    color: ${(props) => props.theme.colors.textTertiary};
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+// "Show more" mirrors homeV3's `ViewAllButton`: right-aligned alchemy link
+// button sitting below the scrollable content.
+const ShowMoreButton = styled(Button)`
+    margin: 0 16px 0 auto;
+    padding-right: 8px;
 `;
 
 const EmptyListHint = styled.div`
@@ -180,52 +118,23 @@ const EmptyListHint = styled.div`
     padding: 32px 16px;
 `;
 
-const Dot = styled.span`
-    margin: 0 4px;
-    color: ${(props) => props.theme.colors.textTertiary};
-
-    &::before {
-        content: '·';
-    }
-`;
-
 type SemanticModel = NonNullable<
     NonNullable<GetSemanticModelsBrowseQuery['getSemanticModels']>['semanticModels'][number]
 >;
 type Metric = NonNullable<NonNullable<GetRootMetricsBrowseQuery['getRootMetrics']>['metrics'][number]>;
 
-function ModelMeta({ platform, lastModified }: { platform: string | null; lastModified: number | null | undefined }) {
-    const rel = toRelativeTimeString(lastModified ?? undefined);
-    if (!platform && !rel) return null;
-    if (!platform) return <>{rel}</>;
-    if (!rel) return <>{platform}</>;
-    return (
-        <>
-            {platform}
-            <Dot />
-            {rel}
-        </>
-    );
-}
-
-function MetricMeta({
-    semanticModelName,
-    lastModified,
-}: {
-    semanticModelName: string | null;
-    lastModified: number | null | undefined;
-}) {
-    const rel = toRelativeTimeString(lastModified ?? undefined);
-    if (!semanticModelName && !rel) return null;
-    if (!semanticModelName) return <>{rel}</>;
-    if (!rel) return <>{semanticModelName}</>;
-    return (
-        <>
-            {semanticModelName}
-            <Dot />
-            {rel}
-        </>
-    );
+function platformDisplayName(
+    platform:
+        | {
+              name?: string | null;
+              info?: { displayName?: string | null } | null;
+              properties?: { displayName?: string | null } | null;
+          }
+        | null
+        | undefined,
+): string | null {
+    if (!platform) return null;
+    return platform.properties?.displayName ?? platform.info?.displayName ?? platform.name ?? null;
 }
 
 /**
@@ -235,7 +144,17 @@ function MetricMeta({
  */
 export default function MetricsMainContent() {
     const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
+    const theme = useTheme();
+    const cardIconStyles = { color: theme.colors.icon };
+
+    // Reset sidebar entity-data so no tree rows auto-expand on the home page.
+    const { setEntityData } = useMetricsEntityContext();
+    useEffect(() => {
+        setEntityData(null);
+    }, [setEntityData]);
+    const cardStyle = { flex: 1 };
 
     const { data: modelsData } = useGetSemanticModelsBrowseQuery({
         variables: { input: { count: 100, start: 0 } },
@@ -257,6 +176,33 @@ export default function MetricsMainContent() {
         return [...metrics].sort((a, b) => (b.info?.lastModified?.time ?? 0) - (a.info?.lastModified?.time ?? 0));
     }, [metricsData]);
 
+    const [showAllModels, setShowAllModels] = useState(false);
+    const [showAllMetrics, setShowAllMetrics] = useState(false);
+    const visibleModels = showAllModels ? recentModels : recentModels.slice(0, MAX_RECENT);
+    const visibleMetrics = showAllMetrics ? recentMetrics : recentMetrics.slice(0, MAX_RECENT);
+
+    const sourcePlatformCount = useMemo(() => {
+        const names = new Set<string>();
+        recentModels.forEach((m) => {
+            const name = platformDisplayName(m.platform);
+            if (name) names.add(name);
+        });
+        recentMetrics.forEach((m) => {
+            const name = platformDisplayName(m.platform);
+            if (name) names.add(name);
+        });
+        return names.size;
+    }, [recentModels, recentMetrics]);
+
+    const latestUpdateLabel = useMemo(() => {
+        const latest = Math.max(
+            ...recentModels.map((m) => m.info?.lastModified?.time ?? 0),
+            ...recentMetrics.map((m) => m.info?.lastModified?.time ?? 0),
+            0,
+        );
+        return latest > 0 ? toRelativeTimeString(latest) : null;
+    }, [recentModels, recentMetrics]);
+
     const isEmpty = totalModels === 0 && totalMetrics === 0;
 
     return (
@@ -273,104 +219,136 @@ export default function MetricsMainContent() {
                         title={t('metrics.homeEmptyTitle')}
                         description={t('metrics.homeEmptyDescription')}
                         size="lg"
+                        action={{
+                            label: t('metrics.homeEmptyAction'),
+                            onClick: () => history.push(PageRoutes.INGESTION_CREATE),
+                            dataTestId: 'metrics-ingest-cta',
+                        }}
                     />
                 </EmptyListHint>
             ) : (
                 <>
                     <SummaryCards>
-                        <CountCard data-testid="metrics-count-models">
-                            <CountIconRow>
-                                <Cube size={18} weight="regular" />
-                            </CountIconRow>
-                            <CountNumber>{totalModels}</CountNumber>
-                            <CountLabel>{t('metrics.totalSemanticModels')}</CountLabel>
-                        </CountCard>
-                        <CountCard data-testid="metrics-count-metrics">
-                            <CountIconRow>
-                                <Sigma size={18} weight="regular" />
-                            </CountIconRow>
-                            <CountNumber>{totalMetrics}</CountNumber>
-                            <CountLabel>{t('metrics.totalMetrics')}</CountLabel>
-                        </CountCard>
+                        <Card
+                            dataTestId="metrics-count-models"
+                            icon={<Cube size={18} weight="regular" />}
+                            iconStyles={cardIconStyles}
+                            style={cardStyle}
+                            title={totalModels}
+                            subTitle={t('metrics.totalSemanticModels')}
+                        />
+                        <Card
+                            dataTestId="metrics-count-metrics"
+                            icon={<Sigma size={18} weight="regular" />}
+                            iconStyles={cardIconStyles}
+                            style={cardStyle}
+                            title={totalMetrics}
+                            subTitle={t('metrics.totalMetrics')}
+                        />
+                        <Card
+                            dataTestId="metrics-count-platforms"
+                            icon={<Database size={18} weight="regular" />}
+                            iconStyles={cardIconStyles}
+                            style={cardStyle}
+                            title={sourcePlatformCount}
+                            subTitle={t('metrics.sourcePlatforms')}
+                        />
+                        <Card
+                            dataTestId="metrics-latest-update"
+                            icon={<Clock size={18} weight="regular" />}
+                            iconStyles={cardIconStyles}
+                            style={cardStyle}
+                            title={latestUpdateLabel ?? '—'}
+                            subTitle={t('metrics.latestUpdate')}
+                        />
                     </SummaryCards>
 
                     <RecentLists>
-                        <RecentList data-testid="metrics-recent-models">
-                            <RecentListTitle>{t('metrics.recentSemanticModels')}</RecentListTitle>
-                            {recentModels.length === 0 ? (
-                                <EmptyListHint>
-                                    <EmptyState icon={Cube} title={t('metrics.emptyTreeTitle')} size="sm" />
-                                </EmptyListHint>
-                            ) : (
-                                <RecentItems>
-                                    {recentModels.map((model) => (
-                                        <RecentItem
+                        <ModuleContainer
+                            $height="316px"
+                            data-testid="metrics-recent-models"
+                            style={{ flex: 1, minWidth: 240 }}
+                        >
+                            <MetricsModuleHeader>
+                                <ModuleName text={t('metrics.recentSemanticModels')} />
+                            </MetricsModuleHeader>
+                            <ModuleContent $hasFooter={recentModels.length > MAX_RECENT}>
+                                {recentModels.length === 0 ? (
+                                    <EmptyListHint>
+                                        <EmptyState icon={Cube} title={t('metrics.emptyTreeTitle')} size="sm" />
+                                    </EmptyListHint>
+                                ) : (
+                                    visibleModels.map((model) => (
+                                        <AutoCompleteEntityItem
                                             key={model.urn}
-                                            onClick={() =>
+                                            entity={model as unknown as Entity}
+                                            customOnEntityClick={() =>
                                                 history.push(
                                                     `${PageRoutes.SEMANTIC_MODEL_ENTITY}/${encodeURIComponent(model.urn)}`,
                                                 )
                                             }
-                                            data-testid={`recent-model-${model.urn}`}
-                                        >
-                                            <RecentItemIcon>
-                                                <Cube size={18} weight="regular" />
-                                            </RecentItemIcon>
-                                            <RecentItemText>
-                                                <RecentItemName>{model.info?.name ?? model.urn}</RecentItemName>
-                                                <RecentItemMeta>
-                                                    <ModelMeta
-                                                        platform={
-                                                            model.platform?.properties?.displayName ??
-                                                            model.platform?.info?.displayName ??
-                                                            model.platform?.name ??
-                                                            null
-                                                        }
-                                                        lastModified={model.info?.lastModified?.time}
-                                                    />
-                                                </RecentItemMeta>
-                                            </RecentItemText>
-                                        </RecentItem>
-                                    ))}
-                                </RecentItems>
+                                            hideMatches
+                                            dataTestId={`recent-model-${model.urn}`}
+                                        />
+                                    ))
+                                )}
+                            </ModuleContent>
+                            {recentModels.length > MAX_RECENT && (
+                                <ShowMoreButton
+                                    variant="link"
+                                    color="gray"
+                                    size="sm"
+                                    onClick={() => setShowAllModels((v) => !v)}
+                                >
+                                    {showAllModels
+                                        ? tc('showLess')
+                                        : tc('showCountMore', { count: recentModels.length - MAX_RECENT })}
+                                </ShowMoreButton>
                             )}
-                        </RecentList>
+                        </ModuleContainer>
 
-                        <RecentList data-testid="metrics-recent-metrics">
-                            <RecentListTitle>{t('metrics.recentMetrics')}</RecentListTitle>
-                            {recentMetrics.length === 0 ? (
-                                <EmptyListHint>
-                                    <EmptyState icon={Sigma} title={t('metrics.emptyTreeTitle')} size="sm" />
-                                </EmptyListHint>
-                            ) : (
-                                <RecentItems>
-                                    {recentMetrics.map((metric) => (
-                                        <RecentItem
+                        <ModuleContainer
+                            $height="316px"
+                            data-testid="metrics-recent-metrics"
+                            style={{ flex: 1, minWidth: 240 }}
+                        >
+                            <MetricsModuleHeader>
+                                <ModuleName text={t('metrics.recentMetrics')} />
+                            </MetricsModuleHeader>
+                            <ModuleContent $hasFooter={recentMetrics.length > MAX_RECENT}>
+                                {recentMetrics.length === 0 ? (
+                                    <EmptyListHint>
+                                        <EmptyState icon={Sigma} title={t('metrics.emptyTreeTitle')} size="sm" />
+                                    </EmptyListHint>
+                                ) : (
+                                    visibleMetrics.map((metric) => (
+                                        <AutoCompleteEntityItem
                                             key={metric.urn}
-                                            onClick={() =>
+                                            entity={metric as unknown as Entity}
+                                            customOnEntityClick={() =>
                                                 history.push(
                                                     `${PageRoutes.METRIC_ENTITY}/${encodeURIComponent(metric.urn)}`,
                                                 )
                                             }
-                                            data-testid={`recent-metric-${metric.urn}`}
-                                        >
-                                            <RecentItemIcon>
-                                                <Sigma size={18} weight="regular" />
-                                            </RecentItemIcon>
-                                            <RecentItemText>
-                                                <RecentItemName>{metric.info?.name ?? metric.urn}</RecentItemName>
-                                                <RecentItemMeta>
-                                                    <MetricMeta
-                                                        semanticModelName={metric.semanticModel?.info?.name ?? null}
-                                                        lastModified={metric.info?.lastModified?.time}
-                                                    />
-                                                </RecentItemMeta>
-                                            </RecentItemText>
-                                        </RecentItem>
-                                    ))}
-                                </RecentItems>
+                                            hideMatches
+                                            dataTestId={`recent-metric-${metric.urn}`}
+                                        />
+                                    ))
+                                )}
+                            </ModuleContent>
+                            {recentMetrics.length > MAX_RECENT && (
+                                <ShowMoreButton
+                                    variant="link"
+                                    color="gray"
+                                    size="sm"
+                                    onClick={() => setShowAllMetrics((v) => !v)}
+                                >
+                                    {showAllMetrics
+                                        ? tc('showLess')
+                                        : tc('showCountMore', { count: recentMetrics.length - MAX_RECENT })}
+                                </ShowMoreButton>
                             )}
-                        </RecentList>
+                        </ModuleContainer>
                     </RecentLists>
                 </>
             )}
