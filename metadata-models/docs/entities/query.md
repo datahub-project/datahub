@@ -140,7 +140,7 @@ Queries can be created, updated, and deleted through the DataHub GraphQL API:
 
 - **createQuery**: Creates a new query with specified properties and subjects
 - **updateQuery**: Updates an existing query's name, description, or statement
-- **deleteQuery**: Soft-deletes a query entity
+- **deleteQuery**: Hard-deletes a query entity
 
 These mutations are available through the GraphQL endpoint and are used by the DataHub UI for manual query management.
 
