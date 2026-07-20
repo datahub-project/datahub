@@ -5,7 +5,7 @@ import os
 import pathlib
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Generator, Iterable, List, Optional, Set
 
 import jsonschema
 import yaml
@@ -29,6 +29,8 @@ from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceC
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     odcs_to_assertion_mcps,
+    odcs_to_data_contract_mcps,
+    odcs_to_freshness_assertion_mcps,
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
@@ -133,6 +135,9 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     logical_parents_emitted: int = 0
     assertions_emitted: int = 0
     schema_assertions_emitted: int = 0
+    freshness_assertions_emitted: int = 0
+    data_contracts_emitted: int = 0
+    data_contracts_skipped_no_assertions: int = 0
     unknown_fields_count: int = 0
     validation_errors: int = 0
     unmappable_servers: int = 0
@@ -164,8 +169,9 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Via standard stateful ingestion (`stateful_ingestion.remove_stale_metadata`): only "
-    "the logical `odcs` Datasets and Assertions ODCS owns are stale-removed; physical "
-    "datasets and their `logicalParent` links are never marked removed.",
+    "the logical `odcs` Datasets, Assertions, and native data contracts ODCS owns are "
+    "stale-removed; physical datasets, their `logicalParent` links, and the optional "
+    "physical-dataset contract are never marked removed.",
 )
 class ODCSSource(StatefulIngestionSourceBase):
     """Ingest Open Data Contract Standard (ODCS) v3.x YAML documents as logical models.
@@ -550,12 +556,13 @@ class ODCSSource(StatefulIngestionSourceBase):
                 context=f"{file_path}: {', '.join(spec_ignored)}",
             )
 
-    def _urn_exists_in_graph(self, urn: str) -> Optional[bool]:
+    def _urn_exists_in_graph(self, urn: str, *, strict: bool = False) -> Optional[bool]:
         """Best-effort, cached existence check for any URN.
 
-        Returns None when no graph is attached (file sink). Lookup errors fail
-        OPEN (return True) so a flaky GMS never changes emission behavior.
-        One lookup per unique URN per run.
+        Returns None when no graph is attached (file sink); definitive results
+        are cached, errors are not. On a lookup error, non-strict callers fail
+        OPEN (never drop owners) while strict callers fail CLOSED, so a flaky
+        GMS cannot silently defeat `verify_physical_urns_exist`.
         """
         graph = self.ctx.graph
         if graph is None:
@@ -563,28 +570,45 @@ class ODCSSource(StatefulIngestionSourceBase):
         cached = self._urn_exists_cache.get(urn)
         if cached is not None:
             return cached
+        if urn in self._urn_verify_failed:
+            # A lookup for this URN already failed this run; don't re-hit the
+            # graph or re-warn — just honor the caller's strict fail direction.
+            return not strict
         try:
             exists = bool(graph.exists(urn))
         except Exception as e:
             self.report.warning(
                 title="Could not verify URN existence",
-                message="Graph lookup failed; assuming the entity exists (fail-open).",
+                message=(
+                    "Graph lookup failed; "
+                    + (
+                        "treating the entity as unverified (fail-closed)."
+                        if strict
+                        else "assuming the entity exists (fail-open)."
+                    )
+                ),
                 context=urn,
                 exc=e,
             )
-            # Record the fail-open so callers never tally it as verified.
+            # Record the failed lookup so callers never tally it as verified,
+            # and don't cache a concrete bool: the fail direction depends on
+            # `strict` (closed for physical verification, open otherwise) and
+            # the same URN may be checked both ways within a single run.
             self._urn_verify_failed.add(urn)
-            exists = True
+            return not strict
         self._urn_exists_cache[urn] = exists
         return exists
 
     def _physical_urn_exists(self, urn: str) -> bool:
-        exists = self._urn_exists_in_graph(urn)
+        # Strict: this gates verify_physical_urns_exist, so a graph error must
+        # fail CLOSED (skip the link) rather than emit as if the URN existed.
+        exists = self._urn_exists_in_graph(urn, strict=True)
         if exists is None:
             # No graph: emit without verification.
             return True
         if urn in self._urn_verify_failed:
-            # Assumed-present due to a lookup error, not actually confirmed.
+            # Strict verification: the lookup failed, so it was treated as
+            # absent (fail-closed) and the link skipped — never confirmed.
             self.report.physical_urns_verify_failed += 1
         elif exists:
             self.report.physical_urns_verified += 1
@@ -704,16 +728,44 @@ class ODCSSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         # One binding == one ODCS schema entry. Each concern is a focused
         # helper; the physical-binding helper is last because it depends on the
-        # logical dataset the first helper emits.
+        # logical dataset the first helper emits. Assertion URNs are captured so
+        # the native contract can reference them without re-deriving them.
         for binding in bindings:
             yield from self._emit_logical_dataset(
                 contract, binding, file_path, source_file
             )
+            assertion_urns: List[str] = []
+            schema_assertion_urn: Optional[str] = None
+            freshness_assertion_urn: Optional[str] = None
             if self.config.emit_assertions:
-                yield from self._emit_assertions(contract, binding, file_path)
+                assertion_urns = yield from self._emit_assertions(
+                    contract, binding, file_path
+                )
             if self.config.emit_schema_assertion:
-                yield from self._emit_schema_assertion(contract, binding)
-            yield from self._emit_logical_parent(contract, binding, file_path)
+                schema_assertion_urn = yield from self._emit_schema_assertion(
+                    contract, binding
+                )
+            freshness_assertion_urn = yield from self._emit_freshness_assertion(
+                contract, binding.logical_urn
+            )
+            yield from self._emit_logical_contract(
+                contract,
+                binding.logical_urn,
+                schema_assertion_urn,
+                assertion_urns,
+                freshness_assertion_urn,
+            )
+            physical_urn = yield from self._emit_logical_parent(
+                contract, binding, file_path
+            )
+            if physical_urn is not None:
+                yield from self._emit_physical_contract(
+                    contract,
+                    physical_urn,
+                    schema_assertion_urn,
+                    assertion_urns,
+                    freshness_assertion_urn,
+                )
 
     def _emit_logical_dataset(
         self,
@@ -762,10 +814,11 @@ class ODCSSource(StatefulIngestionSourceBase):
         contract: ODCSContract,
         binding: PhysicalBinding,
         file_path: pathlib.Path,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Generator[MetadataWorkUnit, None, List[str]]:
         # Assertions target the LOGICAL dataset and are emitted whether or not a
         # physical binding resolved. Propagation onto bound physical datasets is
         # handled by a separate DataHub mechanism via the PhysicalInstanceOf link.
+        # The URNs are returned so a native contract can reference them.
         schema_entry = binding.schema_entry
         assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
             contract=contract,
@@ -799,12 +852,13 @@ class ODCSSource(StatefulIngestionSourceBase):
         self.report.assertions_emitted += len(assertion_urns)
         for mcp in assertion_mcps:
             yield mcp.as_workunit()
+        return assertion_urns
 
     def _emit_schema_assertion(
         self,
         contract: ODCSContract,
         binding: PhysicalBinding,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Generator[MetadataWorkUnit, None, Optional[str]]:
         schema_assertion_urn, schema_assertion_mcps = odcs_to_schema_assertion_mcps(
             contract=contract,
             schema_entry=binding.schema_entry,
@@ -815,13 +869,16 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.schema_assertions_emitted += 1
             for mcp in schema_assertion_mcps:
                 yield mcp.as_workunit()
+        return schema_assertion_urn
 
     def _emit_logical_parent(
         self,
         contract: ODCSContract,
         binding: PhysicalBinding,
         file_path: pathlib.Path,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Generator[MetadataWorkUnit, None, Optional[str]]:
+        # Returns the bound physical URN (or None) so the caller can attach an
+        # optional native contract to the physical dataset.
         schema_entry = binding.schema_entry
         if binding.physical_urn is None:
             # No binding costs only the logicalParent link — never the
@@ -839,7 +896,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                         f"schema_name={schema_entry.name}"
                     ),
                 )
-            return
+            return None
 
         physical_urn = binding.physical_urn
         if binding.name_passthrough:
@@ -864,7 +921,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                     f"urn={physical_urn}"
                 ),
             )
-            return
+            return None
 
         self.report.physical_bindings_resolved += 1
 
@@ -914,6 +971,112 @@ class ODCSSource(StatefulIngestionSourceBase):
                 physical_urn, binding.logical_urn
             ).as_workunit(is_primary_source=False)
             self.report.logical_parents_emitted += 1
+
+        return physical_urn
+
+    def _emit_freshness_assertion(
+        self, contract: ODCSContract, logical_urn: str
+    ) -> Generator[MetadataWorkUnit, None, Optional[str]]:
+        if not self.config.emit_freshness_assertion:
+            return None
+        freshness_assertion_urn, freshness_mcps = odcs_to_freshness_assertion_mcps(
+            contract, logical_urn
+        )
+        if freshness_assertion_urn is not None:
+            self.report.freshness_assertions_emitted += 1
+            for mcp in freshness_mcps:
+                yield mcp.as_workunit()
+        return freshness_assertion_urn
+
+    def _emit_logical_contract(
+        self,
+        contract: ODCSContract,
+        logical_urn: str,
+        schema_assertion_urn: Optional[str],
+        assertion_urns: List[str],
+        freshness_assertion_urn: Optional[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        # The logical dataset is the self-consistent contract home: the assertions
+        # target it, so contract.entity == assertion.entity and results resolve
+        # directly. It renders under the LOGICAL_MODELS_ENABLED flag.
+        if not self.config.emit_data_contract:
+            return
+        # A contract only means something if it pins at least one assertion.
+        if (
+            schema_assertion_urn is None
+            and freshness_assertion_urn is None
+            and not assertion_urns
+        ):
+            self.report.data_contracts_skipped_no_assertions += 1
+            return
+        yield from self._emit_data_contract(
+            contract,
+            logical_urn,
+            schema_assertion_urn,
+            assertion_urns,
+            freshness_assertion_urn,
+            is_primary_source=True,
+        )
+
+    def _emit_physical_contract(
+        self,
+        contract: ODCSContract,
+        physical_urn: str,
+        schema_assertion_urn: Optional[str],
+        assertion_urns: List[str],
+        freshness_assertion_urn: Optional[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        # Opt-in: also surface the contract on the physical table consumers
+        # browse. Off by default and always non-primary — the contract URN
+        # collides with the hand-authored SDK convention, so a primary write here
+        # would overwrite and (on stale removal) soft-delete a user's
+        # hand-authored contract. Gated on emit_logical_parent, the master switch
+        # for writing any aspect onto physical datasets.
+        if not (
+            self.config.emit_physical_data_contract and self.config.emit_logical_parent
+        ):
+            return
+        if (
+            schema_assertion_urn is None
+            and freshness_assertion_urn is None
+            and not assertion_urns
+        ):
+            return
+        yield from self._emit_data_contract(
+            contract,
+            physical_urn,
+            schema_assertion_urn,
+            assertion_urns,
+            freshness_assertion_urn,
+            is_primary_source=False,
+        )
+
+    def _emit_data_contract(
+        self,
+        contract: ODCSContract,
+        entity_urn: str,
+        schema_assertion_urn: Optional[str],
+        assertion_urns: List[str],
+        freshness_assertion_urn: Optional[str],
+        is_primary_source: bool,
+    ) -> Iterable[MetadataWorkUnit]:
+        # is_primary_source drives stale removal. The logical contract is ODCS's
+        # own (primary): drop the schema entry and it soft-deletes. The optional
+        # physical contract collides with the hand-authored SDK urn, so it is
+        # non-primary — ODCS never soft-deletes a contract on a dataset it does
+        # not own.
+        contract_urn, contract_mcps = odcs_to_data_contract_mcps(
+            contract=contract,
+            entity_urn=entity_urn,
+            schema_assertion_urn=schema_assertion_urn,
+            data_quality_assertion_urns=assertion_urns,
+            freshness_assertion_urn=freshness_assertion_urn,
+        )
+        if contract_urn is None:
+            return
+        self.report.data_contracts_emitted += 1
+        for mcp in contract_mcps:
+            yield mcp.as_workunit(is_primary_source=is_primary_source)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for file_path in self._resolve_paths():
