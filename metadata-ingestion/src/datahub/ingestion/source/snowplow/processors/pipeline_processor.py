@@ -485,8 +485,11 @@ class PipelineProcessor(EntityProcessor):
             "enrichmentId": enrichment.id,
             "filename": enrichment.filename,
             "enabled": str(enrichment.enabled),
-            "lastUpdate": enrichment.last_update,
         }
+        # The pipelines/v1 enrichments endpoint does not return a last-update
+        # timestamp, so only emit it when the value is known.
+        if enrichment.last_update:
+            custom_properties["lastUpdate"] = enrichment.last_update
 
         if self.state.physical_pipeline:
             custom_properties["pipelineId"] = self.state.physical_pipeline.id

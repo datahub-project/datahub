@@ -119,6 +119,9 @@ skills-lock.json
 !.claude/commands/
 !.claude/agents/
 !.claude/settings.json
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/deny-git-no-verify.sh
 **/.claude/settings.local.json
 
 # Kiro Ignores
@@ -127,6 +130,8 @@ skills-lock.json
 # Environment files with credentials
 .env*
 *.env
+# Exception: ZDU test compose override (no secrets — only authz bypass flags)
+!docker/profiles/zdu-test.env
 
 # A bunch of binaries we never ever want to add
 datahub-frontend/bin/main/
@@ -173,3 +178,7 @@ test-models/bin/
 
 # Git Worktree management (wtp)
 .wtp.yml
+
+# Generated per-page markdown mirror for AI tools (emitted by
+# docs-website/generateDocsDir.ts, served at /docs/<slug>.md)
+docs-website/static/docs/

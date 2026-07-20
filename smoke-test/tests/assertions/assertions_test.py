@@ -268,7 +268,7 @@ def _gms_get_latest_assertions_results_by_partition(auth_session):
                         "and": [
                             {
                                 "field": "asserteeUrn",
-                                "value": urn,
+                                "values": [urn],
                                 "condition": "EQUAL",
                             }
                         ]
@@ -306,13 +306,10 @@ def _gms_get_latest_assertions_results_by_partition(auth_session):
         "partitionSpec.partition",
         "timestampMillis",
     ]
-    assert len(data["value"]["table"]["rows"]) == 6
-    assert (
-        data["value"]["table"]["rows"][0][
-            data["value"]["table"]["columnNames"].index("asserteeUrn")
-        ]
-        == urn
-    )
+    rows = data["value"]["table"]["rows"]
+    assertee_urn_index = data["value"]["table"]["columnNames"].index("asserteeUrn")
+    assert len(rows) == 6
+    assert all(row[assertee_urn_index] == urn for row in rows)
 
 
 def test_gms_get_latest_assertions_results_by_partition(

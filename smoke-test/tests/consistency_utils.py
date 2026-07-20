@@ -1,7 +1,7 @@
 import logging
 import subprocess
 import time
-from typing import List, Optional
+from typing import List, Optional, Protocol
 
 import requests
 
@@ -24,6 +24,10 @@ _MESSAGING_LAG_ENDPOINTS = {
 }
 
 
+class _AuthenticatedSession(Protocol):
+    def get(self, url: str, **kwargs: object) -> requests.Response: ...
+
+
 def _get_gms_url() -> str:
     return env_vars.get_gms_url() or "http://localhost:8080"
 
@@ -40,10 +44,17 @@ def _request_headers() -> dict:
     return headers
 
 
-def _fetch_lag_envelope(gms_url: str, endpoint: str) -> Optional[dict]:
+def _fetch_lag_envelope(
+    gms_url: str,
+    endpoint: str,
+    auth_session: Optional[_AuthenticatedSession] = None,
+) -> Optional[dict]:
     url = f"{gms_url}{endpoint}?skipCache=true"
     try:
-        resp = requests.get(url, headers=_request_headers(), timeout=5)
+        if auth_session is not None:
+            resp = auth_session.get(url, timeout=5)
+        else:
+            resp = requests.get(url, headers=_request_headers(), timeout=5)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
@@ -82,10 +93,13 @@ def _sum_lag_from_envelope(
 
 
 def _get_total_lag(
-    gms_url: str, endpoint: str, consumer_group: Optional[str] = None
+    gms_url: str,
+    endpoint: str,
+    consumer_group: Optional[str] = None,
+    auth_session: Optional[_AuthenticatedSession] = None,
 ) -> Optional[int]:
     """Fetch total lag from a GMS messaging consumer lag endpoint."""
-    data = _fetch_lag_envelope(gms_url, endpoint)
+    data = _fetch_lag_envelope(gms_url, endpoint, auth_session)
     if data is None:
         return None
     lag, _group_found = _sum_lag_from_envelope(data, consumer_group)
@@ -104,13 +118,15 @@ def _endpoints_for_consumer_group(consumer_group: str) -> List[str]:
     return ["mcp", "mcl", "mcl_timeseries", "usage_events"]
 
 
-def _get_messaging_transport(gms_url: str) -> Optional[str]:
+def _get_messaging_transport(
+    gms_url: str, auth_session: Optional[_AuthenticatedSession] = None
+) -> Optional[str]:
     try:
-        resp = requests.get(
-            f"{gms_url}/openapi/operations/messaging/transport",
-            headers=_request_headers(),
-            timeout=5,
-        )
+        url = f"{gms_url}/openapi/operations/messaging/transport"
+        if auth_session is not None:
+            resp = auth_session.get(url, timeout=5)
+        else:
+            resp = requests.get(url, headers=_request_headers(), timeout=5)
         resp.raise_for_status()
         return resp.json().get("transport")
     except Exception as e:
@@ -119,7 +135,10 @@ def _get_messaging_transport(gms_url: str) -> Optional[str]:
 
 
 def _get_consumer_lag(
-    gms_url: str, consumers: List[str], consumer_group: Optional[str] = None
+    gms_url: str,
+    consumers: List[str],
+    consumer_group: Optional[str] = None,
+    auth_session: Optional[_AuthenticatedSession] = None,
 ) -> tuple[Optional[int], bool, bool]:
     """Get combined lag across endpoints.
 
@@ -132,7 +151,7 @@ def _get_consumer_lag(
         endpoint = _MESSAGING_LAG_ENDPOINTS.get(consumer)
         if not endpoint:
             continue
-        data = _fetch_lag_envelope(gms_url, endpoint)
+        data = _fetch_lag_envelope(gms_url, endpoint, auth_session)
         if data is None:
             continue
         api_available = True
@@ -165,7 +184,9 @@ def _infer_kafka_broker_container() -> str:
 
 
 def _wait_for_kafka_consumer_group_lag(
-    consumer_group: str, max_timeout_in_sec: int
+    consumer_group: str,
+    max_timeout_in_sec: int,
+    topic: Optional[str] = None,
 ) -> bool:
     """Poll kafka-consumer-groups for a single consumer group (Kafka transport fallback)."""
     kafka_bootstrap = env_vars.get_kafka_bootstrap_server()
@@ -177,27 +198,43 @@ def _wait_for_kafka_consumer_group_lag(
 
     while (time.time() - start_time) < max_timeout_in_sec:
         time.sleep(1)
-        cmd = (
-            f"docker exec {broker_container} /bin/kafka-consumer-groups "
-            f"--bootstrap-server {kafka_bootstrap} --group '{consumer_group}' --describe "
-            "| grep -v LAG | awk '{print $6}'"
-        )
+        cmd = [
+            "docker",
+            "exec",
+            broker_container,
+            "/bin/kafka-consumer-groups",
+            "--bootstrap-server",
+            kafka_bootstrap,
+            "--group",
+            consumer_group,
+            "--describe",
+        ]
         try:
             completed_process = subprocess.run(
                 cmd,
                 capture_output=True,
-                shell=True,
                 text=True,
                 check=False,
             )
-            lines = [
-                int(line)
-                for line in str(completed_process.stdout).splitlines()
-                if line.strip() != ""
-            ]
-            if not lines:
+            if completed_process.returncode != 0:
+                logger.warning(
+                    "Kafka lag command failed for consumer group %s: %s",
+                    consumer_group,
+                    completed_process.stderr.strip(),
+                )
+                return False
+
+            lag_values = []
+            for line in completed_process.stdout.splitlines():
+                columns = line.split()
+                if (
+                    len(columns) >= 6
+                    and columns[0] != "GROUP"
+                    and (topic is None or columns[1] == topic)
+                ):
+                    lag_values.append(int(columns[5]))
+            if not lag_values:
                 continue
-            lag_values = lines
             if max(lag_values) == 0:
                 logger.info(
                     "Kafka consumer group %s lag reached zero via broker CLI",
@@ -206,7 +243,9 @@ def _wait_for_kafka_consumer_group_lag(
                 return True
         except ValueError:
             logger.warning(
-                "Error reading kafka lag using command: %s", cmd, exc_info=True
+                "Error reading Kafka lag for consumer group %s",
+                consumer_group,
+                exc_info=True,
             )
 
     logger.warning(
@@ -223,6 +262,7 @@ def wait_for_writes_to_sync(
     mae_only: bool = False,
     cdc_only: bool = False,
     consumer_group: str | None = None,
+    auth_session: Optional[_AuthenticatedSession] = None,
 ) -> None:
     """Wait for consumer lag to reach zero using the GMS messaging operations API.
 
@@ -240,6 +280,7 @@ def wait_for_writes_to_sync(
             ``datahub-usage-event-consumer-job-client`` for audit-event indexing).
             Falls back to ``kafka-consumer-groups`` when the group is not exposed
             via the messaging lag API (Kafka usage-event consumer).
+        auth_session: Base authenticated test session used for GMS operations.
     """
     if env_vars.get_use_static_sleep():
         time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
@@ -258,9 +299,13 @@ def wait_for_writes_to_sync(
 
     # Usage events on Kafka are not exposed via trace readers; use broker CLI lag.
     if consumer_group == _USAGE_EVENT_CONSUMER_GROUP:
-        transport = _get_messaging_transport(gms_url)
+        transport = _get_messaging_transport(gms_url, auth_session)
         if transport == "kafka":
-            _wait_for_kafka_consumer_group_lag(consumer_group, max_timeout_in_sec)
+            _wait_for_kafka_consumer_group_lag(
+                consumer_group,
+                max_timeout_in_sec,
+                topic=env_vars.get_datahub_usage_event_topic(),
+            )
             time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
             return
 
@@ -273,7 +318,7 @@ def wait_for_writes_to_sync(
         time.sleep(1)
 
         lag, group_found, api_available = _get_consumer_lag(
-            gms_url, consumers, consumer_group
+            gms_url, consumers, consumer_group, auth_session
         )
         if (
             consumer_group
@@ -282,6 +327,11 @@ def wait_for_writes_to_sync(
             and _wait_for_kafka_consumer_group_lag(
                 consumer_group,
                 max(1, int(max_timeout_in_sec - (time.time() - start_time))),
+                topic=(
+                    env_vars.get_datahub_usage_event_topic()
+                    if consumer_group == _USAGE_EVENT_CONSUMER_GROUP
+                    else None
+                ),
             )
         ):
             used_kafka_fallback = True

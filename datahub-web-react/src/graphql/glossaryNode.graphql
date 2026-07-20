@@ -7,8 +7,14 @@ fragment childGlossaryTerm on GlossaryTerm {
         name
         description
     }
+    displayProperties {
+        ...displayPropertiesFields
+    }
     domain {
         ...entityDomain
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 

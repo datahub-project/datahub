@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 
-import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
+import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 
 import { CorpGroup, CorpUser, DataHubPolicy, DataHubRole, EntityType, Maybe } from '@types';
 
@@ -14,9 +14,10 @@ type Props = {
     roles?: Maybe<Array<DataHubRole>>;
     entityRegistry: EntityRegistry;
     maxCount?: number;
+    title?: string;
 };
 
-export default function AvatarsGroup({ users, groups, policies, roles, entityRegistry, maxCount = 6 }: Props) {
+export default function AvatarsGroup({ users, groups, policies, roles, entityRegistry, maxCount = 6, title }: Props) {
     const avatars: AvatarItemProps[] = useMemo(() => {
         const result: AvatarItemProps[] = [];
 
@@ -56,5 +57,7 @@ export default function AvatarsGroup({ users, groups, policies, roles, entityReg
         return result;
     }, [users, groups, roles, policies, entityRegistry]);
 
-    return <AvatarStack avatars={avatars} maxToShow={maxCount} />;
+    return (
+        <AvatarStackWithHover avatars={avatars} maxToShow={maxCount} entityRegistry={entityRegistry} title={title} />
+    );
 }

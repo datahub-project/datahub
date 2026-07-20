@@ -40,6 +40,7 @@ export const DownstreamWrapper = styled(ExpandContractButton)`
 export const Button = styled.span`
     display: flex;
     align-items: center;
+    cursor: pointer;
     font-size: 12px;
 
     line-height: 0;

@@ -668,29 +668,38 @@ Full operations guide: [GMS Rate Limiting](./gms-rate-limiting.md).
 
 Rate limiting is **off by default**. Enable one or both limiter types — there is no single master switch.
 
-| Environment Variable                                   | Default                             | YAML path / effect                                                                                             | Components |
-| ------------------------------------------------------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
-| `RATE_LIMITS_FAIL_OPEN`                                | `true`                              | `rateLimits.failOpen` — allow requests when limiter errors occur                                               | GMS        |
-| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                                | `rateLimits.minRetryAfterSeconds` — minimum `Retry-After` on 429 (capacity uses as-is; endpoint uses as floor) | GMS        |
-| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                                | `rateLimits.retryAfterJitterPercent` — random jitter added to endpoint `Retry-After` (`0` disables)            | GMS        |
-| `RATE_LIMITS_EXCLUDED_PATHS`                           | health, prometheus, rate-limits API | `rateLimits.excludedPaths` — Ant patterns never limited                                                        | GMS        |
-| `RATE_LIMITS_CONFIG_FILE_ENABLED`                      | `false`                             | `rateLimits.configFile.enabled`                                                                                | GMS        |
-| `RATE_LIMITS_CONFIG_FILE`                              | `/etc/datahub/rate-limits.yaml`     | `rateLimits.configFile.path`                                                                                   | GMS        |
-| `RATE_LIMITS_CONFIG_JSON`                              | —                                   | JSON overlay merged at startup (partial `rateLimits` object)                                                   | GMS        |
-| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                             | `rateLimits.capacity.enabled` — Gradient2 in-flight limits                                                     | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                              | `rateLimits.capacity.default.enabled` (requires `capacity.enabled=true`)                                       | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                               | `rateLimits.capacity.default.initialLimit`                                                                     | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.default.minLimit`                                                                         | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                              | `rateLimits.capacity.default.maxLimit`                                                                         | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                              | `rateLimits.capacity.graphql.enabled` (requires `capacity.enabled=true`)                                       | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                      | `rateLimits.capacity.graphql.pathPattern`                                                                      | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                              | `rateLimits.capacity.graphql.operationRulesEnabled`                                                            | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                               | `rateLimits.capacity.graphql.initialLimit`                                                                     | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.graphql.minLimit`                                                                         | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                              | `rateLimits.capacity.graphql.maxLimit`                                                                         | GMS        |
-| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                             | `rateLimits.endpoint.enabled` — Bucket4j token buckets (cluster-wide; requires Hazelcast when enabled)         | GMS        |
-| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                         | GMS        |
-| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                 | GMS        |
+| Environment Variable                                   | Default                             | YAML path / effect                                                                                                                                                     | Components |
+| ------------------------------------------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `RATE_LIMITS_FAIL_OPEN`                                | `true`                              | `rateLimits.failOpen` — allow requests when limiter errors occur                                                                                                       | GMS        |
+| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                                | `rateLimits.minRetryAfterSeconds` — minimum `Retry-After` on 429 (capacity uses as-is; endpoint uses as floor)                                                         | GMS        |
+| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                                | `rateLimits.retryAfterJitterPercent` — random jitter added to endpoint `Retry-After` (`0` disables)                                                                    | GMS        |
+| `RATE_LIMITS_EXCLUDED_PATHS`                           | health, prometheus, rate-limits API | `rateLimits.excludedPaths` — Ant patterns never limited                                                                                                                | GMS        |
+| `RATE_LIMITS_ENABLED`                                  | `true`                              | `rateLimits.enabled` — master kill switch; `false` bypasses every limiter                                                                                              | GMS        |
+| `RATE_LIMITS_TENANT_ID`                                | _(empty)_                           | `rateLimits.tenantId` — namespaces tenant-scoped bucket keys (set to the deployment's `global.id`)                                                                     | GMS        |
+| `RATE_LIMITS_CONFIG_FILE`                              | _(unset)_                           | Spring resource URI of an override policy file layered on the bundled defaults in `application.yaml`; must include a prefix, e.g. `file:/etc/datahub/rate-limits.yaml` | GMS        |
+| `RATE_LIMITS_SCOPED_ENABLED`                           | `false`                             | `rateLimits.scoped.enabled` — enable the per-actor → class → global scoped chain                                                                                       | GMS        |
+| `RATE_LIMITS_SCOPED_REFUND_DISABLED`                   | `false`                             | `rateLimits.scoped.refundDisabled` — when `true`, do not refund upstream buckets on a later-stage deny                                                                 | GMS        |
+| `RATE_LIMITS_SCOPED_ACTOR_CAPACITY`                    | `2000`                              | `rateLimits.scoped.actor.capacity` — per-actor bucket size                                                                                                             | GMS        |
+| `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                              | `rateLimits.scoped.browser.capacity` — browser-class bucket size                                                                                                       | GMS        |
+| `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                               | `rateLimits.scoped.sdk.capacity` — SDK/non-browser-class bucket size                                                                                                   | GMS        |
+| `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                             | `rateLimits.scoped.global.capacity` — fleet-wide (cross-tenant) ceiling                                                                                                | GMS        |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_TOKENS`            | _(= bucket capacity)_               | `rateLimits.scoped.<bucket>.refillTokens` for `ACTOR`/`BROWSER`/`SDK`/`GLOBAL`; defaults to that bucket's capacity                                                     | GMS        |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_PERIOD_SECONDS`    | `60`                                | `rateLimits.scoped.<bucket>.refillPeriodSeconds` for `ACTOR`/`BROWSER`/`SDK`/`GLOBAL`                                                                                  | GMS        |
+| `RATE_LIMITS_CLIENT_CLASS_ENABLED`                     | `false`                             | `rateLimits.clientClassEnabled` — select rules by browser vs non-browser classification                                                                                | GMS        |
+| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                             | `rateLimits.capacity.enabled` — Gradient2 in-flight limits                                                                                                             | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                              | `rateLimits.capacity.default.enabled` (requires `capacity.enabled=true`)                                                                                               | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                               | `rateLimits.capacity.default.initialLimit`                                                                                                                             | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.default.minLimit`                                                                                                                                 | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                              | `rateLimits.capacity.default.maxLimit`                                                                                                                                 | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                              | `rateLimits.capacity.graphql.enabled` (requires `capacity.enabled=true`)                                                                                               | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                      | `rateLimits.capacity.graphql.pathPattern`                                                                                                                              | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                              | `rateLimits.capacity.graphql.operationRulesEnabled`                                                                                                                    | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                               | `rateLimits.capacity.graphql.initialLimit`                                                                                                                             | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.graphql.minLimit`                                                                                                                                 | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                              | `rateLimits.capacity.graphql.maxLimit`                                                                                                                                 | GMS        |
+| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                             | `rateLimits.endpoint.enabled` — Bucket4j token buckets (cluster-wide; requires Hazelcast when enabled)                                                                 | GMS        |
+| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                                                                                 | GMS        |
+| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                                                                         | GMS        |
 
 ### Entity graph cache
 
@@ -1062,6 +1071,28 @@ The following environment variables are used in the codebase but may not be expl
 | `USAGE_CLIENT_NUM_RETRIES`                            | `0`     | Usage client number of retries                      | GMS, MAE Consumer, PE Consumer |
 | `USAGE_CLIENT_TIMEOUT_MS`                             | `3000`  | Usage client timeout in milliseconds                | GMS, MAE Consumer, PE Consumer |
 
+### API usage aggregation (GMS)
+
+These variables configure **`InMemoryUsageAggregationStore`** (API traffic).
+
+| Environment Variable                                   | Default                                             | Description                                                                                                                                                               | Service           |
+| ------------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `USAGE_AGGREGATION_ENABLED`                            | `false` (`true` in Docker quickstart/debug compose) | Enable in-memory usage aggregation and Micrometer export                                                                                                                  | GMS, MCE consumer |
+| `USAGE_AGGREGATION_MICROMETER_EXPORT_ENABLED`          | `true`                                              | Export aggregation to Micrometer on flush                                                                                                                                 | GMS, MCE consumer |
+| `USAGE_AGGREGATION_MAX_WINDOW_SECONDS`                 | `300`                                               | Max in-memory window before flush                                                                                                                                         | GMS, MCE consumer |
+| `USAGE_AGGREGATION_MAX_CARDINALITY`                    | `10000`                                             | Cardinality threshold for early flush                                                                                                                                     | GMS, MCE consumer |
+| `USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS`             | `60` (`30` in Docker quickstart/debug compose)      | Scheduled flush interval                                                                                                                                                  | GMS, MCE consumer |
+| `USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS`           | `0` (`3600` in Docker quickstart/debug compose)     | UTC calendar grid for splitting flush windows (`3600` = hourly, `900` = 15 min; `0` = off). Alignment only splits at boundaries; window open times stay process-relative. | GMS, MCE consumer |
+| `USAGE_AGGREGATION_FLUSH_RETRY_ATTEMPTS`               | `3`                                                 | Publish retry attempts before re-merge on failure                                                                                                                         | GMS, MCE consumer |
+| `USAGE_AGGREGATION_FLUSH_RETRY_INITIAL_BACKOFF_MILLIS` | `100`                                               | Initial backoff between flush publish retries (ms)                                                                                                                        | GMS, MCE consumer |
+
+**GMS** records HTTP API traffic (`UsageMetricsSessionEnricher`). **MCE consumer** records direct Kafka/pgQueue
+`metadata_ingest` via `UsageQueueIngestRecorder` when enabled (same env var). MAE and upgrade services keep
+`datahub.usage.aggregation.enabled=false`. Scrape **both** GMS and MCE Actuator Prometheus endpoints and sum
+`metadata_ingest` across services for total ingest volume.
+
+See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api-usage-aggregation-metrics) for exported Micrometer series and tags.
+
 ### Cache Configuration
 
 | Environment Variable                                | Default     | Description                                              | Components                     |
@@ -1122,7 +1153,7 @@ The following environment variables are used in the codebase but may not be expl
 
 | Environment Variable                          | Default    | Description                                    | Components        |
 | --------------------------------------------- | ---------- | ---------------------------------------------- | ----------------- |
-| `MCP_CONSUMER_BATCH_ENABLED`                  | `false`    | Enable MCP consumer batch processing           | GMS, MCE Consumer |
+| `MCP_CONSUMER_BATCH_ENABLED`                  | `true`     | Enable MCP consumer batch processing           | GMS, MCE Consumer |
 | `MCP_CONSUMER_BATCH_SIZE`                     | `15744000` | MCP consumer batch size                        | GMS, MCE Consumer |
 | `MCP_VALIDATION_IGNORE_UNKNOWN`               | `true`     | Ignore unknown fields in MCP validation        | GMS, MCE Consumer |
 | `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS`        | `true`     | Enable privilege constraints in MCP validation | GMS, MCE Consumer |

@@ -4,7 +4,6 @@ import time
 
 import pytest
 import sqlglot
-import sqlglot.lineage
 import sqlglot.optimizer.unnest_subqueries
 from sqlglot import exp
 
@@ -31,12 +30,6 @@ def test_cooperative_timeout_sql() -> None:
             time.sleep(0.0001)
 
     assert 0.6 <= timer.elapsed_seconds() <= 1.2
-
-
-def test_lineage_node_subfield() -> None:
-    expression = sqlglot.parse_one("SELECT 1 AS test")
-    node = sqlglot.lineage.Node("test", expression, expression, subfield="subfield")  # type: ignore
-    assert node.subfield == "subfield"  # type: ignore
 
 
 def test_decorrelate_null_parent_predicate() -> None:

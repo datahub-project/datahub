@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -51,7 +51,9 @@ export default function ValueName({ field, value }: Props) {
                         <>
                             {part}
                             {(index < pathParts.length - 1 && (
-                                <Typography.Text type="secondary">{PATH_SEPARATOR}</Typography.Text>
+                                <Text type="span" color="textSecondary">
+                                    {PATH_SEPARATOR}
+                                </Text>
                             )) ||
                                 undefined}
                         </>
