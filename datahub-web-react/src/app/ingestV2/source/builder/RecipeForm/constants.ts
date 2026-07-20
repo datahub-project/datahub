@@ -399,6 +399,19 @@ import {
     TABLEAU_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/tableau';
 import {
+    TIBCO_EMS_BASE_URL,
+    TIBCO_EMS_INCLUDE_BRIDGES,
+    TIBCO_EMS_INCLUDE_SYSTEM_DESTINATIONS,
+    TIBCO_EMS_PASSWORD,
+    TIBCO_EMS_QUEUE_ALLOW,
+    TIBCO_EMS_QUEUE_DENY,
+    TIBCO_EMS_TOKEN,
+    TIBCO_EMS_TOPIC_ALLOW,
+    TIBCO_EMS_TOPIC_DENY,
+    TIBCO_EMS_USERNAME,
+    TIBCO_EMS_VERIFY_SSL,
+} from '@app/ingestV2/source/builder/RecipeForm/tibco-ems';
+import {
     TIDB,
     TIDB_DATABASE,
     TIDB_HOST_PORT,
@@ -449,6 +462,7 @@ import {
     POWER_BI,
     RDF,
     SAC,
+    TIBCO_EMS,
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
@@ -1068,6 +1082,17 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         connectionSectionTooltip: 'Configure the RDF source location and basic settings.',
         advancedSectionTooltip: 'Advanced options for RDF format, file processing, and dialect selection.',
+    },
+    [TIBCO_EMS]: {
+        fields: [TIBCO_EMS_BASE_URL, TIBCO_EMS_USERNAME, TIBCO_EMS_PASSWORD, TIBCO_EMS_TOKEN],
+        filterFields: [TIBCO_EMS_QUEUE_ALLOW, TIBCO_EMS_QUEUE_DENY, TIBCO_EMS_TOPIC_ALLOW, TIBCO_EMS_TOPIC_DENY],
+        advancedFields: [
+            TIBCO_EMS_INCLUDE_BRIDGES,
+            TIBCO_EMS_INCLUDE_SYSTEM_DESTINATIONS,
+            TIBCO_EMS_VERIFY_SSL,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific EMS queues and topics from ingestion.',
     },
 };
 

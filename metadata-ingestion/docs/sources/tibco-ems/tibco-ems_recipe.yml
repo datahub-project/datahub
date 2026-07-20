@@ -1,0 +1,23 @@
+source:
+  type: "tibco-ems"
+  config:
+    # EMS REST Proxy admin API base URL
+    base_url: "https://ems-host.example.com:8080"
+
+    # Basic auth (or use `token` for bearer auth instead)
+    username: "${TIBCO_EMS_USERNAME}"
+    password: "${TIBCO_EMS_PASSWORD}"
+
+    # Optional: derive lineage from EMS bridges (default: true)
+    include_bridges: true
+
+    # Optional: filter destinations
+    queue_pattern:
+      allow:
+        - ".*"
+    topic_pattern:
+      allow:
+        - ".*"
+
+sink:
+  # sink configs

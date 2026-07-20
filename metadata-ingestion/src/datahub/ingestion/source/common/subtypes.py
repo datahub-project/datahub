@@ -11,6 +11,7 @@ class DatasetSubTypes(StrEnum):
     TABLE = "Table"
     VIEW = "View"
     TOPIC = "Topic"
+    QUEUE = "Queue"
     SCHEMA = "Schema"
     GRAPH = "Graph"
     # System-Specific SubTypes

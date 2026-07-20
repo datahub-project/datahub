@@ -1101,6 +1101,10 @@ thoughtspot = [
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
 ]
 
+tibco-ems = [
+    "requests<3.0.0",
+]
+
 tidb = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
@@ -1882,6 +1886,7 @@ vertica = "datahub.ingestion.source.sql.vertica:VerticaSource"
 presto = "datahub.ingestion.source.sql.presto:PrestoSource"
 presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
 pulsar = "datahub.ingestion.source.pulsar:PulsarSource"
+tibco-ems = "datahub.ingestion.source.tibco_ems.source:TibcoEmsSource"
 salesforce = "datahub.ingestion.source.salesforce:SalesforceSource"
 demo-data = "datahub.ingestion.source.demo_data:DemoDataSource"
 unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
