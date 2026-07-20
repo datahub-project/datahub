@@ -22,3 +22,8 @@ def test_collect_secret_values_only_from_secret_fields():
 def test_empty_secrets_is_noop():
     payload = {"a": "b"}
     assert redact(payload, set()) == {"a": "b"}
+
+
+def test_redacts_secret_in_dict_key():
+    out = redact({"user_s3cr3t_key": "value"}, {"s3cr3t"})
+    assert "s3cr3t" not in str(out)

@@ -24,7 +24,10 @@ def redact(payload: object, secret_values: Set[str]) -> object:
                 redacted = redacted.replace(secret, _MASK)
         return redacted
     if isinstance(payload, dict):
-        return {k: redact(v, secret_values) for k, v in payload.items()}
+        return {
+            redact(k, secret_values): redact(v, secret_values)
+            for k, v in payload.items()
+        }
     if isinstance(payload, list):
         return [redact(v, secret_values) for v in payload]
     return payload
