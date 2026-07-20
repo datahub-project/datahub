@@ -20,6 +20,10 @@ const BackgroundVideo = styled.video`
     transform: translate(-50%, -50%);
     z-index: 1;
     object-fit: cover;
+
+    @media (prefers-reduced-motion: reduce) {
+        display: none;
+    }
 `;
 
 const Content = styled.div`
@@ -39,7 +43,16 @@ interface Props {
 export default function AuthPageContainer({ children }: Props) {
     return (
         <VideoWrapper>
-            <BackgroundVideo src={backgroundVideo} autoPlay muted loop playsInline preload="auto" />
+            <BackgroundVideo
+                src={backgroundVideo}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                aria-hidden="true"
+                tabIndex={-1}
+            />
             <Content>{children}</Content>
         </VideoWrapper>
     );

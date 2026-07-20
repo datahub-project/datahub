@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { LabelContainer, StyledCheckbox } from '@components/components/Select/components';
 import { spacing, typography } from '@components/theme';
 
-const SelectAllOption = styled.div<{ isDisabled?: boolean }>(({ isDisabled, theme }) => ({
+const SelectAllOption = styled.button<{ isDisabled?: boolean }>(({ isDisabled, theme }) => ({
     cursor: isDisabled ? 'not-allowed' : 'pointer',
     padding: spacing.xsm,
     color: theme?.colors?.text,
@@ -12,6 +12,10 @@ const SelectAllOption = styled.div<{ isDisabled?: boolean }>(({ isDisabled, them
     fontSize: typography.fontSizes.md,
     display: 'flex',
     alignItems: 'center',
+    background: 'transparent',
+    border: 'none',
+    width: '100%',
+    textAlign: 'left',
 }));
 
 interface Props {
@@ -23,7 +27,12 @@ interface Props {
 
 export default function DropdownSelectAllOption({ label, selected, onClick, disabled }: Props) {
     return (
-        <SelectAllOption onClick={() => !disabled && onClick?.()} isDisabled={disabled}>
+        <SelectAllOption
+            type="button"
+            onClick={() => !disabled && onClick?.()}
+            isDisabled={disabled}
+            aria-pressed={selected}
+        >
             <LabelContainer>
                 <span>{label}</span>
                 <StyledCheckbox

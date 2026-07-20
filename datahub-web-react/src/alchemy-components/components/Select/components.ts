@@ -35,6 +35,10 @@ export const SelectBase = styled.div<SelectStyleProps>(
         overflow: 'auto',
         textWrapMode: 'nowrap',
         width: width === 'full' ? '100%' : 'max-content',
+        '&:focus-visible': {
+            outline: `2px solid ${theme.colors.borderBrandFocused}`,
+            outlineOffset: '2px',
+        },
     }),
 );
 
@@ -189,6 +193,10 @@ export const OptionLabel = styled.label<{
     applyHoverWidth?: boolean;
 }>(({ isSelected, isMultiSelect, isDisabled, applyHoverWidth, theme }) => ({
     ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, applyHoverWidth, theme),
+    '&:focus-visible': {
+        outline: `2px solid ${theme.colors.borderBrandFocused}`,
+        outlineOffset: '2px',
+    },
 }));
 
 export const SelectLabel = styled.label(({ theme }) => ({

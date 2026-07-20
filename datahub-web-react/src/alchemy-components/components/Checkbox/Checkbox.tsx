@@ -72,7 +72,7 @@ export const Checkbox = ({
             {label ? (
                 <Tooltip title={labelTooltip}>
                     <Label
-                        aria-label={label}
+                        htmlFor={id}
                         clickable={shouldHandleLabelClicks}
                         onClick={shouldHandleLabelClicks ? onClick : undefined}
                     >
@@ -88,11 +88,11 @@ export const Checkbox = ({
                 $size={size || 'sm'}
             >
                 <HiddenInput
+                    id={id}
                     type="checkbox"
                     checked={isActive}
                     disabled={isDisabled || false}
                     onChange={() => null}
-                    aria-labelledby={id}
                     aria-checked={checked}
                     {...props}
                 />

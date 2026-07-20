@@ -27,13 +27,24 @@ const Container = styled.div<{ $border?: boolean; $fontSize?: string }>`
     ${(props) => props.$fontSize && `font-size: ${props.$fontSize};`}
 `;
 
-const FileDetails = styled.span`
+const FileDetails = styled.div<{ $isClickable?: boolean }>`
     display: flex;
     gap: 4px;
     align-items: center;
     font-weight: 600;
     width: 100%;
     padding: 4px;
+    ${({ $isClickable, theme }) =>
+        $isClickable
+            ? `
+        cursor: pointer;
+
+        &:focus-visible {
+            outline: 2px solid ${theme.colors.borderBrandFocused};
+            outline-offset: 2px;
+        }
+    `
+            : ''}
 `;
 
 const SpaceFiller = styled.div`
@@ -84,6 +95,17 @@ export function FileNode({
         [onClick],
     );
 
+    const keyDownHandler = useCallback(
+        (e: React.KeyboardEvent) => {
+            if (!onClick) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick(e as unknown as React.MouseEvent);
+            }
+        },
+        [onClick],
+    );
+
     const hasRightContent = useMemo(() => {
         return !!onClose || !!extraRightContent;
     }, [onClose, extraRightContent]);
@@ -107,7 +129,14 @@ export function FileNode({
 
     return (
         <Container $border={border} className={className} $fontSize={fontSize}>
-            <FileDetails onClick={clickHandler}>
+            <FileDetails
+                $isClickable={!!onClick}
+                onClick={clickHandler}
+                role={onClick ? 'button' : undefined}
+                tabIndex={onClick ? 0 : undefined}
+                aria-label={fileName}
+                onKeyDown={keyDownHandler}
+            >
                 <FileIcon extension={extension} />
                 <Tooltip title={fileName}>
                     <FileName type="span">{fileName}</FileName>

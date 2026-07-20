@@ -76,6 +76,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     const { t } = useTranslation('alchemy');
     const { t: tc } = useTranslation('common.actions');
     const resolvedSelectAllLabel = selectAllLabel ?? tc('selectAll');
+    const dropdownListId = dataTestId ? `${dataTestId}-listbox` : undefined;
     const [searchQuery, setSearchQuery] = useState('');
     const selectRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -127,6 +128,18 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         }
     }, [isDisabled, isReadOnly, selectedValues, toggleDropdown]);
 
+    const handleSelectKeyDown = useCallback(
+        (event: React.KeyboardEvent<HTMLElement>) => {
+            if (isDisabled || isReadOnly) return;
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setTempValues(selectedValues);
+                toggleDropdown();
+            }
+        },
+        [isDisabled, isReadOnly, selectedValues, toggleDropdown],
+    );
+
     const handleOptionChange = useCallback(
         (option: SelectOption) => {
             const updatedValues = tempValues.includes(option.value)
@@ -136,6 +149,17 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
             setTempValues(isMultiSelect ? updatedValues : [option.value]);
         },
         [tempValues, isMultiSelect],
+    );
+
+    const handleOptionKeyDown = useCallback(
+        (event: React.KeyboardEvent<HTMLElement>, option: SelectOption) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            if (!isMultiSelect) {
+                handleOptionChange(option);
+            }
+        },
+        [handleOptionChange, isMultiSelect],
     );
 
     const removeOption = useCallback(
@@ -216,7 +240,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                     size={size}
                                 />
                             )}
-                            <OptionList>
+                            <OptionList id={dropdownListId}>
                                 {showSelectAll && isMultiSelect && (
                                     <DropdownSelectAllOption
                                         label={resolvedSelectAllLabel}
@@ -230,6 +254,10 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                     <OptionLabel
                                         key={option.value}
                                         onClick={() => !isMultiSelect && handleOptionChange(option)}
+                                        onKeyDown={(event) => handleOptionKeyDown(event, option)}
+                                        tabIndex={disabledValues?.includes(option.value) ? -1 : 0}
+                                        role="button"
+                                        aria-disabled={disabledValues?.includes(option.value)}
                                         isSelected={tempValues.includes(option.value)}
                                         isMultiSelect={isMultiSelect}
                                         isDisabled={disabledValues?.includes(option.value)}
@@ -290,6 +318,13 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                         isRequired={isRequired}
                         isOpen={isOpen}
                         onClick={handleSelectClick}
+                        onKeyDown={handleSelectKeyDown}
+                        role="button"
+                        tabIndex={isDisabled || isReadOnly ? -1 : 0}
+                        aria-haspopup="listbox"
+                        aria-expanded={isOpen}
+                        aria-controls={dropdownListId}
+                        aria-disabled={isDisabled || isReadOnly}
                         fontSize={size}
                         data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         {...props}

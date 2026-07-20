@@ -89,6 +89,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     const { t } = useTranslation('alchemy');
     const { t: tc } = useTranslation('common.actions');
     const resolvedSelectAllLabel = selectAllLabel ?? tc('selectAll');
+    const dropdownListId = dataTestId ? `${dataTestId}-listbox` : undefined;
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
     const selectRef = useRef<HTMLDivElement>(null);
@@ -139,6 +140,17 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
         }
     }, [toggleDropdown, isDisabled, isReadOnly]);
 
+    const handleSelectKeyDown = useCallback(
+        (event: React.KeyboardEvent<HTMLElement>) => {
+            if (isDisabled || isReadOnly) return;
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleDropdown();
+            }
+        },
+        [isDisabled, isReadOnly, toggleDropdown],
+    );
+
     const handleOptionChange = useCallback(
         (option: SelectOption) => {
             const updatedValues = selectedValues.includes(option.value)
@@ -165,6 +177,22 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
             onClear();
         }
     }, [closeDropdown, onUpdate, onClear]);
+
+    const handleOptionKeyDown = useCallback(
+        (event: React.KeyboardEvent<HTMLElement>, option: SelectOption) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            const isOptionDisabled = !!disabledValues?.includes(option.value);
+            if (!isOptionDisabled && !isMultiSelect) {
+                if (optionSwitchable && selectedValues.includes(option.value)) {
+                    handleClearSelection();
+                } else {
+                    handleOptionChange(option);
+                }
+            }
+        },
+        [disabledValues, handleClearSelection, handleOptionChange, isMultiSelect, optionSwitchable, selectedValues],
+    );
 
     const handleSelectAll = () => {
         if (areAllSelected) {
@@ -215,7 +243,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                     size={size}
                                 />
                             )}
-                            <OptionList style={optionListStyle} data-testid={optionListTestId}>
+                            <OptionList style={optionListStyle} data-testid={optionListTestId} id={dropdownListId}>
                                 {showSelectAll && isMultiSelect && (
                                     <DropdownSelectAllOption
                                         label={resolvedSelectAllLabel}
@@ -243,6 +271,10 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                                 }
                                             }
                                         }}
+                                        onKeyDown={(event) => handleOptionKeyDown(event, option)}
+                                        tabIndex={disabledValues?.includes(option.value) ? -1 : 0}
+                                        role="button"
+                                        aria-disabled={disabledValues?.includes(option.value)}
                                         isSelected={selectedValues.includes(option.value)}
                                         isMultiSelect={isMultiSelect}
                                         isDisabled={disabledValues?.includes(option.value)}
@@ -303,6 +335,13 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                             isRequired={isRequired}
                             isOpen={isOpen}
                             onClick={handleSelectClick}
+                            onKeyDown={handleSelectKeyDown}
+                            role="button"
+                            tabIndex={isDisabled || isReadOnly ? -1 : 0}
+                            aria-haspopup="listbox"
+                            aria-expanded={isOpen}
+                            aria-controls={dropdownListId}
+                            aria-disabled={isDisabled || isReadOnly}
                             fontSize={size}
                             data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                             {...props}
