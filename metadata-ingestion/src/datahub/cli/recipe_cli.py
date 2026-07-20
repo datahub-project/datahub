@@ -1,19 +1,23 @@
 import importlib.resources
 import json
 import sys
-from typing import Dict, List, NoReturn, Set, Tuple
+from typing import Dict, List, NoReturn, Optional, Set, Tuple
 
 import click
 import yaml
 
 from datahub.ingestion.agent.introspect import describe_source
-from datahub.ingestion.agent.models import FieldKind
-from datahub.ingestion.agent.probe import probe
+from datahub.ingestion.agent.models import FieldKind, ProbeLeafKind, ProbeNodeKind
+from datahub.ingestion.agent.probe import probe, probe_hierarchy
 from datahub.ingestion.agent.recipe import explain, scaffold, validate_recipe
 from datahub.ingestion.agent.redact import collect_secret_values, redact
 from datahub.ingestion.agent.secrets import (
     default_resolvers,
     resolve_config_collecting,
+)
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
 )
 
 EXIT_OK = 0
@@ -181,7 +185,28 @@ def test_connection(recipe_path: str) -> None:
         _fail(redacted, EXIT_CONNECTION)
 
 
-def _probe(level_path: List[str], recipe_path: str, limit: int) -> None:
+# Each container kind maps to the CLI flag that supplies its value, so the parent
+# path for a probe can be assembled generically from whatever flags the target
+# level requires. --database is the top container (SQL database / BigQuery
+# project); --schema is the second (SQL schema / BigQuery dataset).
+_KIND_FLAG: Dict[str, str] = {
+    "Database": "database",
+    "Project": "database",
+    "Schema": "schema",
+    "Dataset": "schema",
+    "Table": "table",
+}
+
+
+def _probe_kind(
+    recipe_path: str,
+    target_kinds: Tuple[ProbeNodeKind, ...],
+    flags: Dict[str, object],
+    limit: int,
+) -> None:
+    # target_kinds lists the equivalent node kinds a command accepts across source
+    # families (e.g. Database or BigQuery Project for `probe databases`); the first
+    # one present in this source's hierarchy is the level to list.
     # Bound before the try so it is always defined, even if resolution itself
     # fails before any secret can be collected.
     secret_values: Set[str] = set()
@@ -189,7 +214,34 @@ def _probe(level_path: List[str], recipe_path: str, limit: int) -> None:
         source_type, resolved, secret_values = _resolve_for_probe(
             _load_recipe(recipe_path)
         )
-        result = probe(source_type, resolved, level_path, limit)
+        hierarchy = probe_hierarchy(source_type)
+        if hierarchy is None:
+            # Unsupported source: let probe() emit its standard fallback payload.
+            result = probe(source_type, resolved, [], limit)
+            _emit(redact(result.to_dict(), secret_values))
+            return
+        target_kind = next((k for k in target_kinds if k in hierarchy), None)
+        if target_kind is None:
+            wanted = " / ".join(str(k) for k in target_kinds)
+            _fail(
+                f"source '{source_type}' has no {wanted} level; "
+                f"levels are: {', '.join(str(k) for k in hierarchy)}",
+                EXIT_USER,
+            )
+        # The ancestors of the target level are exactly the container levels above
+        # it; require the matching flag for each and assemble the parent path.
+        parent_path: List[str] = []
+        for ancestor in hierarchy[: hierarchy.index(target_kind)]:
+            flag_name = _KIND_FLAG[str(ancestor)]
+            value = flags.get(flag_name)
+            if not value:
+                _fail(
+                    f"--{flag_name} is required to list {target_kind} "
+                    f"for source '{source_type}'",
+                    EXIT_USER,
+                )
+            parent_path.append(str(value))
+        result = probe(source_type, resolved, parent_path, limit)
         _emit(redact(result.to_dict(), secret_values))
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
         # SECURITY: see test_connection -- exception text may embed a resolved
@@ -209,25 +261,71 @@ def probe_group() -> None:
     """Live source probes (need a resolved secret)."""
 
 
-@probe_group.command(name="schemas")
+# Top-level container is a Database (SQL) or a Project (BigQuery); the second is a
+# Schema (SQL) or a Dataset (BigQuery). Each command accepts whichever the source
+# actually has.
+_TOP_CONTAINER_KINDS = (
+    DatasetContainerSubTypes.DATABASE,
+    DatasetContainerSubTypes.BIGQUERY_PROJECT,
+)
+_SECOND_CONTAINER_KINDS = (
+    DatasetContainerSubTypes.SCHEMA,
+    DatasetContainerSubTypes.BIGQUERY_DATASET,
+)
+
+
+@probe_group.command(name="databases")
 @click.option("--recipe", "recipe_path", required=True)
 @click.option("--limit", default=200, type=int)
-def probe_schemas(recipe_path: str, limit: int) -> None:
-    _probe([], recipe_path, limit)
+def probe_databases(recipe_path: str, limit: int) -> None:
+    _probe_kind(recipe_path, _TOP_CONTAINER_KINDS, {}, limit)
+
+
+@probe_group.command(name="schemas")
+@click.option("--recipe", "recipe_path", required=True)
+@click.option("--database", "database", default=None)
+@click.option("--limit", default=200, type=int)
+def probe_schemas(recipe_path: str, database: Optional[str], limit: int) -> None:
+    _probe_kind(
+        recipe_path,
+        _SECOND_CONTAINER_KINDS,
+        {"database": database},
+        limit,
+    )
 
 
 @probe_group.command(name="tables")
 @click.option("--recipe", "recipe_path", required=True)
+@click.option("--database", "database", default=None)
 @click.option("--schema", "schema", required=True)
 @click.option("--limit", default=500, type=int)
-def probe_tables(recipe_path: str, schema: str, limit: int) -> None:
-    _probe([schema], recipe_path, limit)
+def probe_tables(
+    recipe_path: str, database: Optional[str], schema: str, limit: int
+) -> None:
+    _probe_kind(
+        recipe_path,
+        (DatasetSubTypes.TABLE,),
+        {"database": database, "schema": schema},
+        limit,
+    )
 
 
 @probe_group.command(name="columns")
 @click.option("--recipe", "recipe_path", required=True)
+@click.option("--database", "database", default=None)
 @click.option("--schema", "schema", required=True)
 @click.option("--table", "table", required=True)
 @click.option("--limit", default=1000, type=int)
-def probe_columns(recipe_path: str, schema: str, table: str, limit: int) -> None:
-    _probe([schema, table], recipe_path, limit)
+def probe_columns(
+    recipe_path: str,
+    database: Optional[str],
+    schema: str,
+    table: str,
+    limit: int,
+) -> None:
+    _probe_kind(
+        recipe_path,
+        (ProbeLeafKind.COLUMN,),
+        {"database": database, "schema": schema, "table": table},
+        limit,
+    )

@@ -1,4 +1,14 @@
-from typing import Dict, List, Optional, Protocol, Type
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+    runtime_checkable,
+)
 
 from datahub.ingestion.agent.models import (
     ProbeLeafKind,
@@ -6,131 +16,137 @@ from datahub.ingestion.agent.models import (
     ProbeNodeKind,
     ProbeResult,
 )
-from datahub.ingestion.source.common.subtypes import (
-    DatasetContainerSubTypes,
-    DatasetSubTypes,
-)
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.source_registry import source_registry
 
 
-class ProbeAdapter(Protocol):
-    def supports(self, source_type: str, config_cls: Type) -> bool: ...
+@runtime_checkable
+class ProbeCapableConfig(Protocol):
+    """Contract a connector config implements to opt into live probing.
 
-    def hierarchy(self) -> List[ProbeNodeKind]: ...
+    The probe framework never references concrete sources — it discovers this
+    capability by duck-typing on the config class. Each connector owns its probe
+    logic in its own package and builds ProbeNodes with the helpers below.
+    """
 
-    def list_children(
-        self,
-        source_type: str,
-        config_dict: Dict[str, object],
-        parent_path: List[str],
-        limit: int,
-    ) -> ProbeResult: ...
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        """Ordered container/leaf levels this source exposes, top-first.
+
+        Structural metadata only — must not open a connection, so the framework
+        (and CLI) can advertise support and compute required arguments without
+        validating config or connecting.
+        """
+        ...
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        """List the children directly under parent_path (names/counts only)."""
+        ...
 
 
-class SqlAlchemyProbeAdapter:
-    def supports(self, source_type: str, config_cls: Type) -> bool:
-        # Duck-typed match: any connector config that can produce a SQLAlchemy URL
-        # (the classic SQL family plus Snowflake) can be probed generically.
-        return hasattr(config_cls, "get_sql_alchemy_url")
+# --- Reusable, source-agnostic ProbeNode builders --------------------------------
+# Connectors compose these so every probe result speaks the same shape; the
+# framework owns them precisely because they carry no source-specific knowledge.
 
-    def hierarchy(self) -> List[ProbeNodeKind]:
-        return [
-            DatasetContainerSubTypes.SCHEMA,
-            DatasetSubTypes.TABLE,
+# (included, excluded_by) — a connector's verdict for one node. excluded_by names
+# the reason a node would be dropped (a *_pattern field, "default_schema",
+# "system_object"), or None when included. The filtering logic itself lives in the
+# connector (reusing its own ingestion filters); the framework only carries it.
+Verdict = Tuple[bool, Optional[str]]
+# classify(name, fqn) for containers; classify(name, fqn, is_view) for tables.
+ContainerClassifier = Callable[[str, str], Verdict]
+TableClassifier = Callable[[str, str, bool], Verdict]
+
+_INCLUDED: Verdict = (True, None)
+
+
+def fqn(prefix: Optional[str], name: str) -> str:
+    return f"{prefix}.{name}" if prefix else name
+
+
+def container_nodes(
+    names: Sequence[str],
+    limit: int,
+    kind: ProbeNodeKind,
+    pattern_field: str,
+    fqn_prefix: Optional[str] = None,
+    classify: Optional[ContainerClassifier] = None,
+) -> Tuple[List[ProbeNode], bool]:
+    # fqn_prefix carries the parent container for 3-level sources (Snowflake
+    # database, BigQuery project), so a schema/dataset fqn is PARENT.CHILD — the
+    # form its pattern matches under match_fully_qualified_names. For 2-level
+    # sources it stays bare.
+    nodes: List[ProbeNode] = []
+    for n in names[:limit]:
+        node_fqn = fqn(fqn_prefix, n)
+        included, excluded_by = classify(n, node_fqn) if classify else _INCLUDED
+        nodes.append(ProbeNode(n, kind, node_fqn, pattern_field, included, excluded_by))
+    return nodes, len(names) > limit
+
+
+def table_nodes(
+    tables: Sequence[str],
+    views: Sequence[str],
+    limit: int,
+    fqn_prefix: str,
+    classify: Optional[TableClassifier] = None,
+) -> Tuple[List[ProbeNode], bool]:
+    view_names = set(views)
+    table_names = set(tables)
+    # Table listings usually exclude views, so merge the two (tables first) to get
+    # the full set of children without duplicating a name reported in both.
+    combined = list(tables) + [v for v in views if v not in table_names]
+    nodes: List[ProbeNode] = []
+    for name in combined[:limit]:
+        is_view = name in view_names
+        kind = DatasetSubTypes.VIEW if is_view else DatasetSubTypes.TABLE
+        pattern = "view_pattern" if is_view else "table_pattern"
+        node_fqn = f"{fqn_prefix}.{name}"
+        included, excluded_by = (
+            classify(name, node_fqn, is_view) if classify else _INCLUDED
+        )
+        nodes.append(ProbeNode(name, kind, node_fqn, pattern, included, excluded_by))
+    return nodes, len(combined) > limit
+
+
+def column_nodes(
+    cols: Sequence[Dict[str, object]], limit: int, fqn_prefix: str
+) -> Tuple[List[ProbeNode], bool]:
+    nodes = [
+        ProbeNode(
+            str(col["name"]),
             ProbeLeafKind.COLUMN,
-        ]
-
-    def list_children(
-        self,
-        source_type: str,
-        config_dict: Dict[str, object],
-        parent_path: List[str],
-        limit: int,
-    ) -> ProbeResult:
-        # Lazy import: sqlalchemy is a heavy dependency only needed by this adapter.
-        from sqlalchemy import create_engine, inspect
-
-        source_cls = source_registry.get(source_type)
-        # get_config_class is injected by the @config_class decorator at runtime, so it is
-        # not declared on the Source base class and mypy cannot see it statically.
-        get_config_class = getattr(source_cls, "get_config_class", None)
-        if get_config_class is None:
-            raise TypeError(f"Source {source_type!r} does not define a config class")
-        config = get_config_class().model_validate(config_dict)
-        url = config.get_sql_alchemy_url()
-        engine = create_engine(url)
-        try:
-            inspector = inspect(engine)
-            nodes: List[ProbeNode] = []
-            truncated: bool
-            if len(parent_path) == 0:
-                names = inspector.get_schema_names()
-                for name in names[:limit]:
-                    nodes.append(
-                        ProbeNode(
-                            name,
-                            DatasetContainerSubTypes.SCHEMA,
-                            name,
-                            "schema_pattern",
-                        )
-                    )
-                truncated = len(names) > limit
-            elif len(parent_path) == 1:
-                schema = parent_path[0]
-                tables = inspector.get_table_names(schema=schema)
-                views = inspector.get_view_names(schema=schema)
-                view_names = set(views)
-                # get_table_names() excludes views, so merge the two listings
-                # (preserving table order first) to get the full set of children.
-                combined = list(tables) + [v for v in views if v not in tables]
-                for name in combined[:limit]:
-                    is_view = name in view_names
-                    kind = DatasetSubTypes.VIEW if is_view else DatasetSubTypes.TABLE
-                    pattern = "view_pattern" if is_view else "table_pattern"
-                    nodes.append(ProbeNode(name, kind, f"{schema}.{name}", pattern))
-                truncated = len(combined) > limit
-            else:
-                schema, table = parent_path[0], parent_path[1]
-                cols = inspector.get_columns(table, schema=schema)
-                for col in cols[:limit]:
-                    nodes.append(
-                        ProbeNode(
-                            str(col["name"]),
-                            ProbeLeafKind.COLUMN,
-                            f"{schema}.{table}.{col['name']}",
-                            None,
-                        )
-                    )
-                truncated = len(cols) > limit
-            return ProbeResult(
-                source_type=str(source_type),
-                supported=True,
-                parent_path=parent_path,
-                nodes=nodes,
-                truncated=truncated,
-            )
-        finally:
-            engine.dispose()
+            f"{fqn_prefix}.{col['name']}",
+            None,
+        )
+        for col in cols[:limit]
+    ]
+    return nodes, len(cols) > limit
 
 
-_ADAPTERS: List[ProbeAdapter] = [SqlAlchemyProbeAdapter()]
+# --- Framework entry points ------------------------------------------------------
 
 
-def get_probe_adapter(source_type: str) -> Optional[ProbeAdapter]:
+# Returns the connector's config class. Typed Any because get_config_class is
+# injected by the @config_class decorator at runtime — mypy can't see it, nor the
+# pydantic model API (model_validate) / probe contract methods on the result.
+def _config_class(source_type: str) -> Any:
+    source_cls = source_registry.get(source_type)
+    get_config_class = getattr(source_cls, "get_config_class", None)
+    return get_config_class() if get_config_class is not None else None
+
+
+def probe_hierarchy(source_type: str) -> Optional[List[ProbeNodeKind]]:
+    # Resolve the source's declared hierarchy without validating config or
+    # connecting; None means the source does not support live probing.
     try:
-        source_cls = source_registry.get(source_type)
+        config_cls = _config_class(source_type)
     except Exception:
         return None
-    # get_config_class is injected by the @config_class decorator at runtime, so it is
-    # not declared on the Source base class and mypy cannot see it statically.
-    get_config_class = getattr(source_cls, "get_config_class", None)
-    if get_config_class is None:
+    hierarchy_fn = getattr(config_cls, "probe_hierarchy", None)
+    if not callable(hierarchy_fn):
         return None
-    config_cls = get_config_class()
-    for adapter in _ADAPTERS:
-        if adapter.supports(source_type, config_cls):
-            return adapter
-    return None
+    return hierarchy_fn()
 
 
 def probe(
@@ -139,12 +155,21 @@ def probe(
     parent_path: List[str],
     limit: int,
 ) -> ProbeResult:
-    adapter = get_probe_adapter(source_type)
-    if adapter is None:
+    try:
+        config_cls = _config_class(source_type)
+    except Exception:
+        config_cls = None
+    # A source opts into probing by implementing the ProbeCapableConfig contract.
+    if config_cls is None or not hasattr(config_cls, "probe_hierarchy"):
         return ProbeResult(
             source_type=source_type,
             supported=False,
             parent_path=parent_path,
-            fallback="No live-probe adapter for this source; use test-connection or Layer C.",
+            fallback="No live-probe support for this source; use test-connection or Layer C.",
         )
-    return adapter.list_children(source_type, config_dict, parent_path, limit)
+    config = config_cls.model_validate(config_dict)
+    result = config.list_probe_children(parent_path, limit)
+    # The provider doesn't know its own registry name; stamp it here so results
+    # are self-describing without every connector threading source_type through.
+    result.source_type = source_type
+    return result

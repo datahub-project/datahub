@@ -63,7 +63,34 @@ Follow these steps in sequence:
    datahub recipe probe tables --recipe <recipe.yml> --schema <schema_name>
    datahub recipe probe columns --recipe <recipe.yml> --schema <schema_name> --table <table_name>
    ```
-   Returns schema/table/column names and counts (names only, no row data). Each result includes a `pattern_field` indicating which `*_pattern` config filter to edit to refine discovery.
+   Returns schema/table/column names and counts (names only, no row data). Each node reports:
+   - `pattern_field` — which `*_pattern` config filter governs it (edit to refine discovery).
+   - `included` — whether it would actually be ingested given the recipe's filters **and** the source's built-in exclusions (reused from the connector's own ingestion logic, not re-implemented).
+   - `excluded_by` — why a node is dropped: a `*_pattern` field (your filter), `"default_schema"` (system catalog the source always skips, e.g. `information_schema`), or `"system_object"`; `null` when included.
+
+   Every node is shown (nothing is hidden), so you can confirm both that your allow/deny filters behave and that system objects are auto-dropped.
+
+   **Three-level sources (Snowflake, BigQuery):** these have an extra top
+   container, so the top-level filter is first-class and the second-level filter
+   matches a fully-qualified `TOP.CHILD` form. Probe the extra level with
+   `probe databases` and pass `--database` (the top container) down the chain:
+   ```bash
+   datahub recipe probe databases --recipe <recipe.yml>
+   datahub recipe probe schemas --recipe <recipe.yml> --database <top>
+   datahub recipe probe tables --recipe <recipe.yml> --database <top> --schema <second>
+   datahub recipe probe columns --recipe <recipe.yml> --database <top> --schema <second> --table <table>
+   ```
+   The `--database`/`--schema` flags are generic container slots; each source
+   reports its own kinds and `pattern_field` in the output:
+   - **Snowflake**: `--database`=database (`database_pattern`),
+     `--schema`=schema (`schema_pattern`); with `match_fully_qualified_names: true`
+     `schema_pattern` matches the `DATABASE.SCHEMA` fqn.
+   - **BigQuery**: `--database`=project (`project_id_pattern`),
+     `--schema`=dataset (`dataset_pattern`, matched against `PROJECT.DATASET`).
+
+   A missing required level flag is reported as a config error (exit 2), and
+   `probe databases` on a 2-level SQL source (Postgres, MySQL, Redshift, …) is
+   rejected with the source's actual levels.
 
 6. **Test Connection** — Verify connectivity
    ```bash
@@ -85,7 +112,8 @@ Follow these steps in sequence:
 - `1` — Internal error (CLI bug, unexpected state)
 
 **Live Probe Support:**
-- Live probes (schemas/tables/columns) work for SQL-family sources: any connector with `get_sql_alchemy_url()` in its config (Snowflake, Postgres, MySQL, BigQuery, Redshift, etc.).
+- Live probes (schemas/tables/columns) work for SQL-family sources: any connector with `get_sql_alchemy_url()` in its config (Postgres, MySQL, Redshift, Snowflake, etc.).
+- Snowflake (database → schema → table) and BigQuery (project → dataset → table) get dedicated database-aware probing — Snowflake via `SHOW`, BigQuery via the BigQuery client (`get_bigquery_client()`).
 - Other source types return `supported: false` → fall back to `test-connection` for verification.
 
 ## Common Recipes

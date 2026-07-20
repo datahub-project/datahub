@@ -71,6 +71,11 @@ class ProbeNode:
     kind: ProbeNodeKind
     fqn: str
     pattern_field: Optional[str]
+    # Whether this node would be ingested given the recipe's filters plus the
+    # source's built-in exclusions; excluded_by names the reason it was dropped
+    # (a *_pattern field, "default_schema", or "system_object"), else None.
+    included: bool = True
+    excluded_by: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -78,6 +83,8 @@ class ProbeNode:
             "kind": str(self.kind),
             "fqn": self.fqn,
             "pattern_field": self.pattern_field,
+            "included": self.included,
+            "excluded_by": self.excluded_by,
         }
 
 
