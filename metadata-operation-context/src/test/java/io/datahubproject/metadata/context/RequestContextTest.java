@@ -331,6 +331,29 @@ public class RequestContextTest {
   }
 
   @Test
+  public void testCaptureAPIMetricsSkipsLegacyRequestCountWhenSuppressed() {
+    when(mockMetricUtils.isSuppressLegacyRequestCountMicrometer()).thenReturn(true);
+
+    RequestContext.builder()
+        .buildRestli(Constants.SYSTEM_ACTOR, null, "test-request")
+        .metricUtils(mockMetricUtils)
+        .build();
+
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_system_unknown_restli"), eq(1.0d));
+    verify(mockMetricUtils, never())
+        .incrementMicrometer(
+            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
+            anyDouble(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString());
+  }
+
+  @Test
   public void testCaptureAPIMetricsForDatahubUser() {
     RequestContext.builder()
         .buildRestli("urn:li:corpuser:testuser", null, "test-request")
