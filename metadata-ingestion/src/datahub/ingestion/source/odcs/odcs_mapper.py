@@ -2,12 +2,13 @@ import json
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeGuard, Union
 
-from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     datahub_guid,
+    make_assertion_source,
     make_assertion_urn,
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
     make_tag_urn,
     make_user_urn,
 )
@@ -167,11 +168,6 @@ def _description_to_str(
     return "\n\n".join(parts) or None
 
 
-# ----------------------------------------------------------------------------
-# Platform registration
-# ----------------------------------------------------------------------------
-
-
 def odcs_platform_info_mcp() -> MetadataChangeProposalWrapper:
     """Emit the `odcs` DataPlatformInfo aspect at ingestion time.
 
@@ -197,11 +193,6 @@ def odcs_platform_info_mcp() -> MetadataChangeProposalWrapper:
             logoUrl="assets/platforms/odcslogo.png",
         ),
     )
-
-
-# ----------------------------------------------------------------------------
-# URN + binding resolution
-# ----------------------------------------------------------------------------
 
 
 def odcs_to_logical_dataset_urn(
@@ -428,11 +419,6 @@ def odcs_to_physical_bindings(
     return bindings
 
 
-# ----------------------------------------------------------------------------
-# Shared owner / tag / property helpers
-# ----------------------------------------------------------------------------
-
-
 def _make_tag_associations(
     tags: Optional[List[str]], tag_prefix: Optional[str]
 ) -> List[TagAssociationClass]:
@@ -524,11 +510,6 @@ def _walk_properties(
             yield from _walk_properties(prop.properties, path)
 
 
-# ----------------------------------------------------------------------------
-# Canonical schema metadata (the new piece)
-# ----------------------------------------------------------------------------
-
-
 def _map_field_type(prop: ODCSProperty) -> Tuple[SchemaFieldDataTypeClass, bool]:
     """Map an ODCS property's logical/physical type to a SchemaFieldDataType.
 
@@ -600,11 +581,6 @@ def build_schema_metadata(
         ),
         unmapped_types=unmapped_types,
     )
-
-
-# ----------------------------------------------------------------------------
-# Logical dataset aspects
-# ----------------------------------------------------------------------------
 
 
 def _count_quality_rules(schema_entry: ODCSSchemaObject) -> int:
@@ -769,16 +745,13 @@ def odcs_to_logical_parent_mcp(
     )
 
 
-# ----------------------------------------------------------------------------
-# Assertions — emitted against the LOGICAL dataset
-#
-# ODCS quality rules are the producer's published expectations for the dataset
-# the contract describes, so the Assertion entities target the logical `odcs`
-# dataset (the assertion's `entity` is the logical URN). Propagation of those
-# expectations onto bound physical datasets is handled by a separate DataHub
-# mechanism via the PhysicalInstanceOf relationship — this source never writes
-# assertions against physical URNs.
-# ----------------------------------------------------------------------------
+# Assertions are emitted against the LOGICAL dataset: ODCS quality rules are the
+# producer's published expectations for the dataset the contract describes, so
+# the Assertion entities target the logical `odcs` dataset (the assertion's
+# `entity` is the logical URN). Propagation of those expectations onto bound
+# physical datasets is handled by a separate DataHub mechanism via the
+# PhysicalInstanceOf relationship — this source never writes assertions against
+# physical URNs.
 
 
 @dataclass
@@ -1065,7 +1038,7 @@ def _assertion_info_template(
     """Shared header for an AssertionInfoClass; caller sets the sub-aspect."""
     return AssertionInfoClass(
         type=assertion_type,
-        source=mce_builder.make_assertion_source(),
+        source=make_assertion_source(),
         description=_description_to_str(ctx.rule.description),
         customProperties=_custom_props_for_rule(ctx),
         externalUrl=_rule_external_url(ctx.rule),
@@ -1197,9 +1170,7 @@ def _build_custom_assertion(
     assertion_urn = _stable_assertion_urn(ctx, rule_kind="custom")
     resolved_type = custom_type or ctx.rule.effective_metric or ctx.rule.type or "odcs"
     field_urn = (
-        mce_builder.make_schema_field_urn(ctx.entity_urn, ctx.column)
-        if ctx.column
-        else None
+        make_schema_field_urn(ctx.entity_urn, ctx.column) if ctx.column else None
     )
     info = _assertion_info_template(ctx, AssertionTypeClass.CUSTOM)
     info.customAssertion = CustomAssertionInfoClass(
@@ -1462,7 +1433,7 @@ def odcs_to_schema_assertion_mcps(
     )
     info = AssertionInfoClass(
         type=AssertionTypeClass.DATA_SCHEMA,
-        source=mce_builder.make_assertion_source(),
+        source=make_assertion_source(),
         description=(
             f"Schema compliance with ODCS contract '{contract.id}' "
             f"schema '{schema_entry.name}'"
