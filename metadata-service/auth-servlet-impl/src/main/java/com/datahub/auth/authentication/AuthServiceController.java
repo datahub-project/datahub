@@ -19,7 +19,7 @@ import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.AuthorizerChain;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -37,6 +37,7 @@ import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.services.SecretService;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
@@ -126,6 +127,8 @@ public class AuthServiceController {
   @Qualifier("systemOperationContext")
   private OperationContext systemOperationContext;
 
+  @Autowired private AuthorizerChain authorizerChain;
+
   /**
    * Generates a JWT access token for as user UI session, provided a unique "user id" to generate
    * the token for inside a JSON POST body.
@@ -165,6 +168,8 @@ public class AuthServiceController {
     log.info(
         "Attempting to generate session token for userRef={}",
         LoginIdentityMask.mask(userId.asText()));
+    recordUsageSession(
+        httpEntity.getHeaders(), "generateSessionTokenForUser", UsageOperation.OTHER_WRITE);
     Authentication authentication = AuthenticationContext.getAuthentication();
     final String actorId = authentication.getActor().getId();
     final String actorUrn = authentication.getActor().toUrnStr();
@@ -296,13 +301,13 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
+    recordUsageSession(httpEntity.getHeaders(), "signUp", UsageOperation.OTHER_WRITE);
+
     String userUrnString = userUrn.asText();
     String systemClientUser =
         new CorpuserUrn(_configProvider.getAuthentication().getSystemClientId()).toString();
 
-    if (userUrnString.equals(systemClientUser)
-        || userUrnString.equals(DATAHUB_ACTOR)
-        || userUrnString.equals(UNKNOWN_ACTOR)) {
+    if (userUrnString.equals(systemClientUser) || userUrnString.equals(UNKNOWN_ACTOR)) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     String fullNameString = fullName.asText();
@@ -385,6 +390,8 @@ public class AuthServiceController {
     String passwordString = password.asText();
     String resetTokenString = resetToken.asText();
     Authentication auth = AuthenticationContext.getAuthentication();
+    recordUsageSession(
+        httpEntity.getHeaders(), "resetNativeUserCredentials", UsageOperation.OTHER_WRITE);
     log.info("Attempting to reset credentials for native user {}", userUrnString);
     return CompletableFuture.supplyAsync(
         () -> {
@@ -453,6 +460,8 @@ public class AuthServiceController {
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
     Authentication auth = AuthenticationContext.getAuthentication();
+    recordUsageSession(
+        httpEntity.getHeaders(), "verifyNativeUserCredentials", UsageOperation.OTHER_READ);
     log.info(
         "Attempting to verify credentials for native userRef={}",
         LoginIdentityMask.mask(userUrnString));
@@ -594,6 +603,11 @@ public class AuthServiceController {
   CompletableFuture<ResponseEntity<String>> getSsoSettings(
       final HttpServletRequest request, final HttpEntity<String> httpEntity) {
     Authentication auth = AuthenticationContext.getAuthentication();
+  CompletableFuture<ResponseEntity<String>> getSsoSettings(final HttpEntity<String> httpEntity) {
+    recordUsageSession(
+        httpEntity != null ? httpEntity.getHeaders() : null,
+        "getSsoSettings",
+        UsageOperation.OTHER_READ);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -625,6 +639,21 @@ public class AuthServiceController {
   }
 
   // Currently, only internal system is authorized to generate a token on behalf of a user!
+  private void recordUsageSession(
+      HttpHeaders headers, String operation, UsageOperation usageOperation) {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    if (authentication == null || authentication.getActor() == null) {
+      return;
+    }
+    OperationContext.asSession(
+        systemOperationContext,
+        AuthUsageRequestContext.openapiUsage(
+            authentication.getActor().toUrnStr(), headers, operation, usageOperation),
+        authorizerChain,
+        authentication,
+        true);
+  }
+
   private boolean isAuthorizedToGenerateSessionToken(final String actorId) {
     // Verify that the actor is an internal system caller.
     final String systemClientId = _systemAuthentication.getActor().getId();
@@ -733,7 +762,9 @@ public class AuthServiceController {
   private void buildOidcSettingsResponse(JSONObject json, final OidcSettings oidcSettings) {
     json.put(OIDC_ENABLED, oidcSettings.isEnabled());
     json.put(CLIENT_ID, oidcSettings.getClientId());
-    json.put(CLIENT_SECRET, _secretService.decrypt(oidcSettings.getClientSecret()));
+    json.put(
+        CLIENT_SECRET,
+        _secretService.decrypt(systemOperationContext, oidcSettings.getClientSecret()));
     json.put(DISCOVERY_URI, oidcSettings.getDiscoveryUri());
     if (oidcSettings.hasUserNameClaim()) {
       json.put(USER_NAME_CLAIM, oidcSettings.getUserNameClaim());

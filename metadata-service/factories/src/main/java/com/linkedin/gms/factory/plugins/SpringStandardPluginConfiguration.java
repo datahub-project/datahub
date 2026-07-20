@@ -20,6 +20,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
+import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
@@ -27,6 +28,7 @@ import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
+import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.UrlValidator;
@@ -455,6 +457,23 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  public AspectPayloadValidator corpUserPrivilegedFlagsValidator() {
+    return new CorpUserPrivilegedFlagsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(CorpUserPrivilegedFlagsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(UPSERT, UPDATE, CREATE, CREATE_ENTITY, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(CORP_USER_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
   @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.privilegeConstraints.enabled",
       havingValue = "true")
@@ -816,5 +835,22 @@ public class SpringStandardPluginConfiguration {
         config.getPrePatch(),
         config.getPostPatch());
     return validator;
+  }
+
+  @Bean
+  public AspectPayloadValidator serviceDefinitionLargeStringValidator() {
+    return new ServiceDefinitionLargeStringValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ServiceDefinitionLargeStringValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(SERVICE_ENTITY_NAME)
+                            .aspectName(SERVICE_DEFINITION_ASPECT_NAME)
+                            .build()))
+                .build());
   }
 }

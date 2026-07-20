@@ -48,6 +48,7 @@ import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -150,6 +151,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtils.toTask(opContext,
         () -> {
 
+            Authentication auth = AuthenticationContext.getAuthentication();
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            "authorizerChain", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
+
             if (!isAPIAuthorizedEntityUrns(
                   opContext,
                   READ,
@@ -198,6 +204,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
         () -> {
+
+            Authentication auth = AuthenticationContext.getAuthentication();
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                            ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
 
             if (!isAPIAuthorizedUrns(
                   opContext,
@@ -284,7 +295,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                                                      .collect(Collectors.toSet());
     final OperationContext opContext = OperationContext.asSession(
               systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
-                    ACTION_INGEST_PROPOSAL, entityTypes), _authorizer, authentication, true);
+                    ACTION_INGEST_PROPOSAL, entityTypes)
+                  .withUsageOperation(UsageOperation.METADATA_INGEST)
+                  .withUsageQuantity(metadataChangeProposals.size()), _authorizer, authentication, true);
 
     // Ingest Authorization Checks
     List<Pair<MetadataChangeProposal, Integer>> exceptions = isAPIAuthorized(opContext, ENTITY,
@@ -344,6 +357,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtils.toTask(opContext,
         () -> {
 
+            Authentication authentication = AuthenticationContext.getAuthentication();
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
+                            getContext(), ACTION_GET_COUNT).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, authentication, true);
+
             if (!isAPIAuthorized(
                   opContext,
                   COUNTS, READ)) {
@@ -375,6 +393,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     getContext(), ACTION_RESTORE_INDICES), _authorizer, authentication, true);
     return RestliUtils.toTask(opContext,
         () -> {
+
+            Authentication authentication = AuthenticationContext.getAuthentication();
+            final OperationContext opContext = OperationContext.asSession(
+                    systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
+                            getContext(), ACTION_RESTORE_INDICES).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, authentication, true);
 
             if (!isAPIOperationsAuthorized(
                     opContext,

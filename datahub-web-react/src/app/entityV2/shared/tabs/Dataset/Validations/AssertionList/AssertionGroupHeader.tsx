@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -21,14 +21,14 @@ const TextContainer = styled.div`
     font-size: 14px;
 `;
 
-const Title = styled(Typography.Text)`
+const Title = styled(Text)`
     && {
         padding-bottom: 0px;
         margin-bottom: 0px;
     }
 `;
 
-const Message = styled(Typography.Text)`
+const Message = styled(Text)`
     && {
         font-size: 12px;
         margin-left: 8px;
@@ -53,8 +53,12 @@ export const AssertionGroupHeader = ({ group }: Props) => {
     return (
         <Container>
             <TextContainer>
-                <Title strong>{group.name}</Title>
-                <Message type="secondary">{summaryMessage}</Message>
+                <Title type="span" weight="bold">
+                    {group.name}
+                </Title>
+                <Message type="span" color="textSecondary">
+                    {summaryMessage}
+                </Message>
             </TextContainer>
         </Container>
     );

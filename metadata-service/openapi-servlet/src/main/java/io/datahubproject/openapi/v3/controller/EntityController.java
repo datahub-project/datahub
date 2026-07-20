@@ -58,6 +58,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
@@ -142,7 +143,8 @@ public class EntityController
                     "getEntityBatch",
                     requestMap.keySet().stream()
                         .map(Urn::getEntityType)
-                        .collect(Collectors.toSet())),
+                        .collect(Collectors.toSet()))
+                .withUsageOperation(UsageOperation.METADATA_READ),
             authorizationChain,
             authentication,
             true);
@@ -214,7 +216,8 @@ public class EntityController
                     authentication.getActor().toUrnStr(),
                     request,
                     "scrollEntities",
-                    resolvedEntityNames),
+                    resolvedEntityNames)
+                .withUsageOperation(UsageOperation.SEARCH_QUERY),
             authorizationChain,
             authentication,
             true);
@@ -325,7 +328,8 @@ public class EntityController
                     authentication.getActor().toUrnStr(),
                     request,
                     "linkLatestVersion",
-                    ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType())),
+                    ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType()))
+                .withUsageOperation(UsageOperation.METADATA_INGEST),
             authorizationChain,
             authentication,
             true);
@@ -377,7 +381,8 @@ public class EntityController
                     authentication.getActor().toUrnStr(),
                     request,
                     "unlinkVersion",
-                    ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType())),
+                    ImmutableSet.of(entityUrn.getEntityType(), versionSetUrn.getEntityType()))
+                .withUsageOperation(UsageOperation.METADATA_INGEST),
             authorizationChain,
             authentication,
             true);
@@ -413,12 +418,16 @@ public class EntityController
       throws InvalidUrnException, JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
+    long usageQuantity =
+        RequestContext.resolveIngestUsageQuantity(jsonEntityPatchList, objectMapper);
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "patchEntity", entityName),
+                    authentication.getActor().toUrnStr(), request, "patchEntity", entityName)
+                .withUsageOperation(UsageOperation.METADATA_INGEST)
+                .withUsageQuantity(usageQuantity),
             authorizationChain,
             authentication,
             true);
@@ -480,7 +489,9 @@ public class EntityController
                     authentication.getActor().toUrnStr(),
                     request,
                     "createGenericEntities",
-                    entityTypes),
+                    entityTypes)
+                .withUsageOperation(UsageOperation.METADATA_INGEST)
+                .withUsageQuantity(RequestContext.resolveIngestUsageQuantity(root)),
             authorizationChain,
             authentication,
             true);

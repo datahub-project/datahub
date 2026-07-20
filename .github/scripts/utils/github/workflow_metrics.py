@@ -47,15 +47,22 @@ class JobMetrics:
     def _parse_matrix(full_name: str) -> tuple[str, list[str]]:
         """Parse matrix values from a job's full name.
 
-        If `full_name` matches "base_name (val1, val2, ...)", returns
-        (base_name, [val1, val2, ...]). Otherwise returns (full_name, []).
+        For a normal matrix job "base_name (val1, val2, ...)", returns
+        (base_name, [val1, val2, ...]). For a reusable-workflow job, GitHub
+        names it "Caller (matrix) / Inner job" — the matrix lives on the caller
+        segment, so we parse that and drop the inner-job suffix (whose own name
+        may itself end in parens, e.g. "(Shard 1/5)", and would otherwise be
+        mis-parsed as the matrix). Otherwise returns (full_name, []).
         """
-        match = re.match(r"^(.+?)\s*\((.+)\)$", full_name)
+        # Collapses multiple inner jobs under one caller to the caller
+        # name; fine while each caller has a single inner job (the case here).
+        caller = full_name.split(" / ", 1)[0]
+        match = re.match(r"^(.+?)\s*\((.+)\)$", caller)
         if match:
             base_name = match.group(1).strip()
             matrix_values = [v.strip() for v in match.group(2).split(",")]
             return base_name, matrix_values
-        return full_name, []
+        return caller, []
 
     @classmethod
     def from_api(cls, data: dict[str, Any]) -> "JobMetrics":

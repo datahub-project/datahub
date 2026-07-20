@@ -3,6 +3,7 @@ import { Space, Table, Typography } from 'antd';
 import type { ColumnType } from 'antd/es/table';
 import { capitalize } from 'lodash';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
@@ -30,35 +31,37 @@ const InfoItemContent = styled.div`
     overflow-wrap: break-word;
 `;
 
-const metricsColumns: ColumnType<MlMetric>[] = [
-    {
-        title: 'Name',
-        dataIndex: 'name',
-        width: 450,
-        render: (name) => <span data-testid={`mlmodel-metric-row-${name}`}>{name}</span>,
-    },
-    {
-        title: 'Value',
-        dataIndex: 'value',
-    },
-];
-
-const hyperparamsColumns: ColumnType<MlHyperParam>[] = [
-    {
-        title: 'Name',
-        dataIndex: 'name',
-        width: 450,
-        render: (name) => <span data-testid={`mlmodel-hyperparam-row-${name}`}>{name}</span>,
-    },
-    {
-        title: 'Value',
-        dataIndex: 'value',
-    },
-];
-
 export default function DataProcessInstanceSummary() {
+    const { t } = useTranslation('entity.types');
+    const { t: tl } = useTranslation('common.labels');
     const baseEntity = useBaseEntity<GetDataProcessInstanceQuery>();
     const dpi = baseEntity?.dataProcessInstance;
+
+    const metricsColumns: ColumnType<MlMetric>[] = [
+        {
+            title: tl('name'),
+            dataIndex: 'name',
+            width: 450,
+            render: (name) => <span data-testid={`mlmodel-metric-row-${name}`}>{name}</span>,
+        },
+        {
+            title: tl('value'),
+            dataIndex: 'value',
+        },
+    ];
+
+    const hyperparamsColumns: ColumnType<MlHyperParam>[] = [
+        {
+            title: tl('name'),
+            dataIndex: 'name',
+            width: 450,
+            render: (name) => <span data-testid={`mlmodel-hyperparam-row-${name}`}>{name}</span>,
+        },
+        {
+            title: tl('value'),
+            dataIndex: 'value',
+        },
+    ];
 
     const formatStatus = (state) => {
         if (!state || state.length === 0) return '-';
@@ -75,30 +78,30 @@ export default function DataProcessInstanceSummary() {
     return (
         <TabContent>
             <Space direction="vertical" style={{ width: '100%' }} size="large">
-                <Typography.Title level={3}>Details</Typography.Title>
+                <Typography.Title level={3}>{tl('details')}</Typography.Title>
                 <InfoItemContainer justifyContent="left">
-                    <InfoItem title="Created At">
-                        <TimestampPopover timestamp={dpi?.properties?.created?.time} title="Created At" />
+                    <InfoItem title={tl('createdAt')}>
+                        <TimestampPopover timestamp={dpi?.properties?.created?.time} title={tl('createdAt')} />
                     </InfoItem>
-                    <InfoItem title="Status">
+                    <InfoItem title={tl('status')}>
                         <InfoItemContent>{formatStatus(dpi?.state)}</InfoItemContent>
                     </InfoItem>
-                    <InfoItem title="Duration">
+                    <InfoItem title={t('shared.durationColumn')}>
                         <InfoItemContent>{formatDuration(dpi?.state)}</InfoItemContent>
                     </InfoItem>
-                    <InfoItem title="Run ID">
+                    <InfoItem title={t('shared.runIdColumn')}>
                         <InfoItemContent>{dpi?.mlTrainingRunProperties?.id}</InfoItemContent>
                     </InfoItem>
-                    <InfoItem title="Created By">
+                    <InfoItem title={t('shared.createdBy')}>
                         <InfoItemContent>{dpi?.properties?.created?.actor}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
                 <InfoItemContainer justifyContent="left">
-                    <InfoItem title="Artifacts Location">
+                    <InfoItem title={t('dataProcessInstance.artifactsLocation')}>
                         <InfoItemContent>{dpi?.mlTrainingRunProperties?.outputUrls}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
-                <Typography.Title level={3}>Training Metrics</Typography.Title>
+                <Typography.Title level={3}>{t('dataProcessInstance.trainingMetrics')}</Typography.Title>
                 <div data-testid="mlmodel-training-metrics-table">
                     <Table
                         columns={metricsColumns}
@@ -106,7 +109,7 @@ export default function DataProcessInstanceSummary() {
                         pagination={false}
                     />
                 </div>
-                <Typography.Title level={3}>Hyper Parameters</Typography.Title>
+                <Typography.Title level={3}>{t('dataProcessInstance.hyperParameters')}</Typography.Title>
                 <div data-testid="mlmodel-hyperparams-table">
                     <Table
                         columns={hyperparamsColumns}

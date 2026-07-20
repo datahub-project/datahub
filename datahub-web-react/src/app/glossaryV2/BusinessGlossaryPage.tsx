@@ -122,7 +122,6 @@ const BusinessGlossaryPage = () => {
                     canCreateGlossaryEntity={!!canManageGlossaries}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
-                    canSelectParentUrn={false}
                 />
             )}
         </>

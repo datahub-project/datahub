@@ -28,6 +28,7 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Arrays;
@@ -80,7 +81,7 @@ public class EntityVersionedV2Resource
       Authentication auth = AuthenticationContext.getAuthentication();
       final OperationContext opContext = OperationContext.asSession(
               systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "authorizerChain", urns.stream()
-                      .map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+                      .map(Urn::getEntityType).collect(Collectors.toList())).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
     if (!isAPIAuthorizedEntityUrns(
             opContext,

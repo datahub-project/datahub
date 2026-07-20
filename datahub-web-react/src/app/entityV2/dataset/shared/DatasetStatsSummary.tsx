@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
@@ -93,14 +93,14 @@ export const DatasetStatsSummary = ({
                           formattedCount: formatNumber(totalSqlQueries),
                       })}
                 {!!queryCountPercentileLast30Days && (
-                    <Typography.Text type="secondary">
+                    <Text type="span" color="textSecondary">
                         <PercentileLabel
                             percentile={queryCountPercentileLast30Days}
                             description={t('dataset.moreQueriesPercentile', {
                                 percentile: queryCountPercentileLast30Days,
                             })}
                         />
-                    </Typography.Text>
+                    </Text>
                 )}
             </StatText>
         ),
@@ -112,14 +112,14 @@ export const DatasetStatsSummary = ({
                     formattedCount: formatNumber(uniqueUserCountLast30Days),
                 })}
                 {!!uniqueUserPercentileLast30Days && (
-                    <Typography.Text type="secondary">
+                    <Text type="span" color="textSecondary">
                         <PercentileLabel
                             percentile={uniqueUserPercentileLast30Days}
                             description={t('shared.morePopularUsersPercentile', {
                                 percentile: uniqueUserPercentileLast30Days,
                             })}
                         />
-                    </Typography.Text>
+                    </Text>
                 )}
             </StatText>
         ),

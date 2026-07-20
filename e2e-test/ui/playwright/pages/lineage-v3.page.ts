@@ -281,6 +281,85 @@ export class LineageV3Page extends LineageV2Page {
     await this.columnSelectVirtualList.getByText(columnName, { exact: true }).click({ timeout: TIMEOUTS.MEDIUM });
   }
 
+  // ── Contract lineage control (shown when the filter-node flag is off) ───────
+  // Pagination/search lives on the expand/contract button, revealed as a panel on hover.
+
+  private static directionEnum(direction: 'up' | 'down'): 'UPSTREAM' | 'DOWNSTREAM' {
+    return direction === 'up' ? 'UPSTREAM' : 'DOWNSTREAM';
+  }
+
+  getContractControl(nodeUrn: string, direction: 'up' | 'down'): Locator {
+    return this.page.getByTestId(`contract-lineage-control-${nodeUrn}-${LineageV3Page.directionEnum(direction)}`);
+  }
+
+  async checkContractControlExists(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await expect(this.getContractControl(nodeUrn, direction)).toBeAttached({ timeout: TIMEOUTS.LONG });
+  }
+
+  /** Assert the "shown/total" count rendered on the contract button, e.g. "4/6". */
+  async checkChildrenShown(nodeUrn: string, direction: 'up' | 'down', text: string): Promise<void> {
+    const dir = LineageV3Page.directionEnum(direction);
+    await expect(
+      this.getContractControl(nodeUrn, direction).getByTestId(`children-shown-${nodeUrn}-${dir}`),
+    ).toHaveText(text, { timeout: TIMEOUTS.LONG });
+  }
+
+  /** Hover the contract control to reveal its search/pagination panel. */
+  async openContractControlPanel(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.getContractControl(nodeUrn, direction).hover();
+  }
+
+  /** Type into the contract control's child search box (opens the panel first). */
+  async filterContractControlChildren(nodeUrn: string, direction: 'up' | 'down', query: string): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    const input = this.getContractControl(nodeUrn, direction).getByTestId('search-input');
+    await input.clear();
+    await input.fill(query);
+  }
+
+  async clearContractControlFilter(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    await this.getContractControl(nodeUrn, direction).getByTestId('search-input').clear();
+  }
+
+  async checkContractControlMatches(nodeUrn: string, direction: 'up' | 'down', matchesNumber: string): Promise<void> {
+    const label = matchesNumber === '1' ? '1 match' : `${matchesNumber} matches`;
+    await expect(this.getContractControl(nodeUrn, direction).getByTestId('matches')).toHaveText(label, {
+      timeout: TIMEOUTS.MEDIUM,
+    });
+  }
+
+  async checkContractControlPlatformCounter(
+    nodeUrn: string,
+    direction: 'up' | 'down',
+    platformLabel: string,
+    value: string,
+  ): Promise<void> {
+    await expect(
+      this.getContractControl(nodeUrn, direction).getByTestId(`filter-counter-platform-${platformLabel}`),
+    ).toHaveText(value, { timeout: TIMEOUTS.MEDIUM });
+  }
+
+  async contractControlShowMore(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    await this.getContractControl(nodeUrn, direction).getByTestId('show-more').click();
+  }
+
+  // show-less and show-all are revealed only while the show-more button is hovered.
+  async contractControlShowLess(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    const control = this.getContractControl(nodeUrn, direction);
+    await control.getByTestId('show-max-wrapper').hover();
+    await control.getByTestId('show-less').click();
+  }
+
+  async contractControlShowAll(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    const control = this.getContractControl(nodeUrn, direction);
+    await control.getByTestId('show-max-wrapper').hover();
+    await control.getByTestId('show-all').click();
+  }
+
   // ── Result and Text Utilities ──────────────────────────────────────────────
 
   /**

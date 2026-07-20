@@ -5,8 +5,8 @@ import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 
 /**
- * Creates a shared {@link com.hazelcast.core.HazelcastInstance} when search cache or GMS endpoint
- * rate limiting requires cluster coordination.
+ * Creates a shared {@link com.hazelcast.core.HazelcastInstance} when any of these features need
+ * cluster coordination: search Hazelcast cache, entity graph cache, or GMS endpoint rate limiting.
  */
 public class HazelcastInstanceBootstrapCondition implements Condition {
 
@@ -19,7 +19,13 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
                 HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "caffeine"))) {
       return true;
     }
-    return Boolean.parseBoolean(
-        env.getProperty(HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED, "false"));
+    if (Boolean.parseBoolean(
+        env.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "false"))) {
+      return true;
+    }
+    // Endpoint rules OR the scoped chain need the shared Hazelcast store. Keying on endpoint alone
+    // would leave a scoped-only deployment without a Hazelcast instance, and the engine throws at
+    // startup when scoped is active but Hazelcast is null.
+    return HazelcastBootstrapProperties.rateLimitNeedsHazelcast(env);
   }
 }

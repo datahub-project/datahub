@@ -66,7 +66,18 @@ def _validate_endpoint_origin(endpoint_url: str, gms_url: str, field: str) -> No
 
 def _discover_oauth_server(gms_url: str) -> Dict[str, Any]:
     """Fetch /.well-known/oauth-authorization-server. Raises ClickException if unavailable."""
-    discovery_url = f"{gms_url.rstrip('/')}/.well-known/oauth-authorization-server"
+    # The OAuth2 authorization server metadata document (RFC 8414) is served at the
+    # origin root, not under the GMS servlet path. For DataHub Cloud, fixup_gms_url
+    # appends "/gms" to the host, but the discovery endpoint lives at the bare host —
+    # e.g. https://acme.acryl.io/.well-known/oauth-authorization-server, not
+    # https://acme.acryl.io/gms/.well-known/... (the latter returns 401).
+    parsed = urllib.parse.urlparse(gms_url)
+    if parsed.scheme and parsed.netloc:
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+    else:
+        # Fall back to the raw URL (minus any path) when no scheme is present.
+        origin = gms_url.rstrip("/")
+    discovery_url = f"{origin}/.well-known/oauth-authorization-server"
     try:
         resp = requests.get(discovery_url, timeout=10)
     except requests.RequestException as e:

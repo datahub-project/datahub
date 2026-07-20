@@ -526,7 +526,11 @@ class S3Source(StatefulIngestionSourceBase):
         aspects.append(dataset_properties)
         if table_data.size_in_bytes > 0:
             try:
-                fields = self.get_fields(table_data, path_spec)
+                with PerfTimer() as schema_timer:
+                    fields = self.get_fields(table_data, path_spec)
+                self.report.schema_inference_time_taken_secs += (
+                    schema_timer.elapsed_seconds()
+                )
                 schema_metadata = SchemaMetadata(
                     schemaName=table_data.display_name,
                     platform=data_platform_urn,
@@ -558,6 +562,7 @@ class S3Source(StatefulIngestionSourceBase):
                 if table_data.full_path == table_data.table_path
                 else None
             )
+            self.report.tables_tagged += 1
             s3_tags = get_s3_tags(
                 bucket,
                 key_prefix,
@@ -673,6 +678,21 @@ class S3Source(StatefulIngestionSourceBase):
                 f"{folder.path}/{remaining_pattern}"
             )
 
+    def _process_folders(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
+        """Emit folder Containers for a folders-only path spec, to the depth defined by
+        the wildcards in `include`. Lists only folders (CommonPrefixes) — never objects."""
+        logger.info(f"Processing folders-only path spec: {path_spec.include}")
+        for folder_uri in self.resolve_templated_folders(path_spec.glob_include):
+            if not path_spec.folder_allowed(
+                self._normalize_uri_for_pattern_matching(folder_uri)
+            ):
+                logger.debug(f"Skipping folder excluded by path_spec: {folder_uri}")
+                continue
+            self.report.report_folder_scanned()
+            yield from self.container_WU_creator.create_folder_containers(
+                folder_uri.rstrip("/")
+            )
+
     def get_dir_to_process(
         self,
         uri: str,
@@ -770,38 +790,44 @@ class S3Source(StatefulIngestionSourceBase):
 
         logger.info(f"Listing objects under {repr(uri)} with {prefix=}")
 
-        for obj in list_objects_recursive_path(
-            uri, startswith=prefix, aws_config=self.source_config.aws_config
-        ):
-            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+        with PerfTimer() as listing_timer:
+            try:
+                for obj in list_objects_recursive_path(
+                    uri, startswith=prefix, aws_config=self.source_config.aws_config
+                ):
+                    self.report.objects_listed += 1
+                    s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
-            if not _is_allowed_path(path_spec, s3_path):
-                continue
+                    if not _is_allowed_path(path_spec, s3_path):
+                        continue
 
-            # Extract the directory name (folder) from the object key
-            dirname = obj.key.rsplit("/", 1)[0]
+                    # Extract the directory name (folder) from the object key
+                    dirname = obj.key.rsplit("/", 1)[0]
 
-            # Initialize folder data if we haven't seen this directory before
-            if dirname not in folder_data:
-                folder_data[dirname] = FolderInfo(
-                    objects=[],
-                    total_size=0,
-                    min_time=obj.last_modified,
-                    max_time=obj.last_modified,
-                    latest_obj=obj,
-                )
+                    # Initialize folder data if we haven't seen this directory before
+                    if dirname not in folder_data:
+                        folder_data[dirname] = FolderInfo(
+                            objects=[],
+                            total_size=0,
+                            min_time=obj.last_modified,
+                            max_time=obj.last_modified,
+                            latest_obj=obj,
+                        )
 
-            # Update folder statistics incrementally
-            folder_info = folder_data[dirname]
-            folder_info.objects.append(obj)
-            folder_info.total_size += obj.size
+                    # Update folder statistics incrementally
+                    folder_info = folder_data[dirname]
+                    folder_info.objects.append(obj)
+                    folder_info.total_size += obj.size
 
-            # Track min/max times and latest object
-            if obj.last_modified < folder_info.min_time:
-                folder_info.min_time = obj.last_modified
-            if obj.last_modified > folder_info.max_time:
-                folder_info.max_time = obj.last_modified
-                folder_info.latest_obj = obj
+                    # Track min/max times and latest object
+                    if obj.last_modified < folder_info.min_time:
+                        folder_info.min_time = obj.last_modified
+                    if obj.last_modified > folder_info.max_time:
+                        folder_info.max_time = obj.last_modified
+                        folder_info.latest_obj = obj
+            finally:
+                # Record elapsed even if listing raises mid-stream.
+                self.report.listing_time_taken_secs += listing_timer.elapsed_seconds()
 
         # Yield folders after processing all objects
         for _dirname, folder_info in folder_data.items():
@@ -1145,6 +1171,10 @@ class S3Source(StatefulIngestionSourceBase):
         with PerfTimer() as timer:
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
+                if path_spec.emit_folders_only:
+                    yield from self._process_folders(path_spec)
+                    continue
+
                 file_browser = (
                     self.s3_browser(
                         path_spec, self.source_config.number_of_files_to_sample
