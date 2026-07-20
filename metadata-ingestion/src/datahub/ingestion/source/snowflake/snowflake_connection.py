@@ -1,6 +1,6 @@
 import logging
 import threading
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pydantic
 import snowflake.connector
@@ -32,6 +32,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
@@ -315,6 +316,24 @@ class SnowflakeConnectionConfig(ConfigModel):
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
         return self.options
+
+    # --- Agent probe contract (see datahub.ingestion.agent.probe) ---
+    # Snowflake is database-aware (database -> schema -> table), unlike the generic
+    # SQL 2-level probe, so it declares its own hierarchy and listing.
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        from datahub.ingestion.source.snowflake.snowflake_probe import (
+            SNOWFLAKE_PROBE_HIERARCHY,
+        )
+
+        return SNOWFLAKE_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.snowflake.snowflake_probe import (
+            list_snowflake_children,
+        )
+
+        return list_snowflake_children(self, parent_path, limit)
 
     def get_oauth_connection(self) -> NativeSnowflakeConnection:
         assert self.oauth_config, (
