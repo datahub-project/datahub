@@ -32,6 +32,8 @@ from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.recording_cli import recording
 from datahub.cli.search_cli import search
+from datahub.cli.specific.agent_skill_cli import agent_skill
+from datahub.cli.specific.api_cli import api
 from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
@@ -578,6 +580,8 @@ datahub.add_command(assertions)
 datahub.add_command(container)
 datahub.add_command(recording)
 datahub.add_command(datapack)
+datahub.add_command(api)
+datahub.add_command(agent_skill)
 
 try:
     from datahub.cli.iceberg_cli import iceberg
@@ -617,9 +621,9 @@ try:
     datahub.add_command(agent)
 except ImportError as e:
     logger.debug(f"Failed to load datahub-agent-context framework: {e}")
-    datahub.add_command(
-        make_shim_command("agent", "run `pip install datahub-agent-context`")
-    )
+    from datahub.cli.specific.agent_cli import agent as agent_registry
+
+    datahub.add_command(agent_registry)
 
 # Adding telemetry and upgrade decorators to all commands
 enable_auto_decorators(datahub)

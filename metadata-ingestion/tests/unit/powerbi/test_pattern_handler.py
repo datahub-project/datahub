@@ -364,6 +364,26 @@ def _make_data_access_func_detail(
     )
 
 
+def test_data_access_func_detail_repr_excludes_parse_tree():
+    """DataAccessFunctionDetail is logged at debug and embedded in warning
+    contexts on nearly every table. node_map (the full parse tree) and arg_list
+    must stay out of its repr or those log lines balloon to GBs / OOM."""
+    node_map = {i: {"id": i, "kind": "IdentifierExpression"} for i in range(500)}
+    detail = DataAccessFunctionDetail(
+        arg_list={"kind": "InvokeExpression", "sentinel_arg": "ARG_SENTINEL"},
+        data_access_function_name="Oracle.Database",
+        identifier_accessor=None,
+        node_map=node_map,
+        parameters={},
+    )
+    rendered = repr(detail)
+    assert "Oracle.Database" in rendered
+    assert "IdentifierExpression" not in rendered
+    assert "ARG_SENTINEL" not in rendered
+    # The heavy fields are still accessible; only their repr is suppressed.
+    assert detail.node_map is node_map
+
+
 def _patch_arg_helpers(
     args: List[Optional[str]], record_fields: Dict[str, str]
 ) -> AbstractContextManager[None]:

@@ -1,0 +1,26 @@
+namespace com.linkedin.agent
+
+/**
+ * The source type of an AI agent definition.
+ *
+ * Follows the same pattern as AssertionSourceType: NATIVE agents are
+ * defined and managed on DataHub, while EXTERNAL agents are cataloged
+ * but managed outside DataHub.
+ */
+enum AIAgentSourceType {
+  /**
+   * A system-internal agent, bootstrapped at deployment time.
+   * System agents are not editable by end users.
+   */
+  SYSTEM
+
+  /**
+   * An agent defined and managed natively on DataHub by end users.
+   */
+  NATIVE
+
+  /**
+   * An agent defined and managed externally, cataloged on DataHub.
+   */
+  EXTERNAL
+}

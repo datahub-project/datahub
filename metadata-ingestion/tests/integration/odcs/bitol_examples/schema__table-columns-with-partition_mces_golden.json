@@ -1,0 +1,281 @@
+[
+{
+    "entityType": "dataPlatform",
+    "entityUrn": "urn:li:dataPlatform:odcs",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInfo",
+    "aspect": {
+        "json": {
+            "name": "odcs",
+            "displayName": "Open Data Contract Standard",
+            "type": "OTHERS",
+            "datasetNameDelimiter": ".",
+            "logoUrl": "assets/platforms/odcslogo.png"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553c.tbl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "53581432-6c55-4ba2-a65f-72344a91553c",
+                "odcs.schemaName": "tbl",
+                "odcs.qualityRuleCount": "0",
+                "odcs.version": "1.0.0",
+                "odcs.apiVersion": "v3.0.2",
+                "odcs.status": "active",
+                "odcs.sourceFile": "schema__table-columns-with-partition.odcs.yaml",
+                "odcs.dataProduct": "my_quantum"
+            },
+            "name": "my_table \u2014 tbl",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553c.tbl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "tbl",
+            "platform": "urn:li:dataPlatform:odcs",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "rcvr_cntry_code",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(2)",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "rcvr_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(20)",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "year",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "amount",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:610bb2b4c8ce38fbdf4853564ad2832e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "odcs.id": "53581432-6c55-4ba2-a65f-72344a91553c",
+                "odcs.scope": "schema",
+                "odcs.assertion": "schema-compliance"
+            },
+            "type": "DATA_SCHEMA",
+            "schemaAssertion": {
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553c.tbl,PROD)",
+                "schema": {
+                    "schemaName": "tbl",
+                    "platform": "urn:li:dataPlatform:odcs",
+                    "version": 0,
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "hash": "",
+                    "platformSchema": {
+                        "com.linkedin.schema.OtherSchema": {
+                            "rawSchema": ""
+                        }
+                    },
+                    "fields": [
+                        {
+                            "fieldPath": "rcvr_cntry_code",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "varchar(2)",
+                            "recursive": false,
+                            "isPartOfKey": true
+                        },
+                        {
+                            "fieldPath": "rcvr_id",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.StringType": {}
+                                }
+                            },
+                            "nativeDataType": "varchar(20)",
+                            "recursive": false,
+                            "isPartOfKey": true
+                        },
+                        {
+                            "fieldPath": "year",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.NumberType": {}
+                                }
+                            },
+                            "nativeDataType": "int",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        },
+                        {
+                            "fieldPath": "amount",
+                            "nullable": true,
+                            "type": {
+                                "type": {
+                                    "com.linkedin.schema.NumberType": {}
+                                }
+                            },
+                            "nativeDataType": "double",
+                            "recursive": false,
+                            "isPartOfKey": false
+                        }
+                    ]
+                },
+                "compatibility": "SUPERSET"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1705320000000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "Schema compliance with ODCS contract '53581432-6c55-4ba2-a65f-72344a91553c' schema 'tbl'"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:610bb2b4c8ce38fbdf4853564ad2832e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:odcs"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:610bb2b4c8ce38fbdf4853564ad2832e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553c.tbl,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

@@ -15,11 +15,9 @@ extend type Query {
   getRootMetrics(input: GetRootEntitiesInput!): GetRootMetricsResult
 
   """
-  List root-level SemanticModels (paginated).
+  List SemanticModels (paginated).
   """
-  getRootSemanticModels(
-    input: GetRootEntitiesInput!
-  ): GetRootSemanticModelsResult
+  getSemanticModels(input: GetRootEntitiesInput!): GetSemanticModelsResult
 }
 
 """
@@ -38,7 +36,7 @@ type GetRootMetricsResult {
   total: Int!
 }
 
-type GetRootSemanticModelsResult {
+type GetSemanticModelsResult {
   semanticModels: [SemanticModel!]!
   start: Int!
   count: Int!
@@ -48,7 +46,7 @@ type GetRootSemanticModelsResult {
 """
 A Metric entity from a semantic layer or metric store.
 """
-type Metric implements Entity {
+type Metric implements EntityWithRelationships & Entity {
   """
   The primary key of the Metric.
   """
@@ -100,9 +98,16 @@ type Metric implements Entity {
   semanticModel: SemanticModel
 
   """
-  Parent metrics in the metric hierarchy.
+  The direct parent metric in the sidebar hierarchy. Null for root metrics.
+  For deeper ancestor chains, use nested selection: parentMetric { parentMetric { ... } }.
   """
-  parentMetrics: [Metric!]!
+  parentMetric: Metric
+
+  """
+  All ancestor metrics from immediate parent up to the root, ordered nearest-first.
+  Used by the sidebar to auto-expand the tree to the currently-viewed metric.
+  """
+  parentMetrics: [Metric!]
 
   """
   Child metrics in the metric hierarchy.
@@ -188,12 +193,17 @@ type Metric implements Entity {
   Edges extending from this entity.
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Edges extending from this entity grouped by direction in the lineage graph.
+  """
+  lineage(input: LineageInput!): EntityLineageResult
 }
 
 """
 A Semantic Model entity that groups datasets and defines metrics context.
 """
-type SemanticModel implements Entity {
+type SemanticModel implements EntityWithRelationships & Entity {
   """
   The primary key of the SemanticModel.
   """
@@ -239,11 +249,6 @@ type SemanticModel implements Entity {
   Metrics defined within this SemanticModel (field-resolver in CAT-2566).
   """
   metrics(input: ScrollAcrossEntitiesInput!): ScrollResults
-
-  """
-  Count of Metrics defined within this SemanticModel (field-resolver in CAT-2566).
-  """
-  metricsCount: SemanticModelMetricsCount
 
   """
   Ownership metadata of the SemanticModel.
@@ -324,6 +329,11 @@ type SemanticModel implements Entity {
   Edges extending from this entity.
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Edges extending from this entity grouped by direction in the lineage graph.
+  """
+  lineage(input: LineageInput!): EntityLineageResult
 }
 
 """
@@ -336,17 +346,16 @@ type MetricInfo {
   lastModified: ResolvedAuditStamp
   expression: MetricExpression
   aiContext: AiContext
+  """
+  URL of the metric in its native platform (e.g., link to the metric in dbt Cloud or Cube).
+  """
+  externalUrl: String
 }
 
 """
 Relationship edges from a Metric to other Metrics.
 """
 type MetricRelationships {
-  """
-  The immediate parent in the metric hierarchy.
-  """
-  parentMetric: Metric
-
   """
   Edges to metrics that this metric is derived from.
   """
@@ -388,6 +397,10 @@ type SemanticModelInfo {
   aiContext: AiContext
   datasets: [ModelDataset!]!
   relationships: [SemanticModelRelationship!]
+  """
+  URL of the semantic model in its native platform (e.g., link to the Snowflake semantic view).
+  """
+  externalUrl: String
 }
 
 """
@@ -397,7 +410,8 @@ A logical dataset referenced by a SemanticModel. `source` may be a Dataset
 type ModelDataset {
   name: String!
   """
-  The backing entity — a Dataset or a Query — resolved via UrnToEntityMapper.
+  The backing entity — a Dataset or a Query. Resolved via EntityTypeResolver, which
+  hydrates the underlying entity type's DataLoader on demand.
   """
   source: Entity!
   fields: [SemanticField!]
@@ -487,11 +501,4 @@ type AiContext {
   instructions: String
   examples: [String!]
   customInstructions: String
-}
-
-"""
-Count of Metrics associated with a SemanticModel.
-"""
-type SemanticModelMetricsCount {
-  total: Int!
 }

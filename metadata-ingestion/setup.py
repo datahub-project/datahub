@@ -152,7 +152,6 @@ sqlglot_lib = {
     # to force pure-Python sqlglot at runtime (see
     # datahub/_force_pure_python_sqlglot.py).
     "sqlglot[c]==30.12.0",
-    "patchy==2.8.0",
 }
 
 dbt_common = {
@@ -960,6 +959,7 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
+    "hypothesis>=6.0.0,<7.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
     "time-machine<4.0.0",
@@ -1227,6 +1227,7 @@ entry_points = {
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
+        "odcs = datahub.ingestion.source.odcs.odcs_source:ODCSSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
         "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",

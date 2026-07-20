@@ -7,7 +7,7 @@ import com.linkedin.common.AuditStamp
  */
 @Aspect = {
   "name": "dataHubPageModuleProperties",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record DataHubPageModuleProperties  {
   /**

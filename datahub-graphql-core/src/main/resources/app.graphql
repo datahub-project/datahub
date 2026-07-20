@@ -805,6 +805,12 @@ type FeatureFlagsConfig {
   showStatsTabRedesign: Boolean!
 
   """
+  If enabled, render lineage filter nodes ("N shown of M" cards) in the lineage graph.
+  If disabled, pagination and search controls live on the expand/contract buttons instead.
+  """
+  showLineageFilterNodes: Boolean!
+
+  """
   If turned on, show the re-designed home page
   """
   showHomePageRedesign: Boolean!
@@ -880,6 +886,13 @@ type FeatureFlagsConfig {
   If enabled, hides lineage information in search result cards
   """
   hideLineageInSearchCards: Boolean!
+
+  """
+  Whether the data product lineage view is enabled.
+  When enabled, navigating to lineage from a Data Product shows its member entities
+  and their upstream/downstream connections.
+  """
+  dataProductLineageEnabled: Boolean!
 
   """
   If enabled, shows tests in the health icon on entity pages.

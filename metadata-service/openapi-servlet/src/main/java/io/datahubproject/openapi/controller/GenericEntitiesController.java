@@ -551,7 +551,7 @@ public abstract class GenericEntitiesController<
       throws InvalidUrnException, JsonProcessingException {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
-    int usageQuantity = RequestContext.resolveIngestUsageQuantity(jsonEntityList, objectMapper);
+    long usageQuantity = RequestContext.resolveIngestUsageQuantity(jsonEntityList, objectMapper);
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
