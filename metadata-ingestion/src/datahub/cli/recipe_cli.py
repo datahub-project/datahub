@@ -23,11 +23,16 @@ class _AgentAwareGroup(click.Group):
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         super().format_help(ctx, formatter)
         if not sys.stdout.isatty():
-            agent_text = (
-                importlib.resources.files("datahub.cli.resources")
-                .joinpath("RECIPE_AGENT_CONTEXT.md")
-                .read_text(encoding="utf-8")
-            )
+            try:
+                agent_text = (
+                    importlib.resources.files("datahub.cli.resources")
+                    .joinpath("RECIPE_AGENT_CONTEXT.md")
+                    .read_text(encoding="utf-8")
+                )
+            except (FileNotFoundError, ModuleNotFoundError):
+                # The agent-context resource file is optional; --help must never
+                # crash just because it hasn't been added yet.
+                return
             formatter.write("\n")
             formatter.write(agent_text)
 
@@ -64,15 +69,12 @@ def _resolve_for_probe(
     return source_type, resolved, secret_values
 
 
-# Registered in datahub.entrypoints under the top-level "ingestion-agent" name
-# (not "agent") because that name is already claimed by the AI Agent metadata
-# entity CLI (datahub.cli.specific.agent_cli / datahub_agent_context.cli).
-@click.group(cls=_AgentAwareGroup, name="ingestion-agent")
-def agent() -> None:
+@click.group(cls=_AgentAwareGroup, name="recipe")
+def recipe() -> None:
     """Agent-facing probe/introspection interface for ingestion recipes."""
 
 
-@agent.command()
+@recipe.command()
 @click.argument("source_type")
 def describe(source_type: str) -> None:
     try:
@@ -81,7 +83,7 @@ def describe(source_type: str) -> None:
         _fail(str(exc), EXIT_USER)
 
 
-@agent.command()
+@recipe.command()
 @click.argument("source_type")
 def capabilities(source_type: str) -> None:
     try:
@@ -89,11 +91,6 @@ def capabilities(source_type: str) -> None:
         _emit({"source_type": source_type, "capabilities": spec.capabilities})
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
         _fail(str(exc), EXIT_USER)
-
-
-@agent.group()
-def recipe() -> None:
-    """Recipe scaffold / validate / explain (no connection)."""
 
 
 @recipe.command(name="scaffold")
@@ -123,9 +120,12 @@ def recipe_explain(path: str) -> None:
         _fail(str(exc), EXIT_USER)
 
 
-@agent.command(name="test-connection")
+@recipe.command(name="test-connection")
 @click.option("--recipe", "recipe_path", required=True)
 def test_connection(recipe_path: str) -> None:
+    # Bound before the try so it is always defined, even if resolution itself
+    # fails before any secret can be collected.
+    secret_values: Set[str] = set()
     try:
         source_type, resolved, secret_values = _resolve_for_probe(
             _load_recipe(recipe_path)
@@ -145,12 +145,20 @@ def test_connection(recipe_path: str) -> None:
         safe_report = json.loads(json.dumps(report, default=lambda o: o.__dict__))
         _emit(redact(safe_report, secret_values))
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        _fail(str(exc), EXIT_USER)
+        # SECURITY: the exception text may embed a resolved secret (e.g. a
+        # Pydantic ValidationError's input_value or a connection string with
+        # an embedded password), so redact before it reaches stderr.
+        _fail(redact(str(exc), secret_values), EXIT_USER)
     except Exception as exc:
-        _fail(str(exc), EXIT_CONNECTION)
+        # SECURITY: same rationale as above -- DBAPI/SQLAlchemy connection
+        # errors routinely embed the connection string, password included.
+        _fail(redact(str(exc), secret_values), EXIT_CONNECTION)
 
 
 def _probe(level_path: List[str], recipe_path: str, limit: int) -> None:
+    # Bound before the try so it is always defined, even if resolution itself
+    # fails before any secret can be collected.
+    secret_values: Set[str] = set()
     try:
         source_type, resolved, secret_values = _resolve_for_probe(
             _load_recipe(recipe_path)
@@ -158,12 +166,15 @@ def _probe(level_path: List[str], recipe_path: str, limit: int) -> None:
         result = probe(source_type, resolved, level_path, limit)
         _emit(redact(result.to_dict(), secret_values))
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        _fail(str(exc), EXIT_USER)
+        # SECURITY: see test_connection -- exception text may embed a resolved
+        # secret (validation input_value / connection string password).
+        _fail(redact(str(exc), secret_values), EXIT_USER)
     except Exception as exc:
-        _fail(str(exc), EXIT_CONNECTION)
+        # SECURITY: same rationale as above.
+        _fail(redact(str(exc), secret_values), EXIT_CONNECTION)
 
 
-@agent.group(name="probe")
+@recipe.group(name="probe")
 def probe_group() -> None:
     """Live source probes (need a resolved secret)."""
 
