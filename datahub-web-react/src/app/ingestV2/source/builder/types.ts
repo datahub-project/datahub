@@ -1,4 +1,5 @@
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
+import type { CommunityPluginMeta } from '@app/ingestV2/source/builder/useCommunityPlugins';
 
 import { Entity, IngestionSource } from '@types';
 
@@ -19,6 +20,8 @@ export interface SourceConfig {
     isExternal?: boolean;
     isNew?: boolean;
     priority?: number;
+    supportStatus?: string;
+    logoUrl?: string;
 }
 
 /**
@@ -39,6 +42,7 @@ export type StepProps = {
     // This is required when the ingestion source has not been created
     selectedSourceType?: string;
     setSelectedSourceType?: (sourceType: string) => void;
+    communityPluginMeta?: Record<string, CommunityPluginMeta>;
 };
 
 export type StringMapEntryInput = {

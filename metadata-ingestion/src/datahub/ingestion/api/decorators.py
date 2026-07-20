@@ -69,6 +69,11 @@ class SupportStatus(Enum):
     """
     Testing Sources are available for experimentation by DataHub Community members, but may change without notice.
     """
+    COMMUNITY = auto()
+    """
+    Community-contributed connectors maintained by third-party authors. These connectors
+    are published through the community plugin registry or contributed via PR.
+    """
     UNKNOWN = auto()
     """
     System-default value for when the connector author has declined to provide a status on this connector.

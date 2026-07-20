@@ -1,8 +1,11 @@
 import pathlib
 
+import pytest
+
 from datahub.utilities.ingest_utils import (
     _make_ingestion_urn,
     deploy_source_vars,
+    parse_json_list,
 )
 
 
@@ -199,6 +202,31 @@ def test_deploy_source_name_precedence():
     }
 
 
+def test_deploy_source_vars_with_datahub_plugins():
+    name = "test"
+    config = pathlib.Path(__file__).parent / "sample_demo.dhub.yaml"
+
+    deploy_vars = deploy_source_vars(
+        name,
+        str(config),
+        urn=None,
+        executor_id="default",
+        cli_version="0.15.0.1",
+        schedule=None,
+        time_zone=None,
+        extra_pip=None,
+        debug=False,
+        extra_env=None,
+        datahub_plugins='["github:acme/salesforce-source@v1.0"]',
+    )
+    assert deploy_vars["input"]["config"]["extraArgs"] == [
+        {
+            "key": "datahub_plugins",
+            "value": '["github:acme/salesforce-source@v1.0"]',
+        },
+    ]
+
+
 def test_deploy_source_vars_precedence():
     name = None
     config = pathlib.Path(__file__).parent / "sample_deploy_demo.dhub.yaml"
@@ -247,3 +275,75 @@ def test_deploy_source_vars_precedence():
             },
         },
     }
+
+
+def test_deploy_source_vars_malformed_extra_env():
+    """extra_env entries without '=' raise ValueError."""
+    config = pathlib.Path(__file__).parent / "sample_demo.dhub.yaml"
+
+    with pytest.raises(ValueError, match="Invalid extra_env entry"):
+        deploy_source_vars(
+            "test",
+            str(config),
+            urn=None,
+            executor_id="default",
+            cli_version="0.15.0.1",
+            schedule=None,
+            time_zone=None,
+            extra_pip=None,
+            debug=False,
+            extra_env="GOOD=value,BAD_NO_EQUALS",
+        )
+
+
+def test_deploy_source_vars_malformed_datahub_plugins():
+    """datahub_plugins with invalid JSON raises ValueError."""
+    config = pathlib.Path(__file__).parent / "sample_demo.dhub.yaml"
+
+    with pytest.raises(ValueError, match="datahub_plugins must be a valid JSON array"):
+        deploy_source_vars(
+            "test",
+            str(config),
+            urn=None,
+            executor_id="default",
+            cli_version="0.15.0.1",
+            schedule=None,
+            time_zone=None,
+            extra_pip=None,
+            debug=False,
+            datahub_plugins="{not valid json",
+        )
+
+
+def test_parse_json_list_rejects_non_string_elements():
+    """parse_json_list should reject arrays with non-string elements."""
+    with pytest.raises(ValueError, match=r"value\[1\] must be a string, got int"):
+        parse_json_list('["ok", 42]')
+
+
+def test_parse_json_list_rejects_null_elements():
+    with pytest.raises(ValueError, match=r"value\[0\] must be a string, got NoneType"):
+        parse_json_list("[null]")
+
+
+def test_parse_json_list_accepts_all_strings():
+    assert parse_json_list('["a", "b", "c"]') == ["a", "b", "c"]
+
+
+def test_deploy_source_vars_datahub_plugins_not_array():
+    """datahub_plugins with non-array JSON raises ValueError."""
+    config = pathlib.Path(__file__).parent / "sample_demo.dhub.yaml"
+
+    with pytest.raises(ValueError, match="datahub_plugins must be a JSON array"):
+        deploy_source_vars(
+            "test",
+            str(config),
+            urn=None,
+            executor_id="default",
+            cli_version="0.15.0.1",
+            schedule=None,
+            time_zone=None,
+            extra_pip=None,
+            debug=False,
+            datahub_plugins='"just-a-string"',
+        )
