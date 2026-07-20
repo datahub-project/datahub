@@ -247,6 +247,7 @@ export const SelectTemplateStep = ({
                     </FilterChipsContainer>
                     <StyledSearchBar
                         ref={searchInputCallbackRef}
+                        data-testid="source-type-search-input"
                         placeholder={t('selectTemplate.searchPlaceholder')}
                         value={searchFilter}
                         onChange={(e) => setSearchFilter(e.target.value)}
