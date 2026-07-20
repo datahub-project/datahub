@@ -194,13 +194,19 @@ def _description_to_str(
         return None
     if isinstance(description, str):
         return description.strip() or None
+    fields: List[Tuple[str, Optional[str]]] = [
+        ("purpose", description.purpose),
+        ("usage", description.usage),
+        ("limitations", description.limitations),
+    ]
+    # Some producers add non-spec prose keys (e.g. summary, description); render
+    # any string-valued extras so operator-authored text is never dropped.
+    for key, value in (description.model_extra or {}).items():
+        if isinstance(value, str):
+            fields.append((key, value))
     parts = [
         f"**{key}**: {value.strip()}"
-        for key, value in (
-            ("purpose", description.purpose),
-            ("usage", description.usage),
-            ("limitations", description.limitations),
-        )
+        for key, value in fields
         if value and value.strip()
     ]
     return "\n\n".join(parts) or None

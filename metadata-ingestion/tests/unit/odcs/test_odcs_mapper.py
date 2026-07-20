@@ -551,6 +551,24 @@ def test_contract_description_is_fallback() -> None:
     assert props.description == "Contract-level description."
 
 
+def test_description_object_renders_non_spec_extra_prose_keys() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        description={"purpose": "P", "summary": "S", "authoritativeDefinitions": []},
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+    )
+    props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
+    assert props.description is not None
+    # Spec fields plus the extra string key; the non-string extra is skipped.
+    assert "**purpose**: P" in props.description
+    assert "**summary**: S" in props.description
+    assert "authoritativeDefinitions" not in props.description
+
+
 def test_institutional_memory_includes_root_authoritative_definitions() -> None:
     contract = _make_contract(
         schema=[
