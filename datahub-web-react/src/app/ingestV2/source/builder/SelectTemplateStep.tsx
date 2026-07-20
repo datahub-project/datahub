@@ -149,6 +149,7 @@ function SourceOption({ source, supportStatus, capabilities, onClick }: SourceOp
                     description={description}
                     logoComponent={logoComponent}
                     supportStatus={supportStatus}
+                    dataTestId={`source-option-${name}`}
                 />
             </CardWrapper>
         </ConnectorDetailPopover>
