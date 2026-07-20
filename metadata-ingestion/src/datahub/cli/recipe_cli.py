@@ -148,11 +148,15 @@ def test_connection(recipe_path: str) -> None:
         # SECURITY: the exception text may embed a resolved secret (e.g. a
         # Pydantic ValidationError's input_value or a connection string with
         # an embedded password), so redact before it reaches stderr.
-        _fail(redact(str(exc), secret_values), EXIT_USER)
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_USER)
     except Exception as exc:
         # SECURITY: same rationale as above -- DBAPI/SQLAlchemy connection
         # errors routinely embed the connection string, password included.
-        _fail(redact(str(exc), secret_values), EXIT_CONNECTION)
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_CONNECTION)
 
 
 def _probe(level_path: List[str], recipe_path: str, limit: int) -> None:
@@ -168,10 +172,14 @@ def _probe(level_path: List[str], recipe_path: str, limit: int) -> None:
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
         # SECURITY: see test_connection -- exception text may embed a resolved
         # secret (validation input_value / connection string password).
-        _fail(redact(str(exc), secret_values), EXIT_USER)
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_USER)
     except Exception as exc:
         # SECURITY: same rationale as above.
-        _fail(redact(str(exc), secret_values), EXIT_CONNECTION)
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_CONNECTION)
 
 
 @recipe.group(name="probe")
