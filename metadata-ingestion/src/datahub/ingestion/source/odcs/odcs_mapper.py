@@ -199,8 +199,7 @@ def _description_to_str(
         ("usage", description.usage),
         ("limitations", description.limitations),
     ]
-    # Some producers add non-spec prose keys (e.g. summary, description); render
-    # any string-valued extras so operator-authored text is never dropped.
+    # Render non-spec string extras (e.g. summary) so producer prose isn't dropped.
     for key, value in (description.model_extra or {}).items():
         if isinstance(value, str):
             fields.append((key, value))

@@ -563,7 +563,6 @@ def test_description_object_renders_non_spec_extra_prose_keys() -> None:
     )
     props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
     assert props.description is not None
-    # Spec fields plus the extra string key; the non-string extra is skipped.
     assert "**purpose**: P" in props.description
     assert "**summary**: S" in props.description
     assert "authoritativeDefinitions" not in props.description
