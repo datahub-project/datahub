@@ -2,7 +2,6 @@ package com.datahub.authentication;
 
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A static wrapper around a {@link ThreadLocal} instance of {@link Authentication} containing
@@ -11,7 +10,6 @@ import javax.annotation.Nullable;
 public class AuthenticationContext {
   private static final ThreadLocal<Authentication> AUTHENTICATION = new ThreadLocal<>();
 
-  @Nullable
   public static Authentication getAuthentication() {
     return AUTHENTICATION.get();
   }
