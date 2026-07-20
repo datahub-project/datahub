@@ -1,7 +1,9 @@
+from enum import auto
 from typing import Dict, List, Optional, Union
 
 from pydantic import Field, field_validator, model_validator
 
+from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -83,7 +85,17 @@ class ServerMapping(ConfigModel):
         return v.upper()
 
 
-_SCHEMA_ASSERTION_COMPATIBILITY_MODES = ("EXACT_MATCH", "SUPERSET", "SUBSET")
+class SchemaAssertionCompatibility(ConfigEnum):
+    """Compatibility mode for the emitted DATA_SCHEMA assertion.
+
+    Member names are the DataHub `SchemaAssertionCompatibilityClass` constants,
+    so this enum is the single source of truth for the valid set; the mapper
+    passes the member value straight onto the assertion aspect.
+    """
+
+    EXACT_MATCH = auto()
+    SUPERSET = auto()
+    SUBSET = auto()
 
 
 class ODCSSourceConfig(
@@ -185,8 +197,8 @@ class ODCSSourceConfig(
         "contract's declared schema on the logical dataset so schema drift is evaluable as a "
         "contract violation.",
     )
-    schema_assertion_compatibility: str = Field(
-        default="SUPERSET",
+    schema_assertion_compatibility: SchemaAssertionCompatibility = Field(
+        default=SchemaAssertionCompatibility.SUPERSET,
         description="Compatibility mode for the DATA_SCHEMA assertion: `SUPERSET` (an instance "
         "must contain at least the contract's fields; extras allowed), `EXACT_MATCH`, or "
         "`SUBSET`.",
@@ -209,17 +221,6 @@ class ODCSSourceConfig(
                 "domain to bare usernames."
             )
         return self
-
-    @field_validator("schema_assertion_compatibility")
-    @classmethod
-    def compatibility_must_be_valid(cls, v: str) -> str:
-        upper = v.upper()
-        if upper not in _SCHEMA_ASSERTION_COMPATIBILITY_MODES:
-            raise ValueError(
-                "schema_assertion_compatibility must be one of "
-                f"{_SCHEMA_ASSERTION_COMPATIBILITY_MODES}, found {v}"
-            )
-        return upper
 
     emit_logical_parent: bool = Field(
         default=True,

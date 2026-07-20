@@ -5,7 +5,7 @@ import os
 import pathlib
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set
 
 import jsonschema
 import yaml
@@ -506,7 +506,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         """
         spec_ignored: List[str] = []
 
-        def walk(node: Any, model_cls: type[BaseModel], path_hint: str) -> None:
+        def walk(node: object, model_cls: type[BaseModel], path_hint: str) -> None:
             if not isinstance(node, dict):
                 return
             allowed = _model_field_keys(model_cls)
