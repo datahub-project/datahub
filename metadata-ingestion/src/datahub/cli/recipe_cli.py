@@ -11,7 +11,10 @@ from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.probe import probe
 from datahub.ingestion.agent.recipe import explain, scaffold, validate_recipe
 from datahub.ingestion.agent.redact import collect_secret_values, redact
-from datahub.ingestion.agent.secrets import default_resolvers, resolve_config
+from datahub.ingestion.agent.secrets import (
+    default_resolvers,
+    resolve_config_collecting,
+)
 
 EXIT_OK = 0
 EXIT_INTERNAL = 1
@@ -41,14 +44,29 @@ def _emit(payload: object) -> None:
     click.echo(json.dumps(payload, indent=2, default=str))
 
 
+def _json_default(o: object) -> object:
+    # Never let a SecretStr's raw value into serialized output: its __dict__
+    # exposes _secret_value, so mask before falling back to attribute dumping.
+    from pydantic import SecretBytes, SecretStr  # local: pydantic types only here
+
+    if isinstance(o, (SecretStr, SecretBytes)):
+        return "***"
+    return getattr(o, "__dict__", str(o))
+
+
 def _fail(message: str, code: int) -> NoReturn:
     click.echo(json.dumps({"error": message}), err=True)
     sys.exit(code)
 
 
 def _load_recipe(path: str) -> Dict[str, object]:
-    with open(path) as f:
-        loaded = yaml.safe_load(f) or {}
+    try:
+        with open(path) as f:
+            loaded = yaml.safe_load(f) or {}
+    except OSError as exc:
+        # Surface a bad --recipe path as a user error (EXIT_USER) rather than an
+        # uncaught traceback or a mislabeled connection error.
+        raise ValueError(f"cannot read recipe file '{path}': {exc}") from exc
     if not isinstance(loaded, dict):
         raise ValueError("recipe must be a YAML mapping")
     return loaded
@@ -62,11 +80,15 @@ def _resolve_for_probe(
     source_type = str(source.get("type"))
     raw_config = source.get("config")
     config: Dict[str, object] = raw_config if isinstance(raw_config, dict) else {}
-    resolved = resolve_config(config, default_resolvers())
+    resolved = resolve_config_collecting(config, default_resolvers())
     spec = describe_source(source_type)
     secret_fields = {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
-    secret_values = collect_secret_values(resolved, secret_fields)
-    return source_type, resolved, secret_values
+    # Union of every ${ref}-sourced value (nested-safe) and top-level inline
+    # secret fields (which may be literals with no ${ref} to record).
+    secret_values = resolved.secret_values | collect_secret_values(
+        resolved.config, secret_fields
+    )
+    return source_type, resolved.config, secret_values
 
 
 @click.group(cls=_AgentAwareGroup, name="recipe")
@@ -142,7 +164,7 @@ def test_connection(recipe_path: str) -> None:
         # SECURITY: normalize to pure JSON types before redacting, so a raw
         # exception/driver object nested in the report cannot smuggle a secret
         # past the redactor (which only inspects str/dict/list values).
-        safe_report = json.loads(json.dumps(report, default=lambda o: o.__dict__))
+        safe_report = json.loads(json.dumps(report, default=_json_default))
         _emit(redact(safe_report, secret_values))
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
         # SECURITY: the exception text may embed a resolved secret (e.g. a

@@ -18,6 +18,8 @@ def redact(payload: object, secret_values: Set[str]) -> object:
     if not secret_values:
         return payload
     if isinstance(payload, str):
+        # Substring redaction is best-effort defense-in-depth: it can over-mask
+        # short values and won't catch secrets that were transformed or encoded.
         redacted = payload
         for secret in secret_values:
             if secret and secret in redacted:
