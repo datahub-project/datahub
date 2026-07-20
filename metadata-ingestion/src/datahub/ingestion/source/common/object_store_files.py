@@ -91,14 +91,16 @@ def read_file_as_bytes(
         # NOTE: redirects are followed (requests default, capped at 30 hops).
         # The URL comes from operator-authored recipe config, not end-user
         # input, so redirect-based SSRF is an accepted risk here.
-        resp = requests.get(uri, timeout=http_timeout_seconds, stream=True)
-        resp.raise_for_status()
-        declared = resp.headers.get("Content-Length")
-        if declared is not None and declared.isdigit():
-            _enforce_size_cap(uri, int(declared), max_bytes)
-        return _read_chunks_capped(
-            uri, resp.iter_content(chunk_size=_STREAM_CHUNK_BYTES), max_bytes
-        )
+        # `with` guarantees the connection is released back to the pool even
+        # when the size cap trips before the body is drained.
+        with requests.get(uri, timeout=http_timeout_seconds, stream=True) as resp:
+            resp.raise_for_status()
+            declared = resp.headers.get("Content-Length")
+            if declared is not None and declared.isdigit():
+                _enforce_size_cap(uri, int(declared), max_bytes)
+            return _read_chunks_capped(
+                uri, resp.iter_content(chunk_size=_STREAM_CHUNK_BYTES), max_bytes
+            )
     if is_s3_uri(uri):
         if not aws_connection:
             raise ValueError(f"AWS connection required for S3 URI: {uri}")

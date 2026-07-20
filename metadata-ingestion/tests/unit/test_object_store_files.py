@@ -189,6 +189,9 @@ def test_read_file_as_bytes_local(tmp_path):
 
 def _mock_http_response(chunks, headers=None):
     resp = mock.MagicMock()
+    # the reader now consumes the response via `with requests.get(...) as resp`,
+    # so the mock must act as its own context manager.
+    resp.__enter__.return_value = resp
     resp.headers = headers or {}
     resp.iter_content.return_value = iter(chunks)
     return resp
@@ -204,16 +207,34 @@ def test_read_file_as_bytes_http():
         assert mock_get.call_args.kwargs["stream"] is True
 
 
-def test_read_file_as_bytes_http_returns_raw_bytes_with_bom():
-    # The reader is charset-agnostic: a UTF-8 BOM (or any encoding) must survive
-    # untouched so the caller can decode/sniff it — a forced utf-8 decode here
-    # would corrupt BOM-prefixed payloads.
-    payload = b'\xef\xbb\xbf{"apiVersion": "v3"}'
+@pytest.mark.parametrize(
+    "encoding",
+    ["utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "utf-32", "utf-32-le"],
+)
+def test_read_file_as_bytes_http_returns_raw_bytes_with_bom(encoding):
+    # The reader is charset-agnostic: a BOM of any width (UTF-8/16/32) must
+    # survive untouched so the caller can decode/sniff it — a forced utf-8
+    # decode here would corrupt BOM-prefixed payloads.
+    payload = '{"apiVersion": "v3"}'.encode(encoding)
     with mock.patch(
         "datahub.ingestion.source.common.object_store_files.requests.get"
     ) as mock_get:
         mock_get.return_value = _mock_http_response([payload])
         assert read_file_as_bytes("https://example.com/manifest.json") == payload
+
+
+def test_read_file_as_bytes_http_releases_connection_on_cap_exceeded():
+    # When the cap trips mid-stream the body is never fully drained, so the
+    # connection must be closed explicitly (via the context manager) or it
+    # leaks out of the pool.
+    resp = _mock_http_response([b"x" * 6, b"x" * 6])
+    with mock.patch(
+        "datahub.ingestion.source.common.object_store_files.requests.get"
+    ) as mock_get:
+        mock_get.return_value = resp
+        with pytest.raises(ValueError, match="over the configured max_bytes"):
+            read_file_as_bytes("https://example.com/big.json", max_bytes=10)
+        resp.__exit__.assert_called()
 
 
 def test_read_file_as_bytes_http_over_declared_size():
@@ -250,6 +271,22 @@ def test_read_file_as_bytes_s3():
     s3_client.get_object.assert_called_once_with(
         Bucket="my-bucket", Key="path/to/manifest.json"
     )
+
+
+def test_read_file_as_bytes_s3_returns_raw_bytes_with_bom():
+    # Same charset-agnostic contract as the http path: object-store reads must
+    # hand back the exact bytes, BOM included.
+    payload = '{"apiVersion": "v3"}'.encode("utf-8-sig")
+    connection = mock.MagicMock()
+    s3_client = mock.MagicMock()
+    connection.get_s3_client.return_value = s3_client
+    s3_client.get_object.return_value = {
+        "Body": mock.MagicMock(read=mock.MagicMock(return_value=payload))
+    }
+    result = read_file_as_bytes(
+        "s3://my-bucket/manifest.json", aws_connection=connection
+    )
+    assert result == payload
 
 
 def test_read_file_as_bytes_s3_missing_connection():
