@@ -507,6 +507,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:sap-mdg",
+        "name": "sap-mdg",
+        "displayName": "SAP MDG",
+        "description": "Import master-data entity sets and types from SAP Master Data Governance OData services.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sap-mdg/",
+        "recipe": "source:\n    type: sap-mdg\n    config:\n        base_url: # Base URL of the SAP Gateway, e.g. https://sap-gw.example.com:44300\n        services:\n            - /sap/opu/odata/sap/ZMDG_BP_SRV\n\n        # Provide one authentication method:\n        username: # HTTP basic auth username\n        password: \"${SAP_MDG_PASSWORD}\"\n        # token: \"${SAP_MDG_TOKEN}\"\n\n        # sap_client: \"100\"",
+        "category": "Database",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
         "displayName": "Other",

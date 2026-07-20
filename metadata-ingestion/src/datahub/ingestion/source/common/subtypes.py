@@ -49,6 +49,8 @@ class DatasetSubTypes(StrEnum):
     SEMANTIC_MODEL = "Semantic Model"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
+    SAP_MDG_ENTITY_SET = "Entity Set"
+    SAP_MDG_ENTITY_TYPE = "Entity Type"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
@@ -101,6 +103,8 @@ class DatasetContainerSubTypes(StrEnum):
     PINECONE_NAMESPACE = "Pinecone Namespace"
     # Cube
     CUBE_DEPLOYMENT = "Cube Deployment"
+    # SAP MDG (one OData service groups its entity sets)
+    SAP_MDG_ODATA_SERVICE = "OData Service"
 
 
 class BIContainerSubTypes(StrEnum):

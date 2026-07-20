@@ -834,6 +834,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib,
     "matillion-dpc": {"requests<3.0.0"} | usage_common | sqlglot_lib,
     "cube": {"requests<3.0.0"} | sqlglot_lib,
+    "sap-mdg": {"requests<3.0.0", "defusedxml>=0.7.1,<0.8.0"},
     # dlt is the backing client lib used to read pipeline state. The connector
     # falls back to direct YAML parsing when dlt is not importable, but in
     # normal use we expect users opting into the dlt extra to want the SDK
@@ -1000,6 +1001,7 @@ base_dev_requirements = {
             "mariadb",
             "tidb",
             "matillion-dpc",
+            "sap-mdg",
             "okta",
             "oracle",
             "postgres",
@@ -1225,6 +1227,7 @@ entry_points = {
         "quicksight = datahub.ingestion.source.quicksight.quicksight:QuickSightSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
+        "sap-mdg = datahub.ingestion.source.sap_mdg.source:SapMdgSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "odcs = datahub.ingestion.source.odcs.odcs_source:ODCSSource",

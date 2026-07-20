@@ -380,6 +380,20 @@ import {
     SAC_TOKEN_URL,
 } from '@app/ingestV2/source/builder/RecipeForm/sac';
 import {
+    SAP_MDG_BASE_URL,
+    SAP_MDG_CLIENT,
+    SAP_MDG_CLIENT_CERT_PATH,
+    SAP_MDG_CLIENT_KEY_PATH,
+    SAP_MDG_EMIT_ORPHAN_ENTITY_TYPES,
+    SAP_MDG_ENTITY_SET_ALLOW,
+    SAP_MDG_ENTITY_SET_DENY,
+    SAP_MDG_INCLUDE_FOREIGN_KEYS,
+    SAP_MDG_PASSWORD,
+    SAP_MDG_SERVICES,
+    SAP_MDG_TOKEN,
+    SAP_MDG_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/sap-mdg';
+import {
     SNOWFLAKE_ACCOUNT_ID,
     SNOWFLAKE_AUTHENTICATION_TYPE,
     SNOWFLAKE_PASSWORD,
@@ -449,6 +463,7 @@ import {
     POWER_BI,
     RDF,
     SAC,
+    SAP_MDG,
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
@@ -962,6 +977,18 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterFields: [GROUP_ALLOW, GROUP_DENY, USER_ALLOW, USER_DENY],
         advancedFields: [AZURE_INGEST_USERS, AZURE_INGEST_GROUPS, STATEFUL_INGESTION_ENABLED, SKIP_USERS_WITHOUT_GROUP],
+    },
+    [SAP_MDG]: {
+        fields: [SAP_MDG_BASE_URL, SAP_MDG_SERVICES, SAP_MDG_USERNAME, SAP_MDG_PASSWORD, SAP_MDG_TOKEN, SAP_MDG_CLIENT],
+        filterFields: [SAP_MDG_ENTITY_SET_ALLOW, SAP_MDG_ENTITY_SET_DENY],
+        advancedFields: [
+            SAP_MDG_CLIENT_CERT_PATH,
+            SAP_MDG_CLIENT_KEY_PATH,
+            SAP_MDG_EMIT_ORPHAN_ENTITY_TYPES,
+            SAP_MDG_INCLUDE_FOREIGN_KEYS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific OData entity sets from ingestion.',
     },
     [SAC]: {
         fields: [SAC_TENANT_URL, SAC_TOKEN_URL, SAC_CLIENT_ID, SAC_CLIENT_SECRET],

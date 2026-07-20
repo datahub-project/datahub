@@ -1,0 +1,18 @@
+run_id: sap-mdg-test
+
+source:
+  type: sap-mdg
+  config:
+    base_url: "https://sap-gw.example.com:44300"
+    services:
+      - "/sap/opu/odata/sap/ZMDG_DEMO_SRV"
+    username: user
+    password: pass
+    sap_client: "100"
+    stateful_ingestion:
+      enabled: false
+
+sink:
+  type: file
+  config:
+    filename: "./sap_mdg_mces.json"

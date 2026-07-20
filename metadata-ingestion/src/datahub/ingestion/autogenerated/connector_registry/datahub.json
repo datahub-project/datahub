@@ -4094,6 +4094,62 @@
       "platform_name": "Salesforce",
       "support_status": "CERTIFIED"
     },
+    "sap-mdg": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Emitted for downstream fields matching the MDG entity by name when `drf.emit_column_lineage` is set",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default via SAP labels",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Foreign keys from OData navigation properties, plus cross-platform lineage to systems MDG replicates to (via the DRF replication model) when `drf.enabled`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sap_mdg.source.SapMdgSource",
+      "platform_id": "sap-mdg",
+      "platform_name": "SAP MDG",
+      "support_status": "INCUBATING"
+    },
     "sigma": {
       "capabilities": [
         {

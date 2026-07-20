@@ -428,6 +428,16 @@
       "Status Aspect"
     ]
   },
+  "sap-mdg": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "title": "SAP MDG",
+    "description": "SAP Master Data Governance (MDG) centralizes governance of master data. Ingest MDG OData services as datasets \u2014 entity sets and types with schemas and foreign keys \u2014 plus cross-platform target mapping.",
+    "img_path": "img/logos/platforms/sap-mdg.png",
+    "extra_features": [
+      "Status Aspect"
+    ]
+  },
   "slack": {
     "external": true,
     "platform_type": "Collaboration",

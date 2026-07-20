@@ -715,7 +715,7 @@ def generate(  # noqa: C901
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
             logger.info(f"Processing extra doc: {path}")
-            if m := re.search("/docs/sources/(.*)/(.*).md", path):
+            if m := re.search(r"/docs/sources/(.*)/(.*)\.md$", path):
                 platform_name = m.group(1).lower()  # TODO: rename this to platform_id
                 file_name = m.group(2)
                 destination_md: str = (
