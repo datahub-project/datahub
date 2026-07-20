@@ -33,6 +33,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    unmapped_owner_roles,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
@@ -64,7 +65,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
-from datahub.metadata.schema_classes import OwnershipClass
+from datahub.metadata.schema_classes import LogicalParentClass, OwnershipClass
 
 logger = logging.getLogger(__name__)
 
@@ -137,12 +138,16 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     unmappable_servers: int = 0
     physical_urns_verified: int = 0
     physical_urns_unverified: int = 0
+    physical_urns_link_conflicts: int = 0
+    physical_urns_verify_failed: int = 0
     physical_names_passthrough: int = 0
     owners_unresolved: int = 0
+    contracts_validation_skipped: int = 0
     files_skipped: List[str] = field(default_factory=list)
     rules_skipped_no_threshold: List[str] = field(default_factory=list)
     rules_routed_to_custom: List[str] = field(default_factory=list)
     schema_type_fallbacks: List[str] = field(default_factory=list)
+    owners_role_defaulted: List[str] = field(default_factory=list)
     spec_fields_ignored: List[str] = field(default_factory=list)
 
 
@@ -205,6 +210,13 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._seen_physical_urns: Dict[str, str] = {}
         # Per-run cache for graph existence checks (one lookup per unique URN).
         self._urn_exists_cache: Dict[str, bool] = {}
+        # Per-run cache of the persisted `logicalParent` target already on each
+        # physical URN (one get_aspect per unique URN), for cross-run conflict
+        # detection. `None` means "no existing link" (or lookup unavailable).
+        self._physical_parent_cache: Dict[str, Optional[str]] = {}
+        # URNs whose graph lookup raised and were assumed-present (fail-open),
+        # so they are never miscounted as genuinely verified.
+        self._urn_verify_failed: Set[str] = set()
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
 
@@ -228,15 +240,40 @@ class ODCSSource(StatefulIngestionSourceBase):
     # Schema validation + file IO
     # ------------------------------------------------------------------
 
-    def _load_validators(self) -> dict:
-        validators: dict = {}
+    def _load_validators(self) -> Dict[str, "jsonschema.Draft202012Validator"]:
+        validators: Dict[str, jsonschema.Draft202012Validator] = {}
         for version, filename in _VERSION_TO_SCHEMA.items():
             path = _SCHEMA_DIR / filename
             if not path.exists():
                 continue
-            with open(path) as fp:
-                schema = json.load(fp)
+            # Guard per-file: a corrupt/missing vendored schema must degrade to
+            # "this version is unvalidated" (surfaced below), never abort the
+            # whole source in __init__.
+            try:
+                with open(path) as fp:
+                    schema = json.load(fp)
+            except (OSError, ValueError) as e:
+                self.report.warning(
+                    title="Could not load ODCS JSON Schema",
+                    message="Contracts of this version will not be schema-validated.",
+                    context=f"{path} (version {version})",
+                    exc=e,
+                )
+                continue
             validators[version] = jsonschema.Draft202012Validator(schema)
+        if not validators:
+            # No validators at all: strict_validation becomes a silent no-op and
+            # every contract passes with zero checking. Surface it once.
+            self.report.warning(
+                title="ODCS JSON Schema validators unavailable",
+                message=(
+                    "No vendored ODCS schemas could be loaded, so contracts will "
+                    "not be schema-validated this run (strict_validation has no "
+                    "effect). This usually indicates a packaging or checkout "
+                    "regression in the odcs_schema/ directory."
+                ),
+                context=str(_SCHEMA_DIR),
+            )
         return validators
 
     def _glob_root(self, pattern: str) -> pathlib.Path:
@@ -370,8 +407,20 @@ class ODCSSource(StatefulIngestionSourceBase):
         if validator is None:
             validator = self._validators.get(_DEFAULT_VERSION)
         if validator is None:
+            # No validator resolved: the contract is passed through unchecked.
+            # Counted so a zero-validation run is visible in the report even
+            # when the one-time load warning scrolled past.
+            self.report.contracts_validation_skipped += 1
             return True
-        errors = sorted(validator.iter_errors(raw_dict), key=lambda e: e.path)
+        # `err.path` mixes str property names and int array indices in one
+        # deque; sorting deques compares elements pairwise, so a str-vs-int
+        # comparison raises TypeError on already-invalid contracts. Sort by the
+        # stringified path instead so validation feedback is never lost to an
+        # opaque "unhandled error" skip.
+        errors = sorted(
+            validator.iter_errors(raw_dict),
+            key=lambda e: [str(p) for p in e.absolute_path],
+        )
         if not errors:
             return True
         self.report.validation_errors += len(errors)
@@ -535,6 +584,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                 context=urn,
                 exc=e,
             )
+            # Record the fail-open so callers never tally it as verified.
+            self._urn_verify_failed.add(urn)
             exists = True
         self._urn_exists_cache[urn] = exists
         return exists
@@ -544,9 +595,37 @@ class ODCSSource(StatefulIngestionSourceBase):
         if exists is None:
             # No graph: emit without verification.
             return True
-        if exists:
+        if urn in self._urn_verify_failed:
+            # Assumed-present due to a lookup error, not actually confirmed.
+            self.report.physical_urns_verify_failed += 1
+        elif exists:
             self.report.physical_urns_verified += 1
         return exists
+
+    def _existing_logical_parent(self, physical_urn: str) -> Optional[str]:
+        """The logical URN a physical dataset is *already* linked to, if any.
+
+        Best-effort, cached graph read of the persisted `logicalParent` aspect.
+        Returns None when no graph is attached, when there is no existing link,
+        or when the lookup fails — conflict detection is advisory and must
+        never abort or alter emission.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+        if physical_urn in self._physical_parent_cache:
+            return self._physical_parent_cache[physical_urn]
+        target: Optional[str] = None
+        try:
+            existing = graph.get_aspect(physical_urn, LogicalParentClass)
+        except Exception:
+            # Advisory-only: a flaky read must not change behavior or spam the
+            # report (the existence check already surfaces graph errors).
+            existing = None
+        if isinstance(existing, LogicalParentClass) and existing.parent is not None:
+            target = existing.parent.destinationUrn
+        self._physical_parent_cache[physical_urn] = target
+        return target
 
     def _check_owner_resolution(
         self, mcps: List[MetadataChangeProposalWrapper], file_path: pathlib.Path
@@ -600,6 +679,9 @@ class ODCSSource(StatefulIngestionSourceBase):
             )
             self.report.contracts_skipped += 1
             return
+
+        for role_key in unmapped_owner_roles(contract):
+            self.report.owners_role_defaulted.append(f"{contract.id}: {role_key}")
 
         overrides = self.config.physical_urn_overrides.get(contract.id)
         if overrides:
@@ -783,6 +865,31 @@ class ODCSSource(StatefulIngestionSourceBase):
             )
 
             if self.config.emit_logical_parent:
+                # `logicalParent` is single-valued and physical URNs are kept out
+                # of the stateful checkpoint, so an in-run collision
+                # (last-writer-wins) is caught above via _seen_physical_urns, but
+                # a link written by a *prior* run to a different contract would
+                # otherwise be overwritten with no signal. Read the persisted
+                # link and warn on a genuine cross-run conflict.
+                existing_parent = self._existing_logical_parent(physical_urn)
+                if existing_parent is not None and existing_parent != logical_urn:
+                    self.report.physical_urns_link_conflicts += 1
+                    self.report.warning(
+                        title="Physical dataset already linked to a different ODCS contract",
+                        message=(
+                            "logicalParent is single-valued, so this run's link "
+                            "overwrites one written by a previous run for a "
+                            "different logical ODCS dataset. In DataHub a physical "
+                            "table carries exactly one ODCS contract link; if "
+                            "multiple contracts legitimately describe this table, "
+                            "keep only one bound (e.g. via physical_urn_overrides) "
+                            "until multi-contract support lands."
+                        ),
+                        context=(
+                            f"file={file_path} urn={physical_urn} "
+                            f"existing={existing_parent} new={logical_urn}"
+                        ),
+                    )
                 # is_primary_source=False: the physical dataset belongs to its
                 # platform-of-record source. This keeps the URN out of ODCS's
                 # stateful-ingestion checkpoint so stale-entity removal can
