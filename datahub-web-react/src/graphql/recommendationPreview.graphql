@@ -139,6 +139,11 @@ fragment recommendationEntityPreview on Entity {
     }
     ... on DataJob {
         jobId
+        dataFlow {
+            platform {
+                ...platformFields
+            }
+        }
         properties {
             name
         }
@@ -228,6 +233,7 @@ fragment recommendationEntityPreview on Entity {
     ... on Domain {
         properties {
             name
+            description
         }
         parentDomains {
             ...parentDomainsFields
@@ -235,6 +241,10 @@ fragment recommendationEntityPreview on Entity {
         displayProperties {
             ...displayPropertiesFields
         }
+        ownership {
+            ...ownershipFields
+        }
+        ...domainEntitiesFields
     }
     ... on Container {
         ...entityContainer
