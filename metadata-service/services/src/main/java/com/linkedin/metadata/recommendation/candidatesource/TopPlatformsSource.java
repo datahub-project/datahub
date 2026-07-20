@@ -12,7 +12,11 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -92,12 +96,20 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
   }
 
   @Override
-  protected boolean isValidCandidateUrn(@Nonnull OperationContext opContext, Urn urn) {
-    RecordTemplate dataPlatformInfo =
-        entityService.getLatestAspect(opContext, urn, "dataPlatformInfo");
-    if (dataPlatformInfo == null) {
-      return false;
-    }
-    return ((DataPlatformInfo) dataPlatformInfo).hasLogoUrl();
+  protected Set<Urn> getValidCandidateUrns(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> candidateUrns) {
+    // A platform is a valid candidate only if it has a logo. Fetch the dataPlatformInfo aspect for
+    // every candidate in a single batched call rather than one lookup per platform.
+    final Map<Urn, List<RecordTemplate>> aspects =
+        entityService.getLatestAspects(
+            opContext, candidateUrns, Set.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME), false);
+    return candidateUrns.stream()
+        .filter(
+            urn ->
+                aspects.getOrDefault(urn, Collections.emptyList()).stream()
+                    .filter(DataPlatformInfo.class::isInstance)
+                    .map(DataPlatformInfo.class::cast)
+                    .anyMatch(DataPlatformInfo::hasLogoUrl))
+        .collect(Collectors.toSet());
   }
 }
