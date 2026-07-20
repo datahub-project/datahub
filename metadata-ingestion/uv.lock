@@ -1262,6 +1262,12 @@ notion = [
     { name = "unstructured-ingest", extra = ["notion"] },
     { name = "urllib3" },
 ]
+odcs = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "gitpython" },
+    { name = "urllib3" },
+]
 okta = [
     { name = "flatdict" },
     { name = "nest-asyncio" },
@@ -1716,6 +1722,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'mariadb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'mysql'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'notion'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'odcs'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'postgres'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'quicksight'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.35.0,<2.0.0" },
@@ -1749,6 +1756,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 'mariadb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'mysql'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'notion'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'odcs'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'postgres'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'quicksight'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 's3'", specifier = "!=1.23.0,<2.0.0" },
@@ -1971,6 +1979,7 @@ requires-dist = [
     { name = "gitpython", marker = "extra == 'docs'", specifier = ">2,<4.0.0" },
     { name = "gitpython", marker = "extra == 'looker'", specifier = ">2,<4.0.0" },
     { name = "gitpython", marker = "extra == 'lookml'", specifier = ">2,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'odcs'", specifier = ">2,<4.0.0" },
     { name = "google-auth", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'confluence'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'datahub-documents'", specifier = ">=2.0.0,<3.0.0" },
@@ -2892,6 +2901,7 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 'mariadb'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'mysql'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'notion'", specifier = ">=1.26,<3.0" },
+    { name = "urllib3", marker = "extra == 'odcs'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'postgres'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'quicksight'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 's3'", specifier = ">=1.26,<3.0" },
@@ -2940,7 +2950,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-cloud"

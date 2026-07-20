@@ -7,6 +7,23 @@ source:
     # logical `odcs` Dataset carrying the contract's schema and assertions.
     path: ./contracts/
 
+    # `path` also accepts remote locations:
+    #   path: s3://my-bucket/contracts/*.odcs.yaml   # requires aws_connection
+    #   path: gs://my-bucket/contracts/*.odcs.yaml   # requires gcs_connection
+    #   path: https://example.com/orders.odcs.yaml   # single file only (no globs)
+    # aws_connection:
+    #   aws_region: us-east-1
+    # gcs_connection:
+    #   hmac_key_id: "..."
+    #   hmac_key_secret: "..."
+
+    # Or clone a Git repository and scan it; non-URI `path` entries above are
+    # resolved relative to the checkout (e.g. `path: contracts/`).
+    # git_info:
+    #   repo: https://github.com/acme/data-contracts
+    #   branch: main
+    #   deploy_key_file: ~/.ssh/datahub_odcs_deploy_key
+
     # Physical binding (the logicalParent link) is derived automatically from
     # each contract's spec-required `servers[].type` — no mapping is needed for
     # postgres / mysql / snowflake / bigquery / redshift / databricks /
