@@ -14,7 +14,6 @@ import {
 } from '@app/document/utils/documentTreeFilters';
 import {
     DocumentSourceGroup,
-    formatPlatformLabel,
     partitionRootNodesByLayer,
 } from '@app/document/utils/documentTreeGrouping';
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
