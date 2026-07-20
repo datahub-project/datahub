@@ -1023,8 +1023,6 @@ parso==0.8.6
     # via jedi
 partd==1.4.2
     # via dask
-patchy==2.8.0
-    # via acryl-datahub
 pathspec==1.0.4
     # via mypy
 pathvalidate==3.3.1
