@@ -61,6 +61,13 @@ class SnowflakeAdapter(PlatformAdapter):
             else:
                 # Either the table is confirmed large, or we couldn't get the
                 # row count. Be conservative and sample in both cases.
+                if row_count is None:
+                    self.report.warning(
+                        title="Row count unknown, conservative sampling applied",
+                        message="Could not determine row count; sampling with assumed row count. "
+                        "This can happen for views or when INFORMATION_SCHEMA is inaccessible.",
+                        context=f"{context.pretty_name} (assumed {self.config.sample_size * 10:,} rows)",
+                    )
                 effective_row_count = (
                     row_count
                     if row_count is not None
