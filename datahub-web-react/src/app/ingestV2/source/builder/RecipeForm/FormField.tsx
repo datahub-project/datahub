@@ -72,7 +72,11 @@ function SelectField({ field, removeMargin }: CommonFieldProps) {
             data-testid={`field-${field.name}`}
         >
             {field.options && (
-                <Select placeholder={field.placeholder} allowClear={!field.required}>
+                <Select
+                    placeholder={field.placeholder}
+                    allowClear={!field.required}
+                    mode={field.isMultiSelect ? 'multiple' : undefined}
+                >
                     {field.options.map((option) => (
                         <Select.Option key={option.value} value={option.value} data-testid={`option-${option.value}`}>
                             {option.label}

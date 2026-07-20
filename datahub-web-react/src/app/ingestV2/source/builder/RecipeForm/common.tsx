@@ -39,6 +39,8 @@ export interface RecipeField {
     disabled?: boolean;
     dynamicDisabled?: (values: FieldsValues) => boolean;
     options?: Option[];
+    // For FieldType.SELECT: render a multi-select whose form value is a string[].
+    isMultiSelect?: boolean;
     buttonLabel?: string;
     keyField?: RecipeField;
     fields?: RecipeField[];
