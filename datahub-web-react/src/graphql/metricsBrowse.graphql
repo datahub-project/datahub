@@ -65,46 +65,32 @@ query getSemanticModelsBrowse($input: GetRootEntitiesInput!) {
     }
 }
 
-query getSemanticModelMetrics($urn: String!, $input: ScrollAcrossEntitiesInput!) {
-    semanticModel(urn: $urn) {
-        urn
-        metrics(input: $input) {
-            nextScrollId
-            count
-            total
-            searchResults {
-                entity {
-                    urn
-                    type
-                    ... on Metric {
-                        id
-                        path
-                        platform {
-                            ...platformFields
-                        }
-                        info {
-                            name
-                            description
-                            lastModified {
-                                time
-                            }
-                        }
-                        childMetrics(input: { count: 0, query: "*" }) {
-                            total
-                        }
-                        subTypes {
-                            typeNames
-                        }
-                    }
-                }
-            }
+fragment metricBrowseFields on Metric {
+    id
+    path
+    platform {
+        ...platformFields
+    }
+    info {
+        name
+        description
+        lastModified {
+            time
         }
+    }
+    childMetrics(input: { count: 0, query: "*" }) {
+        total
+    }
+    subTypes {
+        typeNames
     }
 }
 
-# Direct children of a metric (used to lazily expand a metric row in the sidebar tree).
-query getMetricChildren($input: SearchAcrossEntitiesInput!) {
-    searchAcrossEntities(input: $input) {
+# Cursor-based scroll for metrics. Works for both model-children and metric-children — callers
+# supply the appropriate orFilters.
+query scrollMetrics($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        nextScrollId
         count
         total
         searchResults {
@@ -112,6 +98,24 @@ query getMetricChildren($input: SearchAcrossEntitiesInput!) {
                 urn
                 type
                 ... on Metric {
+                    ...metricBrowseFields
+                }
+            }
+        }
+    }
+}
+
+# Cursor-based scroll for root semantic models in the sidebar tree.
+query scrollSemanticModels($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        nextScrollId
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ... on SemanticModel {
                     id
                     path
                     platform {
@@ -124,7 +128,7 @@ query getMetricChildren($input: SearchAcrossEntitiesInput!) {
                             time
                         }
                     }
-                    childMetrics(input: { count: 0, query: "*" }) {
+                    metrics(input: { count: 0, query: "*" }) {
                         total
                     }
                     subTypes {

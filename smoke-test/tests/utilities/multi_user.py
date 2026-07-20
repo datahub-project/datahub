@@ -8,7 +8,6 @@ import uuid
 from tests.tokens.token_utils import removeUser, wait_for_user_in_list
 from tests.utils import (
     TestSessionWrapper,
-    get_admin_credentials,
     get_frontend_url,
     login_as,
     wait_for_writes_to_sync,
@@ -45,16 +44,19 @@ def _fetch_invite_token(admin_session) -> str:
     return invite_token
 
 
-def _restore_admin_frontend_session(admin_session) -> None:
-    """Re-establish admin frontend cookies after /signUp overwrites the session."""
-    admin_user, admin_pass = get_admin_credentials()
-    fresh_login = login_as(admin_user, admin_pass)
+def _session_cookies(session):
+    if isinstance(session, TestSessionWrapper):
+        return session._upstream.cookies
+    return session.cookies
+
+
+def _restore_admin_frontend_session(admin_session, admin_cookies) -> None:
     if isinstance(admin_session, TestSessionWrapper):
         admin_session._upstream.cookies.clear()
-        admin_session._upstream.cookies.update(fresh_login.cookies)
+        admin_session._upstream.cookies.update(admin_cookies)
     else:
         admin_session.cookies.clear()
-        admin_session.cookies.update(fresh_login.cookies)
+        admin_session.cookies.update(admin_cookies)
 
 
 def make_step_actor_user(admin_session, prefix: str) -> tuple[str, TestSessionWrapper]:
@@ -77,13 +79,14 @@ def make_step_actor_user(admin_session, prefix: str) -> tuple[str, TestSessionWr
         "title": "Data Engineer",
         "inviteToken": _fetch_invite_token(admin_session),
     }
+    admin_cookies = _session_cookies(admin_session).copy()
     sign_up_response = admin_session.post(
         f"{get_frontend_url()}/signUp", json=sign_up_json
     )
     sign_up_response.raise_for_status()
 
     # signUp assigns the new user's frontend cookie on the underlying requests session.
-    _restore_admin_frontend_session(admin_session)
+    _restore_admin_frontend_session(admin_session, admin_cookies)
 
     wait_for_writes_to_sync()
     wait_for_user_in_list(admin_session, email, present=True)

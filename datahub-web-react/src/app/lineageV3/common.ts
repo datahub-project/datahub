@@ -18,6 +18,9 @@ import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
 
+// Page size for fetching/displaying a data product's members, and the initial home member limit.
+export const DATA_PRODUCT_MEMBER_PAGE_SIZE = 50;
+
 export const LINEAGE_NODE_WIDTH = 320; // Fixed width
 export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
 export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handles
@@ -59,6 +62,14 @@ export interface LineageEntity extends NodeBase {
     fetchStatus: Record<LineageDirection, FetchStatus>;
     filters: Record<LineageDirection, Filters>;
     parentDataJob?: Urn;
+    /** Data products containing this entity, with whether it is an output port of each. Undefined
+     * means membership is not yet known; fetched for the data product graph by `useBulkDataProductMemberships`.
+     * Not fetched as part of `entity` because data product lookup requires querying the graph index. */
+    dataProducts?: { urn: Urn; isOutputPort: boolean }[];
+    /** For a data product rendered as a bounding box: how many of its members to fetch and display,
+     * raised a page at a time by the box header's "Show more" control. Currently set on the home
+     * product only; other boxes show all their connected members. */
+    boundingBoxLimit?: number;
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
@@ -86,9 +97,14 @@ export interface LineageBoundingBox {
     type: EntityType;
     entity?: FetchedEntityV2;
     dragged?: boolean;
+    colorHex?: string;
+    /** Number of this data product's members currently shown inside the box. Data-product graphs
+     * only; undefined for data-flow bounding boxes, which have no member counter. */
+    memberCount?: number;
 }
 
 export interface LineageAnnotationNode {
+    urn?: never;
     label: string;
     dragged?: boolean;
 }
@@ -267,6 +283,10 @@ export interface NodeContext {
     setShowDataProcessInstances: (hide: boolean) => void;
     showGhostEntities: boolean;
     setShowGhostEntities: (hide: boolean) => void;
+    /** Data Product Lineage */
+    dataProductEntities: Map<Urn, FetchedEntityV2>;
+    outputPortsOnly: boolean; // Restrict the graph to the home product's output ports and their adjacent nodes
+    setOutputPortsOnly: (only: boolean) => void;
 }
 
 export const LineageNodesContext = React.createContext<NodeContext>({
@@ -278,6 +298,7 @@ export const LineageNodesContext = React.createContext<NodeContext>({
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     },
+    dataProductEntities: new Map(),
     nodeVersion: 0,
     setNodeVersion: () => {},
     dataVersion: 0,
@@ -292,6 +313,8 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setShowDataProcessInstances: () => {},
     showGhostEntities: false,
     setShowGhostEntities: () => {},
+    outputPortsOnly: false,
+    setOutputPortsOnly: () => {},
 });
 
 export function getParents(node: LineageNode, adjacencyList: NodeContext['adjacencyList']): string[] {
@@ -320,24 +343,32 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
-/** Restricts an adjacency list to the given node ids, on both sides of each edge. */
-export function filterAdjacencyList(
-    adjacencyList: NodeContext['adjacencyList'],
+/**
+ * Builds the adjacency list used for hover highlighting from `edges`, restricted to `keepIds` on
+ * both sides. Edges through a query/via node are routed *through* it (`upstream -> via -> downstream`)
+ * rather than as a direct hop, so hovering any upstream of a query that fans into a shared downstream
+ * lights up the shared query->downstream segment. A via node not in `keepIds` falls back to a direct
+ * hop. See `useNodeHighlighting`, which matches rendered edges against these entity-level hops.
+ */
+export function buildHighlightAdjacencyList(
+    edges: NodeContext['edges'],
     keepIds: Set<Urn>,
 ): NodeContext['adjacencyList'] {
-    const filterMap = (neighborMap: NeighborMap): NeighborMap => {
-        const result: NeighborMap = new Map();
-        neighborMap.forEach((neighbors, urn) => {
-            if (!keepIds.has(urn)) return;
-            const keptNeighbors = new Set(Array.from(neighbors).filter((neighbor) => keepIds.has(neighbor)));
-            if (keptNeighbors.size) result.set(urn, keptNeighbors);
-        });
-        return result;
+    const adjacencyList: NodeContext['adjacencyList'] = {
+        [LineageDirection.Upstream]: new Map(),
+        [LineageDirection.Downstream]: new Map(),
     };
-    return {
-        [LineageDirection.Upstream]: filterMap(adjacencyList[LineageDirection.Upstream]),
-        [LineageDirection.Downstream]: filterMap(adjacencyList[LineageDirection.Downstream]),
-    };
+    edges.forEach((edge, edgeId) => {
+        const [upstream, downstream] = parseEdgeId(edgeId);
+        if (!keepIds.has(upstream) || !keepIds.has(downstream)) return;
+        if (edge.via && keepIds.has(edge.via)) {
+            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, upstream, edge.via);
+            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, edge.via, downstream);
+        } else {
+            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, upstream, downstream);
+        }
+    });
+    return adjacencyList;
 }
 
 // Mapping fromRef -> toRef -> operationRef represents a column-level edge (fromRef -> toRef)

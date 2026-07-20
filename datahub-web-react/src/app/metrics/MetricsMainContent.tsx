@@ -3,7 +3,7 @@ import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
@@ -11,6 +11,7 @@ import styled, { useTheme } from 'styled-components';
 import { ModuleHeader } from '@app/homeV3/module/components/LargeModule';
 import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
 import ModuleName from '@app/homeV3/module/components/ModuleName';
+import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { PageRoutes } from '@conf/Global';
@@ -147,6 +148,12 @@ export default function MetricsMainContent() {
     const history = useHistory();
     const theme = useTheme();
     const cardIconStyles = { color: theme.colors.icon };
+
+    // Reset sidebar entity-data so no tree rows auto-expand on the home page.
+    const { setEntityData } = useMetricsEntityContext();
+    useEffect(() => {
+        setEntityData(null);
+    }, [setEntityData]);
     const cardStyle = { flex: 1 };
 
     const { data: modelsData } = useGetSemanticModelsBrowseQuery({

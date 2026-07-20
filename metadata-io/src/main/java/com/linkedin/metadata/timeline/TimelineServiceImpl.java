@@ -467,6 +467,55 @@ public class TimelineServiceImpl implements TimelineService {
     entityTypeElementAspectRegistry.put(DOMAIN_ENTITY_NAME, domainElementAspectRegistry);
     entityTypeElementAspectRegistry.put(DATA_PRODUCT_ENTITY_NAME, dataProductElementAspectRegistry);
     entityTypeElementAspectRegistry.put(DOCUMENT_ENTITY_NAME, documentElementAspectRegistry);
+
+    entityTypeElementAspectRegistry.put(
+        AI_AGENT_ENTITY_NAME, buildAgentFamilyTimelineRegistry(AI_AGENT_ENTITY_NAME));
+    entityTypeElementAspectRegistry.put(
+        API_ENTITY_NAME, buildAgentFamilyTimelineRegistry(API_ENTITY_NAME));
+    entityTypeElementAspectRegistry.put(
+        AGENT_SKILL_ENTITY_NAME, buildAgentFamilyTimelineRegistry(AGENT_SKILL_ENTITY_NAME));
+  }
+
+  private HashMap<ChangeCategory, Set<String>> buildAgentFamilyTimelineRegistry(
+      final String entityType) {
+    final HashMap<ChangeCategory, Set<String>> registry = new HashMap<>();
+    for (ChangeCategory category : ChangeCategory.values()) {
+      final Set<String> aspects = new HashSet<>();
+      switch (category) {
+        case OWNERSHIP:
+          aspects.add(OWNERSHIP_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType, category, OWNERSHIP_ASPECT_NAME, new OwnershipChangeEventGenerator());
+          break;
+        case DOCUMENTATION:
+          aspects.add(INSTITUTIONAL_MEMORY_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType,
+              category,
+              INSTITUTIONAL_MEMORY_ASPECT_NAME,
+              new InstitutionalMemoryChangeEventGenerator());
+          break;
+        case TAG:
+          aspects.add(GLOBAL_TAGS_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType, category, GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsChangeEventGenerator());
+          break;
+        case GLOSSARY_TERM:
+          aspects.add(GLOSSARY_TERMS_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType,
+              category,
+              GLOSSARY_TERMS_ASPECT_NAME,
+              new GlossaryTermsChangeEventGenerator());
+          break;
+        default:
+          break;
+      }
+      if (!aspects.isEmpty()) {
+        registry.put(category, aspects);
+      }
+    }
+    return registry;
   }
 
   Set<String> getAspectsFromElements(String entityType, Set<ChangeCategory> elementNames) {

@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeGuard
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, TypeGuard
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
@@ -541,6 +541,26 @@ def _make_owners(
         seen.add(key)
         owners.append(OwnerClass(owner=owner_urn, type=ownership_type))
     return owners
+
+
+def unmapped_owner_roles(contract: ODCSContract) -> List[str]:
+    """Distinct non-empty `team[].role` values that fall back to TECHNICAL_OWNER.
+
+    An empty/absent role legitimately defaults; a *named* role the map does not
+    know (e.g. `producer`, `consumer`, or a typo) is silently coerced, so the
+    source can surface it for telemetry. Mirrors the eligibility rules in
+    `_make_owners` (skip departed members and members with no identifier).
+    """
+    roles: Set[str] = set()
+    for member in contract.team_members:
+        if member.dateOut:
+            continue
+        if not (member.username or member.name):
+            continue
+        role_key = (member.role or "").strip()
+        if role_key and role_key not in _OWNER_ROLE_MAP:
+            roles.add(role_key)
+    return sorted(roles)
 
 
 def _walk_properties(

@@ -18,7 +18,7 @@ import {
     LineageToggles,
     NodeContext,
     VERTICAL_HANDLE,
-    filterAdjacencyList,
+    buildHighlightAdjacencyList,
 } from '@app/lineageV3/common';
 import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
@@ -242,7 +242,7 @@ export default function computeDataFlowGraph(
         flowEdges,
         resetPositions: false,
         lineageFilters,
-        adjacencyList: filterAdjacencyList(adjacencyList, new Set(flowNodes.map((node) => node.id))),
+        adjacencyList: buildHighlightAdjacencyList(edges, new Set(flowNodes.map((node) => node.id))),
     };
 }
 

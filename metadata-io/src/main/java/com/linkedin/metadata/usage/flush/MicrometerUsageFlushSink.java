@@ -77,6 +77,7 @@ public class MicrometerUsageFlushSink implements UsageFlushSink {
         withTag(
             tags, UsageDimensions.USAGE_OPERATION, dimensions.get(UsageDimensions.USAGE_OPERATION));
     tags = withTag(tags, UsageDimensions.AGENT_CLASS, dimensions.get(UsageDimensions.AGENT_CLASS));
+    tags = withTag(tags, UsageDimensions.AGENT_NAME, dimensions.get(UsageDimensions.AGENT_NAME));
     tags = withTag(tags, UsageDimensions.REQUEST_API, dimensions.get(UsageDimensions.REQUEST_API));
     tags =
         withTag(tags, UsageDimensions.AUTH_CHANNEL, dimensions.get(UsageDimensions.AUTH_CHANNEL));

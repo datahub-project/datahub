@@ -138,6 +138,30 @@ public class Constants {
   public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
   public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
   public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
+  // Service (MCP servers, etc.)
+  public static final String SERVICE_ENTITY_NAME = "service";
+  public static final String SERVICE_KEY_ASPECT_NAME = "serviceKey";
+  public static final String SERVICE_PROPERTIES_ASPECT_NAME = "serviceProperties";
+  public static final String MCP_SERVER_PROPERTIES_ASPECT_NAME = "mcpServerProperties";
+  public static final String AI_AGENT_ENTITY_NAME = "aiAgent";
+  public static final String AI_AGENT_KEY_ASPECT_NAME = "aiAgentKey";
+  public static final String AI_AGENT_INFO_ASPECT_NAME = "aiAgentInfo";
+  public static final String AI_AGENT_DEPENDENCIES_ASPECT_NAME = "aiAgentDependencies";
+  public static final String API_ENTITY_NAME = "api";
+  public static final String API_KEY_ASPECT_NAME = "apiKey";
+  public static final String API_PROPERTIES_ASPECT_NAME = "apiProperties";
+  public static final String API_SIGNATURE_ASPECT_NAME = "apiSignature";
+  public static final String REST_API_PROPERTIES_ASPECT_NAME = "restApiProperties";
+  public static final String REPOSITORY_ENTITY_NAME = "repository";
+  public static final String REPOSITORY_KEY_ASPECT_NAME = "repositoryKey";
+  public static final String REPOSITORY_PROPERTIES_ASPECT_NAME = "repositoryProperties";
+  public static final String REPOSITORY_SOURCE_ASPECT_NAME = "repositorySource";
+  public static final String REPOSITORY_LINEAGE_ASPECT_NAME = "repositoryLineage";
+  public static final String AGENT_SKILL_ENTITY_NAME = "agentSkill";
+  public static final String AGENT_SKILL_KEY_ASPECT_NAME = "agentSkillKey";
+  public static final String AGENT_SKILL_INFO_ASPECT_NAME = "agentSkillInfo";
+  public static final String APPLICATION_LINEAGE_ASPECT_NAME = "applicationLineage";
+  public static final String SERVICE_DEFINITION_ASPECT_NAME = "serviceDefinition";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
   public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
       UrnUtils.getUrn("urn:li:ownershipType:__system__none");

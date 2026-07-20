@@ -152,7 +152,6 @@ sqlglot_lib = {
     # to force pure-Python sqlglot at runtime (see
     # datahub/_force_pure_python_sqlglot.py).
     "sqlglot[c]==30.12.0",
-    "patchy==2.8.0",
 }
 
 dbt_common = {

@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import LineageEmptyGraphNudge from '@app/lineage/LineageEmptyGraphNudge';
 import LineageAnnotationNode, {
-    LINEAGE_ANNOTATION_NODE,
+    LINEAGE_ANNOTATION_NODE_NAME,
 } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import LineageBoundingBoxNode, {
     LINEAGE_BOUNDING_BOX_NODE_NAME,
@@ -60,7 +60,7 @@ const nodeTypes: NodeTypes = {
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
     [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
     [LINEAGE_BOUNDING_BOX_NODE_NAME]: LineageBoundingBoxNode,
-    [LINEAGE_ANNOTATION_NODE]: LineageAnnotationNode,
+    [LINEAGE_ANNOTATION_NODE_NAME]: LineageAnnotationNode,
 };
 
 const edgeTypes: EdgeTypes = {

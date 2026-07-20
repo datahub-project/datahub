@@ -103,6 +103,7 @@ export const DEFAULT_APP_CONFIG = {
         documentationFileUploadV1: false,
         contextDocumentsEnabled: false,
         hideLineageInSearchCards: false,
+        dataProductLineageEnabled: false,
         glossaryBasedPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
         showTestsInHealthIcon: false,
