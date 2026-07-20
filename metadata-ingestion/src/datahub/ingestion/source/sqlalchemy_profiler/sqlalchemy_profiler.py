@@ -1569,6 +1569,7 @@ class SQLAlchemyProfiler:
         custom_sql: Optional[str] = None,
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
+        row_count: Optional[int] = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
         """Generate a single dataset profile."""
@@ -1590,6 +1591,7 @@ class SQLAlchemyProfiler:
             custom_sql=custom_sql,
             pretty_name=pretty_name,
             partition=partition,
+            row_count=row_count,
         )
 
         # Get platform-specific adapter

@@ -840,6 +840,43 @@ class TestSnowflakeAdapter:
         assert not result.is_sampled
         mock_create.assert_called_once()
 
+    def test_setup_profiling_uses_context_row_count(self, adapter, config):
+        """When context.row_count is pre-populated, skip INFORMATION_SCHEMA query."""
+        config.use_sampling = True
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="BIG_TABLE",
+            pretty_name="test",
+            row_count=500_000,
+        )
+        mock_conn = MagicMock()
+
+        sampled_context = ProfilingContext(
+            schema="MY_SCHEMA",
+            table="BIG_TABLE",
+            pretty_name="test",
+            is_sampled=True,
+            temp_table="dh_sample_abc123",
+        )
+        sampled_context.sql_table = MagicMock()
+
+        with (
+            patch.object(adapter, "_get_row_count_from_metadata") as mock_metadata,
+            patch.object(
+                adapter, "_create_sampled_temp_table", return_value=sampled_context
+            ) as mock_sample,
+        ):
+            result = adapter.setup_profiling(context, mock_conn)
+
+        # Should NOT call _get_row_count_from_metadata since context already has it
+        mock_metadata.assert_not_called()
+        # Should sample using the pre-populated row count
+        mock_sample.assert_called_once_with(context, mock_conn, 500_000)
+        assert result.is_sampled
+
     def test_setup_profiling_custom_sql_rejected(self, adapter):
         """custom_sql is GE-only; the SQLAlchemy adapter rejects it."""
         context = ProfilingContext(

@@ -141,6 +141,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             # https://github.com/great-expectations/great_expectations/pull/2023
             "use_quoted_name": (table.name != table.name.upper()),
             "custom_sql": custom_sql,
+            "row_count": table.rows_count,
         }
 
     def get_profiler_instance(
