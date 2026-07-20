@@ -353,8 +353,8 @@ def create_plugin_from_capability_data(
                 source_config_class.model_json_schema(), indent=2
             )
             plugin.config_md = gen_md_table_from_pydantic(
-                source_config_class,
-                current_source=plugin_name,  # type: ignore[arg-type]
+                source_config_class,  # type: ignore[arg-type]
+                current_source=plugin_name,
             )
 
             # Write the config json schema to the out_dir.
