@@ -66,6 +66,7 @@ import timescaledbLogo from '@images/timescalelogo.png';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
+import workdayLogo from '@images/workdaylogo.png';
 
 const AEROSPIKE = 'aerospike';
 const AEROSPIKE_URN = `urn:li:dataPlatform:${AEROSPIKE}`;
@@ -184,6 +185,8 @@ export const DLT = 'dlt';
 export const DLT_URN = `urn:li:dataPlatform:${DLT}`;
 export const VERTICA = 'vertica';
 const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
+export const WORKDAY = 'workday';
+const WORKDAY_URN = `urn:li:dataPlatform:${WORKDAY}`;
 const FIVETRAN = 'fivetran';
 const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
 export const CSV = 'csv-enricher';
@@ -275,6 +278,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATABRICKS_URN]: databricksLogo,
     [DATAPROC_METASTORE_URN]: dataprocMetastoreLogo,
     [VERTICA_URN]: verticaLogo,
+    [WORKDAY_URN]: workdayLogo,
     [DLT_URN]: dltLogo,
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,

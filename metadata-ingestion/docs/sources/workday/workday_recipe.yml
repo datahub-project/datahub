@@ -1,0 +1,45 @@
+source:
+  type: workday
+  config:
+    # Workday services host (no tenant or API path).
+    base_url: "https://wd2-impl-services1.workday.com"
+    tenant: "your_tenant"
+
+    # OAuth 2.0 client-credentials from "Register API Client for Integrations".
+    client_id: "${WORKDAY_CLIENT_ID}"
+    client_secret: "${WORKDAY_CLIENT_SECRET}"
+
+    platform_instance: production
+    env: PROD
+
+    # Optional regex filters. Everything is ingested by default; scope like this:
+    # table_pattern:
+    #   allow:
+    #     - "^Worker_.*"
+    # report_pattern:
+    #   deny:
+    #     - "^Scratch.*"
+
+    extract_tables: true
+    extract_datasets: true
+    extract_data_sources: true
+    extract_reports: true
+    extract_lineage: true
+    include_external_tables: true
+    ingest_owner: true
+
+    # Optional: link an external Prism data source to the upstream warehouse
+    # dataset it was loaded from, for cross-platform lineage.
+    # data_source_platform_mapping:
+    #   "My Snowflake Source":
+    #     platform: snowflake
+    #     platform_instance: prod
+    #     env: PROD
+    #     dataset_name: db.schema.table
+
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  # sink configs
