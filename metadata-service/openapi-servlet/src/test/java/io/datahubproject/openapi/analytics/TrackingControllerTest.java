@@ -1,6 +1,5 @@
 package io.datahubproject.openapi.analytics;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
@@ -10,12 +9,14 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -68,8 +69,13 @@ public class TrackingControllerTest {
 
     // Verify tracking service was called with a session-derived opContext (not the raw system
     // context)
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
     verify(trackingService)
-        .track(eq("TestEvent"), any(OperationContext.class), eq(null), eq(null), eq(event));
+        .track(eq("TestEvent"), opContextCaptor.capture(), eq(null), eq(null), eq(event));
+    OperationContext sessionCtx = opContextCaptor.getValue();
+    assertEquals(sessionCtx.getSessionAuthentication().getActor().getId(), "testUser");
+    assertEquals(sessionCtx.getAuthorizationContext().getAuthorizer(), authorizerChain);
   }
 
   @Test
@@ -150,7 +156,12 @@ public class TrackingControllerTest {
     ResponseEntity<Void> response = controllerWithoutAuthorizer.trackEvent(request, event);
 
     assertEquals(response.getStatusCode().value(), 200);
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
     verify(trackingService)
-        .track(eq("TestEvent"), any(OperationContext.class), eq(null), eq(null), eq(event));
+        .track(eq("TestEvent"), opContextCaptor.capture(), eq(null), eq(null), eq(event));
+    OperationContext sessionCtx = opContextCaptor.getValue();
+    assertEquals(sessionCtx.getSessionAuthentication().getActor().getId(), "testUser");
+    assertEquals(sessionCtx.getAuthorizationContext().getAuthorizer(), Authorizer.EMPTY);
   }
 }

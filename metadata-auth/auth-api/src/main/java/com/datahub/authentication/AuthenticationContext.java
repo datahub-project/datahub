@@ -17,23 +17,12 @@ public class AuthenticationContext {
   }
 
   /**
-   * Returns the current authentication when both the ThreadLocal value and its actor are present.
-   * Prefer this at HTTP entrances before {@code auth.getActor().toUrnStr()} to avoid NPEs when the
-   * filter left context unset (excluded paths, tests, filter-order bugs).
+   * Present when AuthenticationContext is set for the current thread. Actor is non-null by {@link
+   * Authentication} construction ({@code Objects.requireNonNull}).
    */
   @Nonnull
   public static Optional<Authentication> maybeAuthentication() {
-    Authentication authentication = AUTHENTICATION.get();
-    if (authentication == null || authentication.getActor() == null) {
-      return Optional.empty();
-    }
-    return Optional.of(authentication);
-  }
-
-  /** Actor URN for the current request when authentication is present. */
-  @Nonnull
-  public static Optional<String> maybeActorUrn() {
-    return maybeAuthentication().map(auth -> auth.getActor().toUrnStr());
+    return Optional.ofNullable(AUTHENTICATION.get());
   }
 
   public static void setAuthentication(Authentication authentication) {

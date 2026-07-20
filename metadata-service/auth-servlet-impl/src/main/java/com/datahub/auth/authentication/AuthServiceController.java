@@ -21,7 +21,6 @@ import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -120,8 +119,6 @@ public class AuthServiceController {
 
   @Autowired private InviteTokenService _inviteTokenService;
 
-  @Autowired private TrackingService _trackingService;
-
   @Autowired private ObjectMapper mapper;
 
   @Autowired
@@ -183,7 +180,7 @@ public class AuthServiceController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(actorUrn, request, "generateSessionTokenForUser", List.of()),
-            Authorizer.EMPTY,
+            Authorizer.SYSTEM,
             authentication,
             true);
     return CompletableFuture.supplyAsync(
@@ -330,7 +327,7 @@ public class AuthServiceController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(auth.get().getActor().toUrnStr(), request, "signUp", List.of()),
-            Authorizer.EMPTY,
+            Authorizer.SYSTEM,
             auth.get(),
             true);
     return CompletableFuture.supplyAsync(
@@ -412,7 +409,7 @@ public class AuthServiceController {
                     request,
                     "resetNativeUserCredentials",
                     List.of()),
-            Authorizer.EMPTY,
+            Authorizer.SYSTEM,
             auth.get(),
             true);
     return CompletableFuture.supplyAsync(
@@ -487,7 +484,7 @@ public class AuthServiceController {
                     request,
                     "verifyNativeUserCredentials",
                     List.of()),
-            Authorizer.EMPTY,
+            Authorizer.SYSTEM,
             auth.get(),
             true);
     return CompletableFuture.supplyAsync(
@@ -629,7 +626,7 @@ public class AuthServiceController {
             RequestContext.builder()
                 .buildOpenapi(
                     auth.get().getActor().toUrnStr(), request, "getSsoSettings", List.of()),
-            Authorizer.EMPTY,
+            Authorizer.SYSTEM,
             auth.get(),
             true);
     return CompletableFuture.supplyAsync(
@@ -661,9 +658,6 @@ public class AuthServiceController {
       return;
     }
     Authentication authentication = maybeAuth.get();
-    if (authentication.getActor() == null) {
-      return;
-    }
     OperationContext.asSession(
         systemOperationContext,
         AuthUsageRequestContext.openapiUsage(
