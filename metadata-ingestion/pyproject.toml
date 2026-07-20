@@ -774,6 +774,13 @@ notion = [
     "urllib3>=1.26,<3.0",
 ]
 
+odcs = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "GitPython>2,<4.0.0",
+    "urllib3>=1.26,<3.0",
+]
+
 okta = [
     "flatdict!=4.0.1",
     "nest-asyncio<2.0.0",
