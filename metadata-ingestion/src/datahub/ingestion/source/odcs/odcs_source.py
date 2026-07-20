@@ -918,8 +918,8 @@ class ODCSSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Emit the odcs platform aspect once per run. Also registered at GMS
-        # boot (PR #17332); this is the version-independent fallback, and its
-        # fields must stay in sync with that entry -- see odcs_platform_info_mcp().
+        # boot; this is the version-independent fallback, and its fields must
+        # stay in sync with that entry -- see odcs_platform_info_mcp().
         # is_primary_source=False keeps the platform entity out of the
         # stateful-ingestion checkpoint.
         yield odcs_platform_info_mcp().as_workunit(is_primary_source=False)
