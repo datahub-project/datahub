@@ -2,21 +2,28 @@ import { Button, Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { SupportStatusBadge } from '@app/ingestV2/source/builder/SupportStatusBadge';
+
 const Container = styled(Button)`
-    padding: 32px;
-    height: 200px;
-    display: flex;
-    justify-content: center;
-    border-radius: 8px;
-    align-items: start;
-    flex-direction: column;
-    border: 1px solid ${(props) => props.theme.colors.border};
-    background-color: ${(props) => props.theme.colors.bg};
+    && {
+        padding: 32px;
+        height: 100%;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        border-radius: 8px;
+        align-items: start;
+        flex-direction: column;
+        border: 1px solid ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bg};
+        white-space: unset;
+        position: relative;
+        overflow: hidden;
+    }
     &&:hover {
         border: 1px solid ${(props) => props.theme.colors.borderHover};
         background-color: ${(props) => props.theme.colors.bg};
     }
-    white-space: unset;
 `;
 
 const PlatformLogo = styled(Image)`
@@ -43,6 +50,17 @@ const Description = styled.div`
     word-break: break-word;
     text-align: left;
     color: ${(props) => props.theme.colors.textTertiary};
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+const BadgePosition = styled.div`
+    position: absolute;
+    top: 10px;
+    right: 10px;
 `;
 
 type Props = {
@@ -50,13 +68,27 @@ type Props = {
     logoComponent?: React.ReactNode;
     name: string;
     description?: string;
+    supportStatus?: string;
     onClick?: () => void;
     dataTestId?: string;
 };
 
-export const DataPlatformCard = ({ logoUrl, logoComponent, name, description, onClick, dataTestId }: Props) => {
+export const DataPlatformCard = ({
+    logoUrl,
+    logoComponent,
+    name,
+    description,
+    supportStatus,
+    onClick,
+    dataTestId,
+}: Props) => {
     return (
         <Container type="link" onClick={onClick} data-testid={dataTestId}>
+            {supportStatus && (
+                <BadgePosition>
+                    <SupportStatusBadge status={supportStatus} />
+                </BadgePosition>
+            )}
             <LogoContainer>
                 {(logoUrl && <PlatformLogo preview={false} src={logoUrl} alt={name} />) || logoComponent}
             </LogoContainer>
