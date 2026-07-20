@@ -20,7 +20,6 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
-    DataPlatformInfoClass,
     DatasetPropertiesClass,
     EdgeClass,
     LogicalParentClass,
@@ -341,25 +340,8 @@ def test_spec_valid_unmapped_field_is_info_not_warning(tmp_path: pathlib.Path) -
 
 
 # ---------------------------------------------------------------------------
-# Platform registration, binding, and assertion emission
+# Binding and assertion emission
 # ---------------------------------------------------------------------------
-
-
-def test_platform_info_emitted_once_and_not_primary(tmp_path: pathlib.Path) -> None:
-    contract_file = tmp_path / "c.odcs.yaml"
-    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
-    src = _make_source(tmp_path, path=str(contract_file))
-    workunits = list(src.get_workunits_internal())
-    platform_wus = [
-        wu
-        for wu in workunits
-        if isinstance(getattr(wu.metadata, "aspect", None), DataPlatformInfoClass)
-    ]
-    assert len(platform_wus) == 1
-    platform_aspect = _mcp(platform_wus[0]).aspect
-    assert isinstance(platform_aspect, DataPlatformInfoClass)
-    assert platform_aspect.name == "odcs"
-    assert not platform_wus[0].is_primary_source
 
 
 def test_binding_derived_from_server_type(tmp_path: pathlib.Path) -> None:
@@ -429,15 +411,14 @@ def test_emit_flags(tmp_path: pathlib.Path) -> None:
     assert not _aspects_of(workunits, AssertionInfoClass)
 
 
-def test_platform_info_emitted_once_across_multiple_files(
+def test_multiple_files_emit_all_logical_datasets(
     tmp_path: pathlib.Path,
 ) -> None:
     body2 = _VALID_CONTRACT_BODY.replace("id: test-contract-1", "id: test-contract-2")
     _write(tmp_path / "a.odcs.yaml", _VALID_CONTRACT_BODY)
     _write(tmp_path / "b.odcs.yaml", body2)
     src = _make_source(tmp_path, path=str(tmp_path))
-    workunits = list(src.get_workunits_internal())
-    assert len(_aspects_of(workunits, DataPlatformInfoClass)) == 1
+    list(src.get_workunits_internal())
     assert src.report.logical_datasets_emitted == 2
 
 
@@ -649,13 +630,13 @@ def test_owned_workunits_are_primary_but_links_are_not(
     tmp_path: pathlib.Path,
 ) -> None:
     """Stale removal must track logical datasets + assertions (primary) but
-    never the logicalParent link on physical datasets or the platform aspect."""
+    never the logicalParent link on physical datasets."""
     contract_file = tmp_path / "c.odcs.yaml"
     contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
     src = _make_source(tmp_path, path=str(contract_file))
     for wu in src.get_workunits_internal():
         aspect = getattr(wu.metadata, "aspect", None)
-        if isinstance(aspect, (LogicalParentClass, DataPlatformInfoClass)):
+        if isinstance(aspect, LogicalParentClass):
             assert not wu.is_primary_source
         elif isinstance(aspect, (AssertionInfoClass, DatasetPropertiesClass)):
             assert wu.is_primary_source
