@@ -6,6 +6,7 @@ from typing import Dict, List, NoReturn, Optional, Set, Tuple
 import click
 import yaml
 
+from datahub.ingestion.agent.api_probe import probe_api
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind, ProbeLeafKind, ProbeNodeKind
 from datahub.ingestion.agent.probe import probe, probe_hierarchy
@@ -329,3 +330,48 @@ def probe_columns(
         {"database": database, "schema": schema, "table": table},
         limit,
     )
+
+
+@probe_group.command(name="api")
+@click.option("--recipe", "recipe_path", required=True)
+def probe_api_cmd(recipe_path: str) -> None:
+    # Connectorless REST probe: interrogate a source that has no purpose-built
+    # connector, described by a top-level `probe:` block instead of `source:`.
+    # Secrets in headers (${ENV}) resolve in-process and are redacted from output;
+    # only response shapes (never values) are returned.
+    secret_values: Set[str] = set()
+    try:
+        raw = _load_recipe(recipe_path).get("probe")
+        block: Dict[str, object] = raw if isinstance(raw, dict) else {}
+        if str(block.get("kind")) != "rest":
+            _fail("probe.kind must be 'rest' for probe api", EXIT_USER)
+        resolved = resolve_config_collecting(block, default_resolvers())
+        secret_values = resolved.secret_values
+        cfg = resolved.config
+        base_url = cfg.get("base_url")
+        raw_endpoints = cfg.get("endpoints")
+        if not isinstance(base_url, str) or not base_url:
+            _fail("probe.base_url is required", EXIT_USER)
+        if not isinstance(raw_endpoints, list) or not raw_endpoints:
+            _fail("probe.endpoints must be a non-empty list", EXIT_USER)
+        raw_headers = cfg.get("headers")
+        headers = (
+            {str(k): str(v) for k, v in raw_headers.items()}
+            if isinstance(raw_headers, dict)
+            else None
+        )
+        budget = cfg.get("budget")
+        verify_ssl = cfg.get("verify_ssl")
+        result = probe_api(
+            base_url=base_url,
+            endpoints=[str(e) for e in raw_endpoints],
+            headers=headers,
+            budget=int(budget) if isinstance(budget, int) else 10,
+            verify_ssl=verify_ssl if isinstance(verify_ssl, bool) else True,
+        )
+        _emit(redact(result.to_dict(), secret_values))
+    except (ValueError, TypeError, AssertionError, KeyError) as exc:
+        # SECURITY: exception text may embed a resolved auth secret from a header.
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_USER)
