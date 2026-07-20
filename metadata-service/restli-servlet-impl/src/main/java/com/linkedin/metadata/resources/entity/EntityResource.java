@@ -891,7 +891,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               aspectRowsToDelete.stream()
                   .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
                   .keySet();
-          // TODO(opContext-review): dual context — please review
           // Second asSession call is intentional: the target URNs are only known after
           // findByRegistry returns, so the authorization check here uses a context that
           // includes the actual URN set rather than the empty List.of() used above.

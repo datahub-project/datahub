@@ -232,11 +232,6 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @Nullable Boolean forceDeleteByQuery,
       @Nullable Boolean forceReindex) {
 
-      final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "executeTruncateTimeseriesAspect", entityType).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, auth, true);
-
     if (!isAPIAuthorized(
             opContext,
             PoliciesConfig.TRUNCATE_TIMESERIES_INDEX_PRIVILEGE)) {
@@ -326,7 +321,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext = OperationContext.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    ACTION_TRUNCATE_TIMESERIES_ASPECT, entityType), _authorizer, auth, true);
+                    ACTION_TRUNCATE_TIMESERIES_ASPECT, entityType).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
         () ->
             executeTruncateTimeseriesAspect(

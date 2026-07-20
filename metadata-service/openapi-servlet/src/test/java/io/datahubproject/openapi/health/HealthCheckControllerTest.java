@@ -12,7 +12,6 @@ import com.linkedin.gms.factory.config.HealthCheckConfiguration;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.GracefulShutdownHandler;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
@@ -44,15 +43,6 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
   @MockitoBean
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
-
-  // HealthCheckController @Autowires systemOperationContext. In production it is used as the
-  // fallback opContext when AuthenticationContext is unset (auth-excluded /health path). In this
-  // slice test the filter chain never runs, so AuthenticationContext is always null and
-  // systemOperationContext is passed directly to clusterHealth. Mock it here so the slice test
-  // does not need the full bean graph.
-  @MockitoBean
-  @Qualifier("systemOperationContext")
-  private OperationContext systemOperationContext;
 
   @MockitoBean
   @Qualifier("bootstrapManager")

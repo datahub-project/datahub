@@ -68,6 +68,8 @@ public class ConfigSearchExport extends HttpServlet {
               auth,
               true);
     } else {
+      log.warn(
+          "No AuthenticationContext for configSearchExport; falling back to systemOperationContext");
       opContext = systemOperationContext;
     }
     ConfigurationProvider configurationProvider = getConfigProvider(ctx);
