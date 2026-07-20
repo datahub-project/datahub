@@ -28,7 +28,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
-    odcs_platform_info_mcp,
     odcs_to_assertion_mcps,
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_parent_mcp,
@@ -917,13 +916,6 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.logical_parents_emitted += 1
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # Emit the odcs platform aspect once per run. Also registered at GMS
-        # boot (PR #17332); this is the version-independent fallback, and its
-        # fields must stay in sync with that entry -- see odcs_platform_info_mcp().
-        # is_primary_source=False keeps the platform entity out of the
-        # stateful-ingestion checkpoint.
-        yield odcs_platform_info_mcp().as_workunit(is_primary_source=False)
-
         for file_path in self._resolve_paths():
             try:
                 yield from self._process_file(file_path)
