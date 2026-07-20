@@ -26,6 +26,14 @@ SNOWFLAKE_PROBE_HIERARCHY: List[ProbeNodeKind] = [
 ]
 
 
+def _quote_identifier(name: str) -> str:
+    # database comes from the agent-facing --database argument and is interpolated
+    # into raw SHOW / USE statements (there's no bind-parameter form for
+    # identifiers). Escape embedded double quotes so the value cannot break out of
+    # the quoted identifier. Snowflake escapes " as "".
+    return name.replace('"', '""')
+
+
 def list_snowflake_children(
     config: Any, parent_path: List[str], limit: int
 ) -> ProbeResult:
@@ -73,7 +81,9 @@ def list_snowflake_children(
 
             with engine.connect() as conn:
                 rows = conn.execute(
-                    text(f'SHOW TERSE SCHEMAS IN DATABASE "{database}"')
+                    text(
+                        f'SHOW TERSE SCHEMAS IN DATABASE "{_quote_identifier(database)}"'
+                    )
                 )
                 names = [row._mapping["name"] for row in rows]
             nodes, truncated = container_nodes(
@@ -104,7 +114,7 @@ def list_snowflake_children(
             # current database). Pin the database on the connection and pass the
             # bare schema so both table and column reflection resolve.
             with engine.connect() as conn:
-                conn.execute(text(f'USE DATABASE "{database}"'))
+                conn.execute(text(f'USE DATABASE "{_quote_identifier(database)}"'))
                 inspector = inspect(conn)
                 nodes, truncated = table_nodes(
                     inspector.get_table_names(schema=schema),
@@ -116,7 +126,7 @@ def list_snowflake_children(
         else:
             database, schema, table = parent_path[0], parent_path[1], parent_path[2]
             with engine.connect() as conn:
-                conn.execute(text(f'USE DATABASE "{database}"'))
+                conn.execute(text(f'USE DATABASE "{_quote_identifier(database)}"'))
                 inspector = inspect(conn)
                 nodes, truncated = column_nodes(
                     inspector.get_columns(table, schema=schema),

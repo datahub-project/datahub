@@ -187,6 +187,15 @@ def test_table_nodes_classifier_sees_is_view():
     assert verdicts["v_orders"] == (False, "view_pattern")
 
 
+def test_snowflake_identifier_escaping_prevents_injection():
+    pytest.importorskip("snowflake.connector")
+    from datahub.ingestion.source.snowflake.snowflake_probe import _quote_identifier
+
+    assert _quote_identifier("DEMO_DB") == "DEMO_DB"
+    # An embedded double quote is doubled so it cannot break out of the identifier.
+    assert _quote_identifier('EVIL" ; DROP TABLE x --') == 'EVIL"" ; DROP TABLE x --'
+
+
 def test_snowflake_default_schema_predicate():
     pytest.importorskip("snowflake.connector")
     from datahub.ingestion.source.snowflake.snowflake_utils import (
