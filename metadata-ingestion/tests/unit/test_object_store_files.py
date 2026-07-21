@@ -301,6 +301,23 @@ def test_http_connection_config_requires_both_basic_parts():
         HTTPConnectionConfig(username="u")
 
 
+def test_http_connection_config_blank_strings_are_unset():
+    # Blank credentials must not send a "Bearer " header or an empty basic-auth
+    # tuple — they collapse to None (no auth).
+    cfg = HTTPConnectionConfig(token="", username="  ", password="")
+    assert cfg.token is None
+    assert cfg.username is None
+    assert cfg.password is None
+    with mock.patch(
+        "datahub.ingestion.source.common.object_store_files.requests.get"
+    ) as mock_get:
+        mock_get.return_value = _mock_http_response([b"ok"])
+        read_file_as_bytes("https://example.com/contract.yaml", http_connection=cfg)
+        kwargs = mock_get.call_args.kwargs
+        assert "auth" not in kwargs
+        assert "headers" not in kwargs
+
+
 def test_read_file_as_bytes_s3():
     connection = mock.MagicMock()
     s3_client = mock.MagicMock()

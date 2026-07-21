@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
@@ -26,6 +26,15 @@ class HTTPConnectionConfig(ConfigModel):
         description="Verify the server's TLS certificate. Disable only for trusted "
         "hosts with self-signed certificates.",
     )
+
+    @field_validator("token", "username", "password", mode="before")
+    @classmethod
+    def _blank_to_none(cls, value: object) -> object:
+        # Empty/whitespace-only strings are treated as "unset" so a blank field
+        # never produces a "Bearer " header or an empty ("", "") basic-auth tuple.
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
     @model_validator(mode="after")
     def _validate_auth(self) -> "HTTPConnectionConfig":
