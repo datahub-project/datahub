@@ -80,6 +80,41 @@ class TestInstallExternalPlugins:
         reqs = json.loads(args["extra_pip_requirements"])
         assert reqs == ["/tmp/a.whl"]
 
+    def test_two_connectors_from_one_repo_forward_shared_checksum(
+        self, executor_action
+    ):
+        """Two connectors shipped by one multi-plugin wheel resolve independently.
+
+        Each UI card for a multi-connector repo forwards the same repo and the
+        same (shared) wheel checksum. The executor is manifest-agnostic, so a
+        shared repo is not special-cased — both entries resolve and the shared
+        checksum is threaded to download_wheel for each.
+        """
+        specs = [
+            {"spec": "github:acme/bundle@v1.0", "sha256": "sharedhash"},
+            {"spec": "github:acme/bundle@v1.0", "sha256": "sharedhash"},
+        ]
+        args = {"datahub_plugins": json.dumps(specs)}
+
+        fake = ResolvedWheel(
+            download_url="https://github.com/acme/bundle/releases/download/v1.0/bundle.whl",
+            version="1.0",
+        )
+
+        with (
+            patch(RESOLVE_PATH, return_value=fake),
+            patch(DOWNLOAD_PATH, return_value="/tmp/bundle.whl") as mock_dl,
+        ):
+            executor_action._install_external_plugins(args)
+
+        assert mock_dl.call_count == 2
+        assert all(
+            call.kwargs["expected_sha256"] == "sharedhash"
+            for call in mock_dl.call_args_list
+        )
+        reqs = json.loads(args["extra_pip_requirements"])
+        assert reqs == ["/tmp/bundle.whl", "/tmp/bundle.whl"]
+
     def test_git_fallback_uses_url_directly(self, executor_action):
         """Non-wheel specs (git+https://) are passed as URLs without download."""
         specs = ["github:acme/source-b@v2.0"]

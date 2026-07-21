@@ -27,6 +27,7 @@ from datahub.plugin.github_resolver import (
 from datahub.plugin.plugin_config import (
     MANIFEST_FILENAME,
     PluginManifest,
+    PluginManifestFile,
     TrustTier,
 )
 from datahub.plugin.registry_client import PluginIndexEntry
@@ -69,11 +70,12 @@ def load_sources(path: str) -> IndexSources:
     return IndexSources.model_validate(data)
 
 
-def read_manifest_from_wheel(wheel_path: str) -> PluginManifest:
+def read_manifests_from_wheel(wheel_path: str) -> List[PluginManifest]:
     """Extract and parse ``datahub-plugin.yaml`` from a wheel (a zip archive).
 
     The manifest is bundled as package data at ``<pkg>/datahub-plugin.yaml``; the
     shortest matching path (the package-root manifest) is used if several match.
+    A single manifest may declare multiple plugins, so this returns a list.
     """
     with zipfile.ZipFile(wheel_path) as zf:
         candidates = [n for n in zf.namelist() if n.endswith(MANIFEST_FILENAME)]
@@ -81,7 +83,7 @@ def read_manifest_from_wheel(wheel_path: str) -> PluginManifest:
             raise ValueError(f"No {MANIFEST_FILENAME} found in wheel {wheel_path}")
         manifest_name = min(candidates, key=len)
         data = yaml.safe_load(zf.read(manifest_name))
-    return PluginManifest.model_validate(data)
+    return PluginManifestFile.model_validate(data).plugins
 
 
 def _sha256_of_file(path: str) -> str:
@@ -92,11 +94,14 @@ def _sha256_of_file(path: str) -> str:
     return hasher.hexdigest()
 
 
-def build_entry(source: IndexSource) -> PluginIndexEntry:
-    """Resolve one curated source into a unified index entry.
+def build_entries(source: IndexSource) -> List[PluginIndexEntry]:
+    """Resolve one curated source into its index entries.
 
     Downloads the release wheel once and uses it for both the checksum and the
-    bundled manifest. Raises ``ValueError`` if the release has no wheel asset.
+    bundled manifest. A wheel that ships several connectors yields one entry per
+    plugin — all sharing the same repo, version, and checksum, but with distinct
+    ids, types, and capabilities. Raises ``ValueError`` if the release has no
+    wheel asset.
     """
     resolved = resolve_github_spec(f"github:{source.repo}@{source.version}")
     if not isinstance(resolved, ResolvedWheel):
@@ -106,24 +111,27 @@ def build_entry(source: IndexSource) -> PluginIndexEntry:
         )
     wheel_path = download_wheel(resolved)
     sha256 = _sha256_of_file(wheel_path)
-    manifest = read_manifest_from_wheel(wheel_path)
+    manifests = read_manifests_from_wheel(wheel_path)
 
-    return PluginIndexEntry(
-        id=manifest.id,
-        repo=source.repo,
-        version=source.version,
-        type=manifest.type,
-        description=manifest.description,
-        author=manifest.author,
-        display_name=manifest.name,
-        icon_url=manifest.icon_url,
-        sha256=sha256,
-        trust_tier=source.trust_tier,
-        support_status=manifest.support_status,
-        capabilities=list(manifest.capabilities),
-        source_url=manifest.url,
-        package_name=source.package_name,
-    )
+    return [
+        PluginIndexEntry(
+            id=manifest.id,
+            repo=source.repo,
+            version=source.version,
+            type=manifest.type,
+            description=manifest.description,
+            author=manifest.author,
+            display_name=manifest.name,
+            icon_url=manifest.icon_url,
+            sha256=sha256,
+            trust_tier=source.trust_tier,
+            support_status=manifest.support_status,
+            capabilities=list(manifest.capabilities),
+            source_url=manifest.url,
+            package_name=source.package_name,
+        )
+        for manifest in manifests
+    ]
 
 
 def build_index(sources: IndexSources) -> IndexBuildResult:
@@ -131,8 +139,14 @@ def build_index(sources: IndexSources) -> IndexBuildResult:
     result = IndexBuildResult()
     for source in sources.plugins:
         try:
-            result.entries.append(build_entry(source))
-            logger.info("Indexed %s@%s", source.repo, source.version)
+            entries = build_entries(source)
+            result.entries.extend(entries)
+            logger.info(
+                "Indexed %s@%s (%d plugin(s))",
+                source.repo,
+                source.version,
+                len(entries),
+            )
         except Exception as e:
             msg = f"{source.repo}@{source.version}: {e}"
             logger.warning("Failed to index %s", msg, exc_info=True)

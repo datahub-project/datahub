@@ -12,6 +12,7 @@ from datahub.plugin.plugin_config import (
     PluginCapabilityType,
     PluginCompatibility,
     PluginManifest,
+    PluginManifestFile,
     PluginSystemConfig,
     RegistryConfig,
     SupportStatusType,
@@ -214,6 +215,96 @@ capabilities:
         reloaded = PluginManifest.model_validate(dumped)
         assert reloaded.support_status == manifest.support_status
         assert len(reloaded.capabilities) == len(manifest.capabilities)
+
+
+class TestPluginManifestFile:
+    def test_flat_form_wraps_single_plugin(self) -> None:
+        # The legacy flat manifest (fields at the top level) is treated as a
+        # one-element list, so existing plugins keep parsing unchanged.
+        data = yaml.safe_load(
+            """
+api_version: datahub/v1
+id: my-source
+name: My Source
+type: source
+entry_point: my_pkg.source:MySource
+author: tester
+"""
+        )
+        manifest_file = PluginManifestFile.model_validate(data)
+        assert [m.id for m in manifest_file.plugins] == ["my-source"]
+        assert manifest_file.plugins[0].author == "tester"
+
+    def test_multi_form_merges_shared_defaults(self) -> None:
+        data = yaml.safe_load(
+            """
+api_version: datahub/v1
+author: tester
+url: https://example.com/docs
+plugins:
+  - id: source-a
+    name: Source A
+    type: source
+    entry_point: my_pkg.a:SourceA
+  - id: source-b
+    name: Source B
+    type: source
+    entry_point: my_pkg.b:SourceB
+    author: other
+    icon_url: https://example.com/b.png
+"""
+        )
+        manifest_file = PluginManifestFile.model_validate(data)
+        plugins = {m.id: m for m in manifest_file.plugins}
+        assert set(plugins) == {"source-a", "source-b"}
+        # Shared package-level fields propagate to every plugin...
+        assert plugins["source-a"].author == "tester"
+        assert plugins["source-a"].url == "https://example.com/docs"
+        # ...but a per-entry value wins over the shared default.
+        assert plugins["source-b"].author == "other"
+        assert plugins["source-b"].icon_url == "https://example.com/b.png"
+        assert plugins["source-a"].icon_url is None
+
+    def test_empty_plugins_list_rejected(self) -> None:
+        with pytest.raises(ValueError, match="at least one plugin"):
+            PluginManifestFile.model_validate({"plugins": []})
+
+    def test_duplicate_ids_rejected(self) -> None:
+        data = {
+            "plugins": [
+                {
+                    "id": "dup",
+                    "name": "A",
+                    "type": "source",
+                    "entry_point": "p.a:A",
+                },
+                {
+                    "id": "dup",
+                    "name": "B",
+                    "type": "source",
+                    "entry_point": "p.b:B",
+                },
+            ]
+        }
+        with pytest.raises(ValueError, match="Duplicate plugin id"):
+            PluginManifestFile.model_validate(data)
+
+    def test_unknown_field_in_entry_still_rejected(self) -> None:
+        # Per-plugin entries are validated as PluginManifest (extra="forbid"),
+        # so author typos are still caught in the multi-plugin form.
+        data = {
+            "plugins": [
+                {
+                    "id": "src",
+                    "name": "Src",
+                    "type": "source",
+                    "entry_point": "p.s:S",
+                    "entrypoint": "typo",
+                }
+            ]
+        }
+        with pytest.raises(ValueError):
+            PluginManifestFile.model_validate(data)
 
 
 class TestDiscoveredPlugin:

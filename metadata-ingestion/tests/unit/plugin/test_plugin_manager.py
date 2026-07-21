@@ -11,6 +11,7 @@ from datahub.plugin.plugin_config import PluginCapabilityType
 from datahub.plugin.plugin_manager import (
     PluginManager,
     _find_manifest_path_in_dist,
+    _load_plugins_from_dist,
     _package_name_from_target,
     _pip_cmd,
 )
@@ -59,11 +60,72 @@ class TestPipCmd:
         assert cmd[1:] == ["-m", "pip"]
 
 
+class TestLoadPluginsFromDist:
+    def _dist(self, name: str = "datahub-bundle", version: str = "1.2.3") -> MagicMock:
+        dist = MagicMock()
+        dist.name = name
+        dist.version = version
+        return dist
+
+    def test_single_plugin_manifest(self, tmp_path: Path) -> None:
+        manifest = tmp_path / "datahub-plugin.yaml"
+        manifest.write_text(
+            "api_version: datahub/v1\n"
+            "id: solo-source\n"
+            "name: Solo\n"
+            "type: source\n"
+            "entry_point: pkg.source:Solo\n"
+        )
+        with patch(
+            "datahub.plugin.plugin_manager._find_manifest_path_in_dist",
+            return_value=str(manifest),
+        ):
+            plugins = _load_plugins_from_dist(self._dist())
+
+        assert [p.manifest.id for p in plugins] == ["solo-source"]
+        assert plugins[0].package_name == "datahub-bundle"
+        assert plugins[0].version == "1.2.3"
+
+    def test_multi_plugin_manifest_yields_all(self, tmp_path: Path) -> None:
+        manifest = tmp_path / "datahub-plugin.yaml"
+        manifest.write_text(
+            "api_version: datahub/v1\n"
+            "author: tester\n"
+            "plugins:\n"
+            "  - id: source-a\n"
+            "    name: A\n"
+            "    type: source\n"
+            "    entry_point: pkg.a:A\n"
+            "  - id: source-b\n"
+            "    name: B\n"
+            "    type: source\n"
+            "    entry_point: pkg.b:B\n"
+        )
+        with patch(
+            "datahub.plugin.plugin_manager._find_manifest_path_in_dist",
+            return_value=str(manifest),
+        ):
+            plugins = _load_plugins_from_dist(self._dist())
+
+        # One wheel, two connectors — both discovered, sharing package identity.
+        assert [p.manifest.id for p in plugins] == ["source-a", "source-b"]
+        assert {p.package_name for p in plugins} == {"datahub-bundle"}
+        assert {p.version for p in plugins} == {"1.2.3"}
+        assert all(p.manifest.author == "tester" for p in plugins)
+
+    def test_no_manifest_returns_empty(self) -> None:
+        with patch(
+            "datahub.plugin.plugin_manager._find_manifest_path_in_dist",
+            return_value=None,
+        ):
+            assert _load_plugins_from_dist(self._dist()) == []
+
+
 class TestDiscoverPluginsErrorBoundary:
     """Test that discover_plugins isolates failures per-distribution."""
 
     @patch("datahub.plugin.plugin_manager.distributions")
-    @patch("datahub.plugin.plugin_manager._load_plugin_from_dist")
+    @patch("datahub.plugin.plugin_manager._load_plugins_from_dist")
     def test_corrupted_manifest_does_not_block_others(
         self, mock_load: MagicMock, mock_dists: MagicMock
     ) -> None:
@@ -85,7 +147,7 @@ class TestDiscoverPluginsErrorBoundary:
         def load_side_effect(dist):
             if dist is bad_dist:
                 raise ValueError("corrupt manifest")
-            return good_plugin
+            return [good_plugin]
 
         mock_load.side_effect = load_side_effect
         result = discover_plugins()
@@ -174,9 +236,38 @@ class TestInstall:
 
         manager = PluginManager()
         result = manager.install("my-plugin")
-        assert result.manifest.id == "test-source"
+        assert [p.manifest.id for p in result] == ["test-source"]
 
-    @patch("datahub.plugin.plugin_manager._find_plugin_in_package")
+    @patch("datahub.plugin.plugin_manager.discover_plugins")
+    @patch("subprocess.run")
+    @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
+    def test_install_multi_plugin_wheel_returns_all(
+        self,
+        _mock_pip_cmd: MagicMock,
+        mock_run: MagicMock,
+        mock_discover: MagicMock,
+    ) -> None:
+        # One wheel adds two connectors -> both are returned, not just the first.
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["pip", "install", "bundle"], returncode=0, stdout="", stderr=""
+        )
+        mock_discover.side_effect = [
+            {},
+            {
+                "source-a": make_discovered_plugin(
+                    plugin_id="source-a", package_name="datahub-bundle"
+                ),
+                "source-b": make_discovered_plugin(
+                    plugin_id="source-b", package_name="datahub-bundle"
+                ),
+            },
+        ]
+
+        manager = PluginManager()
+        result = manager.install("bundle-pkg")
+        assert sorted(p.manifest.id for p in result) == ["source-a", "source-b"]
+
+    @patch("datahub.plugin.plugin_manager._find_plugins_in_package")
     @patch("datahub.plugin.plugin_manager.discover_plugins", return_value={})
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
@@ -192,11 +283,11 @@ class TestInstall:
         mock_run.return_value = subprocess.CompletedProcess(
             args=["pip", "install", "my-plugin"], returncode=0, stdout="", stderr=""
         )
-        mock_find.return_value = make_discovered_plugin()
+        mock_find.return_value = [make_discovered_plugin()]
 
         manager = PluginManager()
         result = manager.install("my-plugin==1.0")
-        assert result.manifest.id == "test-source"
+        assert [p.manifest.id for p in result] == ["test-source"]
         mock_find.assert_called_once_with("my-plugin")
 
     @patch("datahub.plugin.plugin_manager.discover_plugins", return_value={})
@@ -234,7 +325,7 @@ class TestInstall:
         with pytest.raises(RuntimeError, match="pip command failed"):
             manager.install("bad-plugin")
 
-    @patch("datahub.plugin.plugin_manager._find_plugin_in_package", return_value=None)
+    @patch("datahub.plugin.plugin_manager._find_plugins_in_package", return_value=[])
     @patch("datahub.plugin.plugin_manager.discover_plugins", return_value={})
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])

@@ -158,13 +158,24 @@ datahub plugin search <query> [--type source|sink|transformer]
 
 ### `datahub plugin init`
 
-Scaffold a new plugin project.
+Scaffold a new plugin project, or add another connector to an existing one.
 
 ```shell
-datahub plugin init --type=source my-salesforce-source
+# New project: NAME is `namespace/connector`
+datahub plugin init acme/salesforce --type source
+
+# Add a connector to an existing project (run from the project root, where a
+# datahub-plugin.yaml already exists) — NAME is just the connector
+datahub plugin init workday --type source
 ```
 
-This generates a complete, release-ready project structure including source code stubs, tests, and a GitHub Actions release workflow.
+`NAME` is `namespace/connector` when creating a new project (the namespace is the
+distribution/import package; the connector is a subpackage under it), or just
+`connector` when adding to an existing project. When a `datahub-plugin.yaml` is
+already present in the output directory, `init` **appends** the new connector to
+it — writing the connector's subpackage, adding an entry to the manifest's
+`plugins:` list, and wiring the entry point into `pyproject.toml` — instead of
+creating a fresh project. See [Creating a Plugin](#creating-a-plugin).
 
 ### `datahub plugin validate`
 
@@ -306,55 +317,76 @@ to the registry's `sources.yaml`; the registry's CI re-runs `index-build`.
 
 ### 1. Scaffold
 
+A plugin project is a single distribution (import **namespace**) that ships one
+or more connectors, each as its own subpackage — mirroring how DataHub organizes
+its own connectors (`datahub.ingestion.source.<connector>`):
+
 ```shell
-datahub plugin init --type=source my-salesforce-source
-cd my-salesforce-source
+datahub plugin init acme/salesforce --type source
+cd acme
 ```
 
 This creates:
 
 ```
-my-salesforce-source/
+acme/
     pyproject.toml
     README.md
     LICENSE
     src/
-        my_salesforce_source/
+        acme/                       # namespace package (holds the shared manifest)
             __init__.py
-            source.py
-            config.py
-            datahub-plugin.yaml
+            datahub-plugin.yaml     # one manifest for all connectors
+            salesforce/             # connector subpackage
+                __init__.py
+                source.py
+                config.py
     tests/
         __init__.py
-        test_source.py
+        test_salesforce.py
     .github/
         workflows/
             release.yml
             test.yml
 ```
 
-The `datahub-plugin.yaml` manifest lives inside the package directory (not at the project root) so that it is included as package data in the built wheel and discoverable by `importlib.metadata` after installation.
+The `datahub-plugin.yaml` manifest lives inside the namespace package directory (not at the project root) so that it is included as package data in the built wheel and discoverable by `importlib.metadata` after installation. The connector's entry point (`acme.salesforce.source:Salesforce`) is wired into both the manifest and `pyproject.toml`.
+
+### 1b. Add another connector (optional)
+
+A single repository can ship several connectors. From the project root — where a
+`datahub-plugin.yaml` already exists — run `init` again with just the connector
+name (the namespace is inferred from the project):
+
+```shell
+datahub plugin init workday --type source
+```
+
+This appends a `workday/` subpackage, adds a second entry to the manifest's
+`plugins:` list, and adds the new entry point to `pyproject.toml`. Both
+connectors ship in the one wheel and install together. See
+[Bundling Multiple Connectors](#bundling-multiple-connectors).
 
 ### 2. Implement
 
-Edit `src/my_salesforce_source/source.py` to implement your connector. Your source class should extend `datahub.ingestion.api.source.Source`:
+Edit `src/acme/salesforce/source.py` to implement your connector. Your source class should extend `datahub.ingestion.api.source.Source`:
 
 ```python
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 
-from my_salesforce_source.config import MySalesforceSourceConfig
+from acme.salesforce.config import SalesforceConfig
 
 
-class MySalesforceSource(Source):
-    def __init__(self, config: MySalesforceSourceConfig, ctx: PipelineContext):
+class Salesforce(Source):
+    def __init__(self, config: SalesforceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = MySalesforceSourceConfig.parse_obj(config_dict)
+        config = SalesforceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def get_workunits(self):
@@ -367,21 +399,41 @@ class MySalesforceSource(Source):
 
 ### 3. Define the Manifest
 
-Edit `src/my_salesforce_source/datahub-plugin.yaml`:
+The scaffold writes `src/acme/datahub-plugin.yaml` for you. It uses the
+**multi-plugin form** — package-level metadata (`author`, `url`, `compatibility`)
+declared once, and a `plugins:` list with one entry per connector:
 
 ```yaml
 api_version: datahub/v1
-id: my-salesforce-source
-name: My Salesforce Source
-type: source
-entry_point: my_salesforce_source.source:MySalesforceSource
-description: Ingest metadata from Salesforce CRM
 author: Your Name
-url: https://github.com/yourname/my-salesforce-source
+url: https://github.com/yourname/acme
 compatibility:
   datahub_min: "0.12.0"
   python_min: "3.9"
+plugins:
+  - id: salesforce
+    name: Salesforce
+    type: source
+    entry_point: acme.salesforce.source:Salesforce
+    description: Ingest metadata from Salesforce CRM
+    support_status: COMMUNITY
+    capabilities:
+      - capability: SCHEMA_METADATA
+        description: Extract schema metadata
+        supported: true
+  - id: workday # added by `datahub plugin init workday`
+    name: Workday
+    type: source
+    entry_point: acme.workday.source:Workday
 ```
+
+Package-level keys are inherited by every entry (a per-entry value overrides
+them), so shared metadata is declared once.
+
+A single-connector project may also use the older **flat form** (the manifest
+fields at the top level, no `plugins:` list); it is still accepted, and
+`datahub plugin init` upgrades it to the multi-plugin form automatically the
+first time you add a second connector.
 
 The `url` field is optional but recommended — it is shown to users after install and in `datahub plugin list` to help them find documentation.
 
@@ -410,20 +462,61 @@ datahub plugin install github:yourname/my-salesforce-source
 
 ### Plugin Manifest Reference
 
-The `datahub-plugin.yaml` file is the manifest that describes your plugin:
+The `datahub-plugin.yaml` file describes the plugin(s) in a package. In the
+multi-plugin form, these fields appear on each entry of the `plugins:` list;
+`api_version`, `author`, `url`, and `compatibility` may instead be set once at
+the top level and are inherited by every entry.
 
-| Field           | Required | Type   | Description                                          |
-| --------------- | -------- | ------ | ---------------------------------------------------- |
-| `api_version`   | No       | string | Always `datahub/v1`                                  |
-| `id`            | Yes      | string | Unique plugin identifier (e.g., `salesforce-source`) |
-| `name`          | Yes      | string | Human-readable name                                  |
-| `type`          | Yes      | enum   | `source`, `sink`, or `transformer`                   |
-| `entry_point`   | Yes      | string | Python import path (e.g., `mod.source:MySource`)     |
-| `config_class`  | No       | string | Python import path for the config class              |
-| `description`   | No       | string | Short description of the plugin                      |
-| `author`        | No       | string | Plugin author                                        |
-| `url`           | No       | string | Project homepage or documentation URL                |
-| `compatibility` | No       | object | Minimum version requirements                         |
+| Field            | Required | Type   | Level         | Description                                                      |
+| ---------------- | -------- | ------ | ------------- | ---------------------------------------------------------------- |
+| `api_version`    | No       | string | package       | Always `datahub/v1`                                              |
+| `id`             | Yes      | string | per-plugin    | Unique plugin identifier — the recipe `type` (e.g. `salesforce`) |
+| `name`           | Yes      | string | per-plugin    | Human-readable name                                              |
+| `type`           | Yes      | enum   | per-plugin    | `source`, `sink`, or `transformer`                               |
+| `entry_point`    | Yes      | string | per-plugin    | Python import path (e.g., `acme.salesforce.source:Salesforce`)   |
+| `config_class`   | No       | string | per-plugin    | Python import path for the config class                          |
+| `description`    | No       | string | per-plugin    | Short description of the plugin                                  |
+| `support_status` | No       | enum   | per-plugin    | `CERTIFIED`, `INCUBATING`, `TESTING`, or `COMMUNITY`             |
+| `capabilities`   | No       | list   | per-plugin    | Declared capabilities (kept in sync via `datahub plugin sync`)   |
+| `icon_url`       | No       | string | per-plugin    | Logo shown in `search` and the ingestion UI                      |
+| `author`         | No       | string | package/entry | Plugin author                                                    |
+| `url`            | No       | string | package/entry | Project homepage or documentation URL                            |
+| `compatibility`  | No       | object | package/entry | Minimum version requirements                                     |
+
+> The `id` is what users put in a recipe's `type`. If it collides with a
+> built-in connector of the same name, the built-in wins — namespace the id
+> (e.g. `acme-salesforce`) if your connector needs to shadow a built-in one.
+
+### Bundling Multiple Connectors
+
+One repository can ship any number of connectors in a single wheel. Each
+connector is a subpackage under the namespace, all of them are listed in the one
+`datahub-plugin.yaml`, and each has a setuptools entry point:
+
+```toml
+# pyproject.toml
+[project.entry-points."datahub.ingestion.source.plugins"]
+salesforce = "acme.salesforce.source:Salesforce"
+workday = "acme.workday.source:Workday"
+
+# a sink in the same repo uses the matching group
+[project.entry-points."datahub.ingestion.sink.plugins"]
+my-sink = "acme.my_sink.sink:MySink"
+```
+
+`datahub plugin init <connector>` maintains this for you. Installing the wheel
+(`datahub plugin install`) installs **all** connectors at once and reports each:
+
+```text
+Installed 3 plugins from acme:
+  salesforce@0.1.0 (source) — acme.salesforce.source:Salesforce
+  workday@0.1.0 (source) — acme.workday.source:Workday
+  my-sink@0.1.0 (sink) — acme.my_sink.sink:MySink
+```
+
+The registry then resolves each `type` independently, so a recipe can use any of
+them. (Entry points are optional — the manifest alone is enough to resolve a
+`type` — but keeping them is the compatible default the scaffold produces.)
 
 ## Architecture
 

@@ -4,10 +4,11 @@ Registered as ``datahub plugin ...`` in entrypoints.py.
 """
 
 import logging
-from typing import Optional
+from typing import List, Optional
 
 import click
 
+from datahub.plugin.plugin_config import PluginManifest
 from datahub.plugin.plugin_manager import PluginManager
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ def install(spec: str, version: Optional[str]) -> None:
                 f"Resolved '{spec}' from registry '{e.registry_name}' "
                 f"-> github:{e.repo}@{target.version}{verified}"
             )
-        plugin_info = manager.install(
+        installed = manager.install(
             target.spec,
             version=target.version,
             expected_sha256=target.expected_sha256,
@@ -67,15 +68,29 @@ def install(spec: str, version: Optional[str]) -> None:
         logger.debug("Plugin install failed", exc_info=True)
         raise click.ClickException(str(e)) from e
 
-    m = plugin_info.manifest
-    click.secho(
-        f"Installed {m.id}@{plugin_info.version} ({m.type.value})",
-        fg="green",
-    )
-    click.echo(f"  Entry point: {m.entry_point}")
-    click.echo(f"  Package: {plugin_info.package_name}")
-    if m.url:
-        click.echo(f"  Docs: {m.url}")
+    package = installed[0].package_name
+    if len(installed) == 1:
+        plugin_info = installed[0]
+        m = plugin_info.manifest
+        click.secho(
+            f"Installed {m.id}@{plugin_info.version} ({m.type.value})",
+            fg="green",
+        )
+        click.echo(f"  Entry point: {m.entry_point}")
+        click.echo(f"  Package: {package}")
+        if m.url:
+            click.echo(f"  Docs: {m.url}")
+    else:
+        # A single wheel that ships several connectors — list them all.
+        click.secho(
+            f"Installed {len(installed)} plugins from {package}:",
+            fg="green",
+        )
+        for plugin_info in installed:
+            m = plugin_info.manifest
+            click.echo(
+                f"  {m.id}@{plugin_info.version} ({m.type.value}) — {m.entry_point}"
+            )
 
 
 @plugin.command()
@@ -344,34 +359,94 @@ def init_plugin(
     output_dir: str,
     description: str,
 ) -> None:
-    """Scaffold a new DataHub plugin project.
+    """Scaffold a new plugin project, or add a connector to an existing one.
+
+    NAME is ``namespace/connector`` to bootstrap a new project (e.g.
+    ``acme/salesforce``), or just ``connector`` to add to an existing project
+    found in OUTPUT-DIR. When a ``datahub-plugin.yaml`` already exists, the new
+    connector is appended to it instead of creating a fresh project.
 
     \b
-    Example:
-      datahub plugin init my-salesforce-source --type=source
+    Examples:
+      datahub plugin init acme/salesforce --type source   # new project
+      datahub plugin init workday                          # add to project in .
     """
-    from datahub.plugin.scaffold import scaffold_plugin
+    import os
+
+    from datahub.plugin.scaffold import (
+        add_connector,
+        create_project,
+        parse_connector_ref,
+    )
 
     try:
-        project_dir = scaffold_plugin(
-            name=name,
-            plugin_type=plugin_type,
-            output_dir=output_dir,
-            description=description,
-        )
+        namespace, connector = parse_connector_ref(name)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+
+    # Add to an existing project when a manifest is found — either in output_dir
+    # itself (running from the project root), or in output_dir/<namespace> when a
+    # namespace was supplied (adding from the parent directory).
+    manifest_path = _find_manifest(output_dir)
+    project_root = output_dir
+    if manifest_path is None and namespace is not None:
+        candidate_root = os.path.join(output_dir, namespace)
+        candidate_manifest = _find_manifest(candidate_root)
+        if candidate_manifest is not None:
+            manifest_path = candidate_manifest
+            project_root = candidate_root
+
+    try:
+        if manifest_path is not None:
+            result = add_connector(
+                project_dir=project_root,
+                manifest_path=manifest_path,
+                connector=connector,
+                plugin_type=plugin_type,
+                description=description,
+            )
+        else:
+            result = create_project(
+                namespace=namespace or connector,
+                connector=connector,
+                plugin_type=plugin_type,
+                output_dir=output_dir,
+                description=description,
+            )
     except (ValueError, OSError) as e:
         raise click.ClickException(str(e)) from e
 
-    click.secho(f"Created plugin project at {project_dir}", fg="green")
-    click.echo()
-    click.echo("Next steps:")
-    click.echo(f"  cd {project_dir}")
-    click.echo("  pip install -e .")
-    click.echo("  pytest tests/")
-    click.echo()
-    click.echo("To publish:")
-    click.echo("  git init && git add -A && git commit -m 'Initial commit'")
-    click.echo("  git tag v0.1.0 && git push --tags")
+    if result.created_project:
+        click.secho(
+            f"Created plugin project at {result.project_dir} "
+            f"with connector '{result.connector_id}'",
+            fg="green",
+        )
+        click.echo()
+        click.echo("Next steps:")
+        click.echo(f"  cd {result.project_dir}")
+        click.echo("  pip install -e .")
+        click.echo("  pytest tests/")
+        click.echo()
+        click.echo("Add another connector later with:")
+        click.echo(f"  cd {result.project_dir} && datahub plugin init <connector>")
+    else:
+        click.secho(
+            f"Added connector '{result.connector_id}' to {result.project_dir}",
+            fg="green",
+        )
+        click.echo(f"  Source:   {result.connector_dir}")
+        click.echo(f"  Manifest: {result.manifest_path}")
+        if not result.pyproject_updated:
+            click.echo()
+            click.secho(
+                "Could not update pyproject.toml automatically — add this manually:",
+                fg="yellow",
+            )
+            click.echo(
+                f'  [project.entry-points."datahub.ingestion.{plugin_type}.plugins"]'
+            )
+            click.echo(f'  {result.connector_id} = "{result.entry_point}"')
 
 
 @plugin.command(name="sync")
@@ -393,7 +468,7 @@ def sync_manifest(path: str) -> None:
     """
     import yaml
 
-    from datahub.plugin.plugin_config import MANIFEST_FILENAME, PluginManifest
+    from datahub.plugin.plugin_config import MANIFEST_FILENAME
 
     manifest_path = _find_manifest(path)
     if manifest_path is None:
@@ -403,6 +478,16 @@ def sync_manifest(path: str) -> None:
 
     with open(manifest_path) as f:
         raw_data = yaml.safe_load(f)
+
+    # sync maps a single entry-point class's decorators onto the manifest; the
+    # multi-plugin form (a top-level 'plugins:' list) has no single class to
+    # sync from, so it isn't supported here yet.
+    if isinstance(raw_data, dict) and "plugins" in raw_data:
+        raise click.ClickException(
+            f"'datahub plugin sync' does not support multi-plugin manifests "
+            f"(a 'plugins:' list in {MANIFEST_FILENAME}). Edit the capabilities "
+            "and support_status fields for each plugin by hand."
+        )
 
     try:
         manifest = PluginManifest.model_validate(raw_data)
@@ -536,7 +621,7 @@ def validate(path: str, import_check: bool) -> None:
 
     import yaml
 
-    from datahub.plugin.plugin_config import MANIFEST_FILENAME, PluginManifest
+    from datahub.plugin.plugin_config import MANIFEST_FILENAME, PluginManifestFile
 
     errors: list[str] = []
     warnings: list[str] = []
@@ -548,90 +633,35 @@ def validate(path: str, import_check: bool) -> None:
         _print_validation_results(errors, warnings)
         return
 
-    # 2. Parse manifest
+    # 2. Parse manifest (accepts both single- and multi-plugin manifests)
     try:
         with open(manifest_path) as f:
             data = yaml.safe_load(f)
-        manifest = PluginManifest.model_validate(data)
+        manifest_file = PluginManifestFile.model_validate(data)
     except Exception as e:
         errors.append(f"Invalid {MANIFEST_FILENAME}: {e}")
         _print_validation_results(errors, warnings)
         return
 
-    click.echo(f"Manifest: {manifest.id} ({manifest.type.value})")
+    plugins = manifest_file.plugins
+    noun = "plugin" if len(plugins) == 1 else "plugins"
+    click.echo(f"Manifest: {len(plugins)} {noun} ({', '.join(m.id for m in plugins)})")
 
-    # 3. Check pyproject.toml
+    # 3. Check pyproject.toml (package-level)
     pyproject_path = os.path.join(path, "pyproject.toml")
     if not os.path.isfile(pyproject_path):
         warnings.append("No pyproject.toml found")
     else:
         click.echo("pyproject.toml: found")
 
-    # 4. Check entry point is importable format
-    ep = manifest.entry_point
-    if ":" not in ep and "." not in ep:
-        errors.append(
-            f"Entry point '{ep}' is not in importable format "
-            "(expected 'module.path:ClassName')"
-        )
-
-    # 5. Check source files exist
+    # 4. Check source files exist (package-level)
     src_dir = os.path.join(path, "src")
     if not os.path.isdir(src_dir):
         warnings.append("No src/ directory found")
 
-    # 6. Try to import the entry point class
-    if import_check:
-        source_cls = _try_import_entry_point(manifest.entry_point)
-        if source_cls is None:
-            warnings.append(
-                f"Could not import entry point '{manifest.entry_point}'. "
-                "Install the package first with: pip install -e ."
-            )
-        else:
-            click.echo(f"Entry point import: OK ({source_cls.__name__})")
-
-            # 7. Check for @support_status decorator and cross-check manifest
-            if not hasattr(source_cls, "get_support_status"):
-                warnings.append(
-                    f"Class {source_cls.__name__} is missing @support_status decorator. "
-                    "Add it to declare the connector's maturity tier."
-                )
-            else:
-                status = source_cls.get_support_status()
-                click.echo(f"Support status: {status.name}")
-                if (
-                    manifest.support_status
-                    and manifest.support_status.value != status.name
-                ):
-                    warnings.append(
-                        f"Manifest support_status ({manifest.support_status.value}) "
-                        f"differs from decorator ({status.name}). "
-                        "Run 'datahub plugin sync' to update the manifest."
-                    )
-
-            # 8. Check for @capability decorator and cross-check manifest
-            if not hasattr(source_cls, "get_capabilities"):
-                warnings.append(
-                    f"Class {source_cls.__name__} has no @capability decorators. "
-                    "Add capabilities to help users understand what this connector can do."
-                )
-            else:
-                caps = list(source_cls.get_capabilities())
-                click.echo(f"Capabilities declared: {len(caps)}")
-                decorator_cap_names = {cap.capability.name for cap in caps}
-                manifest_cap_names = {c.capability for c in manifest.capabilities}
-                if manifest.capabilities and decorator_cap_names != manifest_cap_names:
-                    warnings.append(
-                        "Manifest capabilities differ from decorator capabilities. "
-                        "Run 'datahub plugin sync' to update the manifest."
-                    )
-
-            # 9. Check for @platform_name decorator
-            if not hasattr(source_cls, "get_platform_name"):
-                warnings.append(
-                    f"Class {source_cls.__name__} is missing @platform_name decorator."
-                )
+    # 5. Per-plugin checks (entry point format + decorator cross-checks)
+    for manifest in plugins:
+        _validate_plugin_entry(manifest, import_check, errors, warnings)
 
     # 10. Check for tests directory
     tests_dir = os.path.join(path, "tests")
@@ -657,6 +687,80 @@ def validate(path: str, import_check: bool) -> None:
         warnings.append("No README file found")
 
     _print_validation_results(errors, warnings)
+
+
+def _validate_plugin_entry(
+    manifest: PluginManifest,
+    import_check: bool,
+    errors: List[str],
+    warnings: List[str],
+) -> None:
+    """Run the per-plugin validation checks for one manifest entry.
+
+    Messages are prefixed with the plugin id so multi-plugin manifests stay
+    readable; entries append to the shared *errors*/*warnings* lists.
+    """
+    prefix = f"[{manifest.id}] "
+
+    # Entry point importable format
+    ep = manifest.entry_point
+    if ":" not in ep and "." not in ep:
+        errors.append(
+            f"{prefix}Entry point '{ep}' is not in importable format "
+            "(expected 'module.path:ClassName')"
+        )
+
+    if not import_check:
+        return
+
+    source_cls = _try_import_entry_point(manifest.entry_point)
+    if source_cls is None:
+        warnings.append(
+            f"{prefix}Could not import entry point '{manifest.entry_point}'. "
+            "Install the package first with: pip install -e ."
+        )
+        return
+
+    click.echo(f"{prefix}Entry point import: OK ({source_cls.__name__})")
+
+    # Cross-check @support_status decorator against the manifest
+    if not hasattr(source_cls, "get_support_status"):
+        warnings.append(
+            f"{prefix}Class {source_cls.__name__} is missing @support_status "
+            "decorator. Add it to declare the connector's maturity tier."
+        )
+    else:
+        status = source_cls.get_support_status()
+        click.echo(f"{prefix}Support status: {status.name}")
+        if manifest.support_status and manifest.support_status.value != status.name:
+            warnings.append(
+                f"{prefix}Manifest support_status ({manifest.support_status.value}) "
+                f"differs from decorator ({status.name}). "
+                "Run 'datahub plugin sync' to update the manifest."
+            )
+
+    # Cross-check @capability decorators against the manifest
+    if not hasattr(source_cls, "get_capabilities"):
+        warnings.append(
+            f"{prefix}Class {source_cls.__name__} has no @capability decorators. "
+            "Add capabilities to help users understand what this connector can do."
+        )
+    else:
+        caps = list(source_cls.get_capabilities())
+        click.echo(f"{prefix}Capabilities declared: {len(caps)}")
+        decorator_cap_names = {cap.capability.name for cap in caps}
+        manifest_cap_names = {c.capability for c in manifest.capabilities}
+        if manifest.capabilities and decorator_cap_names != manifest_cap_names:
+            warnings.append(
+                f"{prefix}Manifest capabilities differ from decorator capabilities. "
+                "Run 'datahub plugin sync' to update the manifest."
+            )
+
+    # @platform_name decorator
+    if not hasattr(source_cls, "get_platform_name"):
+        warnings.append(
+            f"{prefix}Class {source_cls.__name__} is missing @platform_name decorator."
+        )
 
 
 def _try_import_entry_point(entry_point: str) -> Optional[type]:

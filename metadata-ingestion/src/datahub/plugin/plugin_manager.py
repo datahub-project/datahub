@@ -30,7 +30,7 @@ from datahub.plugin.plugin_config import (
     _PLUGIN_ID_RE,
     MANIFEST_FILENAME,
     DiscoveredPlugin,
-    PluginManifest,
+    PluginManifestFile,
 )
 from datahub.plugin.registry_client import PluginIndexEntry, RegistryClient
 
@@ -153,44 +153,54 @@ def _find_manifest_path_in_dist(dist: importlib.metadata.Distribution) -> Option
     return None
 
 
-def _load_plugin_from_dist(
+def _load_plugins_from_dist(
     dist: importlib.metadata.Distribution,
-) -> Optional[DiscoveredPlugin]:
-    """Try to load a DiscoveredPlugin from a distribution, or return None."""
+) -> List[DiscoveredPlugin]:
+    """Load every plugin declared by a distribution's manifest.
+
+    A single ``datahub-plugin.yaml`` may declare multiple plugins (one wheel
+    shipping several connectors), so this returns a list — empty when the
+    distribution carries no manifest.
+    """
     manifest_path = _find_manifest_path_in_dist(dist)
     if manifest_path is None:
-        return None
+        return []
 
     with open(manifest_path) as mf:
         data = yaml.safe_load(mf)
-    manifest = PluginManifest.model_validate(data)
+    manifest_file = PluginManifestFile.model_validate(data)
     package_name = dist.name
     if not package_name:
         logger.warning(
             "Distribution with manifest at %s has no package name; skipping",
             manifest_path,
         )
-        return None
-    return DiscoveredPlugin(
-        manifest=manifest,
-        package_name=package_name,
-        version=dist.version or "0.0.0",
-        location=os.path.dirname(manifest_path),
-    )
+        return []
+    version = dist.version or "0.0.0"
+    location = os.path.dirname(manifest_path)
+    return [
+        DiscoveredPlugin(
+            manifest=manifest,
+            package_name=package_name,
+            version=version,
+            location=location,
+        )
+        for manifest in manifest_file.plugins
+    ]
 
 
 def discover_plugins() -> Dict[str, DiscoveredPlugin]:
     """Scan installed packages for datahub-plugin.yaml manifests.
 
-    Returns a dict keyed by plugin ID (from the manifest).
+    Returns a dict keyed by plugin ID (from the manifest). A single distribution
+    may contribute several plugins when its manifest declares more than one.
     """
     importlib.invalidate_caches()
 
     result: Dict[str, DiscoveredPlugin] = {}
     for dist in distributions():
         try:
-            plugin = _load_plugin_from_dist(dist)
-            if plugin is not None:
+            for plugin in _load_plugins_from_dist(dist):
                 result[plugin.manifest.id] = plugin
         except _MANIFEST_LOAD_ERRORS:
             logger.warning(
@@ -206,13 +216,18 @@ def _normalize_pkg(name: str) -> str:
     return name.lower().replace("-", "_")
 
 
-def _find_plugin_in_package(package_name: str) -> Optional[DiscoveredPlugin]:
-    """Find a datahub plugin whose installed package matches *package_name*."""
+def _find_plugins_in_package(package_name: str) -> List[DiscoveredPlugin]:
+    """Find all datahub plugins whose installed package matches *package_name*.
+
+    A single package may ship several plugins (a multi-connector wheel), so this
+    returns every match rather than the first.
+    """
     normalized = _normalize_pkg(package_name)
-    for plugin in discover_plugins().values():
-        if _normalize_pkg(plugin.package_name) == normalized:
-            return plugin
-    return None
+    return [
+        plugin
+        for plugin in discover_plugins().values()
+        if _normalize_pkg(plugin.package_name) == normalized
+    ]
 
 
 # Splits a pip requirement / wheel filename down to its package name, e.g.
@@ -302,7 +317,7 @@ class PluginManager:
         version: Optional[str] = None,
         *,
         expected_sha256: Optional[str] = None,
-    ) -> DiscoveredPlugin:
+    ) -> List[DiscoveredPlugin]:
         """Install a plugin from a spec string.
 
         Supported spec formats:
@@ -313,6 +328,9 @@ class PluginManager:
         Installs directly into the current Python environment via pip.
         When *expected_sha256* is supplied (e.g. from a registry index entry),
         a downloaded wheel is verified against it before installation.
+
+        Returns every plugin the installed package contributes — usually one, but
+        several for a wheel that ships multiple connectors.
         """
         pip_target = resolve_plugin_spec(spec, version, expected_sha256=expected_sha256)
 
@@ -322,28 +340,26 @@ class PluginManager:
         before = set(discover_plugins())
         _run_pip(["install", pip_target], timeout=300)
         after = discover_plugins()
-        new_ids = set(after) - before
+        new_ids = sorted(set(after) - before)
 
-        plugin: Optional[DiscoveredPlugin]
-        if len(new_ids) == 1:
-            plugin = after[next(iter(new_ids))]
+        if new_ids:
+            # One or more plugins newly appeared — a single wheel may add several.
+            plugins = [after[plugin_id] for plugin_id in new_ids]
         else:
-            # Zero new ids => reinstall of an already-present plugin; several =>
-            # a bundle providing multiple plugins. In both cases fall back to the
-            # package name derived from the resolved target.
+            # Nothing new in the diff => reinstall of an already-present package;
+            # fall back to every plugin provided by the resolved package.
             package_name = _package_name_from_target(pip_target)
-            plugin = _find_plugin_in_package(package_name) if package_name else None
-            if plugin is None and new_ids:
-                plugin = after[sorted(new_ids)[0]]
+            plugins = _find_plugins_in_package(package_name) if package_name else []
 
-        if plugin is None:
+        if not plugins:
             raise ValueError(
                 f"Installed package does not contain a {MANIFEST_FILENAME}. "
                 "Ensure the package includes a datahub-plugin.yaml file."
             )
 
-        logger.info("Installed plugin %s@%s", plugin.manifest.id, plugin.version)
-        return plugin
+        for plugin in plugins:
+            logger.info("Installed plugin %s@%s", plugin.manifest.id, plugin.version)
+        return plugins
 
     # ------------------------------------------------------------------
     # Uninstall

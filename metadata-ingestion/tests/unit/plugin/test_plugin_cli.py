@@ -1,6 +1,7 @@
 """Tests for the plugin CLI commands."""
 
 import os
+from pathlib import Path
 from typing import Optional
 from unittest.mock import MagicMock, patch
 
@@ -62,7 +63,7 @@ class TestInstallCommand:
         manager.resolve_install_target.return_value = _passthrough_target(
             "github:acme/test-source"
         )
-        manager.install.return_value = _make_plugin()
+        manager.install.return_value = [_make_plugin()]
 
         runner = CliRunner()
         result = runner.invoke(install, ["github:acme/test-source"])
@@ -74,12 +75,32 @@ class TestInstallCommand:
         )
 
     @patch("datahub.cli.plugin_cli.PluginManager")
+    def test_install_multi_plugin_lists_all(self, mock_manager_cls: MagicMock) -> None:
+        """A wheel that ships several connectors reports each installed plugin."""
+        manager = mock_manager_cls.return_value
+        manager.resolve_install_target.return_value = _passthrough_target(
+            "github:acme/bundle"
+        )
+        manager.install.return_value = [
+            _make_plugin(plugin_id="source-a"),
+            _make_plugin(plugin_id="source-b"),
+        ]
+
+        runner = CliRunner()
+        result = runner.invoke(install, ["github:acme/bundle"])
+
+        assert result.exit_code == 0
+        assert "Installed 2 plugins" in result.output
+        assert "source-a@1.0.0" in result.output
+        assert "source-b@1.0.0" in result.output
+
+    @patch("datahub.cli.plugin_cli.PluginManager")
     def test_install_with_version(self, mock_manager_cls: MagicMock) -> None:
         manager = mock_manager_cls.return_value
         manager.resolve_install_target.return_value = _passthrough_target(
             "github:acme/test-source", version="v2.0.0"
         )
-        manager.install.return_value = _make_plugin(version="2.0.0")
+        manager.install.return_value = [_make_plugin(version="2.0.0")]
 
         runner = CliRunner()
         result = runner.invoke(
@@ -109,7 +130,7 @@ class TestInstallCommand:
             expected_sha256="abc123",
             entry=entry,
         )
-        manager.install.return_value = _make_plugin(plugin_id="my-source")
+        manager.install.return_value = [_make_plugin(plugin_id="my-source")]
 
         runner = CliRunner()
         result = runner.invoke(install, ["my-source"])
@@ -353,31 +374,41 @@ class TestRegistryCommands:
 
 
 class TestInitCommand:
-    @patch("datahub.plugin.scaffold.scaffold_plugin")
-    def test_init_success(self, mock_scaffold: MagicMock) -> None:
-        mock_scaffold.return_value = "/tmp/my-source"
-
+    def test_init_creates_namespaced_project(self, tmp_path: os.PathLike) -> None:
         runner = CliRunner()
-        result = runner.invoke(init_plugin, ["my-source", "--type", "source"])
-
-        assert result.exit_code == 0
-        assert "Created plugin project" in result.output
-        mock_scaffold.assert_called_once_with(
-            name="my-source",
-            plugin_type="source",
-            output_dir=".",
-            description="",
+        result = runner.invoke(
+            init_plugin,
+            ["acme/salesforce", "--type", "source", "--output-dir", str(tmp_path)],
         )
 
-    @patch("datahub.plugin.scaffold.scaffold_plugin")
-    def test_init_invalid_name(self, mock_scaffold: MagicMock) -> None:
-        mock_scaffold.side_effect = ValueError("Invalid plugin name")
+        assert result.exit_code == 0, result.output
+        assert "Created plugin project" in result.output
+        assert (
+            Path(tmp_path) / "acme" / "src" / "acme" / "salesforce" / "source.py"
+        ).exists()
 
+    def test_init_adds_connector_to_existing_project(
+        self, tmp_path: os.PathLike
+    ) -> None:
         runner = CliRunner()
-        result = runner.invoke(init_plugin, ["INVALID"])
+        runner.invoke(init_plugin, ["acme/salesforce", "--output-dir", str(tmp_path)])
+        # Adding from the parent dir via namespace/connector appends to the project.
+        result = runner.invoke(
+            init_plugin, ["acme/workday", "--output-dir", str(tmp_path)]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Added connector 'workday'" in result.output
+        assert (
+            Path(tmp_path) / "acme" / "src" / "acme" / "workday" / "source.py"
+        ).exists()
+
+    def test_init_invalid_name(self, tmp_path: os.PathLike) -> None:
+        runner = CliRunner()
+        result = runner.invoke(init_plugin, ["INVALID", "--output-dir", str(tmp_path)])
 
         assert result.exit_code != 0
-        assert "Invalid plugin name" in result.output
+        assert "Invalid" in result.output
 
 
 class TestValidateCommand:

@@ -190,6 +190,67 @@ class PluginManifest(BaseModel):
         return v
 
 
+class PluginManifestFile(BaseModel):
+    """A parsed ``datahub-plugin.yaml``, which may declare one or many plugins.
+
+    Two on-disk shapes are accepted:
+
+    * **Flat** (single plugin) — the manifest fields sit at the top level. This
+      is the original format and is treated as a one-element list.
+    * **Multi** — a top-level ``plugins:`` list, one entry per connector shipped
+      by the same wheel. Any *other* top-level keys (``author``, ``url``,
+      ``compatibility``, ``icon_url``, …) are shared defaults merged into every
+      entry, so package-wide metadata is declared once; a per-entry value wins
+      over the shared default.
+
+    Either shape normalizes to ``plugins: List[PluginManifest]`` so downstream
+    consumers keep working with a single-plugin object. The ``plugins`` key is
+    the sole discriminator between the two shapes — it is not a valid
+    ``PluginManifest`` field, so a flat manifest can never contain it.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    plugins: List[PluginManifest] = Field(
+        description="One or more plugins declared by this manifest file."
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_shape(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        if "plugins" not in data:
+            # Flat (legacy) single-plugin form: wrap it as a one-element list.
+            return {"plugins": [data]}
+        raw_plugins = data["plugins"]
+        if not isinstance(raw_plugins, list):
+            raise ValueError("'plugins' must be a list of plugin entries")
+        shared = {k: v for k, v in data.items() if k != "plugins"}
+        merged: List[object] = []
+        for entry in raw_plugins:
+            if isinstance(entry, dict):
+                # Per-entry values override shared package-level defaults.
+                merged.append({**shared, **entry})
+            else:
+                # Already a PluginManifest (direct construction) — pass through
+                # untouched; pydantic validates it as-is.
+                merged.append(entry)
+        return {"plugins": merged}
+
+    @field_validator("plugins")
+    @classmethod
+    def _non_empty_and_unique_ids(cls, v: List[PluginManifest]) -> List[PluginManifest]:
+        if not v:
+            raise ValueError("Manifest must declare at least one plugin")
+        seen: set[str] = set()
+        for p in v:
+            if p.id in seen:
+                raise ValueError(f"Duplicate plugin id in manifest: {p.id!r}")
+            seen.add(p.id)
+        return v
+
+
 class DiscoveredPlugin(BaseModel):
     """A plugin found by scanning importlib.metadata in the current environment."""
 
