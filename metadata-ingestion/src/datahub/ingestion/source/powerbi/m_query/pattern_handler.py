@@ -461,10 +461,9 @@ class AbstractLineage(ABC):
         return Lineage(
             upstreams=dataplatform_tables,
             # sqlglot returns downstream columns in the SQL's alias casing, which
-            # rarely matches the casing PowerBI stores its fields in. Remap here —
-            # in the shared SQL-parsing path — so every platform's native-query and
-            # ODBC lineage gets the fix, not just the Oracle path that used to wrap
-            # this call.
+            # rarely matches the casing PowerBI stores its fields in. Remap in this
+            # shared SQL-parsing path so the downstream column resolves to the real
+            # PowerBI field regardless of the platform driving the parse.
             column_lineage=_remap_column_lineage_to_pbi_fields(
                 (
                     parsed_result.column_lineage
@@ -903,8 +902,6 @@ class OracleLineage(AbstractLineage):
 
         # `default_database` is None for the default 2-part URN shape; set, it
         # produces 3-part URNs matching `add_database_name_to_urn: true`.
-        # parse_custom_sql already remaps downstream columns to the PowerBI field
-        # casing, so no additional wrapping is needed here.
         return self.parse_custom_sql(
             query=query,
             server=server,
