@@ -16,7 +16,10 @@ const StyledAccessButton = styled(Button)`
     border: none;
     font-weight: bold;
 
-    &:hover {
+    &:hover,
+    &:focus,
+    &:focus-visible,
+    &:active {
         background-color: ${(props) => props.theme.colors.buttonSurfaceBrandHover};
         color: ${(props) => props.theme.colors.textOnFillBrand};
         border: none;
@@ -29,7 +32,10 @@ const StyledAccessButton = styled(Button)`
         cursor: not-allowed;
         border: 1px solid ${(props) => props.theme.colors.borderDisabled};
 
-        &:hover {
+        &:hover,
+        &:focus,
+        &:focus-visible,
+        &:active {
             background-color: ${(props) => props.theme.colors.bgDisabled};
             color: ${(props) => props.theme.colors.textDisabled};
             border: 1px solid ${(props) => props.theme.colors.borderDisabled};
