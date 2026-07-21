@@ -5,13 +5,16 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.Constants;
@@ -22,6 +25,7 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -133,6 +137,24 @@ public class ESSearchDAOSearchLatestPerGroupTest {
     assertTrue(
         request.source().aggregations().getAggregatorFactories().stream()
             .anyMatch(factory -> ESSearchDAO.GROUP_BUCKETS_AGG.equals(factory.getName())));
+  }
+
+  @Test
+  public void testAggregationFailureFailsLoud() throws Exception {
+    doThrow(new IOException("boom"))
+        .when(mockClient)
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+
+    assertThrows(
+        ESQueryException.class,
+        () ->
+            esSearchDAO.searchLatestPerGroup(
+                opContext,
+                Constants.EXECUTION_REQUEST_ENTITY_NAME,
+                "ingestionSource",
+                List.of(SOURCE_A, SOURCE_B),
+                List.of(
+                    new SortCriterion().setField("requestTimeMs").setOrder(SortOrder.DESCENDING))));
   }
 
   private static SearchHit mockHit(String urn) {
