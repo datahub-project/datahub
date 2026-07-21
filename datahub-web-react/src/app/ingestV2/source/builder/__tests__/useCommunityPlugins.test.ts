@@ -93,6 +93,7 @@ describe('useCommunityPlugins', () => {
                     type: 'source',
                     support_status: 'CERTIFIED',
                     trust_tier: 'verified',
+                    sha256: 'deadbeef',
                     capabilities: [{ capability: 'LINEAGE_COARSE', description: 'Table lineage', supported: true }],
                 },
             ],
@@ -105,6 +106,7 @@ describe('useCommunityPlugins', () => {
         const meta = result.current.communityPluginMeta['cap-source'];
         expect(meta.trustTier).toBe('verified');
         expect(meta.supportStatus).toBe('CERTIFIED');
+        expect(meta.sha256).toBe('deadbeef');
         expect(meta.capabilities).toHaveLength(1);
         expect(meta.capabilities?.[0].capability).toBe('LINEAGE_COARSE');
     });

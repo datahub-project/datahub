@@ -60,6 +60,26 @@ class TestInstallExternalPlugins:
         reqs = json.loads(args["extra_pip_requirements"])
         assert reqs == ["/tmp/datahub-plugin-xyz/a.whl"]
 
+    def test_object_entry_forwards_sha256(self, executor_action):
+        """A {spec, sha256} entry threads the checksum to download_wheel."""
+        specs = [{"spec": "github:acme/source-a@v1.0", "sha256": "abc123"}]
+        args = {"datahub_plugins": json.dumps(specs)}
+
+        fake = ResolvedWheel(
+            download_url="https://github.com/acme/source-a/releases/download/v1.0/a.whl",
+            version="1.0",
+        )
+
+        with (
+            patch(RESOLVE_PATH, return_value=fake),
+            patch(DOWNLOAD_PATH, return_value="/tmp/a.whl") as mock_dl,
+        ):
+            executor_action._install_external_plugins(args)
+            mock_dl.assert_called_once_with(fake, expected_sha256="abc123")
+
+        reqs = json.loads(args["extra_pip_requirements"])
+        assert reqs == ["/tmp/a.whl"]
+
     def test_git_fallback_uses_url_directly(self, executor_action):
         """Non-wheel specs (git+https://) are passed as URLs without download."""
         specs = ["github:acme/source-b@v2.0"]

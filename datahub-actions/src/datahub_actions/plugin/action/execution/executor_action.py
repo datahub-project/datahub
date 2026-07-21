@@ -17,7 +17,7 @@ import logging
 import os
 import sys
 import time
-from typing import Dict, Iterator, List, Optional
+from typing import Dict, Iterator, List, Optional, Union
 
 from acryl.executor.dispatcher.default_dispatcher import DefaultDispatcher
 from acryl.executor.execution.reporting_executor import (
@@ -273,19 +273,37 @@ class ExecutorAction(Action):
                 os.environ.pop("GITHUB_TOKEN", None)
 
     @staticmethod
-    def _resolve_single_spec(spec: str, existing_reqs: List[str]) -> Optional[str]:
-        """Resolve one plugin spec and append the pip target to *existing_reqs*.
+    def _resolve_single_spec(
+        entry: Union[str, Dict[str, str]], existing_reqs: List[str]
+    ) -> Optional[str]:
+        """Resolve one plugin entry and append the pip target to *existing_reqs*.
 
-        Uses the shared ``resolve_plugin_spec`` grammar so the executor accepts
-        exactly what the ``datahub plugin install`` CLI does: ``github:owner/repo``
-        (wheel downloaded locally with auth, or git+https), ``pypi:package[==ver]``,
-        and bare pip specs.
+        An entry is either a bare spec string, or a ``{"spec": ..., "sha256": ...}``
+        object — the UI attaches the registry checksum so the downloaded wheel is
+        verified before it is installed. The spec uses the shared
+        ``resolve_plugin_spec`` grammar (``github:owner/repo``, ``pypi:pkg[==ver]``,
+        bare pip specs), matching the ``datahub plugin install`` CLI.
 
         Returns an error string on failure, or ``None`` on success.
         """
+        if isinstance(entry, dict):
+            spec = entry.get("spec")
+            expected_sha256 = entry.get("sha256")
+        else:
+            spec = entry
+            expected_sha256 = None
+        if not isinstance(spec, str) or not spec.strip():
+            return f"{entry!r}: missing or invalid plugin spec"
+        spec = spec.strip()
+
         try:
-            pip_target = resolve_plugin_spec(spec)
-            logger.info("Resolved %s -> %s", spec, pip_target)
+            pip_target = resolve_plugin_spec(spec, expected_sha256=expected_sha256)
+            logger.info(
+                "Resolved %s -> %s%s",
+                spec,
+                pip_target,
+                " (checksum verified)" if expected_sha256 else "",
+            )
             existing_reqs.append(pip_target)
         except Exception as e:
             logger.error("Failed to resolve external plugin: %s", spec, exc_info=True)
@@ -295,10 +313,11 @@ class ExecutorAction(Action):
     def _install_external_plugins(self, args: Dict[str, str]) -> None:
         """Resolve external DataHub plugin specs and inject them into extra_pip_requirements.
 
-        The datahub_plugins arg is a JSON-encoded list of plugin specs
-        (e.g. '["github:owner/repo", "github:owner/other@v1.0"]').
-        Each spec is resolved to a pip-installable URL (wheel download URL
-        or git+https://) and appended to extra_pip_requirements so that
+        The datahub_plugins arg is a JSON-encoded list whose entries are either a
+        bare spec string or a ``{"spec": ..., "sha256": ...}`` object (the UI adds
+        the registry checksum so the wheel is verified before install). Each spec
+        is resolved to a pip-installable target (downloaded wheel path or
+        git+https://) and appended to extra_pip_requirements so that
         SubProcessIngestionTask installs them in the subprocess venv.
         """
         raw = args.get("datahub_plugins")
@@ -316,7 +335,8 @@ class ExecutorAction(Action):
 
         if not isinstance(specs, list):
             raise ValueError(
-                f"datahub_plugins must be a JSON array of strings, "
+                f"datahub_plugins must be a JSON array of specs "
+                f"(strings or {{spec, sha256}} objects), "
                 f"but got {type(specs).__name__}. "
                 f"Example: '[\"github:owner/repo\"]'"
             )
@@ -336,13 +356,12 @@ class ExecutorAction(Action):
         errors: List[str] = []
 
         with self._temporary_github_token(args):
-            for spec in specs:
-                if not isinstance(spec, str) or not spec.strip():
-                    logger.debug("Skipping blank or non-string plugin spec: %r", spec)
+            for entry in specs:
+                if entry is None or (isinstance(entry, str) and not entry.strip()):
+                    logger.debug("Skipping blank plugin entry")
                     continue
-                spec = spec.strip()
-                logger.info("Resolving external plugin spec: %s", spec)
-                error = self._resolve_single_spec(spec, existing_reqs)
+                logger.info("Resolving external plugin: %r", entry)
+                error = self._resolve_single_spec(entry, existing_reqs)
                 if error:
                     errors.append(error)
 

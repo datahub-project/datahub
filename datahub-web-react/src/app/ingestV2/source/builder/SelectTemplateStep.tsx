@@ -124,7 +124,10 @@ export const SelectTemplateStep = ({
 
         // Auto-populate extraArgs so the executor installs the community plugin before ingestion.
         if (meta) {
-            const installSpecArray = JSON.stringify([meta.installSpec]);
+            // Forward the registry checksum (when present) so the executor verifies
+            // the downloaded wheel before installing it.
+            const pluginEntry = meta.sha256 ? { spec: meta.installSpec, sha256: meta.sha256 } : meta.installSpec;
+            const installSpecArray = JSON.stringify([pluginEntry]);
             const setExtraArg = (key: string, value: string) => {
                 const idx = extraArgs.findIndex((arg) => arg.key === key);
                 if (idx >= 0) {

@@ -33,6 +33,7 @@ interface CommunityPluginMeta {
     supportStatus?: string;
     sourceUrl?: string;
     trustTier?: string;
+    sha256?: string; // forwarded to the executor so the wheel is checksum-verified before install
 }
 
 /**
@@ -103,6 +104,7 @@ export function useCommunityPlugins() {
                         supportStatus: entry.support_status,
                         sourceUrl,
                         trustTier: entry.trust_tier,
+                        sha256: entry.sha256,
                     };
                 });
 

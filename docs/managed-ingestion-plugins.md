@@ -54,6 +54,11 @@ datahub plugin install github:acme/datahub-salesforce-source@v1.0.0
 datahub plugin install github:acme/datahub-custom-transformer@v2.1.0
 ```
 
+When you pick a community plugin in the UI, its registry `sha256` is carried
+through with the install spec, and the executor verifies the downloaded wheel
+against it before installing — so UI-driven installs are checksum-verified, not
+just CLI installs.
+
 The recipe itself only references types — no special `plugins` key is needed:
 
 ```yaml
