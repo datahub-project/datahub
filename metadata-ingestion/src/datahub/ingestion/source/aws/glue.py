@@ -50,6 +50,7 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.emitter.rest_emitter import EmitMode
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -418,6 +419,18 @@ class GlueSourceConfig(
     @property
     def glue_client(self):
         return self.get_glue_client()
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        # Structural only — must not connect (see ProbeCapableConfig).
+        from datahub.ingestion.source.aws.glue_probe import GLUE_PROBE_HIERARCHY
+
+        return GLUE_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.aws.glue_probe import list_glue_children
+
+        return list_glue_children(self, parent_path, limit)
 
     @property
     def s3_client(self):
