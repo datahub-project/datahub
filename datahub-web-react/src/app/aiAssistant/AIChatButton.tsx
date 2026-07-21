@@ -182,7 +182,28 @@ const WELCOME: ChatMessage = {
     isUser: false,
 };
 
-// ─── Mock response (replace with real API call when orchestrator is ready) ──────
+// ─── Page context — automatically read from the current browser URL ─────────────
+
+interface PageContext {
+    pageUrl: string;
+    pageType: string;        // e.g. "dataset", "dashboard", "domain", "policy", "home"
+    entityUrn?: string;      // e.g. "urn:li:dataset:(urn:li:dataPlatform:hive,users,PROD)"
+}
+
+const getPageContext = (): PageContext => {
+    const path = window.location.pathname;
+    const parts = path.split('/').filter(Boolean);
+    return {
+        pageUrl: window.location.href,
+        pageType: parts[0] || 'home',
+        entityUrn: parts[1] ? decodeURIComponent(parts[1]) : undefined,
+    };
+};
+
+// ─── AI endpoint — swap this URL once backend is ready ──────────────────────────
+const AI_CHAT_ENDPOINT = '/api/ai/chat';
+
+// ─── Mock fallback (used when backend is unavailable) ───────────────────────────
 
 const MOCK_RESPONSES: string[] = [
     'The `user_events` table has 6 columns: `user_id`, `event_type`, `timestamp`, `session_id`, `raw_payload`, and `ip_address`. Note that `user_id` and `ip_address` are tagged as PII.',
@@ -221,24 +242,63 @@ export const AIChatButton: React.FC = () => {
         setInputText('');
         setIsTyping(true);
 
-        // TODO: Replace with real API call to orchestrator
-        // const response = await fetch('/api/chat', {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify({ message: text }),
-        // });
-        // const data = await response.json();
+        try {
+            // ── Real SSE streaming call to backend ───────────────────────────
+            const response = await fetch(AI_CHAT_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: text,
+                    context: getPageContext(),   // current page URL + entity type
+                }),
+            });
 
-        // Simulated delay for demo
-        setTimeout(() => {
-            const aiMsg: ChatMessage = {
-                id: Date.now() + 1,
-                text: getMockResponse(),
-                isUser: false,
-            };
-            setMessages((prev) => [...prev, aiMsg]);
+            if (!response.ok || !response.body) {
+                throw new Error(`Backend returned ${response.status}`);
+            }
+
+            // Stream response token-by-token (SSE JSON events: data: {"token": "..."})
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            const aiMsgId = Date.now() + 1;
+            let accumulated = '';
+
+            // Add empty AI message bubble — we'll fill it as tokens arrive
+            setMessages((prev) => [...prev, { id: aiMsgId, text: '', isUser: false }]);
             setIsTyping(false);
-        }, 1200);
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                // Parse SSE lines: "data: {"token": "hello"}\n"
+                for (const line of chunk.split('\n')) {
+                    if (!line.startsWith('data: ')) continue;
+                    const payload = line.slice(6).trim();
+                    if (payload === '[DONE]') break;
+                    try {
+                        const { token } = JSON.parse(payload) as { token: string };
+                        accumulated += token;
+                        // Update the message bubble live as each token arrives
+                        setMessages((prev) =>
+                            prev.map((m) => (m.id === aiMsgId ? { ...m, text: accumulated } : m)),
+                        );
+                    } catch {
+                        // skip malformed lines
+                    }
+                }
+            }
+        } catch {
+            // ── Fallback to mock if backend is unavailable ───────────────────
+            setTimeout(() => {
+                setMessages((prev) => [
+                    ...prev,
+                    { id: Date.now() + 1, text: getMockResponse(), isUser: false },
+                ]);
+                setIsTyping(false);
+            }, 1200);
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
