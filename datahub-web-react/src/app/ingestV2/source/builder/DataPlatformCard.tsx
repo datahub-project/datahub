@@ -7,7 +7,7 @@ import { SupportStatusBadge } from '@app/ingestV2/source/builder/SupportStatusBa
 const Container = styled(Button)`
     && {
         padding: 32px;
-        height: 100%;
+        min-height: 172px;
         width: 100%;
         display: flex;
         justify-content: center;
@@ -50,11 +50,15 @@ const Description = styled.div`
     word-break: break-word;
     text-align: left;
     color: ${(props) => props.theme.colors.textTertiary};
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    // Clamp to exactly 2 lines. As a flex item the -webkit-box display is
+    // blockified (to flow-root), which disables -webkit-line-clamp, so the clamp
+    // is done by line-height + max-height (= 2 lines) with overflow hidden — this
+    // cuts cleanly at the line boundary. flex-shrink: 0 stops the flex column from
+    // compressing the text below 2 lines (which was clipping the 2nd line).
+    line-height: 1.4;
+    max-height: 2.8em;
+    flex-shrink: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
 `;
 
 const BadgePosition = styled.div`
