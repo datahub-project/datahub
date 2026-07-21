@@ -1461,7 +1461,7 @@ ruamel-yaml==0.17.17
     # via
     #   acryl-datahub
     #   acryl-great-expectations
-ruff==0.15.18
+ruff==0.15.22
     # via acryl-datahub
 s3fs==2026.2.0
     # via pyiceberg

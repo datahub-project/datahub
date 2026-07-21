@@ -10,6 +10,8 @@ from pydantic import ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.object_store_files import FileSizeExceededError
+from datahub.ingestion.source.odcs import odcs_source
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_source import ODCSSource
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -20,8 +22,8 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
-    DataPlatformInfoClass,
     DatasetPropertiesClass,
+    EdgeClass,
     LogicalParentClass,
     OwnershipClass,
 )
@@ -214,7 +216,7 @@ def test_max_input_file_bytes_skips_large_files(tmp_path: pathlib.Path) -> None:
 def test_validate_strict_mode_fails_broken_doc(tmp_path: pathlib.Path) -> None:
     src = _make_source(tmp_path, strict_validation=True)
     bad: dict = {"foo": "bar"}
-    ok = src._validate(bad, tmp_path / "bad.yaml")
+    ok = src._validate(bad, str(tmp_path / "bad.yaml"))
     assert not ok
     assert len(src.report.warnings) >= 1
 
@@ -231,9 +233,72 @@ def test_validate_lenient_default_proceeds_on_invalid_doc(
         "id": "x",
         "rule": [{"name": "not-a-spec-field-here"}],
     }
-    ok = src._validate(raw_dict, tmp_path / "deprecated.yaml")
+    ok = src._validate(raw_dict, str(tmp_path / "deprecated.yaml"))
     assert ok
     assert len(src.report.warnings) >= 1
+
+
+def test_validate_sorts_mixed_type_error_paths_without_crashing(
+    tmp_path: pathlib.Path,
+) -> None:
+    """JSON Schema error paths mix str property names and int array indices.
+    Sorting the raw deques compares str-vs-int and raises TypeError in Py3,
+    which would demote actionable validation feedback to an opaque skip. The
+    source sorts by the stringified path instead."""
+    from collections import deque
+
+    class _FakeErr:
+        def __init__(self, path: list, message: str) -> None:
+            self.absolute_path = deque(path)
+            self.path = deque(path)
+            self.message = message
+
+    class _FakeValidator:
+        def __init__(self, errors: list) -> None:
+            self._errors = errors
+
+        def iter_errors(self, raw_dict: dict) -> Any:
+            return iter(self._errors)
+
+    errors = [_FakeErr(["schema", 0], "a"), _FakeErr(["schema", "x"], "b")]
+    # Document the underlying footgun the fix guards against.
+    with pytest.raises(TypeError):
+        sorted(errors, key=lambda e: e.path)
+
+    src = _make_source(tmp_path)
+    src._validators = {"3.1.0": _FakeValidator(errors)}  # type: ignore[dict-item]
+    ok = src._validate({"apiVersion": "3.1.0", "id": "x"}, str(tmp_path / "f.yaml"))
+    assert ok  # lenient default proceeds after reporting
+    assert src.report.validation_errors == 2
+
+
+def test_validate_counts_skips_when_no_validator_available(
+    tmp_path: pathlib.Path,
+) -> None:
+    """With no validators loaded, strict_validation is a silent no-op; the
+    per-contract skip is counted so a zero-validation run is visible."""
+    src = _make_source(tmp_path)
+    src._validators = {}
+    ok = src._validate({"apiVersion": "3.1.0", "id": "x"}, str(tmp_path / "f.yaml"))
+    assert ok
+    assert src.report.contracts_validation_skipped == 1
+
+
+def test_missing_schema_dir_warns_once(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A vendored-schema packaging/checkout regression must surface a warning,
+    not silently disable validation for the whole run."""
+    import datahub.ingestion.source.odcs.odcs_source as mod
+
+    src = _make_source(tmp_path)
+    monkeypatch.setattr(mod, "_SCHEMA_DIR", tmp_path / "does-not-exist")
+    validators = src._load_validators()
+    assert validators == {}
+    assert any(
+        "validators unavailable" in str(getattr(w, "title", "")).lower()
+        for w in src.report.warnings
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -248,7 +313,7 @@ def test_unknown_field_increments_counter_and_warns(tmp_path: pathlib.Path) -> N
         "id": "x",
         "frobozz": 42,  # unknown top-level field
     }
-    src._warn_unknown_fields(raw_dict, tmp_path / "f.yaml")
+    src._warn_unknown_fields(raw_dict, str(tmp_path / "f.yaml"))
     assert src.report.unknown_fields_count >= 1
     assert any(
         "Unknown ODCS field" in str(getattr(w, "title", ""))
@@ -268,7 +333,7 @@ def test_spec_valid_unmapped_field_is_info_not_warning(tmp_path: pathlib.Path) -
         "slaProperties": [{"property": "latency", "value": 4}],
         "schema": [{"name": "t", "relationships": []}],
     }
-    src._warn_unknown_fields(raw_dict, tmp_path / "f.yaml")
+    src._warn_unknown_fields(raw_dict, str(tmp_path / "f.yaml"))
     assert src.report.unknown_fields_count == 0
     assert not src.report.warnings
     assert any("support" in entry for entry in src.report.spec_fields_ignored)
@@ -277,25 +342,8 @@ def test_spec_valid_unmapped_field_is_info_not_warning(tmp_path: pathlib.Path) -
 
 
 # ---------------------------------------------------------------------------
-# Platform registration, binding, and assertion emission
+# Binding and assertion emission
 # ---------------------------------------------------------------------------
-
-
-def test_platform_info_emitted_once_and_not_primary(tmp_path: pathlib.Path) -> None:
-    contract_file = tmp_path / "c.odcs.yaml"
-    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
-    src = _make_source(tmp_path, path=str(contract_file))
-    workunits = list(src.get_workunits_internal())
-    platform_wus = [
-        wu
-        for wu in workunits
-        if isinstance(getattr(wu.metadata, "aspect", None), DataPlatformInfoClass)
-    ]
-    assert len(platform_wus) == 1
-    platform_aspect = _mcp(platform_wus[0]).aspect
-    assert isinstance(platform_aspect, DataPlatformInfoClass)
-    assert platform_aspect.name == "odcs"
-    assert not platform_wus[0].is_primary_source
 
 
 def test_binding_derived_from_server_type(tmp_path: pathlib.Path) -> None:
@@ -365,15 +413,14 @@ def test_emit_flags(tmp_path: pathlib.Path) -> None:
     assert not _aspects_of(workunits, AssertionInfoClass)
 
 
-def test_platform_info_emitted_once_across_multiple_files(
+def test_multiple_files_emit_all_logical_datasets(
     tmp_path: pathlib.Path,
 ) -> None:
     body2 = _VALID_CONTRACT_BODY.replace("id: test-contract-1", "id: test-contract-2")
     _write(tmp_path / "a.odcs.yaml", _VALID_CONTRACT_BODY)
     _write(tmp_path / "b.odcs.yaml", body2)
     src = _make_source(tmp_path, path=str(tmp_path))
-    workunits = list(src.get_workunits_internal())
-    assert len(_aspects_of(workunits, DataPlatformInfoClass)) == 1
+    list(src.get_workunits_internal())
     assert src.report.logical_datasets_emitted == 2
 
 
@@ -467,6 +514,67 @@ def test_verification_fails_open_on_graph_error(tmp_path: pathlib.Path) -> None:
         "Could not verify URN existence" in str(getattr(w, "title", ""))
         for w in src.report.warnings
     )
+    # A fail-open must not be tallied as genuinely verified.
+    assert src.report.physical_urns_verify_failed == 1
+    assert src.report.physical_urns_verified == 0
+
+
+def _link_conflict_warnings(src: ODCSSource) -> List:
+    return [
+        w
+        for w in src.report.warnings
+        if "already linked to a different ODCS contract" in str(getattr(w, "title", ""))
+    ]
+
+
+def test_cross_run_conflict_warns_and_still_emits(tmp_path: pathlib.Path) -> None:
+    """A logicalParent written by a PRIOR run for a different contract would be
+    silently overwritten (logicalParent is single-valued and physical URNs are
+    kept out of the checkpoint). The overwrite is now surfaced."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.return_value = True
+    other_logical = "urn:li:dataset:(urn:li:dataPlatform:odcs,other-contract.t,PROD)"
+    graph.get_aspect.return_value = LogicalParentClass(
+        parent=EdgeClass(destinationUrn=other_logical)
+    )
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    # Last-writer-wins is preserved, but now visible.
+    assert _aspects_of(workunits, LogicalParentClass)
+    assert src.report.physical_urns_link_conflicts == 1
+    assert len(_link_conflict_warnings(src)) == 1
+
+
+def test_cross_run_same_contract_relink_is_silent(tmp_path: pathlib.Path) -> None:
+    """Re-ingesting the same contract re-writes the same link — idempotent, no
+    conflict warning."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    same_logical = "urn:li:dataset:(urn:li:dataPlatform:odcs,test-contract-1.t,PROD)"
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.return_value = LogicalParentClass(
+        parent=EdgeClass(destinationUrn=same_logical)
+    )
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert src.report.physical_urns_link_conflicts == 0
+    assert not _link_conflict_warnings(src)
+
+
+def test_no_prior_link_no_conflict(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.return_value = None
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert src.report.physical_urns_link_conflicts == 0
+    assert not _link_conflict_warnings(src)
 
 
 def test_verification_without_graph_links(tmp_path: pathlib.Path) -> None:
@@ -524,13 +632,13 @@ def test_owned_workunits_are_primary_but_links_are_not(
     tmp_path: pathlib.Path,
 ) -> None:
     """Stale removal must track logical datasets + assertions (primary) but
-    never the logicalParent link on physical datasets or the platform aspect."""
+    never the logicalParent link on physical datasets."""
     contract_file = tmp_path / "c.odcs.yaml"
     contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
     src = _make_source(tmp_path, path=str(contract_file))
     for wu in src.get_workunits_internal():
         aspect = getattr(wu.metadata, "aspect", None)
-        if isinstance(aspect, (LogicalParentClass, DataPlatformInfoClass)):
+        if isinstance(aspect, LogicalParentClass):
             assert not wu.is_primary_source
         elif isinstance(aspect, (AssertionInfoClass, DatasetPropertiesClass)):
             assert wu.is_primary_source
@@ -640,6 +748,25 @@ def test_owner_normalization_knobs_reach_emitted_ownership(
     assert ownerships[0].owners[0].owner == "urn:li:corpuser:alice@acme.example"
 
 
+def test_unmapped_owner_role_is_recorded(tmp_path: pathlib.Path) -> None:
+    """A named role the map does not know is silently coerced to
+    TECHNICAL_OWNER; the source records it so the coercion is visible."""
+    body = _VALID_CONTRACT_BODY.replace(
+        "\nschema:\n",
+        """
+team:
+  - username: alice
+    role: producer
+schema:
+""",
+    )
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert src.report.owners_role_defaulted == ["test-contract-1: producer"]
+
+
 def test_owner_normalization_knobs_are_mutually_exclusive() -> None:
     with pytest.raises(ValidationError, match="mutually"):
         ODCSSourceConfig.model_validate(
@@ -649,3 +776,256 @@ def test_owner_normalization_knobs_are_mutually_exclusive() -> None:
                 "owner_email_domain": "acme.example",
             }
         )
+
+
+# ---------------------------------------------------------------------------
+# Skip / error paths (one bad file must not abort the run)
+# ---------------------------------------------------------------------------
+
+
+def test_bad_file_is_skipped_and_run_continues(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A mid-file crash on one contract is contained: it is reported and
+    skipped, and the next file still emits its metadata."""
+    body_b = _VALID_CONTRACT_BODY.replace("id: test-contract-1", "id: test-contract-2")
+    first = _write(tmp_path / "a.odcs.yaml", _VALID_CONTRACT_BODY)
+    _write(tmp_path / "b.odcs.yaml", body_b)
+    src = _make_source(tmp_path, path=str(tmp_path))
+
+    original = src._emit_bindings
+
+    def emit_or_raise(contract, bindings, file_path, source_file):  # type: ignore[no-untyped-def]
+        if source_file == first.name:
+            raise RuntimeError("boom in first file")
+        yield from original(contract, bindings, file_path, source_file)
+
+    monkeypatch.setattr(src, "_emit_bindings", emit_or_raise)
+    workunits = list(src.get_workunits_internal())
+
+    assert str(first) in src.report.files_skipped
+    assert src.report.contracts_skipped >= 1
+    assert any(
+        "Unhandled error processing ODCS file" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+    # The second contract still produced its logical dataset.
+    props = _aspects_of(workunits, DatasetPropertiesClass)
+    assert any(p.customProperties.get("odcs.id") == "test-contract-2" for p in props)
+
+
+def test_unsupported_api_version_is_skipped(tmp_path: pathlib.Path) -> None:
+    src = _make_source(tmp_path)
+    raw_dict: Dict[str, str] = {
+        "apiVersion": "v2.0.0",
+        "kind": "DataContract",
+        "id": "x",
+    }
+    assert not src._validate(raw_dict, str(tmp_path / "old.yaml"))
+    assert any(
+        "Unsupported ODCS apiVersion" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_contract_missing_required_id_is_skipped(tmp_path: pathlib.Path) -> None:
+    """A document that passes lenient schema validation but cannot be coerced
+    into the model (missing required `id`) is skipped, not crashed."""
+    _write(
+        tmp_path / "no-id.odcs.yaml",
+        "apiVersion: v3.1.0\nkind: DataContract\nschema:\n  - name: t\n",
+    )
+    src = _make_source(tmp_path, path=str(tmp_path))
+    list(src.get_workunits_internal())
+    assert src.report.contracts_skipped >= 1
+    assert any(
+        "failed Pydantic validation" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_load_yaml_top_level_list_is_skipped(tmp_path: pathlib.Path) -> None:
+    f = _write(tmp_path / "list.odcs.yaml", "- one\n- two\n")
+    src = _make_source(tmp_path, path=str(tmp_path))
+    assert src._load_yaml(f) is None
+    assert str(f) in src.report.files_skipped
+    assert any(
+        "not a YAML object" in str(getattr(w, "title", "")) for w in src.report.warnings
+    )
+
+
+def test_load_yaml_malformed_is_skipped(tmp_path: pathlib.Path) -> None:
+    f = _write(tmp_path / "broken.odcs.yaml", "id: x\n  bad: [unclosed\n")
+    src = _make_source(tmp_path, path=str(tmp_path))
+    assert src._load_yaml(f) is None
+    assert str(f) in src.report.files_skipped
+    assert any(
+        "Failed to read ODCS file" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_duplicate_logical_urn_collision_warns(tmp_path: pathlib.Path) -> None:
+    """Two schema entries resolving to the same logical URN collide
+    (last-writer-wins) and must warn — the twin of the physical collision."""
+    body = _VALID_CONTRACT_BODY.replace(
+        "schema:\n  - name: t\n    physicalName: t\n",
+        "schema:\n  - name: t\n    physicalName: t\n  - name: t\n    physicalName: t2\n",
+    )
+    contract_file = _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(tmp_path, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert any(
+        "Duplicate logical ODCS dataset URN" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_s3_uri_requires_aws_connection() -> None:
+    with pytest.raises(ValidationError, match="aws_connection is required"):
+        ODCSSourceConfig.model_validate({"path": "s3://bucket/c.odcs.yaml"})
+
+
+def test_gcs_uri_requires_gcs_connection() -> None:
+    with pytest.raises(ValidationError, match="gcs_connection is required"):
+        ODCSSourceConfig.model_validate({"path": "gs://bucket/c.odcs.yaml"})
+
+
+def test_s3_uri_with_aws_connection_validates() -> None:
+    cfg = ODCSSourceConfig.model_validate(
+        {"path": "s3://bucket/c.odcs.yaml", "aws_connection": {}}
+    )
+    assert cfg.aws_connection is not None
+
+
+def test_resolve_paths_skips_remote_uris(tmp_path: pathlib.Path) -> None:
+    local = _write(tmp_path / "a.odcs.yaml")
+    src = _make_source(tmp_path, path=[str(local), "https://x.example/b.odcs.yaml"])
+    assert [str(p) for p in src._resolve_paths()] == [str(local)]
+
+
+def test_resolve_remote_uris_returns_http_and_s3_singletons(
+    tmp_path: pathlib.Path,
+) -> None:
+    src = _make_source(
+        tmp_path,
+        path=[
+            str(tmp_path),
+            "https://x.example/a.odcs.yaml",
+            "s3://bucket/b.odcs.yaml",
+        ],
+        aws_connection={},
+    )
+    assert src._resolve_remote_uris() == [
+        "https://x.example/a.odcs.yaml",
+        "s3://bucket/b.odcs.yaml",
+    ]
+
+
+def test_resolve_remote_uris_expands_s3_glob_and_filters_extension(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    src = _make_source(
+        tmp_path, path="s3://bucket/contracts/*.odcs.yaml", aws_connection={}
+    )
+    monkeypatch.setattr(
+        odcs_source,
+        "expand_object_store_glob",
+        lambda uri, connection, scheme: [
+            "s3://bucket/contracts/a.odcs.yaml",
+            "s3://bucket/contracts/note.txt",  # filtered: not an ODCS extension
+        ],
+    )
+    assert src._resolve_remote_uris() == ["s3://bucket/contracts/a.odcs.yaml"]
+
+
+def test_resolve_remote_uris_http_glob_unsupported_warns(
+    tmp_path: pathlib.Path,
+) -> None:
+    src = _make_source(tmp_path, path="https://x.example/contracts/*.odcs.yaml")
+    assert src._resolve_remote_uris() == []
+    assert any(
+        "Glob patterns not supported" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_load_remote_yaml_size_guard(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The reader enforces the cap (bounded download) and raises; the source
+    # forwards max_input_file_bytes and turns the error into a skip.
+    src = _make_source(tmp_path, max_input_file_bytes=8)
+    seen: Dict[str, Any] = {}
+
+    def _too_big(*a: Any, **k: Any) -> bytes:
+        seen.update(k)
+        raise FileSizeExceededError("big.odcs.yaml is 100 bytes, over the limit of 8")
+
+    monkeypatch.setattr(odcs_source, "read_file_as_bytes", _too_big)
+    assert src._load_remote_yaml("s3://bucket/big.odcs.yaml") is None
+    assert seen.get("max_bytes") == 8
+    assert "s3://bucket/big.odcs.yaml" in src.report.files_skipped
+    assert any(
+        "max_input_file_bytes" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_load_remote_yaml_non_mapping_warns(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    src = _make_source(tmp_path)
+    monkeypatch.setattr(
+        odcs_source, "read_file_as_bytes", lambda *a, **k: b"- one\n- two\n"
+    )
+    assert src._load_remote_yaml("https://x.example/list.odcs.yaml") is None
+
+
+def test_load_remote_yaml_read_failure_is_skipped(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _boom(*a: Any, **k: Any) -> bytes:
+        raise ValueError("network down")
+
+    src = _make_source(tmp_path)
+    monkeypatch.setattr(odcs_source, "read_file_as_bytes", _boom)
+    assert src._load_remote_yaml("s3://bucket/c.odcs.yaml") is None
+    assert "s3://bucket/c.odcs.yaml" in src.report.files_skipped
+
+
+def test_process_uri_emits_logical_dataset(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    src = _make_source(tmp_path)
+    monkeypatch.setattr(
+        odcs_source,
+        "read_file_as_bytes",
+        lambda *a, **k: _VALID_CONTRACT_BODY.encode("utf-8"),
+    )
+    workunits = list(src._process_uri("s3://bucket/c.odcs.yaml"))
+    assert src.report.remote_files_scanned == 1
+    assert src.report.contracts_parsed == 1
+    assert _aspects_of(workunits, DatasetPropertiesClass)
+
+
+def test_git_info_clones_and_walks_checkout(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = tmp_path / "checkout"
+    _write(checkout / "contracts" / "c.odcs.yaml", _VALID_CONTRACT_BODY)
+    src = _make_source(
+        tmp_path,
+        path="contracts",
+        git_info={"repo": "https://github.com/acme/contracts"},
+    )
+    assert src.config.git_info is not None
+    monkeypatch.setattr(
+        type(src.config.git_info),
+        "clone",
+        lambda self, tmp_path, **kwargs: checkout,
+    )
+    workunits = list(src.get_workunits_internal())
+    assert src.report.git_checkout == str(checkout)
+    assert src.report.contracts_parsed == 1
+    assert _aspects_of(workunits, DatasetPropertiesClass)

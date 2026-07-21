@@ -215,34 +215,24 @@ def installPreCommitHooks() {
             println "Error installing hooks: ${e.message}"
             return
         }
-    }
-}
-
-def installPrePushHook() {
-    if (System.getenv("CI") == "true") {
-        println("Skipping pre-push hook in CI")
-        return
-    }
-    // In a git worktree, .git is a file. The hook installed from the main worktree
-    // lives in the shared hooks dir and is used by every worktree, so install once there.
-    if (new File(rootDir, ".git").isFile()) {
-        println("Skipping pre-push hook in git worktree")
-        return
-    }
-    def src = new File(rootDir, ".githooks/pre-push-oss")
-    def hooksDir = new File(rootDir, ".git/hooks/")
-    if (!src.exists() || !hooksDir.isDirectory()) {
-        return
-    }
-    try {
-        def dest = new File(hooksDir, "pre-push")
-        dest.bytes = src.bytes
-        dest.setExecutable(true, false)
-        println("Installed pre-push hook")
-    } catch (Exception e) {
-        println("Error installing pre-push hook: ${e.message}")
+        // Also install the pre-push stage so hooks declared with
+        // stages: [pre-push] (self-correcting formatters + the push file-count
+        // guard) actually run on `git push`. See PFP-5002.
+        try {
+            def installPushProcess = ["pre-commit", "install", "--hook-type", "pre-push"].execute()
+            def stdout = new StringBuilder()
+            def stderr = new StringBuilder()
+            installPushProcess.waitForProcessOutput(stdout, stderr)
+            if (installPushProcess.exitValue() != 0) {
+                println "Failed to install pre-push hooks: ${stdout}"
+                return
+            }
+            println "Pre-push hooks output: ${stdout}"
+        } catch (Exception e) {
+            println "Error installing pre-push hooks: ${e.message}"
+            return
+        }
     }
 }
 
 installPreCommitHooks()
-installPrePushHook()

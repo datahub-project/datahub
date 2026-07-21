@@ -117,6 +117,19 @@ single-valued, so the last writer wins.
   subset is emitted), `classification` → `GlossaryTerm` linking, schemaField-level
   `logicalParent` column links, and ODCS export. Spec-valid-but-unmapped fields are
   reported once per file via `report.spec_fields_ignored`. These may land in a follow-up.
+- **Data products / output ports (ODPS) are not modeled.** The contract-level
+  `dataProduct` field is emitted only as the `odcs.dataProduct` custom property — it is
+  **not** linked to a DataHub `DataProduct` entity, and ODPS output ports are not read at
+  all. "One contract across several output ports" and "several contracts on one port" are
+  therefore not representable today. Dataset-level contracts (via the logical dataset and
+  its `logicalParent` link) are the supported unit.
+- **Schema validation depends on the bundled JSON Schemas.** The v3.0.2 / v3.1.0 schemas
+  are vendored with the plugin, so `strict_validation` normally works out of the box. If a
+  contract declares a supported `apiVersion` for which no validator is available (e.g. a
+  packaging regression that dropped a schema file), the contract is parsed **without**
+  schema checking rather than being rejected — `strict_validation` becomes a no-op for
+  those contracts. Confirm the schemas shipped with your install if you rely on strict
+  validation as a hard gate.
 - **Contract metadata replication**: By default, contract-level ownership and tags are
   written to every logical dataset on each run. If you edit these aspects in the DataHub UI,
   they will be overwritten on the next ingest. Set `replicate_contract_metadata: false` to
@@ -165,6 +178,13 @@ physical Dataset belongs to its platform-of-record source (postgres / snowflake 
 the `logicalParent` link is a non-destructive enrichment. With `stateful_ingestion`
 enabled, removing the `schema[]` entry marks the logical dataset and its assertions
 removed on the next ODCS ingest — never the physical dataset.
+
+Note the asymmetry: because the physical dataset is intentionally kept out of the ODCS
+stateful checkpoint, the `logicalParent` pointer previously written onto it is **not**
+cleared when its logical parent is soft-deleted. The physical dataset therefore retains a
+`logicalParent` pointing at a now soft-deleted logical dataset until it is next bound or
+manually cleaned up. This is deliberate (ODCS must never mutate a physical dataset it does
+not own), but it does leave a stale pointer.
 
 #### My contract owner shows up as an unresolved user
 

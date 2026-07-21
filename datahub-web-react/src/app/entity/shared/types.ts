@@ -23,6 +23,7 @@ import {
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     Embed,
+    Entity,
     EntityLineageResult,
     EntityPrivileges,
     EntityRelationshipsResult,
@@ -86,6 +87,9 @@ export type GenericEntityProperties = {
     domain?: Maybe<DomainAssociation>;
     applications?: Maybe<ApplicationAssociation[]>;
     dataProduct?: Maybe<EntityRelationshipsResult>;
+    // Logical models
+    logicalParent?: Maybe<Entity>;
+    physicalChildren?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
     customProperties?: Maybe<CustomPropertiesEntry[]>;
