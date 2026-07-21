@@ -137,6 +137,10 @@ public class ESSearchDAOSearchLatestPerGroupTest {
     assertTrue(
         request.source().aggregations().getAggregatorFactories().stream()
             .anyMatch(factory -> ESSearchDAO.GROUP_BUCKETS_AGG.equals(factory.getName())));
+    String requestJson = request.source().toString();
+    assertTrue(
+        requestJson.contains("ingestionSource.keyword"),
+        "terms agg should target ingestionSource.keyword, got: " + requestJson);
   }
 
   @Test
