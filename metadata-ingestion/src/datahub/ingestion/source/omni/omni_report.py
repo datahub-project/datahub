@@ -1,5 +1,6 @@
 import threading
 from dataclasses import dataclass, field
+from typing import Dict
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -8,50 +9,31 @@ from datahub.utilities.lossy_collections import LossyList
 
 
 @dataclass
+class _CallMetric:
+    """Per-method API call count and cumulative time."""
+
+    calls: int = 0
+    time_seconds: float = 0.0
+
+
+@dataclass
 class OmniClientReport:
-    """API client metrics tracking call counts and timing."""
+    """API client metrics tracking call counts and timing per method."""
 
-    # Call counts per method
-    test_connection_calls: int = 0
-    list_connections_calls: int = 0
-    list_models_calls: int = 0
-    get_topic_calls: int = 0
-    list_documents_calls: int = 0
-    get_dashboard_document_calls: int = 0
-    get_document_queries_calls: int = 0
-    list_folders_calls: int = 0
-
-    # Accumulated call time (seconds) per method
-    test_connection_time_seconds: float = 0.0
-    list_connections_time_seconds: float = 0.0
-    list_models_time_seconds: float = 0.0
-    get_topic_time_seconds: float = 0.0
-    list_documents_time_seconds: float = 0.0
-    get_dashboard_document_time_seconds: float = 0.0
-    get_document_queries_time_seconds: float = 0.0
-    list_folders_time_seconds: float = 0.0
+    metrics: Dict[str, _CallMetric] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        # Lock for thread-safe metric updates
         self._metrics_lock = threading.Lock()
 
     def record_call(self, method_name: str, duration_seconds: float) -> None:
-        """Thread-safe recording of API call metrics.
-
-        Args:
-            method_name: Name of the API method (e.g., "get_topic")
-            duration_seconds: How long the call took
-        """
+        """Thread-safe recording of API call metrics."""
         with self._metrics_lock:
-            # Increment call count
-            call_count_attr = f"{method_name}_calls"
-            current_count = getattr(self, call_count_attr, 0)
-            setattr(self, call_count_attr, current_count + 1)
-
-            # Accumulate time
-            time_attr = f"{method_name}_time_seconds"
-            current_time = getattr(self, time_attr, 0.0)
-            setattr(self, time_attr, current_time + duration_seconds)
+            m = self.metrics.get(method_name)
+            if m is None:
+                m = _CallMetric()
+                self.metrics[method_name] = m
+            m.calls += 1
+            m.time_seconds += duration_seconds
 
 
 @dataclass
