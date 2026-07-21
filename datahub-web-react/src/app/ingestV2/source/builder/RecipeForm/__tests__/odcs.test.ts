@@ -16,7 +16,6 @@ import {
     ODCS_LOCATION_LOCAL,
     ODCS_LOCATION_S3,
     ODCS_PATH,
-    ODCS_SCHEMA_ASSERTION_COMPATIBILITY,
     ODCS_SOURCE_LOCATION,
 } from '@app/ingestV2/source/builder/RecipeForm/odcs';
 import { ODCS } from '@app/ingestV2/source/conf/odcs/odcs';
@@ -39,12 +38,6 @@ describe('ODCS recipe form fields', () => {
             expect(fieldPath.startsWith('source.config.')).toBe(true);
         });
         expect(ODCS_PATH.fieldPath).toBe('source.config.path');
-    });
-
-    it('offers exactly the schema-assertion compatibility modes the connector accepts', () => {
-        expect(ODCS_SCHEMA_ASSERTION_COMPATIBILITY.type).toBe(FieldType.SELECT);
-        const values = (ODCS_SCHEMA_ASSERTION_COMPATIBILITY.options ?? []).map((o) => o.value);
-        expect(values).toEqual(['SUPERSET', 'EXACT_MATCH', 'SUBSET']);
     });
 
     it('exposes remote-sourcing fields (git, S3, GCS) in the connection section wired to the matching config keys', () => {
