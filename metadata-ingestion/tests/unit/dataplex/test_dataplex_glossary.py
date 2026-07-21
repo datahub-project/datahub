@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from datahub.metadata.urns import GlossaryNodeUrn, GlossaryTermUrn
 from google.cloud import dataplex_v1
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
@@ -24,6 +23,7 @@ from datahub.ingestion.source.dataplex.dataplex_glossary import (
     _term_urn_id,
 )
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
+from datahub.metadata.urns import GlossaryNodeUrn, GlossaryTermUrn
 
 # ---------------------------------------------------------------------------
 # URN helpers
@@ -565,6 +565,21 @@ class TestReconcileTerm:
         assert _make_processor(repo)._reconcile_term("urn:li:glossaryTerm:x") is None
         # No repository at all -> no reconciliation.
         assert _make_processor(None)._reconcile_term("urn:li:glossaryTerm:x") is None
+
+    def test_reconcile_term_swallows_lookup_errors_and_warns(self) -> None:
+        repo = MagicMock()
+        repo.search_entity_by_urn.side_effect = Exception("boom")
+        source_report = MagicMock()
+        proc = DataplexGlossaryProcessor(
+            ctx=MagicMock(),
+            glossary_client=MagicMock(),
+            report=DataplexGlossaryReport(),
+            source_report=source_report,
+            platform_resource_repository=repo,
+        )
+        result = proc._reconcile_term("urn:li:glossaryTerm:whatever")
+        assert result is None
+        assert source_report.warning.called
 
 
 class TestRecordExternalLink:
