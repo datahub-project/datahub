@@ -234,7 +234,12 @@ class TestPipeline:
     def test_run_including_fake_transformation(self):
         pipeline = Pipeline.create(
             {
-                "source": {"type": "tests.unit.api.test_pipeline.FakeSource"},
+                "source": {
+                    "type": "tests.unit.api.test_pipeline.FakeSource",
+                    # AddStatusRemovedTransformer operates only on whole MCEs, so we
+                    # keep the MCE intact (no unpacking) to exercise that path.
+                    "extractor_config": {"unpack_mces_into_mcps": False},
+                },
                 "transformers": [
                     {"type": "tests.unit.api.test_pipeline.AddStatusRemovedTransformer"}
                 ],

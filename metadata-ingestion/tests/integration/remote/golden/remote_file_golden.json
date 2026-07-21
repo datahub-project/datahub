@@ -1,48 +1,46 @@
 [
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:harshal",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {},
-                        "active": true,
-                        "displayName": "Harshal Sheth",
-                        "email": "harshal@sheth.io",
-                        "title": "Engineer",
-                        "fullName": "Harshal Sheth"
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:harshal",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "Harshal Sheth",
+            "email": "harshal@sheth.io",
+            "title": "Engineer",
+            "fullName": "Harshal Sheth",
+            "system": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-2"
+        "runId": "remote-2",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:jane",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {},
-                        "active": true,
-                        "displayName": "Jane Doe",
-                        "email": "jane@example.com",
-                        "title": "CEO",
-                        "fullName": "Jane Doe"
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:jane",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "Jane Doe",
+            "email": "jane@example.com",
+            "title": "CEO",
+            "fullName": "Jane Doe",
+            "system": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1629795600000,
-        "runId": "remote-2"
+        "runId": "remote-2",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

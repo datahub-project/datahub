@@ -53,7 +53,15 @@ def test_serde_to_json(
 
     pipeline = Pipeline.create(
         {
-            "source": {"type": "file", "config": {"filename": str(golden_file)}},
+            "source": {
+                "type": "file",
+                "config": {"filename": str(golden_file)},
+                # This is a round-trip test (input file == golden), so the output must
+                # keep the same MCE/MCP shape as the input. Some fixtures here are MCEs
+                # that are also consumed by test_serde_to_avro, which requires them to
+                # stay as MCEs, so we must not unpack them into MCPs.
+                "extractor_config": {"unpack_mces_into_mcps": False},
+            },
             "sink": {"type": "file", "config": {"filename": str(output_file)}},
             "run_id": "serde_test",
         }

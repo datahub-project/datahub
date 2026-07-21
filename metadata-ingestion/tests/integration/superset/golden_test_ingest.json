@@ -49,54 +49,73 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(superset,11)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,11)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,11)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": ""
+            },
+            "title": "test_chart_title_2",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
                 },
-                {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "Metrics": "",
-                            "Filters": "",
-                            "Dimensions": ""
-                        },
-                        "title": "test_chart_title_2",
-                        "description": "",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner1@example.com"
-                            }
-                        },
-                        "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_11",
-                        "inputs": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)"
-                            }
-                        ],
-                        "type": "PIE"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
-                        }
-                    }
+                "lastModified": {
+                    "time": 1586847600000,
+                    "actor": "urn:li:corpuser:test_owner1@example.com"
                 }
-            ]
+            },
+            "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_11",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)"
+                }
+            ],
+            "type": "PIE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,11)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:test_owner1@example.com"
+            }
         }
     },
     "systemMetadata": {
@@ -171,64 +190,94 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(superset,10)",
-            "aspects": [
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,10)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,10)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": ""
+            },
+            "title": "test_chart_title_1",
+            "description": "test chart description 1",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1586847600000,
+                    "actor": "urn:li:corpuser:test_owner1@example.com"
+                }
+            },
+            "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_10",
+            "inputs": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)"
+                }
+            ],
+            "type": "BAR"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,10)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:test_owner1@example.com"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,10)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Marketing"
                 },
                 {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "Metrics": "",
-                            "Filters": "",
-                            "Dimensions": ""
-                        },
-                        "title": "test_chart_title_1",
-                        "description": "test chart description 1",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner1@example.com"
-                            }
-                        },
-                        "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_10",
-                        "inputs": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)"
-                            }
-                        ],
-                        "type": "BAR"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Marketing"
-                            },
-                            {
-                                "tag": "urn:li:tag:Data"
-                            }
-                        ]
-                    }
+                    "tag": "urn:li:tag:Data"
                 }
             ]
         }
@@ -240,61 +289,91 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(superset,14)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,14)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,14)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": ""
+            },
+            "title": "test_chart_title_5",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
                 },
+                "lastModified": {
+                    "time": 1586847600000,
+                    "actor": "urn:li:corpuser:test_owner2@example.com"
+                }
+            },
+            "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_14",
+            "inputs": [
                 {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "Metrics": "",
-                            "Filters": "",
-                            "Dimensions": ""
-                        },
-                        "title": "test_chart_title_5",
-                        "description": "",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner2@example.com"
-                            }
-                        },
-                        "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_14",
-                        "inputs": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)"
-                            }
-                        ],
-                        "type": "TABLE"
-                    }
-                },
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)"
+                }
+            ],
+            "type": "TABLE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,14)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:test_owner2@example.com"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,14)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Data"
-                            }
-                        ]
-                    }
+                    "tag": "urn:li:tag:Data"
                 }
             ]
         }
@@ -306,52 +385,255 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(superset,12)",
-            "aspects": [
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,12)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,12)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": ""
+            },
+            "title": "test_chart_title_3",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1586847600000,
+                    "actor": "urn:li:corpuser:test_owner2@example.com"
+                }
+            },
+            "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_12",
+            "inputs": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
+                }
+            ],
+            "type": "AREA"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,12)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:test_owner2@example.com"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,13)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,13)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Metrics": "",
+                "Filters": "",
+                "Dimensions": ""
+            },
+            "title": "test_chart_title_4",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1586847600000,
+                    "actor": "urn:li:corpuser:test_owner2@example.com"
+                }
+            },
+            "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_13",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
+                }
+            ],
+            "type": "HISTOGRAM"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,13)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:test_owner2@example.com"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,1)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Status": "published",
+                "IsPublished": "true",
+                "Owners": "test_owner1@example.com, test_owner2@example.com",
+                "IsCertified": "true",
+                "CertifiedBy": "Certification team",
+                "CertificationDetails": "Approved"
+            },
+            "title": "test_dashboard_title_1",
+            "description": "test dashboard description 1",
+            "charts": [
+                "urn:li:chart:(superset,10)",
+                "urn:li:chart:(superset,11)"
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 1586847600000,
+                    "actor": "urn:li:corpuser:test_owner1@example.com"
+                }
+            },
+            "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:test_owner1@example.com",
+                    "type": "TECHNICAL_OWNER"
                 },
                 {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "Metrics": "",
-                            "Filters": "",
-                            "Dimensions": ""
-                        },
-                        "title": "test_chart_title_3",
-                        "description": "",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner2@example.com"
-                            }
-                        },
-                        "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_12",
-                        "inputs": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
-                            }
-                        ],
-                        "type": "AREA"
-                    }
-                },
+                    "owner": "urn:li:corpuser:test_owner2@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:test_owner1@example.com"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,1)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
                 {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
-                    }
+                    "tag": "urn:li:tag:Data Team"
                 }
             ]
         }
@@ -363,54 +645,13 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(superset,13)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "Metrics": "",
-                            "Filters": "",
-                            "Dimensions": ""
-                        },
-                        "title": "test_chart_title_4",
-                        "description": "",
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner2@example.com"
-                            }
-                        },
-                        "chartUrl": "mock://mock-domain.superset.com/explore/test_chart_url_13",
-                        "inputs": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database_name.test_schema_name.test_table_name,PROD)"
-                            }
-                        ],
-                        "type": "HISTOGRAM"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
-                    }
-                }
-            ]
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -420,75 +661,37 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(superset,1)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,2)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Status": "draft",
+                "IsPublished": "false",
+                "Owners": "test_owner4@example.com",
+                "IsCertified": "false"
+            },
+            "title": "test_dashboard_title_2",
+            "description": "",
+            "charts": [
+                "urn:li:chart:(superset,12)",
+                "urn:li:chart:(superset,13)"
+            ],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
                 },
-                {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {
-                            "Status": "published",
-                            "IsPublished": "true",
-                            "Owners": "test_owner1@example.com, test_owner2@example.com",
-                            "IsCertified": "true",
-                            "CertifiedBy": "Certification team",
-                            "CertificationDetails": "Approved"
-                        },
-                        "title": "test_dashboard_title_1",
-                        "description": "test dashboard description 1",
-                        "charts": [
-                            "urn:li:chart:(superset,10)",
-                            "urn:li:chart:(superset,11)"
-                        ],
-                        "datasets": [],
-                        "dashboards": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner1@example.com"
-                            }
-                        },
-                        "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_1"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:test_owner1@example.com",
-                                "type": "TECHNICAL_OWNER"
-                            },
-                            {
-                                "owner": "urn:li:corpuser:test_owner2@example.com",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Data Team"
-                            }
-                        ]
-                    }
+                "lastModified": {
+                    "time": 1586847600000,
+                    "actor": "urn:li:corpuser:test_owner2@example.com"
                 }
-            ]
+            },
+            "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_2"
         }
     },
     "systemMetadata": {
@@ -498,67 +701,41 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(superset,2)",
-            "aspects": [
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,2)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
+                    "owner": "urn:li:corpuser:test_owner4@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:test_owner2@example.com"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,2)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
                 {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {
-                            "Status": "draft",
-                            "IsPublished": "false",
-                            "Owners": "test_owner4@example.com",
-                            "IsCertified": "false"
-                        },
-                        "title": "test_dashboard_title_2",
-                        "description": "",
-                        "charts": [
-                            "urn:li:chart:(superset,12)",
-                            "urn:li:chart:(superset,13)"
-                        ],
-                        "datasets": [],
-                        "dashboards": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "lastModified": {
-                                "time": 1586847600000,
-                                "actor": "urn:li:corpuser:test_owner2@example.com"
-                            }
-                        },
-                        "dashboardUrl": "mock://mock-domain.superset.com/dashboard/test_dashboard_url_2"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:test_owner4@example.com",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Marketing"
-                            }
-                        ]
-                    }
+                    "tag": "urn:li:tag:Marketing"
                 }
             ]
         }

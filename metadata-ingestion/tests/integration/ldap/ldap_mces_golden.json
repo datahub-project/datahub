@@ -1,20 +1,17 @@
 [
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
-            "urn": "urn:li:corpGroup:simpons-group",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "admins": [],
-                        "members": [
-                            "urn:li:corpuser:hsimpson",
-                            "urn:li:corpuser:lsimpson"
-                        ],
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:simpons-group",
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+        "json": {
+            "admins": [],
+            "members": [
+                "urn:li:corpuser:hsimpson",
+                "urn:li:corpuser:lsimpson"
+            ],
+            "groups": []
         }
     },
     "systemMetadata": {
@@ -24,39 +21,22 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:bsimpson",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "givenName": "Bart"
-                        },
-                        "active": true,
-                        "displayName": "Bart Simpson",
-                        "title": "Mr. Boss",
-                        "firstName": "Bart",
-                        "lastName": "Simpson",
-                        "fullName": "Bart Simpson",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "givenName": "Bart"
+            },
+            "active": true,
+            "displayName": "Bart Simpson",
+            "title": "Mr. Boss",
+            "firstName": "Bart",
+            "lastName": "Simpson",
+            "fullName": "Bart Simpson",
+            "system": false
         }
     },
     "systemMetadata": {
@@ -66,43 +46,17 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:hsimpson",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "givenName": "Homer"
-                        },
-                        "active": true,
-                        "displayName": "Homer Simpson",
-                        "email": "hsimpson",
-                        "title": "Mr. Everything",
-                        "managerUrn": "urn:li:corpuser:bsimpson",
-                        "departmentId": 1001,
-                        "departmentName": "1001",
-                        "firstName": "Homer",
-                        "lastName": "Simpson",
-                        "fullName": "Homer Simpson",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1615443388097,
+                "actor": "urn:li:corpuser:datahub"
+            }
         }
     },
     "systemMetadata": {
@@ -112,38 +66,13 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:lsimpson",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "givenName": "Lisa"
-                        },
-                        "active": true,
-                        "displayName": "Lisa Simpson",
-                        "firstName": "Lisa",
-                        "lastName": "Simpson",
-                        "fullName": "Lisa Simpson",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": []
         }
     },
     "systemMetadata": {
@@ -153,38 +82,26 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:msimpson",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "givenName": "Maggie"
-                        },
-                        "active": true,
-                        "displayName": "Maggie Simpson",
-                        "firstName": "Maggie",
-                        "lastName": "Simpson",
-                        "fullName": "Maggie Simpson",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "givenName": "Homer"
+            },
+            "active": true,
+            "displayName": "Homer Simpson",
+            "email": "hsimpson",
+            "title": "Mr. Everything",
+            "managerUrn": "urn:li:corpuser:bsimpson",
+            "departmentId": 1001,
+            "departmentName": "1001",
+            "firstName": "Homer",
+            "lastName": "Simpson",
+            "fullName": "Homer Simpson",
+            "system": false
         }
     },
     "systemMetadata": {
@@ -194,38 +111,17 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:hbevan",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "givenName": "Hester"
-                        },
-                        "active": true,
-                        "displayName": "Hester Bevan",
-                        "firstName": "Hester",
-                        "lastName": "Bevan",
-                        "fullName": "Hester Bevan",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1615443388097,
+                "actor": "urn:li:corpuser:datahub"
+            }
         }
     },
     "systemMetadata": {
@@ -235,38 +131,13 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:ehaas",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "givenName": "Evalyn"
-                        },
-                        "active": true,
-                        "displayName": "Evalyn Haas",
-                        "firstName": "Evalyn",
-                        "lastName": "Haas",
-                        "fullName": "Evalyn Haas",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": []
         }
     },
     "systemMetadata": {
@@ -276,18 +147,21 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
-            "urn": "urn:li:corpGroup:HR Department",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "admins": [],
-                        "members": [],
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:lsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "givenName": "Lisa"
+            },
+            "active": true,
+            "displayName": "Lisa Simpson",
+            "firstName": "Lisa",
+            "lastName": "Simpson",
+            "fullName": "Lisa Simpson",
+            "system": false
         }
     },
     "systemMetadata": {
@@ -297,18 +171,249 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
-            "urn": "urn:li:corpGroup:Finance Department",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "admins": [],
-                        "members": [],
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:lsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1615443388097,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:lsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:msimpson",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "givenName": "Maggie"
+            },
+            "active": true,
+            "displayName": "Maggie Simpson",
+            "firstName": "Maggie",
+            "lastName": "Simpson",
+            "fullName": "Maggie Simpson",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:msimpson",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1615443388097,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:msimpson",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hbevan",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "givenName": "Hester"
+            },
+            "active": true,
+            "displayName": "Hester Bevan",
+            "firstName": "Hester",
+            "lastName": "Bevan",
+            "fullName": "Hester Bevan",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hbevan",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1615443388097,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hbevan",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:ehaas",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "givenName": "Evalyn"
+            },
+            "active": true,
+            "displayName": "Evalyn Haas",
+            "firstName": "Evalyn",
+            "lastName": "Haas",
+            "fullName": "Evalyn Haas",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:ehaas",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1615443388097,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:ehaas",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:HR Department",
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+        "json": {
+            "admins": [],
+            "members": [],
+            "groups": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:Finance Department",
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+        "json": {
+            "admins": [],
+            "members": [],
+            "groups": []
         }
     },
     "systemMetadata": {

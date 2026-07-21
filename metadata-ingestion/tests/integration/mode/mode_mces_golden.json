@@ -652,59 +652,78 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(mode,2934237)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {},
-                        "title": "Report 1",
-                        "description": "First Report",
-                        "charts": [
-                            "urn:li:chart:(mode,f622b9ee725b)"
-                        ],
-                        "datasets": [
-                            "urn:li:dataset:(urn:li:dataPlatform:mode,5450544,PROD)"
-                        ],
-                        "dashboards": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1639169724316,
-                                "actor": "urn:li:corpuser:modeuser"
-                            },
-                            "lastModified": {
-                                "time": 1639182684451,
-                                "actor": "urn:li:corpuser:unknown"
-                            }
-                        },
-                        "dashboardUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e",
-                        "lastRefreshed": 1639177971490
-                    }
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(mode,2934237)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "title": "Report 1",
+            "description": "First Report",
+            "charts": [
+                "urn:li:chart:(mode,f622b9ee725b)"
+            ],
+            "datasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mode,5450544,PROD)"
+            ],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1639169724316,
+                    "actor": "urn:li:corpuser:modeuser"
                 },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/mode/acryl/AcrylTest/Report 1"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:modeuser",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                "lastModified": {
+                    "time": 1639182684451,
+                    "actor": "urn:li:corpuser:unknown"
                 }
+            },
+            "dashboardUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e",
+            "lastRefreshed": 1639177971490
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(mode,2934237)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/mode/acryl/AcrylTest/Report 1"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(mode,2934237)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:modeuser",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -817,69 +836,99 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
-            "urn": "urn:li:chart:(mode,f622b9ee725b)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
-                        "customProperties": {
-                            "ChartType": "table",
-                            "Columns": "payment_date,Staff First Name,amount,Staff Last Name",
-                            "Filters": "amount"
-                        },
-                        "title": "Customer Staff Table",
-                        "description": "",
-                        "lastModified": {
-                            "created": {
-                                "time": 1639170083088,
-                                "actor": "urn:li:corpuser:modeuser"
-                            },
-                            "lastModified": {
-                                "time": 1639182684438,
-                                "actor": "urn:li:corpuser:modeuser"
-                            }
-                        },
-                        "chartUrl": "https://app.mode.com/acryltest/reports/9d2da37fa91e/viz/f622b9ee725b",
-                        "inputs": [
-                            {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)"
-                            }
-                        ],
-                        "inputEdges": [],
-                        "type": "TABLE",
-                        "lastRefreshed": 1639177971490
-                    }
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(mode,f622b9ee725b)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "ChartType": "table",
+                "Columns": "payment_date,Staff First Name,amount,Staff Last Name",
+                "Filters": "amount"
+            },
+            "title": "Customer Staff Table",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 1639170083088,
+                    "actor": "urn:li:corpuser:modeuser"
                 },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/mode/acryl/AcrylTest/Report 1/Customer and staff/Customer Staff Table"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.chart.ChartQuery": {
-                        "rawQuery": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id where selected_id = {{ selected_id }} \n{% form %}\nselected_id:\n   type: text\n   default: my_id\n{% endform %}",
-                        "type": "SQL"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:modeuser",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                "lastModified": {
+                    "time": 1639182684438,
+                    "actor": "urn:li:corpuser:modeuser"
                 }
+            },
+            "chartUrl": "https://app.mode.com/acryltest/reports/9d2da37fa91e/viz/f622b9ee725b",
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)"
+                }
+            ],
+            "inputEdges": [],
+            "type": "TABLE",
+            "lastRefreshed": 1639177971490
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(mode,f622b9ee725b)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/mode/acryl/AcrylTest/Report 1/Customer and staff/Customer Staff Table"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(mode,f622b9ee725b)",
+    "changeType": "UPSERT",
+    "aspectName": "chartQuery",
+    "aspect": {
+        "json": {
+            "rawQuery": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id where selected_id = {{ selected_id }} \n{% form %}\nselected_id:\n   type: text\n   default: my_id\n{% endform %}",
+            "type": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(mode,f622b9ee725b)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:modeuser",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {

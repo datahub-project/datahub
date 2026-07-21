@@ -540,11 +540,13 @@ def test_mark_status_dataset(tmp_path):
     )
 
     # assert dataset properties aspect was preserved
+    # With unpack_mces_into_mcps enabled by default, the MCE input is decomposed
+    # into per-aspect MCPs, so the datasetProperties aspect arrives as an MCP.
     assert (
-        mce_helpers.assert_entity_mce_aspect(
+        mce_helpers.assert_entity_mcp_aspect(
             entity_urn=mcp.entityUrn or "",
-            aspect=test_aspect,
-            aspect_type=DatasetPropertiesClass,
+            aspect_field_matcher={"description": test_aspect.description},
+            aspect_name="datasetProperties",
             file=events_file,
         )
         == 1
@@ -573,11 +575,13 @@ def test_mark_status_dataset(tmp_path):
     )
 
     # assert dataset properties aspect was preserved
+    # With unpack_mces_into_mcps enabled by default, the MCE input is decomposed
+    # into per-aspect MCPs, so the datasetProperties aspect arrives as an MCP.
     assert (
-        mce_helpers.assert_entity_mce_aspect(
+        mce_helpers.assert_entity_mcp_aspect(
             entity_urn=mcp.entityUrn or "",
-            aspect=test_aspect,
-            aspect_type=DatasetPropertiesClass,
+            aspect_field_matcher={"description": test_aspect.description},
+            aspect_name="datasetProperties",
             file=events_file,
         )
         == 1
@@ -607,12 +611,12 @@ def test_mark_status_dataset(tmp_path):
         path=tmp_path,
     )
 
-    # assert MCE was transformed
+    # assert MCE was transformed (unpacked into MCPs by default)
     assert (
-        mce_helpers.assert_entity_mce_aspect(
+        mce_helpers.assert_entity_mcp_aspect(
             entity_urn=mcp.entityUrn or "",
-            aspect=StatusClass(removed=True),
-            aspect_type=StatusClass,
+            aspect_field_matcher={"removed": True},
+            aspect_name="status",
             file=events_file,
         )
         == 1
@@ -641,12 +645,12 @@ def test_mark_status_dataset(tmp_path):
         path=tmp_path,
     )
 
-    # assert MCE was preserved
+    # assert MCE was preserved (unpacked into MCPs by default)
     assert (
-        mce_helpers.assert_entity_mce_aspect(
+        mce_helpers.assert_entity_mcp_aspect(
             entity_urn=mcp.entityUrn or "",
-            aspect=test_dataset_props_aspect,
-            aspect_type=DatasetPropertiesClass,
+            aspect_field_matcher={"description": test_dataset_props_aspect.description},
+            aspect_name="datasetProperties",
             file=events_file,
         )
         == 1

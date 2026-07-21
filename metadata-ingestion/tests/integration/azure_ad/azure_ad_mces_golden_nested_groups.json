@@ -1,19 +1,16 @@
 [
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
-            "urn": "urn:li:corpGroup:nestedgroupDisplayName1",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "displayName": "nestedgroupDisplayName1",
-                        "admins": [],
-                        "members": [],
-                        "groups": [],
-                        "description": "Placeholder group with members from nested groups."
-                    }
-                }
-            ]
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:nestedgroupDisplayName1",
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+        "json": {
+            "displayName": "nestedgroupDisplayName1",
+            "admins": [],
+            "members": [],
+            "groups": [],
+            "description": "Placeholder group with members from nested groups."
         }
     },
     "systemMetadata": {
@@ -56,38 +53,57 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:foobar@acryl.io",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {},
-                        "active": true,
-                        "displayName": "Foo Bar",
-                        "email": "foobar@acryl.io",
-                        "firstName": "Foo",
-                        "lastName": "Bar",
-                        "fullName": "Foo Bar",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1629795600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:nestedgroupDisplayName1"
-                        ]
-                    }
-                }
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:foobar@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "Foo Bar",
+            "email": "foobar@acryl.io",
+            "firstName": "Foo",
+            "lastName": "Bar",
+            "fullName": "Foo Bar",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:foobar@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1629795600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:foobar@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:nestedgroupDisplayName1"
             ]
         }
     },
@@ -131,38 +147,57 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:johngreen@acryl.io",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {},
-                        "active": true,
-                        "displayName": "John Green",
-                        "email": "johngreen@acryl.io",
-                        "firstName": "John",
-                        "lastName": "Green",
-                        "fullName": "John Green",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1629795600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:nestedgroupDisplayName1"
-                        ]
-                    }
-                }
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "John Green",
+            "email": "johngreen@acryl.io",
+            "firstName": "John",
+            "lastName": "Green",
+            "fullName": "John Green",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1629795600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:nestedgroupDisplayName1"
             ]
         }
     },
@@ -206,38 +241,57 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:adamhall@acryl.io",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {},
-                        "active": true,
-                        "displayName": "Adam Hall",
-                        "email": "adamhall@acryl.io",
-                        "firstName": "Adam",
-                        "lastName": "Hall",
-                        "fullName": "Adam Hall",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1629795600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:nestedgroupDisplayName1"
-                        ]
-                    }
-                }
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "Adam Hall",
+            "email": "adamhall@acryl.io",
+            "firstName": "Adam",
+            "lastName": "Hall",
+            "fullName": "Adam Hall",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1629795600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:nestedgroupDisplayName1"
             ]
         }
     },
@@ -281,38 +335,57 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:johngreen@acryl.io",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {},
-                        "active": true,
-                        "displayName": "John Green",
-                        "email": "johngreen@acryl.io",
-                        "firstName": "John",
-                        "lastName": "Green",
-                        "fullName": "John Green",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1629795600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:nestedgroupDisplayName1"
-                        ]
-                    }
-                }
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "John Green",
+            "email": "johngreen@acryl.io",
+            "firstName": "John",
+            "lastName": "Green",
+            "fullName": "John Green",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1629795600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:johngreen@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:nestedgroupDisplayName1"
             ]
         }
     },
@@ -356,38 +429,57 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:adamhall@acryl.io",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {},
-                        "active": true,
-                        "displayName": "Adam Hall",
-                        "email": "adamhall@acryl.io",
-                        "firstName": "Adam",
-                        "lastName": "Hall",
-                        "fullName": "Adam Hall",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1629795600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:nestedgroupDisplayName1"
-                        ]
-                    }
-                }
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "Adam Hall",
+            "email": "adamhall@acryl.io",
+            "firstName": "Adam",
+            "lastName": "Hall",
+            "fullName": "Adam Hall",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1629795600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:adamhall@acryl.io",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:nestedgroupDisplayName1"
             ]
         }
     },

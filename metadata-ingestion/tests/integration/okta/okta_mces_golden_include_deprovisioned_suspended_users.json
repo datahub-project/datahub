@@ -1,19 +1,16 @@
 [
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
-            "urn": "urn:li:corpGroup:All%20Employees",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "displayName": "All Employees",
-                        "admins": [],
-                        "members": [],
-                        "groups": [],
-                        "description": "All Employees in the Test Company."
-                    }
-                }
-            ]
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:All%20Employees",
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+        "json": {
+            "displayName": "All Employees",
+            "admins": [],
+            "members": [],
+            "groups": [],
+            "description": "All Employees in the Test Company."
         }
     },
     "systemMetadata": {
@@ -56,20 +53,17 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
-            "urn": "urn:li:corpGroup:Engineering",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "displayName": "Engineering",
-                        "admins": [],
-                        "members": [],
-                        "groups": [],
-                        "description": "Engineering team!"
-                    }
-                }
-            ]
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:Engineering",
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+        "json": {
+            "displayName": "Engineering",
+            "admins": [],
+            "members": [],
+            "groups": [],
+            "description": "Engineering team!"
         }
     },
     "systemMetadata": {
@@ -112,42 +106,61 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:bad.boyjones",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "login": "bad.boyjones@test.com",
-                            "mobilePhone": "666-415-1337"
-                        },
-                        "active": false,
-                        "displayName": "Bad Boy Jones",
-                        "email": "bad.boyjones@test.com",
-                        "firstName": "Bad",
-                        "lastName": "Boy Jones",
-                        "fullName": "Bad Boy Jones",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "SUSPENDED",
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:Engineering"
-                        ]
-                    }
-                }
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bad.boyjones",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "login": "bad.boyjones@test.com",
+                "mobilePhone": "666-415-1337"
+            },
+            "active": false,
+            "displayName": "Bad Boy Jones",
+            "email": "bad.boyjones@test.com",
+            "firstName": "Bad",
+            "lastName": "Boy Jones",
+            "fullName": "Bad Boy Jones",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bad.boyjones",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "SUSPENDED",
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bad.boyjones",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:All%20Employees",
+                "urn:li:corpGroup:Engineering"
             ]
         }
     },
@@ -191,47 +204,66 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:mary.jane",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "login": "mary.jane@test.com",
-                            "mobilePhone": "666-415-1337"
-                        },
-                        "active": true,
-                        "displayName": "Mary Jane",
-                        "email": "mary.jane@test.com",
-                        "title": "Software Engineer",
-                        "departmentName": "Engineering",
-                        "firstName": "Mary",
-                        "lastName": "Jane",
-                        "fullName": "Mary Jane",
-                        "countryCode": "us",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:Engineering",
-                            "urn:li:corpGroup:Engineering"
-                        ]
-                    }
-                }
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:mary.jane",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "login": "mary.jane@test.com",
+                "mobilePhone": "666-415-1337"
+            },
+            "active": true,
+            "displayName": "Mary Jane",
+            "email": "mary.jane@test.com",
+            "title": "Software Engineer",
+            "departmentName": "Engineering",
+            "firstName": "Mary",
+            "lastName": "Jane",
+            "fullName": "Mary Jane",
+            "countryCode": "us",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:mary.jane",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:mary.jane",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:All%20Employees",
+                "urn:li:corpGroup:All%20Employees",
+                "urn:li:corpGroup:Engineering",
+                "urn:li:corpGroup:Engineering"
             ]
         }
     },
@@ -275,47 +307,66 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:mary.jane",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "login": "mary.jane@test.com",
-                            "mobilePhone": "666-415-1337"
-                        },
-                        "active": false,
-                        "displayName": "Mary Jane",
-                        "email": "mary.jane@test.com",
-                        "title": "Software Engineer II",
-                        "departmentName": "Engineering",
-                        "firstName": "Mary",
-                        "lastName": "Jane",
-                        "fullName": "Mary Jane",
-                        "countryCode": "as",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "SUSPENDED",
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:Engineering",
-                            "urn:li:corpGroup:Engineering"
-                        ]
-                    }
-                }
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:mary.jane",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "login": "mary.jane@test.com",
+                "mobilePhone": "666-415-1337"
+            },
+            "active": false,
+            "displayName": "Mary Jane",
+            "email": "mary.jane@test.com",
+            "title": "Software Engineer II",
+            "departmentName": "Engineering",
+            "firstName": "Mary",
+            "lastName": "Jane",
+            "fullName": "Mary Jane",
+            "countryCode": "as",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:mary.jane",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "SUSPENDED",
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:mary.jane",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:All%20Employees",
+                "urn:li:corpGroup:All%20Employees",
+                "urn:li:corpGroup:Engineering",
+                "urn:li:corpGroup:Engineering"
             ]
         }
     },
@@ -359,43 +410,62 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:good.test",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "login": "good.test@test.com",
-                            "mobilePhone": "666-415-1337"
-                        },
-                        "active": true,
-                        "displayName": "Good Test",
-                        "email": "good.test@test.com",
-                        "title": "Manager",
-                        "departmentName": "Marketing",
-                        "firstName": "Good",
-                        "lastName": "Test",
-                        "fullName": "Good Test",
-                        "countryCode": "eu",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:good.test",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "login": "good.test@test.com",
+                "mobilePhone": "666-415-1337"
+            },
+            "active": true,
+            "displayName": "Good Test",
+            "email": "good.test@test.com",
+            "title": "Manager",
+            "departmentName": "Marketing",
+            "firstName": "Good",
+            "lastName": "Test",
+            "fullName": "Good Test",
+            "countryCode": "eu",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:good.test",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:good.test",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": []
         }
     },
     "systemMetadata": {
@@ -438,47 +508,66 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:bad.girlriri",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "login": "bad.girlriri@test.com",
-                            "mobilePhone": "666-415-1337"
-                        },
-                        "active": false,
-                        "displayName": "Bad Girl Riri",
-                        "email": "bad.girlriri@test.com",
-                        "title": "Manager",
-                        "departmentName": "Marketing",
-                        "firstName": "Bad",
-                        "lastName": "Girl Riri",
-                        "fullName": "Bad Girl Riri",
-                        "countryCode": "eu",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "SUSPENDED",
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:Engineering",
-                            "urn:li:corpGroup:Engineering"
-                        ]
-                    }
-                }
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bad.girlriri",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "login": "bad.girlriri@test.com",
+                "mobilePhone": "666-415-1337"
+            },
+            "active": false,
+            "displayName": "Bad Girl Riri",
+            "email": "bad.girlriri@test.com",
+            "title": "Manager",
+            "departmentName": "Marketing",
+            "firstName": "Bad",
+            "lastName": "Girl Riri",
+            "fullName": "Bad Girl Riri",
+            "countryCode": "eu",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bad.girlriri",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "SUSPENDED",
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bad.girlriri",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:All%20Employees",
+                "urn:li:corpGroup:All%20Employees",
+                "urn:li:corpGroup:Engineering",
+                "urn:li:corpGroup:Engineering"
             ]
         }
     },
@@ -522,42 +611,61 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:john.doe",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "login": "john.doe@test.com",
-                            "mobilePhone": "555-415-1337"
-                        },
-                        "active": true,
-                        "displayName": "JDoe",
-                        "email": "john.doe@test.com",
-                        "firstName": "John",
-                        "lastName": "Doe",
-                        "fullName": "John Doe",
-                        "system": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
-                        "status": "ACTIVE",
-                        "lastModified": {
-                            "time": 1586847600000,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:Engineering"
-                        ]
-                    }
-                }
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "login": "john.doe@test.com",
+                "mobilePhone": "555-415-1337"
+            },
+            "active": true,
+            "displayName": "JDoe",
+            "email": "john.doe@test.com",
+            "firstName": "John",
+            "lastName": "Doe",
+            "fullName": "John Doe",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586865600000,
+        "runId": "test-okta-usage",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:john.doe",
+    "changeType": "UPSERT",
+    "aspectName": "groupMembership",
+    "aspect": {
+        "json": {
+            "groups": [
+                "urn:li:corpGroup:All%20Employees",
+                "urn:li:corpGroup:Engineering"
             ]
         }
     },
