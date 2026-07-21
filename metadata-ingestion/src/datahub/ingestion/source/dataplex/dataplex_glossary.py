@@ -13,7 +13,7 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from itertools import islice
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from google.cloud import dataplex_v1
 
@@ -22,6 +22,9 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
+from datahub.ingestion.source.dataplex.dataplex_platform_resource_repository import (
+    DataplexPlatformResourceRepository,
+)
 from datahub.metadata.urns import DatasetUrn, GlossaryNodeUrn, GlossaryTermUrn
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
@@ -111,6 +114,9 @@ class GlossaryTermRef:
     location: str
     glossary_id: str
     term_id: str
+    # Original DataHub term URN when this native term was authored in DataHub and
+    # reconciled via the platform-resource side-index; None otherwise.
+    datahub_term_urn: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +138,7 @@ class DataplexGlossaryReport(Report):
     glossary_terms_processed: int = 0
     glossary_terms_processed_samples: LossyList[str] = field(default_factory=LossyList)
     term_associations_emitted: int = 0
+    terms_reconciled: int = 0
     glossary_api: Dict[str, Tuple[int, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -162,6 +169,10 @@ class DataplexGlossaryReport(Report):
         with self._lock:
             self.term_associations_emitted += 1
 
+    def report_term_reconciled(self) -> None:
+        with self._lock:
+            self.terms_reconciled += 1
+
 
 # ---------------------------------------------------------------------------
 # Processor
@@ -185,6 +196,9 @@ class DataplexGlossaryProcessor:
         glossary_client: dataplex_v1.BusinessGlossaryServiceClient,
         report: DataplexGlossaryReport,
         source_report: SourceReport,
+        platform_resource_repository: Optional[
+            DataplexPlatformResourceRepository
+        ] = None,
     ) -> None:
         self._ctx = ctx
         self._glossary_client = glossary_client
@@ -192,6 +206,7 @@ class DataplexGlossaryProcessor:
         self._source_report = source_report
         self._emitted_terms: List[GlossaryTermRef] = []
         self._emitted_terms_lock = threading.Lock()
+        self._platform_resource_repository = platform_resource_repository
 
     # ------------------------------------------------------------------
     # Phase 1: Glossary ingestion
@@ -262,6 +277,36 @@ class DataplexGlossaryProcessor:
         )
         logger.debug("list_glossaries payload: %s", response)
         return response
+
+    def _reconcile_term(self, native_term_urn: str) -> Optional[str]:
+        """Return the original DataHub term URN if this native term was authored in
+        DataHub (has a ``managed_by_datahub`` platform resource); otherwise None.
+
+        Best-effort: any lookup failure is reported and treated as "not reconciled".
+        """
+        if self._platform_resource_repository is None:
+            return None
+        try:
+            entity_id = self._platform_resource_repository.search_entity_by_urn(
+                native_term_urn
+            )
+            if entity_id is None:
+                return None
+            entity = self._platform_resource_repository.get_entity_from_datahub(
+                entity_id
+            )
+            if not entity.is_managed_by_datahub():
+                return None
+            linked = entity.datahub_linked_resources().urns
+            return linked[0] if linked else None
+        except Exception as exc:
+            self._source_report.warning(
+                title="Glossary term reconciliation lookup failed",
+                message="Falling back to the native Dataplex term URN.",
+                context=native_term_urn,
+                exc=exc,
+            )
+            return None
 
     def _process_single_glossary(
         self,
@@ -346,7 +391,19 @@ class DataplexGlossaryProcessor:
                     "term_id": term_id,
                 },
             )
-            yield glossary_term
+            native_term_urn = str(
+                GlossaryTermUrn(
+                    _term_urn_id(project_id, location, glossary_id, term_id)
+                )
+            )
+            original_term_urn = self._reconcile_term(native_term_urn)
+
+            if original_term_urn is None:
+                # Externally-authored (or no side-index): emit as before.
+                yield glossary_term
+            else:
+                # DataHub-authored round-trip: suppress the duplicate native term.
+                self._report.report_term_reconciled()
 
             with self._emitted_terms_lock:
                 self._emitted_terms.append(
@@ -355,6 +412,7 @@ class DataplexGlossaryProcessor:
                         location=location,
                         glossary_id=glossary_id,
                         term_id=term_id,
+                        datahub_term_urn=original_term_urn,
                     )
                 )
 

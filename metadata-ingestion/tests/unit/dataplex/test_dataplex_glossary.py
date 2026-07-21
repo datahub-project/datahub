@@ -1,12 +1,18 @@
 """Unit tests for Dataplex Business Glossary ingestion."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from datahub.metadata.urns import GlossaryNodeUrn
 from google.cloud import dataplex_v1
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
+from datahub.ingestion.source.dataplex.dataplex_external_entities import (
+    GLOSSARY_TERMS_ASPECT_KEY,
+    DataplexAspectId,
+    DataplexAspectPlatformResource,
+)
 from datahub.ingestion.source.dataplex.dataplex_glossary import (
     DataplexGlossaryProcessor,
     DataplexGlossaryReport,
@@ -18,7 +24,6 @@ from datahub.ingestion.source.dataplex.dataplex_glossary import (
     _term_urn_id,
 )
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
-from datahub.metadata.urns import GlossaryNodeUrn
 
 # ---------------------------------------------------------------------------
 # URN helpers
@@ -438,3 +443,45 @@ class TestProcessTermAssociations:
         # One MCP emitted (one asset), not two (which would overwrite each other).
         assert processor._report.term_associations_emitted == 1
         assert len(workunits) > 0
+
+
+# ---------------------------------------------------------------------------
+# Processor: term reconciliation
+# ---------------------------------------------------------------------------
+
+
+def _make_processor(repo: Mock) -> DataplexGlossaryProcessor:
+    return DataplexGlossaryProcessor(
+        ctx=MagicMock(),
+        glossary_client=MagicMock(),
+        report=DataplexGlossaryReport(),
+        source_report=MagicMock(),
+        platform_resource_repository=repo,
+    )
+
+
+class TestReconcileTerm:
+    def test_reconcile_term_returns_original_when_managed(self) -> None:
+        repo = MagicMock()
+        native = "urn:li:glossaryTerm:dataplex.p.global.g.pii"
+        repo.search_entity_by_urn.return_value = DataplexAspectId(
+            aspect_key=GLOSSARY_TERMS_ASPECT_KEY,
+            entry_name="e",
+            field_key="urn:li:glossaryTerm:pii",
+        )
+        repo.get_entity_from_datahub.return_value = DataplexAspectPlatformResource(
+            datahub_urn="urn:li:glossaryTerm:pii",
+            managed_by_datahub=True,
+            aspect_key=GLOSSARY_TERMS_ASPECT_KEY,
+            entry_name="e",
+            field_key="urn:li:glossaryTerm:pii",
+        )
+        proc = _make_processor(repo)
+        assert proc._reconcile_term(native) == "urn:li:glossaryTerm:pii"
+
+    def test_reconcile_term_returns_none_when_unmanaged_or_missing(self) -> None:
+        repo = MagicMock()
+        repo.search_entity_by_urn.return_value = None
+        assert _make_processor(repo)._reconcile_term("urn:li:glossaryTerm:x") is None
+        # No repository at all -> no reconciliation.
+        assert _make_processor(None)._reconcile_term("urn:li:glossaryTerm:x") is None
