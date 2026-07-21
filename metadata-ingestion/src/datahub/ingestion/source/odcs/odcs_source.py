@@ -249,6 +249,14 @@ class ODCSSource(StatefulIngestionSourceBase):
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
 
+        if self.config.http_connection and not self.config.http_connection.verify_ssl:
+            self.report.warning(
+                title="HTTP TLS verification disabled",
+                message="http_connection.verify_ssl is false; ODCS files fetched over "
+                "https:// will not have their server certificate verified. Only use "
+                "this for trusted hosts with self-signed certificates.",
+            )
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ODCSSource":
         config = ODCSSourceConfig.model_validate(config_dict)
@@ -588,6 +596,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 self.config.aws_connection,
                 self.config.gcs_connection,
                 max_bytes=self.config.max_input_file_bytes,
+                http_connection=self.config.http_connection,
             )
         except FileSizeExceededError as e:
             self.report.warning(

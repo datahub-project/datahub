@@ -12,6 +12,7 @@ from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
+from datahub.ingestion.source.common.http_connection_config import HTTPConnectionConfig
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -140,6 +141,12 @@ class ODCSSourceConfig(
         description="Git repository to shallow-clone and scan for ODCS files, authenticated with "
         "an SSH deploy key. When set, each non-URI `path` entry is resolved relative to the "
         "repository checkout (e.g. `path: contracts/` or `path: '**/*.odcs.yaml'`).",
+    )
+    http_connection: Optional[HTTPConnectionConfig] = Field(
+        default=None,
+        description="Authentication and TLS options for reading ODCS files from `http(s)://` URLs "
+        "in `path`. Supports a bearer token or HTTP basic auth, and a `verify_ssl` toggle. "
+        "Omit for public URLs that need no authentication.",
     )
     server_overrides: List[ServerMapping] = Field(
         default_factory=list,

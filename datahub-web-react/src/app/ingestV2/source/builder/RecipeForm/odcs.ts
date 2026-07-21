@@ -12,6 +12,7 @@ const sourceLocationFieldPath = 'source.config.source_location';
 const awsConnectionFieldPath = 'source.config.aws_connection';
 const gcsConnectionFieldPath = 'source.config.gcs_connection';
 const gitInfoFieldPath = 'source.config.git_info';
+const httpConnectionFieldPath = 'source.config.http_connection';
 const pathFieldPath = 'source.config.path';
 
 // `source_location` is form-only (the connector rejects unknown keys): it only
@@ -22,6 +23,7 @@ function setOdcsSourceLocationOnRecipe(recipe: any, value: string | undefined): 
     if (value !== ODCS_LOCATION_S3) updatedRecipe = omit(updatedRecipe, [awsConnectionFieldPath]);
     if (value !== ODCS_LOCATION_GCS) updatedRecipe = omit(updatedRecipe, [gcsConnectionFieldPath]);
     if (value !== ODCS_LOCATION_GIT) updatedRecipe = omit(updatedRecipe, [gitInfoFieldPath]);
+    if (value !== ODCS_LOCATION_HTTP) updatedRecipe = omit(updatedRecipe, [httpConnectionFieldPath]);
     return updatedRecipe;
 }
 
@@ -238,4 +240,64 @@ export const ODCS_GCS_HMAC_KEY_SECRET: RecipeField = {
     rules: [createLocationRequiredValidator(ODCS_LOCATION_GCS, 'GCS HMAC Key Secret', 'a Google Cloud Storage source')],
     dynamicHidden: (values) => values?.source_location !== ODCS_LOCATION_GCS,
     dynamicRequired: (values) => values?.source_location === ODCS_LOCATION_GCS,
+};
+
+// Remote sourcing: authentication for http(s):// URLs in Path. Bearer token and
+// HTTP basic auth are mutually exclusive; leave both blank for public URLs.
+export const ODCS_HTTP_TOKEN: RecipeField = {
+    name: 'http_connection.token',
+    label: 'HTTP Bearer Token',
+    helper: 'Leave blank for public URLs or basic auth',
+    tooltip:
+        'Bearer token for authenticating http(s):// requests, sent as an "Authorization: Bearer <token>" header. Mutually exclusive with the username/password below.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.http_connection.token',
+    placeholder: 'my-bearer-token',
+    rules: null,
+    dynamicHidden: (values) => values?.source_location !== ODCS_LOCATION_HTTP,
+};
+
+export const ODCS_HTTP_USERNAME: RecipeField = {
+    name: 'http_connection.username',
+    label: 'HTTP Username',
+    helper: 'Basic auth; pair with a password',
+    tooltip:
+        'Username for HTTP basic authentication of http(s):// requests. Requires a password and is mutually exclusive with the bearer token.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.http_connection.username',
+    placeholder: 'username',
+    rules: null,
+    dynamicHidden: (values) => values?.source_location !== ODCS_LOCATION_HTTP,
+};
+
+export const ODCS_HTTP_PASSWORD: RecipeField = {
+    name: 'http_connection.password',
+    label: 'HTTP Password',
+    helper: 'Required when a username is set',
+    tooltip: 'Password for HTTP basic authentication, paired with the username above.',
+    type: FieldType.SECRET,
+    fieldPath: 'source.config.http_connection.password',
+    placeholder: 'password',
+    rules: null,
+    dynamicHidden: (values) => values?.source_location !== ODCS_LOCATION_HTTP,
+};
+
+// Checkbox is inverted from the backend field: checked means verify_ssl=false.
+// Unchecked drops the key so the connector keeps its safe default (verify on).
+const odcsVerifySslFieldPath = 'source.config.http_connection.verify_ssl';
+export const ODCS_HTTP_VERIFY_SSL: RecipeField = {
+    name: 'http_connection.disable_ssl_verification',
+    label: 'Disable TLS Verification',
+    helper: 'Skip certificate checks (trusted hosts only)',
+    tooltip:
+        'Disable verification of the server TLS certificate when fetching ODCS files over https://. Only enable for trusted hosts with self-signed certificates.',
+    type: FieldType.BOOLEAN,
+    fieldPath: odcsVerifySslFieldPath,
+    rules: null,
+    dynamicHidden: (values) => values?.source_location !== ODCS_LOCATION_HTTP,
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, odcsVerifySslFieldPath) === false,
+    setValueOnRecipeOverride: (recipe: any, value: boolean) => {
+        if (value) return setFieldValueOnRecipe(recipe, false, odcsVerifySslFieldPath);
+        return omit({ ...recipe }, [odcsVerifySslFieldPath]);
+    },
 };

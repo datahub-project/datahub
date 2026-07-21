@@ -79,6 +79,10 @@ how to disable replication.
   local paths, `path` accepts `s3://` / `gs://` object-store URIs (single file or glob),
   `http(s)://` URLs to a single file, and any mix of these in a list. S3 URIs require an
   `aws_connection` block and GCS URIs a `gcs_connection` block (both validated up front).
+  For authenticated `http(s)://` URLs, set an `http_connection` block with either a bearer
+  `token` or basic-auth `username`/`password` (the two are mutually exclusive), plus an
+  optional `verify_ssl: false` toggle for trusted hosts with self-signed certificates
+  (disabling it emits a warning). Public URLs need no `http_connection`.
   Set `git_info` to shallow-clone a repository (using an SSH deploy key) and
   scan it; each non-URI `path` entry is then resolved relative to the checkout (e.g.
   `path: contracts/` or `path: '**/*.odcs.yaml'`). Install the extra dependencies with

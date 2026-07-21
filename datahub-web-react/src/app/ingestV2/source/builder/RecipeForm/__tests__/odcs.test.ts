@@ -10,6 +10,10 @@ import {
     ODCS_GIT_INFO_BRANCH,
     ODCS_GIT_INFO_DEPLOY_KEY,
     ODCS_GIT_INFO_REPO,
+    ODCS_HTTP_PASSWORD,
+    ODCS_HTTP_TOKEN,
+    ODCS_HTTP_USERNAME,
+    ODCS_HTTP_VERIFY_SSL,
     ODCS_LOCATION_GCS,
     ODCS_LOCATION_GIT,
     ODCS_LOCATION_HTTP,
@@ -51,6 +55,10 @@ describe('ODCS recipe form fields', () => {
             ODCS_AWS_REGION,
             ODCS_GCS_HMAC_KEY_ID,
             ODCS_GCS_HMAC_KEY_SECRET,
+            ODCS_HTTP_TOKEN,
+            ODCS_HTTP_USERNAME,
+            ODCS_HTTP_PASSWORD,
+            ODCS_HTTP_VERIFY_SSL,
         ].forEach((field) => expect(fields).toContain(field));
 
         expect(ODCS_GIT_INFO_REPO.fieldPath).toBe('source.config.git_info.repo');
@@ -59,6 +67,10 @@ describe('ODCS recipe form fields', () => {
         expect(ODCS_AWS_REGION.fieldPath).toBe('source.config.aws_connection.aws_region');
         expect(ODCS_GCS_HMAC_KEY_ID.fieldPath).toBe('source.config.gcs_connection.credential.hmac_access_id');
         expect(ODCS_GCS_HMAC_KEY_SECRET.fieldPath).toBe('source.config.gcs_connection.credential.hmac_access_secret');
+        expect(ODCS_HTTP_TOKEN.fieldPath).toBe('source.config.http_connection.token');
+        expect(ODCS_HTTP_USERNAME.fieldPath).toBe('source.config.http_connection.username');
+        expect(ODCS_HTTP_PASSWORD.fieldPath).toBe('source.config.http_connection.password');
+        expect(ODCS_HTTP_VERIFY_SSL.fieldPath).toBe('source.config.http_connection.verify_ssl');
     });
 
     it('exposes dataset_pattern allow/deny filters wired to the connector config', () => {
@@ -68,10 +80,12 @@ describe('ODCS recipe form fields', () => {
         expect(DATASET_DENY.fieldPath).toBe('source.config.dataset_pattern.deny');
     });
 
-    it('treats the git deploy key and object-store secrets as secrets', () => {
+    it('treats the git deploy key, object-store secrets, and HTTP credentials as secrets', () => {
         expect(ODCS_GIT_INFO_DEPLOY_KEY.type).toBe(FieldType.SECRET);
         expect(ODCS_AWS_SECRET_ACCESS_KEY.type).toBe(FieldType.SECRET);
         expect(ODCS_GCS_HMAC_KEY_SECRET.type).toBe(FieldType.SECRET);
+        expect(ODCS_HTTP_TOKEN.type).toBe(FieldType.SECRET);
+        expect(ODCS_HTTP_PASSWORD.type).toBe(FieldType.SECRET);
     });
 
     it('is a single-select offering all five source-location options', () => {
@@ -102,12 +116,21 @@ describe('ODCS recipe form fields', () => {
         expect(shown(ODCS_LOCATION_GIT, ODCS_GIT_INFO_DEPLOY_KEY)).toBe(true);
         expect(shown(ODCS_LOCATION_GIT, ODCS_AWS_REGION)).toBe(false);
 
-        // Local / HTTP / unset reveal no credential fields.
-        [ODCS_AWS_REGION, ODCS_GCS_HMAC_KEY_ID, ODCS_GCS_HMAC_KEY_SECRET, ODCS_GIT_INFO_REPO].forEach((field) => {
-            expect(shown(ODCS_LOCATION_LOCAL, field)).toBe(false);
-            expect(shown(ODCS_LOCATION_HTTP, field)).toBe(false);
-            expect(shown(undefined, field)).toBe(false);
-        });
+        // HTTP reveals the HTTP auth fields and nothing else.
+        expect(shown(ODCS_LOCATION_HTTP, ODCS_HTTP_TOKEN)).toBe(true);
+        expect(shown(ODCS_LOCATION_HTTP, ODCS_HTTP_USERNAME)).toBe(true);
+        expect(shown(ODCS_LOCATION_HTTP, ODCS_HTTP_PASSWORD)).toBe(true);
+        expect(shown(ODCS_LOCATION_HTTP, ODCS_HTTP_VERIFY_SSL)).toBe(true);
+        expect(shown(ODCS_LOCATION_HTTP, ODCS_AWS_REGION)).toBe(false);
+        expect(shown(ODCS_LOCATION_S3, ODCS_HTTP_TOKEN)).toBe(false);
+
+        // Local / unset reveal no credential fields.
+        [ODCS_AWS_REGION, ODCS_GCS_HMAC_KEY_ID, ODCS_GCS_HMAC_KEY_SECRET, ODCS_GIT_INFO_REPO, ODCS_HTTP_TOKEN].forEach(
+            (field) => {
+                expect(shown(ODCS_LOCATION_LOCAL, field)).toBe(false);
+                expect(shown(undefined, field)).toBe(false);
+            },
+        );
     });
 
     it('marks a credential field required only when its location is selected', () => {
@@ -125,6 +148,7 @@ describe('ODCS recipe form fields', () => {
                     aws_connection: { aws_region: 'us-east-1' },
                     gcs_connection: { credential: { hmac_access_id: 'x', hmac_access_secret: 'y' } },
                     git_info: { repo: 'org/repo' },
+                    http_connection: { token: 't' },
                 },
             },
         };
@@ -133,6 +157,22 @@ describe('ODCS recipe form fields', () => {
         expect(updated.source.config.aws_connection).toBeDefined();
         expect(updated.source.config.gcs_connection).toBeUndefined();
         expect(updated.source.config.git_info).toBeUndefined();
+        expect(updated.source.config.http_connection).toBeUndefined();
+
+        const httpSelected = ODCS_SOURCE_LOCATION.setValueOnRecipeOverride?.(recipe, ODCS_LOCATION_HTTP);
+        expect(httpSelected.source.config.http_connection).toBeDefined();
+        expect(httpSelected.source.config.aws_connection).toBeUndefined();
+    });
+
+    it('maps the inverted TLS toggle: checked writes verify_ssl=false, unchecked drops it', () => {
+        const base = { source: { config: { http_connection: { token: 't' } } } };
+        const disabled = ODCS_HTTP_VERIFY_SSL.setValueOnRecipeOverride?.(base, true);
+        expect(disabled.source.config.http_connection.verify_ssl).toBe(false);
+        expect(ODCS_HTTP_VERIFY_SSL.getValueFromRecipeOverride?.(disabled)).toBe(true);
+
+        const enabled = ODCS_HTTP_VERIFY_SSL.setValueOnRecipeOverride?.(disabled, false);
+        expect(enabled.source.config.http_connection.verify_ssl).toBeUndefined();
+        expect(ODCS_HTTP_VERIFY_SSL.getValueFromRecipeOverride?.(enabled)).toBe(false);
     });
 
     it('infers the source location when editing a recipe authored in YAML', () => {

@@ -17,6 +17,11 @@ source:
     #   credential:
     #     hmac_access_id: "..."
     #     hmac_access_secret: "..."
+    # http_connection:                    # auth for http(s):// URLs; omit for public URLs
+    #   token: "${ODCS_HTTP_TOKEN}"       # bearer token (Authorization: Bearer ...)
+    #   # username: my-user               # OR basic auth (mutually exclusive with token)
+    #   # password: "${ODCS_HTTP_PASSWORD}"
+    #   # verify_ssl: false               # skip TLS verification (trusted hosts only)
 
     # Or clone a Git repository and scan it; non-URI `path` entries above are
     # resolved relative to the checkout (e.g. `path: contracts/`).
