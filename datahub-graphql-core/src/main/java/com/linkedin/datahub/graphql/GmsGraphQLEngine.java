@@ -153,7 +153,7 @@ import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.load.LatestIngestionSourceExecutionsBatchLoader;
+import com.linkedin.datahub.graphql.resolvers.load.IngestionSourceExecutionsBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
@@ -959,9 +959,8 @@ public class GmsGraphQLEngine {
             context ->
                 DashboardStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
         .addDataLoader(
-            LatestIngestionSourceExecutionsBatchLoader.LOADER_NAME,
-            context ->
-                LatestIngestionSourceExecutionsBatchLoader.createDataLoader(entityClient, context))
+            IngestionSourceExecutionsBatchLoader.LOADER_NAME,
+            context -> IngestionSourceExecutionsBatchLoader.createDataLoader(entityClient, context))
         .setGraphQLConfiguration(graphQLConfiguration)
         .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);

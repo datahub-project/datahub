@@ -47,7 +47,9 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -71,7 +73,6 @@ import org.opensearch.client.core.CountRequest;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.aggregations.AggregationBuilders;
@@ -88,9 +89,8 @@ import org.opensearch.search.sort.SortBuilder;
 @Accessors(chain = true)
 public class ESSearchDAO {
 
-  static final String GROUP_BUCKETS_AGG = "group_buckets";
+  static final String GROUP_BUCKETS_AGG = "by_group";
   static final String LATEST_TOP_HITS_AGG = "latest";
-  private static final int MAX_LATEST_COUNT = 100;
   private static final int MAX_GROUP_VALUES = 1000;
 
   private final SearchClientShim<?> client;
@@ -433,91 +433,96 @@ public class ESSearchDAO {
   }
 
   /**
-   * For each distinct groupField value, returns the latest matching documents (by sortCriteria)
-   * plus the total matching count for that value, using a single terms + top_hits aggregation.
+   * Resolves the latest document and total count for each value of {@code groupField} in a single
+   * ES query (terms aggregation + top_hits).
    *
-   * <p>Falls back to per-value {@link #filter} when {@code latestCount} or group cardinality
-   * exceeds safe limits, or when the aggregation query fails. Missing keys mean no matches.
+   * <p>Each returned {@link SearchResult} has {@code from=0}, {@code pageSize=1}, {@code
+   * numEntities} equal to the group's document count, and at most one entity (the latest by {@code
+   * sortCriteria}). Every input group value is present (empty result when the group has no docs).
+   *
+   * <p>Falls back to per-value {@link #filter} only when group cardinality exceeds {@link
+   * #MAX_GROUP_VALUES}. Aggregation query failures throw {@link ESQueryException}.
    */
   @Nonnull
-  public Map<String, SearchResult> filterLatestByValues(
+  public Map<String, SearchResult> searchLatestPerGroup(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String groupField,
-      @Nonnull List<String> groupValues,
-      List<SortCriterion> sortCriteria,
-      int latestCount) {
-    List<String> distinctValues =
-        groupValues.stream().filter(Objects::nonNull).distinct().collect(Collectors.toList());
-    if (distinctValues.isEmpty() || latestCount < 1) {
-      return Map.of();
-    }
-    if (latestCount > MAX_LATEST_COUNT || distinctValues.size() > MAX_GROUP_VALUES) {
-      log.warn(
-          "filterLatestByValues falling back to per-value filter: latestCount={}, groupValues={}",
-          latestCount,
-          distinctValues.size());
-      return filterLatestByValuesFallback(
-          opContext, entityName, groupField, distinctValues, sortCriteria, latestCount);
+      @Nonnull Collection<String> groupValues,
+      @Nullable List<SortCriterion> sortCriteria) {
+    if (groupValues.isEmpty()) {
+      return Collections.emptyMap();
     }
 
-    try {
-      return executeFilterLatestByValues(
-          opContext, entityName, groupField, distinctValues, sortCriteria, latestCount);
-    } catch (Exception e) {
-      log.error(
-          "filterLatestByValues aggregation failed for entity={} groupField={}; falling back",
-          entityName,
-          groupField,
-          e);
-      return filterLatestByValuesFallback(
-          opContext, entityName, groupField, distinctValues, sortCriteria, latestCount);
+    final List<String> distinctValues =
+        groupValues.stream().filter(Objects::nonNull).distinct().collect(Collectors.toList());
+    if (distinctValues.isEmpty()) {
+      return Collections.emptyMap();
     }
+    if (distinctValues.size() > MAX_GROUP_VALUES) {
+      log.warn(
+          "searchLatestPerGroup falling back to per-value filter: groupValues={}",
+          distinctValues.size());
+      return searchLatestPerGroupFallback(
+          opContext, entityName, groupField, distinctValues, sortCriteria);
+    }
+
+    return opContext.withSpan(
+        "searchLatestPerGroup",
+        () ->
+            executeSearchLatestPerGroup(
+                opContext, entityName, groupField, distinctValues, sortCriteria),
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "searchLatestPerGroup"));
   }
 
   @Nonnull
-  private Map<String, SearchResult> executeFilterLatestByValues(
+  private Map<String, SearchResult> executeSearchLatestPerGroup(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String groupField,
       @Nonnull List<String> distinctValues,
-      List<SortCriterion> sortCriteria,
-      int latestCount) {
-    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
+      @Nullable List<SortCriterion> sortCriteria) {
+    final IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    final EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
 
-    Filter filters =
+    final Filter groupFilter =
         new Filter()
             .setOr(
                 new ConjunctiveCriterionArray(
                     new ConjunctiveCriterion()
                         .setAnd(
                             new CriterionArray(
-                                buildCriterion(groupField, Condition.EQUAL, distinctValues)))));
-    Filter transformedFilters = transformFilterForEntities(filters, indexConvention);
+                                Collections.singletonList(
+                                    buildCriterion(
+                                        groupField, Condition.EQUAL, distinctValues))))));
+    final Filter transformedFilters = transformFilterForEntities(groupFilter, indexConvention);
 
-    BoolQueryBuilder filterQuery =
-        SearchRequestHandler.getFilterQuery(
+    final SearchRequestHandler requestHandler =
+        SearchRequestHandler.getBuilder(
             opContext,
-            List.of(entityName),
-            transformedFilters,
-            entitySpec.getSearchableFieldTypes(),
-            queryFilterRewriteChain);
+            entitySpec,
+            searchConfiguration,
+            customSearchConfiguration,
+            queryFilterRewriteChain,
+            searchServiceConfig);
 
     // Mirror ESUtils.buildSortOrder (including urn ASC tie-break) onto the top_hits sub-agg.
-    SearchSourceBuilder sortSource = new SearchSourceBuilder();
+    final SearchSourceBuilder sortSource = new SearchSourceBuilder();
     ESUtils.buildSortOrder(sortSource, sortCriteria, List.of(entitySpec));
-    TopHitsAggregationBuilder topHitsAgg =
-        AggregationBuilders.topHits(LATEST_TOP_HITS_AGG).size(latestCount);
+    final TopHitsAggregationBuilder topHitsAgg =
+        AggregationBuilders.topHits(LATEST_TOP_HITS_AGG)
+            .size(1)
+            .fetchSource(new String[] {URN_FIELD}, null);
     for (SortBuilder<?> sort : sortSource.sorts()) {
       topHitsAgg.sort(sort);
     }
 
-    String keywordField =
+    final String keywordField =
         ESUtils.toKeywordField(opContext, groupField, false, opContext.getAspectRetriever());
-    SearchSourceBuilder sourceBuilder =
+    final SearchSourceBuilder sourceBuilder =
         new SearchSourceBuilder()
-            .query(filterQuery)
+            .query(requestHandler.getFilterQuery(opContext, transformedFilters))
             .size(0)
             .aggregation(
                 AggregationBuilders.terms(GROUP_BUCKETS_AGG)
@@ -525,57 +530,64 @@ public class ESSearchDAO {
                     .size(distinctValues.size())
                     .subAggregation(topHitsAgg));
 
-    SearchRequest searchRequest = new SearchRequest();
+    final SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(sourceBuilder);
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
 
-    return opContext.withSpan(
-        "filterLatestByValues_search",
-        () -> {
-          try {
-            SearchResponse searchResponse =
-                client.search(opContext, searchRequest, RequestOptions.DEFAULT);
-            return mapFilterLatestByValuesResponse(searchResponse, latestCount);
-          } catch (IOException e) {
-            throw new ESQueryException("filterLatestByValues query failed:", e);
-          }
-        },
-        MetricUtils.DROPWIZARD_NAME,
-        MetricUtils.name(this.getClass(), "filterLatestByValues_search"));
+    try {
+      final SearchResponse response =
+          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      return mapSearchLatestPerGroupResponse(response, distinctValues);
+    } catch (Exception e) {
+      log.error(
+          "searchLatestPerGroup failed for entity={} groupField={} values={}",
+          entityName,
+          groupField,
+          distinctValues.size(),
+          e);
+      throw new ESQueryException("searchLatestPerGroup query failed:", e);
+    }
   }
 
   @Nonnull
-  private Map<String, SearchResult> mapFilterLatestByValuesResponse(
-      @Nonnull SearchResponse searchResponse, int latestCount) {
-    Map<String, SearchResult> results = new HashMap<>();
+  private Map<String, SearchResult> mapSearchLatestPerGroupResponse(
+      @Nonnull SearchResponse searchResponse, @Nonnull List<String> distinctValues) {
+    final Map<String, SearchResult> results = new LinkedHashMap<>();
+    for (String groupValue : distinctValues) {
+      results.put(groupValue, emptyLatestPerGroupResult());
+    }
     if (searchResponse.getAggregations() == null) {
       return results;
     }
-    ParsedTerms terms = searchResponse.getAggregations().get(GROUP_BUCKETS_AGG);
+    final ParsedTerms terms = searchResponse.getAggregations().get(GROUP_BUCKETS_AGG);
     if (terms == null) {
       return results;
     }
     for (Terms.Bucket bucket : terms.getBuckets()) {
-      ParsedTopHits topHits = bucket.getAggregations().get(LATEST_TOP_HITS_AGG);
-      SearchEntityArray entities = new SearchEntityArray();
+      final String groupValue = bucket.getKeyAsString();
+      if (!results.containsKey(groupValue)) {
+        continue;
+      }
+      final ParsedTopHits topHits = bucket.getAggregations().get(LATEST_TOP_HITS_AGG);
+      final SearchEntityArray entities = new SearchEntityArray();
       if (topHits != null) {
         for (SearchHit hit : topHits.getHits().getHits()) {
           try {
-            Urn urn = UrnExtractionUtils.extractUrnFromSearchHit(hit);
-            entities.add(new SearchEntity().setEntity(urn));
+            entities.add(
+                new SearchEntity().setEntity(UrnExtractionUtils.extractUrnFromSearchHit(hit)));
           } catch (RuntimeException e) {
             log.warn(
-                "Skipping invalid search hit in filterLatestByValues bucket {}: {}",
-                bucket.getKeyAsString(),
+                "Skipping invalid search hit in searchLatestPerGroup bucket {}: {}",
+                groupValue,
                 e.getMessage());
           }
         }
       }
       results.put(
-          bucket.getKeyAsString(),
+          groupValue,
           new SearchResult()
               .setFrom(0)
-              .setPageSize(latestCount)
+              .setPageSize(1)
               .setNumEntities((int) bucket.getDocCount())
               .setEntities(entities)
               .setMetadata(new SearchResultMetadata()));
@@ -584,29 +596,37 @@ public class ESSearchDAO {
   }
 
   @Nonnull
-  private Map<String, SearchResult> filterLatestByValuesFallback(
+  private Map<String, SearchResult> searchLatestPerGroupFallback(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String groupField,
       @Nonnull List<String> distinctValues,
-      List<SortCriterion> sortCriteria,
-      int latestCount) {
-    Map<String, SearchResult> results = new HashMap<>();
+      @Nullable List<SortCriterion> sortCriteria) {
+    final Map<String, SearchResult> results = new LinkedHashMap<>();
     for (String value : distinctValues) {
-      Filter filters =
+      final Filter filters =
           new Filter()
               .setOr(
                   new ConjunctiveCriterionArray(
                       new ConjunctiveCriterion()
                           .setAnd(
                               new CriterionArray(
-                                  buildCriterion(groupField, Condition.EQUAL, value)))));
-      SearchResult result = filter(opContext, entityName, filters, sortCriteria, 0, latestCount);
-      if (result != null && result.getNumEntities() > 0) {
-        results.put(value, result);
-      }
+                                  Collections.singletonList(
+                                      buildCriterion(groupField, Condition.EQUAL, value))))));
+      final SearchResult result = filter(opContext, entityName, filters, sortCriteria, 0, 1);
+      results.put(value, result != null ? result : emptyLatestPerGroupResult());
     }
     return results;
+  }
+
+  @Nonnull
+  private static SearchResult emptyLatestPerGroupResult() {
+    return new SearchResult()
+        .setFrom(0)
+        .setPageSize(1)
+        .setNumEntities(0)
+        .setEntities(new SearchEntityArray())
+        .setMetadata(new SearchResultMetadata());
   }
 
   /**

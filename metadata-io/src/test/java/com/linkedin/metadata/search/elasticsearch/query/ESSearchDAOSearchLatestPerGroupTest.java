@@ -39,10 +39,11 @@ import org.opensearch.search.aggregations.metrics.ParsedTopHits;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class ESSearchDAOFilterLatestByValuesTest {
+public class ESSearchDAOSearchLatestPerGroupTest {
 
   private static final String SOURCE_A = "urn:li:dataHubIngestionSource:source-a";
   private static final String SOURCE_B = "urn:li:dataHubIngestionSource:source-b";
+  private static final String SOURCE_MISSING = "urn:li:dataHubIngestionSource:missing";
   private static final Urn EXEC_A = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:exec-a");
   private static final Urn EXEC_B = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:exec-b");
 
@@ -67,20 +68,19 @@ public class ESSearchDAOFilterLatestByValuesTest {
   @Test
   public void testEmptyGroupValuesDoesNotCallClient() throws Exception {
     Map<String, SearchResult> results =
-        esSearchDAO.filterLatestByValues(
+        esSearchDAO.searchLatestPerGroup(
             opContext,
             Constants.EXECUTION_REQUEST_ENTITY_NAME,
             "ingestionSource",
             Collections.emptyList(),
-            List.of(new SortCriterion().setField("requestTimeMs").setOrder(SortOrder.DESCENDING)),
-            1);
+            List.of(new SortCriterion().setField("requestTimeMs").setOrder(SortOrder.DESCENDING)));
 
     assertTrue(results.isEmpty());
     verify(mockClient, never()).search(any(), any(), any());
   }
 
   @Test
-  public void testMapsLatestUrnAndTotalsFromTermsTopHits() throws Exception {
+  public void testMapsLatestUrnTotalsAndEmptyGroups() throws Exception {
     SearchHit hitA = mockHit(EXEC_A.toString());
     SearchHit hitB = mockHit(EXEC_B.toString());
 
@@ -100,15 +100,15 @@ public class ESSearchDAOFilterLatestByValuesTest {
         .thenReturn(mockResponse);
 
     Map<String, SearchResult> results =
-        esSearchDAO.filterLatestByValues(
+        esSearchDAO.searchLatestPerGroup(
             opContext,
             Constants.EXECUTION_REQUEST_ENTITY_NAME,
             "ingestionSource",
-            List.of(SOURCE_A, SOURCE_B, "urn:li:dataHubIngestionSource:missing"),
-            List.of(new SortCriterion().setField("requestTimeMs").setOrder(SortOrder.DESCENDING)),
-            1);
+            List.of(SOURCE_A, SOURCE_B, SOURCE_MISSING),
+            List.of(new SortCriterion().setField("requestTimeMs").setOrder(SortOrder.DESCENDING)));
 
-    assertEquals(results.size(), 2);
+    // Every input key is present.
+    assertEquals(results.size(), 3);
 
     SearchResult resultA = results.get(SOURCE_A);
     assertEquals(resultA.getFrom(), 0);
@@ -121,8 +121,9 @@ public class ESSearchDAOFilterLatestByValuesTest {
     assertEquals(resultB.getNumEntities(), 2);
     assertEquals(resultB.getEntities().get(0).getEntity(), EXEC_B);
 
-    // Missing group values are omitted (callers treat absent keys as total=0).
-    assertTrue(!results.containsKey("urn:li:dataHubIngestionSource:missing"));
+    SearchResult missing = results.get(SOURCE_MISSING);
+    assertEquals(missing.getNumEntities(), 0);
+    assertTrue(missing.getEntities().isEmpty());
 
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
     verify(mockClient)

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -7,12 +9,17 @@ import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -154,44 +161,39 @@ public interface EntitySearchService {
       @Nullable Integer size);
 
   /**
-   * For each distinct groupField value, returns the latest matching documents (by sortCriteria)
-   * plus the total matching count for that value.
+   * For each value of {@code groupField}, returns a {@link SearchResult} containing the latest
+   * matching document (by {@code sortCriteria}, limited to 1) and {@code numEntities} equal to the
+   * total number of documents in that group.
    *
-   * <p>Default implementation issues one {@link #filter} call per distinct value. Search backends
-   * may override with a batched aggregation query. Missing keys mean no matches for that value.
+   * <p>Default implementation issues one {@link #filter} call per group value. Search backends may
+   * override with a single terms + top_hits aggregation.
    *
-   * @param entityName name of the entity
-   * @param groupField field to group by (e.g. ingestionSource)
-   * @param groupValues values of groupField to resolve
-   * @param sortCriteria sort criteria used to pick the "latest" documents
-   * @param latestCount number of latest documents to return per group value
-   * @return map of groupField value → SearchResult (from=0, pageSize=latestCount); absent keys =
-   *     zero matches
+   * @param entityName entity to search
+   * @param groupField searchable field to group by (e.g. {@code ingestionSource})
+   * @param groupValues values of {@code groupField} to resolve
+   * @param sortCriteria sort applied within each group to pick the "latest" document
+   * @return map from group value to a page-size-1 {@link SearchResult}; every input value is
+   *     present (empty result when the group has no documents)
    */
   @Nonnull
-  default Map<String, SearchResult> filterLatestByValues(
+  default Map<String, SearchResult> searchLatestPerGroup(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String groupField,
-      @Nonnull List<String> groupValues,
-      List<SortCriterion> sortCriteria,
-      int latestCount) {
-    Map<String, SearchResult> results = new HashMap<>();
-    if (groupValues.isEmpty() || latestCount < 1) {
-      return results;
-    }
-    for (String value : groupValues.stream().distinct().collect(Collectors.toList())) {
-      SearchResult result =
-          filter(
-              opContext,
-              entityName,
-              QueryUtils.newFilter(groupField, value),
-              sortCriteria,
-              0,
-              latestCount);
-      if (result != null && result.getNumEntities() > 0) {
-        results.put(value, result);
-      }
+      @Nonnull Collection<String> groupValues,
+      @Nullable List<SortCriterion> sortCriteria) {
+    final Map<String, SearchResult> results = new LinkedHashMap<>();
+    for (String groupValue : groupValues) {
+      final Filter filter =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      new ConjunctiveCriterion()
+                          .setAnd(
+                              new CriterionArray(
+                                  Collections.singletonList(
+                                      buildCriterion(groupField, Condition.EQUAL, groupValue))))));
+      results.put(groupValue, filter(opContext, entityName, filter, sortCriteria, 0, 1));
     }
     return results;
   }

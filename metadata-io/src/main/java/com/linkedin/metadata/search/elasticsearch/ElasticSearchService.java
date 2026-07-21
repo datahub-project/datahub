@@ -426,29 +426,25 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Nonnull
   @Override
-  public Map<String, SearchResult> filterLatestByValues(
+  public Map<String, SearchResult> searchLatestPerGroup(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String groupField,
-      @Nonnull List<String> groupValues,
-      List<SortCriterion> sortCriteria,
-      int latestCount) {
+      @Nonnull Collection<String> groupValues,
+      @Nullable List<SortCriterion> sortCriteria) {
     log.debug(
-        "filterLatestByValues entityName: {}, groupField: {}, groupValues: {}, sortCriteria: {}, latestCount: {}",
+        "searchLatestPerGroup entityName: {}, groupField: {}, groupValues: {}, sortCriteria: {}",
         entityName,
         groupField,
         groupValues.size(),
-        sortCriteria,
-        latestCount);
-
-    return esSearchDAO.filterLatestByValues(
+        sortCriteria);
+    return esSearchDAO.searchLatestPerGroup(
         opContext.withSearchFlags(
             flags -> applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)),
         entityName,
         groupField,
         groupValues,
-        sortCriteria,
-        latestCount);
+        sortCriteria);
   }
 
   @Nonnull

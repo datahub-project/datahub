@@ -39,13 +39,13 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -526,53 +526,32 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
-   * For each distinct groupField value, returns the latest matching documents (by sortCriteria)
-   * plus the total matching count for that value.
+   * For each value of {@code groupField}, returns the latest matching entity (by {@code
+   * sortCriteria}, page size 1) and the total hit count for that group.
    *
-   * <p>Default implementation issues one {@link #filter} call per distinct value (Rest.li-safe).
-   * {@code JavaEntityClient} overrides with a batched search aggregation. Missing keys mean no
-   * matches for that value.
-   *
-   * @param entity entity type to filter
-   * @param groupField field to group by (e.g. ingestionSource)
-   * @param groupValues values of groupField to resolve
-   * @param sortCriteria sort criteria used to pick the "latest" documents
-   * @param latestCount number of latest documents to return per group value
-   * @return map of groupField value → SearchResult (from=0, pageSize=latestCount); absent keys =
-   *     zero matches
-   * @throws RemoteInvocationException when unable to execute request
+   * <p>Default implementation issues one {@link #filter} call per group value. In-process clients
+   * may override with a single aggregated search. Every input value is present in the result map.
    */
   @Nonnull
-  default Map<String, SearchResult> filterLatestByValues(
+  default Map<String, SearchResult> searchLatestPerGroup(
       @Nonnull OperationContext opContext,
       @Nonnull String entity,
       @Nonnull String groupField,
-      @Nonnull List<String> groupValues,
-      List<SortCriterion> sortCriteria,
-      int latestCount)
+      @Nonnull Collection<String> groupValues,
+      @Nullable List<SortCriterion> sortCriteria)
       throws RemoteInvocationException {
-    Map<String, SearchResult> results = new HashMap<>();
-    if (groupValues.isEmpty() || latestCount < 1) {
-      return results;
-    }
-    for (String value : groupValues.stream().distinct().collect(Collectors.toList())) {
-      SearchResult result =
-          filter(
-              opContext,
-              entity,
-              new Filter()
-                  .setOr(
-                      new ConjunctiveCriterionArray(
-                          new ConjunctiveCriterion()
-                              .setAnd(
-                                  new CriterionArray(
-                                      buildCriterion(groupField, Condition.EQUAL, value))))),
-              sortCriteria,
-              0,
-              latestCount);
-      if (result != null && result.getNumEntities() > 0) {
-        results.put(value, result);
-      }
+    final Map<String, SearchResult> results = new LinkedHashMap<>();
+    for (String groupValue : groupValues) {
+      final Filter filter =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      new ConjunctiveCriterion()
+                          .setAnd(
+                              new CriterionArray(
+                                  Collections.singletonList(
+                                      buildCriterion(groupField, Condition.EQUAL, groupValue))))));
+      results.put(groupValue, filter(opContext, entity, filter, sortCriteria, 0, 1));
     }
     return results;
   }
