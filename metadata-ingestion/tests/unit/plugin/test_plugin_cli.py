@@ -12,8 +12,8 @@ from datahub.cli.plugin_cli import (
     list_plugins,
     registry_add,
     registry_list,
+    registry_refresh,
     registry_remove,
-    registry_sync,
     search,
     sync_manifest,
     uninstall,
@@ -293,11 +293,11 @@ class TestRegistryCommands:
         assert "not found" in result.output
 
     @patch("datahub.plugin.registry_client.RegistryClient")
-    def test_registry_sync(self, mock_client_cls: MagicMock) -> None:
+    def test_registry_refresh(self, mock_client_cls: MagicMock) -> None:
         client = mock_client_cls.return_value
 
         runner = CliRunner()
-        result = runner.invoke(registry_sync)
+        result = runner.invoke(registry_refresh)
 
         assert result.exit_code == 0
         assert "caches cleared" in result.output

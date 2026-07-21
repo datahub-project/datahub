@@ -285,9 +285,9 @@ def registry_remove(name: str) -> None:
     click.secho(f"Removed registry '{name}'", fg="green")
 
 
-@registry_group.command(name="sync")
-def registry_sync() -> None:
-    """Force refresh all registry caches."""
+@registry_group.command(name="refresh")
+def registry_refresh() -> None:
+    """Refresh (clear) all registry caches so the next search re-fetches."""
     from datahub.plugin.registry_client import RegistryClient
 
     client = RegistryClient()

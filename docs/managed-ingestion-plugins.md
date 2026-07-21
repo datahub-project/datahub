@@ -178,7 +178,7 @@ datahub plugin registry list
 datahub plugin registry remove acme-internal
 
 # Force refresh all caches
-datahub plugin registry sync
+datahub plugin registry refresh
 ```
 
 ### Registry Config File
