@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
@@ -122,6 +123,82 @@ def column_nodes(
         for col in cols[:limit]
     ]
     return nodes, len(cols) > limit
+
+
+# --- ClientProbe: declarative helper for connector-based probes ------------------
+# A source with a client that can be built from its config and lists entities by
+# name reduces to a declaration: the client factory, and one ProbeLevel per level.
+# ClientProbe reuses the node builders and the config's own *_pattern, so a new
+# non-SQL source needs no bespoke list_probe_children plumbing.
+
+# Given the connector's client, its config, and the parent path already descended,
+# return the child names at the current level.
+LevelLister = Callable[[Any, Any, List[str]], Sequence[str]]
+
+
+@dataclass
+class ProbeLevel:
+    kind: ProbeNodeKind
+    # The config *_pattern field that filters this level, or None for a leaf
+    # (column) level, which carries no filter.
+    pattern_field: Optional[str]
+    list_names: LevelLister
+
+
+class ClientProbe:
+    def __init__(
+        self,
+        client_factory: Callable[[Any], Any],
+        levels: List[ProbeLevel],
+        close: Callable[[Any], None] = lambda client: None,
+    ) -> None:
+        self._client_factory = client_factory
+        self._levels = levels
+        self._close = close
+
+    def hierarchy(self) -> List[ProbeNodeKind]:
+        # Structural only — never touches the client, so it is connection-free.
+        return [level.kind for level in self._levels]
+
+    def list_children(
+        self, config: Any, parent_path: List[str], limit: int
+    ) -> ProbeResult:
+        # Past the declared depth there are no children (e.g. a flat source's leaf).
+        if len(parent_path) >= len(self._levels):
+            return ProbeResult(source_type="", supported=True, parent_path=parent_path)
+        level = self._levels[len(parent_path)]
+        client = self._client_factory(config)
+        try:
+            names = list(level.list_names(client, config, parent_path))
+            prefix = ".".join(parent_path)
+            if level.pattern_field is None:
+                nodes, truncated = column_nodes(
+                    [{"name": n} for n in names], limit, fqn_prefix=prefix
+                )
+            else:
+                pattern = getattr(config, level.pattern_field)
+                field = level.pattern_field
+
+                def classify(name: str, node_fqn: str) -> Verdict:
+                    return (True, None) if pattern.allowed(name) else (False, field)
+
+                nodes, truncated = container_nodes(
+                    names,
+                    limit,
+                    level.kind,
+                    field,
+                    fqn_prefix=prefix or None,
+                    classify=classify,
+                )
+            return ProbeResult(
+                source_type="",
+                supported=True,
+                parent_path=parent_path,
+                nodes=nodes,
+                truncated=truncated,
+            )
+        finally:
+            self._close(client)
 
 
 # --- Framework entry points ------------------------------------------------------
