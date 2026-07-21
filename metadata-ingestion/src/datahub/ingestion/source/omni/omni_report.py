@@ -76,6 +76,7 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
     # Lineage metrics
     dataset_lineage_edges_emitted: int = 0
     view_to_physical_column_lineage_edges: int = 0
+    view_to_physical_column_lineage_skipped_computed: int = 0
     fine_grained_lineage_edges_exact: int = 0
     fine_grained_lineage_edges_derived: int = 0
     fine_grained_lineage_edges_unresolved: int = 0

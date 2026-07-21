@@ -300,11 +300,12 @@ def test_semantic_views_upstream_of_physical_tables() -> None:
 
 @time_machine.travel(FROZEN_TIME)
 def test_view_to_physical_table_column_lineage() -> None:
-    """Semantic view → physical table lineage must include field-level edges.
+    """Semantic view → physical table lineage emits edges only for passthrough fields.
 
-    The orders view has dimensions (order_id, customer_id, created_at) and
-    measures (total_revenue). Each should produce a fine-grained edge mapping
-    the physical table column to the semantic view field.
+    The orders view has dimensions (order_id, customer_id, created_at) which are
+    passthrough and should produce edges. The measure (total_revenue = SUM(amount))
+    is computed and must be skipped — ``total_revenue`` does not exist on the
+    physical table.
     """
     source = _build_source()
     events = _collect_workunits(source)
@@ -322,24 +323,56 @@ def test_view_to_physical_table_column_lineage() -> None:
     assert view_lineage, f"No upstreamLineage emitted for {orders_view_urn}"
 
     fine_grained = view_lineage[-1]["aspect"].get("fineGrainedLineages") or []
-    assert len(fine_grained) == 4, (
-        f"Expected 4 fine-grained edges (3 dimensions + 1 measure); got {len(fine_grained)}"
+    assert len(fine_grained) == 3, (
+        f"Expected 3 fine-grained edges (3 passthrough dimensions, measure skipped); "
+        f"got {len(fine_grained)}"
     )
 
     edges = {(edge["upstreams"][0], edge["downstreams"][0]) for edge in fine_grained}
-    expected_fields = ["created_at", "customer_id", "order_id", "total_revenue"]
+    passthrough_fields = ["created_at", "customer_id", "order_id"]
     expected_edges = {
         (
             f"urn:li:schemaField:({orders_physical_urn},{field})",
             f"urn:li:schemaField:({orders_view_urn},{field})",
         )
-        for field in expected_fields
+        for field in passthrough_fields
     }
     assert edges == expected_edges, (
         f"View → physical column lineage mismatch.\n"
         f"Missing: {expected_edges - edges}\n"
         f"Extra: {edges - expected_edges}"
     )
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_computed_measures_skipped_in_view_physical_lineage() -> None:
+    """Computed measures (with SQL expressions) must not produce phantom edges.
+
+    total_revenue = SUM(amount) should not create a physical.total_revenue edge
+    because that column does not exist on the physical table.
+    """
+    source = _build_source()
+    events = _collect_workunits(source)
+
+    orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
+    orders_physical_urn = source._physical_dataset_urn(
+        "snowflake", "ANALYTICS_PROD", "PUBLIC", "ORDERS", platform_instance="snowflake"
+    )
+
+    view_lineage = [
+        e
+        for e in events
+        if e["entityUrn"] == orders_view_urn and e["aspectName"] == "upstreamLineage"
+    ]
+    fine_grained = view_lineage[-1]["aspect"].get("fineGrainedLineages") or []
+
+    phantom_urn = f"urn:li:schemaField:({orders_physical_urn},total_revenue)"
+    upstream_urns = {edge["upstreams"][0] for edge in fine_grained}
+    assert phantom_urn not in upstream_urns, (
+        "Computed measure total_revenue should not produce a physical column edge"
+    )
+
+    assert source.report.view_to_physical_column_lineage_skipped_computed > 0
 
 
 @time_machine.travel(FROZEN_TIME)

@@ -246,12 +246,21 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     ) -> List[FineGrainedLineageClass]:
         """Build field-level lineage edges from a semantic view to its physical table.
 
-        For each dimension/measure in the view, creates an edge mapping:
-          physical_table.field_name → semantic_view.field_name
+        Only emits edges for passthrough fields (no SQL expression), where the
+        view field name maps directly to the physical column name. Computed
+        fields (measures with expressions like ``SUM(amount)``) are skipped
+        because the view field name does not correspond to a physical column.
         """
         semantic_urn = self._semantic_dataset_urn(model_id, view_name)
         edges: List[FineGrainedLineageClass] = []
         for field_name in sorted(view_fields):
+            key = self._canonical_semantic_field_key(model_id, view_name, field_name)
+            sf = self._semantic_fields.get(key)
+            if sf and sf.expression:
+                self.report.increment_counter(
+                    "view_to_physical_column_lineage_skipped_computed"
+                )
+                continue
             upstream_field = make_schema_field_urn(physical_urn, field_name)
             downstream_field = make_schema_field_urn(semantic_urn, field_name)
             edges.append(
