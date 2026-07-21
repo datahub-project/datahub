@@ -21,10 +21,13 @@
 # on an all-skipped run, which must not count as green.
 set -euo pipefail
 
-# CLI_VERSION is passed in by run-oauth-ci.sh (canonical value from
-# gradle/versioning/cliVersion.gradle). The overlay supplies the auth code under
-# test, so the base only needs to ship the generated classes + dependencies.
-pip install --quiet "acryl-datahub==${CLI_VERSION}" pytest requests
+# CLI_VERSION is the canonical floor from gradle/versioning/cliVersion.gradle
+# (passed in by run-oauth-ci.sh). Install the NEWEST release at/above it (>=, not
+# ==): the overlay below replaces the pure-Python source but NOT datahub/metadata,
+# so the installed base supplies the generated schema_classes — which must be new
+# enough for the overlaid source's imports. Pinning the base floor (==1.6.0) fails
+# with ImportError on classes added after it (e.g. DomainAssociationClass).
+pip install --quiet "acryl-datahub>=${CLI_VERSION}" pytest requests
 SITE_DATAHUB=$(python -c "import datahub, os; print(os.path.dirname(datahub.__file__))")
 tar -C /repo/metadata-ingestion/src/datahub --exclude="./metadata" --exclude="*__pycache__*" -cf - . | tar -C "$SITE_DATAHUB" -xf -
 python -c "from datahub.ingestion.auth.env import build_auth_config_from_env"  # overlay sanity check
