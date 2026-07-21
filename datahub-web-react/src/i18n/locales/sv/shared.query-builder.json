@@ -31,6 +31,8 @@
     "operators.lessThanDesc": "Mindre än ett värde",
     "operators.not": "Inte",
     "operators.notDesc": "Inte",
+    "operators.notEquals": "är inte lika med",
+    "operators.notEqualsDesc": "är inte lika med",
     "operators.regexMatch": "Matchar regex",
     "operators.regexMatchDesc": "Matchar ett regex-värde",
     "operators.startsWith": "Börjar med",

@@ -24,7 +24,7 @@ import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
 import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuilder';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
-import { LogicalOperator } from '@types';
+import { EntityType, LogicalOperator } from '@types';
 
 const ScrollableFiltersWrapper = styled.div`
     max-height: 300px;
@@ -46,16 +46,18 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     const { t } = useTranslation('entity.views');
     const existingFilters = (state.definition?.filter?.filters || []) as ViewFilter[];
     const existingOperator = state.definition?.filter?.operator;
+    const existingEntityTypes = (state.definition?.entityTypes || []) as EntityType[];
 
     const [activeTab, setActiveTab] = useState(() => getInitialTabKey(existingFilters));
 
     // State for Select Assets tab
     const [selectedUrns, setSelectedUrns] = useState<string[]>(() => filtersToSelectedUrns(existingFilters));
 
-    // State for Build Filters tab
+    // State for Build Filters tab. Seed from both the saved filters and the
+    // view's top-level entityTypes so the entity-type scope is visible/editable.
     const [dynamicFilter, setDynamicFilter] = useState<LogicalPredicate | null>(() => {
-        if (existingFilters.length > 0 && activeTab === BUILD_FILTERS_TAB_KEY) {
-            return filtersToLogicalPredicate(existingOperator, existingFilters);
+        if (activeTab === BUILD_FILTERS_TAB_KEY && (existingFilters.length > 0 || existingEntityTypes.length > 0)) {
+            return filtersToLogicalPredicate(existingOperator, existingFilters, existingEntityTypes);
         }
         return null;
     });

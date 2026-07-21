@@ -1,10 +1,18 @@
 import i18next from 'i18next';
 
 import { VIEW_ENTITY_TYPES } from '@app/entityV2/view/builder/constants';
+import { OperatorId } from '@app/sharedV2/queryBuilder/builder/property/types/operators';
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 import { SelectInputMode, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 
 import { EntityType } from '@types';
+
+/**
+ * Operators offered for reference/enum filter rows in the View builder.
+ * NOT_EQUAL is scoped here (rather than in the global valueType lists) so Views
+ * support "does not equal" without affecting other query-builder consumers.
+ */
+const REF_OPERATORS = [OperatorId.EQUAL_TO, OperatorId.NOT_EQUAL, OperatorId.EXISTS];
 
 /**
  * View-specific properties for the Dynamic Filter tab in the View builder.
@@ -23,11 +31,14 @@ export const viewBuilderProperties: Property[] = [
         valueType: ValueTypeId.ENUM,
         valueOptions: {
             mode: SelectInputMode.MULTIPLE,
-            options: VIEW_ENTITY_TYPES.map((e) => ({ id: e.id, displayName: e.displayName })),
+            // Option ids are the EntityType enum so they map 1:1 to the view's
+            // top-level entityTypes field with no value translation.
+            options: VIEW_ENTITY_TYPES.map((e) => ({ id: e.type, displayName: e.displayName })),
         },
     },
     {
         id: 'typeNames',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('entity.views:prop.subType');
         },
@@ -42,6 +53,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'platform',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('shared.query-builder:prop.platform');
         },
@@ -56,6 +68,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'owners',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('entity.views:prop.owner');
         },
@@ -70,6 +83,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'domains',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('shared.query-builder:prop.domain');
         },
@@ -84,6 +98,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'dataProducts',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('entity.views:prop.dataProduct');
         },
@@ -98,6 +113,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'tags',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('shared.query-builder:prop.tags');
         },
@@ -112,6 +128,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'glossaryTerms',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('shared.query-builder:prop.glossaryTerms');
         },
@@ -126,6 +143,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'container',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('shared.query-builder:prop.container');
         },
@@ -150,6 +168,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'fieldTags',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('entity.views:prop.columnTag');
         },
@@ -164,6 +183,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'fieldGlossaryTerms',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('entity.views:prop.columnGlossaryTerm');
         },
@@ -218,6 +238,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'origin',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('entity.views:prop.environment');
         },
@@ -251,6 +272,7 @@ export const viewBuilderProperties: Property[] = [
     },
     {
         id: 'platformInstance',
+        operators: REF_OPERATORS,
         get displayName() {
             return i18next.t('entity.views:prop.platformInstance');
         },

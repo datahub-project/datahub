@@ -31,6 +31,8 @@
     "operators.lessThanDesc": "Mindre enn en verdi",
     "operators.not": "Ikke",
     "operators.notDesc": "Ikke",
+    "operators.notEquals": "er ikke lik",
+    "operators.notEqualsDesc": "er ikke lik",
     "operators.regexMatch": "Samsvarer med regex",
     "operators.regexMatchDesc": "Samsvarer med en regex-verdi",
     "operators.startsWith": "Begynner med",
