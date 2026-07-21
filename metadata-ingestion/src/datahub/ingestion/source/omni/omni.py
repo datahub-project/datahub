@@ -14,7 +14,6 @@ DataHub metadata work-units covering:
 from __future__ import annotations
 
 import logging
-import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -72,6 +71,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import Chart, Dashboard, Dataset
+from datahub.utilities.guarded_collections import GuardedDict, GuardedSet
 from datahub.utilities.sentinels import unset
 
 logger = logging.getLogger(__name__)
@@ -163,26 +163,20 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             report=self.report.client_report,
         )
         # Internal caches – populated during _ingest_semantic_model and reused
-        # later when processing documents/dashboards.
-        self._semantic_fields: Dict[str, _SemanticField] = {}
-        self._semantic_dataset_urns: Set[str] = set()
-        self._topic_dataset_urns: Set[str] = set()
-        self._topic_urn_by_key: Dict[str, str] = {}
-        self._topic_ingested_keys: Set[str] = set()
-        self._physical_dataset_urns: Set[str] = set()
-        self._model_dataset_urns: Set[str] = set()
-        self._folder_dataset_urns: Set[str] = set()
-        self._connection_dataset_urns: Set[str] = set()
-        self._connections_by_id: Dict[str, Dict[str, object]] = {}
-        self._model_context_by_id: Dict[str, _ModelContext] = {}
-
-        # Lock for source-level collections (URN sets, context dicts, registries)
-        # We use a single lock because:
-        # 1. Lock contention is minimal - most time is spent in I/O (API calls)
-        # 2. Simpler code - no need to reason about lock ordering/deadlocks
-        # 3. Critical sections are small - just set.add() or dict.__setitem__()
-        # If profiling shows lock contention, we can split into per-collection locks
-        self._state_lock = threading.Lock()
+        # later when processing documents/dashboards. All collections are
+        # thread-safe (GuardedSet / GuardedDict) so workers in the
+        # ThreadPoolExecutor can access them without external locking.
+        self._semantic_fields: GuardedDict[str, _SemanticField] = GuardedDict()
+        self._semantic_dataset_urns: GuardedSet[str] = GuardedSet()
+        self._topic_dataset_urns: GuardedSet[str] = GuardedSet()
+        self._topic_urn_by_key: GuardedDict[str, str] = GuardedDict()
+        self._topic_ingested_keys: GuardedSet[str] = GuardedSet()
+        self._physical_dataset_urns: GuardedSet[str] = GuardedSet()
+        self._model_dataset_urns: GuardedSet[str] = GuardedSet()
+        self._folder_dataset_urns: GuardedSet[str] = GuardedSet()
+        self._connection_dataset_urns: GuardedSet[str] = GuardedSet()
+        self._connections_by_id: GuardedDict[str, Dict[str, object]] = GuardedDict()
+        self._model_context_by_id: GuardedDict[str, _ModelContext] = GuardedDict()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "OmniSource":
@@ -569,7 +563,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         if not connection_id:
             return
         connection_urn = self._connection_dataset_urn(connection_id)
-        if connection_urn in self._connection_dataset_urns:
+        if not self._connection_dataset_urns.check_and_add(connection_urn):
             return
         payload = connection or {}
         connection_name = str(payload.get("name") or connection_id)
@@ -587,7 +581,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             },
             subtype="Connection",
         )
-        self._connection_dataset_urns.add(connection_urn)
         self.report.increment_counter("connections_emitted")
 
     # ------------------------------------------------------------------
@@ -610,9 +603,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         if not topic:
             return
         topic_key = f"{model_id}:{topic_name}"
-        if topic_key in self._topic_ingested_keys:
+        if not self._topic_ingested_keys.check_and_add(topic_key):
             return
-        self._topic_ingested_keys.add(topic_key)
         self.report.increment_counter("topics_scanned")
 
         topic_urn = self._topic_dataset_urn(model_id, topic_name)
@@ -866,12 +858,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     # ------------------------------------------------------------------
 
     def _warn_unmapped_connections(
-        self, connections: Dict[str, Dict[str, object]]
+        self, connections: GuardedDict[str, Dict[str, object]]
     ) -> None:
         self.report.info(
             title="Connection found",
             message="Found Omni connection(s)",
-            context=f"connections={list(connections.keys())}",
+            context=f"connections={list(connections)}",
         )
         unmapped = [
             conn_id
@@ -897,11 +889,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         populating self._connections_by_id for use by worker threads.
         """
         try:
-            self._connections_by_id = {
-                str(c["id"]): c
-                for c in self.client.list_connections(self.config.include_deleted)
-                if c.get("id") is not None
-            }
+            for c in self.client.list_connections(self.config.include_deleted):
+                if c.get("id") is not None:
+                    self._connections_by_id[str(c["id"])] = c
 
             for connection_id, connection in self._connections_by_id.items():
                 if not connection_id:
@@ -967,8 +957,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             }
 
             model_urn = self._model_dataset_urn(model_id)
-            with self._state_lock:
-                self._model_dataset_urns.add(model_urn)
+            self._model_dataset_urns.add(model_urn)
 
             if connection_id:
                 conn = self._connections_by_id.get(str(connection_id))
@@ -998,22 +987,20 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if base_model_id:
                 base_model_urn = self._model_dataset_urn(base_model_id)
                 model_upstream_urns.add(base_model_urn)
-                with self._state_lock:
-                    if base_model_urn not in self._model_dataset_urns:
-                        work_units.extend(
-                            self._emit_dataset(
-                                name=f"model.{base_model_id}",
-                                description="Omni base model inferred from model relationship.",
-                                custom_properties={
-                                    "entityType": "model",
-                                    "modelId": base_model_id,
-                                    "inferred": "true",
-                                },
-                                subtype="Model",
-                            )
+                if self._model_dataset_urns.check_and_add(base_model_urn):
+                    work_units.extend(
+                        self._emit_dataset(
+                            name=f"model.{base_model_id}",
+                            description="Omni base model inferred from model relationship.",
+                            custom_properties={
+                                "entityType": "model",
+                                "modelId": base_model_id,
+                                "inferred": "true",
+                            },
+                            subtype="Model",
                         )
-                        self._model_dataset_urns.add(base_model_urn)
-                        self.report.increment_counter("models_emitted")
+                    )
+                    self.report.increment_counter("models_emitted")
 
             model_upstreams_aspect: Optional[UpstreamLineageClass] = None
             if model_upstream_urns:
@@ -1178,7 +1165,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterator[MetadataWorkUnit]:
         """Emit a folder dataset if it was inlined in the document and not yet seen."""
         folder_urn = self._folder_dataset_urn(folder_id)
-        if folder_urn not in self._folder_dataset_urns:
+        if self._folder_dataset_urns.check_and_add(folder_urn):
             yield from self._emit_dataset(
                 name=f"folder.{folder_id}",
                 description="Omni folder entity inferred from document metadata.",
@@ -1191,7 +1178,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 },
                 subtype="Folder",
             )
-            self._folder_dataset_urns.add(folder_urn)
 
     def _ingest_topic_payload_for_dashboard_tile(
         self,
@@ -1315,8 +1301,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                             self._ingest_topic_from_dashboard(model_id, topic_name)
                         )
                         topic_urn = self._topic_urn_by_key.get(topic_key, topic_urn)
-                    if topic_urn not in self._topic_dataset_urns:
-                        self._topic_dataset_urns.add(topic_urn)
+                    if self._topic_dataset_urns.check_and_add(topic_urn):
                         result.work_units.extend(
                             self._emit_dataset(
                                 name=f"{model_id}.topic.{topic_name}",
@@ -1367,8 +1352,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
             semantic_view_urn = self._semantic_dataset_urn(model_id, field_ref.view)
             view_topic_urns = view_to_topic_urns.get(field_ref.view, set())
-            if semantic_view_urn not in self._semantic_dataset_urns:
-                self._semantic_dataset_urns.add(semantic_view_urn)
+            if self._semantic_dataset_urns.check_and_add(semantic_view_urn):
                 inferred_schema_fields = [
                     SchemaFieldClass(
                         fieldPath=fn,
