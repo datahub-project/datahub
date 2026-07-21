@@ -196,7 +196,7 @@ public class AbstractIcebergController {
   }
 
   /** Public Iceberg endpoints use the system context (same as master). */
-  protected OperationContext publicOpContext(HttpServletRequest request, String operationName) {
+  protected OperationContext publicOpContext() {
     return systemOperationContext;
   }
 
