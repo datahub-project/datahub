@@ -1,7 +1,7 @@
 import logging
 import time
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 import pydantic
 import requests
@@ -13,8 +13,7 @@ from tenacity import (
     wait_exponential,
 )
 
-if TYPE_CHECKING:
-    from datahub.ingestion.source.omni.omni_report import OmniClientReport
+from datahub.ingestion.source.omni.omni_report import OmniClientReport
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ class OmniClient:
         base_url: str,
         api_key: pydantic.SecretStr,
         timeout_seconds: int = 30,
-        report: Optional["OmniClientReport"] = None,
+        report: Optional[OmniClientReport] = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout_seconds
