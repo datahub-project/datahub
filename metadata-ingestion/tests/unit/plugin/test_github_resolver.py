@@ -117,6 +117,31 @@ class TestResolveGithubSpec:
         result = resolve_github_spec("github:acme/plugin@v1.5.0")
         assert result.version == "1.5.0"
 
+    @patch("datahub.plugin.github_resolver.requests.get")
+    def test_resolve_bare_version_falls_back_to_v_tag(
+        self, mock_get: MagicMock
+    ) -> None:
+        # Index/plugin version "0.1.0" but the git tag is "v0.1.0": the first
+        # tag lookup 404s, the "v"-prefixed candidate succeeds.
+        r404 = MagicMock(status_code=404)
+        r200 = MagicMock(status_code=200)
+        r200.json.return_value = {
+            "tag_name": "v0.1.0",
+            "assets": [
+                {
+                    "name": "p-0.1.0-py3-none-any.whl",
+                    "browser_download_url": "https://example.com/p.whl",
+                }
+            ],
+        }
+        r200.raise_for_status = MagicMock()
+        mock_get.side_effect = [r404, r200]
+
+        result = resolve_github_spec("github:acme/plugin@0.1.0")
+        assert result.version == "0.1.0"
+        assert mock_get.call_args_list[0][0][0].endswith("/releases/tags/0.1.0")
+        assert mock_get.call_args_list[1][0][0].endswith("/releases/tags/v0.1.0")
+
     @patch("datahub.plugin.github_resolver._resolve_github_token", return_value=None)
     @patch("datahub.plugin.github_resolver.requests.get")
     def test_resolve_404_without_token_hints_private_repo(

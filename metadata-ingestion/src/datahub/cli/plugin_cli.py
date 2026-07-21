@@ -38,6 +38,7 @@ def install(spec: str, version: Optional[str]) -> None:
 
     \b
     Supported spec formats:
+      salesforce-source           Install by id from a configured registry
       github:owner/repo            Install latest release from GitHub
       github:owner/repo@v1.2.0     Install specific release tag
       /path/to/plugin.whl          Install from a local wheel file
@@ -47,7 +48,21 @@ def install(spec: str, version: Optional[str]) -> None:
 
     click.echo(f"Installing plugin from {spec}...")
     try:
-        plugin_info = manager.install(spec, version=version)
+        # A bare id is resolved via the marketplace index (repo + checksum);
+        # every other spec form passes through unchanged.
+        target = manager.resolve_install_target(spec, version)
+        if target.entry is not None:
+            e = target.entry
+            verified = " (checksum verified)" if target.expected_sha256 else ""
+            click.echo(
+                f"Resolved '{spec}' from registry '{e.registry_name}' "
+                f"-> github:{e.repo}@{target.version}{verified}"
+            )
+        plugin_info = manager.install(
+            target.spec,
+            version=target.version,
+            expected_sha256=target.expected_sha256,
+        )
     except (RuntimeError, ValueError, OSError) as e:
         logger.debug("Plugin install failed", exc_info=True)
         raise click.ClickException(str(e)) from e
@@ -199,7 +214,7 @@ def search(query: str, type_filter: Optional[str]) -> None:
             click.echo(f"  {entry.description}")
 
     click.echo()
-    click.echo("Install with: datahub plugin install github:<repo>")
+    click.echo("Install with: datahub plugin install <id>")
 
 
 # ------------------------------------------------------------------

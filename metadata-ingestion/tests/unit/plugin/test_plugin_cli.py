@@ -1,6 +1,7 @@
 """Tests for the plugin CLI commands."""
 
 import os
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
@@ -26,7 +27,13 @@ from datahub.plugin.plugin_config import (
     PluginManifest,
     SupportStatusType,
 )
+from datahub.plugin.plugin_manager import InstallTarget
 from datahub.plugin.registry_client import PluginIndexEntry
+
+
+def _passthrough_target(spec: str, version: Optional[str] = None) -> InstallTarget:
+    """An InstallTarget that resolves to the spec unchanged (no registry match)."""
+    return InstallTarget(spec=spec, version=version, expected_sha256=None, entry=None)
 
 
 def _make_plugin(
@@ -52,6 +59,9 @@ class TestInstallCommand:
     @patch("datahub.cli.plugin_cli.PluginManager")
     def test_install_success(self, mock_manager_cls: MagicMock) -> None:
         manager = mock_manager_cls.return_value
+        manager.resolve_install_target.return_value = _passthrough_target(
+            "github:acme/test-source"
+        )
         manager.install.return_value = _make_plugin()
 
         runner = CliRunner()
@@ -59,11 +69,16 @@ class TestInstallCommand:
 
         assert result.exit_code == 0
         assert "test-source@1.0.0" in result.output
-        manager.install.assert_called_once_with("github:acme/test-source", version=None)
+        manager.install.assert_called_once_with(
+            "github:acme/test-source", version=None, expected_sha256=None
+        )
 
     @patch("datahub.cli.plugin_cli.PluginManager")
     def test_install_with_version(self, mock_manager_cls: MagicMock) -> None:
         manager = mock_manager_cls.return_value
+        manager.resolve_install_target.return_value = _passthrough_target(
+            "github:acme/test-source", version="v2.0.0"
+        )
         manager.install.return_value = _make_plugin(version="2.0.0")
 
         runner = CliRunner()
@@ -73,12 +88,45 @@ class TestInstallCommand:
 
         assert result.exit_code == 0
         manager.install.assert_called_once_with(
-            "github:acme/test-source", version="v2.0.0"
+            "github:acme/test-source", version="v2.0.0", expected_sha256=None
+        )
+
+    @patch("datahub.cli.plugin_cli.PluginManager")
+    def test_install_by_marketplace_id(self, mock_manager_cls: MagicMock) -> None:
+        """A bare id resolved from a registry installs its github repo + checksum."""
+        manager = mock_manager_cls.return_value
+        entry = PluginIndexEntry(
+            id="my-source",
+            repo="acme/my-source",
+            version="1.0.0",
+            type=PluginCapabilityType.SOURCE,
+            sha256="abc123",
+            registry_name="community",
+        )
+        manager.resolve_install_target.return_value = InstallTarget(
+            spec="github:acme/my-source",
+            version="1.0.0",
+            expected_sha256="abc123",
+            entry=entry,
+        )
+        manager.install.return_value = _make_plugin(plugin_id="my-source")
+
+        runner = CliRunner()
+        result = runner.invoke(install, ["my-source"])
+
+        assert result.exit_code == 0
+        assert "from registry 'community'" in result.output
+        assert "checksum verified" in result.output
+        manager.install.assert_called_once_with(
+            "github:acme/my-source", version="1.0.0", expected_sha256="abc123"
         )
 
     @patch("datahub.cli.plugin_cli.PluginManager")
     def test_install_failure(self, mock_manager_cls: MagicMock) -> None:
         manager = mock_manager_cls.return_value
+        manager.resolve_install_target.return_value = _passthrough_target(
+            "github:acme/bad-plugin"
+        )
         manager.install.side_effect = RuntimeError("Download failed")
 
         runner = CliRunner()

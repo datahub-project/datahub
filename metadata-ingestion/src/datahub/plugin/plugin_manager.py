@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Type
 
 import yaml
@@ -26,10 +27,12 @@ else:
 
 from datahub.plugin.github_resolver import resolve_plugin_spec
 from datahub.plugin.plugin_config import (
+    _PLUGIN_ID_RE,
     MANIFEST_FILENAME,
     DiscoveredPlugin,
     PluginManifest,
 )
+from datahub.plugin.registry_client import PluginIndexEntry, RegistryClient
 
 logger = logging.getLogger(__name__)
 
@@ -232,10 +235,66 @@ def _package_name_from_target(pip_target: str) -> Optional[str]:
     return name or None
 
 
+@dataclass(frozen=True)
+class InstallTarget:
+    """A resolved install request, ready to hand to ``PluginManager.install``."""
+
+    spec: str
+    version: Optional[str]
+    expected_sha256: Optional[str]
+    entry: Optional[PluginIndexEntry]  # the matched registry entry, if any
+
+
 class PluginManager:
     # ------------------------------------------------------------------
     # Install
     # ------------------------------------------------------------------
+
+    def resolve_install_target(
+        self, spec: str, version: Optional[str] = None
+    ) -> InstallTarget:
+        """Resolve a user-supplied install spec, consulting the marketplace index.
+
+        When *spec* is a bare plugin id (e.g. ``salesforce-source``) listed in a
+        configured registry, it is resolved to that plugin's
+        ``github:owner/repo`` at the indexed version, and the index's sha256 is
+        carried through so the downloaded wheel is verified before install.
+
+        Every other spec form (``github:``, ``pypi:``, a wheel path, or a pinned
+        pip requirement) is returned unchanged with no registry lookup — so the
+        lookup (and its network call) only happens for a plain id.
+        """
+        # Only a bare identifier — matching the manifest-id rule — is eligible
+        # for a marketplace lookup; anything with a scheme, path, or version
+        # operator is left for resolve_plugin_spec to handle directly.
+        if not _PLUGIN_ID_RE.match(spec):
+            return InstallTarget(
+                spec=spec, version=version, expected_sha256=None, entry=None
+            )
+
+        entry = RegistryClient().resolve(spec)
+        if entry is None:
+            # Not in any registry — fall back to treating it as a pip requirement.
+            return InstallTarget(
+                spec=spec, version=version, expected_sha256=None, entry=None
+            )
+
+        if version and version != entry.version:
+            # A requested version differs from the indexed one; the index
+            # checksum is for the indexed wheel, so it must not be applied to a
+            # different version's wheel.
+            return InstallTarget(
+                spec=f"github:{entry.repo}",
+                version=version,
+                expected_sha256=None,
+                entry=entry,
+            )
+        return InstallTarget(
+            spec=f"github:{entry.repo}",
+            version=entry.version,
+            expected_sha256=entry.sha256,
+            entry=entry,
+        )
 
     def install(
         self,

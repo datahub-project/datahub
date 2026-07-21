@@ -2,17 +2,33 @@
 
 import subprocess
 from pathlib import Path
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.plugin.plugin_config import PluginCapabilityType
 from datahub.plugin.plugin_manager import (
     PluginManager,
     _find_manifest_path_in_dist,
     _package_name_from_target,
     _pip_cmd,
 )
+from datahub.plugin.registry_client import PluginIndexEntry
 from tests.unit.plugin.conftest import make_discovered_plugin
+
+
+def _index_entry(
+    version: str = "1.0.0", sha256: Optional[str] = "deadbeef"
+) -> PluginIndexEntry:
+    return PluginIndexEntry(
+        id="my-source",
+        repo="acme/my-source",
+        version=version,
+        type=PluginCapabilityType.SOURCE,
+        sha256=sha256,
+        registry_name="community",
+    )
 
 
 class TestPackageNameFromTarget:
@@ -365,3 +381,47 @@ class TestFindManifestPathInDist:
         dist.read_text.return_value = None
 
         assert _find_manifest_path_in_dist(dist) is None
+
+
+class TestResolveInstallTarget:
+    @patch("datahub.plugin.plugin_manager.RegistryClient")
+    def test_bare_id_found_uses_repo_and_checksum(self, mock_rc: MagicMock) -> None:
+        mock_rc.return_value.resolve.return_value = _index_entry()
+
+        target = PluginManager().resolve_install_target("my-source")
+
+        assert target.spec == "github:acme/my-source"
+        assert target.version == "1.0.0"
+        assert target.expected_sha256 == "deadbeef"
+        assert target.entry is not None
+
+    @patch("datahub.plugin.plugin_manager.RegistryClient")
+    def test_version_override_drops_index_checksum(self, mock_rc: MagicMock) -> None:
+        # The index sha256 is for 1.0.0; a request for a different version must
+        # not carry that checksum onto a different wheel.
+        mock_rc.return_value.resolve.return_value = _index_entry(version="1.0.0")
+
+        target = PluginManager().resolve_install_target("my-source", version="2.0.0")
+
+        assert target.spec == "github:acme/my-source"
+        assert target.version == "2.0.0"
+        assert target.expected_sha256 is None
+
+    @patch("datahub.plugin.plugin_manager.RegistryClient")
+    def test_bare_id_not_in_registry_passes_through(self, mock_rc: MagicMock) -> None:
+        mock_rc.return_value.resolve.return_value = None
+
+        target = PluginManager().resolve_install_target("random-pkg")
+
+        assert target.spec == "random-pkg"
+        assert target.entry is None
+        assert target.expected_sha256 is None
+
+    @patch("datahub.plugin.plugin_manager.RegistryClient")
+    def test_non_bare_spec_skips_registry_lookup(self, mock_rc: MagicMock) -> None:
+        # A github:/pip/wheel spec never triggers a registry (network) lookup.
+        target = PluginManager().resolve_install_target("github:acme/src")
+
+        assert target.spec == "github:acme/src"
+        assert target.entry is None
+        mock_rc.assert_not_called()

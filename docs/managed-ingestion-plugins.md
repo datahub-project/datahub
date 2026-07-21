@@ -11,6 +11,10 @@ DataHub's ingestion plugin system lets you install community and custom connecto
 ### Install a Plugin
 
 ```shell
+# By id from a configured registry (resolves the repo and verifies the
+# published checksum when the registry index provides one)
+datahub plugin install salesforce-source
+
 # From a GitHub repository
 datahub plugin install github:acme/datahub-salesforce-source
 
@@ -20,6 +24,12 @@ datahub plugin install ./datahub_salesforce_source-1.0.0-py3-none-any.whl
 # A specific version from GitHub
 datahub plugin install github:acme/datahub-salesforce-source@v1.2.0
 ```
+
+When you install by id, DataHub looks the id up across your configured
+registries (see [Plugin Registries](#plugin-registries)), resolves it to the
+plugin's GitHub release, and — if the index entry declares a `sha256` — verifies
+the downloaded wheel against it before installing. Ids you find via
+`datahub plugin search` can be installed directly this way.
 
 ### Use a Plugin in a Recipe
 
@@ -99,10 +109,15 @@ datahub plugin install <spec> [--version VERSION]
 
 **Spec formats:**
 
+- `salesforce-source` — Plugin id resolved via a configured registry (installs the indexed GitHub release, checksum-verified when the index provides a `sha256`)
 - `github:owner/repo` — Latest release from a GitHub repository
 - `github:owner/repo@v1.2.0` — Specific release tag
 - `/path/to/plugin.whl` — Local wheel file
 - `my-plugin==1.0.0` — Pip package specifier
+
+A bare id is only resolved through the registry when it matches a listed plugin;
+otherwise it is treated as a pip package. Registry release lookups tolerate the
+`v` tag prefix, so an index version of `0.1.0` resolves a `v0.1.0` git tag.
 
 ### `datahub plugin uninstall`
 
@@ -205,6 +220,51 @@ export ACME_GIT_TOKEN=ghp_xxxxxxxxxxxx
 ```
 
 For GitHub private repos, the standard `GITHUB_TOKEN` environment variable is used automatically.
+
+### Registry Index Format
+
+A registry is a single JSON index (one "descriptor") that catalogs **many**
+plugins, each pointing to its own GitHub repository. The index is either a flat
+array or an object with a `plugins` array. Unknown fields are ignored, so the
+schema can grow without breaking older clients.
+
+```json
+{
+  "plugins": [
+    {
+      "id": "salesforce-source",
+      "repo": "acme/datahub-salesforce-source",
+      "version": "1.2.0",
+      "type": "source",
+      "description": "Ingest metadata from Salesforce",
+      "author": "Acme",
+      "trust_tier": "verified",
+      "icon_url": "https://acme.example.com/sf.png",
+      "sha256": "9f2b…"
+    },
+    {
+      "id": "slack-sink",
+      "repo": "someorg/datahub-slack-sink",
+      "version": "0.3.1",
+      "type": "sink"
+    }
+  ]
+}
+```
+
+| Field          | Required | Description                                                                 |
+| -------------- | -------- | --------------------------------------------------------------------------- |
+| `id`           | Yes      | Plugin id used by `datahub plugin install <id>` and shown in `search`       |
+| `repo`         | Yes      | `owner/repo` of the plugin's GitHub repository (each entry can differ)       |
+| `version`      | Yes      | Release version (resolves the matching git tag, with or without a `v`)      |
+| `type`         | No       | `source`, `sink`, or `transformer` (default `source`)                       |
+| `sha256`       | No       | Checksum of the release wheel; verified at install time when present        |
+| `trust_tier`   | No       | `community` (default), `verified`, or `official` — shown as a badge         |
+| `description` / `author` / `display_name` / `icon_url` / `recipe_template` | No | Display metadata for `search` and the ingestion UI |
+
+Because each entry names its own `repo`, one index in a single GitHub repo can
+point to any number of separate plugin repositories. You can also configure
+multiple registries; `search` and `list` aggregate across all enabled ones.
 
 ## Creating a Plugin
 

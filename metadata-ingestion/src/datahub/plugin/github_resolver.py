@@ -115,6 +115,17 @@ def _find_wheel_asset(assets: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     )
 
 
+def _tag_candidates(version: str) -> List[str]:
+    """Release-tag candidates for a version, tolerating the ``v`` prefix.
+
+    A plugin version is usually bare (``0.1.0``) while the git tag carries a
+    ``v`` (``v0.1.0``); try both orderings so either convention resolves.
+    """
+    if version.startswith("v"):
+        return [version, version[1:]]
+    return [version, f"v{version}"]
+
+
 def resolve_github_spec(spec: str) -> Union[ResolvedWheel, ResolvedGitSource]:
     """Resolve a ``github:owner/repo[@version]`` spec to a downloadable URL.
 
@@ -125,29 +136,47 @@ def resolve_github_spec(spec: str) -> Union[ResolvedWheel, ResolvedGitSource]:
         raise ValueError(f"Invalid GitHub plugin spec: {spec}")
 
     headers = _github_headers()
+    has_token = "Authorization" in headers
     repo_path = f"{parsed.owner}/{parsed.repo}"
 
     if parsed.version:
-        url = f"{GITHUB_API_BASE}/repos/{repo_path}/releases/tags/{parsed.version}"
-        not_found_msg = f"Release '{parsed.version}' not found for {repo_path}"
+        # A plugin/index version ("0.1.0") often differs from the git tag by a
+        # leading "v" ("v0.1.0"). Try the version verbatim, then the toggled
+        # prefix, so either convention resolves.
+        candidate_tags = _tag_candidates(parsed.version)
+        release: Optional[Dict[str, Any]] = None
+        for tag_candidate in candidate_tags:
+            url = f"{GITHUB_API_BASE}/repos/{repo_path}/releases/tags/{tag_candidate}"
+            resp = requests.get(url, headers=headers, timeout=30)
+            if resp.status_code == 404:
+                continue
+            resp.raise_for_status()
+            release = resp.json()
+            break
+        if release is None:
+            not_found_msg = f"Release '{parsed.version}' not found for {repo_path}"
+            if not has_token:
+                not_found_msg += (
+                    " If this is a private repository, set the GITHUB_TOKEN"
+                    " environment variable or authenticate with `gh auth login`."
+                )
+            raise ValueError(not_found_msg)
     else:
         url = f"{GITHUB_API_BASE}/repos/{repo_path}/releases/latest"
-        not_found_msg = (
-            f"No releases found for {repo_path}. "
-            "Ensure the repository has at least one published release."
-        )
-
-    has_token = "Authorization" in headers
-    resp = requests.get(url, headers=headers, timeout=30)
-    if resp.status_code == 404:
-        if not has_token:
-            not_found_msg += (
-                " If this is a private repository, set the GITHUB_TOKEN"
-                " environment variable or authenticate with `gh auth login`."
+        resp = requests.get(url, headers=headers, timeout=30)
+        if resp.status_code == 404:
+            not_found_msg = (
+                f"No releases found for {repo_path}. "
+                "Ensure the repository has at least one published release."
             )
-        raise ValueError(not_found_msg)
-    resp.raise_for_status()
-    release = resp.json()
+            if not has_token:
+                not_found_msg += (
+                    " If this is a private repository, set the GITHUB_TOKEN"
+                    " environment variable or authenticate with `gh auth login`."
+                )
+            raise ValueError(not_found_msg)
+        resp.raise_for_status()
+        release = resp.json()
 
     tag = release.get("tag_name", parsed.version or "unknown")
     # Strip a single leading "v" prefix (v1.2.3 -> 1.2.3), not every leading
