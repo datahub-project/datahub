@@ -249,12 +249,12 @@ class FakeOmniClientFull:
             return QUERIES_WORKBOOK_1
         return []
 
-    def test_connection(self) -> bool:
-        return True
+    def test_connection(self) -> None:
+        pass
 
 
 class FakeOmniClientConnectionFail:
     """Fake client that simulates a failed API authentication."""
 
-    def test_connection(self) -> bool:
+    def test_connection(self) -> None:
         raise RuntimeError("401 Unauthorized: Invalid API key")

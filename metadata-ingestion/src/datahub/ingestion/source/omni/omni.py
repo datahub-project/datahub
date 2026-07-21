@@ -200,13 +200,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 api_key=config.api_key,
                 timeout_seconds=config.timeout_seconds,
             )
-            if client.test_connection():
-                report.basic_connectivity = CapabilityReport(capable=True)
-            else:
-                report.basic_connectivity = CapabilityReport(
-                    capable=False,
-                    failure_reason="API returned an unsuccessful response.",
-                )
+            client.test_connection()
+            report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as exc:
             report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(exc)

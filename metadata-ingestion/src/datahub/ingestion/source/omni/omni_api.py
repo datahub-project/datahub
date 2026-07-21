@@ -123,14 +123,13 @@ class OmniClient:
                 )
                 break
 
-    def test_connection(self) -> bool:
-        """Verify credentials are accepted by the Omni API."""
+    def test_connection(self) -> None:
+        """Verify credentials are accepted by the Omni API.
+
+        Raises on failure so the caller gets the real error message.
+        """
         with self._track_call("test_connection"):
-            try:
-                self._request("GET", "/v1/models")
-                return True
-            except Exception:
-                return False
+            self._request("GET", "/v1/models")
 
     def list_connections(self, include_deleted: bool = False) -> List[Dict[str, Any]]:
         with self._track_call("list_connections"):

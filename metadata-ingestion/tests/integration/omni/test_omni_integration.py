@@ -665,7 +665,7 @@ def test_connection_succeeds_with_valid_credentials() -> None:
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(
             "datahub.ingestion.source.omni.omni_api.OmniClient.test_connection",
-            lambda self: True,
+            lambda self: None,
         )
         report = OmniSource.test_connection(
             {
