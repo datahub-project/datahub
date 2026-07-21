@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -68,11 +67,6 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
     return entityService.exists(opContext, candidateUrns, false);
   }
 
-  /** Whether the string candidate is valid */
-  protected boolean isValidCandidateValue(String candidateValue) {
-    return true;
-  }
-
   @Override
   @WithSpan
   public List<RecommendationContent> getRecommendations(
@@ -93,11 +87,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
 
     // If the aggregated values are not urn, simply get top k values with the most counts
     if (!isValueUrn()) {
-      Map<String, Long> validValues =
-          aggregationResult.entrySet().stream()
-              .filter(entry -> isValidCandidateValue(entry.getKey()))
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      return getTopKValues(validValues).stream()
+      return getTopKValues(aggregationResult).stream()
           .map(entry -> buildRecommendationContent(entry.getKey(), entry.getValue()))
           .collect(Collectors.toList());
     }
@@ -163,11 +153,6 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
       topK.addFirst(queue.poll());
     }
     return topK;
-  }
-
-  private Map<String, Long> mergeAggregation(Map<String, Long> first, Map<String, Long> second) {
-    return Stream.concat(first.entrySet().stream(), second.entrySet().stream())
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
   }
 
   private <T> RecommendationContent buildRecommendationContent(T candidate, long count) {
