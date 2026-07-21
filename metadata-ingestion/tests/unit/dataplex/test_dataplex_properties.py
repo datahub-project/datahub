@@ -5,10 +5,13 @@ from unittest.mock import Mock
 
 from google.cloud import dataplex_v1
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.dataplex.dataplex_properties import (
     extract_aspects_to_custom_properties,
     extract_entry_custom_properties,
 )
+
+ALLOW_ALL_ASPECTS = AllowDenyPattern.allow_all()
 
 
 class TestExtractAspectsToCustomProperties:
@@ -31,7 +34,9 @@ class TestExtractAspectsToCustomProperties:
             "dataplex.googleapis.com/partition": aspect_value,
         }
 
-        extract_aspects_to_custom_properties(aspects, custom_properties)
+        extract_aspects_to_custom_properties(
+            aspects, custom_properties, aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         # Check aspect type properties
         assert "dataplex_aspect_schema" in custom_properties
@@ -56,7 +61,9 @@ class TestExtractAspectsToCustomProperties:
             "dataplex.googleapis.com/schema": aspect_value,
         }
 
-        extract_aspects_to_custom_properties(aspects, custom_properties)
+        extract_aspects_to_custom_properties(
+            aspects, custom_properties, aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         # Should still have aspect type property
         assert "dataplex_aspect_schema" in custom_properties
@@ -77,7 +84,9 @@ class TestExtractAspectsToCustomProperties:
             "dataplex.googleapis.com/schema": aspect_value,
         }
 
-        extract_aspects_to_custom_properties(aspects, custom_properties)
+        extract_aspects_to_custom_properties(
+            aspects, custom_properties, aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         # Should have aspect type property
         assert "dataplex_aspect_schema" in custom_properties
@@ -98,7 +107,9 @@ class TestExtractAspectsToCustomProperties:
             "dataplex.googleapis.com/schema": aspect_value,
         }
 
-        extract_aspects_to_custom_properties(aspects, custom_properties)
+        extract_aspects_to_custom_properties(
+            aspects, custom_properties, aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         # Should have aspect type property
         assert "dataplex_aspect_schema" in custom_properties
@@ -118,7 +129,9 @@ class TestExtractAspectsToCustomProperties:
             "projects/test-project/locations/us/entryGroups/@bigquery/aspects/complex_type": aspect_value,
         }
 
-        extract_aspects_to_custom_properties(aspects, custom_properties)
+        extract_aspects_to_custom_properties(
+            aspects, custom_properties, aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         # Should extract the last part of the path as aspect type
         assert "dataplex_aspect_complex_type" in custom_properties
@@ -138,7 +151,9 @@ class TestExtractAspectsToCustomProperties:
             "dataplex.googleapis.com/schema": aspect_value,
         }
 
-        extract_aspects_to_custom_properties(aspects, custom_properties)
+        extract_aspects_to_custom_properties(
+            aspects, custom_properties, aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         # Should preserve existing keys
         assert "existing_key" in custom_properties
@@ -185,7 +200,9 @@ class TestExtractEntryCustomProperties:
             entry_type="TABLE",
         )
 
-        result = extract_entry_custom_properties(entry, "my_table", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "my_table", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         assert result["dataplex_ingested"] == "true"
         assert result["dataplex_entry_id"] == "my_table"
@@ -200,7 +217,9 @@ class TestExtractEntryCustomProperties:
         """Test extracting entry properties without entry_type."""
         entry = self.create_mock_entry(entry_type=None)
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         assert "dataplex_entry_type" not in result
         assert result["dataplex_ingested"] == "true"
@@ -209,7 +228,9 @@ class TestExtractEntryCustomProperties:
         """Test extracting entry with parent_entry."""
         entry = self.create_mock_entry(parent_entry="parent_entry_id")
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         assert result["dataplex_parent_entry"] == "parent_entry_id"
 
@@ -220,7 +241,9 @@ class TestExtractEntryCustomProperties:
         if hasattr(entry, "parent_entry"):
             delattr(entry, "parent_entry")
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         assert "dataplex_parent_entry" not in result
 
@@ -230,7 +253,9 @@ class TestExtractEntryCustomProperties:
         entry_source.resource = "projects/test-project/datasets/my_dataset"
         entry = self.create_mock_entry(entry_source=entry_source)
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         assert (
             result["dataplex_source_resource"]
@@ -243,7 +268,9 @@ class TestExtractEntryCustomProperties:
         entry_source.system = "BIGQUERY"
         entry = self.create_mock_entry(entry_source=entry_source)
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         assert result["dataplex_source_system"] == "BIGQUERY"
 
@@ -253,7 +280,9 @@ class TestExtractEntryCustomProperties:
         entry_source.platform = "GCP"
         entry = self.create_mock_entry(entry_source=entry_source)
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         assert result["dataplex_source_platform"] == "GCP"
 
@@ -265,7 +294,9 @@ class TestExtractEntryCustomProperties:
         entry_source.platform = "GCP"
         entry = self.create_mock_entry(entry_source=entry_source)
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         assert (
             result["dataplex_source_resource"]
@@ -280,7 +311,9 @@ class TestExtractEntryCustomProperties:
         # Explicitly set entry_source to None to test the None case
         entry.entry_source = None  # type: ignore[assignment]
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         # Should still have basic properties
         assert result["dataplex_ingested"] == "true"
@@ -301,7 +334,9 @@ class TestExtractEntryCustomProperties:
             delattr(entry_source, "platform")
         entry = self.create_mock_entry(entry_source=entry_source)
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         assert "dataplex_source_resource" not in result
         assert "dataplex_source_system" not in result
@@ -318,7 +353,9 @@ class TestExtractEntryCustomProperties:
 
         entry = self.create_mock_entry(aspects=aspects)
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         # Should have aspect properties
         assert "dataplex_aspect_schema" in result
@@ -329,7 +366,34 @@ class TestExtractEntryCustomProperties:
         """Test extracting entry without aspects."""
         entry = self.create_mock_entry(aspects=None)
 
-        result = extract_entry_custom_properties(entry, "test_entry", "@bigquery")
+        result = extract_entry_custom_properties(
+            entry, "test_entry", "@bigquery", aspect_pattern=ALLOW_ALL_ASPECTS
+        )
 
         # Should not have aspect properties
         assert "dataplex_aspect_schema" not in result
+
+
+class _FakeAspectValue:
+    def __init__(self, data):
+        self.data = data
+
+
+def test_aspect_pattern_denies_datahub_authored_aspects():
+    aspects = {
+        "projects/p/locations/l/aspectTypes/datahub_tags": _FakeAspectValue(
+            {"pii": "urn:li:tag:pii"}
+        ),
+        "projects/p/locations/l/aspectTypes/business_metadata": _FakeAspectValue(
+            {"team": "growth"}
+        ),
+    }
+    props: dict = {}
+    extract_aspects_to_custom_properties(
+        aspects, props, aspect_pattern=AllowDenyPattern(deny=["datahub_.*"])
+    )
+    # DataHub-authored aspect is filtered out entirely...
+    assert not any(k.startswith("dataplex_datahub_tags") for k in props)
+    assert "dataplex_aspect_datahub_tags" not in props
+    # ...but a genuine native aspect is still flattened.
+    assert props["dataplex_business_metadata_team"] == "growth"
