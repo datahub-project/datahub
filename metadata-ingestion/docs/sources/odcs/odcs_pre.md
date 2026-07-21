@@ -69,3 +69,11 @@ how to disable replication.
   outside the configured root.
 - Files larger than `max_input_file_bytes` (default 5 MB) are skipped with a warning before
   parsing.
+- **Contracts can live in object stores, over HTTP, or in a Git repository.** In addition to
+  local paths, `path` accepts `s3://` / `gs://` object-store URIs (single file or glob),
+  `http(s)://` URLs to a single file, and any mix of these in a list. S3 URIs require an
+  `aws_connection` block and GCS URIs a `gcs_connection` block (both validated up front).
+  Set `git_info` to shallow-clone a repository (using an SSH deploy key) and
+  scan it; each non-URI `path` entry is then resolved relative to the checkout (e.g.
+  `path: contracts/` or `path: '**/*.odcs.yaml'`). Install the extra dependencies with
+  `pip install 'acryl-datahub[odcs]'`.

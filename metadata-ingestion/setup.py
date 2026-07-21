@@ -152,7 +152,6 @@ sqlglot_lib = {
     # to force pure-Python sqlglot at runtime (see
     # datahub/_force_pure_python_sqlglot.py).
     "sqlglot[c]==30.12.0",
-    "patchy==2.8.0",
 }
 
 dbt_common = {
@@ -612,10 +611,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | usage_common,
     "bigid": {"requests>=2.28.0,<3.0"},
-    "bigquery": sql_common
-    | bigquery_common
-    | sqlglot_lib
-    | datacatalog_lineage_common,
+    "bigquery": sql_common | bigquery_common | sqlglot_lib | datacatalog_lineage_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
@@ -744,6 +740,7 @@ plugins: Dict[str, Set[str]] = {
     "mariadb": mysql_common,
     "tidb": mysql_common,
     "doris": mysql_common,
+    "odcs": aws_common | {"GitPython>2,<4.0.0"},
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0", "flatdict!=4.0.1"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -942,7 +939,7 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.15.18",
+    "ruff==0.15.22",
     "mypy==2.1.0",
 }
 
@@ -1001,6 +998,7 @@ base_dev_requirements = {
             "mariadb",
             "tidb",
             "matillion-dpc",
+            "odcs",
             "okta",
             "oracle",
             "postgres",

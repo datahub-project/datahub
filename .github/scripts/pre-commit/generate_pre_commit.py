@@ -9,7 +9,6 @@ import os
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-import datetime
 
 import yaml
 
@@ -150,16 +149,88 @@ class HookGenerator:
     def generate_config(self) -> dict:
         """Generate the complete pre-commit config."""
         hooks = []
+        # Python module dirs that have a build.gradle (and thus a Gradle-managed
+        # venv). These are the dirs the collapsed repo-wide ruff hooks cover.
+        # Non-module .py (e.g. .github/scripts/, docker/, python-build/) is
+        # intentionally NOT covered — it had no ruff coverage before and would
+        # fail under ruff's default rules.
+        ruff_module_dirs: list[str] = []
 
         for project in self.projects:
             if project.type == ProjectType.PYTHON:
-                hooks.append(self._generate_lint_fix_hook(project))
+                # Only modules with a build.gradle get a Gradle-managed venv and
+                # thus a pinned ruff config; the collapsed repo-wide ruff hooks
+                # (emitted once below) cover exactly these dirs. Modules without
+                # one are skipped (no ruff config to honor).
+                if not os.path.exists(os.path.join(project.path, "build.gradle")):
+                    print(
+                        f"Skipping ruff hooks for {project.path}: "
+                        "no build.gradle (no pinned ruff config)"
+                    )
+                    continue
+                ruff_module_dirs.append(project.path)
             elif project.type == ProjectType.JAVA:
                 hooks.append(self._generate_spotless_hook(project))
             elif project.type == ProjectType.PRETTIER:
                 hooks.append(self._generate_prettier_hook(project))
             else:
                 print(f"Warning: Unsupported project type {project.type} for {project.path}")
+
+        # Collapse all per-module ruff hooks into two repo-wide hooks (one check,
+        # one format) using the official ruff Docker image (pinned to the latest
+        # version pinned across modules — metadata-ingestion pins 0.15.18, the
+        # rest 0.11.7). Using the Docker image (language: docker_image) avoids
+        # needing any system/venv ruff install and gives a reproducible version
+        # across all machines. ruff does per-file config discovery, so each
+        # module's own [tool.ruff] in its pyproject.toml still applies (the repo
+        # is mounted into the container at the same path). ruff never imports
+        # the code or its deps, so no module venv is required. The `files` regex
+        # is a union of the module dirs so non-module .py (which has no ruff
+        # config) is not newly linted.
+        if ruff_module_dirs:
+            dirs_alt = "|".join(d.replace(".", r"\.") for d in ruff_module_dirs)
+            # Match .py plus pyproject.toml/ruff.toml in these modules: ruff config
+            # lives in those toml files, so editing them can change lint/format
+            # results and must retrigger the hook (not just .py edits).
+            files_regex = (
+                f"^({dirs_alt})/(?:.*\\.py$|(?:.*/)?(?:pyproject|ruff)\\.toml$)"
+            )
+            exclude_re = r"(^|/)(venv|build|dist|node_modules|\.git)/"
+            ruff_image = "ghcr.io/astral-sh/ruff:0.15.22"
+            ruff_hooks = [
+                {
+                    "id": "ruff-check",
+                    "name": "Ruff Check (all Python modules)",
+                    # ruff check --fix applies safe lint fixes (can change code);
+                    # keep it at pre-commit so issues are caught before commit.
+                    "entry": f"{ruff_image} check --fix",
+                    "language": "docker_image",
+                    "files": files_regex,
+                    "exclude": exclude_re,
+                    "pass_filenames": True,
+                    "stages": ["pre-commit"],
+                },
+                {
+                    "id": "ruff-format",
+                    "name": "Ruff Format (all Python modules)",
+                    # ruff format is a pure formatter (no meaning change); pre-push.
+                    "entry": f"{ruff_image} format",
+                    "language": "docker_image",
+                    "files": files_regex,
+                    "exclude": exclude_re,
+                    "pass_filenames": True,
+                    "stages": ["pre-push"],
+                },
+            ]
+            # Generated hooks are emitted before override hooks; prepend ruff so
+            # ruff check runs first among the generated python hooks.
+            hooks = ruff_hooks + hooks
+
+        # Note: mypy is intentionally NOT emitted as a pre-commit/pre-push hook.
+        # It is slow and needs each module's installed deps; running it locally
+        # adds friction without enough value over CI, which already runs the
+        # full module-wide mypy via `./gradlew :<module>:lint`. This matches the
+        # pre-refactor behaviour (mypy was CI-only). See PFP-4982.
 
         config = {"repos": [{"repo": "local", "hooks": hooks}]}
         
@@ -188,17 +259,6 @@ class HookGenerator:
 
         return config
 
-    def _generate_lint_fix_hook(self, project: Project) -> dict:
-        """Generate a lint-fix hook for Python projects."""
-        return {
-            "id": f"{project.project_id}-lint-fix",
-            "name": f"{project.path} Lint Fix",
-            "entry": f"./gradlew {project.gradle_path}:lintFix -x generateGitPropertiesGlobal",
-            "language": "system",
-            "files": f"^{project.path}/.*\\.(py|toml)$",
-            "pass_filenames": False,
-        }
-
     def _generate_spotless_hook(self, project: Project) -> dict:
         """Generate a spotless hook for Java projects."""
         return {
@@ -208,6 +268,10 @@ class HookGenerator:
             "language": "system",
             "files": f"^{project.path}/.*\\.java$",
             "pass_filenames": False,
+            # spotlessApply is a self-correcting formatter (slow, module-wide Gradle
+            # invocation). Run it at pre-push instead of pre-commit so commits stay
+            # fast; see PFP-5002.
+            "stages": ["pre-push"],
         }
 
     def _generate_prettier_hook(self, project: Project) -> dict:
@@ -219,6 +283,10 @@ class HookGenerator:
             "language": "system",
             "files": project.filePattern,
             "pass_filenames": False,
+            # PrettierWrite is a self-correcting formatter (slow, module-wide Gradle
+            # invocation). Run it at pre-push instead of pre-commit so commits stay
+            # fast; see PFP-5002.
+            "stages": ["pre-push"],
         }
 
 
@@ -233,11 +301,11 @@ def write_yaml_with_spaces(file_path: str, data: dict):
     """Write YAML file with extra spacing between hooks and a timestamp header."""
     with open(file_path, "w") as f:
         # Add timestamp header
-        header = f"# Auto-generated by .github/scripts/generate_pre_commit.py\n"
+        header = "# Auto-generated by .github/scripts/pre-commit/generate_pre_commit.py\n"
         f.write(header)
-        header = f"# Do not edit this file directly. Run the script to regenerate.\n"
+        header = "# Do not edit this file directly. Run the script to regenerate.\n"
         f.write(header)
-        header = f"# Add additional hooks in .github/scripts/pre-commit-override.yaml\n"
+        header = "# Add additional hooks in .github/scripts/pre-commit/pre-commit-override.yaml\n"
         f.write(header)
 
         # Write the YAML content
@@ -265,7 +333,7 @@ def write_yaml_with_spaces(file_path: str, data: dict):
 
 def main():
     root_dir = os.path.abspath(os.curdir)
-    override_file = ".github/scripts/pre-commit-override.yaml"
+    override_file = ".github/scripts/pre-commit/pre-commit-override.yaml"
 
     # Find projects
     finder = ProjectFinder(root_dir)

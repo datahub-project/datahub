@@ -1,11 +1,18 @@
+from enum import auto
 from typing import Dict, List, Optional, Union
 
 from pydantic import Field, field_validator, model_validator
 
+from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
+from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -83,7 +90,17 @@ class ServerMapping(ConfigModel):
         return v.upper()
 
 
-_SCHEMA_ASSERTION_COMPATIBILITY_MODES = ("EXACT_MATCH", "SUPERSET", "SUBSET")
+class SchemaAssertionCompatibility(ConfigEnum):
+    """Compatibility mode for the emitted DATA_SCHEMA assertion.
+
+    Member names are the DataHub `SchemaAssertionCompatibilityClass` constants,
+    so this enum is the single source of truth for the valid set; the mapper
+    passes the member value straight onto the assertion aspect.
+    """
+
+    EXACT_MATCH = auto()
+    SUPERSET = auto()
+    SUBSET = auto()
 
 
 class ODCSSourceConfig(
@@ -102,8 +119,27 @@ class ODCSSourceConfig(
     """
 
     path: Union[str, List[str]] = Field(
-        description="Path to an ODCS YAML file, a directory containing ODCS YAML files, "
-        "or a glob pattern. May also be a list of any of the above.",
+        description="Location of ODCS YAML files: a local file, directory, or glob pattern; an "
+        "`s3://` / `gs://` object-store URI (file or glob); or an `http(s)://` URL to a single "
+        "file. May also be a list mixing any of the above. When `git_info` is set, non-URI "
+        "entries are interpreted relative to the repository checkout.",
+    )
+    aws_connection: Optional[AwsConnectionConfig] = Field(
+        default=None,
+        description="AWS connection details for reading ODCS files from `s3://` URIs in `path`. "
+        "Required when any `path` entry is an S3 URI.",
+    )
+    gcs_connection: Optional[GCSConnectionConfig] = Field(
+        default=None,
+        description="GCS connection (HMAC credentials via the S3-compatible API) for reading ODCS "
+        "files from `gs://` URIs in `path`. Required when any `path` entry is a GCS URI. See "
+        "https://cloud.google.com/storage/docs/authentication/hmackeys",
+    )
+    git_info: Optional[GitInfo] = Field(
+        default=None,
+        description="Git repository to shallow-clone and scan for ODCS files, authenticated with "
+        "an SSH deploy key. When set, each non-URI `path` entry is resolved relative to the "
+        "repository checkout (e.g. `path: contracts/` or `path: '**/*.odcs.yaml'`).",
     )
     server_overrides: List[ServerMapping] = Field(
         default_factory=list,
@@ -185,8 +221,8 @@ class ODCSSourceConfig(
         "contract's declared schema on the logical dataset so schema drift is evaluable as a "
         "contract violation.",
     )
-    schema_assertion_compatibility: str = Field(
-        default="SUPERSET",
+    schema_assertion_compatibility: SchemaAssertionCompatibility = Field(
+        default=SchemaAssertionCompatibility.SUPERSET,
         description="Compatibility mode for the DATA_SCHEMA assertion: `SUPERSET` (an instance "
         "must contain at least the contract's fields; extras allowed), `EXACT_MATCH`, or "
         "`SUBSET`.",
@@ -201,6 +237,19 @@ class ODCSSourceConfig(
         return v or None
 
     @model_validator(mode="after")
+    def object_store_connection_required_for_uris(self) -> "ODCSSourceConfig":
+        raw_paths = self.path if isinstance(self.path, list) else [self.path]
+        if any(is_s3_uri(p) for p in raw_paths) and self.aws_connection is None:
+            raise ValueError(
+                "aws_connection is required because path contains one or more s3:// URIs."
+            )
+        if any(is_gcs_uri(p) for p in raw_paths) and self.gcs_connection is None:
+            raise ValueError(
+                "gcs_connection is required because path contains one or more gs:// URIs."
+            )
+        return self
+
+    @model_validator(mode="after")
     def owner_normalization_knobs_are_exclusive(self) -> "ODCSSourceConfig":
         if self.strip_owner_email_domain and self.owner_email_domain:
             raise ValueError(
@@ -209,17 +258,6 @@ class ODCSSourceConfig(
                 "domain to bare usernames."
             )
         return self
-
-    @field_validator("schema_assertion_compatibility")
-    @classmethod
-    def compatibility_must_be_valid(cls, v: str) -> str:
-        upper = v.upper()
-        if upper not in _SCHEMA_ASSERTION_COMPATIBILITY_MODES:
-            raise ValueError(
-                "schema_assertion_compatibility must be one of "
-                f"{_SCHEMA_ASSERTION_COMPATIBILITY_MODES}, found {v}"
-            )
-        return upper
 
     emit_logical_parent: bool = Field(
         default=True,
