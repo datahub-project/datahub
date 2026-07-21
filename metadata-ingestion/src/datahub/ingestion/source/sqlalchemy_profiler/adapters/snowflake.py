@@ -1,6 +1,7 @@
 """Snowflake-specific profiling adapter."""
 
 import logging
+import uuid
 from typing import Any, List, Optional
 
 import sqlalchemy as sa
@@ -26,10 +27,8 @@ class SnowflakeAdapter(PlatformAdapter):
     Snowflake optimizations:
     1. APPROX_COUNT_DISTINCT for fast unique counts
     2. Native MEDIAN() function for median calculation
-
-    TODO: While Snowflake supports TABLESAMPLE SYSTEM for sampling large tables,
-    it's not implemented yet to maintain alignment with GE profiler behavior
-    (GE profiler only uses TABLESAMPLE for BigQuery, not Snowflake).
+    3. Sampling of large tables via a materialized temporary table (see
+       ``setup_profiling``), matching the legacy Great Expectations profiler.
     """
 
     def setup_profiling(
@@ -37,6 +36,16 @@ class SnowflakeAdapter(PlatformAdapter):
     ) -> ProfilingContext:
         """
         Snowflake setup - create SQL table object.
+
+        When the connector requested sampling for a large table,
+        ``SnowflakeProfiler.get_batch_kwargs`` supplies a ``TABLESAMPLE`` query
+        as ``context.custom_sql``. We materialize that sample into a
+        session-scoped temporary table and profile it instead of the base
+        table. This mirrors the legacy Great Expectations profiler, which
+        turned the same ``custom_sql`` into a ``CREATE TEMPORARY TABLE ... AS``.
+        Without it every column statistic (min/max/mean/median/distinct/…) would
+        scan every row of the base table, which is prohibitively slow on large
+        Snowflake tables.
 
         Args:
             context: Current profiling context
@@ -50,11 +59,28 @@ class SnowflakeAdapter(PlatformAdapter):
                 f"Cannot profile {context.pretty_name}: table name required"
             )
 
-        # Create SQLAlchemy table object
-        context.sql_table = self._create_sqlalchemy_table(
+        # Reflect the real (permanent) table to obtain its column names/types.
+        # This is safe on any pooled connection because the source table is a
+        # persistent object.
+        source_table = self._create_sqlalchemy_table(
             schema=context.schema,
             table=context.table,
         )
+
+        if context.custom_sql:
+            sampled_table = self._materialize_sample(context, source_table, conn)
+            if sampled_table is not None:
+                context.sql_table = sampled_table
+                context.is_sampled = True
+                logger.debug(
+                    f"Snowflake setup for {context.pretty_name}: "
+                    f"profiling sampled temp table {sampled_table.name}"
+                )
+                return context
+            # _materialize_sample already reported a warning; fall back to
+            # profiling the full table so the run does not fail outright.
+
+        context.sql_table = source_table
 
         logger.debug(
             f"Snowflake setup for {context.pretty_name}: "
@@ -63,14 +89,82 @@ class SnowflakeAdapter(PlatformAdapter):
 
         return context
 
+    def _materialize_sample(
+        self,
+        context: ProfilingContext,
+        source_table: "sa.Table",
+        conn: Connection,
+    ) -> Optional["sa.Table"]:
+        """
+        Materialize ``context.custom_sql`` (a ``TABLESAMPLE`` query) into a
+        session-scoped temporary table and return a Table object pointing at it.
+
+        The temporary table MUST be created on ``conn`` — the same connection
+        the ``QueryCombinerRunner`` uses to run the profiling queries — because
+        Snowflake ``TEMPORARY`` tables are visible only within the session that
+        created them. Using ``base_engine.raw_connection()`` (as the Athena /
+        Trino / BigQuery adapters do for their global views/cached tables) would
+        create the table in a different pooled session where the profiling
+        queries could not see it.
+
+        Returns None if the sample could not be created, signalling the caller
+        to fall back to full-table profiling.
+        """
+        # All-uppercase, unquoted-safe identifier. Snowflake stores unquoted
+        # identifiers upper-cased, so an all-caps name reflects/quotes
+        # consistently whether or not the dialect decides to quote it.
+        temp_name = f"GE_TMP_SAMPLE_{uuid.uuid4().hex[:12].upper()}"
+
+        # Created unqualified (in the session's current schema), matching the
+        # legacy GE profiler's behavior. The sample query itself references the
+        # fully-qualified source table, so no schema needs to be in scope for
+        # the SELECT.
+        ddl = f'CREATE OR REPLACE TEMPORARY TABLE "{temp_name}" AS {context.custom_sql}'
+        try:
+            conn.exec_driver_sql(ddl)
+        except SQLAlchemyError as e:
+            self.report.warning(
+                title="Profiling: falling back to full-table scan",
+                message=(
+                    "Failed to create a sampled temporary table for profiling; "
+                    "profiling will run against the full table, which may be slow "
+                    "on large tables."
+                ),
+                context=f"Asset: {context.pretty_name}",
+                exc=e,
+            )
+            return None
+
+        context.add_temp_resource("snowflake_temp_table", temp_name)
+
+        # Reuse the reflected columns of the source table (CREATE TABLE AS SELECT
+        # preserves exact column names/casing) rather than reflecting the temp
+        # table: Snowflake reflection is information-schema based and does not
+        # reliably surface session-scoped temporary tables.
+        try:
+            return source_table.to_metadata(sa.MetaData(), schema=None, name=temp_name)
+        except SQLAlchemyError as e:
+            self.report.warning(
+                title="Profiling: falling back to full-table scan",
+                message=(
+                    "Failed to build a table object for the sampled temporary "
+                    "table; profiling will run against the full table."
+                ),
+                context=f"Asset: {context.pretty_name}",
+                exc=e,
+            )
+            return None
+
     def cleanup(self, context: ProfilingContext) -> None:
         """
-        Snowflake cleanup - nothing to clean up.
+        Snowflake cleanup.
 
-        Args:
-            context: Profiling context
+        Any temporary sample table created in ``setup_profiling`` is
+        session-scoped and is dropped automatically when the underlying
+        connection is returned to the pool and closed, so no explicit DROP is
+        issued here (a DROP on a fresh pooled connection would target a
+        different session and be a no-op anyway).
         """
-        # No temp resources created in Snowflake setup
         pass
 
     # =========================================================================
