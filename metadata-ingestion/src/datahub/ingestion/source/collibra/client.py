@@ -9,9 +9,10 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
-from typing import Any, Callable, Iterator, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, TypeVar
 
 import requests
+from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from requests.auth import AuthBase, HTTPBasicAuth
 from urllib3.util.retry import Retry
@@ -26,6 +27,8 @@ from datahub.ingestion.source.collibra.models import ApplicationInfo, CollibraEn
 from datahub.ingestion.source.collibra.report import CollibraSourceReport
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class CollibraApiError(Exception):
@@ -66,7 +69,12 @@ class _OAuthTokenAuth(AuthBase):
                 timeout=self._config.request_timeout,
             )
             resp.raise_for_status()
-            self._token = resp.json()[c.ACCESS_TOKEN_FIELD]
+            try:
+                self._token = resp.json()[c.ACCESS_TOKEN_FIELD]
+            except (ValueError, KeyError) as e:
+                raise CollibraApiError(
+                    "OAuth token response missing access_token; check client_id/client_secret"
+                ) from e
 
     def __call__(self, req: requests.PreparedRequest) -> requests.PreparedRequest:
         if not self._token:
@@ -93,12 +101,13 @@ def build_session(
 ) -> requests.Session:
     session = requests.Session()
     # respect_retry_after_header=True => 429 Retry-After honored; no hand-rolled backoff.
+    # Retry only idempotent methods (urllib3 default excludes POST) so a transient failure
+    # can't double-submit a non-idempotent POST such as an Output Module export job.
     retry = Retry(
         total=5,
         backoff_factor=1.0,
         status_forcelist=c.RETRY_STATUS,
         respect_retry_after_header=True,
-        allowed_methods=None,  # reads are idempotent; retry POSTs too
     )
     adapter = HTTPAdapter(
         max_retries=retry,
@@ -152,20 +161,29 @@ class CollibraClient:
         return resp
 
     def _refresh_auth(self) -> bool:
-        invalidate = getattr(self.session.auth, "invalidate", None)
-        if callable(invalidate):
-            invalidate()
+        # OAuth: drop the cached token so the next request re-fetches. SESSION: the login
+        # cookie can expire mid-run, so re-login. Static creds (basic/token/jwt) can't be
+        # refreshed — a 401 there is a hard credential error, not a retryable condition.
+        if isinstance(self.session.auth, _OAuthTokenAuth):
+            self.session.auth.invalidate()
+            return True
+        if self.config.auth_method == CollibraAuthMethod.SESSION:
+            _session_login(self.session, self.config)
             return True
         return False
 
-    def _json(self, resp: requests.Response) -> dict:
+    def _json(self, resp: requests.Response) -> Dict[str, Any]:
+        # A 2xx body that isn't JSON (proxy HTML error page, WAF challenge, truncated
+        # response) is a transport error, not empty data — returning {} would let a caller
+        # mistake a mid-pagination failure for end-of-data. Fail loudly instead.
         try:
             return resp.json()
-        except ValueError:
-            self.report.warning(f"Non-JSON response from {resp.url}")
-            return {}
+        except ValueError as e:
+            raise CollibraApiError(
+                f"Expected JSON from {resp.url}, got {resp.headers.get('Content-Type')}"
+            ) from e
 
-    def _get_json(self, path: str, params: Optional[dict] = None) -> dict:
+    def _get_json(self, path: str, params: Optional[dict] = None) -> Dict[str, Any]:
         return self._json(self._request("GET", path, params=params or {}))
 
     # --- capability probe ----------------------------------------------------
@@ -192,30 +210,46 @@ class CollibraClient:
             return False
         return self._version() >= c.CURSOR_MIN_VERSION
 
-    # --- REST paging ---------------------------------------------------------
-    def paginate(self, path: str, params: Optional[dict] = None) -> Iterator[dict]:
-        base = {**(params or {}), c.LIMIT: self.config.page_size, c.COUNT_LIMIT: 0}
+    # --- paging --------------------------------------------------------------
+    def _cursor_pages(
+        self,
+        fetch: Callable[[Optional[str]], Tuple[List[Dict[str, Any]], Optional[str]]],
+        label: str,
+    ) -> Iterator[Dict[str, Any]]:
+        # Shared cursor loop for REST and GraphQL paging: fetch(cursor) -> (rows, next).
+        # Stops at natural end and guards against a server returning a repeating cursor.
         cursor: Optional[str] = None
         seen: Set[str] = set()
         while True:
+            rows, cursor = fetch(cursor)
+            self.report.pages_fetched += 1
+            yield from rows
+            if not cursor or not rows:
+                return
+            if cursor in seen:
+                self.report.warning("Cursor loop detected; stopping", context=label)
+                return
+            seen.add(cursor)
+
+    def paginate(
+        self, path: str, params: Optional[dict] = None
+    ) -> Iterator[Dict[str, Any]]:
+        base = {**(params or {}), c.LIMIT: self.config.page_size, c.COUNT_LIMIT: 0}
+
+        def fetch(
+            cursor: Optional[str],
+        ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
             page = dict(base)
             if cursor:
                 page[c.CURSOR] = cursor
             data = self._get_json(path, page)
-            rows = data.get(c.RESULTS_FIELD, [])
-            self.report.pages_fetched += 1
-            yield from rows
-            cursor = data.get(c.CURSOR_FIELD)
-            if not cursor or not rows:
-                return
-            if cursor in seen:
-                self.report.warning(f"Cursor loop detected paging {path}; stopping")
-                return
-            seen.add(cursor)
+            return data.get(c.RESULTS_FIELD, []), data.get(c.CURSOR_FIELD)
+
+        return self._cursor_pages(fetch, path)
 
     def paginate_offset(
         self, path: str, params: Optional[dict] = None
-    ) -> Iterator[dict]:
+    ) -> Iterator[Dict[str, Any]]:
         offset = 0
         while True:
             page = {
@@ -231,7 +265,9 @@ class CollibraClient:
                 return
             offset += len(rows)
 
-    def _extract(self, path: str, params: Optional[dict] = None) -> Iterator[dict]:
+    def _extract(
+        self, path: str, params: Optional[dict] = None
+    ) -> Iterator[Dict[str, Any]]:
         if self._use_cursor():
             return self.paginate(path, params)
         return self.paginate_offset(path, params)
@@ -243,7 +279,7 @@ class CollibraClient:
         return int(total) if isinstance(total, int) else None
 
     # --- GraphQL -------------------------------------------------------------
-    def graphql(self, query: str, variables: Optional[dict] = None) -> dict:
+    def graphql(self, query: str, variables: Optional[dict] = None) -> Dict[str, Any]:
         resp = self._request(
             "POST",
             c.GRAPHQL,
@@ -262,29 +298,30 @@ class CollibraClient:
         query: str,
         variables: Optional[dict],
         extract: Callable[[dict], Tuple[List[dict], Optional[str]]],
-    ) -> Iterator[dict]:
+    ) -> Iterator[Dict[str, Any]]:
         # extract(data) -> (rows, next_cursor). The caller owns the query and its
         # connection shape (Knowledge Graph paging is version-specific — VERIFY).
-        variables = dict(variables or {})
-        cursor: Optional[str] = None
-        seen: Set[str] = set()
-        while True:
-            variables[c.CURSOR] = cursor
-            rows, cursor = extract(self.graphql(query, variables))
-            yield from rows
-            if not cursor or not rows:
-                return
-            if cursor in seen:
-                self.report.warning("Cursor loop detected in GraphQL paging; stopping")
-                return
-            seen.add(cursor)
+        base_vars = dict(variables or {})
+
+        def fetch(
+            cursor: Optional[str],
+        ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+            base_vars[c.CURSOR] = cursor
+            return extract(self.graphql(query, base_vars))
+
+        return self._cursor_pages(fetch, "GraphQL")
 
     # --- Output Module -------------------------------------------------------
-    def output_export(self, view_config: dict) -> List[dict]:
+    def output_export(self, view_config: Dict[str, Any]) -> List[Dict[str, Any]]:
         job = self._json(self._request("POST", c.OUTPUT_MODULE_JOB, json=view_config))
-        job_id = job[c.ID_FIELD]
+        try:
+            job_id = job[c.ID_FIELD]
+        except (KeyError, TypeError) as e:
+            raise CollibraApiError(
+                f"Output Module submit returned no job id; got keys {list(job)}"
+            ) from e
         self.report.output_jobs += 1
-        status: dict = {}
+        status: Dict[str, Any] = {}
         state: Optional[str] = None
         for _ in range(self.config.poll_max_attempts):
             status = self._get_json(f"{c.JOBS}/{job_id}")
@@ -299,25 +336,40 @@ class CollibraClient:
             )
         if state != c.JOB_SUCCESS:
             raise CollibraApiError(f"Output Module job {job_id} ended in state {state}")
-        file_id = status[c.RESULT_FIELD][c.MESSAGE_FIELD][c.ID_FIELD]
+        try:
+            file_id = status[c.RESULT_FIELD][c.MESSAGE_FIELD][c.ID_FIELD]
+        except (KeyError, TypeError) as e:
+            raise CollibraApiError(
+                f"Output Module job {job_id} result missing file id; got keys {list(status)}"
+            ) from e
         content = self._request("GET", f"{c.OUTPUT_MODULE_FILES}/{file_id}").content
         return self._parse_output(content)
 
-    def _parse_output(self, content: bytes) -> List[dict]:
+    def _parse_output(self, content: bytes) -> List[Dict[str, Any]]:
+        # Ran after a JOB_SUCCESS, so an unreadable file is a real error, not empty data.
         try:
             data = json.loads(content)
-        except ValueError:
-            self.report.warning("Output Module file was not valid JSON")
-            return []
+        except ValueError as e:
+            raise CollibraApiError("Output Module file was not valid JSON") from e
         if isinstance(data, list):
             return data
         return data.get(c.RESULTS_FIELD, [])
 
     # --- typed reads ---------------------------------------------------------
     def _read(self, path: str, params: Optional[dict] = None) -> List[CollibraEntity]:
-        entities = [
-            CollibraEntity.model_validate(row) for row in self._extract(path, params)
-        ]
+        # Validate per row so one malformed entity (e.g. missing id, or a nested shape that
+        # differs from the doc-derived model) is skipped and counted, not fatal to the whole
+        # partition — the shapes in models.py are explicitly unverified against a live env.
+        entities: List[CollibraEntity] = []
+        for row in self._extract(path, params):
+            try:
+                entities.append(CollibraEntity.model_validate(row))
+            except ValidationError as e:
+                self.report.warning(
+                    "Skipping unparseable Collibra entity",
+                    context=str(row.get(c.ID_FIELD)),
+                    exc=e,
+                )
         self.report.entities_extracted += len(entities)
         return entities
 
@@ -378,17 +430,27 @@ class CollibraClient:
         return self.count(c.ASSETS, {c.TYPE_ID: type_id})
 
     # --- parallel ------------------------------------------------------------
-    def extract_parallel(self, tasks: List[Callable[[], List[Any]]]) -> List[Any]:
+    def extract_parallel(self, tasks: List[Callable[[], List[T]]]) -> List[T]:
         # Parallelism is ACROSS partitions/tasks (cursor paging is sequential within
         # one). Each task is a thunk so REST, GraphQL, and Output Module reads all
-        # compose. A failing task is warned + counted, never fatal.
-        results: List[Any] = []
+        # compose. A failing task is warned + counted (never fatal to siblings), but a
+        # total wipeout escalates to a failure so "everything failed" isn't reported as
+        # an empty source.
+        results: List[T] = []
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-            futures = [executor.submit(task) for task in tasks]
-            for future in as_completed(futures):
+            future_to_index = {executor.submit(task): i for i, task in enumerate(tasks)}
+            for future in as_completed(future_to_index):
                 try:
                     results.extend(future.result())
                 except Exception as e:
                     self.report.partitions_failed += 1
-                    self.report.warning(f"Extraction partition failed: {e}")
+                    self.report.warning(
+                        "Extraction partition failed",
+                        context=f"task #{future_to_index[future]}",
+                        exc=e,
+                    )
+        if tasks and self.report.partitions_failed == len(tasks):
+            self.report.failure(
+                "All extraction partitions failed; source produced no entities"
+            )
         return results

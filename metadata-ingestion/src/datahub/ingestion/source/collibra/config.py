@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Dict, Optional
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -63,7 +63,9 @@ class CollibraSourceConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         description="Parallel extraction workers; also the HTTP connection pool size.",
     )
     page_size: int = Field(
-        default=PAGE_SIZE, description="Page size for REST paging (DGC caps at 1000)."
+        default=PAGE_SIZE,
+        le=PAGE_SIZE,
+        description="Page size for REST paging (DGC caps at 1000).",
     )
     force_paging: bool = Field(
         default=False,
@@ -74,21 +76,31 @@ class CollibraSourceConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         description="Use offset paging instead of cursor paging (older DGC versions).",
     )
     community_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
+        default_factory=AllowDenyPattern.allow_all,
         description="Regex allow/deny patterns for community names.",
     )
     domain_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
+        default_factory=AllowDenyPattern.allow_all,
         description="Regex allow/deny patterns for domain names.",
     )
     asset_type_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
+        default_factory=AllowDenyPattern.allow_all,
         description="Regex allow/deny patterns for asset-type names.",
     )
     type_mapping: Dict[str, str] = Field(
         default_factory=dict,
         description="Collibra type UUID -> DataHub target mapping.",
     )
+
+    @field_validator("url")
+    @classmethod
+    def _normalize_url(cls, v: str) -> str:
+        if not v.startswith(("http://", "https://")):
+            raise ValueError(
+                "url must start with http:// or https:// "
+                "(e.g. 'https://your-instance.collibra.com')"
+            )
+        return v.rstrip("/")
 
     @model_validator(mode="after")
     def _validate_auth(self) -> "CollibraSourceConfig":

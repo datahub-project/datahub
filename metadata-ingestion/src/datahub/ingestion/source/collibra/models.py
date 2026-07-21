@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 # payload is preserved via extra="allow" for the mapper. VERIFY exact nested shapes
 # (type/relation/attribute objects) against a real env before relying on extras.
 class CollibraEntity(BaseModel):
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    model_config = ConfigDict(extra="allow")
 
     id: str
     name: Optional[str] = None
