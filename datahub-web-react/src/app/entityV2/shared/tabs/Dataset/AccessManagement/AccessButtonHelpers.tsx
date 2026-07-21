@@ -8,7 +8,7 @@ import styled from 'styled-components';
  * Supports both enabled (request) and disabled (granted) states.
  */
 export const AccessButton = styled(Button)`
-    background-color: ${(props) => props.theme.colors.bgSurfaceInfo};
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
     color: ${(props) => props.theme.colors.textOnFillDefault};
     width: 80px;
     height: 30px;
@@ -16,7 +16,10 @@ export const AccessButton = styled(Button)`
     border: none;
     font-weight: bold;
 
-    &:hover {
+    &:hover,
+    &:focus,
+    &:focus-visible,
+    &:active {
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
         color: ${(props) => props.theme.colors.bg};
         border: none;
@@ -29,7 +32,10 @@ export const AccessButton = styled(Button)`
         cursor: not-allowed;
         border: 1px solid ${(props) => props.theme.colors.border};
 
-        &:hover {
+        &:hover,
+        &:focus,
+        &:focus-visible,
+        &:active {
             background-color: ${(props) => props.theme.colors.bgSurface};
             color: ${(props) => props.theme.colors.textDisabled};
             border: 1px solid ${(props) => props.theme.colors.border};
