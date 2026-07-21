@@ -193,7 +193,6 @@ all = [
     { name = "pyspark" },
     { name = "python-ldap" },
     { name = "python-liquid" },
-    { name = "pyyaml" },
     { name = "rdflib" },
     { name = "redash-toolbelt" },
     { name = "redshift-connector" },
@@ -1268,7 +1267,6 @@ okta = [
     { name = "okta" },
 ]
 omni = [
-    { name = "pyyaml" },
     { name = "requests" },
     { name = "tenacity" },
 ]
@@ -2414,10 +2412,8 @@ requires-dist = [
     { name = "python-liquid", marker = "extra == 'lookml'", specifier = ">=2.0.0,<3.0.0" },
     { name = "python-liquid", marker = "extra == 'mode'", specifier = ">=2.0.0,<3.0.0" },
     { name = "pyyaml", specifier = "<7.0.0" },
-    { name = "pyyaml", marker = "extra == 'all'", specifier = ">=5.4" },
-    { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=5.4,<7.0.0" },
-    { name = "pyyaml", marker = "extra == 'docs'", specifier = ">=5.4,<7.0.0" },
-    { name = "pyyaml", marker = "extra == 'omni'", specifier = ">=5.4" },
+    { name = "pyyaml", marker = "extra == 'dev'", specifier = "<7.0.0" },
+    { name = "pyyaml", marker = "extra == 'docs'", specifier = "<7.0.0" },
     { name = "pyyaml", marker = "extra == 'testing-utils'", specifier = "<7.0.0" },
     { name = "pyzipper", marker = "extra == 'debug-recording'", specifier = ">=0.3.6,<1.0" },
     { name = "pyzipper", marker = "extra == 'integration-tests'", specifier = ">=0.3.6,<1.0" },

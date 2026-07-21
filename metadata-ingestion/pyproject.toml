@@ -781,7 +781,6 @@ okta = [
 ]
 
 omni = [
-    "PyYAML>=5.4",
     "requests<3.0.0",
     "tenacity>=8.0.1,<9.0.0",
 ]
@@ -1263,7 +1262,6 @@ all = [
     "pyspark~=3.5.6,<4.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
-    "PyYAML>=5.4",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.14,<3.0.0",
@@ -1431,7 +1429,7 @@ dev = [
     "python-json-logger>=2.0.0,<5.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
-    "PyYAML>=5.4,<7.0.0",
+    "PyYAML<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.14,<3.0.0",
@@ -1621,7 +1619,7 @@ docs = [
     "python-json-logger>=2.0.0,<5.0.0",
     "python-ldap>=2.4,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
-    "PyYAML>=5.4,<7.0.0",
+    "PyYAML<7.0.0",
     "rdflib==6.3.2",
     "redash-toolbelt<0.2.0",
     "redshift-connector>=2.1.14,<3.0.0",
