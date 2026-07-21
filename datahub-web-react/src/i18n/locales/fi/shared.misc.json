@@ -1,0 +1,14 @@
+{
+    "backButton.tooltip": "Palaa takaisin",
+    "confirmationModal.areYouSure": "Oletko varma?",
+    "copyUrn.tooltip": "Kopioi URN. URN yksilöi kohteen yksiselitteisesti DataHubissa.",
+    "customIcon.alt": "Kuvake",
+    "entityCountCard.viewCountTooltip": "Näytä {{formattedCount}} {{tooltipDescriptor}}",
+    "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
+    "multiStepForm.disabledNextTooltip": "Täytä kaikki pakolliset kentät ennen kuin siirryt seuraavaan vaiheeseen",
+    "noEntityFound.subtitle": "Valitettavasti tätä kohdetta ei löydy DataHubista",
+    "noEntityFound.title": "Ei löytynyt",
+    "noPageFound.backToHome": "Takaisin etusivulle",
+    "noPageFound.subtitle": "Pyytämääsi sivua ei löytynyt.",
+    "platformIcon.alt": "Alustan logo"
+}
