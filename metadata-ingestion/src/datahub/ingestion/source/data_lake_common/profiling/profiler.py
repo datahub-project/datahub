@@ -186,19 +186,20 @@ class FileProfiler:
 
         if config.include_field_quantiles and column_stats.quantiles is not None:
             field_profile.quantiles = [
-                QuantileClass(quantile=str(q), value=str(value))
-                for q, value in column_stats.quantiles
+                QuantileClass(quantile=str(q.quantile), value=str(q.value))
+                for q in column_stats.quantiles
             ]
         if config.include_field_histogram and column_stats.histogram is not None:
-            boundaries, counts = column_stats.histogram
-            field_profile.histogram = HistogramClass(boundaries, counts)
+            field_profile.histogram = HistogramClass(
+                column_stats.histogram.boundaries, column_stats.histogram.counts
+            )
         if (
             config.include_field_distinct_value_frequencies
             and column_stats.distinct_value_frequencies is not None
         ):
             field_profile.distinctValueFrequencies = [
-                ValueFrequencyClass(value=value, frequency=frequency)
-                for value, frequency in column_stats.distinct_value_frequencies
+                ValueFrequencyClass(value=vf.value, frequency=vf.frequency)
+                for vf in column_stats.distinct_value_frequencies
             ]
 
         return field_profile
@@ -214,17 +215,30 @@ class FileProfiler:
         allowed_columns: Optional[List[str]] = None
         accumulator: Optional[TableAccumulator] = None
 
+        table_read_failed = False
         with PerfTimer() as timer:
             for path in self._iter_table_paths(table_data):
                 try:
                     with self._open_file(path) as file_obj:
                         source = self._read_source(file_obj, extension)
                         if source is None:
-                            self.report.report_warning(
-                                table_data.display_name,
-                                f"file {path} has unsupported extension",
+                            self.report.warning(
+                                title="Skipped file with unsupported extension during profiling",
+                                message="File type is not supported by the profiler",
+                                context=path,
                             )
                             continue
+
+                        if isinstance(source, ColumnarSource) and source.reflowed_rows:
+                            self.report.warning(
+                                title="Profiled a CSV/TSV file with ragged rows",
+                                message=(
+                                    "Some rows did not match the header width and were "
+                                    "truncated/padded so the file could be parsed; the "
+                                    "profile is computed over this altered data"
+                                ),
+                                context=f"{source.reflowed_rows} row(s) altered in {path}",
+                            )
 
                         if allowed_columns is None:
                             allowed_columns = [
@@ -266,37 +280,61 @@ class FileProfiler:
                             for row in source.rows:
                                 accumulator.add_row(row)
                 except Exception as e:
-                    logger.error(e)
-                    self.report.report_warning(
-                        table_data.display_name,
-                        f"unable to read table {table_data.display_name} from file {path}: {e}",
+                    # The accumulator may already hold partial rows from this
+                    # file, so the whole table profile is now untrustworthy;
+                    # record the failure and stop rather than emit polluted stats.
+                    self.report.warning(
+                        title="Failed to read file during profiling",
+                        message="Table profile was skipped because a file could not be read",
+                        context=path,
+                        exc=e,
                     )
-                    continue
+                    table_read_failed = True
+                    break
 
             if accumulator is None:
-                self.report.report_warning(
-                    table_data.display_name,
-                    f"unable to read table {table_data.display_name} from file "
-                    f"{table_data.full_path}",
+                self.report.warning(
+                    title="Failed to read file during profiling",
+                    message="Table could not be profiled because no file was readable",
+                    context=table_data.full_path,
                 )
                 return
 
-            table_stats = accumulator.finalize()
+            if table_read_failed:
+                # A file failed partway through streaming, leaving the
+                # accumulator with partial rows. Emitting now would report a
+                # wrong rowCount and stats built on partial data, so skip it.
+                return
 
-            telemetry.telemetry_instance.ping(
-                "profile_data_lake_table",
-                {"rows_profiled": stats.discretize(table_stats.row_count)},
-            )
+            try:
+                table_stats = accumulator.finalize()
 
-            profile = DatasetProfileClass(timestampMillis=get_sys_time())
-            profile.rowCount = table_stats.row_count
-            profile.columnCount = table_stats.column_count
+                telemetry.telemetry_instance.ping(
+                    "profile_data_lake_table",
+                    {"rows_profiled": stats.discretize(table_stats.row_count)},
+                )
 
-            if not config.profile_table_level_only:
-                profile.fieldProfiles = [
-                    self._build_field_profile(column_stats)
-                    for column_stats in table_stats.columns
-                ]
+                profile = DatasetProfileClass(timestampMillis=get_sys_time())
+                profile.rowCount = table_stats.row_count
+                profile.columnCount = table_stats.column_count
+
+                if not config.profile_table_level_only:
+                    profile.fieldProfiles = [
+                        self._build_field_profile(column_stats)
+                        for column_stats in table_stats.columns
+                    ]
+            except Exception as e:
+                # finalize()/profile assembly (sketch math, histogram edges, stat
+                # conversions) runs outside the per-file guard above. Contain any
+                # failure here so one table can't abort profiling (and ingestion)
+                # for the rest.
+                self.report.warning(
+                    title="Failed to compute profile",
+                    message="Profile could not be finalized for the table",
+                    context=table_data.full_path,
+                    exc=e,
+                )
+                return
 
             time_taken = timer.elapsed_seconds()
             logger.info(

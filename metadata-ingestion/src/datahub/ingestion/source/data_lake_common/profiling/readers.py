@@ -1,7 +1,7 @@
 import csv as csv_module
 import io
 from dataclasses import dataclass
-from typing import IO, Any, Dict, Iterable, List, Union, cast
+from typing import IO, Any, Dict, Iterable, List, Tuple, Union, cast
 
 import pyarrow as pa
 import pyarrow.csv as pa_csv
@@ -37,6 +37,11 @@ class ColumnarSource:
     columns: List[str]
     column_kinds: Dict[str, ColumnKind]
     batches: Iterable[pa.RecordBatch]
+    # Number of CSV/TSV rows whose width was altered (truncated/padded) to
+    # match the header during ragged-row reflow; 0 for well-formed files. The
+    # profiler surfaces this as a warning so a profile is never silently based
+    # on altered data.
+    reflowed_rows: int = 0
 
 
 @dataclass
@@ -62,13 +67,22 @@ def read_parquet(file_obj: IO[bytes]) -> ColumnarSource:
     )
 
 
-def _reflow_ragged_rows(file_obj: IO[bytes], delimiter: str) -> IO[bytes]:
-    """Truncate/pad rows to the header's width.
+class _NotRaggedRows(Exception):
+    """Signals that a CSV parse failure was not a row-width mismatch, so the
+    caller should re-raise the original error rather than reflow."""
+
+
+def _reflow_ragged_rows(file_obj: IO[bytes], delimiter: str) -> Tuple[IO[bytes], int]:
+    """Truncate/pad rows to the header's width, returning (bytes, altered_count).
 
     Spark's CSV reader silently drops unnamed trailing fields (e.g. a stray
     trailing delimiter on every data row); pyarrow's parser raises instead.
     Re-serializing with consistent row width lets pyarrow parse (and still
     type-infer) the rest of the file normally.
+
+    Raises `_NotRaggedRows` if every row already matches the header width — in
+    that case the pyarrow failure came from something else (quoting, encoding,
+    type inference) and must not be masked by reflowing.
     """
     file_obj.seek(0)
     text = io.TextIOWrapper(file_obj, encoding="utf-8", newline="")
@@ -76,6 +90,10 @@ def _reflow_ragged_rows(file_obj: IO[bytes], delimiter: str) -> IO[bytes]:
     if not rows:
         raise ValueError("empty CSV")
     width = len(rows[0])
+
+    altered = sum(1 for row in rows if len(row) != width)
+    if altered == 0:
+        raise _NotRaggedRows()
 
     out = io.StringIO()
     writer = csv_module.writer(out, delimiter=delimiter)
@@ -85,7 +103,7 @@ def _reflow_ragged_rows(file_obj: IO[bytes], delimiter: str) -> IO[bytes]:
         elif len(row) < width:
             row = row + [""] * (width - len(row))
         writer.writerow(row)
-    return io.BytesIO(out.getvalue().encode("utf-8"))
+    return io.BytesIO(out.getvalue().encode("utf-8")), altered
 
 
 def read_csv(file_obj: IO[bytes], delimiter: str = ",") -> ColumnarSource:
@@ -95,24 +113,47 @@ def read_csv(file_obj: IO[bytes], delimiter: str = ",") -> ColumnarSource:
         reader = pa_csv.open_csv(
             file_obj, parse_options=parse_options, convert_options=convert_options
         )
-    except pa.ArrowInvalid:
+        return ColumnarSource(
+            columns=reader.schema.names,
+            column_kinds=_column_kinds_from_schema(reader.schema),
+            batches=reader,
+        )
+    except pa.ArrowInvalid as e:
+        # Only reflow when the failure is an actual ragged-row (width) mismatch;
+        # otherwise re-raise so quoting/encoding/type errors fail honestly
+        # instead of being masked by a reflow onto altered data.
+        try:
+            reflowed, altered = _reflow_ragged_rows(file_obj, delimiter)
+        except _NotRaggedRows:
+            raise e from None
         reader = pa_csv.open_csv(
-            _reflow_ragged_rows(file_obj, delimiter),
+            reflowed,
             parse_options=parse_options,
             convert_options=convert_options,
         )
-    return ColumnarSource(
-        columns=reader.schema.names,
-        column_kinds=_column_kinds_from_schema(reader.schema),
-        batches=reader,
-    )
+        return ColumnarSource(
+            columns=reader.schema.names,
+            column_kinds=_column_kinds_from_schema(reader.schema),
+            batches=reader,
+            reflowed_rows=altered,
+        )
 
 
 def read_json(file_obj: IO[bytes]) -> ColumnarSource:
     # pyarrow.json has no streaming/batch API like parquet/csv (unlike Spark's
     # read.json(), which is also a full parse under the hood); lake JSON
     # files are typically small enough for this to be fine.
-    table = pa_json.read_json(file_obj)
+    try:
+        table = pa_json.read_json(file_obj)
+    except pa.ArrowInvalid as e:
+        # pa_json only reads newline-delimited JSON (one object per line). A
+        # conventional top-level-array `.json` fails here; give a layout-specific
+        # message instead of a generic "unable to read table" that reads like an
+        # I/O/permissions error.
+        raise ValueError(
+            "Only newline-delimited JSON (one object per line) can be profiled; "
+            "a top-level JSON array or other layout is not supported"
+        ) from e
     return ColumnarSource(
         columns=table.schema.names,
         column_kinds=_column_kinds_from_schema(table.schema),

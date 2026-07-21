@@ -8,6 +8,8 @@ import pytest
 
 from datahub.ingestion.source.data_lake_common.profiling.accumulators import ColumnKind
 from datahub.ingestion.source.data_lake_common.profiling.readers import (
+    _NotRaggedRows,
+    _reflow_ragged_rows,
     read_avro,
     read_csv,
     read_json,
@@ -130,6 +132,22 @@ def test_read_csv_reflows_ragged_rows_with_trailing_delimiter() -> None:
 
     assert source.columns == ["id", "name"]
     assert sum(batch.num_rows for batch in source.batches) == 3
+    # Every data row was altered, and the count is surfaced so the profiler can
+    # warn that the profile is computed over reflowed data.
+    assert source.reflowed_rows == 3
+
+
+def test_read_csv_well_formed_reports_zero_reflowed_rows() -> None:
+    source = read_csv(io.BytesIO(b"id,name\n1,a\n2,b\n"))
+    assert source.reflowed_rows == 0
+
+
+def test_reflow_reraises_when_not_a_width_mismatch() -> None:
+    # All rows already match the header width, so a pyarrow failure here was not
+    # a ragged-row problem; the reflow must signal the caller to re-raise rather
+    # than silently rewrite well-formed data.
+    with pytest.raises(_NotRaggedRows):
+        _reflow_ragged_rows(io.BytesIO(b"id,name\n1,a\n2,b\n"), delimiter=",")
 
 
 def test_avro_field_kinds_cover_other_and_nested_types() -> None:
@@ -192,3 +210,10 @@ def test_read_csv_empty_input_raises() -> None:
     with pytest.raises((ValueError, pa.ArrowInvalid)):
         source = read_csv(io.BytesIO(b""))
         list(source.batches)
+
+
+def test_read_json_top_level_array_raises_clear_message() -> None:
+    # pa_json only reads newline-delimited JSON; a top-level array must fail
+    # with a layout-specific message, not a generic read error.
+    with pytest.raises(ValueError, match="newline-delimited JSON"):
+        read_json(io.BytesIO(b'[{"id": 1}, {"id": 2}]'))

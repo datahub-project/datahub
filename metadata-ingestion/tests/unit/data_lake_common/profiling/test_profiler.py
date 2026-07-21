@@ -334,3 +334,31 @@ def test_profiles_partitioned_local_directory(tmp_path: Path) -> None:
     work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
 
     assert get_profile(work_units[0]).rowCount == 400
+
+
+def test_partial_table_read_failure_skips_emission(tmp_path: Path) -> None:
+    # One partition file is corrupt. The accumulator already holds the readable
+    # file's rows, so emitting now would report a wrong rowCount over partial
+    # data; the whole table profile must be skipped and a warning reported.
+    table_dir = tmp_path / "events"
+    good = table_dir / "year=2023"
+    good.mkdir(parents=True)
+    pq.write_table(
+        pa.table({"id": pa.array(HIGH_CARDINALITY_IDS, type=pa.int64())}),
+        str(good / "part.parquet"),
+    )
+    bad = table_dir / "year=2024"
+    bad.mkdir(parents=True)
+    (bad / "part.parquet").write_bytes(b"not a parquet file")
+
+    profiler = make_profiler()
+    table_data = StubTableData(
+        display_name="events",
+        full_path=str(good / "part.parquet"),
+        table_path=str(table_dir),
+        partitions=["year=2023", "year=2024"],
+    )
+    work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+
+    assert work_units == []
+    assert profiler.report.warnings.total_elements > 0

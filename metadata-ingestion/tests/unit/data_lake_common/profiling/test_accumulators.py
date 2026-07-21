@@ -6,6 +6,7 @@ import pytest
 from datahub.ingestion.source.data_lake_common.profiling.accumulators import (
     ColumnKind,
     TableAccumulator,
+    ValueFrequency,
     classify_arrow_type,
     is_numeric_arrow_type,
     is_string_arrow_type,
@@ -86,7 +87,11 @@ def test_numeric_low_cardinality_column_gets_frequencies_not_stats() -> None:
     assert stats.max_value is None
     assert stats.mean is None
     assert stats.stdev is None
-    assert stats.distinct_value_frequencies == [("1", 3), ("2", 2), ("3", 1)]
+    assert stats.distinct_value_frequencies == [
+        ValueFrequency("1", 3),
+        ValueFrequency("2", 2),
+        ValueFrequency("3", 1),
+    ]
 
 
 def test_numeric_small_fully_distinct_column_gets_frequencies_not_unique() -> None:
@@ -104,11 +109,11 @@ def test_numeric_small_fully_distinct_column_gets_frequencies_not_unique() -> No
     assert stats.mean is None
     assert stats.stdev is None
     assert stats.distinct_value_frequencies == [
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("4", 1),
-        ("5", 1),
+        ValueFrequency("1", 1),
+        ValueFrequency("2", 1),
+        ValueFrequency("3", 1),
+        ValueFrequency("4", 1),
+        ValueFrequency("5", 1),
     ]
 
 
@@ -129,7 +134,10 @@ def test_string_low_cardinality_gets_frequencies() -> None:
     stats = acc.finalize().columns[0]
 
     assert stats.min_value is None  # strings never get min/max
-    assert stats.distinct_value_frequencies == [("blue", 2), ("red", 3)]
+    assert stats.distinct_value_frequencies == [
+        ValueFrequency("blue", 2),
+        ValueFrequency("red", 3),
+    ]
 
 
 def test_string_high_cardinality_gets_nothing_extra() -> None:
@@ -252,7 +260,7 @@ def test_temporal_low_cardinality_gets_distinct_value_frequencies() -> None:
     assert stats.min_value == datetime(2023, 1, 1)
     assert stats.max_value == datetime(2023, 1, 2)
     assert stats.distinct_value_frequencies is not None
-    assert {v for v, _ in stats.distinct_value_frequencies} == {
+    assert {vf.value for vf in stats.distinct_value_frequencies} == {
         "2023-01-01 00:00:00",
         "2023-01-02 00:00:00",
     }

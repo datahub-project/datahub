@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -73,7 +73,32 @@ def classify_arrow_type(arrow_type: pa.DataType) -> ColumnKind:
     return ColumnKind.OTHER
 
 
-@dataclass
+@dataclass(frozen=True)
+class Quantile:
+    quantile: float
+    value: float
+
+
+@dataclass(frozen=True)
+class ValueFrequency:
+    value: str
+    frequency: int
+
+
+@dataclass(frozen=True)
+class Histogram:
+    boundaries: List[str]
+    counts: List[float]
+
+    def __post_init__(self) -> None:
+        if len(self.boundaries) != len(self.counts):
+            raise ValueError(
+                f"Histogram boundaries ({len(self.boundaries)}) and counts "
+                f"({len(self.counts)}) must be the same length"
+            )
+
+
+@dataclass(frozen=True)
 class ColumnStats:
     column: str
     non_null_count: int
@@ -84,13 +109,13 @@ class ColumnStats:
     mean: Optional[float] = None
     median: Optional[float] = None
     stdev: Optional[float] = None
-    quantiles: Optional[List[Tuple[float, float]]] = None
-    histogram: Optional[Tuple[List[str], List[float]]] = None
-    distinct_value_frequencies: Optional[List[Tuple[str, int]]] = None
+    quantiles: Optional[List[Quantile]] = None
+    histogram: Optional[Histogram] = None
+    distinct_value_frequencies: Optional[List[ValueFrequency]] = None
     sample_values: List[str] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(frozen=True)
 class TableStats:
     row_count: int
     column_count: int
@@ -160,6 +185,14 @@ class ColumnAccumulator:
             # would grow with every new distinct value seen.
             self._frequencies = None
 
+    def _observe_scalar(self, value: ProfileValue) -> None:
+        """Feed one scalar into the distinct sketch, reservoir sample, and
+        frequency table — the per-value bookkeeping shared by the batch and
+        row code paths."""
+        self._distinct.update(str(value))
+        self._add_to_sample(value)
+        self._track_frequency(value)
+
     def _merge_numeric_batch(
         self, batch_count: int, batch_mean: float, batch_variance: float
     ) -> None:
@@ -201,9 +234,7 @@ class ColumnAccumulator:
         # this loop (and reservoir sampling) is the one part of this method
         # that can't be vectorized.
         for value in non_null.to_pylist():
-            self._distinct.update(str(value))
-            self._add_to_sample(value)
-            self._track_frequency(value)
+            self._observe_scalar(value)
 
         if self.kind != ColumnKind.OTHER:
             # `<`/`>` aren't defined for nested (list/struct/map) or binary
@@ -229,25 +260,34 @@ class ColumnAccumulator:
             self.null_count += 1
             return
         self.non_null_count += 1
-        self._distinct.update(str(value))
-        self._add_to_sample(value)
-        self._track_frequency(value)
+        self._observe_scalar(value)
         if self.kind != ColumnKind.OTHER:
             self._update_min_max(value, value)
         if self.kind == ColumnKind.NUMERIC:
-            assert isinstance(value, (int, float, Decimal))
+            if not isinstance(value, (int, float, Decimal)):
+                # The column was classified NUMERIC from its Avro schema but a
+                # record carried an off-type value. Raise with a real message
+                # (the profiler surfaces it as a warning); a bare assert would
+                # be message-less and stripped under `python -O`.
+                raise ValueError(
+                    f"Column {self.column!r} is numeric but got a "
+                    f"non-numeric value of type {type(value).__name__}"
+                )
             x = float(value)
             self._merge_numeric_batch(1, x, 0.0)
             assert self._median is not None
             self._median.update(x)
 
-    def _frequency_list(self) -> Optional[List[Tuple[str, int]]]:
+    def _frequency_list(self) -> Optional[List[ValueFrequency]]:
         # Only called for low-cardinality columns, which always have frequencies.
         if not self._frequencies:  # pragma: no cover
             return None
-        return sorted(self._frequencies.items())
+        return [
+            ValueFrequency(value=value, frequency=frequency)
+            for value, frequency in sorted(self._frequencies.items())
+        ]
 
-    def _continuous_histogram(self) -> Optional[Tuple[List[str], List[float]]]:
+    def _continuous_histogram(self) -> Optional[Histogram]:
         assert self._median is not None
         # Histogram only runs for high-cardinality numerics, where min != max.
         if (
@@ -262,7 +302,7 @@ class ColumnAccumulator:
         counts = [p * self.non_null_count for p in proportions]
         bounds = [self._min, *edges, self._max]
         labels = [str(bounds[i]) for i in range(len(bounds) - 1)]
-        return labels, counts
+        return Histogram(boundaries=labels, counts=counts)
 
     def finalize(self) -> ColumnStats:
         unique_count = (
@@ -272,11 +312,14 @@ class ColumnAccumulator:
         )
         row_count = self.non_null_count + self.null_count
         # The old Spark/Deequ profiler passed null_fraction (not the unique
-        # proportion) as convert_to_cardinality's `pct_unique` argument, so
-        # `Cardinality.UNIQUE` in practice only fires for all-null columns,
-        # not fully-distinct ones. Matching that intentionally: real
-        # recipes/dashboards depend on fully-distinct numeric/string columns
-        # still getting full stats or frequency tables, not nothing.
+        # proportion) as convert_to_cardinality's `pct_unique` argument, so a
+        # fully-distinct column is deliberately NOT treated as high-uniqueness
+        # here: real recipes/dashboards depend on fully-distinct numeric/string
+        # columns still getting full stats or frequency tables, not nothing.
+        # (Cardinality.UNIQUE needs pct_unique == 1.0, i.e. null_fraction == 1.0,
+        # which means non_null_count == 0 -> unique_count is None ->
+        # convert_to_cardinality returns NONE at its first guard. So with
+        # null_fraction as the input the UNIQUE branch is never actually hit.)
         null_fraction = self.null_count / row_count if row_count > 0 else None
         cardinality = convert_to_cardinality(unique_count, null_fraction)
 
@@ -297,7 +340,8 @@ class ColumnAccumulator:
                     assert self._median is not None
                     median = float(self._median.get_quantile(0.5))
                     quantiles = [
-                        (q, float(self._median.get_quantile(q))) for q in QUANTILES
+                        Quantile(quantile=q, value=float(self._median.get_quantile(q)))
+                        for q in QUANTILES
                     ]
                     histogram = self._continuous_histogram()
         elif self.kind == ColumnKind.STRING:
