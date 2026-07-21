@@ -19,6 +19,7 @@ from datahub.cli.migration_utils import (
     merge_entity,
 )
 from datahub.cli.snowflake_semantic_view_migration import (
+    SEMANTIC_VIEW_SUBTYPE,
     MigrationDirection,
     discover_semantic_model_urns,
     discover_semantic_view_dataset_urns,
@@ -770,14 +771,17 @@ def _read_urns_from_file(path: str) -> List[str]:
     type=str,
     default=DEFAULT_ENV,
     help="Env for the dataset side of the mapping. Required to reconstruct dataset "
-    "urns for sm-to-dataset; also used to filter discovery for dataset-to-sm.",
+    "urns for sm-to-dataset; also used to filter discovery for dataset-to-sm. "
+    "Note: semanticModel URNs omit env, so PROD and DEV views with the same "
+    "db.schema.view map to one semanticModel and would overwrite each other's "
+    "governance — migrate one env at a time.",
 )
 @click.option(
     "--platform-instance",
     type=str,
     default=None,
     help="Platform instance used by the Snowflake ingestion recipe, if any. Must "
-    "match the recipe exactly or urn mapping will be wrong.",
+    "match the recipe exactly or urn mapping will be wrong. Also filters discovery.",
 )
 @click.option(
     "--convert-urns-to-lowercase/--no-convert-urns-to-lowercase",
@@ -797,7 +801,14 @@ def _read_urns_from_file(path: str) -> List[str]:
     "--urn-file",
     type=click.Path(exists=True, dir_okay=False),
     default=None,
-    help="Path to a file with one source urn per line.",
+    help="Path to a file with one source urn per line. Blank lines and '#' "
+    "comment lines are ignored.",
+)
+@click.option(
+    "--include-soft-deleted/--exclude-soft-deleted",
+    default=True,
+    help="Include soft-deleted entities when discovering sources (default: true). "
+    "Needed after stateful ingest soft-deletes the side you are migrating from.",
 )
 @click.option("--dry-run", "-n", type=bool, is_flag=True, default=False)
 @click.option(
@@ -826,6 +837,7 @@ def snowflake_semantic_views(
     convert_urns_to_lowercase: bool,
     urns: Tuple[str, ...],
     urn_file: Optional[str],
+    include_soft_deleted: bool,
     dry_run: bool,
     force: bool,
     report_inbound_refs: bool,
@@ -833,14 +845,18 @@ def snowflake_semantic_views(
     """Copy governance between legacy Snowflake "Semantic View" datasets and
     semanticModel/metric entities.
 
+    Both source and destination must already exist (does not create thin
+    semanticModel/metric shells). Typical order: Snowflake ingest with
+    emit_semantic_model_entities, then this migrate (sources may be soft-deleted).
+
     Copies entity-level ownership, domains, tags, glossary terms, institutional
     memory, structured properties, documentation, deprecation, and applications.
-    Also fans out DataHub column tags/terms: METRIC columns -> metric entities,
-    DIMENSION/FACT columns -> schemaField URNs under the semanticModel
-    (synthetic DIMENSION/FACT/METRIC tags are stripped). Does NOT touch lineage,
-    policies, data products, or soft/hard-delete (stateful ingestion owns that).
+    Also fans out column tags/terms (from editableSchemaMetadata and non-synthetic
+    schemaMetadata tags) onto existing metric / schemaField URNs. Does NOT touch
+    lineage, policies, data products, or soft/hard-delete.
 
-    Re-running is safe: destination aspects are overwritten (last-write-wins).
+    Re-running is safe: destination entity aspects are overwritten (last-write-wins);
+    editableSchemaMetadata field entries are merged (descriptions preserved).
     """
     migration_direction = MigrationDirection(direction)
     graph = get_default_graph(ClientMode.CLI)
@@ -848,6 +864,8 @@ def snowflake_semantic_views(
     urns_to_process: List[str] = list(urns)
     if urn_file:
         urns_to_process.extend(_read_urns_from_file(urn_file))
+    # Preserve order while dropping duplicates from --urn / --urn-file.
+    urns_to_process = list(dict.fromkeys(urns_to_process))
 
     subtype_skipped: List[str] = []
     if urns_to_process:
@@ -857,9 +875,18 @@ def snowflake_semantic_views(
             )
     else:
         if migration_direction == MigrationDirection.DATASET_TO_SM:
-            urns_to_process = discover_semantic_view_dataset_urns(graph, env=env)
+            urns_to_process = discover_semantic_view_dataset_urns(
+                graph,
+                env=env,
+                platform_instance=platform_instance,
+                include_soft_deleted=include_soft_deleted,
+            )
         else:
-            urns_to_process = discover_semantic_model_urns(graph)
+            urns_to_process = discover_semantic_model_urns(
+                graph,
+                platform_instance=platform_instance,
+                include_soft_deleted=include_soft_deleted,
+            )
 
     if not urns_to_process:
         click.echo("No entities found to migrate.")
@@ -868,13 +895,13 @@ def snowflake_semantic_views(
     click.echo(
         f"Found {len(urns_to_process)} entities to migrate ({direction})."
         + (
-            f" Skipped {len(subtype_skipped)} without '{migration_direction}' subtype."
+            f" Skipped {len(subtype_skipped)} without '{SEMANTIC_VIEW_SUBTYPE}' subtype."
             if subtype_skipped
             else ""
         )
     )
     if not force and not dry_run:
-        sample = urns_to_process[: min(5, len(urns_to_process))]
+        sample = urns_to_process[:5]
         click.echo(f"Will migrate urns such as: {sample}")
         click.confirm("Ok to proceed?", abort=True)
 

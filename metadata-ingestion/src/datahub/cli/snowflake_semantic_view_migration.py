@@ -2,7 +2,11 @@
 
 Copies entity-level governance and DataHub-only column tags/terms between
 legacy dataset "Semantic View" URNs and semanticModel/metric (+ schemaField)
-URNs. Lineage, policies, data products, and soft-delete are out of scope.
+URNs. Both source and destination entities must already exist — this tool does
+not create thin semanticModel/metric shells. Typical order: connector ingest
+with emit_semantic_model_entities, then migrate governance.
+
+Lineage, policies, data products, and soft-delete are out of scope.
 
 URN helpers mirror ``SnowflakeIdentifierBuilder`` but use ``datahub.metadata.urns``
 so the migrate CLI does not require the snowflake connector extra.
@@ -22,7 +26,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.graph.filters import SearchFilterRule
+from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRule
 from datahub.ingestion.graph.openapi import RelatedEntity, RelationshipDirection
 from datahub.metadata.schema_classes import (
     DocumentationAssociationClass,
@@ -31,6 +35,7 @@ from datahub.metadata.schema_classes import (
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
     GlobalTagsClass,
+    GlossaryTermAssociationClass,
     GlossaryTermsClass,
     SchemaFieldClass,
     SchemaMetadataClass,
@@ -294,14 +299,17 @@ def _strip_synthetic_subtype_tags(
     return GlobalTagsClass(tags=kept)
 
 
+def _tags_indicate_metric(tags: Optional[GlobalTagsClass]) -> bool:
+    if tags is None or not tags.tags:
+        return False
+    return any(
+        tag.tag in (make_tag_urn("METRIC"), make_tag_urn("metric")) for tag in tags.tags
+    )
+
+
 def _schema_field_is_metric(schema_field: SchemaFieldClass) -> bool:
-    if schema_field.globalTags and schema_field.globalTags.tags:
-        for tag in schema_field.globalTags.tags:
-            if tag.tag in (
-                make_tag_urn("METRIC"),
-                make_tag_urn("metric"),
-            ):
-                return True
+    if _tags_indicate_metric(schema_field.globalTags):
+        return True
     if schema_field.jsonProps:
         try:
             props = json.loads(schema_field.jsonProps)
@@ -313,6 +321,44 @@ def _schema_field_is_metric(schema_field: SchemaFieldClass) -> bool:
         }:
             return True
     return False
+
+
+def _union_global_tags(
+    left: Optional[GlobalTagsClass], right: Optional[GlobalTagsClass]
+) -> Optional[GlobalTagsClass]:
+    if left is None:
+        return right
+    if right is None:
+        return left
+    seen: Set[str] = set()
+    tags = []
+    for tag in list(left.tags or []) + list(right.tags or []):
+        if tag.tag in seen:
+            continue
+        seen.add(tag.tag)
+        tags.append(tag)
+    return GlobalTagsClass(tags=tags) if tags else None
+
+
+def _union_glossary_terms(
+    left: Optional[GlossaryTermsClass], right: Optional[GlossaryTermsClass]
+) -> Optional[GlossaryTermsClass]:
+    if left is None:
+        return right
+    if right is None:
+        return left
+    seen: Set[str] = set()
+    terms: List[GlossaryTermAssociationClass] = []
+    for term in list(left.terms or []) + list(right.terms or []):
+        if term.urn in seen:
+            continue
+        seen.add(term.urn)
+        terms.append(term)
+    if not terms:
+        return None
+    return GlossaryTermsClass(
+        terms=terms, auditStamp=right.auditStamp or left.auditStamp
+    )
 
 
 def _merge_field_governance(
@@ -339,9 +385,9 @@ def _merge_field_governance(
         return
     existing.is_metric = existing.is_metric or is_metric
     if customer_tags is not None:
-        existing.global_tags = customer_tags
+        existing.global_tags = _union_global_tags(existing.global_tags, customer_tags)
     if terms is not None:
-        existing.glossary_terms = terms
+        existing.glossary_terms = _union_glossary_terms(existing.glossary_terms, terms)
 
 
 def _field_governance_for_emit(
@@ -349,9 +395,7 @@ def _field_governance_for_emit(
 ) -> List[FieldGovernance]:
     """Drop metric-classification-only rows that have nothing to copy."""
     return [
-        f
-        for f in fields
-        if f.global_tags is not None or f.glossary_terms is not None
+        f for f in fields if f.global_tags is not None or f.glossary_terms is not None
     ]
 
 
@@ -360,8 +404,12 @@ def collect_dataset_field_governance(
 ) -> List[FieldGovernance]:
     """Read column tags/terms from schemaMetadata + editableSchemaMetadata.
 
-    Synthetic DIMENSION/FACT/METRIC tags are dropped. METRIC detection uses
-    those tags / columnSubType jsonProps so fan-out can target metric URNs.
+    Synthetic DIMENSION/FACT/METRIC tags are dropped. Remaining tags may include
+    Snowflake-sourced tags from ``schemaMetadata`` (the connector merges those
+    into field ``globalTags``); the ON-mode connector may also re-emit them.
+    UI / API edits typically live on ``editableSchemaMetadata`` and are unioned
+    with schema-side tags. METRIC detection uses synthetic tags /
+    ``columnSubType`` jsonProps so fan-out can target metric URNs.
     """
     aspects = graph.get_aspects_for_entity(
         entity_urn=dataset_urn,
@@ -392,7 +440,8 @@ def collect_dataset_field_governance(
             _merge_field_governance(
                 by_column,
                 column_name,
-                is_metric=existing_is_metric,
+                is_metric=existing_is_metric
+                or _tags_indicate_metric(field_info.globalTags),
                 tags=field_info.globalTags,
                 terms=field_info.glossaryTerms,
             )
@@ -403,8 +452,47 @@ def collect_dataset_field_governance(
 def _semantic_model_field_path(
     column_name: str, convert_urns_to_lowercase: bool
 ) -> str:
-    # Matches SnowflakeSemanticModelMapper SemanticField fieldPath construction.
+    # Matches SnowflakeSemanticModelMapper SemanticField fieldPath construction
+    # (identifier of the uppercased column name).
     return snowflake_identifier(column_name.upper(), convert_urns_to_lowercase)
+
+
+def _dataset_schema_field_paths(
+    graph: DataHubGraph, dataset_urn: str
+) -> Dict[str, str]:
+    """Map casefolded simple column name -> schemaMetadata fieldPath."""
+    schema_metadata = graph.get_aspects_for_entity(
+        entity_urn=dataset_urn,
+        aspects=["schemaMetadata"],
+        aspect_types=[SchemaMetadataClass],
+    ).get("schemaMetadata")
+    paths: Dict[str, str] = {}
+    if (
+        not isinstance(schema_metadata, SchemaMetadataClass)
+        or not schema_metadata.fields
+    ):
+        return paths
+    for schema_field in schema_metadata.fields:
+        simple = _simple_column_name(schema_field.fieldPath)
+        paths[simple.casefold()] = schema_field.fieldPath
+    return paths
+
+
+def _resolve_dataset_field_path(
+    column_name: str,
+    convert_urns_to_lowercase: bool,
+    schema_paths: Dict[str, str],
+) -> str:
+    """Pick a fieldPath that joins to the dataset schema (preserve original case).
+
+    Unlike semanticModel fieldPaths (always upper-then-identifier), legacy dataset
+    schemaMetadata uses snowflake_identifier(col.name) without forcing UPPER, so
+    quoted mixed-case columns must keep their schema path when present.
+    """
+    matched = schema_paths.get(column_name.casefold())
+    if matched is not None:
+        return matched
+    return snowflake_identifier(column_name, convert_urns_to_lowercase)
 
 
 def _emit_aspect(
@@ -416,6 +504,44 @@ def _emit_aspect(
         )
 
 
+def _ensure_src_and_dst_exist(
+    graph: DataHubGraph, src_urn: str, dst_urn: str
+) -> Optional[str]:
+    """Return an error message if source or destination is missing; else None."""
+    if not graph.exists(src_urn):
+        return f"source entity does not exist: {src_urn}"
+    if not graph.exists(dst_urn):
+        return (
+            f"destination entity does not exist: {dst_urn}. "
+            "Refusing to create a thin entity — run Snowflake ingest so the "
+            "destination exists first (emit_semantic_model_entities for "
+            "dataset-to-sm; legacy dataset mode for sm-to-dataset)."
+        )
+    return None
+
+
+def _semantic_model_field_names(
+    graph: DataHubGraph, semantic_model_urn: str, convert_urns_to_lowercase: bool
+) -> Optional[Set[str]]:
+    """Field paths present on semanticModelInfo, or None if info is missing."""
+    model_info = graph.get_aspects_for_entity(
+        entity_urn=semantic_model_urn,
+        aspects=["semanticModelInfo"],
+        aspect_types=[SemanticModelInfoClass],
+    ).get("semanticModelInfo")
+    if not isinstance(model_info, SemanticModelInfoClass) or not model_info.datasets:
+        return None
+    names: Set[str] = set()
+    for model_dataset in model_info.datasets:
+        for semantic_field in model_dataset.fields or []:
+            schema_field = semantic_field.schemaField
+            if schema_field is None or not schema_field.fieldPath:
+                continue
+            # Store the path as emitted on semanticModelInfo (already upper+identifier).
+            names.add(get_simple_field_path_from_v2_field_path(schema_field.fieldPath))
+    return names
+
+
 def migrate_dataset_field_governance(
     graph: DataHubGraph,
     src_dataset_urn: str,
@@ -424,9 +550,19 @@ def migrate_dataset_field_governance(
     platform_instance: Optional[str],
     convert_urns_to_lowercase: bool,
     dry_run: bool,
-) -> List[str]:
-    """Fan out DataHub column tags/terms to metric entities or schemaField URNs."""
+) -> Tuple[List[str], List[str]]:
+    """Fan out DataHub column tags/terms to metric entities or schemaField URNs.
+
+    Returns (migrated entries, skip notes). Metrics must already exist (connector
+    emits them). Dim/fact targets are schemaField URNs under an existing
+    semanticModel — those fields rarely have a key aspect, so we require the
+    column to appear on semanticModelInfo instead of graph.exists(schemaField).
+    """
     migrated: List[str] = []
+    skipped: List[str] = []
+    known_fields = _semantic_model_field_names(
+        graph, semantic_model_urn, convert_urns_to_lowercase
+    )
     for field_gov in collect_dataset_field_governance(graph, src_dataset_urn):
         if field_gov.is_metric:
             dst_urn = gen_metric_urn(
@@ -435,20 +571,30 @@ def migrate_dataset_field_governance(
                 platform_instance,
                 convert_urns_to_lowercase,
             )
+            if not graph.exists(dst_urn):
+                skipped.append(
+                    f"skipped field governance for {field_gov.column_name}: "
+                    f"metric does not exist ({dst_urn})"
+                )
+                continue
         else:
-            dst_urn = make_schema_field_urn(
-                semantic_model_urn,
-                _semantic_model_field_path(
-                    field_gov.column_name, convert_urns_to_lowercase
-                ),
+            field_path = _semantic_model_field_path(
+                field_gov.column_name, convert_urns_to_lowercase
             )
+            if known_fields is None or field_path not in known_fields:
+                skipped.append(
+                    f"skipped field governance for {field_gov.column_name}: "
+                    f"not present on semanticModelInfo for {semantic_model_urn}"
+                )
+                continue
+            dst_urn = make_schema_field_urn(semantic_model_urn, field_path)
         if field_gov.global_tags is not None:
             _emit_aspect(graph, dst_urn, field_gov.global_tags, dry_run)
             migrated.append(f"globalTags:{field_gov.column_name}->{dst_urn}")
         if field_gov.glossary_terms is not None:
             _emit_aspect(graph, dst_urn, field_gov.glossary_terms, dry_run)
             migrated.append(f"glossaryTerms:{field_gov.column_name}->{dst_urn}")
-    return migrated
+    return migrated, skipped
 
 
 def collect_semantic_model_field_governance(
@@ -537,7 +683,12 @@ def migrate_semantic_model_field_governance(
     convert_urns_to_lowercase: bool,
     dry_run: bool,
 ) -> List[str]:
-    """Write column tags/terms back onto dataset editableSchemaMetadata."""
+    """Merge column tags/terms into the dataset's editableSchemaMetadata.
+
+    Preserves existing per-field descriptions (and any fields not touched by this
+    migration). Resolves fieldPath against the destination dataset schema so
+    mixed-case columns join correctly when convert_urns_to_lowercase is false.
+    """
     fields = collect_semantic_model_field_governance(
         graph,
         semantic_model_urn,
@@ -546,18 +697,38 @@ def migrate_semantic_model_field_governance(
     if not fields:
         return []
 
-    field_infos: List[EditableSchemaFieldInfoClass] = []
+    existing = graph.get_aspects_for_entity(
+        entity_urn=dataset_urn,
+        aspects=["editableSchemaMetadata"],
+        aspect_types=[EditableSchemaMetadataClass],
+    ).get("editableSchemaMetadata")
+    by_path: Dict[str, EditableSchemaFieldInfoClass] = {}
+    if isinstance(existing, EditableSchemaMetadataClass):
+        for field_info in existing.editableSchemaFieldInfo or []:
+            by_path[field_info.fieldPath] = field_info
+
+    schema_paths = _dataset_schema_field_paths(graph, dataset_urn)
     migrated: List[str] = []
     for field_gov in fields:
-        field_path = _semantic_model_field_path(
-            field_gov.column_name, convert_urns_to_lowercase
+        field_path = _resolve_dataset_field_path(
+            field_gov.column_name, convert_urns_to_lowercase, schema_paths
         )
-        field_infos.append(
-            EditableSchemaFieldInfoClass(
-                fieldPath=field_path,
-                globalTags=field_gov.global_tags,
-                glossaryTerms=field_gov.glossary_terms,
+        prior = by_path.get(field_path)
+        by_path[field_path] = EditableSchemaFieldInfoClass(
+            fieldPath=field_path,
+            description=prior.description if prior is not None else None,
+            globalTags=_union_global_tags(
+                prior.globalTags if prior is not None else None,
+                field_gov.global_tags,
             )
+            if field_gov.global_tags is not None
+            else (prior.globalTags if prior is not None else None),
+            glossaryTerms=_union_glossary_terms(
+                prior.glossaryTerms if prior is not None else None,
+                field_gov.glossary_terms,
+            )
+            if field_gov.glossary_terms is not None
+            else (prior.glossaryTerms if prior is not None else None),
         )
         if field_gov.global_tags is not None:
             migrated.append(f"globalTags:{field_gov.column_name}->{dataset_urn}")
@@ -567,7 +738,7 @@ def migrate_semantic_model_field_governance(
     _emit_aspect(
         graph,
         dataset_urn,
-        EditableSchemaMetadataClass(editableSchemaFieldInfo=field_infos),
+        EditableSchemaMetadataClass(editableSchemaFieldInfo=list(by_path.values())),
         dry_run,
     )
     return migrated
@@ -610,6 +781,52 @@ def _maybe_fold_editable_description(
     return "copied editableDatasetProperties.description into documentation aspect"
 
 
+def _maybe_fold_documentation_to_editable_dataset(
+    graph: DataHubGraph,
+    dst_dataset_urn: str,
+    governance_aspects: Dict[str, _Aspect],
+    dry_run: bool,
+) -> Optional[str]:
+    """sm→dataset: surface documentation on editableDatasetProperties.description.
+
+    Dataset UI primarily renders editableDatasetProperties.description; copying
+    only the documentation aspect can leave a round-tripped description invisible.
+    """
+    documentation = governance_aspects.get("documentation")
+    if (
+        not isinstance(documentation, DocumentationClass)
+        or not documentation.documentations
+    ):
+        return None
+    description = documentation.documentations[0].documentation
+    if not description:
+        return None
+
+    existing = graph.get_aspects_for_entity(
+        entity_urn=dst_dataset_urn,
+        aspects=["editableDatasetProperties"],
+        aspect_types=[EditableDatasetPropertiesClass],
+    ).get("editableDatasetProperties")
+    if isinstance(existing, EditableDatasetPropertiesClass) and existing.description:
+        return (
+            "documentation present but destination already has "
+            "editableDatasetProperties.description -- skipped fold"
+        )
+
+    if isinstance(existing, EditableDatasetPropertiesClass):
+        editable = EditableDatasetPropertiesClass(
+            description=description,
+            name=existing.name,
+            created=existing.created,
+            lastModified=existing.lastModified,
+            deleted=existing.deleted,
+        )
+    else:
+        editable = EditableDatasetPropertiesClass(description=description)
+    _emit_aspect(graph, dst_dataset_urn, editable, dry_run)
+    return "folded documentation into editableDatasetProperties.description"
+
+
 def _fetch_inbound_refs(graph: DataHubGraph, urn: str) -> List[RelatedEntity]:
     return list(
         graph.get_related_entities(
@@ -630,11 +847,15 @@ def migrate_entity(
 ) -> EntityMigrationResult:
     """Copy the governance-aspect allowlist from src_urn to dst_urn.
 
-    Always overwrites the destination's existing aspect values (last-write-wins);
-    migration is an intentional, one-directional action, so no merge/conflict
-    strategy is offered here (unlike dataplatform2instance/instance2instance).
+    Both URNs must already exist. Always overwrites the destination's existing
+    aspect values (last-write-wins); no merge/conflict strategy is offered here
+    (unlike dataplatform2instance/instance2instance).
     """
     result = EntityMigrationResult(src_urn=src_urn, dst_urn=dst_urn)
+    missing = _ensure_src_and_dst_exist(graph, src_urn, dst_urn)
+    if missing is not None:
+        result.error = missing
+        return result
     try:
         governance_aspects = _collect_governance_aspects(graph, src_urn)
 
@@ -688,7 +909,7 @@ def migrate_dataset_to_semantic_model(
         return result
 
     try:
-        result.fields_migrated = migrate_dataset_field_governance(
+        migrated, skipped = migrate_dataset_field_governance(
             graph,
             src_dataset_urn,
             dst_urn,
@@ -697,6 +918,8 @@ def migrate_dataset_to_semantic_model(
             convert_urns_to_lowercase,
             dry_run,
         )
+        result.fields_migrated = migrated
+        result.notes.extend(skipped)
     except Exception as e:
         log.warning(
             f"Field governance migration failed for {src_dataset_urn} -> {dst_urn}: {e}"
@@ -733,6 +956,20 @@ def migrate_semantic_model_to_dataset(
         return result
 
     try:
+        # Re-collect so we can fold documentation that was just selected for copy.
+        governance_aspects = _collect_governance_aspects(graph, src_semantic_model_urn)
+        note = _maybe_fold_documentation_to_editable_dataset(
+            graph, dst_urn, governance_aspects, dry_run
+        )
+        if note is not None:
+            result.notes.append(note)
+    except Exception as e:
+        log.warning(
+            f"Documentation→editable fold failed for {src_semantic_model_urn} -> {dst_urn}: {e}"
+        )
+        result.notes.append(f"documentation→editable fold failed: {e}")
+
+    try:
         result.fields_migrated = migrate_semantic_model_field_governance(
             graph,
             src_semantic_model_urn,
@@ -752,14 +989,27 @@ def migrate_semantic_model_to_dataset(
 
 
 def discover_semantic_view_dataset_urns(
-    graph: DataHubGraph, env: Optional[str] = None
+    graph: DataHubGraph,
+    env: Optional[str] = None,
+    platform_instance: Optional[str] = None,
+    include_soft_deleted: bool = True,
 ) -> List[str]:
-    """Find Snowflake dataset urns carrying the "Semantic View" subtype."""
+    """Find Snowflake dataset urns carrying the "Semantic View" subtype.
+
+    Includes soft-deleted entities by default: after flag-ON ingest with stateful
+    removal, legacy SV datasets are soft-deleted and would otherwise be invisible.
+    """
     return list(
         graph.get_urns_by_filter(
             entity_types=["dataset"],
             platform=SNOWFLAKE_PLATFORM,
+            platform_instance=platform_instance,
             env=env,
+            status=(
+                RemovedStatusFilter.ALL
+                if include_soft_deleted
+                else RemovedStatusFilter.NOT_SOFT_DELETED
+            ),
             extraFilters=[
                 SearchFilterRule(
                     field="typeNames", condition="EQUAL", values=[SEMANTIC_VIEW_SUBTYPE]
@@ -769,11 +1019,26 @@ def discover_semantic_view_dataset_urns(
     )
 
 
-def discover_semantic_model_urns(graph: DataHubGraph) -> List[str]:
-    """Find semanticModel urns on the Snowflake platform."""
+def discover_semantic_model_urns(
+    graph: DataHubGraph,
+    platform_instance: Optional[str] = None,
+    include_soft_deleted: bool = True,
+) -> List[str]:
+    """Find semanticModel urns on the Snowflake platform.
+
+    Includes soft-deleted entities by default (needed for flag-OFF rollback after
+    stateful ingest soft-deletes the models).
+    """
     return list(
         graph.get_urns_by_filter(
-            entity_types=["semanticModel"], platform=SNOWFLAKE_PLATFORM
+            entity_types=["semanticModel"],
+            platform=SNOWFLAKE_PLATFORM,
+            platform_instance=platform_instance,
+            status=(
+                RemovedStatusFilter.ALL
+                if include_soft_deleted
+                else RemovedStatusFilter.NOT_SOFT_DELETED
+            ),
         )
     )
 
@@ -826,6 +1091,8 @@ class SemanticViewMigrationReport:
                 f"{prefix}Entities skipped (not '{SEMANTIC_VIEW_SUBTYPE}' subtype) = "
                 f"{len(self.subtype_skipped)}"
             )
+            for skipped_urn in self.subtype_skipped:
+                lines.append(f"{prefix}  skipped: {skipped_urn}")
         lines.append(f"{prefix}Not migrated (by design): {', '.join(SKIPPED_ASPECTS)}")
         lines.append(f"{prefix}Details:")
         for r in succeeded:

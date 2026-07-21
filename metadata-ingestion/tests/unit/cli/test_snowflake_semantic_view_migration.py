@@ -13,7 +13,9 @@ from datahub.cli.snowflake_semantic_view_migration import (
     EntityMigrationResult,
     MigrationDirection,
     SnowflakeViewIdentity,
+    _schema_field_is_metric,
     collect_dataset_field_governance,
+    collect_semantic_model_field_governance,
     dataset_urn_to_semantic_model_urn,
     discover_semantic_model_urns,
     discover_semantic_view_dataset_urns,
@@ -22,6 +24,7 @@ from datahub.cli.snowflake_semantic_view_migration import (
     gen_metric_urn,
     gen_semantic_model_urn,
     migrate_dataset_to_semantic_model,
+    migrate_semantic_model_field_governance,
     migrate_semantic_model_to_dataset,
     parse_dataset_identity,
     parse_semantic_model_identity,
@@ -30,14 +33,19 @@ from datahub.cli.snowflake_semantic_view_migration import (
     snowflake_identifier,
 )
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.graph.openapi import RelatedEntity
 from datahub.metadata.schema_classes import (
+    DialectClass,
+    DialectExpressionClass,
     DocumentationAssociationClass,
     DocumentationClass,
     EditableDatasetPropertiesClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
     GlobalTagsClass,
+    MetricExpressionClass,
+    ModelDatasetClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
@@ -45,6 +53,9 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    SemanticFieldClass,
+    SemanticFieldTypeClass,
+    SemanticModelInfoClass,
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
@@ -271,6 +282,8 @@ def _graph_with_aspects(**stored) -> MagicMock:
 
     graph.get_aspects_for_entity.side_effect = get_aspects
     graph.get_related_entities.return_value = []
+    # Entity migrate requires src + dst to exist; field fan-out requires metrics.
+    graph.exists.return_value = True
     return graph
 
 
@@ -289,6 +302,36 @@ def _schema_field(
             else None
         ),
         jsonProps=json_props,
+    )
+
+
+def _semantic_model_info(*field_paths: str) -> SemanticModelInfoClass:
+    fields = [
+        SemanticFieldClass(
+            schemaField=_schema_field(path),
+            type=SemanticFieldTypeClass.DIMENSION,
+            expression=MetricExpressionClass(
+                dialects=[
+                    DialectExpressionClass(
+                        dialect=DialectClass.SNOWFLAKE, expression=path.upper()
+                    )
+                ]
+            ),
+        )
+        for path in field_paths
+    ]
+    return SemanticModelInfoClass(
+        name="sales_analytics",
+        datasets=[
+            ModelDatasetClass(
+                name="sales_analytics",
+                source=(
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                    "test_db.public.sales_analytics,PROD)"
+                ),
+                fields=fields,
+            )
+        ],
     )
 
 
@@ -355,6 +398,48 @@ class TestMigrateDatasetToSemanticModel:
 
         assert result.error is None
         assert result.aspects_copied == []
+        graph.emit_mcp.assert_not_called()
+
+    def test_skips_when_destination_does_not_exist(self):
+        ownership = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner="urn:li:corpuser:alice", type=OwnershipTypeClass.DATAOWNER
+                )
+            ]
+        )
+        graph = _graph_with_aspects(ownership=ownership)
+        graph.exists.side_effect = lambda urn: urn == self.SRC
+
+        result = migrate_dataset_to_semantic_model(
+            graph,
+            self.SRC,
+            platform_instance=None,
+            convert_urns_to_lowercase=True,
+            dry_run=False,
+            report_inbound_refs=False,
+        )
+
+        assert result.error is not None
+        assert "destination entity does not exist" in result.error
+        assert "thin entity" in result.error
+        graph.emit_mcp.assert_not_called()
+
+    def test_skips_when_source_does_not_exist(self):
+        graph = _graph_with_aspects(ownership=OwnershipClass(owners=[]))
+        graph.exists.return_value = False
+
+        result = migrate_dataset_to_semantic_model(
+            graph,
+            self.SRC,
+            platform_instance=None,
+            convert_urns_to_lowercase=True,
+            dry_run=False,
+            report_inbound_refs=False,
+        )
+
+        assert result.error is not None
+        assert "source entity does not exist" in result.error
         graph.emit_mcp.assert_not_called()
 
     def test_bad_instance_prefix_produces_error_result_not_exception(self):
@@ -605,15 +690,26 @@ class TestDiscoverSemanticViewDatasetUrns:
             ["urn:li:dataset:(urn:li:dataPlatform:snowflake,a.b.c,PROD)"]
         )
 
-        result = discover_semantic_view_dataset_urns(graph, env="PROD")
+        result = discover_semantic_view_dataset_urns(
+            graph, env="PROD", platform_instance="acct"
+        )
 
         assert result == ["urn:li:dataset:(urn:li:dataPlatform:snowflake,a.b.c,PROD)"]
         _, kwargs = graph.get_urns_by_filter.call_args
         assert kwargs["entity_types"] == ["dataset"]
         assert kwargs["platform"] == "snowflake"
+        assert kwargs["platform_instance"] == "acct"
         assert kwargs["env"] == "PROD"
+        assert kwargs["status"] == RemovedStatusFilter.ALL
         assert kwargs["extraFilters"][0]["field"] == "typeNames"
         assert kwargs["extraFilters"][0]["values"] == ["Semantic View"]
+
+    def test_can_exclude_soft_deleted(self):
+        graph = MagicMock()
+        graph.get_urns_by_filter.return_value = iter([])
+        discover_semantic_view_dataset_urns(graph, include_soft_deleted=False)
+        _, kwargs = graph.get_urns_by_filter.call_args
+        assert kwargs["status"] == RemovedStatusFilter.NOT_SOFT_DELETED
 
 
 class TestDiscoverSemanticModelUrns:
@@ -623,12 +719,14 @@ class TestDiscoverSemanticModelUrns:
             ["urn:li:semanticModel:(urn:li:dataPlatform:snowflake,a.b,c)"]
         )
 
-        result = discover_semantic_model_urns(graph)
+        result = discover_semantic_model_urns(graph, platform_instance="acct")
 
         assert result == ["urn:li:semanticModel:(urn:li:dataPlatform:snowflake,a.b,c)"]
         _, kwargs = graph.get_urns_by_filter.call_args
         assert kwargs["entity_types"] == ["semanticModel"]
         assert kwargs["platform"] == "snowflake"
+        assert kwargs["platform_instance"] == "acct"
+        assert kwargs["status"] == RemovedStatusFilter.ALL
 
 
 class TestFilterBySemanticViewSubtype:
@@ -810,7 +908,7 @@ class TestFieldGovernanceFanOut:
             make_tag_urn("finance")
         ]
 
-    def test_editable_schema_tags_merge_onto_columns(self):
+    def test_editable_schema_tags_union_with_schema_tags(self):
         schema = SchemaMetadataClass(
             schemaName="sales_analytics",
             platform="urn:li:dataPlatform:snowflake",
@@ -818,7 +916,10 @@ class TestFieldGovernanceFanOut:
             hash="",
             platformSchema=OtherSchemaClass(rawSchema=""),
             fields=[
-                _schema_field("TOTAL_REVENUE", tags=[make_tag_urn("METRIC")]),
+                _schema_field(
+                    "TOTAL_REVENUE",
+                    tags=[make_tag_urn("METRIC"), make_tag_urn("schema_tag")],
+                ),
             ],
         )
         editable = EditableSchemaMetadataClass(
@@ -838,9 +939,30 @@ class TestFieldGovernanceFanOut:
         fields = collect_dataset_field_governance(graph, self.SRC)
         assert len(fields) == 1
         assert fields[0].is_metric is True
-        assert [t.tag for t in fields[0].global_tags.tags] == [
-            make_tag_urn("customer_tag")
-        ]
+        assert {t.tag for t in fields[0].global_tags.tags} == {
+            make_tag_urn("schema_tag"),
+            make_tag_urn("customer_tag"),
+        }
+
+    def test_editable_only_metric_tag_sets_is_metric(self):
+        editable = EditableSchemaMetadataClass(
+            editableSchemaFieldInfo=[
+                EditableSchemaFieldInfoClass(
+                    fieldPath="TOTAL_REVENUE",
+                    globalTags=GlobalTagsClass(
+                        tags=[
+                            TagAssociationClass(tag=make_tag_urn("METRIC")),
+                            TagAssociationClass(tag=make_tag_urn("finance")),
+                        ]
+                    ),
+                )
+            ]
+        )
+        graph = _graph_with_aspects(editableSchemaMetadata=editable)
+        fields = collect_dataset_field_governance(graph, self.SRC)
+        assert len(fields) == 1
+        assert fields[0].is_metric is True
+        assert [t.tag for t in fields[0].global_tags.tags] == [make_tag_urn("finance")]
 
     def test_dataset_to_sm_emits_metric_and_schema_field_tags(self):
         schema = SchemaMetadataClass(
@@ -860,7 +982,10 @@ class TestFieldGovernanceFanOut:
                 ),
             ],
         )
-        graph = _graph_with_aspects(schemaMetadata=schema)
+        graph = _graph_with_aspects(
+            schemaMetadata=schema,
+            semanticModelInfo=_semantic_model_info("customer_id"),
+        )
 
         result = migrate_dataset_to_semantic_model(
             graph,
@@ -886,6 +1011,40 @@ class TestFieldGovernanceFanOut:
                 tag_urns = {t.tag for t in aspect.tags}
                 assert make_tag_urn("DIMENSION") not in tag_urns
                 assert make_tag_urn("METRIC") not in tag_urns
+
+    def test_skips_metric_field_when_metric_missing(self):
+        schema = SchemaMetadataClass(
+            schemaName="sales_analytics",
+            platform="urn:li:dataPlatform:snowflake",
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=[
+                _schema_field(
+                    "TOTAL_REVENUE",
+                    tags=[make_tag_urn("METRIC"), make_tag_urn("finance")],
+                ),
+            ],
+        )
+        graph = _graph_with_aspects(schemaMetadata=schema)
+        graph.exists.side_effect = lambda urn: urn != self.METRIC
+
+        result = migrate_dataset_to_semantic_model(
+            graph,
+            self.SRC,
+            platform_instance=None,
+            convert_urns_to_lowercase=True,
+            dry_run=False,
+            report_inbound_refs=False,
+        )
+
+        assert result.error is None
+        assert result.fields_migrated == []
+        assert any("metric does not exist" in n for n in result.notes)
+        assert not any(
+            call.args[0].entityUrn == self.METRIC
+            for call in graph.emit_mcp.call_args_list
+        )
 
     def test_dataset_to_sm_field_fan_out_respects_dry_run(self):
         schema = SchemaMetadataClass(
@@ -914,3 +1073,155 @@ class TestFieldGovernanceFanOut:
 
         assert any("total_revenue" in entry for entry in result.fields_migrated)
         graph.emit_mcp.assert_not_called()
+
+
+class TestSchemaFieldIsMetric:
+    def test_comma_separated_column_subtype(self):
+        field = _schema_field(
+            "TOTAL_REVENUE", json_props='{"columnSubType": "DIMENSION,METRIC"}'
+        )
+        assert _schema_field_is_metric(field) is True
+
+    def test_malformed_json_props(self):
+        field = _schema_field("TOTAL_REVENUE", json_props="{not-json")
+        assert _schema_field_is_metric(field) is False
+
+
+class TestMigrateSemanticModelFieldGovernance:
+    SM = "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,test_db.public,sales_analytics)"
+    DST = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.sales_analytics,PROD)"
+    METRIC = (
+        "urn:li:metric:(urn:li:dataPlatform:snowflake,"
+        "test_db.public.sales_analytics,total_revenue)"
+    )
+
+    def test_merges_tags_without_clobbering_field_descriptions(self):
+        existing_editable = EditableSchemaMetadataClass(
+            editableSchemaFieldInfo=[
+                EditableSchemaFieldInfoClass(
+                    fieldPath="OrderId",
+                    description="hand-written field description",
+                    globalTags=GlobalTagsClass(
+                        tags=[TagAssociationClass(tag=make_tag_urn("keep_me"))]
+                    ),
+                ),
+                EditableSchemaFieldInfoClass(
+                    fieldPath="OtherCol",
+                    description="untouched column",
+                ),
+            ]
+        )
+        schema = SchemaMetadataClass(
+            schemaName="sales_analytics",
+            platform="urn:li:dataPlatform:snowflake",
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=[
+                _schema_field("OrderId"),
+                _schema_field("OtherCol"),
+            ],
+        )
+
+        def get_aspects(entity_urn, aspects, aspect_types):
+            out = {}
+            for name in aspects:
+                if name == "editableSchemaMetadata" and entity_urn == self.DST:
+                    out[name] = existing_editable
+                elif name == "schemaMetadata" and entity_urn == self.DST:
+                    out[name] = schema
+                elif name == "semanticModelInfo" and entity_urn == self.SM:
+                    out[name] = _semantic_model_info("OrderId")
+                elif name == "globalTags" and entity_urn.startswith(
+                    "urn:li:schemaField:"
+                ):
+                    out[name] = GlobalTagsClass(
+                        tags=[TagAssociationClass(tag=make_tag_urn("from_sm"))]
+                    )
+                else:
+                    out[name] = None
+            return out
+
+        graph = MagicMock()
+        graph.get_aspects_for_entity.side_effect = get_aspects
+        graph.get_related_entities.return_value = []
+        graph.exists.return_value = True
+
+        migrated = migrate_semantic_model_field_governance(
+            graph,
+            self.SM,
+            self.DST,
+            convert_urns_to_lowercase=False,
+            dry_run=False,
+        )
+
+        assert migrated
+        editable_emits = [
+            call.args[0].aspect
+            for call in graph.emit_mcp.call_args_list
+            if isinstance(call.args[0].aspect, EditableSchemaMetadataClass)
+        ]
+        assert len(editable_emits) == 1
+        by_path = {fi.fieldPath: fi for fi in editable_emits[0].editableSchemaFieldInfo}
+        assert by_path["OrderId"].description == "hand-written field description"
+        assert {t.tag for t in by_path["OrderId"].globalTags.tags} == {
+            make_tag_urn("keep_me"),
+            make_tag_urn("from_sm"),
+        }
+        assert by_path["OtherCol"].description == "untouched column"
+        # Mixed-case schema path preserved (not forced to ORDERID).
+        assert "ORDERID" not in by_path
+
+    def test_collect_from_modeled_by_metrics(self):
+        def get_aspects(entity_urn, aspects, aspect_types):
+            if entity_urn == self.METRIC:
+                return {
+                    "globalTags": GlobalTagsClass(
+                        tags=[TagAssociationClass(tag=make_tag_urn("finance"))]
+                    ),
+                    "glossaryTerms": None,
+                }
+            if "semanticModelInfo" in aspects:
+                return {"semanticModelInfo": None}
+            return {name: None for name in aspects}
+
+        graph = MagicMock()
+        graph.get_aspects_for_entity.side_effect = get_aspects
+        graph.get_related_entities.return_value = [
+            RelatedEntity(urn=self.METRIC, relationship_type="ModeledBy")
+        ]
+
+        fields = collect_semantic_model_field_governance(
+            graph, self.SM, convert_urns_to_lowercase=True
+        )
+        assert len(fields) == 1
+        assert fields[0].is_metric is True
+        assert fields[0].column_name == "total_revenue"
+        assert [t.tag for t in fields[0].global_tags.tags] == [make_tag_urn("finance")]
+
+    def test_sm_to_dataset_folds_documentation_into_editable_description(self):
+        doc = DocumentationClass(
+            documentations=[
+                DocumentationAssociationClass(documentation="from semantic model")
+            ]
+        )
+        graph = _graph_with_aspects(documentation=doc)
+
+        result = migrate_semantic_model_to_dataset(
+            graph,
+            self.SM,
+            platform_instance=None,
+            convert_urns_to_lowercase=True,
+            env="PROD",
+            dry_run=False,
+            report_inbound_refs=False,
+        )
+
+        assert result.error is None
+        assert any("editableDatasetProperties.description" in n for n in result.notes)
+        editable_emits = [
+            call.args[0].aspect
+            for call in graph.emit_mcp.call_args_list
+            if isinstance(call.args[0].aspect, EditableDatasetPropertiesClass)
+        ]
+        assert any(a.description == "from semantic model" for a in editable_emits)
