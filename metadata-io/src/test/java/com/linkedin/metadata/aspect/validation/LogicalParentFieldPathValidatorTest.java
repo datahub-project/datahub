@@ -127,6 +127,20 @@ public class LogicalParentFieldPathValidatorTest {
   }
 
   @Test
+  public void testSkipsWhenSchemaNotYetIngested() {
+    // Neither dataset has a schemaMetadata aspect yet (getLatestAspectObject returns null). A
+    // column mapping written before the schemas are ingested must be skipped, not rejected —
+    // otherwise legitimate out-of-order writes would fail.
+    List<AspectValidationException> exceptions =
+        validator
+            .validateProposedAspects(
+                OperationFingerprint.EMPTY, List.of(columnLink("id", "id")), retrieverContext)
+            .toList();
+
+    Assert.assertTrue(exceptions.isEmpty());
+  }
+
+  @Test
   public void testIgnoresUnlink() {
     // An unlink writes a LogicalParent with no parent edge; it must not be validated (and must not
     // read any schema).

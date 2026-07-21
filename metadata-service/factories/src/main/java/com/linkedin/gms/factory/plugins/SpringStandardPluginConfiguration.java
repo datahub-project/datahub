@@ -848,6 +848,10 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.logicalParent.fieldPathValidation.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
   public AspectPayloadValidator logicalParentFieldPathValidator() {
     return new LogicalParentFieldPathValidator()
         .setConfig(
