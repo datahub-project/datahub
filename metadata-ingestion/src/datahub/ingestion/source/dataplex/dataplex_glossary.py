@@ -22,6 +22,9 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
+from datahub.ingestion.source.dataplex.dataplex_external_entities import (
+    DataplexAspectPlatformResource,
+)
 from datahub.ingestion.source.dataplex.dataplex_platform_resource_repository import (
     DataplexPlatformResourceRepository,
 )
@@ -117,6 +120,23 @@ class GlossaryTermRef:
     # Original DataHub term URN when this native term was authored in DataHub and
     # reconciled via the platform-resource side-index; None otherwise.
     datahub_term_urn: Optional[str] = None
+
+
+@dataclass
+class AssetLink:
+    """A single asset entry linked to a term."""
+
+    asset_urn: str
+    entry_name: str
+
+
+@dataclass
+class TermAssetLinks:
+    """All asset links for one term, with the reconciled DataHub URN if any."""
+
+    native_term_urn: str
+    datahub_term_urn: Optional[str]
+    asset_links: List[AssetLink]
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +327,27 @@ class DataplexGlossaryProcessor:
                 exc=exc,
             )
             return None
+
+    def _record_external_link(self, entry_name: str, native_term_urn: str) -> None:
+        """Persist a ``managed_by_datahub=false`` platform resource for an
+        externally-authored term link so the sync-back guard won't overwrite it.
+
+        Best-effort: never aborts ingestion on failure.
+        """
+        if self._platform_resource_repository is None:
+            return
+        try:
+            resource = DataplexAspectPlatformResource.from_external(
+                entry_name=entry_name, native_term_urn=native_term_urn
+            )
+            self._platform_resource_repository.create(resource.as_platform_resource())
+        except Exception as exc:
+            self._source_report.warning(
+                title="Failed to record external glossary term link",
+                message="Sync-back may overwrite this externally-owned term link.",
+                context=f"{entry_name} -> {native_term_urn}",
+                exc=exc,
+            )
 
     def _process_single_glossary(
         self,
@@ -504,17 +545,14 @@ class DataplexGlossaryProcessor:
                         ref.term_id,
                         location_pairs,
                         entry_name_to_urn,
+                        ref.datahub_term_urn,
                     ): ref
                     for ref in batch
                 }
                 for future in as_completed(futures):
                     ref = futures[future]
                     try:
-                        term_urn_str, linked_asset_urns = future.result()
-                        for asset_urn in linked_asset_urns:
-                            asset_to_terms.setdefault(asset_urn, []).append(
-                                term_urn_str
-                            )
+                        links = future.result()
                     except Exception as exc:
                         self._source_report.warning(
                             title="Term association lookup failed",
@@ -525,6 +563,18 @@ class DataplexGlossaryProcessor:
                             ),
                             exc=exc,
                         )
+                        continue
+
+                    resolved_urn = links.datahub_term_urn or links.native_term_urn
+                    for asset_link in links.asset_links:
+                        asset_to_terms.setdefault(asset_link.asset_urn, []).append(
+                            resolved_urn
+                        )
+                        if links.datahub_term_urn is None:
+                            # Externally-authored link: mark it unmanaged for the guard.
+                            self._record_external_link(
+                                asset_link.entry_name, links.native_term_urn
+                            )
 
         logger.info(
             "Term-asset scan complete: %d assets linked to at least one term",
@@ -551,8 +601,9 @@ class DataplexGlossaryProcessor:
         term_id: str,
         location_pairs: List[Tuple[str, str]],
         entry_name_to_urn: Dict[str, str],
-    ) -> Tuple[str, List[str]]:
-        """Return (term_urn_str, asset_urns) for this term across all locations.
+        datahub_term_urn: Optional[str],
+    ) -> TermAssetLinks:
+        """Return the asset links for this term across all locations.
 
         De-duplicates asset URNs within the scan so the same asset is not
         returned more than once even if multiple location scans return it.
@@ -568,7 +619,7 @@ class DataplexGlossaryProcessor:
         )
 
         seen_asset_urns: set = set()
-        linked_asset_urns: List[str] = []
+        asset_links: List[AssetLink] = []
         for lookup_project_id, location in location_pairs:
             try:
                 links = self._lookup_entry_links(
@@ -605,9 +656,15 @@ class DataplexGlossaryProcessor:
                         continue
                     if asset_urn not in seen_asset_urns:
                         seen_asset_urns.add(asset_urn)
-                        linked_asset_urns.append(asset_urn)
+                        asset_links.append(
+                            AssetLink(asset_urn=asset_urn, entry_name=entry_name)
+                        )
 
-        return term_urn_str, linked_asset_urns
+        return TermAssetLinks(
+            native_term_urn=term_urn_str,
+            datahub_term_urn=datahub_term_urn,
+            asset_links=asset_links,
+        )
 
     def _lookup_entry_links(
         self, project_id: str, location: str, term_entry_path: str
