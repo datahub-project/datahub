@@ -53,6 +53,7 @@ def test_probe_schemas(sqlite_db):
 
 
 def test_probe_unsupported_source_returns_fallback():
-    result = probe("kafka", {}, parent_path=[], limit=10)
+    # `file` is registered but implements no probe contract.
+    result = probe("file", {}, parent_path=[], limit=10)
     assert result.supported is False
     assert result.fallback

@@ -114,7 +114,15 @@ Follow these steps in sequence:
 **Live Probe Support:**
 - Live probes (schemas/tables/columns) work for SQL-family sources: any connector with `get_sql_alchemy_url()` in its config (Postgres, MySQL, Redshift, Snowflake, etc.).
 - Snowflake (database → schema → table) and BigQuery (project → dataset → table) get dedicated database-aware probing — Snowflake via `SHOW`, BigQuery via the BigQuery client (`get_bigquery_client()`).
+- **Non-SQL sources probe too**, by reusing their own client (not raw HTTP): **Kafka** lists topics (filtered by `topic_patterns`); **ThoughtSpot** lists Worksheets → Columns via its REST client (filtered by `worksheet_pattern`). The probe interface is source-agnostic — any connector can opt in by implementing `probe_hierarchy()` + `list_probe_children()`.
 - Other source types return `supported: false` → fall back to `test-connection` for verification.
+
+**Probing non-SQL hierarchies** — the `databases/schemas/tables/columns` commands are SQL-shaped. For any other hierarchy (Kafka topics, ThoughtSpot worksheets) use the generic lister, which follows whatever levels the source declares:
+
+```bash
+datahub recipe probe list --recipe recipe.yml                       # top level (e.g. Kafka topics, TS worksheets)
+datahub recipe probe list --recipe recipe.yml --parent <name>       # descend one level (e.g. a worksheet's columns)
+```
 
 ## Probing a Source With No Connector
 

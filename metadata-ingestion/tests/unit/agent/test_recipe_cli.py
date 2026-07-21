@@ -265,3 +265,31 @@ def test_probe_api_rejects_non_rest_kind(tmp_path):
     r.write_text("probe:\n  kind: graphql\n  base_url: https://x\n  endpoints: [/a]\n")
     result = CliRunner().invoke(recipe, ["probe", "api", "--recipe", str(r)])
     assert result.exit_code == 2
+
+
+def test_probe_list_descends_generic_parent_path(tmp_path, monkeypatch):
+    # The generic `probe list` passes --parent segments straight through as the
+    # hierarchy path, for non-SQL sources without --database/--schema/--table.
+    import datahub.cli.recipe_cli as mod
+    from datahub.ingestion.agent.models import ProbeResult
+
+    captured = {}
+
+    def fake_probe(source_type, config_dict, parent_path, limit):
+        captured["parent_path"] = parent_path
+        return ProbeResult(
+            source_type=source_type, supported=True, parent_path=parent_path
+        )
+
+    monkeypatch.setattr(mod, "probe", fake_probe)
+    r = tmp_path / "r.yml"
+    r.write_text(
+        "source:\n  type: sqlalchemy\n  config:\n"
+        "    platform: sqlite\n    connect_uri: 'sqlite:///x.db'\n"
+    )
+    result = CliRunner().invoke(
+        recipe,
+        ["probe", "list", "--recipe", str(r), "--parent", "a", "--parent", "b"],
+    )
+    assert result.exit_code == 0
+    assert captured["parent_path"] == ["a", "b"]

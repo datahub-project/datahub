@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import Field, PositiveFloat, PositiveInt
 
@@ -8,6 +8,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_BATCH_SIZE,
@@ -78,6 +79,19 @@ class KafkaSourceConfig(
     topic_patterns: AllowDenyPattern = Field(
         default_factory=lambda: AllowDenyPattern(allow=[".*"], deny=["^_.*"])
     )
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        # Structural only — must not connect (see ProbeCapableConfig).
+        from datahub.ingestion.source.kafka.kafka_probe import KAFKA_PROBE_HIERARCHY
+
+        return KAFKA_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.kafka.kafka_probe import list_kafka_children
+
+        return list_kafka_children(self, parent_path, limit)
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default={},
         description="A map of domain names to allow deny patterns. Domains can be urn-based (`urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810`) or bare (`13ae4d85-d955-49fc-8474-9004c663a810`).",

@@ -332,6 +332,37 @@ def probe_columns(
     )
 
 
+@probe_group.command(name="list")
+@click.option("--recipe", "recipe_path", required=True)
+@click.option(
+    "--parent",
+    "parents",
+    multiple=True,
+    help="Parent container name, repeated in hierarchy order to descend a level "
+    "(e.g. --parent my_schema --parent my_table). Omit to list the top level.",
+)
+@click.option("--limit", default=200, type=int)
+def probe_list(recipe_path: str, parents: Tuple[str, ...], limit: int) -> None:
+    # Source-agnostic lister: descends whatever hierarchy the source declares via
+    # probe_hierarchy(), so non-SQL shapes (Kafka topics, ThoughtSpot worksheets)
+    # work without the SQL-shaped --database/--schema/--table flags.
+    secret_values: Set[str] = set()
+    try:
+        source_type, resolved, secret_values = _resolve_for_probe(
+            _load_recipe(recipe_path)
+        )
+        result = probe(source_type, resolved, list(parents), limit)
+        _emit(redact(result.to_dict(), secret_values))
+    except (ValueError, TypeError, AssertionError, KeyError) as exc:
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_USER)
+    except Exception as exc:
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_CONNECTION)
+
+
 @probe_group.command(name="api")
 @click.option("--recipe", "recipe_path", required=True)
 def probe_api_cmd(recipe_path: str) -> None:

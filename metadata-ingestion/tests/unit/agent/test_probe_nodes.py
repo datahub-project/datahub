@@ -139,7 +139,8 @@ def test_two_tier_source_top_container_is_database():
 
 
 def test_unsupported_source_has_no_hierarchy():
-    assert probe_hierarchy("kafka") is None
+    # `file` is registered but implements no probe contract.
+    assert probe_hierarchy("file") is None
 
 
 def test_container_nodes_without_classifier_default_included():
