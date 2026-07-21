@@ -5,11 +5,18 @@ PatternAddOwnership, AddOwnership) work on all supported entity types,
 while the legacy *Dataset* variants preserve their original entity type set.
 """
 
+import json
 from unittest import mock
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
-from datahub.metadata.schema_classes import OwnerClass, OwnershipClass
+from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
+    MetadataChangeProposalClass,
+    OwnerClass,
+    OwnershipClass,
+)
 
 
 class TestCallbackBasedOwnershipTransformers:
@@ -52,6 +59,56 @@ class TestCallbackBasedOwnershipTransformers:
                     if any(o.owner == owner_urn for o in envelope.record.aspect.owners):
                         owner_found = True
         assert owner_found, "Owner should be added to container"
+
+    def test_container_rollup_dedupes_owners(self) -> None:
+        """Container ownership rollup must emit one op per unique owner."""
+        from datahub.ingestion.transformer.add_ownership import PatternAddOwnership
+
+        owner_urn = "urn:li:corpGroup:shared"
+
+        graph = mock.MagicMock()
+        graph.get_aspect.return_value = BrowsePathsV2Class(
+            path=[BrowsePathEntryClass(id=self.CONTAINER_URN, urn=self.CONTAINER_URN)]
+        )
+        pipeline_context = PipelineContext(run_id="test_container_rollup_dedupe")
+        pipeline_context.graph = graph
+
+        transformer = PatternAddOwnership.create(
+            {
+                "owner_pattern": {"rules": {".*": [owner_urn]}},
+                "ownership_type": "TECHNICAL_OWNER",
+                "is_container": True,
+            },
+            pipeline_context,
+        )
+
+        records = [
+            RecordEnvelope(r, metadata={})
+            for r in [
+                *[
+                    MetadataChangeProposalWrapper(
+                        entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:looker,explore.{i},PROD)",
+                        aspect=OwnershipClass(owners=[]),
+                    )
+                    for i in range(50)
+                ],
+                EndOfStream(),
+            ]
+        ]
+
+        outputs = list(transformer.transform(records))
+
+        container_patch = next(
+            env.record
+            for env in outputs
+            if isinstance(env.record, MetadataChangeProposalClass)
+            and env.record.entityUrn == self.CONTAINER_URN
+            and env.record.aspectName == "ownership"
+        )
+        assert container_patch.aspect is not None
+        envelope = json.loads(container_patch.aspect.value)
+        assert len(envelope["patch"]) == 1
+        assert envelope["patch"][0]["value"]["owner"] == owner_urn
 
 
 class TestOwnershipEntityTypesConfigRestriction:

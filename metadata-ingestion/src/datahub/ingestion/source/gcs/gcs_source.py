@@ -365,6 +365,7 @@ class GCSSource(StatefulIngestionSourceBase):
                     include_hidden_folders=path_spec.include_hidden_folders,
                     tables_filter_pattern=path_spec.tables_filter_pattern,
                     traversal_method=path_spec.traversal_method,
+                    emit_folders_only=path_spec.emit_folders_only,
                 )
             )
 

@@ -4,16 +4,19 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, cast
 from unittest.mock import MagicMock, patch
 
+import boto3
 import pydantic
 import pytest
 import time_machine
 from botocore.stub import Stubber
+from moto import mock_aws
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
@@ -340,6 +343,955 @@ def test_platform_config():
         config=GlueSourceConfig(aws_region="us-west-2", platform="athena"),
     )
     assert source.platform == "athena"
+
+
+def test_catalog_to_platform_instance_resolves_owning_account():
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            platform_instance="ingestion_acct",
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-west-2:111122223333": {
+                    "platform_instance": "domain_a",
+                    # A non-default env, so the assertion below actually proves the override
+                    # was applied rather than falling through to the source's default (PROD).
+                    "env": "DEV",
+                }
+            },
+        ),
+    )
+
+    # Owning account present in the map -> stamp its instance/env.
+    mapped = source._resolve_platform_instance("111122223333")
+    assert mapped.platform_instance == "domain_a"
+    assert mapped.env == "DEV"
+
+    # Account not in the map -> fall back to the source's own platform_instance.
+    fallback = source._resolve_platform_instance("999988887777")
+    assert fallback.platform_instance == "ingestion_acct"
+
+    # No catalog id -> fall back as well.
+    assert source._resolve_platform_instance(None).platform_instance == "ingestion_acct"
+
+
+def test_catalog_to_platform_instance_partial_override_keeps_source_instance():
+    # An entry that overrides only env must keep the source's own platform_instance (the two
+    # overrides are independent), and vice versa.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            platform_instance="ingestion_acct",
+            env="PROD",
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-west-2:111122223333": {"env": "DEV"},
+            },
+        ),
+    )
+    resolved = source._resolve_platform_instance("111122223333")
+    assert resolved.platform_instance == "ingestion_acct"
+    assert resolved.env == "DEV"
+
+
+def test_catalog_to_platform_instance_is_region_specific():
+    # The same account in two regions is two different catalogs, so the key includes region.
+    # Each source must resolve the SAME account to its own region's instance — this fails if the
+    # lookup ignored region (account-only keying).
+    catalog_map = {
+        "arn:aws:glue:us-west-2:111122223333": {"platform_instance": "domain_a_usw2"},
+        "arn:aws:glue:eu-west-1:111122223333": {"platform_instance": "domain_a_euw1"},
+    }
+
+    source_euw1 = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="eu-west-1",
+            platform_instance="ingestion_acct",
+            catalog_to_platform_instance=catalog_map,
+        ),
+    )
+    assert (
+        source_euw1._resolve_platform_instance("111122223333").platform_instance
+        == "domain_a_euw1"
+    )
+
+    source_usw2 = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            platform_instance="ingestion_acct",
+            catalog_to_platform_instance=catalog_map,
+        ),
+    )
+    assert (
+        source_usw2._resolve_platform_instance("111122223333").platform_instance
+        == "domain_a_usw2"
+    )
+
+
+def test_resource_link_emits_upstream_edge_to_owner():
+    # A Lake Formation resource link (shared-transactions) points at transactions in the owner
+    # account 432143214321. The consumer-instance table should get an upstream edge to the owner's
+    # table URN, stamped with the owner account's instance.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:123412341234": {
+                    "platform_instance": "consumer_inst"
+                },
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_inst"
+                },
+            },
+        ),
+    )
+    upstreams = source._resource_link_owner_upstreams(
+        resource_link_table_in_mixed_database, "urn:li:dataset:(consumer)"
+    )
+
+    assert [u.dataset for u in upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
+    ]
+    assert upstreams[0].type == models.DatasetLineageTypeClass.COPY
+
+
+def test_resource_link_owner_upstreams_handles_malformed_target():
+    # A TargetTable missing its Name must not crash the whole run; it should be skipped with a
+    # reported warning and no upstream produced.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-east-1"),
+    )
+    malformed = {
+        "Name": "shared-transactions",
+        "DatabaseName": "mixed-database",
+        "TargetTable": {"CatalogId": "432143214321", "DatabaseName": "test-database"},
+    }
+
+    upstreams = source._resource_link_owner_upstreams(
+        malformed, "urn:li:dataset:(consumer)"
+    )
+
+    assert upstreams == []
+    assert source.report.warnings
+    assert source.report.num_resource_link_missing_target == 1
+
+
+def test_resource_link_upstream_merged_with_storage_lineage():
+    # A resource link with a backfilled StorageDescriptor (so storage lineage also fires) must not
+    # lose either edge: the owner upstream and the S3 storage upstream must land in a SINGLE
+    # UpstreamLineage aspect on the dataset, not two aspects that clobber each other.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            emit_storage_lineage=True,
+            include_column_lineage=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_inst"
+                },
+            },
+        ),
+    )
+    table = {
+        "Name": "shared-transactions",
+        "DatabaseName": "mixed-database",
+        "CatalogId": "123412341234",
+        "TargetTable": {
+            "CatalogId": "432143214321",
+            "DatabaseName": "test-database",
+            "Name": "transactions",
+        },
+        "StorageDescriptor": {
+            "Columns": [{"Name": "txn_id", "Type": "bigint", "Comment": ""}],
+            "Location": "s3://owner-bucket/transactions",
+        },
+    }
+
+    wus = list(source._gen_table_wu(table))
+    upstream_aspects = [
+        wu.metadata.aspect
+        for wu in wus
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
+    ]
+    assert len(upstream_aspects) == 1
+    datasets = {u.dataset for u in upstream_aspects[0].upstreams}
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
+        in datasets
+    )
+    assert any("dataPlatform:s3" in d for d in datasets)
+
+
+def test_resource_link_no_self_lineage_when_owner_unresolved():
+    # No catalog mapping -> the owner falls back to the source's own instance/env. If the link and
+    # its target share a name, the owner URN equals the dataset's own URN; a self-upstream edge is
+    # meaningless and must be skipped.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-east-1", platform_instance="acct"),
+    )
+    table = {
+        "Name": "shared",
+        "DatabaseName": "db",
+        "CatalogId": "111122223333",
+        "TargetTable": {
+            "CatalogId": "111122223333",
+            "DatabaseName": "db",
+            "Name": "shared",
+        },
+    }
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,acct.db.shared,PROD)"
+
+    upstreams = source._resource_link_owner_upstreams(table, dataset_urn)
+
+    assert upstreams == []
+    assert source.report.num_resource_link_self_referential == 1
+
+
+CONSUMER_LINK_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:glue,"
+    "consumer_inst.mixed-database.shared-transactions,PROD)"
+)
+OWNER_TABLE_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:glue,"
+    "owner_inst.test-database.transactions,PROD)"
+)
+
+
+def _resource_link_schema_source(resolve: bool = True) -> GlueSource:
+    return GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            resolve_resource_link_schema=resolve,
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:123412341234": {
+                    "platform_instance": "consumer_inst"
+                },
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_inst"
+                },
+            },
+        ),
+    )
+
+
+def _owner_schema() -> models.SchemaMetadataClass:
+    return models.SchemaMetadataClass(
+        schemaName="transactions",
+        platform="urn:li:dataPlatform:glue",
+        version=0,
+        hash="",
+        platformSchema=models.MySqlDDLClass(tableSchema=""),
+        fields=[
+            models.SchemaFieldClass(
+                fieldPath="txn_id",
+                type=models.SchemaFieldDataTypeClass(type=models.NumberTypeClass()),
+                nativeDataType="bigint",
+            )
+        ],
+    )
+
+
+def test_resource_link_schema_resolved_from_datahub():
+    # The owner account has already been ingested, so its schema is in DataHub. The link should
+    # carry a copy of the owner's schema (re-stamped with the link's own name), read from the graph
+    # with no cross-account Glue call.
+    source = _resource_link_schema_source()
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = _owner_schema()
+    source.ctx.graph = graph
+
+    schema = source._resource_link_schema(
+        resource_link_table_in_mixed_database,
+        CONSUMER_LINK_URN,
+        "mixed-database.shared-transactions",
+    )
+
+    assert schema is not None
+    assert [f.fieldPath for f in schema.fields] == ["txn_id"]
+    assert schema.schemaName == "mixed-database.shared-transactions"
+    graph.get_schema_metadata.assert_called_once_with(OWNER_TABLE_URN)
+    assert source.report.num_resource_link_schema_from_datahub == 1
+
+
+def test_resource_link_schema_resolved_from_glue_when_absent_in_datahub():
+    # The owner account is not (yet) in DataHub, so the graph returns None. Fall back to a
+    # cross-account glue:GetTable on the target and build the schema from its StorageDescriptor.
+    source = _resource_link_schema_source()
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = None
+    source.ctx.graph = graph
+
+    with Stubber(source.glue_client) as stubber:
+        stubber.add_response(
+            "get_table",
+            {
+                "Table": {
+                    "Name": "transactions",
+                    "DatabaseName": "test-database",
+                    "StorageDescriptor": {
+                        "Columns": [
+                            {"Name": "txn_id", "Type": "bigint"},
+                            {"Name": "amount", "Type": "double"},
+                        ]
+                    },
+                }
+            },
+            {
+                "CatalogId": "432143214321",
+                "DatabaseName": "test-database",
+                "Name": "transactions",
+            },
+        )
+        schema = source._resource_link_schema(
+            resource_link_table_in_mixed_database,
+            CONSUMER_LINK_URN,
+            "mixed-database.shared-transactions",
+        )
+
+    assert schema is not None
+    assert {f.fieldPath.split(".")[-1] for f in schema.fields} == {"txn_id", "amount"}
+    assert source.report.num_resource_link_schema_from_glue == 1
+
+
+def test_resource_link_schema_unresolved_leaves_link_schemaless():
+    # Neither DataHub nor a cross-account Glue read can supply the schema (e.g. owner not ingested
+    # and no glue:GetTable permission). The link stays schemaless — no crash — and it's counted.
+    source = _resource_link_schema_source()
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = None
+    source.ctx.graph = graph
+
+    with Stubber(source.glue_client) as stubber:
+        stubber.add_client_error(
+            "get_table", service_error_code="AccessDeniedException"
+        )
+        schema = source._resource_link_schema(
+            resource_link_table_in_mixed_database,
+            CONSUMER_LINK_URN,
+            "mixed-database.shared-transactions",
+        )
+
+    assert schema is None
+    assert source.report.num_resource_link_schema_unresolved == 1
+    # The Glue failure is surfaced (with its exception); the generic summary is NOT also emitted, so
+    # one unresolved owner produces exactly one report entry.
+    titles = [w.title for w in source.report.warnings]
+    assert "Failed to read resource-link owner schema from Glue" in titles
+    assert "Resource link schema could not be resolved" not in titles
+
+
+def test_resource_link_schema_datahub_error_falls_back_to_glue():
+    # A GMS/network error reading the owner's schema must not abort the run: it warns and falls back
+    # to the cross-account Glue read.
+    source = _resource_link_schema_source()
+    graph = MagicMock()
+    graph.get_schema_metadata.side_effect = Exception("gms unavailable")
+    source.ctx.graph = graph
+
+    with Stubber(source.glue_client) as stubber:
+        stubber.add_response(
+            "get_table",
+            {
+                "Table": {
+                    "Name": "transactions",
+                    "DatabaseName": "test-database",
+                    "StorageDescriptor": {
+                        "Columns": [{"Name": "txn_id", "Type": "bigint"}]
+                    },
+                }
+            },
+            {
+                "CatalogId": "432143214321",
+                "DatabaseName": "test-database",
+                "Name": "transactions",
+            },
+        )
+        schema = source._resource_link_schema(
+            resource_link_table_in_mixed_database,
+            CONSUMER_LINK_URN,
+            "mixed-database.shared-transactions",
+        )
+
+    assert schema is not None
+    assert source.report.num_resource_link_schema_from_glue == 1
+    assert "Failed to read resource-link owner schema from DataHub" in [
+        w.title for w in source.report.warnings
+    ]
+
+
+def test_resource_link_schema_skipped_when_owner_is_self():
+    # No catalog mapping -> the owner falls back to the source's own instance/env and, when the
+    # names coincide, equals the dataset's own URN. Resolving a schema against itself is meaningless,
+    # so it returns None without consulting DataHub or Glue.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-east-1", platform_instance="acct"),
+    )
+    graph = MagicMock()
+    source.ctx.graph = graph
+    table = {
+        "Name": "shared",
+        "DatabaseName": "db",
+        "CatalogId": "111122223333",
+        "TargetTable": {
+            "CatalogId": "111122223333",
+            "DatabaseName": "db",
+            "Name": "shared",
+        },
+    }
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,acct.db.shared,PROD)"
+
+    assert source._resource_link_schema(table, dataset_urn, "db.shared") is None
+    graph.get_schema_metadata.assert_not_called()
+
+
+def test_resource_link_schema_stamped_with_link_name_and_isolated():
+    # Two links to the same owner each present under their OWN schemaName, and an in-place
+    # schema-field mutation (as add_dataset_schema_tags does) on one link must not leak to the other
+    # — each link gets its own deep copy of the resolved owner schema.
+    source = _resource_link_schema_source()
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = _owner_schema()
+    source.ctx.graph = graph
+
+    def link(name: str) -> Dict:
+        return {
+            "Name": name,
+            "DatabaseName": "mixed-database",
+            "CatalogId": "123412341234",
+            "TargetTable": {
+                "CatalogId": "432143214321",
+                "DatabaseName": "test-database",
+                "Name": "transactions",
+            },
+        }
+
+    schema_a = source._resource_link_schema(
+        link("link_a"), "urn:li:dataset:(link_a)", "mixed-database.link_a"
+    )
+    assert schema_a is not None
+    assert schema_a.schemaName == "mixed-database.link_a"
+    # Simulate an in-place field mutation as add_dataset_schema_tags does.
+    schema_a.fields[0].globalTags = models.GlobalTagsClass(
+        tags=[models.TagAssociationClass(tag="urn:li:tag:pii")]
+    )
+
+    schema_b = source._resource_link_schema(
+        link("link_b"), "urn:li:dataset:(link_b)", "mixed-database.link_b"
+    )
+    assert schema_b is not None
+    assert schema_b.schemaName == "mixed-database.link_b"
+    # Resolving link_b must not have overwritten link_a's name or leaked its mutation.
+    assert schema_a.schemaName == "mixed-database.link_a"
+    assert schema_b.fields[0].globalTags is None
+    # Each link resolves independently (no cache): the owner schema is fetched once per link.
+    assert source.report.num_resource_link_schema_from_datahub == 2
+
+
+def test_resource_link_schema_not_resolved_when_disabled():
+    # With resolve_resource_link_schema=False the link stays schemaless even though the owner's
+    # schema is available in DataHub — the graph must not be consulted at all.
+    source = _resource_link_schema_source(resolve=False)
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = _owner_schema()
+    source.ctx.graph = graph
+
+    schema = source._resource_link_schema(
+        resource_link_table_in_mixed_database,
+        CONSUMER_LINK_URN,
+        "mixed-database.shared-transactions",
+    )
+
+    assert schema is None
+    graph.get_schema_metadata.assert_not_called()
+
+
+def test_resource_link_downstream_direction_emits_separate_dataset_aspect():
+    # In downstream storage-lineage mode the storage aspect targets the S3 URN, so the resource-link
+    # owner edge must be emitted as its own aspect on the dataset URN (no clobber, no merge).
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            emit_storage_lineage=True,
+            glue_storage_lineage_direction="downstream",
+            include_column_lineage=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_inst"
+                },
+            },
+        ),
+    )
+    table = {
+        "Name": "shared-transactions",
+        "DatabaseName": "mixed-database",
+        "CatalogId": "123412341234",
+        "TargetTable": {
+            "CatalogId": "432143214321",
+            "DatabaseName": "test-database",
+            "Name": "transactions",
+        },
+        "StorageDescriptor": {
+            "Columns": [{"Name": "txn_id", "Type": "bigint", "Comment": ""}],
+            "Location": "s3://owner-bucket/transactions",
+        },
+    }
+
+    by_entity = {
+        wu.metadata.entityUrn: wu.metadata.aspect
+        for wu in source._gen_table_wu(table)
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
+    }
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_inst.mixed-database.shared-transactions,PROD)"
+    # One aspect on the S3 URN (storage downstream) and one on the dataset URN (resource link).
+    assert any(e and "dataPlatform:s3" in e for e in by_entity)
+    assert dataset_urn in by_entity
+    assert [u.dataset for u in by_entity[dataset_urn].upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
+    ]
+
+
+def test_dataflow_node_uses_owning_catalog_instance():
+    # A Glue ETL job that reads a cross-account table via from_catalog(catalog_id=...) surfaces the
+    # catalog id in the node args. The job's input/output dataset URN must be stamped with the
+    # owning account's instance so it matches the dataset entity's URN (built the same way).
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="ingestion",
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_inst"
+                },
+            },
+        ),
+    )
+    node = {
+        "NodeType": "DataSource",
+        "Id": "DataSource0",
+        "Args": [
+            {"Name": "database", "Value": '"test-database"', "Param": False},
+            {"Name": "table_name", "Value": '"transactions"', "Param": False},
+            {"Name": "catalog_id", "Value": '"432143214321"', "Param": False},
+        ],
+    }
+
+    result = source.process_dataflow_node(
+        node, "urn:li:dataFlow:(urn:li:dataPlatform:glue,flow,PROD)"
+    )
+
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
+    )
+
+
+def test_dataflow_node_without_catalog_id_uses_source_instance():
+    # No catalog id in the node args (the common case) -> the source's own instance, unchanged.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="ingestion",
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_inst"
+                },
+            },
+        ),
+    )
+    node = {
+        "NodeType": "DataSource",
+        "Id": "DataSource0",
+        "Args": [
+            {"Name": "database", "Value": '"local-database"', "Param": False},
+            {"Name": "table_name", "Value": '"events"', "Param": False},
+        ],
+    }
+
+    result = source.process_dataflow_node(
+        node, "urn:li:dataFlow:(urn:li:dataPlatform:glue,flow,PROD)"
+    )
+
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,ingestion.local-database.events,PROD)"
+    )
+
+
+def test_catalog_to_platform_instance_accepts_govcloud_arn():
+    # GovCloud/China ARNs use non-`aws` partitions; a catalog ARN in those partitions must both
+    # validate and resolve.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-gov-west-1",
+            platform_instance="ingestion",
+            catalog_to_platform_instance={
+                "arn:aws-us-gov:glue:us-gov-west-1:111122223333": {
+                    "platform_instance": "gov_owner"
+                },
+            },
+        ),
+    )
+    assert (
+        source._resolve_platform_instance("111122223333").platform_instance
+        == "gov_owner"
+    )
+
+
+def test_catalog_to_platform_instance_accepts_china_arn():
+    # The China partition (aws-cn / cn-* regions) must validate and resolve just like GovCloud.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="cn-north-1",
+            platform_instance="ingestion",
+            catalog_to_platform_instance={
+                "arn:aws-cn:glue:cn-north-1:111122223333": {
+                    "platform_instance": "cn_owner"
+                },
+            },
+        ),
+    )
+    assert (
+        source._resolve_platform_instance("111122223333").platform_instance
+        == "cn_owner"
+    )
+
+
+def test_catalog_to_platform_instance_accepts_unrecognized_region():
+    # botocore doesn't recognize a not-yet-published region; the partition lookup falls back to
+    # commercial `aws`, so a valid future-region ARN validates instead of being wrongly rejected.
+    config = GlueSourceConfig(
+        aws_region="xx-future-1",
+        catalog_to_platform_instance={
+            "arn:aws:glue:xx-future-1:111122223333": {"platform_instance": "x"},
+        },
+    )
+    assert config.catalog_to_platform_instance
+
+
+def test_get_glue_arn_uses_region_partition():
+    # The qualifiedName ARN must use the region's partition (GovCloud here), not a hardcoded `aws`.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(aws_region="us-gov-west-1"),
+    )
+    assert source.get_glue_arn(account_id="123456789012", database="db", table="t") == (
+        "arn:aws-us-gov:glue:us-gov-west-1:123456789012:table/db/t"
+    )
+
+
+def test_catalog_to_platform_instance_rejects_partition_region_mismatch():
+    # The commercial `aws` partition with a GovCloud region is internally inconsistent: the lookup
+    # derives the partition from the region (aws-us-gov), so this key would never match. Reject it
+    # at config load rather than silently falling back to the wrong instance.
+    with pytest.raises(pydantic.ValidationError):
+        GlueSourceConfig(
+            aws_region="us-gov-west-1",
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-gov-west-1:111122223333": {"platform_instance": "x"},
+            },
+        )
+
+
+def test_dataflow_node_uses_source_catalog_id_fallback():
+    # A job that reads via from_catalog() with no explicit catalog_id, when the whole source targets
+    # a cross-account catalog_id, must still stamp the owning instance (fallback to source catalog).
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="ingestion",
+            catalog_id="432143214321",
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_inst"
+                },
+            },
+        ),
+    )
+    node = {
+        "NodeType": "DataSource",
+        "Id": "DataSource0",
+        "Args": [
+            {"Name": "database", "Value": '"test-database"', "Param": False},
+            {"Name": "table_name", "Value": '"transactions"', "Param": False},
+        ],
+    }
+
+    result = source.process_dataflow_node(
+        node, "urn:li:dataFlow:(urn:li:dataPlatform:glue,flow,PROD)"
+    )
+
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
+    )
+
+
+def test_catalog_to_platform_instance_rejects_malformed_arn_key():
+    # A typo'd key would silently never match and fall back to the wrong instance, defeating the
+    # whole point of the feature. Reject it at config load instead.
+    with pytest.raises(pydantic.ValidationError):
+        GlueSourceConfig(
+            aws_region="us-east-1",
+            catalog_to_platform_instance={
+                "111122223333": {"platform_instance": "domain_a"},
+            },
+        )
+
+
+def test_glue_ingest_cross_account_and_resource_links(
+    tmp_path: Path, pytestconfig: pytest.Config
+) -> None:
+    # End-to-end pipeline test for the cross-account features: a mixed database containing a normal
+    # table (consumer account) and a Lake Formation resource link pointing at a table owned by
+    # account 432143214321. Expect: consumer tables under "consumer_domain", the resource link
+    # carrying a table-level upstream edge to the owner's table under "owner_domain", and the link's
+    # schema resolved from the owning table (via the cross-account glue:GetTable fallback, since no
+    # DataHub graph is wired here).
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_domain",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            catalog_to_platform_instance={
+                "arn:aws:glue:us-east-1:432143214321": {
+                    "platform_instance": "owner_domain"
+                },
+            },
+        ),
+    )
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases", get_databases_response_with_mixed_database, {}
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_for_mixed_database,
+            {"DatabaseName": "mixed-database"},
+        )
+        # The resource link's schema is resolved from its owning table via a cross-account
+        # glue:GetTable on the target (no DataHub graph is wired in this test).
+        glue_stubber.add_response(
+            "get_table",
+            {
+                "Table": {
+                    "Name": "transactions",
+                    "DatabaseName": "test-database",
+                    "StorageDescriptor": {
+                        "Columns": [
+                            {"Name": "txn_id", "Type": "bigint"},
+                            {"Name": "amount", "Type": "double"},
+                            {"Name": "currency", "Type": "string"},
+                        ]
+                    },
+                }
+            },
+            {
+                "CatalogId": "432143214321",
+                "DatabaseName": "test-database",
+                "Name": "transactions",
+            },
+        )
+
+        mce_objects = [wu.metadata for wu in source.get_workunits()]
+        glue_stubber.assert_no_pending_responses()
+
+        write_metadata_file(tmp_path / "glue_mces_cross_account.json", mce_objects)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "glue_mces_cross_account.json",
+        golden_path=test_resources_dir / "glue_mces_cross_account_golden.json",
+    )
+
+
+def test_extract_urns_from_query_applies_target_platform_instance():
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            target_platform_configs={
+                "postgres": {"platform_instance": "pg_core", "env": "PROD"}
+            },
+        ),
+    )
+
+    urns = source._extract_urns_from_query(
+        query="SELECT * FROM public.orders",
+        platform="postgres",
+        database="mydb",
+        flow_urn="urn:li:dataFlow:(urn:li:dataPlatform:glue,flow,PROD)",
+        node_label="node-1",
+    )
+
+    assert urns is not None
+    # The configured platform_instance must be part of the parsed upstream URN so it matches the
+    # postgres connector's own URNs.
+    assert any("pg_core" in urn for urn in urns)
+
+
+@mock_aws
+def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
+    """End-to-end ingestion against a moto-backed Glue catalog.
+
+    The Stubber-based golden test feeds the source hand-written API responses; this test runs the
+    real boto3 -> Glue path so it proves the *wiring* the fix depends on:
+      1. the ``CatalogId`` the Glue API returns on each table drives ``platform_instance`` stamping
+         (the configured mapping is consulted, not just the source's own ``platform_instance``);
+      2. a Lake Formation resource link (``TargetTable``) emits a table-level upstream edge to the
+         *owner's* URN — stamped with the owner account's instance from the map; and
+      3. the resource link's schema is resolved from the owning table (here via the cross-account
+         glue:GetTable fallback, since no DataHub graph is wired in this test) so its columns are
+         visible on the ingested link dataset.
+    """
+    region = "us-east-1"
+    # moto stamps every table it returns with its default account, regardless of CatalogId; that
+    # account therefore stands in for the ingesting (consumer) catalog here.
+    consumer_account = "123456789012"
+    owner_account = "222222222222"
+
+    glue = boto3.client("glue", region_name=region)
+
+    # The owner-account table the resource link points at. It lives in its own database, excluded
+    # from this ingestion via database_pattern — it's only the target of the link's lineage edge.
+    glue.create_database(DatabaseInput={"Name": "owner_db"})
+    glue.create_table(
+        DatabaseName="owner_db",
+        TableInput={
+            "Name": "events_source",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "event_id", "Type": "bigint"},
+                    {"Name": "amount", "Type": "double"},
+                ],
+                "Location": "s3://owner-bucket/events",
+            },
+        },
+    )
+
+    # Consumer database: a normal table plus a Lake Formation resource link (no columns of its own).
+    glue.create_database(DatabaseInput={"Name": "analytics_db"})
+    glue.create_table(
+        DatabaseName="analytics_db",
+        TableInput={
+            "Name": "events",
+            "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+        },
+    )
+    glue.create_table(
+        DatabaseName="analytics_db",
+        TableInput={
+            "Name": "shared_events",
+            "TargetTable": {
+                "CatalogId": owner_account,
+                "DatabaseName": "owner_db",
+                "Name": "events_source",
+            },
+        },
+    )
+
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-moto-test"),
+        config=GlueSourceConfig(
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            aws_region=region,
+            platform_instance="ingestion_acct",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            database_pattern={"allow": ["analytics_db"]},
+            catalog_to_platform_instance={
+                f"arn:aws:glue:{region}:{consumer_account}": {
+                    "platform_instance": "consumer_inst"
+                },
+                f"arn:aws:glue:{region}:{owner_account}": {
+                    "platform_instance": "owner_inst"
+                },
+            },
+        ),
+    )
+
+    wus = list(source.get_workunits())
+
+    snapshot_urns = {
+        wu.metadata.proposedSnapshot.urn
+        for wu in wus
+        if isinstance(wu.metadata, models.MetadataChangeEventClass)
+    }
+
+    events_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.analytics_db.events,PROD)"
+    )
+    shared_events_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.analytics_db.shared_events,PROD)"
+    )
+    owner_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "owner_inst.owner_db.events_source,PROD)"
+    )
+
+    # (1) The mapping is consulted for the table's own CatalogId: tables are stamped with the mapped
+    # "consumer_inst", not the source's own "ingestion_acct". owner_db is excluded by the pattern,
+    # so it is never emitted as a dataset (it exists only as the lineage target).
+    assert events_urn in snapshot_urns
+    assert shared_events_urn in snapshot_urns
+    assert all("ingestion_acct" not in urn for urn in snapshot_urns)
+    assert all("owner_db" not in urn for urn in snapshot_urns)
+
+    # (2) The resource link stitches back to the owner account's URN via TargetTable.CatalogId.
+    upstreams = [
+        aspect
+        for wu in wus
+        if wu.get_urn() == shared_events_urn
+        for aspect in [wu.get_aspect_of_type(models.UpstreamLineageClass)]
+        if aspect is not None
+    ]
+    assert len(upstreams) == 1
+    assert [u.dataset for u in upstreams[0].upstreams] == [owner_urn]
+
+    # (3) The link's schema is resolved from the owning table (via cross-account glue:GetTable here)
+    # so its columns are visible on the ingested link dataset.
+    schemas = [
+        aspect
+        for wu in wus
+        if wu.get_urn() == shared_events_urn
+        for aspect in [wu.get_aspect_of_type(models.SchemaMetadataClass)]
+        if aspect is not None
+    ]
+    assert len(schemas) == 1
+    assert {f.fieldPath.split(".")[-1] for f in schemas[0].fields} == {
+        "event_id",
+        "amount",
+    }
+    assert source.report.num_resource_link_schema_from_glue == 1
 
 
 @pytest.mark.parametrize(

@@ -233,5 +233,11 @@
     "sidebar.viewDefinition.sectionTitle": "Definíció",
     "sidebar.viewDefinition.viewFullDefinitionLink": "Teljes definíció megtekintése >",
     "structuredPropertyBadge.descriptionLabel": "Leírás",
-    "structuredPropertyBadge.valueLabel": "Érték"
+    "structuredPropertyBadge.valueLabel": "Érték",
+    "sidebar.logical.andMoreCount": "és további {{count}}",
+    "sidebar.logical.childrenInfo": "Ennek a logikai modellnek a fizikai megvalósításai. Az eszköz metaadatainak módosításai automatikusan átöröklődnek ezekre a gyermekekre.",
+    "sidebar.logical.childrenTitle": "Fizikai gyermekek",
+    "sidebar.logical.parentInfo": "A logikai modell, amely meghatározza az eszköz metaadatait. A logikai szülő metaadatainak módosításai automatikusan átöröklődnek erre az eszközre.",
+    "sidebar.logical.parentTitle": "Logikai szülő",
+    "sidebar.logical.viewAllChildren": "Az összes fizikai gyermek megtekintése"
 }

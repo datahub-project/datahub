@@ -397,6 +397,18 @@ fragment autoCompleteFields on Entity {
             }
         }
     }
+    ... on Metric {
+        id
+        info {
+            name
+        }
+    }
+    ... on SemanticModel {
+        id
+        info {
+            name
+        }
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!, $skipSiblingsSearch: Boolean = false) {

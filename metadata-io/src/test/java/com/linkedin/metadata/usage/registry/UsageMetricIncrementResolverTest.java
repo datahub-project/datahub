@@ -24,7 +24,7 @@ public class UsageMetricIncrementResolverTest {
         new UsageMetricRegistryLoader(yamlMapper), java.util.List.of());
   }
 
-  private static RequestContext requestContextWithQuantity(int usageQuantity) {
+  private static RequestContext requestContextWithQuantity(long usageQuantity) {
     return RequestContext.builder()
         .actorUrn("urn:li:corpuser:test")
         .sourceIP("127.0.0.1")
@@ -153,7 +153,8 @@ public class UsageMetricIncrementResolverTest {
             UsageMetricRegistry.MergeKind.ADDITIVE,
             null,
             com.linkedin.metadata.usage.registry.metrics.ValueUnit.COST_UNITS,
-            UsageMetricRegistry.EmitWhen.COST_PROFILE);
+            UsageMetricRegistry.EmitWhen.COST_PROFILE,
+            java.util.Set.of());
     UsageOperationsRegistry ossOps =
         UsageOperationsRegistry.loadOssOnly(new UsageOperationsLoader(yamlMapper()));
     Assert.assertEquals(
@@ -170,7 +171,8 @@ public class UsageMetricIncrementResolverTest {
             UsageMetricRegistry.MergeKind.ADDITIVE,
             null,
             com.linkedin.metadata.usage.registry.metrics.ValueUnit.OUTPUT_BYTES,
-            UsageMetricRegistry.EmitWhen.ALWAYS);
+            UsageMetricRegistry.EmitWhen.ALWAYS,
+            java.util.Set.of());
     Assert.assertEquals(
         UsageMetricIncrementResolver.micrometerCounterName(metric),
         Optional.of(UsageMetricIncrementResolver.BILLED_BYTES_METRIC));
@@ -184,7 +186,8 @@ public class UsageMetricIncrementResolverTest {
             UsageMetricRegistry.MergeKind.DISTINCT,
             "usage_identity",
             com.linkedin.metadata.usage.registry.metrics.ValueUnit.COUNT,
-            UsageMetricRegistry.EmitWhen.ALWAYS);
+            UsageMetricRegistry.EmitWhen.ALWAYS,
+            java.util.Set.of());
     Assert.assertFalse(UsageMetricIncrementResolver.isSupported(metric));
   }
 
@@ -204,7 +207,8 @@ public class UsageMetricIncrementResolverTest {
             UsageMetricRegistry.MergeKind.ADDITIVE,
             null,
             com.linkedin.metadata.usage.registry.metrics.ValueUnit.INPUT_BYTES,
-            UsageMetricRegistry.EmitWhen.INGESTION_REQUEST);
+            UsageMetricRegistry.EmitWhen.INGESTION_REQUEST,
+            java.util.Set.of());
     UsageOperationsRegistry ossOps =
         UsageOperationsRegistry.loadOssOnly(new UsageOperationsLoader(yamlMapper()));
     RequestContext ingestContext =
@@ -263,6 +267,43 @@ public class UsageMetricIncrementResolverTest {
     Assert.assertFalse(
         UsageMetricIncrementResolver.shouldEmitDistinct(
             activeWriters, operationActivity, ossOps.require("other_operations")));
+  }
+
+  @Test
+  public void testApiCallsCountsAllRequestApis() {
+    UsageMetricRegistry registry = ossRegistry();
+    UsageMetricRegistry.MetricDefinition combined = registry.apiUsageMetrics().get("api_calls");
+    Assert.assertNotNull(combined);
+    Assert.assertTrue(combined.requestApis().isEmpty());
+
+    UsageOperationsRegistry.UsageOperationEntry entry =
+        new UsageOperationsRegistry.UsageOperationEntry(
+            io.datahubproject.metadata.context.usage.UsageOperation.METADATA_READ,
+            ActivityClass.READ,
+            false,
+            1,
+            java.util.Set.of());
+    RequestContext graphql =
+        RequestContext.builder()
+            .actorUrn("urn:li:corpuser:test")
+            .sourceIP("127.0.0.1")
+            .requestAPI(RequestContext.RequestAPI.GRAPHQL)
+            .requestID("test")
+            .userAgent("test")
+            .build();
+    RequestContext openapi =
+        RequestContext.builder()
+            .actorUrn("urn:li:corpuser:test")
+            .sourceIP("127.0.0.1")
+            .requestAPI(RequestContext.RequestAPI.OPENAPI)
+            .requestID("test")
+            .userAgent("test")
+            .build();
+
+    Assert.assertEquals(
+        UsageMetricIncrementResolver.resolveRequestPhaseIncrement(combined, entry, graphql), 1L);
+    Assert.assertEquals(
+        UsageMetricIncrementResolver.resolveRequestPhaseIncrement(combined, entry, openapi), 1L);
   }
 
   private static YAMLMapper yamlMapper() {

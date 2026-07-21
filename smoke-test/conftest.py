@@ -297,17 +297,13 @@ def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
         return
     if phase == "1":
         items[:] = [item for item in items if not _is_global_policy_mutator(item)]
-        logger.info(
-            "SMOKE_POLICY_PHASE=1: running %s non-mutator test(s)", len(items)
-        )
+        logger.info("SMOKE_POLICY_PHASE=1: running %s non-mutator test(s)", len(items))
         return
     if phase == "2":
         items[:] = [item for item in items if _is_global_policy_mutator(item)]
         logger.info("SMOKE_POLICY_PHASE=2: running %s mutator test(s)", len(items))
         return
-    logger.warning(
-        "Unknown SMOKE_POLICY_PHASE=%r; running all collected tests", phase
-    )
+    logger.warning("Unknown SMOKE_POLICY_PHASE=%r; running all collected tests", phase)
 
 
 def pytest_collection_modifyitems(

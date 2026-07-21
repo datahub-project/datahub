@@ -27,7 +27,10 @@ import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.LogicalParentFieldPathValidator;
+import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
+import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.UrlValidator;
@@ -525,6 +528,28 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.logicalParent.platformValidation.enabled",
+      havingValue = "true",
+      matchIfMissing = false)
+  public AspectPayloadValidator logicalParentPlatformValidator() {
+    return new LogicalParentPlatformValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(LogicalParentPlatformValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(LOGICAL_PARENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.aspectAuthorization.dataProductMembership.enabled",
       havingValue = "true",
       matchIfMissing = true)
@@ -823,6 +848,23 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  public AspectPayloadValidator logicalParentFieldPathValidator() {
+    return new LogicalParentFieldPathValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(LogicalParentFieldPathValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(SCHEMA_FIELD_ENTITY_NAME)
+                            .aspectName(LOGICAL_PARENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
   public com.linkedin.metadata.aspect.SystemAspectValidator aspectSizePayloadValidator(
       ConfigurationProvider configProvider,
       @Nullable com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
@@ -834,5 +876,22 @@ public class SpringStandardPluginConfiguration {
         config.getPrePatch(),
         config.getPostPatch());
     return validator;
+  }
+
+  @Bean
+  public AspectPayloadValidator serviceDefinitionLargeStringValidator() {
+    return new ServiceDefinitionLargeStringValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ServiceDefinitionLargeStringValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(SERVICE_ENTITY_NAME)
+                            .aspectName(SERVICE_DEFINITION_ASPECT_NAME)
+                            .build()))
+                .build());
   }
 }
