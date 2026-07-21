@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Union
 from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration._config_enum import ConfigEnum
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -277,6 +277,13 @@ class ODCSSourceConfig(
         default="{contract_id}.{schema_name}",
         description="Template for the logical `odcs` dataset name (the URN name segment). "
         "Available placeholders: `{contract_id}`, `{schema_name}`, `{contract_version}`.",
+    )
+    dataset_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex allow/deny patterns applied to the logical `odcs` dataset name "
+        "(as composed by `logical_dataset_name_template`, e.g. `{contract_id}.{schema_name}`). "
+        "Schema entries whose logical name does not match are skipped along with their "
+        "assertions and `logicalParent` link. Matched case-insensitively by default.",
     )
     file_extensions: List[str] = Field(
         default_factory=lambda: [".yaml", ".yml", ".odcs.yaml", ".odcs.yml"],

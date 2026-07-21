@@ -29,6 +29,12 @@ how to disable replication.
 - ODCS v3.0 and v3.1 are supported (any `3.0.x` patch level validates against the same
   v3.0.2 JSON Schema; `3.1.0` against the v3.1 schema). Contracts whose `apiVersion` reports
   v2.x — or any value outside `odcs_versions` — are skipped with a warning.
+- **Filter which datasets are ingested with `dataset_pattern`.** The allow/deny regexes
+  match the composed logical dataset name (`{contract_id}.{schema_name}`, per
+  `logical_dataset_name_template`). A non-matching `schema[]` entry is skipped along with its
+  assertions and `logicalParent` link, and recorded under `report.filtered`. Deny takes
+  precedence over allow. This is orthogonal to `path` globs, which filter by file location
+  rather than contract content.
 - **Assertions always attach to the logical dataset.** Quality rules and the
   schema-compliance assertion are emitted whether or not a physical table exists yet, so
   contract-first workflows keep their expectations. Propagation of those expectations onto

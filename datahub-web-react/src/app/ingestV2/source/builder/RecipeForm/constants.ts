@@ -293,7 +293,9 @@ import {
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingestV2/source/builder/RecipeForm/mysql';
 import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingestV2/source/builder/RecipeForm/notion';
 import {
+    ODCS_AWS_ACCESS_KEY_ID,
     ODCS_AWS_REGION,
+    ODCS_AWS_SECRET_ACCESS_KEY,
     ODCS_EMIT_ASSERTIONS,
     ODCS_EMIT_LOGICAL_PARENT,
     ODCS_EMIT_SCHEMA_ASSERTION,
@@ -305,6 +307,7 @@ import {
     ODCS_PATH,
     ODCS_REPLICATE_CONTRACT_METADATA,
     ODCS_SCHEMA_ASSERTION_COMPATIBILITY,
+    ODCS_SOURCE_LOCATION,
     ODCS_STRICT_VALIDATION,
     ODCS_TAG_PREFIX,
     ODCS_VERIFY_PHYSICAL_URNS_EXIST,
@@ -589,8 +592,19 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific Projects, Entries, and Entry Groups from ingestion.',
     },
     [ODCS]: {
-        fields: [ODCS_PATH],
-        filterFields: [],
+        fields: [
+            ODCS_PATH,
+            ODCS_SOURCE_LOCATION,
+            ODCS_GIT_INFO_REPO,
+            ODCS_GIT_INFO_BRANCH,
+            ODCS_GIT_INFO_DEPLOY_KEY,
+            ODCS_AWS_ACCESS_KEY_ID,
+            ODCS_AWS_SECRET_ACCESS_KEY,
+            ODCS_AWS_REGION,
+            ODCS_GCS_HMAC_KEY_ID,
+            ODCS_GCS_HMAC_KEY_SECRET,
+        ],
+        filterFields: [DATASET_ALLOW, DATASET_DENY],
         advancedFields: [
             ODCS_EMIT_ASSERTIONS,
             ODCS_EMIT_SCHEMA_ASSERTION,
@@ -600,12 +614,6 @@ export const RECIPE_FIELDS: RecipeFields = {
             ODCS_STRICT_VALIDATION,
             ODCS_REPLICATE_CONTRACT_METADATA,
             ODCS_TAG_PREFIX,
-            ODCS_GIT_INFO_REPO,
-            ODCS_GIT_INFO_BRANCH,
-            ODCS_GIT_INFO_DEPLOY_KEY,
-            ODCS_AWS_REGION,
-            ODCS_GCS_HMAC_KEY_ID,
-            ODCS_GCS_HMAC_KEY_SECRET,
             ENV,
             STATEFUL_INGESTION_ENABLED,
         ],

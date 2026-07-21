@@ -424,6 +424,37 @@ def test_multiple_files_emit_all_logical_datasets(
     assert src.report.logical_datasets_emitted == 2
 
 
+def test_dataset_pattern_filters_logical_datasets(tmp_path: pathlib.Path) -> None:
+    """A deny pattern drops the matching schema entry's logical dataset (and its
+    assertions / logicalParent), keeping the rest and recording it as filtered."""
+    body = _VALID_CONTRACT_BODY + (
+        "  - name: u\n"
+        "    physicalName: u\n"
+        "    properties:\n"
+        "      - name: id\n"
+        "        logicalType: number\n"
+    )
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        path=str(contract_file),
+        dataset_pattern={"deny": [r".*\.u$"]},
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert src.report.logical_datasets_emitted == 1
+    assert "test-contract-1.u" in src.report.filtered
+    odcs_urns = {
+        wu.metadata.entityUrn
+        for wu in workunits
+        if getattr(wu.metadata, "entityUrn", None)
+        and "urn:li:dataPlatform:odcs" in wu.metadata.entityUrn
+    }
+    assert any("test-contract-1.t," in urn for urn in odcs_urns)
+    assert not any("test-contract-1.u," in urn for urn in odcs_urns)
+
+
 def test_duplicate_physical_binding_warns(tmp_path: pathlib.Path) -> None:
     body2 = _VALID_CONTRACT_BODY.replace("id: test-contract-1", "id: test-contract-2")
     _write(tmp_path / "a.odcs.yaml", _VALID_CONTRACT_BODY)
