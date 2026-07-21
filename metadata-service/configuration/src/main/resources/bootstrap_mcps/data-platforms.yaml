@@ -369,6 +369,7 @@
     displayName: Open Data Contract Standard
     type: OTHERS
     logoUrl: "assets/platforms/odcslogo.png"
+    logical: true
 - entityUrn: urn:li:dataPlatform:OpenApi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
