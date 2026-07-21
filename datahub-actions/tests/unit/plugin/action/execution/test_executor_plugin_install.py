@@ -7,10 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.plugin.github_resolver import ResolvedGitSource, ResolvedWheel
-from datahub_actions.plugin.action.execution.executor_action import (
-    ExecutorAction,
-    _parse_json_list,
-)
+from datahub_actions.plugin.action.execution.executor_action import ExecutorAction
 
 RESOLVE_PATH = "datahub.plugin.github_resolver.resolve_github_spec"
 DOWNLOAD_PATH = "datahub.plugin.github_resolver.download_wheel"
@@ -58,7 +55,7 @@ class TestInstallExternalPlugins:
             ) as mock_dl,
         ):
             executor_action._install_external_plugins(args)
-            mock_dl.assert_called_once_with(fake)
+            mock_dl.assert_called_once_with(fake, expected_sha256=None)
 
         reqs = json.loads(args["extra_pip_requirements"])
         assert reqs == ["/tmp/datahub-plugin-xyz/a.whl"]
@@ -440,31 +437,3 @@ class TestPluginInstallAbortFlow:
         executor_action._handle_execution_request_input(event)
 
         executor_action.dispatcher.dispatch.assert_called_once()
-
-
-class TestParseJsonList:
-    """Direct tests for _parse_json_list covering all branches."""
-
-    def test_valid_json_list(self):
-        assert _parse_json_list('["a", "b"]') == ["a", "b"]
-
-    def test_empty_string_returns_empty(self):
-        assert _parse_json_list("") == []
-
-    def test_invalid_json_raises_value_error(self):
-        with pytest.raises(ValueError, match="must be a valid JSON array"):
-            _parse_json_list("{not valid json")
-
-    def test_non_list_json_raises_value_error(self):
-        with pytest.raises(ValueError, match="must be a JSON array, got dict"):
-            _parse_json_list('{"key": "value"}')
-
-    def test_json_string_raises_value_error(self):
-        """A JSON string (not array) is not a list."""
-        with pytest.raises(ValueError, match="must be a JSON array, got str"):
-            _parse_json_list('"just a string"')
-
-    def test_preserves_existing_items(self):
-        """Verifies existing requirements are preserved, not dropped."""
-        result = _parse_json_list('["sqlparse==0.4.3", "pandas"]')
-        assert result == ["sqlparse==0.4.3", "pandas"]

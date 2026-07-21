@@ -4,6 +4,7 @@ Uses the GitHub Releases API to find wheel assets attached to releases.
 Falls back to ``git+https://`` if no wheel is found.
 """
 
+import hashlib
 import logging
 import os
 import re
@@ -149,12 +150,20 @@ def resolve_github_spec(spec: str) -> Union[ResolvedWheel, ResolvedGitSource]:
     release = resp.json()
 
     tag = release.get("tag_name", parsed.version or "unknown")
-    version = tag.lstrip("v")
+    # Strip a single leading "v" prefix (v1.2.3 -> 1.2.3), not every leading
+    # "v" character as str.lstrip("v") would (it treats its arg as a char set).
+    version = tag[1:] if tag.startswith("v") else tag
 
     wheel = _find_wheel_asset(release.get("assets", []))
     if wheel is not None:
+        download_url = wheel.get("browser_download_url")
+        if not download_url:
+            raise ValueError(
+                f"Release {tag} wheel asset is missing a download URL; "
+                "the release asset may be malformed."
+            )
         return ResolvedWheel(
-            download_url=wheel["browser_download_url"],
+            download_url=download_url,
             version=version,
             asset_api_url=wheel.get("url"),
             asset_filename=wheel.get("name"),
@@ -172,12 +181,18 @@ def resolve_github_spec(spec: str) -> Union[ResolvedWheel, ResolvedGitSource]:
     )
 
 
-def download_wheel(resolved: ResolvedWheel) -> str:
+def download_wheel(
+    resolved: ResolvedWheel, *, expected_sha256: Optional[str] = None
+) -> str:
     """Download a wheel asset to a temp file, returning the local path.
 
     Uses the GitHub API with authentication so private repo assets
     can be fetched. Falls back to the browser_download_url for
     public repos or when no API URL is available.
+
+    When *expected_sha256* is provided (e.g. from a registry index entry),
+    the downloaded bytes are verified against it and a ``ValueError`` is
+    raised on mismatch, so a tampered or corrupted wheel is never installed.
     """
     headers = _github_headers()
 
@@ -205,14 +220,65 @@ def download_wheel(resolved: ResolvedWheel) -> str:
     tmp_dir = tempfile.mkdtemp(prefix="datahub-plugin-")
     local_path = os.path.join(tmp_dir, filename)
 
+    hasher = hashlib.sha256()
     try:
         with open(local_path, "wb") as f:
             for chunk in resp.iter_content(chunk_size=8192):
                 f.write(chunk)
+                hasher.update(chunk)
     except (OSError, requests.RequestException) as e:
         logger.warning("Failed to write wheel to %s: %s", local_path, e, exc_info=True)
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise
 
+    if expected_sha256:
+        actual_sha256 = hasher.hexdigest()
+        if actual_sha256.lower() != expected_sha256.lower():
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+            raise ValueError(
+                f"Checksum mismatch for {filename}: expected {expected_sha256}, "
+                f"got {actual_sha256}. The downloaded wheel does not match the "
+                "registry index; refusing to install."
+            )
+
     logger.info("Downloaded wheel to %s", local_path)
     return local_path
+
+
+def resolve_plugin_spec(
+    spec: str,
+    version: Optional[str] = None,
+    *,
+    expected_sha256: Optional[str] = None,
+) -> str:
+    """Resolve any plugin spec string to a single pip-installable target.
+
+    Shared by the ``datahub plugin install`` CLI and the actions executor so
+    both accept exactly one grammar:
+
+    - ``github:owner/repo[@version]`` — release wheel downloaded locally (with
+      auth, and sha256-verified when *expected_sha256* is given) or, if the
+      release has no wheel, a ``git+https://`` URL at the tag.
+    - ``pypi:package[==version]`` — an explicit PyPI requirement (the prefix the
+      UI/executor uses); the prefix is stripped and the rest passed to pip.
+    - ``/path/to/plugin.whl`` — a local wheel path, returned as-is.
+    - ``package[==version]`` — a bare pip requirement.
+    """
+    gh = GitHubSpec.parse(spec)
+    if gh is not None:
+        github_spec = f"github:{gh.owner}/{gh.repo}@{version}" if version else spec
+        resolved = resolve_github_spec(github_spec)
+        if isinstance(resolved, ResolvedWheel):
+            return download_wheel(resolved, expected_sha256=expected_sha256)
+        return resolved.download_url
+
+    # Explicit PyPI prefix and bare specs are both plain pip requirements.
+    if spec.startswith("pypi:"):
+        spec = spec[len("pypi:") :]
+
+    if os.path.isfile(spec) and spec.endswith(".whl"):
+        return spec
+
+    if version and "==" not in spec:
+        return f"{spec}=={version}"
+    return spec

@@ -1,6 +1,5 @@
 """Tests for the registry client."""
 
-import dataclasses
 import json
 import os
 import time
@@ -8,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from pydantic import ValidationError
 
 from datahub.plugin.plugin_config import PluginCapabilityType, RegistryConfig
 from datahub.plugin.registry_client import CACHE_DIR, CACHE_TTL_SECONDS, RegistryClient
@@ -185,7 +185,7 @@ class TestRegistryClient:
         assert results_a[0].registry_name == "reg-a"
         assert results_b[0].registry_name == "reg-a"
         # Frozen: mutation is not possible
-        with __import__("pytest").raises(dataclasses.FrozenInstanceError):
+        with pytest.raises(ValidationError):
             results_a[0].registry_name = "mutated"  # type: ignore
 
     def test_bearer_auth_missing_token_returns_empty(
@@ -260,3 +260,80 @@ class TestRegistryClient:
         finally:
             if os.path.isfile(cache_path):
                 os.remove(cache_path)
+
+    def test_corrupted_cache_is_removed_and_returns_empty(self) -> None:
+        """A cache file with invalid JSON is warned about, deleted, and yields []."""
+        registry = RegistryConfig(
+            name="corrupt-test", url="https://corrupt.example.com/index.json"
+        )
+        client = RegistryClient(registries=[registry])
+        cache_path = client._cache_path(registry)
+
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(cache_path, "w") as f:
+            f.write("{ this is not valid json")
+        try:
+            entries = client._load_cache(cache_path)
+            assert entries == []
+            assert not os.path.isfile(cache_path)  # corrupt cache removed
+        finally:
+            if os.path.isfile(cache_path):
+                os.remove(cache_path)
+
+    @patch("datahub.plugin.registry_client.requests.get")
+    def test_network_failure_no_cache_records_warning(
+        self, mock_get: MagicMock
+    ) -> None:
+        """When fetch fails and there is no cache, a fetch_warning is recorded."""
+        registry = RegistryConfig(
+            name="unreachable", url="https://unreachable.example.com/index.json"
+        )
+        client = RegistryClient(registries=[registry])
+        cache_path = client._cache_path(registry)
+        if os.path.isfile(cache_path):
+            os.remove(cache_path)
+
+        mock_get.side_effect = requests.ConnectionError("network down")
+
+        entries = client._fetch_index(registry)
+        assert entries == []
+        assert any("unreachable" in w for w in client.fetch_warnings)
+
+    @patch("datahub.plugin.registry_client.requests.get")
+    def test_fresh_cache_hit_skips_network(self, mock_get: MagicMock) -> None:
+        """A cache newer than the TTL is used without any network request."""
+        registry = RegistryConfig(
+            name="fresh-test", url="https://fresh.example.com/index.json"
+        )
+        client = RegistryClient(registries=[registry])
+        cache_path = client._cache_path(registry)
+
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(cache_path, "w") as f:
+            json.dump(
+                [{"id": "c", "repo": "o/c", "version": "1.0", "type": "source"}], f
+            )
+        # Fresh mtime (now) => within TTL.
+        try:
+            entries = client._fetch_index(registry)
+            assert len(entries) == 1
+            mock_get.assert_not_called()
+        finally:
+            if os.path.isfile(cache_path):
+                os.remove(cache_path)
+
+    @patch("datahub.plugin.registry_client.requests.get")
+    def test_fetch_warnings_deduplicated(self, mock_get: MagicMock) -> None:
+        """Re-fetching a failing registry does not pile up duplicate warnings."""
+        registry = RegistryConfig(
+            name="dup-test", url="https://dup.example.com/index.json"
+        )
+        client = RegistryClient(registries=[registry])
+        cache_path = client._cache_path(registry)
+        if os.path.isfile(cache_path):
+            os.remove(cache_path)
+
+        mock_get.side_effect = requests.ConnectionError("down")
+        client._fetch_index(registry)
+        client._fetch_index(registry)
+        assert len(client.fetch_warnings) == 1

@@ -8,44 +8,27 @@ import pytest
 
 from datahub.plugin.plugin_manager import (
     PluginManager,
-    _extract_package_name,
     _find_manifest_path_in_dist,
+    _package_name_from_target,
     _pip_cmd,
 )
 from tests.unit.plugin.conftest import make_discovered_plugin
 
 
-class TestExtractPackageName:
-    def test_extracts_from_pip_output(self) -> None:
-        output = (
-            "Collecting my-plugin==1.0.0\n"
-            "  Downloading my_plugin-1.0.0-py3-none-any.whl\n"
-            "Successfully installed my-plugin-1.0.0\n"
+class TestPackageNameFromTarget:
+    def test_wheel_filename(self) -> None:
+        assert (
+            _package_name_from_target("/tmp/x/my_plugin-1.0.0-py3-none-any.whl")
+            == "my_plugin"
         )
-        assert _extract_package_name(output) == "my-plugin"
 
-    def test_returns_none_for_empty_output(self) -> None:
-        assert _extract_package_name("") is None
+    def test_pip_spec_with_version(self) -> None:
+        assert _package_name_from_target("my-plugin==1.0.0") == "my-plugin"
 
-    def test_returns_none_for_no_success_line(self) -> None:
-        assert _extract_package_name("Collecting foo\nDownloading...") is None
-
-    def test_handles_multiple_packages(self) -> None:
-        output = "Successfully installed my-plugin-1.0.0 dep-a-2.0 dep-b-3.1.0\n"
-        assert _extract_package_name(output) == "my-plugin"
-
-    def test_extracts_from_uv_output(self) -> None:
-        output = (
-            "Resolved 3 packages in 50ms\n"
-            "Installed 1 package in 10ms\n"
-            " + my-plugin==1.0.0\n"
+    def test_git_url_returns_none(self) -> None:
+        assert (
+            _package_name_from_target("git+https://github.com/acme/src.git@v1") is None
         )
-        assert _extract_package_name(output) == "my-plugin"
-
-    def test_extracts_from_uv_output_with_multiple_packages(self) -> None:
-        output = " + my-plugin==1.0.0\n + dep-a==2.0\n"
-        # Returns the first package found
-        assert _extract_package_name(output) == "my-plugin"
 
 
 class TestPipCmd:
@@ -157,114 +140,57 @@ class TestDiscoverPlugins:
             manager.uninstall("nonexistent")
 
 
-class TestResolveSpec:
-    def test_resolve_spec_local_wheel(self, tmp_path: Path) -> None:
-        wheel_path = tmp_path / "my_plugin-1.2.3-py3-none-any.whl"
-        wheel_path.write_text("fake wheel content")
-
-        manager = PluginManager()
-        pip_target = manager._resolve_spec(str(wheel_path), None)
-        assert pip_target == str(wheel_path)
-
-    def test_resolve_spec_pip(self) -> None:
-        manager = PluginManager()
-        pip_target = manager._resolve_spec("my-datahub-plugin==2.0", None)
-        assert pip_target == "my-datahub-plugin==2.0"
-
-    def test_resolve_spec_pip_with_version(self) -> None:
-        manager = PluginManager()
-        pip_target = manager._resolve_spec("my-plugin", "3.0.0")
-        assert pip_target == "my-plugin==3.0.0"
-
-    def test_resolve_spec_pip_version_not_duplicated(self) -> None:
-        manager = PluginManager()
-        pip_target = manager._resolve_spec("my-plugin==2.0", "3.0.0")
-        # If spec already has ==, don't append version again
-        assert pip_target == "my-plugin==2.0"
-
-    @patch("datahub.plugin.plugin_manager.download_wheel", return_value="/tmp/a.whl")
-    @patch("datahub.plugin.plugin_manager.resolve_github_spec")
-    def test_resolve_spec_github_wheel(
-        self, mock_resolve: MagicMock, mock_download: MagicMock
-    ) -> None:
-        from datahub.plugin.github_resolver import ResolvedWheel
-
-        fake = ResolvedWheel(
-            download_url="https://github.com/acme/src/releases/download/v1.0/a.whl",
-            version="1.0",
-        )
-        mock_resolve.return_value = fake
-
-        manager = PluginManager()
-        pip_target = manager._resolve_spec("github:acme/src", None)
-
-        mock_resolve.assert_called_once_with("github:acme/src")
-        mock_download.assert_called_once_with(fake)
-        assert pip_target == "/tmp/a.whl"
-
-    @patch("datahub.plugin.plugin_manager.download_wheel")
-    @patch("datahub.plugin.plugin_manager.resolve_github_spec")
-    def test_resolve_spec_github_git_source(
-        self, mock_resolve: MagicMock, mock_download: MagicMock
-    ) -> None:
-        from datahub.plugin.github_resolver import ResolvedGitSource
-
-        fake = ResolvedGitSource(
-            download_url="git+https://github.com/acme/src.git@v2.0",
-            version="2.0",
-        )
-        mock_resolve.return_value = fake
-
-        manager = PluginManager()
-        pip_target = manager._resolve_spec("github:acme/src@v2.0", None)
-
-        mock_resolve.assert_called_once_with("github:acme/src@v2.0")
-        mock_download.assert_not_called()
-        assert pip_target == "git+https://github.com/acme/src.git@v2.0"
-
-    @patch("datahub.plugin.plugin_manager.download_wheel", return_value="/tmp/a.whl")
-    @patch("datahub.plugin.plugin_manager.resolve_github_spec")
-    def test_resolve_spec_github_version_override(
-        self, mock_resolve: MagicMock, mock_download: MagicMock
-    ) -> None:
-        from datahub.plugin.github_resolver import ResolvedWheel
-
-        fake = ResolvedWheel(
-            download_url="https://example.com/a.whl",
-            version="3.0",
-        )
-        mock_resolve.return_value = fake
-
-        manager = PluginManager()
-        manager._resolve_spec("github:acme/src@v1.0", "3.0")
-
-        # version override rewrites the spec
-        mock_resolve.assert_called_once_with("github:acme/src@3.0")
-
-
 class TestInstall:
-    @patch("datahub.plugin.plugin_manager._find_plugin_in_package")
+    @patch("datahub.plugin.plugin_manager.discover_plugins")
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
-    def test_install_success(
-        self, _mock_pip_cmd: MagicMock, mock_run: MagicMock, mock_find: MagicMock
+    def test_install_success_new_plugin_appears(
+        self, _mock_pip_cmd: MagicMock, mock_run: MagicMock, mock_discover: MagicMock
     ) -> None:
         mock_run.return_value = subprocess.CompletedProcess(
             args=["pip", "install", "my-plugin"],
             returncode=0,
-            stdout="Successfully installed my-plugin-1.0.0\n",
+            stdout="",
             stderr="",
         )
-        mock_find.return_value = make_discovered_plugin()
+        # Nothing before, one plugin after -> identified by the discovery diff.
+        mock_discover.side_effect = [{}, {"test-source": make_discovered_plugin()}]
 
         manager = PluginManager()
         result = manager.install("my-plugin")
         assert result.manifest.id == "test-source"
 
+    @patch("datahub.plugin.plugin_manager._find_plugin_in_package")
+    @patch("datahub.plugin.plugin_manager.discover_plugins", return_value={})
+    @patch("subprocess.run")
+    @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
+    def test_install_reinstall_no_new_id_uses_package_name(
+        self,
+        _mock_pip_cmd: MagicMock,
+        mock_run: MagicMock,
+        _mock_discover: MagicMock,
+        mock_find: MagicMock,
+    ) -> None:
+        # Reinstall: discovery is unchanged (no new id), so the plugin is found
+        # via the package name derived from the resolved target.
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["pip", "install", "my-plugin"], returncode=0, stdout="", stderr=""
+        )
+        mock_find.return_value = make_discovered_plugin()
+
+        manager = PluginManager()
+        result = manager.install("my-plugin==1.0")
+        assert result.manifest.id == "test-source"
+        mock_find.assert_called_once_with("my-plugin")
+
+    @patch("datahub.plugin.plugin_manager.discover_plugins", return_value={})
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
     def test_install_timeout(
-        self, _mock_pip_cmd: MagicMock, mock_run: MagicMock
+        self,
+        _mock_pip_cmd: MagicMock,
+        mock_run: MagicMock,
+        _mock_discover: MagicMock,
     ) -> None:
         mock_run.side_effect = subprocess.TimeoutExpired(cmd=["pip"], timeout=300)
 
@@ -272,10 +198,14 @@ class TestInstall:
         with pytest.raises(RuntimeError, match="timed out"):
             manager.install("slow-plugin")
 
+    @patch("datahub.plugin.plugin_manager.discover_plugins", return_value={})
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
     def test_install_pip_failure(
-        self, _mock_pip_cmd: MagicMock, mock_run: MagicMock
+        self,
+        _mock_pip_cmd: MagicMock,
+        mock_run: MagicMock,
+        _mock_discover: MagicMock,
     ) -> None:
         mock_run.return_value = subprocess.CompletedProcess(
             args=["pip", "install", "bad-plugin"],
@@ -288,23 +218,57 @@ class TestInstall:
         with pytest.raises(RuntimeError, match="pip command failed"):
             manager.install("bad-plugin")
 
-    @patch("datahub.plugin.plugin_manager._find_plugin_in_package")
+    @patch("datahub.plugin.plugin_manager._find_plugin_in_package", return_value=None)
+    @patch("datahub.plugin.plugin_manager.discover_plugins", return_value={})
     @patch("subprocess.run")
     @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
     def test_install_missing_manifest(
-        self, _mock_pip_cmd: MagicMock, mock_run: MagicMock, mock_find: MagicMock
+        self,
+        _mock_pip_cmd: MagicMock,
+        mock_run: MagicMock,
+        _mock_discover: MagicMock,
+        _mock_find: MagicMock,
     ) -> None:
+        # No new plugin discovered and no manifest for the package -> error.
         mock_run.return_value = subprocess.CompletedProcess(
             args=["pip", "install", "no-manifest-plugin"],
             returncode=0,
-            stdout="Successfully installed no-manifest-plugin-1.0.0\n",
+            stdout="",
             stderr="",
         )
-        mock_find.return_value = None
 
         manager = PluginManager()
         with pytest.raises(ValueError, match="datahub-plugin.yaml"):
             manager.install("no-manifest-plugin")
+
+    @patch("datahub.plugin.github_resolver.download_wheel")
+    @patch("datahub.plugin.github_resolver.resolve_github_spec")
+    @patch("datahub.plugin.plugin_manager.discover_plugins")
+    @patch("subprocess.run")
+    @patch("datahub.plugin.plugin_manager._pip_cmd", return_value=["pip"])
+    def test_install_threads_sha256_to_download(
+        self,
+        _mock_pip_cmd: MagicMock,
+        mock_run: MagicMock,
+        mock_discover: MagicMock,
+        mock_resolve: MagicMock,
+        mock_download: MagicMock,
+    ) -> None:
+        from datahub.plugin.github_resolver import ResolvedWheel
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["pip"], returncode=0, stdout="", stderr=""
+        )
+        mock_discover.side_effect = [{}, {"test-source": make_discovered_plugin()}]
+        mock_resolve.return_value = ResolvedWheel(
+            download_url="https://example.com/a.whl", version="1.0"
+        )
+        mock_download.return_value = "/tmp/a.whl"
+
+        PluginManager().install("github:acme/src", expected_sha256="abc123")
+
+        # The expected checksum reaches download_wheel for verification.
+        assert mock_download.call_args.kwargs["expected_sha256"] == "abc123"
 
 
 class TestUninstall:

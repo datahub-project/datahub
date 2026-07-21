@@ -24,12 +24,7 @@ if sys.version_info < (3, 10):
 else:
     from importlib.metadata import distributions
 
-from datahub.plugin.github_resolver import (
-    GitHubSpec,
-    ResolvedWheel,
-    download_wheel,
-    resolve_github_spec,
-)
+from datahub.plugin.github_resolver import resolve_plugin_spec
 from datahub.plugin.plugin_config import (
     MANIFEST_FILENAME,
     DiscoveredPlugin,
@@ -203,50 +198,38 @@ def discover_plugins() -> Dict[str, DiscoveredPlugin]:
     return result
 
 
+def _normalize_pkg(name: str) -> str:
+    """Normalize a package name for comparison (PEP 503-ish)."""
+    return name.lower().replace("-", "_")
+
+
 def _find_plugin_in_package(package_name: str) -> Optional[DiscoveredPlugin]:
-    """Find a datahub plugin manifest in a specific installed package."""
-    importlib.invalidate_caches()
-
-    normalized = package_name.lower().replace("-", "_")
-    for dist in distributions():
-        if dist.name and dist.name.lower().replace("-", "_") == normalized:
-            try:
-                return _load_plugin_from_dist(dist)
-            except _MANIFEST_LOAD_ERRORS:
-                logger.warning(
-                    "Failed to load plugin manifest from %s",
-                    package_name,
-                    exc_info=True,
-                )
-                return None
+    """Find a datahub plugin whose installed package matches *package_name*."""
+    normalized = _normalize_pkg(package_name)
+    for plugin in discover_plugins().values():
+        if _normalize_pkg(plugin.package_name) == normalized:
+            return plugin
     return None
 
 
-_PIP_PKG_VERSION_RE = re.compile(r"^(.+)-\d")
+# Splits a pip requirement / wheel filename down to its package name, e.g.
+# "my-plugin==1.0" -> "my-plugin", "my_plugin-1.0-py3-none-any.whl" -> "my_plugin".
+_PKG_NAME_SPLIT_RE = re.compile(r"[=<>!~\[; ]")
 
 
-def _extract_package_name(pip_output: str) -> Optional[str]:
-    """Extract the installed package name from pip/uv install stdout.
+def _package_name_from_target(pip_target: str) -> Optional[str]:
+    """Best-effort package name from a resolved pip target, for reinstall lookup.
 
-    Handles both output formats:
-    - pip: ``Successfully installed my-plugin-1.0.0``
-    - uv:  `` + my-plugin==1.0.0``
+    Reliable for wheels and pip specs; returns ``None`` for git URLs (whose
+    package name isn't known until pip resolves them).
     """
-    for line in pip_output.splitlines():
-        stripped = line.strip()
-
-        # uv format: " + my-plugin==1.0.0"
-        if stripped.startswith("+ ") and "==" in stripped:
-            return stripped[2:].split("==")[0]
-
-        # pip format: "Successfully installed my-plugin-1.0.0"
-        if stripped.startswith("Successfully installed"):
-            parts = stripped.split()
-            if len(parts) >= 3:
-                m = _PIP_PKG_VERSION_RE.match(parts[2])
-                return m.group(1) if m else parts[2]
-
-    return None
+    if pip_target.endswith(".whl"):
+        # Wheel filename convention: {name}-{version}-{python}-{abi}-{platform}.whl
+        return os.path.basename(pip_target).split("-")[0] or None
+    if pip_target.startswith(("git+", "http://", "https://")):
+        return None
+    name = _PKG_NAME_SPLIT_RE.split(pip_target, maxsplit=1)[0].strip()
+    return name or None
 
 
 class PluginManager:
@@ -258,6 +241,8 @@ class PluginManager:
         self,
         spec: str,
         version: Optional[str] = None,
+        *,
+        expected_sha256: Optional[str] = None,
     ) -> DiscoveredPlugin:
         """Install a plugin from a spec string.
 
@@ -267,49 +252,39 @@ class PluginManager:
         - pip install spec (``my-datahub-plugin==1.0``)
 
         Installs directly into the current Python environment via pip.
+        When *expected_sha256* is supplied (e.g. from a registry index entry),
+        a downloaded wheel is verified against it before installation.
         """
-        pip_target = self._resolve_spec(spec, version)
-        result = _run_pip(["install", pip_target], timeout=300)
+        pip_target = resolve_plugin_spec(spec, version, expected_sha256=expected_sha256)
 
-        # Determine the package name from pip output
-        package_name = _extract_package_name(result.stdout)
-        if package_name is None:
-            package_name = (
-                os.path.basename(pip_target).split("-")[0]
-                if os.path.isfile(pip_target)
-                else spec.replace(":", "_").replace("/", "_")
-            )
+        # Identify what got installed by diffing plugin discovery around the
+        # install. Dependencies never carry a datahub-plugin.yaml, so they don't
+        # appear here — sidestepping the fragility of parsing pip/uv stdout.
+        before = set(discover_plugins())
+        _run_pip(["install", pip_target], timeout=300)
+        after = discover_plugins()
+        new_ids = set(after) - before
 
-        # Find the manifest via importlib.metadata
-        plugin = _find_plugin_in_package(package_name)
+        plugin: Optional[DiscoveredPlugin]
+        if len(new_ids) == 1:
+            plugin = after[next(iter(new_ids))]
+        else:
+            # Zero new ids => reinstall of an already-present plugin; several =>
+            # a bundle providing multiple plugins. In both cases fall back to the
+            # package name derived from the resolved target.
+            package_name = _package_name_from_target(pip_target)
+            plugin = _find_plugin_in_package(package_name) if package_name else None
+            if plugin is None and new_ids:
+                plugin = after[sorted(new_ids)[0]]
+
         if plugin is None:
             raise ValueError(
-                f"Plugin package does not contain a {MANIFEST_FILENAME}. "
+                f"Installed package does not contain a {MANIFEST_FILENAME}. "
                 "Ensure the package includes a datahub-plugin.yaml file."
             )
 
         logger.info("Installed plugin %s@%s", plugin.manifest.id, plugin.version)
         return plugin
-
-    def _resolve_spec(self, spec: str, version: Optional[str]) -> str:
-        """Return the pip install target string."""
-        # 1) GitHub spec -- download wheel locally so auth works for private repos
-        gh = GitHubSpec.parse(spec)
-        if gh is not None:
-            github_spec = f"github:{gh.owner}/{gh.repo}@{version}" if version else spec
-            resolved = resolve_github_spec(github_spec)
-            if isinstance(resolved, ResolvedWheel):
-                return download_wheel(resolved)
-            return resolved.download_url
-
-        # 2) Local wheel file
-        if os.path.isfile(spec) and spec.endswith(".whl"):
-            return spec
-
-        # 3) Pip spec (e.g. "my-plugin==1.0")
-        if version and "==" not in spec:
-            return f"{spec}=={version}"
-        return spec
 
     # ------------------------------------------------------------------
     # Uninstall

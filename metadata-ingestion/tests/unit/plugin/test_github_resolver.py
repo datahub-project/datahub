@@ -1,6 +1,8 @@
 """Tests for the GitHub resolver."""
 
+import hashlib
 import os
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,6 +14,7 @@ from datahub.plugin.github_resolver import (
     _resolve_github_token,
     download_wheel,
     resolve_github_spec,
+    resolve_plugin_spec,
 )
 
 
@@ -38,11 +41,9 @@ class TestGitHubSpec:
     def test_parse_no_owner(self) -> None:
         assert GitHubSpec.parse("github:just-repo") is None
 
-    def test_rejects_empty_owner(self) -> None:
+    def test_rejects_empty_owner_or_repo(self) -> None:
         with pytest.raises(ValueError, match="owner must not be empty"):
             GitHubSpec(owner="", repo="my-repo", version=None)
-
-    def test_rejects_empty_repo(self) -> None:
         with pytest.raises(ValueError, match="repo must not be empty"):
             GitHubSpec(owner="acme", repo="  ", version=None)
 
@@ -51,14 +52,6 @@ class TestResolvedDataclassValidation:
     def test_resolved_wheel_rejects_empty_url(self) -> None:
         with pytest.raises(ValueError, match="download_url must not be empty"):
             ResolvedWheel(download_url="", version="1.0")
-
-    def test_resolved_wheel_rejects_empty_version(self) -> None:
-        with pytest.raises(ValueError, match="version must not be empty"):
-            ResolvedWheel(download_url="https://example.com/a.whl", version="")
-
-    def test_resolved_git_source_rejects_empty_url(self) -> None:
-        with pytest.raises(ValueError, match="download_url must not be empty"):
-            ResolvedGitSource(download_url="", version="1.0")
 
     def test_resolved_git_source_rejects_empty_version(self) -> None:
         with pytest.raises(ValueError, match="version must not be empty"):
@@ -124,14 +117,48 @@ class TestResolveGithubSpec:
         result = resolve_github_spec("github:acme/plugin@v1.5.0")
         assert result.version == "1.5.0"
 
+    @patch("datahub.plugin.github_resolver._resolve_github_token", return_value=None)
     @patch("datahub.plugin.github_resolver.requests.get")
-    def test_resolve_404(self, mock_get: MagicMock) -> None:
+    def test_resolve_404_without_token_hints_private_repo(
+        self, mock_get: MagicMock, _mock_token: MagicMock
+    ) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 404
         mock_get.return_value = mock_response
 
-        with pytest.raises(ValueError, match="No releases found"):
+        with pytest.raises(ValueError, match="private repository"):
             resolve_github_spec("github:acme/nonexistent")
+
+    @patch(
+        "datahub.plugin.github_resolver._resolve_github_token", return_value="a-token"
+    )
+    @patch("datahub.plugin.github_resolver.requests.get")
+    def test_resolve_404_with_token_omits_private_hint(
+        self, mock_get: MagicMock, _mock_token: MagicMock
+    ) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_get.return_value = mock_response
+
+        with pytest.raises(ValueError) as exc_info:
+            resolve_github_spec("github:acme/nonexistent")
+        assert "private repository" not in str(exc_info.value)
+
+    @patch("datahub.plugin.github_resolver.requests.get")
+    def test_resolve_wheel_missing_download_url_raises(
+        self, mock_get: MagicMock
+    ) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "tag_name": "v1.0.0",
+            "assets": [{"name": "plugin-1.0.0-py3-none-any.whl"}],  # no download URL
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        with pytest.raises(ValueError, match="missing a download URL"):
+            resolve_github_spec("github:acme/plugin")
 
     def test_resolve_invalid_spec(self) -> None:
         with pytest.raises(ValueError, match="Invalid GitHub plugin spec"):
@@ -304,3 +331,100 @@ class TestDownloadWheel:
             pytest.raises(ValueError, match="not found"),
         ):
             download_wheel(resolved)
+
+    def test_verifies_matching_sha256(self) -> None:
+        content = b"PK\x03\x04valid-wheel-bytes"
+        expected = hashlib.sha256(content).hexdigest()
+        resolved = ResolvedWheel(
+            download_url="https://example.com/a.whl",
+            version="1.0",
+            asset_filename="a.whl",
+        )
+        mock_resp = MagicMock()
+        mock_resp.iter_content.return_value = [content]
+        mock_resp.raise_for_status = MagicMock()
+
+        with (
+            patch(
+                "datahub.plugin.github_resolver.requests.get", return_value=mock_resp
+            ),
+            patch(
+                "datahub.plugin.github_resolver._resolve_github_token",
+                return_value=None,
+            ),
+        ):
+            path = download_wheel(resolved, expected_sha256=expected)
+
+        assert os.path.isfile(path)
+        os.unlink(path)
+        os.rmdir(os.path.dirname(path))
+
+    def test_rejects_mismatched_sha256_and_cleans_up(self) -> None:
+        resolved = ResolvedWheel(
+            download_url="https://example.com/a.whl",
+            version="1.0",
+            asset_filename="a.whl",
+        )
+        mock_resp = MagicMock()
+        mock_resp.iter_content.return_value = [b"tampered-bytes"]
+        mock_resp.raise_for_status = MagicMock()
+
+        with (
+            patch(
+                "datahub.plugin.github_resolver.requests.get", return_value=mock_resp
+            ),
+            patch(
+                "datahub.plugin.github_resolver._resolve_github_token",
+                return_value=None,
+            ),
+            pytest.raises(ValueError, match="[Cc]hecksum mismatch"),
+        ):
+            download_wheel(resolved, expected_sha256="00" * 32)
+
+
+class TestResolvePluginSpec:
+    def test_local_wheel_path(self, tmp_path: Path) -> None:
+        wheel = tmp_path / "my_plugin-1.2.3-py3-none-any.whl"
+        wheel.write_text("fake")
+        assert resolve_plugin_spec(str(wheel)) == str(wheel)
+
+    def test_bare_pip_spec(self) -> None:
+        assert resolve_plugin_spec("my-plugin==2.0") == "my-plugin==2.0"
+
+    def test_bare_pip_spec_with_version(self) -> None:
+        assert resolve_plugin_spec("my-plugin", "3.0.0") == "my-plugin==3.0.0"
+
+    def test_version_not_duplicated_when_spec_pinned(self) -> None:
+        assert resolve_plugin_spec("my-plugin==2.0", "3.0.0") == "my-plugin==2.0"
+
+    def test_pypi_prefix_stripped(self) -> None:
+        assert resolve_plugin_spec("pypi:my-plugin==1.0") == "my-plugin==1.0"
+
+    @patch("datahub.plugin.github_resolver.download_wheel", return_value="/tmp/a.whl")
+    @patch("datahub.plugin.github_resolver.resolve_github_spec")
+    def test_github_wheel(
+        self, mock_resolve: MagicMock, mock_download: MagicMock
+    ) -> None:
+        fake = ResolvedWheel(download_url="https://example.com/a.whl", version="1.0")
+        mock_resolve.return_value = fake
+
+        result = resolve_plugin_spec("github:acme/src", expected_sha256="abc")
+
+        mock_resolve.assert_called_once_with("github:acme/src")
+        assert mock_download.call_args.kwargs["expected_sha256"] == "abc"
+        assert result == "/tmp/a.whl"
+
+    @patch("datahub.plugin.github_resolver.download_wheel")
+    @patch("datahub.plugin.github_resolver.resolve_github_spec")
+    def test_github_git_source(
+        self, mock_resolve: MagicMock, mock_download: MagicMock
+    ) -> None:
+        fake = ResolvedGitSource(
+            download_url="git+https://github.com/acme/src.git@v2.0", version="2.0"
+        )
+        mock_resolve.return_value = fake
+
+        result = resolve_plugin_spec("github:acme/src@v2.0")
+
+        mock_download.assert_not_called()
+        assert result == "git+https://github.com/acme/src.git@v2.0"

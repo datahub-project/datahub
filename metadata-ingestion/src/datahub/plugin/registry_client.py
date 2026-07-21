@@ -4,7 +4,6 @@ Indexes are JSON files hosted at configurable URLs (typically a raw file in
 a GitHub repo). The client caches them locally with a configurable TTL.
 """
 
-import dataclasses
 import json
 import logging
 import os
@@ -13,6 +12,13 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 import requests
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+)
 
 from datahub.plugin.plugin_config import (
     PLUGINS_DIR,
@@ -34,14 +40,20 @@ CACHE_DIR = os.path.join(PLUGINS_DIR, ".index_cache")
 CACHE_TTL_SECONDS = 3600  # 1 hour
 
 
-@dataclass(frozen=True)
-class PluginIndexEntry:
-    """A single plugin listed in a registry index."""
+class PluginIndexEntry(BaseModel):
+    """A single plugin listed in a registry index.
+
+    Parsed with pydantic so enum fields (``type``, ``trust_tier``) are actually
+    validated and coerced at construction, not merely annotated. Unknown keys in
+    the index JSON are ignored so the schema can evolve without breaking reads.
+    """
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
 
     id: str
     repo: str
     version: str
-    type: PluginCapabilityType
+    type: PluginCapabilityType = PluginCapabilityType.SOURCE
     description: str = ""
     author: str = ""
     sha256: Optional[str] = None
@@ -51,13 +63,12 @@ class PluginIndexEntry:
     icon_url: Optional[str] = None
     recipe_template: Optional[str] = None
 
-    def __post_init__(self) -> None:
-        if not self.id:
-            raise ValueError("PluginIndexEntry.id must not be empty")
-        if not self.repo:
-            raise ValueError("PluginIndexEntry.repo must not be empty")
-        if not self.version:
-            raise ValueError("PluginIndexEntry.version must not be empty")
+    @field_validator("id", "repo", "version")
+    @classmethod
+    def _not_empty(cls, v: str, info: ValidationInfo) -> str:
+        if not v:
+            raise ValueError(f"PluginIndexEntry.{info.field_name} must not be empty")
+        return v
 
 
 @dataclass
@@ -71,6 +82,11 @@ class RegistryClient:
         if not self.registries:
             config = PluginSystemConfig.load()
             self.registries = config.registries or [DEFAULT_COMMUNITY_REGISTRY]
+
+    def _add_warning(self, msg: str) -> None:
+        """Record a fetch warning, de-duplicated (fetches repeat per search)."""
+        if msg not in self.fetch_warnings:
+            self.fetch_warnings.append(msg)
 
     def _get_enabled_entries(
         self,
@@ -99,7 +115,9 @@ class RegistryClient:
                 or query_lower in entry.description.lower()
                 or query_lower in entry.author.lower()
             ):
-                results.append(dataclasses.replace(entry, registry_name=registry.name))
+                results.append(
+                    entry.model_copy(update={"registry_name": registry.name})
+                )
 
         return results
 
@@ -107,7 +125,7 @@ class RegistryClient:
         """Find a plugin by exact ID across all registries."""
         for registry, entry in self._get_enabled_entries():
             if entry.id == plugin_id:
-                return dataclasses.replace(entry, registry_name=registry.name)
+                return entry.model_copy(update={"registry_name": registry.name})
         return None
 
     def list_all(
@@ -147,7 +165,7 @@ class RegistryClient:
                     "Skipping this registry. Set the env var and try again."
                 )
                 logger.warning(msg)
-                self.fetch_warnings.append(msg)
+                self._add_warning(msg)
                 return []
 
         try:
@@ -172,7 +190,7 @@ class RegistryClient:
                 "and no cached data is available."
             )
             logger.warning(msg)
-            self.fetch_warnings.append(msg)
+            self._add_warning(msg)
             return []
 
         # Write cache
@@ -231,22 +249,8 @@ class RegistryClient:
                 logger.debug("Skipping non-dict index entry: %s", type(item).__name__)
                 continue
             try:
-                entries.append(
-                    PluginIndexEntry(
-                        id=item["id"],
-                        repo=item["repo"],
-                        version=item["version"],
-                        type=PluginCapabilityType(item.get("type", "source")),
-                        description=item.get("description", ""),
-                        author=item.get("author", ""),
-                        sha256=item.get("sha256"),
-                        trust_tier=TrustTier(item.get("trust_tier", "community")),
-                        display_name=item.get("display_name", ""),
-                        icon_url=item.get("icon_url"),
-                        recipe_template=item.get("recipe_template"),
-                    )
-                )
-            except (KeyError, TypeError, ValueError):
+                entries.append(PluginIndexEntry.model_validate(item))
+            except ValidationError:
                 logger.warning("Skipping invalid index entry: %s", item, exc_info=True)
 
         return entries

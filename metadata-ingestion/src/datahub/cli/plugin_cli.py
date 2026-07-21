@@ -596,17 +596,12 @@ def _try_import_entry_point(entry_point: str) -> Optional[type]:
     Supports both 'module.path:ClassName' and 'module.path.ClassName' formats.
     Returns the class on success, None on failure.
     """
-    import importlib
+    # Reuse the framework's canonical importer — it handles both formats, nested
+    # attributes, and adds cwd to sys.path (needed for `pip install -e .` dev).
+    from datahub.ingestion.api.registry import import_path
 
     try:
-        if ":" in entry_point:
-            module_path, class_name = entry_point.split(":", 1)
-        else:
-            module_path, class_name = entry_point.rsplit(".", 1)
-
-        module = importlib.import_module(module_path)
-        cls = getattr(module, class_name)
-        return cls
+        return import_path(entry_point)
     except Exception as e:
         logger.debug("Failed to import entry point %s: %s", entry_point, e)
         return None

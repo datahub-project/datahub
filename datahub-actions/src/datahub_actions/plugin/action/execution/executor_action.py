@@ -30,33 +30,16 @@ from acryl.executor.request.signal_request import SignalRequest
 from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.metadata.schema_classes import MetadataChangeLogClass
+from datahub.plugin.github_resolver import resolve_plugin_spec
 from datahub.secret.datahub_secret_store import DataHubSecretStoreConfig
 from datahub.secret.secret_store import SecretStoreConfig
+from datahub.utilities.ingest_utils import parse_json_list
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 
 logger = logging.getLogger(__name__)
-
-
-def _parse_json_list(raw: str, field_name: str = "value") -> List[str]:
-    """Parse a JSON string as a list of strings.
-
-    Delegates to datahub.utilities.ingest_utils.parse_json_list when available,
-    with a minimal fallback for environments where the import path differs.
-    """
-    try:
-        from datahub.utilities.ingest_utils import parse_json_list
-
-        return parse_json_list(raw, field_name)
-    except ImportError:
-        if not raw or not raw.strip():
-            return []
-        parsed = json.loads(raw)
-        if not isinstance(parsed, list) or not all(isinstance(s, str) for s in parsed):
-            raise ValueError(f"{field_name} must be a JSON array of strings") from None
-        return parsed
 
 
 DATAHUB_EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest"
@@ -291,44 +274,19 @@ class ExecutorAction(Action):
 
     @staticmethod
     def _resolve_single_spec(spec: str, existing_reqs: List[str]) -> Optional[str]:
-        """Resolve one plugin spec and append the result to *existing_reqs*.
+        """Resolve one plugin spec and append the pip target to *existing_reqs*.
 
-        Supported spec formats:
-        - ``github:owner/repo`` or ``github:owner/repo@version`` — resolved via GitHub API
-        - ``pypi:package-name`` or ``pypi:package-name==version`` — passed directly to pip
+        Uses the shared ``resolve_plugin_spec`` grammar so the executor accepts
+        exactly what the ``datahub plugin install`` CLI does: ``github:owner/repo``
+        (wheel downloaded locally with auth, or git+https), ``pypi:package[==ver]``,
+        and bare pip specs.
 
         Returns an error string on failure, or ``None`` on success.
         """
         try:
-            if spec.startswith("pypi:"):
-                # PyPI packages are pip-installable directly
-                pip_req = spec[len("pypi:") :]
-                logger.info("Resolved %s -> pip requirement: %s", spec, pip_req)
-                existing_reqs.append(pip_req)
-            else:
-                from datahub.plugin.github_resolver import (
-                    ResolvedWheel,
-                    download_wheel,
-                    resolve_github_spec,
-                )
-
-                resolved = resolve_github_spec(spec)
-                is_wheel = isinstance(resolved, ResolvedWheel)
-                logger.info(
-                    "Resolved %s -> %s (version=%s, wheel=%s)",
-                    spec,
-                    resolved.download_url,
-                    resolved.version,
-                    is_wheel,
-                )
-                # uv/pip can't send GitHub auth headers on its own,
-                # so download wheels locally with auth for private repos.
-                # Use isinstance directly (not the is_wheel bool) so mypy narrows the type.
-                if isinstance(resolved, ResolvedWheel):
-                    local_path = download_wheel(resolved)
-                    existing_reqs.append(local_path)
-                else:
-                    existing_reqs.append(resolved.download_url)
+            pip_target = resolve_plugin_spec(spec)
+            logger.info("Resolved %s -> %s", spec, pip_target)
+            existing_reqs.append(pip_target)
         except Exception as e:
             logger.error("Failed to resolve external plugin: %s", spec, exc_info=True)
             return f"{spec}: {e}"
@@ -366,7 +324,7 @@ class ExecutorAction(Action):
             return
 
         try:
-            existing_reqs = _parse_json_list(
+            existing_reqs = parse_json_list(
                 args.get("extra_pip_requirements", ""), "extra_pip_requirements"
             )
         except ValueError:

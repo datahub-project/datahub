@@ -1,5 +1,6 @@
 """Tests for PluginRegistry integration with the plugin loader."""
 
+import abc
 import unittest.mock
 from unittest.mock import MagicMock
 
@@ -20,6 +21,13 @@ class FakePlugin(FakeBase):
     """A concrete plugin class."""
 
     pass
+
+
+class AbstractPlugin(FakeBase, abc.ABC):
+    """An abstract plugin class (should never be accepted)."""
+
+    @abc.abstractmethod
+    def run(self) -> None: ...
 
 
 class FakeRegistry(PluginRegistry[FakeBase]):
@@ -58,8 +66,10 @@ class TestRegistryPluginLoaderFallback:
             assert result2 is FakePlugin
             loader.try_load.assert_not_called()
 
-    def test_loader_class_fails_type_check_not_cached(self) -> None:
-        """When type check fails, class is returned but NOT cached."""
+    def test_loader_class_type_check_tolerated_and_cached(self) -> None:
+        """A type-check failure we can't attribute to a wrong type (here the base
+        type isn't resolvable, mirroring the import-identity case) is tolerated
+        and cached, so a valid-but-differently-imported class still loads."""
         loader = MagicMock()
         loader.try_load.return_value = FakePlugin
 
@@ -68,17 +78,64 @@ class TestRegistryPluginLoaderFallback:
             registry_type=PluginCapabilityType.SOURCE,
         )
 
-        # _check_cls fails naturally in test environment (typing_inspect
-        # can't resolve FakeRegistry[FakeBase] generic args).
+        # _check_cls fails naturally (FakeRegistry's generic arg isn't resolvable
+        # by typing_inspect), and the base type can't be resolved either.
         result = registry.get("my-plugin")
         assert result is FakePlugin
         loader.try_load.assert_called_once_with("my-plugin", "source")
 
-        # Second call goes back to loader since it wasn't cached
+        # Second call is served from the cache — the loader is not re-consulted.
         loader.reset_mock()
         result2 = registry.get("my-plugin")
         assert result2 is FakePlugin
-        loader.try_load.assert_called_once()
+        loader.try_load.assert_not_called()
+
+    def test_loader_wrong_type_raises_configuration_error(self) -> None:
+        """An external class that is genuinely not the registry's base type is
+        rejected up front with a ConfigurationError, not returned."""
+        loader = MagicMock()
+        loader.try_load.return_value = FakePlugin
+
+        registry = FakeRegistry(
+            plugin_loader=loader,
+            registry_type=PluginCapabilityType.SOURCE,
+        )
+
+        class Unrelated:
+            pass
+
+        with (
+            unittest.mock.patch.object(
+                registry, "_check_cls", side_effect=ValueError("not derived")
+            ),
+            unittest.mock.patch.object(
+                registry, "_get_registered_type", return_value=Unrelated
+            ),
+        ):
+            with pytest.raises(ConfigurationError, match="not a valid"):
+                registry.get("my-plugin")
+
+    def test_loader_abstract_class_raises_configuration_error(self) -> None:
+        """An abstract external class is rejected even if it shares the base's
+        name in its MRO (the import-identity waiver never covers abstract)."""
+        loader = MagicMock()
+        loader.try_load.return_value = AbstractPlugin
+
+        registry = FakeRegistry(
+            plugin_loader=loader,
+            registry_type=PluginCapabilityType.SOURCE,
+        )
+
+        with (
+            unittest.mock.patch.object(
+                registry, "_check_cls", side_effect=ValueError("abstract")
+            ),
+            unittest.mock.patch.object(
+                registry, "_get_registered_type", return_value=FakeBase
+            ),
+        ):
+            with pytest.raises(ConfigurationError):
+                registry.get("abstract-plugin")
 
     def test_loader_returns_none_raises_key_error(self) -> None:
         """When the loader returns None, the registry raises KeyError."""
