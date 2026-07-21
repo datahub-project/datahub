@@ -90,7 +90,7 @@ public class BatchIngestionRunResource
       throws Exception {
 
       Authentication auth = AuthenticationContext.getAuthentication();
-      final OperationContext opContext = OperationContext.asSession(
+      final OperationContext opContext = RestliUtils.asSession(
               systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "rollback", List.of()).withUsageOperation(UsageOperation.OTHER_OPERATIONS), authorizer, auth, true);
 
 
@@ -142,7 +142,7 @@ public class BatchIngestionRunResource
 
     Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext =
-        OperationContext.asSession(
+        RestliUtils.asSession(
             systemOperationContext,
             RequestContext.builder()
                 .buildRestli(auth.getActor().toUrnStr(), getContext(), "list", List.of())
@@ -179,7 +179,7 @@ public class BatchIngestionRunResource
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     final OperationContext opContext =
-        OperationContext.asSession(
+        RestliUtils.asSession(
             systemOperationContext,
             RequestContext.builder()
                 .buildRestli(

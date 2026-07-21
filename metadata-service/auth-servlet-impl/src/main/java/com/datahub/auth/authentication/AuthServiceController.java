@@ -166,9 +166,13 @@ public class AuthServiceController {
     log.info(
         "Attempting to generate session token for userRef={}",
         LoginIdentityMask.mask(userId.asText()));
+    final Optional<Authentication> maybeAuth = AuthenticationContext.maybeAuthentication();
+    if (maybeAuth.isEmpty()) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     recordUsageSession(
         httpEntity.getHeaders(), "generateSessionTokenForUser", UsageOperation.OTHER_WRITE);
-    final Authentication authentication = AuthenticationContext.getAuthentication();
+    final Authentication authentication = maybeAuth.get();
     final String actorId = authentication.getActor().getId();
     final String actorUrn = authentication.getActor().toUrnStr();
     final OperationContext opContext =
@@ -302,7 +306,12 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
+    final Optional<Authentication> maybeAuth = AuthenticationContext.maybeAuthentication();
+    if (maybeAuth.isEmpty()) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     recordUsageSession(httpEntity.getHeaders(), "signUp", UsageOperation.OTHER_WRITE);
+    final Authentication auth = maybeAuth.get();
 
     String userUrnString = userUrn.asText();
     String systemClientUser =
@@ -317,7 +326,6 @@ public class AuthServiceController {
     String titleString = title == null ? null : title.asText();
     String passwordString = password.asText();
     String inviteTokenString = inviteToken.asText();
-    final Authentication auth = AuthenticationContext.getAuthentication();
     log.info("Attempting to create native user {}", userUrnString);
     final OperationContext opContext =
         OperationContext.asSession(
@@ -390,9 +398,13 @@ public class AuthServiceController {
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
     String resetTokenString = resetToken.asText();
-    final Authentication auth = AuthenticationContext.getAuthentication();
+    final Optional<Authentication> maybeAuth = AuthenticationContext.maybeAuthentication();
+    if (maybeAuth.isEmpty()) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     recordUsageSession(
         httpEntity.getHeaders(), "resetNativeUserCredentials", UsageOperation.OTHER_WRITE);
+    final Authentication auth = maybeAuth.get();
     log.info("Attempting to reset credentials for native user {}", userUrnString);
     final OperationContext opContext =
         OperationContext.asSession(
@@ -457,9 +469,13 @@ public class AuthServiceController {
 
     String userUrnString = userUrn.asText();
     String passwordString = password.asText();
-    final Authentication auth = AuthenticationContext.getAuthentication();
+    final Optional<Authentication> maybeAuth = AuthenticationContext.maybeAuthentication();
+    if (maybeAuth.isEmpty()) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     recordUsageSession(
         httpEntity.getHeaders(), "verifyNativeUserCredentials", UsageOperation.OTHER_READ);
+    final Authentication auth = maybeAuth.get();
     log.info(
         "Attempting to verify credentials for native userRef={}",
         LoginIdentityMask.mask(userUrnString));
@@ -597,11 +613,15 @@ public class AuthServiceController {
   @PostMapping(value = "/getSsoSettings", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> getSsoSettings(
       final HttpServletRequest request, final HttpEntity<String> httpEntity) {
-    final Authentication auth = AuthenticationContext.getAuthentication();
+    final Optional<Authentication> maybeAuth = AuthenticationContext.maybeAuthentication();
+    if (maybeAuth.isEmpty()) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
+    }
     recordUsageSession(
         httpEntity != null ? httpEntity.getHeaders() : null,
         "getSsoSettings",
         UsageOperation.OTHER_READ);
+    final Authentication auth = maybeAuth.get();
     final OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,

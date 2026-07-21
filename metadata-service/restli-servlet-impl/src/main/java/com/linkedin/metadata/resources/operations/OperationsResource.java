@@ -107,7 +107,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam("lePitEpochMs") @Optional @Nullable Long lePitEpochMs,
       @ActionParam("createDefaultAspects") @Optional @Nullable Boolean createDefaultAspects) {
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_RESTORE_INDICES).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
@@ -136,7 +136,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_TASK_ID) @Optional("0") long taskId,
       @ActionParam(PARAM_TASK) @Optional String task) {
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_GET_ES_TASK_STATUS).withUsageOperation(UsageOperation.OTHER_READ), _authorizer, auth, true);
 
@@ -199,7 +199,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   @WithSpan
   public Task<TimeseriesIndicesSizesResult> getIndexSizes() {
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_GET_INDEX_SIZES, List.of()).withUsageOperation(UsageOperation.OTHER_READ), _authorizer, auth, true);
 
@@ -319,7 +319,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_FORCE_DELETE_BY_QUERY) @Optional @Nullable Boolean forceDeleteByQuery,
       @ActionParam(PARAM_FORCE_REINDEX) @Optional @Nullable Boolean forceReindex) {
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_TRUNCATE_TIMESERIES_ASPECT, entityType).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,

@@ -123,7 +123,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     Urn urn = UrnUtils.getUrn(rawUrn);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "getRelationships", urn.getEntityType()).withUsageOperation(UsageOperation.LINEAGE_QUERY), _authorizer, auth, true);
 
@@ -173,7 +173,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     Urn urn = Urn.createFromString(rawUrn);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "deleteRelationships", urn.getEntityType()).withUsageOperation(UsageOperation.ENTITY_DELETE), _authorizer, auth, true);
 
@@ -202,7 +202,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     final Urn urn = Urn.createFromString(urnStr);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "getLineage", urn.getEntityType()).withUsageOperation(UsageOperation.LINEAGE_QUERY), _authorizer, auth, true);
 

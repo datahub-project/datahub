@@ -223,7 +223,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final Urn urn = Urn.createFromString(urnStr);
 
     Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "restrictedService", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), authorizer, auth, true);
 
@@ -264,7 +264,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "batchGet", urnStrs).withUsageOperation(UsageOperation.METADATA_READ), authorizer, auth, true);
 
@@ -301,7 +301,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
     final Urn urn = com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue());
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
                     ACTION_INGEST, urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_INGEST), authorizer, authentication, true);
 
@@ -347,7 +347,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<Urn> urns = Arrays.stream(entities)
             .map(Entity::getValue)
             .map(com.datahub.util.ModelUtils::getUrnFromSnapshotUnion).collect(Collectors.toList());
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr,
                     getContext(), ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList()))
                 .withUsageOperation(UsageOperation.METADATA_INGEST)
@@ -409,7 +409,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(systemOperationContext,
+    OperationContext opContext = RestliUtils.asSession(systemOperationContext,
                     RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_SEARCH, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true)
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(Boolean.TRUE.equals(fulltext)));
 
@@ -460,7 +460,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                             ACTION_SEARCH_ACROSS_ENTITIES, entities).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true)
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
@@ -518,7 +518,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                             ACTION_SCROLL_ACROSS_ENTITIES, entities).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true)
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
@@ -581,7 +581,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags)
       throws URISyntaxException {
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                             ACTION_SEARCH_ACROSS_LINEAGE, entities).withUsageOperation(UsageOperation.LINEAGE_QUERY), authorizer, auth, true)
             .withSearchFlags(flags -> (searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true))
@@ -643,7 +643,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throws URISyntaxException {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), ACTION_SCROLL_ACROSS_LINEAGE, entities).withUsageOperation(UsageOperation.LINEAGE_QUERY),
                     authorizer, auth, true)
             .withSearchFlags(flags -> (searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true))
@@ -700,7 +700,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) @Nullable Integer count) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                             ACTION_LIST, entityName).withUsageOperation(UsageOperation.METADATA_READ), authorizer, auth, true)
             .withSearchFlags(flags -> new SearchFlags().setFulltext(false));
@@ -743,7 +743,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                             ACTION_AUTOCOMPLETE, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true)
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
@@ -780,7 +780,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                             ACTION_BROWSE, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true)
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
@@ -816,7 +816,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_GET_BROWSE_PATHS, urn.getEntityType()).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true);
 
@@ -870,7 +870,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     String finalRegistryName1 = registryName;
     ComparableVersion finalRegistryVersion1 = registryVersion;
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "deleteAll", List.of()).withUsageOperation(UsageOperation.ENTITY_DELETE), authorizer, auth, true);
     return RestliUtils.toTask(opContext,
@@ -891,10 +891,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               aspectRowsToDelete.stream()
                   .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
                   .keySet();
-          // Second asSession call is intentional: the target URNs are only known after
-          // findByRegistry returns, so the authorization check here uses a context that
-          // includes the actual URN set rather than the empty List.of() used above.
-          OperationContext authContext = OperationContext.asSession(
+          // Second session is intentional: target URNs are only known after findByRegistry resolves,
+          // so entity-level authz runs against the resolved URN set. Uses the captured `auth` local.
+          OperationContext authContext = RestliUtils.asSession(
                   systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                           "deleteAll", urns).withUsageOperation(UsageOperation.ENTITY_DELETE), authorizer, auth, true);
           if (!isAPIAuthorizedEntityUrns(
@@ -945,7 +944,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Urn urn = Urn.createFromString(urnStr);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_DELETE, urn.getEntityType()).withUsageOperation(UsageOperation.ENTITY_DELETE), authorizer, auth, true);
 
@@ -1013,7 +1012,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     long totalNumberOfDocsDeleted = 0;
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "deleteTimeseriesAspects", urn.getEntityType()).withUsageOperation(UsageOperation.ASPECT_DELETE), authorizer, auth, true);
 
@@ -1070,7 +1069,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Urn urn = Urn.createFromString(urnStr);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "deleteReferences", urn.getEntityType()).withUsageOperation(UsageOperation.ENTITY_DELETE), authorizer, auth, true);
 
@@ -1097,7 +1096,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_VALUE) @Optional("true") @Nonnull Boolean value) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "setWriteable").withUsageOperation(UsageOperation.OTHER_OPERATIONS), authorizer, auth, true);
 
@@ -1121,7 +1120,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<Long> getTotalEntityCount(@ActionParam(PARAM_ENTITY) @Nonnull String entityName) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "getTotalEntityCount", entityName).withUsageOperation(UsageOperation.METADATA_READ), authorizer, auth, true);
 
@@ -1141,7 +1140,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<LongMap> batchGetTotalEntityCount(
       @ActionParam(PARAM_ENTITIES) @Nonnull String[] entityNames) {
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "batchGetTotalEntityCount", entityNames).withUsageOperation(UsageOperation.METADATA_READ), authorizer, auth, true);
 
@@ -1166,7 +1165,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       throws URISyntaxException {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_LIST_URNS, entityName).withUsageOperation(UsageOperation.METADATA_READ), authorizer, auth, true);
 
@@ -1207,7 +1206,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_APPLY_RETENTION, resourceSpec.getType()).withUsageOperation(UsageOperation.OTHER_OPERATIONS), authorizer, auth, true);
 
@@ -1236,7 +1235,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) @Nullable Integer count) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_FILTER, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true);
 
@@ -1273,7 +1272,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Urn urn = UrnUtils.getUrn(urnStr);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    OperationContext opContext = OperationContext.asSession(
+    OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_EXISTS, urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), authorizer, auth, true);
     if (!isAPIAuthorizedEntityUrns(
@@ -1308,7 +1307,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext =
-        OperationContext.asSession(
+        RestliUtils.asSession(
             systemOperationContext,
             RequestContext.builder()
                 .buildRestli(

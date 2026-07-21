@@ -730,6 +730,74 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertEquals("RS256", jsonNode.get("preferredJwsAlgorithm").asText());
   }
 
+  @Test
+  public void testGenerateSessionTokenForUserMissingAuthReturnsUnauthorized() throws Exception {
+    AuthenticationContext.remove();
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userId", "testUser");
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(request, httpEntity).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+  }
+
+  @Test
+  public void testSignUpMissingAuthReturnsUnauthorized() throws Exception {
+    AuthenticationContext.remove();
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", "urn:li:corpuser:testUser");
+    requestBody.put("fullName", "Test User");
+    requestBody.put("email", "test@example.com");
+    requestBody.put("title", "Engineer");
+    requestBody.put("password", "password");
+    requestBody.put("inviteToken", "token");
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response = authServiceController.signUp(request, httpEntity).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+  }
+
+  @Test
+  public void testResetNativeUserCredentialsMissingAuthReturnsUnauthorized() throws Exception {
+    AuthenticationContext.remove();
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", "urn:li:corpuser:testUser");
+    requestBody.put("password", "password");
+    requestBody.put("resetToken", "token");
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.resetNativeUserCredentials(request, httpEntity).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+  }
+
+  @Test
+  public void testVerifyNativeUserCredentialsMissingAuthReturnsUnauthorized() throws Exception {
+    AuthenticationContext.remove();
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userUrn", "urn:li:corpuser:testUser");
+    requestBody.put("password", "password");
+    HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
+
+    ResponseEntity<String> response =
+        authServiceController.verifyNativeUserCredentials(request, httpEntity).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+  }
+
+  @Test
+  public void testGetSsoSettingsMissingAuthReturnsUnauthorized() throws Exception {
+    AuthenticationContext.remove();
+
+    ResponseEntity<String> response = authServiceController.getSsoSettings(request, null).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+  }
+
   /*
   @Test
   public void testTrackSuccess() throws Exception {

@@ -145,7 +145,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     log.debug("GET ASPECT urn: {} aspect: {} version: {}", urnStr, aspectName, version);
     final Urn urn = Urn.createFromString(urnStr);
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     "get", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
@@ -193,7 +193,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         limit);
     final Urn urn = Urn.createFromString(urnStr);
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
@@ -281,7 +281,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     Set<String> entityTypes = metadataChangeProposals.stream()
                                                      .map(MetadataChangeProposal::getEntityType)
                                                      .collect(Collectors.toSet());
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
               systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
                     ACTION_INGEST_PROPOSAL, entityTypes)
                   .withUsageOperation(UsageOperation.METADATA_INGEST)
@@ -339,7 +339,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_ASPECT) @Nonnull String aspectName,
       @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike) {
     final Authentication authentication = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
                     getContext(), ACTION_GET_COUNT).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, authentication, true);
     return RestliUtils.toTask(opContext,
@@ -372,7 +372,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     final Authentication authentication = AuthenticationContext.getAuthentication();
     // Session opContext for privilege check + usage; passed into Utils.restoreIndices (no nested
     // asSession, no silent systemOperationContext).
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
                     getContext(), ACTION_RESTORE_INDICES).withUsageOperation(UsageOperation.OTHER_OPERATIONS), _authorizer, authentication, true);
     return RestliUtils.toTask(opContext,
