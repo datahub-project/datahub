@@ -10,6 +10,7 @@ public enum LoginDenialReason {
   SOFT_DELETED,
   SUSPENDED,
   INVALID_CREDENTIALS,
+  TOO_MANY_FAILED_ATTEMPTS,
   /**
    * Corp user key exists but the user is not sufficiently provisioned for login (e.g. key-only or
    * missing corp profile aspects). Implies the URN has at least a key record in metadata.

@@ -40,5 +40,17 @@ public class AuthenticationConfiguration {
   /** The lifespan of a password reset token in milliseconds. Defaults to 24 hours. */
   private long passwordResetTokenExpirationMs;
 
+  /**
+   * Maximum consecutive failed native login attempts before DataHub temporarily locks the account.
+   * A value less than or equal to zero disables lockout.
+   */
+  private int maxFailedLoginAttempts;
+
+  /**
+   * Duration of the temporary lockout after the failed native login threshold is reached. A value
+   * less than or equal to zero disables lockout.
+   */
+  private long failedLoginLockoutDurationMs;
+
   private TokenServiceConfiguration tokenService;
 }
