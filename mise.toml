@@ -9,4 +9,4 @@ yarn = "1.22.22"
 
 [tasks.regenerate-pre-commit]
 description = "Regenerate the pre-commit configuration to add new/removed projects"
-run = "python3 .github/scripts/generate_pre_commit.py"
+run = "python3 .github/scripts/pre-commit/generate_pre_commit.py"

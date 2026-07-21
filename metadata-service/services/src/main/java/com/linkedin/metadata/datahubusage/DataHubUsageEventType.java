@@ -171,7 +171,11 @@ public enum DataHubUsageEventType {
   INGESTION_ENTER_SYNC_SCHEDULE_EVENT("IngestionEnterSyncScheduleEvent"),
   INGESTION_EXIT_CONFIGURATION_EVENT("IngestionExitConfigurationEvent"),
   CLOSE_CREATE_SOURCE_EDUCATION_MODAL_EVENT("CloseCreateSourceEducationModalEvent"),
-  IMPORT_DOCUMENTS_EVENT("ImportDocumentsEvent");
+  IMPORT_DOCUMENTS_EVENT("ImportDocumentsEvent"),
+  GO_TO_LOGICAL_PARENT_EVENT("GoToLogicalParentEvent"),
+  GO_TO_PHYSICAL_CHILD_EVENT("GoToPhysicalChildEvent"),
+  GO_TO_LOGICAL_PARENT_COLUMN_EVENT("GoToLogicalParentColumnEvent"),
+  GO_TO_PHYSICAL_CHILD_COLUMN_EVENT("GoToPhysicalChildColumnEvent");
 
   private final String type;
 

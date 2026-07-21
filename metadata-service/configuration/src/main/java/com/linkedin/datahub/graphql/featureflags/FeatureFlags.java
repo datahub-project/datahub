@@ -50,7 +50,7 @@ public class FeatureFlags {
   private boolean showProductUpdates = false;
   private String productUpdatesJsonUrl;
   private String productUpdatesJsonFallbackResource;
-  private boolean logicalModelsEnabled = false;
+  private boolean logicalModelsEnabled = true;
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;

@@ -161,5 +161,11 @@
     "tagTermRenderer.externalPlatformTooltip": "Vissa Tags hämtades från {{platform}}. De synkroniseras om regelbundet under schemalagd Ingestion.",
     "tagTermRenderer.tagsNotEditable": "Vissa Tags kan inte redigeras.",
     "usageStatsRenderer.hasColumnStats": "Har kolumnstatistik",
-    "usageStatsRenderer.noColumnStats": "Ingen kolumnstatistik"
+    "usageStatsRenderer.noColumnStats": "Ingen kolumnstatistik",
+    "fieldLogical.andMore": "och {{count}} till",
+    "fieldLogical.logicalParentInfo": "Kolumn i den logiska modellen som definierar den här kolumnens metadata. Ändringar i den logiska överordnades kolumnmetadata propageras automatiskt till den här kolumnen.",
+    "fieldLogical.logicalParentTitle": "Logisk överordnad",
+    "fieldLogical.physicalChildrenInfo": "Fysiska implementationer av den här logiska modellkolumnen. Ändringar i den här kolumnens metadata propageras automatiskt till dessa underordnade kolumner.",
+    "fieldLogical.physicalChildrenTitle": "Fysiska underordnade",
+    "fieldLogical.viewAllPhysicalChildren": "Visa alla fysiska underordnade"
 }
