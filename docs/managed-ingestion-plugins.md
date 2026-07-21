@@ -257,15 +257,15 @@ schema can grow without breaking older clients.
 }
 ```
 
-| Field          | Required | Description                                                                 |
-| -------------- | -------- | --------------------------------------------------------------------------- |
-| `id`           | Yes      | Plugin id used by `datahub plugin install <id>` and shown in `search`       |
-| `repo`         | Yes      | `owner/repo` of the plugin's GitHub repository (each entry can differ)       |
-| `version`      | Yes      | Release version (resolves the matching git tag, with or without a `v`)      |
-| `type`         | No       | `source`, `sink`, or `transformer` (default `source`)                       |
-| `sha256`       | No       | Checksum of the release wheel; verified at install time when present        |
-| `trust_tier`   | No       | `community` (default), `verified`, or `official` — shown as a badge         |
-| `description` / `author` / `display_name` / `icon_url` / `recipe_template` | No | Display metadata for `search` and the ingestion UI |
+| Field                                                                      | Required | Description                                                            |
+| -------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------- |
+| `id`                                                                       | Yes      | Plugin id used by `datahub plugin install <id>` and shown in `search`  |
+| `repo`                                                                     | Yes      | `owner/repo` of the plugin's GitHub repository (each entry can differ) |
+| `version`                                                                  | Yes      | Release version (resolves the matching git tag, with or without a `v`) |
+| `type`                                                                     | No       | `source`, `sink`, or `transformer` (default `source`)                  |
+| `sha256`                                                                   | No       | Checksum of the release wheel; verified at install time when present   |
+| `trust_tier`                                                               | No       | `community` (default), `verified`, or `official` — shown as a badge    |
+| `description` / `author` / `display_name` / `icon_url` / `recipe_template` | No       | Display metadata for `search` and the ingestion UI                     |
 
 Because each entry names its own `repo`, one index in a single GitHub repo can
 point to any number of separate plugin repositories. You can also configure

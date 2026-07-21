@@ -419,11 +419,13 @@ class TestPluginInstallAbortFlow:
             "entityUrn": f"urn:li:dataHubExecutionRequest:{exec_id}",
             "entityKeyAspect": None,
             "aspect": MagicMock(
-                get=lambda k: json.dumps(
-                    {"task": "RUN_INGEST", "executorId": "default", "args": args}
+                get=lambda k: (
+                    json.dumps(
+                        {"task": "RUN_INGEST", "executorId": "default", "args": args}
+                    )
+                    if k == "value"
+                    else "application/json"
                 )
-                if k == "value"
-                else "application/json"
             ),
         }.get(key)
         return event
