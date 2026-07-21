@@ -68,6 +68,8 @@ public class FeatureFlags {
   private boolean i18nEnabled = true;
   private boolean timeseriesAspectBatchLoadEnabled = true;
   private boolean timeseriesAspectAggBatchLoadEnabled = true;
+  // Batches IngestionSource.executions(start:0, count:1) via terms+top_hits instead of N filters.
+  private boolean ingestionSourceExecutionsBatchLoadEnabled = true;
   // Enables browser-side (RUM) OpenTelemetry tracing in the React app. When on, the SPA emits spans
   // (page load, route changes, fetch/GraphQL) that propagate W3C traceparent to the frontend and
   // correlate with backend spans. Spans are exported through the frontend's /otel/v1/traces proxy.

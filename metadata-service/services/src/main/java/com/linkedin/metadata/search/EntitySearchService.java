@@ -9,8 +9,10 @@ import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -150,6 +152,49 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size);
+
+  /**
+   * For each distinct groupField value, returns the latest matching documents (by sortCriteria)
+   * plus the total matching count for that value.
+   *
+   * <p>Default implementation issues one {@link #filter} call per distinct value. Search backends
+   * may override with a batched aggregation query. Missing keys mean no matches for that value.
+   *
+   * @param entityName name of the entity
+   * @param groupField field to group by (e.g. ingestionSource)
+   * @param groupValues values of groupField to resolve
+   * @param sortCriteria sort criteria used to pick the "latest" documents
+   * @param latestCount number of latest documents to return per group value
+   * @return map of groupField value → SearchResult (from=0, pageSize=latestCount); absent keys =
+   *     zero matches
+   */
+  @Nonnull
+  default Map<String, SearchResult> filterLatestByValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String groupField,
+      @Nonnull List<String> groupValues,
+      List<SortCriterion> sortCriteria,
+      int latestCount) {
+    Map<String, SearchResult> results = new HashMap<>();
+    if (groupValues.isEmpty() || latestCount < 1) {
+      return results;
+    }
+    for (String value : groupValues.stream().distinct().collect(Collectors.toList())) {
+      SearchResult result =
+          filter(
+              opContext,
+              entityName,
+              QueryUtils.newFilter(groupField, value),
+              sortCriteria,
+              0,
+              latestCount);
+      if (result != null && result.getNumEntities() > 0) {
+        results.put(value, result);
+      }
+    }
+    return results;
+  }
 
   /**
    * Returns a list of suggestions given type ahead query.

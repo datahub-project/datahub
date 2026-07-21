@@ -666,6 +666,33 @@ public class JavaEntityClient implements EntityClient {
         entityService);
   }
 
+  @Nonnull
+  @Override
+  public Map<String, SearchResult> filterLatestByValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entity,
+      @Nonnull String groupField,
+      @Nonnull List<String> groupValues,
+      List<SortCriterion> sortCriteria,
+      int latestCount)
+      throws RemoteInvocationException {
+    Map<String, SearchResult> raw =
+        entitySearchService.filterLatestByValues(
+            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            entity,
+            groupField,
+            groupValues,
+            sortCriteria,
+            latestCount);
+    Map<String, SearchResult> validated = new HashMap<>();
+    for (Map.Entry<String, SearchResult> entry : raw.entrySet()) {
+      validated.put(
+          entry.getKey(),
+          ValidationUtils.validateSearchResult(opContext, entry.getValue(), entityService));
+    }
+    return validated;
+  }
+
   @Override
   public boolean exists(@Nonnull OperationContext opContext, @Nonnull Urn urn)
       throws RemoteInvocationException {

@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 
 import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.X_CONTENT_REGISTRY;
 import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.URN_FIELD;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.datahub.util.exception.ESQueryException;
@@ -17,13 +18,20 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
@@ -31,6 +39,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -38,8 +47,10 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -60,14 +71,27 @@ import org.opensearch.client.core.CountRequest;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.metrics.ParsedTopHits;
+import org.opensearch.search.aggregations.metrics.TopHitsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.SortBuilder;
 
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
 @RequiredArgsConstructor
 @Accessors(chain = true)
 public class ESSearchDAO {
+
+  static final String GROUP_BUCKETS_AGG = "group_buckets";
+  static final String LATEST_TOP_HITS_AGG = "latest";
+  private static final int MAX_LATEST_COUNT = 100;
+  private static final int MAX_GROUP_VALUES = 1000;
 
   private final SearchClientShim<?> client;
   private final boolean pointInTimeCreationEnabled;
@@ -406,6 +430,183 @@ public class ESSearchDAO {
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
     return executeAndExtract(
         opContext, List.of(entitySpec), searchRequest, transformedFilters, from, size);
+  }
+
+  /**
+   * For each distinct groupField value, returns the latest matching documents (by sortCriteria)
+   * plus the total matching count for that value, using a single terms + top_hits aggregation.
+   *
+   * <p>Falls back to per-value {@link #filter} when {@code latestCount} or group cardinality
+   * exceeds safe limits, or when the aggregation query fails. Missing keys mean no matches.
+   */
+  @Nonnull
+  public Map<String, SearchResult> filterLatestByValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String groupField,
+      @Nonnull List<String> groupValues,
+      List<SortCriterion> sortCriteria,
+      int latestCount) {
+    List<String> distinctValues =
+        groupValues.stream().filter(Objects::nonNull).distinct().collect(Collectors.toList());
+    if (distinctValues.isEmpty() || latestCount < 1) {
+      return Map.of();
+    }
+    if (latestCount > MAX_LATEST_COUNT || distinctValues.size() > MAX_GROUP_VALUES) {
+      log.warn(
+          "filterLatestByValues falling back to per-value filter: latestCount={}, groupValues={}",
+          latestCount,
+          distinctValues.size());
+      return filterLatestByValuesFallback(
+          opContext, entityName, groupField, distinctValues, sortCriteria, latestCount);
+    }
+
+    try {
+      return executeFilterLatestByValues(
+          opContext, entityName, groupField, distinctValues, sortCriteria, latestCount);
+    } catch (Exception e) {
+      log.error(
+          "filterLatestByValues aggregation failed for entity={} groupField={}; falling back",
+          entityName,
+          groupField,
+          e);
+      return filterLatestByValuesFallback(
+          opContext, entityName, groupField, distinctValues, sortCriteria, latestCount);
+    }
+  }
+
+  @Nonnull
+  private Map<String, SearchResult> executeFilterLatestByValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String groupField,
+      @Nonnull List<String> distinctValues,
+      List<SortCriterion> sortCriteria,
+      int latestCount) {
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
+
+    Filter filters =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(groupField, Condition.EQUAL, distinctValues)))));
+    Filter transformedFilters = transformFilterForEntities(filters, indexConvention);
+
+    BoolQueryBuilder filterQuery =
+        SearchRequestHandler.getFilterQuery(
+            opContext,
+            List.of(entityName),
+            transformedFilters,
+            entitySpec.getSearchableFieldTypes(),
+            queryFilterRewriteChain);
+
+    // Mirror ESUtils.buildSortOrder (including urn ASC tie-break) onto the top_hits sub-agg.
+    SearchSourceBuilder sortSource = new SearchSourceBuilder();
+    ESUtils.buildSortOrder(sortSource, sortCriteria, List.of(entitySpec));
+    TopHitsAggregationBuilder topHitsAgg =
+        AggregationBuilders.topHits(LATEST_TOP_HITS_AGG).size(latestCount);
+    for (SortBuilder<?> sort : sortSource.sorts()) {
+      topHitsAgg.sort(sort);
+    }
+
+    String keywordField =
+        ESUtils.toKeywordField(opContext, groupField, false, opContext.getAspectRetriever());
+    SearchSourceBuilder sourceBuilder =
+        new SearchSourceBuilder()
+            .query(filterQuery)
+            .size(0)
+            .aggregation(
+                AggregationBuilders.terms(GROUP_BUCKETS_AGG)
+                    .field(keywordField)
+                    .size(distinctValues.size())
+                    .subAggregation(topHitsAgg));
+
+    SearchRequest searchRequest = new SearchRequest();
+    searchRequest.source(sourceBuilder);
+    searchRequest.indices(indexConvention.getIndexName(entitySpec));
+
+    return opContext.withSpan(
+        "filterLatestByValues_search",
+        () -> {
+          try {
+            SearchResponse searchResponse =
+                client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+            return mapFilterLatestByValuesResponse(searchResponse, latestCount);
+          } catch (IOException e) {
+            throw new ESQueryException("filterLatestByValues query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "filterLatestByValues_search"));
+  }
+
+  @Nonnull
+  private Map<String, SearchResult> mapFilterLatestByValuesResponse(
+      @Nonnull SearchResponse searchResponse, int latestCount) {
+    Map<String, SearchResult> results = new HashMap<>();
+    if (searchResponse.getAggregations() == null) {
+      return results;
+    }
+    ParsedTerms terms = searchResponse.getAggregations().get(GROUP_BUCKETS_AGG);
+    if (terms == null) {
+      return results;
+    }
+    for (Terms.Bucket bucket : terms.getBuckets()) {
+      ParsedTopHits topHits = bucket.getAggregations().get(LATEST_TOP_HITS_AGG);
+      SearchEntityArray entities = new SearchEntityArray();
+      if (topHits != null) {
+        for (SearchHit hit : topHits.getHits().getHits()) {
+          try {
+            Urn urn = UrnExtractionUtils.extractUrnFromSearchHit(hit);
+            entities.add(new SearchEntity().setEntity(urn));
+          } catch (RuntimeException e) {
+            log.warn(
+                "Skipping invalid search hit in filterLatestByValues bucket {}: {}",
+                bucket.getKeyAsString(),
+                e.getMessage());
+          }
+        }
+      }
+      results.put(
+          bucket.getKeyAsString(),
+          new SearchResult()
+              .setFrom(0)
+              .setPageSize(latestCount)
+              .setNumEntities((int) bucket.getDocCount())
+              .setEntities(entities)
+              .setMetadata(new SearchResultMetadata()));
+    }
+    return results;
+  }
+
+  @Nonnull
+  private Map<String, SearchResult> filterLatestByValuesFallback(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String groupField,
+      @Nonnull List<String> distinctValues,
+      List<SortCriterion> sortCriteria,
+      int latestCount) {
+    Map<String, SearchResult> results = new HashMap<>();
+    for (String value : distinctValues) {
+      Filter filters =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      new ConjunctiveCriterion()
+                          .setAnd(
+                              new CriterionArray(
+                                  buildCriterion(groupField, Condition.EQUAL, value)))));
+      SearchResult result = filter(opContext, entityName, filters, sortCriteria, 0, latestCount);
+      if (result != null && result.getNumEntities() > 0) {
+        results.put(value, result);
+      }
+    }
+    return results;
   }
 
   /**

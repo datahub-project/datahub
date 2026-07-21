@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.IngestionSourceExecutionRequests;
+import com.linkedin.datahub.graphql.resolvers.load.LatestIngestionSourceExecutionsBatchLoader;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
@@ -30,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
+import org.dataloader.DataLoader;
 
 /** Retrieves a list of historical executions for a particular source. */
 @Slf4j
@@ -40,9 +42,16 @@ public class IngestionSourceExecutionRequestsResolver
   private static final String REQUEST_TIME_MS_FIELD_NAME = "requestTimeMs";
 
   private final EntityClient _entityClient;
+  private final boolean _batchLoadEnabled;
 
   public IngestionSourceExecutionRequestsResolver(final EntityClient entityClient) {
+    this(entityClient, false);
+  }
+
+  public IngestionSourceExecutionRequestsResolver(
+      final EntityClient entityClient, final boolean batchLoadEnabled) {
     _entityClient = entityClient;
+    _batchLoadEnabled = batchLoadEnabled;
   }
 
   @Override
@@ -55,6 +64,17 @@ public class IngestionSourceExecutionRequestsResolver
         environment.getArgument("start") != null ? environment.getArgument("start") : 0;
     final Integer count =
         environment.getArgument("count") != null ? environment.getArgument("count") : 10;
+
+    // Hot path for listIngestionSources UI: batch latest execution via DataLoader.
+    if (_batchLoadEnabled && start == 0 && count == 1) {
+      final DataLoader<String, IngestionSourceExecutionRequests> loader =
+          environment
+              .getDataLoaderRegistry()
+              .getDataLoader(LatestIngestionSourceExecutionsBatchLoader.LOADER_NAME);
+      if (loader != null) {
+        return loader.load(urn);
+      }
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
