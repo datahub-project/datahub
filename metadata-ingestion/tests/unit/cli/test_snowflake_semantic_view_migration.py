@@ -700,16 +700,23 @@ class TestDiscoverSemanticViewDatasetUrns:
         assert kwargs["platform"] == "snowflake"
         assert kwargs["platform_instance"] == "acct"
         assert kwargs["env"] == "PROD"
-        assert kwargs["status"] == RemovedStatusFilter.ALL
+        assert kwargs["status"] == RemovedStatusFilter.NOT_SOFT_DELETED
         assert kwargs["extraFilters"][0]["field"] == "typeNames"
         assert kwargs["extraFilters"][0]["values"] == ["Semantic View"]
 
-    def test_can_exclude_soft_deleted(self):
+    def test_can_include_soft_deleted(self):
         graph = MagicMock()
         graph.get_urns_by_filter.return_value = iter([])
-        discover_semantic_view_dataset_urns(graph, include_soft_deleted=False)
+        discover_semantic_view_dataset_urns(graph, include_soft_deleted=True)
         _, kwargs = graph.get_urns_by_filter.call_args
-        assert kwargs["status"] == RemovedStatusFilter.NOT_SOFT_DELETED
+        assert kwargs["status"] == RemovedStatusFilter.ALL
+
+    def test_only_soft_deleted_probe(self):
+        graph = MagicMock()
+        graph.get_urns_by_filter.return_value = iter([])
+        discover_semantic_view_dataset_urns(graph, only_soft_deleted=True)
+        _, kwargs = graph.get_urns_by_filter.call_args
+        assert kwargs["status"] == RemovedStatusFilter.ONLY_SOFT_DELETED
 
 
 class TestDiscoverSemanticModelUrns:
@@ -726,7 +733,7 @@ class TestDiscoverSemanticModelUrns:
         assert kwargs["entity_types"] == ["semanticModel"]
         assert kwargs["platform"] == "snowflake"
         assert kwargs["platform_instance"] == "acct"
-        assert kwargs["status"] == RemovedStatusFilter.ALL
+        assert kwargs["status"] == RemovedStatusFilter.NOT_SOFT_DELETED
 
 
 class TestFilterBySemanticViewSubtype:
@@ -1147,7 +1154,7 @@ class TestMigrateSemanticModelFieldGovernance:
         graph.get_related_entities.return_value = []
         graph.exists.return_value = True
 
-        migrated = migrate_semantic_model_field_governance(
+        migrated, notes = migrate_semantic_model_field_governance(
             graph,
             self.SM,
             self.DST,
@@ -1156,6 +1163,7 @@ class TestMigrateSemanticModelFieldGovernance:
         )
 
         assert migrated
+        assert notes == []
         editable_emits = [
             call.args[0].aspect
             for call in graph.emit_mcp.call_args_list

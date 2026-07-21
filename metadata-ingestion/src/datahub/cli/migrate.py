@@ -806,9 +806,11 @@ def _read_urns_from_file(path: str) -> List[str]:
 )
 @click.option(
     "--include-soft-deleted/--exclude-soft-deleted",
-    default=True,
-    help="Include soft-deleted entities when discovering sources (default: true). "
-    "Needed after stateful ingest soft-deletes the side you are migrating from.",
+    default=False,
+    help="Include soft-deleted entities when discovering sources (default: false). "
+    "After flag flip + stateful ingest, sources are often soft-deleted — pass "
+    "--include-soft-deleted deliberately so stale unrelated deletes are not "
+    "migrated by accident. Soft-deleted sources are marked in the report.",
 )
 @click.option("--dry-run", "-n", type=bool, is_flag=True, default=False)
 @click.option(
@@ -847,7 +849,8 @@ def snowflake_semantic_views(
 
     Both source and destination must already exist (does not create thin
     semanticModel/metric shells). Typical order: Snowflake ingest with
-    emit_semantic_model_entities, then this migrate (sources may be soft-deleted).
+    emit_semantic_model_entities, then this migrate with --include-soft-deleted
+    once you have confirmed the soft-deleted source set.
 
     Copies entity-level ownership, domains, tags, glossary terms, institutional
     memory, structured properties, documentation, deprecation, and applications.
@@ -856,7 +859,8 @@ def snowflake_semantic_views(
     lineage, policies, data products, or soft/hard-delete.
 
     Re-running is safe: destination entity aspects are overwritten (last-write-wins);
-    editableSchemaMetadata field entries are merged (descriptions preserved).
+    editableSchemaMetadata field entries are merged (descriptions preserved; tags
+    unioned by URN).
     """
     migration_direction = MigrationDirection(direction)
     graph = get_default_graph(ClientMode.CLI)
@@ -866,6 +870,7 @@ def snowflake_semantic_views(
         urns_to_process.extend(_read_urns_from_file(urn_file))
     # Preserve order while dropping duplicates from --urn / --urn-file.
     urns_to_process = list(dict.fromkeys(urns_to_process))
+    used_discovery = not bool(urns_to_process)
 
     subtype_skipped: List[str] = []
     if urns_to_process:
@@ -889,6 +894,30 @@ def snowflake_semantic_views(
             )
 
     if not urns_to_process:
+        if used_discovery and not include_soft_deleted:
+            if migration_direction == MigrationDirection.DATASET_TO_SM:
+                soft_only = discover_semantic_view_dataset_urns(
+                    graph,
+                    env=env,
+                    platform_instance=platform_instance,
+                    only_soft_deleted=True,
+                )
+            else:
+                soft_only = discover_semantic_model_urns(
+                    graph,
+                    platform_instance=platform_instance,
+                    only_soft_deleted=True,
+                )
+            if soft_only:
+                click.echo(
+                    f"No live entities found to migrate, but found "
+                    f"{len(soft_only)} soft-deleted "
+                    f"{'Semantic View dataset' if migration_direction == MigrationDirection.DATASET_TO_SM else 'semanticModel'}"
+                    f"{'s' if len(soft_only) != 1 else ''}. "
+                    "Did ingest already run? Re-run with --include-soft-deleted "
+                    "after reviewing that set."
+                )
+                return
         click.echo("No entities found to migrate.")
         return
 

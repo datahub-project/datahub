@@ -24,22 +24,23 @@ Do not schedule it on a cron or attach it to the daily Snowflake DAG.
 
 ## Cutover sequence (flag ON)
 
-The migrator **does not create** destination entities. Ingest with the flag ON first so semanticModel/metric exist; then copy governance while soft-deleted SV datasets are still readable. Discovery **includes soft-deleted sources by default** so this order works.
+The migrator **does not create** destination entities. Ingest with the flag ON first so semanticModel/metric exist; then copy governance while soft-deleted SV datasets are still readable. Discovery defaults to live-only — pass `--include-soft-deleted` deliberately after reviewing the soft-deleted set (empty discovery prints a hint when only soft-deleted sources exist).
 
 1. Upgrade GMS (and CLI) to a build that supports `semanticModel` / `metric`.
 2. Point the CLI at that GMS (`datahub init` / `DATAHUB_GMS_URL` + token).
 3. Set `semantic_views.emit_semantic_model_entities: true` on the Snowflake recipe; keep stateful ingestion + `remove_stale_metadata` on.
 4. Run the normal Snowflake ingest once; confirm new semanticModels/metrics are active (and old SV datasets soft-deleted if stateful).
-5. Dry-run:
+5. Dry-run (include soft-deleted sources after flag-ON ingest):
    ```bash
    datahub migrate snowflake-semantic-views \
      --direction dataset-to-sm \
      --platform-instance <same as recipe> \
+     --include-soft-deleted \
      --dry-run \
      --report-inbound-refs
    ```
-6. Spot-check mapped URNs and field fan-out; entities with missing destinations are reported and skipped. Optionally pilot with `--urn` / `--urn-file`.
-7. Run without `--dry-run` (confirm prompt, or `-F` in automation) **before** GC hard-deletes soft-deleted datasets.
+6. Spot-check mapped URNs and field fan-out; entities with missing destinations are reported and skipped. Soft-deleted sources are marked in the report. Optionally pilot with `--urn` / `--urn-file`.
+7. Run without `--dry-run` (keep `--include-soft-deleted`; confirm prompt, or `-F` in automation) **before** GC hard-deletes soft-deleted datasets.
 8. Fix unrepointable refs (data products, policies, bookmarks) manually; hold GC hard-delete of soft-deleted datasets until sign-off.
 
 Flag OFF: re-ingest with the flag off so datasets exist again, then `--direction sm-to-dataset --env <ENV>`.
@@ -86,7 +87,8 @@ When shipping a release that includes the flag + CLI:
 - [ ] Release note in `docs/how/updating-datahub.md` (flag behavior + soft-delete)
 - [ ] Connector note in `snowflake_post.md`
 - [ ] CLI section in `docs/cli.md` under Migrate (link here + design doc)
-- [ ] Runbook owners know: flip flag → ingest (create destinations) → dry-run → migrate — not migrate-first (CLI will not create thin entities)
+- [ ] Runbook owners know: flip flag → ingest (create destinations) → dry-run/`--include-soft-deleted` → migrate — not migrate-first (CLI will not create thin entities)
+- [ ] Do not merge before connector PR [#18395](https://github.com/datahub-project/datahub/pull/18395) (URN contract)
 
 ## Ownership
 

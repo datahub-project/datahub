@@ -40,6 +40,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaMetadataClass,
     SemanticModelInfoClass,
+    StatusClass,
     SubTypesClass,
     _Aspect,
 )
@@ -482,17 +483,39 @@ def _resolve_dataset_field_path(
     column_name: str,
     convert_urns_to_lowercase: bool,
     schema_paths: Dict[str, str],
-) -> str:
+) -> Tuple[str, Optional[str]]:
     """Pick a fieldPath that joins to the dataset schema (preserve original case).
 
     Unlike semanticModel fieldPaths (always upper-then-identifier), legacy dataset
     schemaMetadata uses snowflake_identifier(col.name) without forcing UPPER, so
     quoted mixed-case columns must keep their schema path when present.
+
+    Returns (field_path, optional_note). When the destination has no matching
+    schemaMetadata field, falls back to snowflake_identifier(column_name)
+    (original case, not forced UPPER) and returns a note for the report.
     """
     matched = schema_paths.get(column_name.casefold())
     if matched is not None:
-        return matched
-    return snowflake_identifier(column_name, convert_urns_to_lowercase)
+        return matched, None
+    fallback = snowflake_identifier(column_name, convert_urns_to_lowercase)
+    if not schema_paths:
+        note = (
+            f"no schemaMetadata on destination dataset; wrote editable fieldPath "
+            f"'{fallback}' for {column_name} (may not join in UI until re-ingest)"
+        )
+    else:
+        note = (
+            f"column {column_name} not in destination schemaMetadata; "
+            f"wrote editable fieldPath '{fallback}'"
+        )
+    return fallback, note
+
+
+def _is_soft_deleted(graph: DataHubGraph, urn: str) -> bool:
+    status = graph.get_aspects_for_entity(
+        entity_urn=urn, aspects=["status"], aspect_types=[StatusClass]
+    ).get("status")
+    return isinstance(status, StatusClass) and bool(status.removed)
 
 
 def _emit_aspect(
@@ -682,12 +705,15 @@ def migrate_semantic_model_field_governance(
     dataset_urn: str,
     convert_urns_to_lowercase: bool,
     dry_run: bool,
-) -> List[str]:
+) -> Tuple[List[str], List[str]]:
     """Merge column tags/terms into the dataset's editableSchemaMetadata.
 
-    Preserves existing per-field descriptions (and any fields not touched by this
-    migration). Resolves fieldPath against the destination dataset schema so
-    mixed-case columns join correctly when convert_urns_to_lowercase is false.
+    Preserves existing per-field descriptions on fields the source also touches
+    (and any fields not touched). Tags/terms are unioned by URN (deduped).
+    Resolves fieldPath against the destination dataset schema so mixed-case
+    columns join correctly when convert_urns_to_lowercase is false.
+
+    Returns (migrated entries, notes).
     """
     fields = collect_semantic_model_field_governance(
         graph,
@@ -695,7 +721,7 @@ def migrate_semantic_model_field_governance(
         convert_urns_to_lowercase,
     )
     if not fields:
-        return []
+        return [], []
 
     existing = graph.get_aspects_for_entity(
         entity_urn=dataset_urn,
@@ -709,10 +735,13 @@ def migrate_semantic_model_field_governance(
 
     schema_paths = _dataset_schema_field_paths(graph, dataset_urn)
     migrated: List[str] = []
+    notes: List[str] = []
     for field_gov in fields:
-        field_path = _resolve_dataset_field_path(
+        field_path, path_note = _resolve_dataset_field_path(
             field_gov.column_name, convert_urns_to_lowercase, schema_paths
         )
+        if path_note is not None:
+            notes.append(path_note)
         prior = by_path.get(field_path)
         by_path[field_path] = EditableSchemaFieldInfoClass(
             fieldPath=field_path,
@@ -741,7 +770,7 @@ def migrate_semantic_model_field_governance(
         EditableSchemaMetadataClass(editableSchemaFieldInfo=list(by_path.values())),
         dry_run,
     )
-    return migrated
+    return migrated, notes
 
 
 def _maybe_fold_editable_description(
@@ -908,6 +937,9 @@ def migrate_dataset_to_semantic_model(
     if result.error is not None:
         return result
 
+    if _is_soft_deleted(graph, src_dataset_urn):
+        result.notes.append("source is soft-deleted")
+
     try:
         migrated, skipped = migrate_dataset_field_governance(
             graph,
@@ -955,6 +987,9 @@ def migrate_semantic_model_to_dataset(
     if result.error is not None:
         return result
 
+    if _is_soft_deleted(graph, src_semantic_model_urn):
+        result.notes.append("source is soft-deleted")
+
     try:
         # Re-collect so we can fold documentation that was just selected for copy.
         governance_aspects = _collect_governance_aspects(graph, src_semantic_model_urn)
@@ -970,13 +1005,15 @@ def migrate_semantic_model_to_dataset(
         result.notes.append(f"documentation→editable fold failed: {e}")
 
     try:
-        result.fields_migrated = migrate_semantic_model_field_governance(
+        migrated, field_notes = migrate_semantic_model_field_governance(
             graph,
             src_semantic_model_urn,
             dst_urn,
             convert_urns_to_lowercase,
             dry_run,
         )
+        result.fields_migrated = migrated
+        result.notes.extend(field_notes)
     except Exception as e:
         log.warning(
             f"Field governance migration failed for {src_semantic_model_urn} -> {dst_urn}: {e}"
@@ -992,24 +1029,30 @@ def discover_semantic_view_dataset_urns(
     graph: DataHubGraph,
     env: Optional[str] = None,
     platform_instance: Optional[str] = None,
-    include_soft_deleted: bool = True,
+    include_soft_deleted: bool = False,
+    *,
+    only_soft_deleted: bool = False,
 ) -> List[str]:
     """Find Snowflake dataset urns carrying the "Semantic View" subtype.
 
-    Includes soft-deleted entities by default: after flag-ON ingest with stateful
-    removal, legacy SV datasets are soft-deleted and would otherwise be invisible.
+    Defaults to live entities only. After flag-ON ingest, sources are often
+    soft-deleted — pass ``include_soft_deleted=True`` (or use the CLI flag) once
+    operators have confirmed that set is intentional. ``only_soft_deleted`` is
+    for the empty-discovery hint probe.
     """
+    if only_soft_deleted:
+        status = RemovedStatusFilter.ONLY_SOFT_DELETED
+    elif include_soft_deleted:
+        status = RemovedStatusFilter.ALL
+    else:
+        status = RemovedStatusFilter.NOT_SOFT_DELETED
     return list(
         graph.get_urns_by_filter(
             entity_types=["dataset"],
             platform=SNOWFLAKE_PLATFORM,
             platform_instance=platform_instance,
             env=env,
-            status=(
-                RemovedStatusFilter.ALL
-                if include_soft_deleted
-                else RemovedStatusFilter.NOT_SOFT_DELETED
-            ),
+            status=status,
             extraFilters=[
                 SearchFilterRule(
                     field="typeNames", condition="EQUAL", values=[SEMANTIC_VIEW_SUBTYPE]
@@ -1022,23 +1065,27 @@ def discover_semantic_view_dataset_urns(
 def discover_semantic_model_urns(
     graph: DataHubGraph,
     platform_instance: Optional[str] = None,
-    include_soft_deleted: bool = True,
+    include_soft_deleted: bool = False,
+    *,
+    only_soft_deleted: bool = False,
 ) -> List[str]:
     """Find semanticModel urns on the Snowflake platform.
 
-    Includes soft-deleted entities by default (needed for flag-OFF rollback after
-    stateful ingest soft-deletes the models).
+    Defaults to live entities only. Use ``include_soft_deleted=True`` for
+    flag-OFF rollback after stateful ingest soft-deletes the models.
     """
+    if only_soft_deleted:
+        status = RemovedStatusFilter.ONLY_SOFT_DELETED
+    elif include_soft_deleted:
+        status = RemovedStatusFilter.ALL
+    else:
+        status = RemovedStatusFilter.NOT_SOFT_DELETED
     return list(
         graph.get_urns_by_filter(
             entity_types=["semanticModel"],
             platform=SNOWFLAKE_PLATFORM,
             platform_instance=platform_instance,
-            status=(
-                RemovedStatusFilter.ALL
-                if include_soft_deleted
-                else RemovedStatusFilter.NOT_SOFT_DELETED
-            ),
+            status=status,
         )
     )
 

@@ -112,13 +112,13 @@ Does not create thin semanticModel/metric shells: **source and destination must 
 
 Also:
 
-- Discovery: Snowflake datasets with subtype `Semantic View`, or Snowflake `semanticModel`s; or `--urn` / `--urn-file`. **Includes soft-deleted sources by default** (`--include-soft-deleted`, on) so post-ingest cutover still finds the legacy side
+- Discovery: Snowflake datasets with subtype `Semantic View`, or Snowflake `semanticModel`s; or `--urn` / `--urn-file`. Defaults to **live** entities only. After ingest soft-deletes the source side, re-run with `--include-soft-deleted` (CLI warns if 0 live but N soft-deleted were found). Soft-deleted sources are noted in the report.
 - `--platform-instance` / `--convert-urns-to-lowercase` must match the recipe (instance also filters discovery)
 - `--report-inbound-refs`: lists DownstreamOf/Consumes/… still pointing at the source
 - Field fan-out: metrics must exist; dim/fact columns must appear on `semanticModelInfo`
 - URN mapping must match the Snowflake connector’s `SnowflakeIdentifierBuilder` / `SnowflakeSemanticModelMapper` (ship CLI with or after that connector change)
 
-**Depends on:** connector PR that adds `emit_semantic_model_entities` and the identifier builders this CLI mirrors.
+**Depends on / do not merge before:** [#18395](https://github.com/datahub-project/datahub/pull/18395) (Snowflake `emit_semantic_model_entities` + identifier builders this CLI mirrors).
 
 **Caveat:** if the next Snowflake ingest emits `globalTags` on a metric/semanticModel from Snowflake tags, it replaces the aspect (connector does not merge). Migrated DataHub-only tags survive when the connector emits nothing for that entity (empty tag list → early return).
 
@@ -127,8 +127,8 @@ Also:
 1. GMS/CLI on a release that registers `semanticModel`/`metric` (and usage-on-semanticModel).
 2. Set `semantic_views.emit_semantic_model_entities: true`; keep stateful ingestion on.
 3. Ingest so new semanticModel/metric entities exist (and old SV datasets are soft-deleted if stateful). Confirm destinations are active **before** migrate.
-4. Dry-run migrate; fix `--platform-instance` / casing / `--env` until the mapped URNs look right. Missing destinations are reported — do not expect the CLI to create them.
-5. Run migrate for real **before** GC hard-deletes soft-deleted datasets (source governance must still be readable).
+4. Dry-run migrate with `--include-soft-deleted` (discovery defaults to live-only; without the flag the CLI warns if only soft-deleted sources remain). Fix `--platform-instance` / casing / `--env` until the mapped URNs look right. Missing destinations are reported — do not expect the CLI to create them.
+5. Run migrate for real with `--include-soft-deleted` **before** GC hard-deletes soft-deleted datasets (source governance must still be readable).
 6. Manually handle data products, policies, bookmarks, unrepointable lineage.
 7. Hold hard-delete of soft-deleted SV datasets until governance sign-off.
 
