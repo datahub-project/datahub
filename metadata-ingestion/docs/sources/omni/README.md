@@ -15,4 +15,4 @@ The DataHub integration for Omni covers BI entities such as dashboards, charts, 
 | `View`          | [Dataset](../../metamodel/entities/dataset.md)     | SubType `"View"` — semantic layer table with dimensions and measures as schema fields                           |
 | `Workbook`      | [Dataset](../../metamodel/entities/dataset.md)     | SubType `"Workbook"` — unpublished personal exploration document                                                |
 | Warehouse table | Lineage reference only                             | Not emitted as entities; referenced via URN in upstream lineage of Omni Views (e.g. Snowflake, BigQuery tables) |
-| Document owner  | Ownership relationship                             | URN reference only; propagated as `TECHNICAL_OWNER` ownership aspect to Dashboard and Chart entities            |
+| Document owner  | Ownership relationship                             | URN reference only; propagated as `DATAOWNER` ownership aspect to Dashboard and Chart entities                  |
