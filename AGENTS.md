@@ -795,3 +795,25 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - A new ingestion connector needs more than Python code: a source logo plus an integrations-page logo, UI form pieces, a `datahub.json` update, entry-point registration (`setup.py`/`pyproject.toml`), a refreshed `uv.lock`, and subtypes added to the shared subtypes module rather than defined locally.
 - Avoid Python's stdlib `xml` parser due to a known vulnerability; use a safe XML library (as the HANA-related code does).
 - Keep each connector in its own PR and split shared/framework changes (e.g. sqlglot helpers) into a separate PR; a connector PR's title and description must reference only that connector, not any other connector worked on in the same session.
+
+## Cursor Cloud specific instructions
+
+DataHub runs its full stack as Docker containers, so a working Docker daemon plus `uv` are the two
+hard prerequisites for `scripts/dev/datahub-dev.sh`. Both are installed in the VM image, but note:
+
+- **Docker daemon is not auto-started on VM boot** (the container has no systemd init). Before running
+  any `datahub-dev.sh` command that touches containers (`start`, `rebuild`, `test`, `status`), make
+  sure `dockerd` is running and the socket is usable. If `docker ps` fails, start it once with:
+  `sudo bash -c 'nohup dockerd > /var/log/dockerd.log 2>&1 &'` then `sudo chmod 666 /var/run/docker.sock`.
+  The daemon is configured for `fuse-overlayfs` with the containerd snapshotter disabled (Docker 29
+  requirement) — do not change `/etc/docker/daemon.json`.
+- **`uv` lives at `~/.local/bin`** (already on PATH via `~/.bashrc`). The `datahub-dev.sh` wrapper runs
+  its CLI via `uv run --python 3.11`, which downloads CPython 3.11 on first use.
+- **First `datahub-dev.sh start` is a cold build** that compiles all modules and builds every Docker
+  image from local jars — budget a long timeout (use `start --timeout 2400`). Subsequent starts reuse
+  the built images. Core services: GMS at `http://localhost:8080` (`/health`), frontend UI at
+  `http://localhost:9002` (login `datahub` / `datahub`). See the "Starting / Operating DataHub" section
+  for the full command set — always drive the environment through `scripts/dev/datahub-dev.sh`.
+- **Smoke tests need real test paths.** Pass an existing path under `smoke-test/tests/` to
+  `datahub-dev.sh test` (e.g. `tests/domains/domains_test.py`). The `tests/test_system_info.py` example
+  used elsewhere in this doc does not exist in every checkout — verify the file first.
